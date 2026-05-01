@@ -7,11 +7,10 @@ const withNextIntl = createNextIntlPlugin('./i18n/request.ts');
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  output: 'standalone',
   env: {
     NEXT_PUBLIC_APP_VERSION: packageJson.version,
   },
-  webpack: (config, { isServer }) => {
+  webpack: (config) => {
     // Force React to resolve from frontend/node_modules to avoid version conflicts
     config.resolve.alias = {
       ...config.resolve.alias,
