@@ -26,10 +26,7 @@
     "concurrently": "^8.2.2"
   },
   "dependencies": {
-    "lucide-react": "^1.11.0",
     "pdfkit": "^0.18.0",
-    "react": "^19.2.5",
-    "tailwindcss": "^4.2.4",
     "xlsx": "^0.18.5"
   }
 }
