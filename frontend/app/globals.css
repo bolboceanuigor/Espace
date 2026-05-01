@@ -3,29 +3,47 @@
 @tailwind utilities;
 
 :root {
-  --background: 220 20% 97%;
-  --foreground: 222 32% 14%;
+  /* Premium Espace - calm, modern, trustworthy */
+  --background: 210 20% 98%;
+  --foreground: 220 25% 10%;
   --card: 0 0% 100%;
-  --muted: 220 20% 94%;
-  --muted-foreground: 220 10% 40%;
-  --border: 220 18% 87%;
-  --primary: 222 32% 14%;
-  --secondary: 220 22% 92%;
+  --muted: 210 15% 95%;
+  --muted-foreground: 215 12% 50%;
+  --border: 214 18% 90%;
+  --primary: 217 91% 50%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 18% 96%;
+  --accent: 172 66% 50%;
+  --destructive: 0 72% 51%;
+  --warning: 38 92% 50%;
+  --success: 142 71% 45%;
   --sidebar-bg: #ffffff;
-  --brand-primary-hex: #111827;
+  --brand-primary-hex: #2563EB;
 
-  /* Neutral gray scale - Fresha-like */
-  --gray-50: #F9FAFB;
-  --gray-100: #F3F4F6;
-  --gray-200: #E5E7EB;
-  --gray-400: #9CA3AF;
-  --gray-600: #4B5563;
-  --gray-800: #1F2937;
+  /* Premium neutral scale */
+  --gray-50: #F8FAFC;
+  --gray-100: #F1F5F9;
+  --gray-200: #E2E8F0;
+  --gray-300: #CBD5E1;
+  --gray-400: #94A3B8;
+  --gray-500: #64748B;
+  --gray-600: #475569;
+  --gray-700: #334155;
+  --gray-800: #1E293B;
+  --gray-900: #0F172A;
 
-  /* Reservation block colors - status (muted) */
+  /* Status colors */
+  --status-active: 142 71% 45%;
+  --status-inactive: 215 12% 50%;
+  --status-trial: 217 91% 50%;
+  --status-debt: 0 72% 51%;
+
+  /* Reservation block colors */
   --reservation-confirmed: #374151;
   --reservation-pending: #92400E;
   --reservation-cancelled: #7F1D1D;
+
+  --radius: 0.75rem;
 }
 
 html[data-theme='dark'] {
