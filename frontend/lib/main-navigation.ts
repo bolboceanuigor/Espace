@@ -11,6 +11,7 @@ export type MainNavigationKey =
   | 'apartments'
   | 'announcements'
   | 'residents'
+  | 'meters'
   | 'payments'
   | 'issues'
   | 'chat'
@@ -38,28 +39,31 @@ export type MainNavigationItem = {
 
 export const SUPERADMIN_NAVIGATION_ITEMS: MainNavigationItem[] = [
   { key: 'platform', label: 'Platformă', href: '/superadmin' },
-  { key: 'organizations', label: 'Organizații', href: '/superadmin/organizations' },
+  { key: 'organizations', label: 'Asociații', href: '/superadmin/organizations' },
   { key: 'administrators', label: 'Administratori', href: '/superadmin/admins' },
   { key: 'subscriptions', label: 'Abonamente', href: '/superadmin/subscriptions' },
   { key: 'support', label: 'Suport', href: '/superadmin/support-mode' },
-  { key: 'globalSettings', label: 'Setări globale', href: '/superadmin/settings' },
+  { key: 'globalSettings', label: 'Setări', href: '/superadmin/settings' },
 ];
 
 export const ADMIN_NAVIGATION_ITEMS: MainNavigationItem[] = [
   { key: 'adminHome', label: 'Acasă', href: '/admin' },
   { key: 'apartments', label: 'Apartamente', href: '/admin/apartments' },
-  { key: 'announcements', label: 'Avizier', href: '/admin/announcements' },
   { key: 'residents', label: 'Locatari', href: '/admin/residents' },
+  { key: 'meters', label: 'Contoare', href: '/admin/meters' },
   { key: 'payments', label: 'Plăți', href: '/admin/payments' },
   { key: 'issues', label: 'Cereri', href: '/admin/issues' },
+  { key: 'announcements', label: 'Avizier', href: '/admin/announcements' },
   { key: 'chat', label: 'Mesaje', href: '/admin/chat' },
-  { key: 'buildingSettings', label: 'Setări bloc', href: '/admin/settings/organization' },
+  { key: 'buildingSettings', label: 'Setări', href: '/admin/settings/organization' },
 ];
 
 export const RESIDENT_NAVIGATION_ITEMS: MainNavigationItem[] = [
+  { key: 'home', label: 'Acasă', href: '/resident' },
   { key: 'announcements', label: 'Avizier', href: '/resident/announcements' },
   { key: 'payments', label: 'Plăți', href: '/resident/payments' },
-  { key: 'home', label: 'Acasă', href: '/resident', center: true },
+  { key: 'meters', label: 'Contoare', href: '/resident/meters' },
+  { key: 'issues', label: 'Cereri', href: '/resident/issues' },
   { key: 'chat', label: 'Mesaje', href: '/resident/chat' },
   { key: 'account', label: 'Cont', href: '/resident/account' },
 ];

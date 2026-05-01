@@ -1,209 +1,96 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import { CreditCard, Home, Megaphone, MessageCircle } from 'lucide-react';
-import { communicationsApi, invoicesApi, issuesApi, reportsApi, supportChatApi } from '@/lib/api';
-import EmptyState from '@/components/common/EmptyState';
-import LoadingState from '@/components/common/LoadingState';
-import StatusBadge from '@/components/ui/StatusBadge';
+import { Bell, CreditCard, Gauge, Home, MessageCircle, Wrench } from 'lucide-react';
+import { Badge, Card, PageHeader, StatCard } from '@/components/ui';
+import { formatMdl } from '@/lib/condo-admin-fallback';
 
-type ResidentDashboardPayload = {
-  apartments?: Array<{
-    apartmentId: string;
-    isPrimary: boolean;
-    type: string;
-    apartment: { number: string; building: { name: string }; staircase: { name: string } };
-  }>;
-  selectedApartmentId?: string | null;
-  apartmentNumber?: string | null;
-  currentDebt?: number;
-  myIssues?: Array<{ id: string; title: string; status: string }>;
-  announcements?: Array<{ id: string; title: string; content: string; isPinned?: boolean; importance?: string }>;
-  unreadMessages?: number;
+const apartment = {
+  number: '45',
+  building: 'APC Alba Iulia 75',
+  staircase: 'Scara 2',
+  debt: 1240,
+  nextDueDate: '10 Mai 2026',
 };
 
+const recentAnnouncements = [
+  { title: 'Lucrări de întreținere la lift', date: '03 Mai', priority: 'important' },
+  { title: 'Ședință APC - buget lunar', date: '08 Mai', priority: 'normal' },
+];
+
+const quickCards = [
+  { label: 'Plată curentă', value: formatMdl(apartment.debt), description: `Scadentă: ${apartment.nextDueDate}`, icon: <CreditCard className="h-5 w-5" />, href: '/resident/payments', tone: 'warning' as const },
+  { label: 'Apartamentul meu', value: `Apt. ${apartment.number}`, description: `${apartment.staircase} · ${apartment.building}`, icon: <Home className="h-5 w-5" />, href: '/resident/account' },
+  { label: 'Contoare', value: '1 lipsă', description: 'Gaz necesită citire', icon: <Gauge className="h-5 w-5" />, href: '/resident/meters', tone: 'warning' as const },
+  { label: 'Mesaje', value: '2 noi', description: 'Administrația a răspuns', icon: <MessageCircle className="h-5 w-5" />, href: '/resident/chat', tone: 'success' as const },
+];
+
 export default function ResidentDashboardPage() {
-  const APARTMENT_KEY = 'resident.dashboard.apartmentId';
-  const [data, setData] = useState<ResidentDashboardPayload | null>(null);
-  const [latestInvoice, setLatestInvoice] = useState<any | null>(null);
-  const [selectedApartmentId, setSelectedApartmentId] = useState<string>('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = async (apartmentId?: string) => {
-    setError(null);
-    try {
-      const [statementRes, invoicesRes, announcementsRes, issuesRes, supportConversationsRes, communityConversationsRes] = await Promise.all([
-        reportsApi.residentStatement(apartmentId ? { apartmentId } : undefined),
-        invoicesApi.residentList(),
-        communicationsApi.listResidentAnnouncements(),
-        issuesApi.residentList(),
-        supportChatApi.residentListConversations(),
-        supportChatApi.residentListCommunity(),
-      ]);
-      const statement = statementRes.data || {};
-      const invoices = invoicesRes.data || [];
-      const apartments = statement.apartments || [];
-      const preferredApartment = typeof window !== 'undefined' ? localStorage.getItem(APARTMENT_KEY) || '' : '';
-      const currentApartmentId = apartmentId || preferredApartment || apartments[0]?.apartmentId || '';
-      setData({
-        apartments,
-        selectedApartmentId: currentApartmentId,
-        apartmentNumber: (apartments.find((a: any) => a.apartmentId === currentApartmentId) || apartments[0])?.apartment?.number || null,
-        currentDebt: Number(statement.totals?.totalDebt || 0),
-        myIssues: (issuesRes.data || []).filter((item: any) => ['NEW', 'IN_PROGRESS', 'WAITING'].includes(String(item.status || '').toUpperCase())),
-        announcements: (announcementsRes.data || []).sort((a: any, b: any) => Number(b.isPinned || false) - Number(a.isPinned || false)),
-        unreadMessages:
-          (supportConversationsRes.data || []).filter((c: any) => c.status !== 'CLOSED').length +
-          (communityConversationsRes.data || []).length,
-      });
-      setSelectedApartmentId(currentApartmentId);
-      if (typeof window !== 'undefined' && currentApartmentId) {
-        localStorage.setItem(APARTMENT_KEY, currentApartmentId);
-      }
-      setLatestInvoice(invoices[0] || null);
-    } catch {
-      setError('Nu am putut încărca dashboard-ul rezidentului.');
-      setData(null);
-    }
-  };
-
-  useEffect(() => {
-    let active = true;
-    load()
-      .then(() => undefined)
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  if (loading) return <LoadingState label="Se încarcă dashboard-ul..." />;
-  if (error) {
-    return (
-      <div className="space-y-4 pb-24 md:pb-4">
-        <section className="rounded-[1.75rem] border border-border/70 bg-white/90 p-5 shadow-[0_20px_60px_rgba(15,23,42,0.06)]">
-          <p className="inline-flex rounded-full border border-border/70 bg-muted/60 px-3 py-1 text-xs font-semibold text-muted-foreground">Acasă</p>
-          <h1 className="mt-4 text-2xl font-semibold tracking-tight text-foreground">Ecranul principal al apartamentului tău</h1>
-        </section>
-        <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
-          {error}{' '}
-          <button className="underline" onClick={() => load(selectedApartmentId).catch(() => undefined)}>
-            Reîncearcă
-          </button>
-        </div>
-      </div>
-    );
-  }
-  if (!data?.apartments?.length) {
-    return <EmptyState title="Nu ai apartamente încă" description="Administratorul va adăuga apartamentul tău și vei vedea aici datoriile și facturile." />;
-  }
-
   return (
-    <div className="space-y-5 overflow-x-hidden pb-24 md:space-y-6 md:pb-4">
-      <section className="rounded-[1.75rem] border border-border/70 bg-white/90 p-5 shadow-[0_20px_60px_rgba(15,23,42,0.06)] md:p-7">
-        <p className="inline-flex rounded-full border border-border/70 bg-muted/60 px-3 py-1 text-xs font-semibold text-muted-foreground">Acasă</p>
-        <h1 className="mt-4 text-2xl font-semibold tracking-tight text-foreground md:text-4xl">Ecranul principal al locuinței tale</h1>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
-          Facturi, anunțuri și mesaje importante, într-un spațiu simplu de urmărit.
-        </p>
+    <div className="space-y-5 pb-4">
+      <PageHeader title="Acasă" description="Tot ce contează pentru locuința ta, într-un singur loc." />
+      <Card className="overflow-hidden p-0">
+        <div className="bg-foreground p-5 text-background">
+          <p className="text-sm opacity-75">{apartment.building}</p>
+          <h1 className="mt-2 text-3xl font-semibold">Apt. {apartment.number}</h1>
+          <p className="mt-1 text-sm opacity-75">{apartment.staircase}</p>
+        </div>
+        <div className="grid gap-3 p-4 sm:grid-cols-3">
+          <Info label="De achitat" value={formatMdl(apartment.debt)} danger />
+          <Info label="Scadență" value={apartment.nextDueDate} />
+          <Info label="Status" value="Neachitat" />
+        </div>
+      </Card>
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {quickCards.map((item) => (
+          <Link key={item.label} href={item.href}>
+            <StatCard {...item} />
+          </Link>
+        ))}
       </section>
-      {data.apartments.length > 1 ? (
-        <select
-          className="select w-full"
-          value={selectedApartmentId}
-          onChange={async (event) => {
-            const nextApartmentId = event.target.value;
-            setSelectedApartmentId(nextApartmentId);
-            if (typeof window !== 'undefined') localStorage.setItem(APARTMENT_KEY, nextApartmentId);
-            await load(nextApartmentId);
-          }}
-        >
-          {data.apartments.map((entry) => (
-            <option key={entry.apartmentId} value={entry.apartmentId}>
-              {entry.apartment.building?.name} / {entry.apartment.staircase?.name} / #{entry.apartment.number}
-            </option>
-          ))}
-        </select>
-      ) : null}
-      <section className="grid gap-3 md:grid-cols-4">
-        {[
-          { label: 'Datorie curentă', value: `${Number(data?.currentDebt || 0).toFixed(2)} MDL`, icon: CreditCard, href: '/resident/payments' },
-          { label: 'Apartament', value: `#${data?.apartmentNumber || '-'}`, icon: Home, href: '/resident/account' },
-          { label: 'Anunțuri active', value: String(data?.announcements?.length || 0), icon: Megaphone, href: '/resident/announcements' },
-          { label: 'Mesaje necitite', value: String(Number((data as any)?.unreadMessages || 0)), icon: MessageCircle, href: '/resident/chat' },
-        ].map((item) => {
-          const Icon = item.icon;
-          return (
-            <Link key={item.label} href={item.href} className="rounded-[1.35rem] border border-border/70 bg-white/90 p-4 shadow-[0_14px_40px_rgba(15,23,42,0.045)] transition hover:-translate-y-0.5 hover:border-foreground/15">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm text-muted-foreground">{item.label}</p>
-                  <p className="mt-2 text-xl font-semibold text-foreground">{item.value}</p>
+      <section className="grid gap-4 lg:grid-cols-3">
+        <Card>
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold text-foreground">Avizier</h2>
+            <Link href="/resident/announcements" className="text-xs font-semibold text-primary">Vezi tot</Link>
+          </div>
+          <div className="mt-4 space-y-3">
+            {recentAnnouncements.map((item) => (
+              <div key={item.title} className="rounded-2xl border border-border/70 bg-muted/25 p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-sm font-medium text-foreground">{item.title}</p>
+                  <Badge variant={item.priority === 'important' ? 'warning' : 'neutral'}>{item.priority}</Badge>
                 </div>
-                <span className="rounded-2xl bg-muted p-2 text-foreground">
-                  <Icon className="h-5 w-5" />
-                </span>
+                <p className="mt-1 text-xs text-muted-foreground">{item.date}</p>
               </div>
-            </Link>
-          );
-        })}
+            ))}
+          </div>
+        </Card>
+        <Card>
+          <h2 className="font-semibold text-foreground">Cereri</h2>
+          <div className="mt-4 rounded-2xl border border-border/70 bg-muted/25 p-3">
+            <p className="inline-flex items-center gap-2 text-sm font-medium text-foreground"><Wrench className="h-4 w-4" /> Verificare apă caldă</p>
+            <p className="mt-1 text-xs text-muted-foreground">Status: în lucru</p>
+          </div>
+          <Link href="/resident/issues" className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-2xl border border-border/70 text-sm font-semibold">Deschide cereri</Link>
+        </Card>
+        <Card>
+          <h2 className="font-semibold text-foreground">Notificări</h2>
+          <p className="mt-4 inline-flex items-start gap-2 rounded-2xl border border-border/70 bg-muted/25 p-3 text-sm text-muted-foreground">
+            <Bell className="mt-0.5 h-4 w-4" />
+            Ai o citire lipsă pentru contorul de gaz.
+          </p>
+        </Card>
       </section>
+    </div>
+  );
+}
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="rounded-[1.35rem] border border-border/70 bg-white/90 p-4 shadow-[0_14px_40px_rgba(15,23,42,0.045)]">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-medium text-foreground">Ultima factura</p>
-            <Link href="/resident/invoices" className="text-xs text-primary">Vezi toate</Link>
-          </div>
-          {latestInvoice ? (
-            <>
-              <p className="mt-2 text-sm text-foreground">{latestInvoice.invoiceNumber}</p>
-              <p className="text-xs text-muted-foreground">{latestInvoice.month}/{latestInvoice.year} • {latestInvoice.totalDue} MDL • {latestInvoice.status}</p>
-            </>
-          ) : (
-            <p className="mt-2 text-xs text-muted-foreground">Nu exista facturi disponibile.</p>
-          )}
-        </div>
-
-        <div className="rounded-[1.35rem] border border-border/70 bg-white/90 p-4 shadow-[0_14px_40px_rgba(15,23,42,0.045)]">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-medium text-foreground">Ultimele postări Avizier</p>
-            <Link href="/resident/announcements" className="text-xs text-primary">Vezi</Link>
-          </div>
-          <div className="mt-2 space-y-2">
-            {(data?.announcements || []).slice(0, 3).map((item: any) => (
-              <div key={item.id} className="rounded-2xl border border-border/60 bg-background/60 p-3">
-                <p className="text-sm font-medium text-foreground">
-                  {item.title} {item.isPinned ? '• PINNED' : ''} {item.importance === 'URGENT' ? '• URGENT' : ''}
-                </p>
-                <p className="line-clamp-2 text-xs text-muted-foreground">{item.content}</p>
-              </div>
-            ))}
-            {!data?.announcements?.length ? <p className="text-xs text-muted-foreground">Niciun anunț nou.</p> : null}
-          </div>
-        </div>
-
-        <div className="rounded-[1.35rem] border border-border/70 bg-white/90 p-4 shadow-[0_14px_40px_rgba(15,23,42,0.045)]">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-medium text-foreground">Sesizari deschise</p>
-            <Link href="/resident/issues" className="text-xs text-primary">Gestionare</Link>
-          </div>
-          <div className="mt-2 space-y-2">
-            {(data?.myIssues || []).slice(0, 3).map((issue) => (
-              <div key={issue.id} className="flex items-center justify-between rounded-2xl border border-border/60 bg-background/60 px-3 py-2">
-                <p className="text-xs text-muted-foreground">{issue.title}</p>
-                <StatusBadge status={issue.status} />
-              </div>
-            ))}
-            {!data?.myIssues?.length ? <p className="text-xs text-muted-foreground">Nu ai sesizari active.</p> : null}
-          </div>
-        </div>
-
-      </div>
+function Info({ label, value, danger }: { label: string; value: string; danger?: boolean }) {
+  return (
+    <div className="rounded-2xl bg-muted/35 p-3">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className={`mt-1 font-semibold ${danger ? 'text-rose-600' : 'text-foreground'}`}>{value}</p>
     </div>
   );
 }

@@ -12,27 +12,18 @@ import { OrganizationScopeGuard } from './auth/guards/organization-scope.guard';
 import { UsersModule } from './users/users.module';
 import { AdminModule } from './admin/admin.module';
 import { SalesModule } from './sales/sales.module';
-import { PropertiesModule } from './properties/properties.module';
-import { ClientsModule } from './clients/clients.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { SubscriptionModule } from './subscription/subscription.module';
-import { ReservationsModule } from './reservations/reservations.module';
 import { EventsModule } from './events/events.module';
-import { CalendarModule } from './calendar/calendar.module';
-import { DashboardModule } from './dashboard/dashboard.module';
 import { AppController } from './app.controller';
 import { ActivityModule } from './activity/activity.module';
-import { ExportsModule } from './exports/exports.module';
 import { TeamModule } from './team/team.module';
 import { ThrottlerModule } from '@nestjs/throttler';
-import { ChannelsModule } from './channels/channels.module';
 import { FeedbackModule } from './feedback/feedback.module';
 import { InvitationsModule } from './invitations/invitations.module';
 import { SuperadminModule } from './superadmin/superadmin.module';
 import { MeModule } from './me/me.module';
-import { CleaningsModule } from './cleanings/cleanings.module';
 import { SettingsModule } from './settings/settings.module';
-import { ManagerModule } from './manager/manager.module';
 import { CondoModule } from './condo/condo.module';
 import { AssociationChatModule } from './association-chat/association-chat.module';
 import { RbacDashboardModule } from './rbac/rbac-dashboard.module';
@@ -83,25 +74,16 @@ import { DemoRequestsModule } from './demo-requests/demo-requests.module';
     UsersModule,
     AdminModule,
     SalesModule,
-    PropertiesModule,
-    ClientsModule,
     OrganizationsModule,
     SubscriptionModule,
-    ReservationsModule,
     EventsModule,
-    CalendarModule,
-    DashboardModule,
     ActivityModule,
-    ExportsModule,
     TeamModule,
-    ChannelsModule,
     FeedbackModule,
     InvitationsModule,
     SuperadminModule,
     MeModule,
-    CleaningsModule,
     SettingsModule,
-    ManagerModule,
     CondoModule,
     AssociationChatModule,
     RbacDashboardModule,

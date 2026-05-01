@@ -11,6 +11,7 @@ import { featureFlags } from '@/lib/featureFlags';
 import { useToast } from '@/components/ui';
 import { getUser } from '@/lib/auth';
 import { roleHomePath } from '@/lib/role-routing';
+import { getApiBaseUrl } from '@/lib/runtime-config';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -32,7 +33,7 @@ export default function LoginPage() {
   const [emailNotVerified, setEmailNotVerified] = useState(false);
   const [verifyStatus, setVerifyStatus] = useState<string | null>(null);
   const [initialEmail, setInitialEmail] = useState('');
-  const googleAuthBase = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '').replace(/\/api$/, '');
+  const googleAuthBase = getApiBaseUrl();
   const googleAuthUrl = `${googleAuthBase}/api/auth/google?locale=${locale}`;
   const destination = `/${locale}${roleHomePath(user?.role)}`;
 
@@ -94,6 +95,14 @@ export default function LoginPage() {
       } else if (code === 'ACCOUNT_NOT_FOUND') {
         setError('Nu există cont cu acest email.');
         showToast('Nu există cont cu acest email.', 'error');
+      } else if (code === 'API_URL_MISSING') {
+        const message = 'Autentificarea va funcționa după conectarea backend-ului. Momentan frontend-ul este publicat ca interfață de prezentare.';
+        setError(message);
+        showToast(message, 'error');
+      } else if (code === 'NETWORK_ERROR') {
+        const message = 'API-ul nu răspunde momentan. Verifică după ce backend-ul este publicat la domeniul API.';
+        setError(message);
+        showToast(message, 'error');
       } else {
         const message = 'A apărut o eroare. Încearcă din nou.';
         setError(message);

@@ -7,6 +7,7 @@ import { calendarApi, reservationsApi } from '@/lib/api';
 import { io, Socket } from 'socket.io-client';
 import dynamic from 'next/dynamic';
 import MiniMonthOverview from './MiniMonthOverview';
+import { getSocketBaseUrl } from '@/lib/runtime-config';
 
 const CreateReservationModal = dynamic(() => import('./CreateReservationModal'), { ssr: false });
 
@@ -201,7 +202,7 @@ export default function HorizontalCalendar({ readOnly = false }: { readOnly?: bo
   }, [startDate, days, fetchCalendarData]);
 
   useEffect(() => {
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL;
+    const socketUrl = getSocketBaseUrl();
     if (!socketUrl) return;
     const newSocket = io(socketUrl);
 

@@ -1,7 +1,7 @@
 {
   "name": "espace-backend",
   "version": "0.1.0-beta",
-  "description": "Espace PMS Backend API",
+  "description": "Espace condominium HOA Backend API",
   "author": "",
   "private": true,
   "license": "MIT",

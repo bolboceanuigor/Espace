@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { Prisma, ReservationStatus, Role } from '@prisma/client';
+import { Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { startOfMonth, endOfMonth, addDays } from 'date-fns';
+import { addDays } from 'date-fns';
 import { PLAN_PROPERTY_LIMITS, PLAN_MONTHLY_PRICES } from '../subscription/subscription.constants';
 
 function effectiveMonthlyPrice(sub: { price: number; customPrice: number | null; discountPercent: number | null }): number {
@@ -78,7 +78,7 @@ export class AdminService {
           select: { id: true, firstName: true, lastName: true, email: true },
         },
         users: { where: { role: Role.ADMIN }, take: 1, select: { id: true, firstName: true, lastName: true, email: true } },
-        _count: { select: { properties: true } },
+        _count: { select: { apartments: true } },
         invoices: { where: { status: 'paid' }, orderBy: { paidAt: 'desc' }, take: 1, select: { paidAt: true } },
       },
     });
@@ -96,7 +96,7 @@ export class AdminService {
         email: owner?.email ?? null,
         plan: sub?.plan ?? null,
         subscriptionStatus: sub?.status ?? null,
-        propertyCount: org._count.properties,
+        propertyCount: org._count.apartments,
         propertyLimit: sub?.propertyLimit ?? null,
         monthlyPrice,
         lastPaymentDate: lastPayment,
@@ -109,14 +109,10 @@ export class AdminService {
   }
 
   async getPlatformStats() {
-    const [orgCount, activeOrgCount, totalRevenueResult, userCount, activeSubsCount] =
+    const [orgCount, activeOrgCount, userCount, activeSubsCount] =
       await Promise.all([
         this.prisma.organization.count(),
         this.prisma.organization.count({ where: { isActive: true } }),
-        this.prisma.reservation.aggregate({
-          where: { status: ReservationStatus.CONFIRMED, deletedAt: null },
-          _sum: { totalPrice: true },
-        }),
         this.prisma.user.count({ where: { deletedAt: null } }),
         this.prisma.subscription.count({
           where: { status: { in: ['trial', 'active'] }, isActive: true },
@@ -126,7 +122,7 @@ export class AdminService {
     return {
       totalOrganizations: orgCount,
       activeOrganizations: activeOrgCount,
-      totalRevenue: totalRevenueResult._sum.totalPrice ?? 0,
+      totalRevenue: 0,
       totalUsers: userCount,
       totalSubscriptionsActive: activeSubsCount,
     };
@@ -200,22 +196,16 @@ export class AdminService {
         subscription: true,
         createdByAgent: { select: { id: true, firstName: true, lastName: true, email: true } },
         users: { select: { id: true, firstName: true, lastName: true, email: true, role: true, isActive: true, createdAt: true } },
-        _count: { select: { properties: true, reservations: true } },
+        _count: { select: { apartments: true, users: true } },
         invoices: { orderBy: { issuedAt: 'desc' } },
         auditLogs: { orderBy: { createdAt: 'desc' }, take: 50 },
       },
     });
     if (!org) throw new NotFoundException('Organization not found');
-    const monthStart = startOfMonth(new Date());
-    const monthEnd = endOfMonth(new Date());
-    const revenueResult = await this.prisma.reservation.aggregate({
-      where: { organizationId: id, status: ReservationStatus.CONFIRMED, checkIn: { gte: monthStart, lte: monthEnd } },
-      _sum: { totalPrice: true },
-    });
     const monthlyPrice = org.subscription ? effectiveMonthlyPrice(org.subscription) : null;
     return {
       ...org,
-      monthlyRevenue: revenueResult._sum.totalPrice ?? 0,
+      monthlyRevenue: 0,
       effectiveMonthlyPrice: monthlyPrice,
     };
   }
@@ -278,8 +268,8 @@ export class AdminService {
     if (propertyLimit < 0) throw new BadRequestException('Property limit must be >= 0');
     const sub = await this.prisma.subscription.findUnique({ where: { organizationId } });
     if (!sub) throw new NotFoundException('Subscription not found');
-    const currentCount = await this.prisma.property.count({ where: { organizationId, deletedAt: null } });
-    if (propertyLimit >= 0 && currentCount > propertyLimit) throw new BadRequestException(`Organization has ${currentCount} properties. Set limit >= ${currentCount} or remove properties first.`);
+    const currentCount = await this.prisma.apartment.count({ where: { organizationId } });
+    if (propertyLimit >= 0 && currentCount > propertyLimit) throw new BadRequestException(`Organization has ${currentCount} apartments. Set limit >= ${currentCount} or remove apartments first.`);
     await this.prisma.subscription.update({
       where: { organizationId },
       data: { propertyLimit },

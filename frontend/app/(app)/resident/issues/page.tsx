@@ -1,80 +1,68 @@
 'use client';
 
-import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
-import { issuesApi } from '@/lib/api';
+import { FormEvent, useState } from 'react';
+import { PlusCircle, Wrench } from 'lucide-react';
+import { Badge, Button, Card, Input, PageHeader, StatCard } from '@/components/ui';
+import Modal, { ModalBody, ModalFooter, ModalHeader } from '@/components/ui/Modal';
 
-const STATUS_COLOR: Record<string, string> = {
-  NEW: 'bg-blue-100 text-blue-700',
-  IN_PROGRESS: 'bg-yellow-100 text-yellow-800',
-  WAITING: 'bg-amber-100 text-amber-800',
-  RESOLVED: 'bg-green-100 text-green-700',
-  CLOSED: 'bg-slate-100 text-slate-700',
+type RequestStatus = 'nouă' | 'în lucru' | 'rezolvată';
+
+const initialRequests = [
+  { id: 'r1', title: 'Verificare presiune apă caldă', category: 'Apă caldă', date: '30 Apr 2026', status: 'în lucru' as RequestStatus },
+  { id: 'r2', title: 'Bec ars pe coridor', category: 'Spații comune', date: '24 Apr 2026', status: 'rezolvată' as RequestStatus },
+];
+
+const statusVariant: Record<RequestStatus, 'default' | 'warning' | 'success'> = {
+  nouă: 'default',
+  'în lucru': 'warning',
+  rezolvată: 'success',
 };
 
 export default function ResidentIssuesPage() {
-  const [rows, setRows] = useState<any[]>([]);
-  const [status, setStatus] = useState('');
+  const [requests, setRequests] = useState(initialRequests);
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ title: '', category: 'General', message: '' });
 
-  const load = async () => {
-    const res = await issuesApi.residentList(status ? { status: status as any } : undefined);
-    setRows(res.data || []);
+  const create = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!form.title.trim()) return;
+    setRequests((current) => [{ id: `local-${Date.now()}`, title: form.title, category: form.category, date: new Date().toLocaleDateString('ro-RO'), status: 'nouă' }, ...current]);
+    setForm({ title: '', category: 'General', message: '' });
+    setOpen(false);
   };
 
-  useEffect(() => {
-    load().catch(() => undefined);
-  }, [status]);
-
-  const stats = useMemo(
-    () => ({
-      total: rows.length,
-      open: rows.filter((row) => ['NEW', 'IN_PROGRESS', 'WAITING'].includes(row.status)).length,
-      urgent: rows.filter((row) => row.priority === 'URGENT').length,
-    }),
-    [rows],
-  );
-
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-foreground">Sesizarile mele</h1>
-        <Link href="/resident/issues/new" className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-white">
-          Creeaza sesizare
-        </Link>
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <div className="rounded-xl border border-border/70 bg-card p-3 text-sm">Total: {stats.total}</div>
-        <div className="rounded-xl border border-border/70 bg-card p-3 text-sm">Deschise: {stats.open}</div>
-        <div className="rounded-xl border border-border/70 bg-card p-3 text-sm">Urgente: {stats.urgent}</div>
-      </div>
-
-      <div className="rounded-xl border border-border/70 bg-card p-4">
-        <select className="select mb-3 max-w-sm" value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="">Toate statusurile</option>
-          <option value="NEW">NEW</option>
-          <option value="IN_PROGRESS">IN_PROGRESS</option>
-          <option value="WAITING">WAITING</option>
-          <option value="RESOLVED">RESOLVED</option>
-          <option value="CLOSED">CLOSED</option>
-        </select>
-        <div className="space-y-2">
-          {rows.map((row) => (
-            <Link key={row.id} href={`/resident/issues/${row.id}`} className="block rounded-lg border border-border/60 p-3 transition hover:bg-muted/20">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="font-medium text-foreground">{row.title}</p>
-                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLOR[row.status] || 'bg-slate-100 text-slate-700'}`}>
-                  {row.status}
-                </span>
-                {row.priority === 'URGENT' ? <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">URGENT</span> : null}
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {row.category} • {row.locationType} • {new Date(row.createdAt).toLocaleString()}
-              </p>
-            </Link>
-          ))}
-        </div>
-      </div>
+    <div className="space-y-5 pb-4">
+      <PageHeader title="Cereri" description="Trimite și urmărește solicitările pentru apartamentul tău." rightSlot={<Button onClick={() => setOpen(true)}><PlusCircle className="h-4 w-4" /> Cerere nouă</Button>} />
+      <section className="grid gap-3 sm:grid-cols-3">
+        <StatCard label="Total" value={requests.length} description="Cereri trimise" icon={<Wrench className="h-5 w-5" />} />
+        <StatCard label="Deschise" value={requests.filter((item) => item.status !== 'rezolvată').length} description="În atenția administrației" icon={<Wrench className="h-5 w-5" />} tone="warning" />
+        <StatCard label="Rezolvate" value={requests.filter((item) => item.status === 'rezolvată').length} description="Finalizate" icon={<Wrench className="h-5 w-5" />} tone="success" />
+      </section>
+      <section className="grid gap-3">
+        {requests.map((request) => (
+          <Card key={request.id} className="p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div><h2 className="font-semibold text-foreground">{request.title}</h2><p className="mt-1 text-sm text-muted-foreground">{request.category} · {request.date}</p></div>
+              <Badge variant={statusVariant[request.status]}>{request.status}</Badge>
+            </div>
+          </Card>
+        ))}
+      </section>
+      <Modal isOpen={open} onClose={() => setOpen(false)} maxWidth="lg">
+        <form onSubmit={create}>
+          <ModalHeader title="Cerere nouă" onClose={() => setOpen(false)} />
+          <ModalBody className="space-y-4">
+            <Input label="Titlu" value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} required />
+            <Input label="Categorie" value={form.category} onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))} />
+            <label className="block space-y-1.5 text-sm font-medium text-foreground">
+              Detalii
+              <textarea className="min-h-32 w-full rounded-2xl border border-border/70 bg-white p-4 text-sm outline-none" value={form.message} onChange={(event) => setForm((current) => ({ ...current, message: event.target.value }))} />
+            </label>
+          </ModalBody>
+          <ModalFooter><Button type="button" variant="secondary" onClick={() => setOpen(false)}>Anulează</Button><Button type="submit">Trimite</Button></ModalFooter>
+        </form>
+      </Modal>
     </div>
   );
 }

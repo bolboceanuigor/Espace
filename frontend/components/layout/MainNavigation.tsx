@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
-import { Building2, CircleAlert, CreditCard, Headphones, Home, Megaphone, MessageCircle, Settings, Shield, UserRound, Users } from 'lucide-react';
+import { Building2, CircleAlert, CreditCard, Gauge, Headphones, Home, Megaphone, MessageCircle, Settings, Shield, UserRound, Users } from 'lucide-react';
 import { defaultLocale, isLocale } from '@/i18n';
 import {
   getMainNavigationItems,
@@ -26,6 +26,7 @@ const ICONS: Record<MainNavigationKey, React.ComponentType<{ className?: string 
   apartments: Building2,
   announcements: Megaphone,
   residents: Users,
+  meters: Gauge,
   payments: CreditCard,
   issues: CircleAlert,
   home: Home,

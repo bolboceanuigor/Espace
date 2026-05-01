@@ -27,3 +27,6 @@ export { default as Tooltip } from './Tooltip';
 export { default as PageHeader } from './PageHeader';
 export { ToastProvider, useToast } from './ToastProvider';
 export { default as StatusBadge } from './StatusBadge';
+export { default as Input } from './Input';
+export { default as Tabs } from './Tabs';
+export { default as StatCard } from './StatCard';

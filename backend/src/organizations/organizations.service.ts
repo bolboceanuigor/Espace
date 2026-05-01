@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
-import { ReservationStatus, Role } from '@prisma/client';
+import { Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateOrganizationDto } from './dto/update-organization.dto';
 import { InviteUserDto } from './dto/invite-user.dto';
@@ -30,8 +30,8 @@ export class OrganizationsService {
   }
 
   async getOnboardingState(organizationId: string, userId: string, userRole: Role) {
-    const [propertiesCount, organization] = await Promise.all([
-      this.prisma.property.count({ where: { organizationId, deletedAt: null } }),
+    const [apartmentsCount, organization] = await Promise.all([
+      this.prisma.apartment.count({ where: { organizationId } }),
       this.prisma.organization.findUnique({
         where: { id: organizationId },
         select: { onboardingCompleted: true, onboardingStatus: true },
@@ -40,10 +40,10 @@ export class OrganizationsService {
 
     return {
       showWizard:
-        propertiesCount === 0 &&
+        apartmentsCount === 0 &&
         organization?.onboardingStatus !== 'COMPLETED' &&
         (userRole === Role.ADMIN || userRole === Role.SUPERADMIN),
-      propertiesCount,
+      propertiesCount: apartmentsCount,
       onboardingDone: organization?.onboardingStatus === 'COMPLETED',
       onboardingStatus: organization?.onboardingStatus || 'NOT_STARTED',
     };
@@ -145,72 +145,23 @@ export class OrganizationsService {
       throw new ForbiddenException('Only admins can load demo data');
     }
 
-    const existing = await this.prisma.property.count({ where: { organizationId, deletedAt: null } });
+    const existing = await this.prisma.apartment.count({ where: { organizationId } });
     if (existing > 0) {
-      return { created: false, reason: 'Properties already exist' };
+      return { created: false, reason: 'Apartments already exist' };
     }
 
-    const createdProperties = await this.prisma.$transaction(async (tx) => {
-      const props = [];
-      for (let i = 1; i <= 5; i += 1) {
-        const property = await tx.property.create({
-          data: {
-            organizationId,
-            ownerId: userId,
-            createdById: userId,
-            name: `Demo Property ${i}`,
-            code: `D${i}`,
-            address: `Demo address ${i}`,
-            basePrice: 50 + i * 10,
-            cleaningFee: 15,
-            rooms: 1,
-            numberOfRooms: 1,
-            cleaningPrice: 15,
-          },
-          select: { id: true, name: true },
-        });
-        props.push(property);
-      }
-
-      const today = new Date();
-      today.setUTCHours(0, 0, 0, 0);
-
-      for (let i = 0; i < 8; i += 1) {
-        const start = new Date(today);
-        start.setUTCDate(today.getUTCDate() + i * 3);
-        const end = new Date(start);
-        end.setUTCDate(start.getUTCDate() + 2);
-        const property = props[i % props.length];
-        await tx.reservation.create({
-          data: {
-            organizationId,
-            propertyId: property.id,
-            guestName: `Demo Guest ${i + 1}`,
-            phoneNumber: `07000000${i}`,
-            checkIn: start,
-            checkOut: end,
-            status: ReservationStatus.CONFIRMED,
-            source: i % 2 === 0 ? 'DIRECT' : 'BOOKING',
-            totalPrice: 100 + i * 20,
-            cleaningStatus: i % 3 === 0 ? 'DONE' : 'TODO',
-            createdById: userId,
-          },
-        });
-      }
-
+    await this.prisma.$transaction(async (tx) => {
       await tx.organization.update({
         where: { id: organizationId },
         data: { onboardingCompleted: true, onboardingStatus: 'COMPLETED', onboardingCompletedAt: new Date() },
       });
-
-      return props;
     });
 
     return {
       created: true,
-      properties: createdProperties.length,
-      reservations: 8,
-      cleanings: 5,
+      properties: 0,
+      reservations: 0,
+      cleanings: 0,
     };
   }
 

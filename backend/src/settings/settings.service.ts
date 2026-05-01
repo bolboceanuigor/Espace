@@ -9,11 +9,11 @@ import { UpdateSettingsProfileDto } from './dto/update-settings-profile.dto';
 const DEFAULT_MENU_CONFIG = [
   { key: 'dashboard', enabled: true, order: 0 },
   { key: 'chat', enabled: true, order: 1 },
-  { key: 'calendar', enabled: true, order: 2 },
-  { key: 'properties', enabled: true, order: 3 },
-  { key: 'reservations', enabled: true, order: 4 },
-  { key: 'clients', enabled: true, order: 5 },
-  { key: 'cleanings', enabled: true, order: 6 },
+  { key: 'apartments', enabled: true, order: 2 },
+  { key: 'residents', enabled: true, order: 3 },
+  { key: 'payments', enabled: true, order: 4 },
+  { key: 'issues', enabled: true, order: 5 },
+  { key: 'announcements', enabled: true, order: 6 },
   { key: 'settings', enabled: true, order: 7 },
 ] as const;
 
@@ -119,7 +119,7 @@ export class SettingsService {
         lastName: user.lastName,
         role: user.role,
       },
-      supportEmail: process.env.SUPPORT_EMAIL || 'support@espacepms.com',
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@espace.md',
     };
   }
 

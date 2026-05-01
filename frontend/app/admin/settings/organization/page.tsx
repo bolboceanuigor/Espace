@@ -1,174 +1,156 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { organizationSettingsApi } from '@/lib/api';
+import { useState } from 'react';
+import { Building2, CreditCard, FileText, Palette, Save, ShieldCheck, UserRound } from 'lucide-react';
+import { Badge, Button, Card, Input, PageHeader, Tabs } from '@/components/ui';
 
-type OrgSettingsForm = {
+type SettingsForm = {
   name: string;
   legalName: string;
   fiscalCode: string;
   address: string;
   phone: string;
   email: string;
-  website: string;
-  bankName: string;
-  bankAccountIban: string;
-  bankSwift: string;
-  paymentInstructions: string;
-  treasurerName: string;
-  administratorName: string;
-  logoUrl: string;
-  primaryColor: string;
+  administrator: string;
+  treasurer: string;
+  iban: string;
+  bank: string;
   invoicePrefix: string;
   receiptPrefix: string;
-  defaultCurrency: 'MDL' | 'EUR' | 'USD';
+  currency: 'MDL' | 'RON' | 'EUR';
+  primaryColor: string;
 };
 
-const INITIAL_FORM: OrgSettingsForm = {
-  name: '',
-  legalName: '',
-  fiscalCode: '',
-  address: '',
-  phone: '',
-  email: '',
-  website: '',
-  bankName: '',
-  bankAccountIban: '',
-  bankSwift: '',
-  paymentInstructions: '',
-  treasurerName: '',
-  administratorName: '',
-  logoUrl: '',
-  primaryColor: '#2563eb',
-  invoicePrefix: 'INV',
-  receiptPrefix: 'RCPT',
-  defaultCurrency: 'MDL',
+const initialForm: SettingsForm = {
+  name: 'APC Alba Iulia 75',
+  legalName: 'Asociația de Proprietari în Condominiu Alba Iulia 75',
+  fiscalCode: '1024600012345',
+  address: 'Bd. Alba Iulia 75, Chișinău',
+  phone: '+373 22 000 111',
+  email: 'admin@albaiulia75.md',
+  administrator: 'Administrator Bloc',
+  treasurer: 'Contabil APC',
+  iban: 'MD00EX000000000000000000',
+  bank: 'BC Moldova Agroindbank SA',
+  invoicePrefix: 'FAC',
+  receiptPrefix: 'CH',
+  currency: 'MDL',
+  primaryColor: '#111827',
 };
+
+const tabs = [
+  { key: 'general', label: 'General' },
+  { key: 'finance', label: 'Financiar' },
+  { key: 'people', label: 'Responsabili' },
+  { key: 'documents', label: 'Documente' },
+  { key: 'brand', label: 'Aspect' },
+];
 
 export default function AdminOrganizationSettingsPage() {
-  const [form, setForm] = useState<OrgSettingsForm>(INITIAL_FORM);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState(initialForm);
+  const [activeTab, setActiveTab] = useState('general');
+  const [saved, setSaved] = useState(false);
 
-  useEffect(() => {
-    organizationSettingsApi
-      .adminGet()
-      .then((res) => {
-        const data = res.data;
-        setForm({
-          name: data?.name || '',
-          legalName: data?.legalName || '',
-          fiscalCode: data?.fiscalCode || '',
-          address: data?.address || '',
-          phone: data?.phone || '',
-          email: data?.email || '',
-          website: data?.website || '',
-          bankName: data?.bankName || '',
-          bankAccountIban: data?.bankAccountIban || '',
-          bankSwift: data?.bankSwift || '',
-          paymentInstructions: data?.paymentInstructions || '',
-          treasurerName: data?.treasurerName || '',
-          administratorName: data?.administratorName || '',
-          logoUrl: data?.logoUrl || '',
-          primaryColor: data?.primaryColor || '#2563eb',
-          invoicePrefix: data?.invoicePrefix || 'INV',
-          receiptPrefix: data?.receiptPrefix || 'RCPT',
-          defaultCurrency: (data?.defaultCurrency || 'MDL') as 'MDL' | 'EUR' | 'USD',
-        });
-      })
-      .finally(() => setLoading(false));
-  }, []);
-
-  const updateField = <K extends keyof OrgSettingsForm>(key: K, value: OrgSettingsForm[K]) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
+  const update = <K extends keyof SettingsForm>(key: K, value: SettingsForm[K]) => {
+    setForm((current) => ({ ...current, [key]: value }));
+    setSaved(false);
   };
-
-  const save = async () => {
-    setSaving(true);
-    try {
-      await organizationSettingsApi.adminUpdate({
-        ...form,
-        primaryColor: form.primaryColor || null,
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (loading) return <div className="text-sm text-muted-foreground">Loading...</div>;
 
   return (
-    <div className="space-y-5">
-      <h1 className="text-xl font-semibold text-foreground">Organization settings</h1>
-
-      <section className="rounded-xl border border-border/70 bg-card p-4">
-        <h2 className="mb-3 text-sm font-semibold text-foreground">General information</h2>
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-          <input className="input" placeholder="Association name" value={form.name} onChange={(e) => updateField('name', e.target.value)} />
-          <input className="input" placeholder="Legal name" value={form.legalName} onChange={(e) => updateField('legalName', e.target.value)} />
-          <input className="input" placeholder="Fiscal code" value={form.fiscalCode} onChange={(e) => updateField('fiscalCode', e.target.value)} />
-          <input className="input" placeholder="Address" value={form.address} onChange={(e) => updateField('address', e.target.value)} />
-          <input className="input" placeholder="Phone" value={form.phone} onChange={(e) => updateField('phone', e.target.value)} />
-          <input className="input" placeholder="Email" value={form.email} onChange={(e) => updateField('email', e.target.value)} />
-          <input className="input md:col-span-2" placeholder="Website" value={form.website} onChange={(e) => updateField('website', e.target.value)} />
-        </div>
+    <div className="space-y-5 pb-4">
+      <PageHeader
+        title="Setări bloc"
+        description="Date administrative pentru asociație, facturare și documente."
+        rightSlot={<Button onClick={() => setSaved(true)}><Save className="h-4 w-4" /> Salvează local</Button>}
+      />
+      {saved ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">Setările au fost actualizate local. Salvarea în backend se conectează ulterior.</div> : null}
+      <section className="grid gap-3 md:grid-cols-3">
+        <Card className="p-4"><IconTitle icon={<Building2 className="h-5 w-5" />} title={form.name} subtitle={form.address} /></Card>
+        <Card className="p-4"><IconTitle icon={<ShieldCheck className="h-5 w-5" />} title="Organizație activă" subtitle="Configurare administrativă locală" badge="activ" /></Card>
+        <Card className="p-4"><IconTitle icon={<CreditCard className="h-5 w-5" />} title={form.currency} subtitle="Moneda implicită pentru facturi" /></Card>
       </section>
-
-      <section className="rounded-xl border border-border/70 bg-card p-4">
-        <h2 className="mb-3 text-sm font-semibold text-foreground">Banking details</h2>
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-          <input className="input" placeholder="Bank name" value={form.bankName} onChange={(e) => updateField('bankName', e.target.value)} />
-          <input className="input" placeholder="IBAN" value={form.bankAccountIban} onChange={(e) => updateField('bankAccountIban', e.target.value)} />
-          <input className="input" placeholder="SWIFT" value={form.bankSwift} onChange={(e) => updateField('bankSwift', e.target.value)} />
-          <input
-            className="input md:col-span-2"
-            placeholder="Payment instructions"
-            value={form.paymentInstructions}
-            onChange={(e) => updateField('paymentInstructions', e.target.value)}
-          />
-        </div>
-      </section>
-
-      <section className="rounded-xl border border-border/70 bg-card p-4">
-        <h2 className="mb-3 text-sm font-semibold text-foreground">Responsible persons</h2>
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-          <input
-            className="input"
-            placeholder="Administrator name"
-            value={form.administratorName}
-            onChange={(e) => updateField('administratorName', e.target.value)}
-          />
-          <input className="input" placeholder="Treasurer name" value={form.treasurerName} onChange={(e) => updateField('treasurerName', e.target.value)} />
-        </div>
-      </section>
-
-      <section className="rounded-xl border border-border/70 bg-card p-4">
-        <h2 className="mb-3 text-sm font-semibold text-foreground">Documents settings</h2>
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-          <input className="input" placeholder="Invoice prefix" value={form.invoicePrefix} onChange={(e) => updateField('invoicePrefix', e.target.value)} />
-          <input className="input" placeholder="Receipt prefix" value={form.receiptPrefix} onChange={(e) => updateField('receiptPrefix', e.target.value)} />
-          <select className="select" value={form.defaultCurrency} onChange={(e) => updateField('defaultCurrency', e.target.value as 'MDL' | 'EUR' | 'USD')}>
-            <option value="MDL">MDL</option>
-            <option value="EUR">EUR</option>
-            <option value="USD">USD</option>
-          </select>
-        </div>
-      </section>
-
-      <section className="rounded-xl border border-border/70 bg-card p-4">
-        <h2 className="mb-3 text-sm font-semibold text-foreground">Branding</h2>
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-          <input className="input" placeholder="Logo URL" value={form.logoUrl} onChange={(e) => updateField('logoUrl', e.target.value)} />
-          <div className="flex items-center gap-2">
-            <input type="color" className="h-10 w-14 rounded border border-border/70 bg-background p-1" value={form.primaryColor} onChange={(e) => updateField('primaryColor', e.target.value)} />
-            <input className="input" placeholder="Primary color hex" value={form.primaryColor} onChange={(e) => updateField('primaryColor', e.target.value)} />
+      <Tabs items={tabs} value={activeTab} onChange={setActiveTab} ariaLabel="Setări bloc" />
+      {activeTab === 'general' ? (
+        <Card>
+          <SectionTitle icon={<Building2 className="h-5 w-5" />} title="Date generale" />
+          <div className="grid gap-3 md:grid-cols-2">
+            <Input label="Denumire" value={form.name} onChange={(event) => update('name', event.target.value)} />
+            <Input label="Denumire juridică" value={form.legalName} onChange={(event) => update('legalName', event.target.value)} />
+            <Input label="Cod fiscal" value={form.fiscalCode} onChange={(event) => update('fiscalCode', event.target.value)} />
+            <Input label="Adresă" value={form.address} onChange={(event) => update('address', event.target.value)} />
+            <Input label="Telefon" value={form.phone} onChange={(event) => update('phone', event.target.value)} />
+            <Input label="Email" value={form.email} onChange={(event) => update('email', event.target.value)} />
           </div>
-        </div>
-      </section>
+        </Card>
+      ) : null}
+      {activeTab === 'finance' ? (
+        <Card>
+          <SectionTitle icon={<CreditCard className="h-5 w-5" />} title="Financiar" />
+          <div className="grid gap-3 md:grid-cols-2">
+            <Input label="Bancă" value={form.bank} onChange={(event) => update('bank', event.target.value)} />
+            <Input label="IBAN" value={form.iban} onChange={(event) => update('iban', event.target.value)} />
+            <label className="block space-y-1.5 text-sm font-medium text-foreground">
+              Monedă
+              <select className="h-11 w-full rounded-2xl border border-border/70 bg-white px-3 text-sm outline-none" value={form.currency} onChange={(event) => update('currency', event.target.value as SettingsForm['currency'])}>
+                <option value="MDL">MDL</option>
+                <option value="RON">RON</option>
+                <option value="EUR">EUR</option>
+              </select>
+            </label>
+          </div>
+        </Card>
+      ) : null}
+      {activeTab === 'people' ? (
+        <Card>
+          <SectionTitle icon={<UserRound className="h-5 w-5" />} title="Responsabili" />
+          <div className="grid gap-3 md:grid-cols-2">
+            <Input label="Administrator" value={form.administrator} onChange={(event) => update('administrator', event.target.value)} />
+            <Input label="Contabil / trezorier" value={form.treasurer} onChange={(event) => update('treasurer', event.target.value)} />
+          </div>
+        </Card>
+      ) : null}
+      {activeTab === 'documents' ? (
+        <Card>
+          <SectionTitle icon={<FileText className="h-5 w-5" />} title="Documente" />
+          <div className="grid gap-3 md:grid-cols-2">
+            <Input label="Prefix facturi" value={form.invoicePrefix} onChange={(event) => update('invoicePrefix', event.target.value)} />
+            <Input label="Prefix chitanțe" value={form.receiptPrefix} onChange={(event) => update('receiptPrefix', event.target.value)} />
+          </div>
+        </Card>
+      ) : null}
+      {activeTab === 'brand' ? (
+        <Card>
+          <SectionTitle icon={<Palette className="h-5 w-5" />} title="Aspect" />
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <label className="block space-y-1.5 text-sm font-medium text-foreground">
+              Culoare principală
+              <input type="color" className="h-11 w-20 rounded-2xl border border-border/70 bg-white p-1" value={form.primaryColor} onChange={(event) => update('primaryColor', event.target.value)} />
+            </label>
+            <Input label="Cod culoare" value={form.primaryColor} onChange={(event) => update('primaryColor', event.target.value)} />
+          </div>
+        </Card>
+      ) : null}
+    </div>
+  );
+}
 
-      <button className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white" onClick={save} disabled={saving}>
-        {saving ? 'Saving...' : 'Save settings'}
-      </button>
+function IconTitle({ icon, title, subtitle, badge }: { icon: React.ReactNode; title: string; subtitle: string; badge?: string }) {
+  return (
+    <div className="flex items-start gap-3">
+      <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-muted text-foreground">{icon}</span>
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2"><p className="font-semibold text-foreground">{title}</p>{badge ? <Badge variant="success">{badge}</Badge> : null}</div>
+        <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
+      </div>
+    </div>
+  );
+}
+
+function SectionTitle({ icon, title }: { icon: React.ReactNode; title: string }) {
+  return (
+    <div className="mb-4 flex items-center gap-3">
+      <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-muted text-foreground">{icon}</span>
+      <h2 className="text-base font-semibold text-foreground">{title}</h2>
     </div>
   );
 }

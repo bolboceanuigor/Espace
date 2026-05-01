@@ -6,13 +6,13 @@ import { useTranslations } from 'next-intl';
 import { MessageCircle, Paperclip, Phone, Search, Smile } from 'lucide-react';
 import { associationChatApi } from '@/lib/api';
 import { getToken } from '@/lib/auth';
+import { getSocketBaseUrl, isApiConfigured } from '@/lib/runtime-config';
 import { Button, PageHeader, useToast } from '@/components/ui';
 import { useAuth } from '@/context/AuthContext';
 
 type ChatMessage = Awaited<ReturnType<typeof associationChatApi.sendMessage>>['data'];
 
-const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL || '';
-const SOCKET_URL = RAW_API_URL.replace(/\/+$/, '').replace(/\/api$/, '');
+const SOCKET_URL = getSocketBaseUrl();
 
 function timeLabel(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -70,6 +70,13 @@ export default function AssociationChatPage() {
 
   const loadInitial = async () => {
     setLoading(true);
+    if (!isApiConfigured()) {
+      setMessages([]);
+      setHasMore(false);
+      setNextBeforeId(null);
+      setLoading(false);
+      return;
+    }
     try {
       const res = await associationChatApi.listMessages({ limit: 70 });
       setMessages(res.data.items || []);
@@ -152,6 +159,7 @@ export default function AssociationChatPage() {
   }, []);
 
   useEffect(() => {
+    if (!isApiConfigured()) return;
     const interval = window.setInterval(async () => {
       if (socketRef.current?.connected) return;
       try {

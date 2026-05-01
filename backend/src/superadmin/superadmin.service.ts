@@ -118,13 +118,11 @@ export class SuperadminService {
       },
     });
     const organizationIds = organizations.map((item) => item.id);
-    const activePropertyCounts = organizationIds.length
-      ? await this.prisma.property.groupBy({
+    const activeApartmentCounts = organizationIds.length
+      ? await this.prisma.apartment.groupBy({
           by: ['organizationId'],
           where: {
             organizationId: { in: organizationIds },
-            deletedAt: null,
-            isActive: true,
           },
           _count: {
             _all: true,
@@ -132,7 +130,7 @@ export class SuperadminService {
         })
       : [];
     const activeApartmentsByOrg = new Map(
-      activePropertyCounts.map((entry) => [entry.organizationId, entry._count._all]),
+      activeApartmentCounts.map((entry) => [entry.organizationId, entry._count._all]),
     );
     return organizations.map((organization) => {
       const activeApartments = activeApartmentsByOrg.get(organization.id) ?? 0;
@@ -1196,4 +1194,3 @@ export class SuperadminService {
     });
   }
 }
-

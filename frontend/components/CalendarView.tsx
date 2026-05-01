@@ -19,6 +19,7 @@ import dynamic from 'next/dynamic';
 import { io } from 'socket.io-client';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { calendarApi } from '@/lib/api';
+import { getSocketBaseUrl } from '@/lib/runtime-config';
 import MiniMonthOverview from './MiniMonthOverview';
 
 const CreateReservationModal = dynamic(() => import('./CreateReservationModal'), { ssr: false });
@@ -274,7 +275,7 @@ export default function CalendarView() {
   }, [viewStart]);
 
   useEffect(() => {
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL;
+    const socketUrl = getSocketBaseUrl();
     if (!socketUrl) return;
     const socket = io(socketUrl);
 

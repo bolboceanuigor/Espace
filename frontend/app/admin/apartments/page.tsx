@@ -1,114 +1,125 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'next/navigation';
-import { AlertCircle, Building2, Gauge, Home, Search } from 'lucide-react';
-import { adminStructureApi } from '@/lib/api';
-import { defaultLocale, isLocale } from '@/i18n';
-import {
-  CondoApartment,
-  fallbackCondoApartments,
-  formatMdl,
-  mapApartmentStatus,
-} from '@/lib/condo-admin-fallback';
-import LoadingState from '@/components/common/LoadingState';
+import { useMemo, useState } from 'react';
+import { AlertCircle, Gauge, Home, Search, UserX } from 'lucide-react';
+import { Badge, Card, Input, PageHeader, StatCard } from '@/components/ui';
+import { formatMdl } from '@/lib/condo-admin-fallback';
 
-function personName(profile: any): string {
-  const first = profile?.user?.firstName || '';
-  const last = profile?.user?.lastName || '';
-  return `${first} ${last}`.trim() || profile?.user?.email || 'Fără nume';
-}
+type ApartmentStatus = 'Activ' | 'Datornic' | 'Nelocuit' | 'Problemă';
 
-function normalizeApartment(row: any): CondoApartment {
-  const residents = Array.isArray(row?.residents) ? row.residents : [];
-  const primary = residents.find((item: any) => item.isPrimary) || residents[0];
-  const debt = Number(row?.debtAmount ?? row?.totalDebt ?? row?.currentDebt ?? row?.balanceDue ?? 0);
-  const mappedResidents = residents.map((profile: any) => ({
-    id: profile.id || profile.user?.id || `${row.id}-${personName(profile)}`,
-    fullName: personName(profile),
-    phone: profile.phone || profile.user?.phone || 'Telefon indisponibil',
-    email: profile.user?.email || 'Email indisponibil',
-    role: profile.type === 'OWNER' ? 'proprietar' : profile.type === 'TENANT' ? 'chiriaș' : 'reprezentant',
-    accountStatus: profile.user?.id ? 'cont creat' : 'fără cont',
-    apartments: [row.number],
-    debt,
-  })) as CondoApartment['residents'];
+type AdminApartment = {
+  id: string;
+  number: string;
+  staircase: string;
+  floor: number;
+  areaM2: number;
+  rooms: number;
+  owner: string;
+  phone: string;
+  residents: number;
+  debt: number;
+  lastPayment: string;
+  metersUpdated: number;
+  metersMissing: number;
+  status: ApartmentStatus;
+  hasAccount: boolean;
+};
 
-  return {
-    id: row.id,
-    number: row.number || '-',
-    building: row.building?.name || 'Bloc',
-    staircase: row.staircase?.name || 'Scară',
-    floor: row.floor ?? null,
-    areaM2: row.areaM2 ?? null,
-    rooms: row.rooms ?? null,
-    status: mapApartmentStatus(row.status, debt, residents.length),
-    owner: primary
-      ? {
-          id: primary.id || primary.user?.id || `${row.id}-owner`,
-          fullName: personName(primary),
-          phone: primary.phone || 'Telefon indisponibil',
-          email: primary.user?.email || 'Email indisponibil',
-          role: primary.type === 'OWNER' ? 'proprietar' : 'locatar',
-          accountStatus: primary.user?.id ? 'cont creat' : 'fără cont',
-          apartments: [row.number],
-          debt,
-        }
-      : null,
-    residents: mappedResidents,
-    peopleCount: Number(row.peopleCount ?? mappedResidents.length ?? 0),
-    debt,
-    paymentStatus: debt > 0 ? 'Întârziat' : 'Achitat',
-    lastPayment: row.lastPaymentMonth || 'Indisponibil',
-    meters: [],
-    activeRequests: [],
-    notes: '',
-  };
-}
+const apartments: AdminApartment[] = [
+  {
+    id: 'apt-45',
+    number: '45',
+    staircase: 'Scara 2',
+    floor: 6,
+    areaM2: 72.4,
+    rooms: 3,
+    owner: 'Popescu Ion',
+    phone: '+373 69 111 222',
+    residents: 3,
+    debt: 1240,
+    lastPayment: 'Martie 2026',
+    metersUpdated: 2,
+    metersMissing: 1,
+    status: 'Datornic',
+    hasAccount: true,
+  },
+  {
+    id: 'apt-18',
+    number: '18',
+    staircase: 'Scara 1',
+    floor: 3,
+    areaM2: 58.2,
+    rooms: 2,
+    owner: 'Ionescu Maria',
+    phone: '+373 68 333 444',
+    residents: 2,
+    debt: 0,
+    lastPayment: 'Aprilie 2026',
+    metersUpdated: 3,
+    metersMissing: 0,
+    status: 'Activ',
+    hasAccount: true,
+  },
+  {
+    id: 'apt-72',
+    number: '72',
+    staircase: 'Scara 3',
+    floor: 9,
+    areaM2: 81.6,
+    rooms: 4,
+    owner: 'Ceban Andrei',
+    phone: '+373 67 555 666',
+    residents: 4,
+    debt: 3860,
+    lastPayment: 'Februarie 2026',
+    metersUpdated: 1,
+    metersMissing: 2,
+    status: 'Problemă',
+    hasAccount: false,
+  },
+  {
+    id: 'apt-8',
+    number: '8',
+    staircase: 'Scara 1',
+    floor: 1,
+    areaM2: 47.5,
+    rooms: 2,
+    owner: 'Fără proprietar conectat',
+    phone: '-',
+    residents: 0,
+    debt: 0,
+    lastPayment: 'Aprilie 2026',
+    metersUpdated: 0,
+    metersMissing: 3,
+    status: 'Nelocuit',
+    hasAccount: false,
+  },
+];
 
-const statusOptions = ['toate', 'activ', 'nelocuit', 'datornic', 'problemă', 'fără cont creat'];
+const statusVariant: Record<ApartmentStatus, 'default' | 'success' | 'warning' | 'error' | 'neutral'> = {
+  Activ: 'success',
+  Datornic: 'error',
+  Nelocuit: 'neutral',
+  Problemă: 'warning',
+};
+
+const summary = [
+  { label: 'Total apartamente', value: '142', description: 'În APC Alba Iulia 75', icon: <Home className="h-5 w-5" /> },
+  { label: 'Cu datorii', value: '37', description: 'Au sold neachitat', icon: <AlertCircle className="h-5 w-5" />, tone: 'danger' as const },
+  { label: 'Fără cont creat', value: '44', description: 'Necesită invitație', icon: <UserX className="h-5 w-5" />, tone: 'warning' as const },
+  { label: 'Citiri lipsă', value: '23', description: 'Contoare neactualizate', icon: <Gauge className="h-5 w-5" />, tone: 'warning' as const },
+];
+
+const statusOptions = ['Toate', 'Activ', 'Datornic', 'Nelocuit', 'Problemă'];
 
 export default function AdminApartmentsPage() {
-  const params = useParams<{ locale?: string }>();
-  const localeParam = typeof params?.locale === 'string' ? params.locale : defaultLocale;
-  const locale = isLocale(localeParam) ? localeParam : defaultLocale;
-  const [apartments, setApartments] = useState<CondoApartment[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [source, setSource] = useState<'api' | 'fallback'>('fallback');
   const [search, setSearch] = useState('');
-  const [staircase, setStaircase] = useState('toate');
-  const [floor, setFloor] = useState('toate');
-  const [status, setStatus] = useState('toate');
+  const [staircase, setStaircase] = useState('Toate');
+  const [floor, setFloor] = useState('Toate');
+  const [status, setStatus] = useState('Toate');
   const [onlyDebt, setOnlyDebt] = useState(false);
   const [withoutAccount, setWithoutAccount] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    const load = async () => {
-      setLoading(true);
-      try {
-        const response = await adminStructureApi.listApartments({ limit: 100 });
-        const rows = Array.isArray(response.data?.data) ? response.data.data : Array.isArray(response.data) ? response.data : [];
-        if (!active) return;
-        setApartments(rows.length ? rows.map(normalizeApartment) : fallbackCondoApartments);
-        setSource(rows.length ? 'api' : 'fallback');
-      } catch {
-        if (!active) return;
-        setApartments(fallbackCondoApartments);
-        setSource('fallback');
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-    load().catch(() => undefined);
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const staircases = useMemo(() => ['toate', ...Array.from(new Set(apartments.map((item) => item.staircase)))], [apartments]);
-  const floors = useMemo(() => ['toate', ...Array.from(new Set(apartments.map((item) => String(item.floor ?? '-'))))], [apartments]);
 
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -116,161 +127,132 @@ export default function AdminApartmentsPage() {
       const matchesSearch =
         !needle ||
         item.number.toLowerCase().includes(needle) ||
-        item.owner?.fullName.toLowerCase().includes(needle) ||
-        item.owner?.phone.toLowerCase().includes(needle) ||
-        item.residents.some((resident) => resident.fullName.toLowerCase().includes(needle) || resident.phone.toLowerCase().includes(needle));
-      const matchesStaircase = staircase === 'toate' || item.staircase === staircase;
-      const matchesFloor = floor === 'toate' || String(item.floor ?? '-') === floor;
-      const matchesStatus = status === 'toate' || item.status === status;
+        item.owner.toLowerCase().includes(needle) ||
+        item.phone.toLowerCase().includes(needle);
+      const matchesStaircase = staircase === 'Toate' || item.staircase === staircase;
+      const matchesFloor = floor === 'Toate' || String(item.floor) === floor;
+      const matchesStatus = status === 'Toate' || item.status === status;
       const matchesDebt = !onlyDebt || item.debt > 0;
-      const matchesAccount = !withoutAccount || item.status === 'fără cont creat' || item.residents.some((resident) => resident.accountStatus === 'fără cont');
+      const matchesAccount = !withoutAccount || !item.hasAccount;
       return matchesSearch && matchesStaircase && matchesFloor && matchesStatus && matchesDebt && matchesAccount;
     });
-  }, [apartments, floor, onlyDebt, search, staircase, status, withoutAccount]);
+  }, [floor, onlyDebt, search, staircase, status, withoutAccount]);
 
-  const summary = useMemo(
-    () => ({
-      total: apartments.length,
-      withDebt: apartments.filter((item) => item.debt > 0).length,
-      totalDebt: apartments.reduce((sum, item) => sum + item.debt, 0),
-      missingMeters: apartments.filter((item) => item.meters.some((meter) => meter.status !== 'actualizat') || item.meters.length === 0).length,
-    }),
-    [apartments],
-  );
-
-  const cards = [
-    { label: 'Total apartamente', value: summary.total, icon: Home },
-    { label: 'Apartamente cu datorii', value: summary.withDebt, icon: AlertCircle },
-    { label: 'Datorie totală', value: formatMdl(summary.totalDebt), icon: Building2 },
-    { label: 'Contoare neverificate', value: summary.missingMeters, icon: Gauge },
-  ];
+  const staircases = ['Toate', ...Array.from(new Set(apartments.map((item) => item.staircase)))];
+  const floors = ['Toate', ...Array.from(new Set(apartments.map((item) => String(item.floor))))];
 
   return (
     <div className="space-y-5 pb-4">
-      <section className="rounded-[1.75rem] border border-border/70 bg-white/90 p-5 shadow-[0_20px_60px_rgba(15,23,42,0.06)] md:p-7">
-        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div>
-            <p className="inline-flex rounded-full border border-border/70 bg-muted/60 px-3 py-1 text-xs font-semibold text-muted-foreground">Administrare bloc</p>
-            <h1 className="mt-4 text-2xl font-semibold tracking-tight text-foreground md:text-4xl">Apartamente</h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
-              Evidență pe unități locative: proprietari, locatari, datorii, contoare și cereri asociate apartamentului.
-            </p>
-          </div>
-          {source === 'fallback' ? (
-            <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">Date demonstrative</span>
-          ) : null}
-        </div>
-      </section>
+      <PageHeader
+        title="Apartamente"
+        description="Gestionarea apartamentelor, contoarelor și datoriilor"
+        rightSlot={<Link href="/admin/apartments/apt-45" className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background">Deschide Apt. 45</Link>}
+      />
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {cards.map((card) => {
-          const Icon = card.icon;
-          return (
-            <div key={card.label} className="rounded-[1.35rem] border border-border/70 bg-white/90 p-4 shadow-[0_14px_40px_rgba(15,23,42,0.045)]">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm text-muted-foreground">{card.label}</p>
-                  <p className="mt-2 text-2xl font-semibold text-foreground">{card.value}</p>
-                </div>
-                <span className="rounded-2xl bg-muted p-2 text-foreground"><Icon className="h-5 w-5" /></span>
-              </div>
-            </div>
-          );
-        })}
+        {summary.map((item) => <StatCard key={item.label} {...item} />)}
       </section>
 
-      <section className="rounded-[1.35rem] border border-border/70 bg-white/90 p-4 shadow-[0_14px_40px_rgba(15,23,42,0.045)]">
-        <div className="grid gap-2 md:grid-cols-[1.5fr_1fr_1fr_1fr_auto_auto]">
+      <Card>
+        <div className="grid gap-3 lg:grid-cols-[1.5fr_1fr_1fr_1fr_auto_auto]">
           <label className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input className="input pl-9" placeholder="Caută apartament, proprietar, telefon" value={search} onChange={(event) => setSearch(event.target.value)} />
+            <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input className="pl-9" placeholder="Caută după apartament, proprietar, telefon" value={search} onChange={(event) => setSearch(event.target.value)} />
           </label>
-          <select className="select" value={staircase} onChange={(event) => setStaircase(event.target.value)}>
-            {staircases.map((item) => <option key={item} value={item}>{item === 'toate' ? 'Toate scările' : item}</option>)}
-          </select>
-          <select className="select" value={floor} onChange={(event) => setFloor(event.target.value)}>
-            {floors.map((item) => <option key={item} value={item}>{item === 'toate' ? 'Toate etajele' : `Etaj ${item}`}</option>)}
-          </select>
-          <select className="select" value={status} onChange={(event) => setStatus(event.target.value)}>
-            {statusOptions.map((item) => <option key={item} value={item}>{item === 'toate' ? 'Toate statusurile' : item}</option>)}
-          </select>
-          <label className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-border/70 px-3 text-sm text-foreground">
-            <input type="checkbox" checked={onlyDebt} onChange={(event) => setOnlyDebt(event.target.checked)} />
-            Cu datorii
-          </label>
-          <label className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-border/70 px-3 text-sm text-foreground">
-            <input type="checkbox" checked={withoutAccount} onChange={(event) => setWithoutAccount(event.target.checked)} />
-            Fără cont
-          </label>
+          <Select value={staircase} onChange={setStaircase} options={staircases} labelPrefix="" />
+          <Select value={floor} onChange={setFloor} options={floors} labelPrefix="Etaj " />
+          <Select value={status} onChange={setStatus} options={statusOptions} labelPrefix="" />
+          <Toggle checked={onlyDebt} onChange={setOnlyDebt} label="Cu datorii" />
+          <Toggle checked={withoutAccount} onChange={setWithoutAccount} label="Fără cont creat" />
         </div>
+      </Card>
+
+      <section className="grid gap-3 md:hidden">
+        {filtered.map((item) => <ApartmentMobileCard key={item.id} apartment={item} />)}
       </section>
 
-      {loading ? <LoadingState label="Se încarcă apartamentele..." rows={6} /> : null}
-
-      <section className="space-y-3 md:hidden">
-        {filtered.map((item) => (
-          <ApartmentCard key={item.id} item={item} locale={locale} />
-        ))}
-      </section>
-
-      <section className="hidden overflow-hidden rounded-[1.35rem] border border-border/70 bg-white/90 shadow-[0_14px_40px_rgba(15,23,42,0.045)] md:block">
-        <div className="grid grid-cols-[1fr_1fr_1fr_1.4fr_1fr_1fr_auto] gap-3 border-b border-border/70 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          <span>Apartament</span><span>Scară / Etaj</span><span>Suprafață</span><span>Proprietar / Locatar</span><span>Datorie</span><span>Contoare</span><span></span>
+      <section className="hidden overflow-hidden rounded-[1.35rem] border border-border/70 bg-white/92 shadow-[0_14px_40px_rgba(15,23,42,0.045)] md:block">
+        <div className="grid grid-cols-[0.7fr_0.9fr_0.9fr_1.4fr_0.9fr_1fr_0.8fr_auto] gap-3 border-b border-border/70 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <span>Apt.</span>
+          <span>Scară / Etaj</span>
+          <span>Suprafață</span>
+          <span>Proprietar</span>
+          <span>Locatari</span>
+          <span>Datorie</span>
+          <span>Contoare</span>
+          <span />
         </div>
         {filtered.map((item) => (
-          <div key={item.id} className="grid grid-cols-[1fr_1fr_1fr_1.4fr_1fr_1fr_auto] items-center gap-3 border-b border-border/50 px-4 py-3 text-sm last:border-b-0">
+          <div key={item.id} className="grid grid-cols-[0.7fr_0.9fr_0.9fr_1.4fr_0.9fr_1fr_0.8fr_auto] items-center gap-3 border-b border-border/50 px-4 py-4 text-sm last:border-b-0">
             <div>
-              <p className="font-semibold text-foreground">Ap. {item.number}</p>
-              <p className="text-xs text-muted-foreground">{item.status}</p>
+              <p className="font-semibold text-foreground">Apt. {item.number}</p>
+              <Badge variant={statusVariant[item.status]} className="mt-1">{item.status}</Badge>
             </div>
-            <span className="text-muted-foreground">{item.staircase} / {item.floor ?? '-'}</span>
-            <span className="text-muted-foreground">{item.areaM2 ?? '-'} m²</span>
-            <span className="text-foreground">{item.owner?.fullName || item.residents[0]?.fullName || 'Fără locatar'}</span>
-            <span className={item.debt > 0 ? 'font-semibold text-rose-600' : 'font-semibold text-emerald-700'}>{formatMdl(item.debt)}</span>
-            <span className="text-muted-foreground">{item.meters.filter((meter) => meter.status === 'actualizat').length}/{item.meters.length || 0} actualizate</span>
-            <Link href={`/${locale}/admin/apartments/${item.id}`} className="rounded-xl border border-border/70 px-3 py-2 text-xs font-semibold text-foreground hover:bg-muted/60">Deschide</Link>
+            <span className="text-muted-foreground">{item.staircase} · Etaj {item.floor}</span>
+            <span className="text-muted-foreground">{item.areaM2} m² · {item.rooms} camere</span>
+            <div>
+              <p className="font-medium text-foreground">{item.owner}</p>
+              <p className="text-xs text-muted-foreground">{item.phone}</p>
+            </div>
+            <span className="text-muted-foreground">{item.residents} persoane</span>
+            <div>
+              <p className={item.debt > 0 ? 'font-semibold text-rose-600' : 'font-semibold text-emerald-700'}>{formatMdl(item.debt)}</p>
+              <p className="text-xs text-muted-foreground">Ultima plată: {item.lastPayment}</p>
+            </div>
+            <span className="text-muted-foreground">{item.metersUpdated} actualizate, {item.metersMissing} lipsă</span>
+            <Link href={`/admin/apartments/${item.id}`} className="rounded-xl border border-border/70 px-3 py-2 text-xs font-semibold text-foreground hover:bg-muted/60">Deschide</Link>
           </div>
         ))}
       </section>
-
-      {!loading && filtered.length === 0 ? (
-        <div className="rounded-[1.35rem] border border-dashed border-border bg-white/80 p-8 text-center text-sm text-muted-foreground">
-          Nu există apartamente pentru filtrele selectate.
-        </div>
-      ) : null}
     </div>
   );
 }
 
-function ApartmentCard({ item, locale }: { item: CondoApartment; locale: string }) {
-  const meterIssue = item.meters.some((meter) => meter.status !== 'actualizat') || item.meters.length === 0;
+function ApartmentMobileCard({ apartment }: { apartment: AdminApartment }) {
   return (
-    <Link href={`/${locale}/admin/apartments/${item.id}`} className="block rounded-[1.35rem] border border-border/70 bg-white/90 p-4 shadow-[0_14px_40px_rgba(15,23,42,0.045)]">
+    <Link href={`/admin/apartments/${apartment.id}`} className="block rounded-[1.35rem] border border-border/70 bg-white/92 p-4 shadow-[0_14px_40px_rgba(15,23,42,0.045)]">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-lg font-semibold text-foreground">Ap. {item.number}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{item.staircase} • Etaj {item.floor ?? '-'} • {item.areaM2 ?? '-'} m²</p>
+          <p className="text-lg font-semibold text-foreground">Apt. {apartment.number}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{apartment.staircase} · Etaj {apartment.floor} · {apartment.areaM2} m²</p>
         </div>
-        <span className="rounded-full border border-border/70 bg-muted/60 px-2.5 py-1 text-xs font-medium text-muted-foreground">{item.status}</span>
+        <Badge variant={statusVariant[apartment.status]}>{apartment.status}</Badge>
       </div>
-      <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-        <div>
-          <p className="text-xs text-muted-foreground">Proprietar / locatar</p>
-          <p className="mt-1 font-medium text-foreground">{item.owner?.fullName || item.residents[0]?.fullName || 'Fără locatar'}</p>
-        </div>
-        <div>
-          <p className="text-xs text-muted-foreground">Datorie</p>
-          <p className={`mt-1 font-semibold ${item.debt > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>{formatMdl(item.debt)}</p>
-        </div>
-        <div>
-          <p className="text-xs text-muted-foreground">Contoare</p>
-          <p className={`mt-1 font-medium ${meterIssue ? 'text-amber-700' : 'text-emerald-700'}`}>{meterIssue ? 'De verificat' : 'Actualizate'}</p>
-        </div>
-        <div>
-          <p className="text-xs text-muted-foreground">Locuiesc</p>
-          <p className="mt-1 font-medium text-foreground">{item.peopleCount} persoane</p>
-        </div>
+      <div className="mt-4 space-y-3 text-sm">
+        <Info label="Proprietar" value={apartment.owner} />
+        <Info label="Locatari" value={`${apartment.residents} persoane`} />
+        <Info label="Datorie" value={formatMdl(apartment.debt)} danger={apartment.debt > 0} />
+        <Info label="Contoare" value={`${apartment.metersUpdated} actualizate, ${apartment.metersMissing} lipsă`} />
       </div>
+      <span className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-foreground text-sm font-semibold text-background">
+        Deschide
+      </span>
     </Link>
+  );
+}
+
+function Info({ label, value, danger }: { label: string; value: string; danger?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-2xl bg-muted/35 px-3 py-2">
+      <span className="text-muted-foreground">{label}</span>
+      <span className={`text-right font-medium ${danger ? 'text-rose-600' : 'text-foreground'}`}>{value}</span>
+    </div>
+  );
+}
+
+function Select({ value, onChange, options, labelPrefix }: { value: string; onChange: (value: string) => void; options: string[]; labelPrefix: string }) {
+  return (
+    <select value={value} onChange={(event) => onChange(event.target.value)} className="h-11 rounded-2xl border border-border/70 bg-white px-3 text-sm text-foreground shadow-[0_10px_30px_rgba(15,23,42,0.035)] outline-none focus:ring-2 focus:ring-foreground/10">
+      {options.map((item) => <option key={item} value={item}>{item === 'Toate' ? item : `${labelPrefix}${item}`}</option>)}
+    </select>
+  );
+}
+
+function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (value: boolean) => void; label: string }) {
+  return (
+    <label className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-border/70 bg-white px-3 text-sm font-medium text-foreground shadow-[0_10px_30px_rgba(15,23,42,0.035)]">
+      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
+      {label}
+    </label>
   );
 }

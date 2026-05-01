@@ -18,20 +18,20 @@ const onest = localFont({
 })
 
 export const metadata: Metadata = {
-  title: 'CondoFlow Resident Portal',
-  description: 'Resident mobile portal for invoices, payments and issues',
-  metadataBase: new URL(process.env.FRONTEND_URL || 'http://localhost:3000'),
+  title: 'Espace',
+  description: 'Platformă pentru administrarea asociațiilor, apartamentelor, plăților și comunicării cu locatarii.',
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://espace.md'),
   manifest: '/manifest.webmanifest',
-  applicationName: 'CondoFlow',
+  applicationName: 'Espace',
   openGraph: {
-    title: 'CondoFlow Resident Portal',
-    description: 'Resident mobile portal for invoices, payments and issues',
+    title: 'Espace',
+    description: 'Platformă pentru administrarea asociațiilor, apartamentelor, plăților și comunicării cu locatarii.',
     type: 'website',
   },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'CondoFlow',
+    title: 'Espace',
   },
   icons: {
     shortcut: [{ url: '/favicon.svg', type: 'image/svg+xml' }],

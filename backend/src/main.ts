@@ -16,9 +16,6 @@ async function bootstrap() {
   if (!process.env.FRONTEND_URL && !process.env.CORS_ORIGIN) {
     throw new Error('FRONTEND_URL or CORS_ORIGIN is required');
   }
-  if (!process.env.API_URL) {
-    throw new Error('API_URL is required');
-  }
   const app = await NestFactory.create(AppModule);
   const expressApp = app.getHttpAdapter().getInstance();
   const trustProxyRaw = (process.env.TRUST_PROXY ?? 'false').toLowerCase();
@@ -81,6 +78,7 @@ async function bootstrap() {
     ...(isProd ? [] : ['http://localhost:3001', 'http://localhost:3000']),
     process.env.FRONTEND_URL,
     process.env.CORS_ORIGIN,
+    'https://www.espace.md',
   ]
     .flatMap((value) => (value || '').split(','))
     .map((value) => value.trim())
@@ -89,6 +87,9 @@ async function bootstrap() {
   if (isProd && allowedOrigins.some((origin) => origin === '*')) {
     throw new Error('CORS wildcard is not allowed in production');
   }
+  const allowVercelPreviews =
+    (process.env.CORS_ALLOW_VERCEL_PREVIEWS ?? 'false').toLowerCase() === 'true';
+  const vercelPreviewPattern = /^https:\/\/[a-z0-9-]+\.vercel\.app$/i;
 
   app.enableCors({
     origin: (origin, callback) => {
@@ -100,6 +101,10 @@ async function bootstrap() {
         callback(null, true);
         return;
       }
+      if (allowVercelPreviews && vercelPreviewPattern.test(origin)) {
+        callback(null, true);
+        return;
+      }
       callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
@@ -107,8 +112,8 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization', 'x-org-id'],
   });
 
-  const port = Number(process.env.PORT || 4000);
-  await app.listen(port);
+  const port = Number(process.env.PORT || 3001);
+  await app.listen(port, '0.0.0.0');
   const publicApiUrl = process.env.API_URL?.replace(/\/+$/, '');
   console.log(`API listening on ${publicApiUrl || `http://localhost:${port}`}`);
 }

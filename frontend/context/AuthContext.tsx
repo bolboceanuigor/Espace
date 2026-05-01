@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import { clearAuthCookies, removeToken, getUser, setToken, setUser, removeUser } from '@/lib/auth';
 import { authApi } from '@/lib/api';
 import { defaultLocale, isLocale } from '@/i18n';
+import { isApiConfigured } from '@/lib/runtime-config';
 
 type User = {
   id: string;
@@ -104,6 +105,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let active = true;
     const bootstrap = async () => {
       setAccessTokenState(null);
+
+      if (!isApiConfigured()) {
+        removeToken();
+        removeUser();
+        if (active) {
+          setUserState(null);
+          setOrg(null);
+          setPrefs(null);
+          setSystem(null);
+          setLoading(false);
+        }
+        return;
+      }
 
       const cached = getUser();
       if (cached && active) {

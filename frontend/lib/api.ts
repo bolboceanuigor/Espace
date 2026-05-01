@@ -1,13 +1,9 @@
 import { getToken, getUser, removeToken, removeUser } from './auth';
 import type { ApiEnvelope, ApiErrorPayload } from '@/types/api';
+import { getApiBaseUrl } from './runtime-config';
 
-const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL;
-const API_URL = RAW_API_URL?.replace(/\/+$/, '').replace(/\/api$/, '');
+const API_URL = getApiBaseUrl();
 const ACTIVE_ORG_STORAGE_KEY = 'activeOrgId';
-
-if (!API_URL) {
-  throw new Error('NEXT_PUBLIC_API_URL is required');
-}
 
 export class ApiClientError extends Error {
   status: number;
@@ -103,6 +99,14 @@ async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<{ 
     cache = 'no-store',
   } = options;
 
+  if (!API_URL) {
+    throw new ApiClientError(503, {
+      code: 'API_URL_MISSING',
+      message: 'API-ul online nu este conectat încă. Interfața poate fi vizualizată, dar autentificarea și datele reale sunt indisponibile momentan.',
+      details: { env: 'NEXT_PUBLIC_API_URL' },
+    });
+  }
+
   const requestUrl = `${API_URL}${normalizeApiPath(path)}${toQueryString(params)}`;
   if (process.env.NODE_ENV !== 'production' && typeof window !== 'undefined') {
     console.debug(`[API] ${method} ${requestUrl}`);
@@ -128,11 +132,11 @@ async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<{ 
     if (process.env.NODE_ENV !== 'production' && typeof window !== 'undefined') {
       console.error(`[API] ${method} ${requestUrl} status=NETWORK_ERROR`);
     }
-    throw {
+    throw new ApiClientError(503, {
       code: 'NETWORK_ERROR',
-      message: 'Failed to fetch',
-      hint: 'Check backend is running and NEXT_PUBLIC_API_URL',
-    };
+      message: 'API-ul online nu răspunde momentan. Încearcă din nou după ce backend-ul este publicat.',
+      details: { env: 'NEXT_PUBLIC_API_URL' },
+    });
   }
 
   if (!response.ok) {
@@ -176,6 +180,15 @@ async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<{ 
 }
 
 export { apiRequest as api };
+
+function requireApiUrl() {
+  if (API_URL) return API_URL;
+  throw new ApiClientError(503, {
+    code: 'API_URL_MISSING',
+    message: 'API-ul online nu este conectat încă. Această acțiune necesită backend-ul.',
+    details: { env: 'NEXT_PUBLIC_API_URL' },
+  });
+}
 
 export const authApi = {
   register: (data: { orgName: string; email: string; password: string; locale?: string; firstName?: string; lastName?: string }) =>
@@ -895,10 +908,11 @@ export const importsApi = {
   downloadTemplate: (type: 'BUILDINGS' | 'STAIRCASES' | 'APARTMENTS' | 'RESIDENTS' | 'INITIAL_BALANCES') =>
     apiRequest<Blob>(`/api/admin/imports/templates/${type}`, { responseType: 'blob' }),
   upload: async (type: 'BUILDINGS' | 'STAIRCASES' | 'APARTMENTS' | 'RESIDENTS' | 'INITIAL_BALANCES', file: File) => {
+    const apiUrl = requireApiUrl();
     const formData = new FormData();
     formData.append('type', type);
     formData.append('file', file);
-    const response = await fetch(`${API_URL}/api/admin/imports/upload`, {
+    const response = await fetch(`${apiUrl}/api/admin/imports/upload`, {
       method: 'POST',
       credentials: 'include',
       headers: { ...getOrgScopeHeader('/api/admin/imports/upload') },
@@ -1304,10 +1318,11 @@ export const reconciliationApi = {
       | 'OTHER',
     file: File,
   ) => {
+    const apiUrl = requireApiUrl();
     const formData = new FormData();
     formData.append('source', source);
     formData.append('file', file);
-    const response = await fetch(`${API_URL}/api/admin/reconciliation/upload`, {
+    const response = await fetch(`${apiUrl}/api/admin/reconciliation/upload`, {
       method: 'POST',
       credentials: 'include',
       headers: { ...getOrgScopeHeader('/api/admin/reconciliation/upload') },
@@ -1567,13 +1582,14 @@ export const limitsApi = {
 };
 
 export const filesApi = {
-  secureDownloadUrl: (fileAssetId: string) => `${API_URL}/files/${fileAssetId}/download`,
+  secureDownloadUrl: (fileAssetId: string) => `${requireApiUrl()}/files/${fileAssetId}/download`,
   adminUpload: async (file: File, data: { entityType: 'DOCUMENT' | 'ISSUE_ATTACHMENT' | 'EXPENSE_ATTACHMENT' | 'LOGO' | 'INVOICE_PDF' | 'RECEIPT_PDF' | 'OTHER'; entityId?: string }) => {
+    const apiUrl = requireApiUrl();
     const formData = new FormData();
     formData.append('file', file);
     formData.append('entityType', data.entityType);
     if (data.entityId) formData.append('entityId', data.entityId);
-    const response = await fetch(`${API_URL}/api/admin/files/upload`, {
+    const response = await fetch(`${apiUrl}/api/admin/files/upload`, {
       method: 'POST',
       credentials: 'include',
       headers: { ...getOrgScopeHeader('/api/admin/files/upload') },
@@ -1584,11 +1600,12 @@ export const filesApi = {
     return { data: json?.data ?? json };
   },
   residentUpload: async (file: File, data: { entityType: 'ISSUE_ATTACHMENT' | 'RECEIPT_PDF' | 'OTHER'; entityId?: string }) => {
+    const apiUrl = requireApiUrl();
     const formData = new FormData();
     formData.append('file', file);
     formData.append('entityType', data.entityType);
     if (data.entityId) formData.append('entityId', data.entityId);
-    const response = await fetch(`${API_URL}/api/resident/files/upload`, {
+    const response = await fetch(`${apiUrl}/api/resident/files/upload`, {
       method: 'POST',
       credentials: 'include',
       headers: { ...getOrgScopeHeader('/api/resident/files/upload') },

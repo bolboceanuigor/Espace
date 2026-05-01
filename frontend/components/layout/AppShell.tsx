@@ -326,6 +326,18 @@ function AppShellContent({ children }: AppShellProps) {
 
   const canUseDemoPresentation = normalizedRole === 'SUPER_ADMIN' && !!supportSession?.organization?.isDemo;
   const effectiveDemoPresentationMode = canUseDemoPresentation && demoPresentationMode;
+  const searchPlaceholder =
+    normalizedRole === 'SUPER_ADMIN'
+      ? 'Caută asociații, administratori, abonamente...'
+      : normalizedRole === 'ADMIN'
+        ? 'Caută apartamente, locatari, plăți...'
+        : 'Caută anunțuri, plăți, cereri...';
+  const searchTarget =
+    normalizedRole === 'SUPER_ADMIN'
+      ? '/superadmin/organizations'
+      : normalizedRole === 'ADMIN'
+        ? '/admin/apartments'
+        : '/resident/announcements';
 
   if (loading || !isAuthenticated || !user) {
     return (
@@ -367,7 +379,7 @@ function AppShellContent({ children }: AppShellProps) {
       );
     }
     return (
-      <div className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,hsl(var(--muted))_0,transparent_34rem),hsl(var(--background))] text-foreground md:pl-0">
+      <div className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,hsl(var(--muted))_0,transparent_34rem),linear-gradient(180deg,#fbfaf7_0%,hsl(var(--background))_48rem)] text-foreground md:pl-0">
         <header className="sticky top-0 z-30 hidden border-b border-border/60 bg-background/82 px-4 py-3 backdrop-blur-xl md:block">
           <div className="mx-auto max-w-5xl">
             <MainNavigation role={normalizedRole} variant="desktop" />
@@ -407,7 +419,7 @@ function AppShellContent({ children }: AppShellProps) {
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,hsl(var(--muted))_0,transparent_36rem),hsl(var(--background))] text-foreground">
+    <div className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,hsl(var(--muted))_0,transparent_36rem),linear-gradient(180deg,#fbfaf7_0%,hsl(var(--background))_46rem)] text-foreground">
       <div className="min-h-screen">
         <header className="sticky top-0 z-30 border-b border-border/60 bg-background/82 px-4 py-3 backdrop-blur-xl">
           <div className="mx-auto max-w-6xl">
@@ -431,10 +443,10 @@ function AppShellContent({ children }: AppShellProps) {
               onKeyDown={(event) => {
                 if (event.key === 'Enter') {
                   const query = search.trim();
-                  router.push(`/${locale}/reservations${query ? `?query=${encodeURIComponent(query)}` : ''}`);
+                  router.push(`/${locale}${searchTarget}${query ? `?query=${encodeURIComponent(query)}` : ''}`);
                 }
               }}
-              placeholder={c('globalSearch')}
+              placeholder={searchPlaceholder}
               className="hidden h-10 w-72 rounded-2xl border border-border/70 bg-white/85 px-4 text-sm text-foreground shadow-[0_10px_30px_rgba(15,23,42,0.04)] outline-none transition focus:border-foreground/20 focus:ring-2 focus:ring-foreground/10 lg:block"
             />
             <div className="flex items-center gap-3">
@@ -525,7 +537,7 @@ function AppShellContent({ children }: AppShellProps) {
           Date.now() - new Date(user.createdAt).getTime() < 24 * 60 * 60 * 1000 ? (
             <div className="mt-3 rounded-2xl border border-border/60 bg-muted/40 px-3 py-2 text-sm text-foreground">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p>Welcome to Espace PMS</p>
+              <p>Bun venit în Espace</p>
                 <button
                   type="button"
                   className="text-xs text-muted-foreground underline"
@@ -537,14 +549,14 @@ function AppShellContent({ children }: AppShellProps) {
                 </button>
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                <Link href={`/${locale}/properties`} className="rounded-xl border border-border/60 px-2 py-1 hover:bg-background">
-                  Add apartment
+                <Link href={`/${locale}/admin/apartments`} className="rounded-xl border border-border/60 px-2 py-1 hover:bg-background">
+                  Apartamente
                 </Link>
-                <Link href={`/${locale}/reservations`} className="rounded-xl border border-border/60 px-2 py-1 hover:bg-background">
-                  Add reservation
+                <Link href={`/${locale}/admin/residents`} className="rounded-xl border border-border/60 px-2 py-1 hover:bg-background">
+                  Locatari
                 </Link>
-                <Link href={`/${locale}/team`} className="rounded-xl border border-border/60 px-2 py-1 hover:bg-background">
-                  Invite team
+                <Link href={`/${locale}/admin/announcements`} className="rounded-xl border border-border/60 px-2 py-1 hover:bg-background">
+                  Avizier
                 </Link>
               </div>
             </div>
@@ -701,13 +713,13 @@ function AppShellContent({ children }: AppShellProps) {
         <footer className="mx-auto flex w-full max-w-6xl items-center justify-end gap-3 px-5 pb-5 text-xs text-muted-foreground">
           <span>v{process.env.NEXT_PUBLIC_APP_VERSION || '0.1.0-beta'}</span>
           <Link href={`/${locale}/pricing`} className="hover:text-foreground">
-            Pricing
+            Prețuri
           </Link>
           <Link href={`/${locale}/terms`} className="hover:text-foreground">
-            Terms
+            Termeni
           </Link>
           <Link href={`/${locale}/privacy`} className="hover:text-foreground">
-            Privacy
+            Confidențialitate
           </Link>
         </footer>
       </div>

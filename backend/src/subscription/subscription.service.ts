@@ -4,7 +4,6 @@ import { hasPermission, Permission } from '../auth/permissions';
 import { PrismaService } from '../prisma/prisma.service';
 import { PLAN_PROPERTY_LIMITS, PLAN_MONTHLY_PRICES } from './subscription.constants';
 import { addDays } from 'date-fns';
-import { parseDateOnly, formatDateOnly } from '../common/date-only';
 
 @Injectable()
 export class SubscriptionService {
@@ -59,9 +58,7 @@ export class SubscriptionService {
 
   async getSummary(organizationId: string) {
     const subscription = await this.getForOrganization(organizationId);
-    const currentPropertyCount = await this.prisma.property.count({
-      where: { organizationId, deletedAt: null, isActive: true },
-    });
+    const currentPropertyCount = await this.prisma.apartment.count({ where: { organizationId } });
     const now = new Date();
     const endDate = subscription.subscriptionEndsAt ?? subscription.trialEndsAt;
     const daysRemaining = Math.max(0, Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
@@ -81,14 +78,12 @@ export class SubscriptionService {
   async assertCanCreateProperty(organizationId: string) {
     const subscription = await this.getForOrganization(organizationId);
     if (this.hasStatus(subscription, ['expired', 'suspended', 'past_due', 'cancelled'])) {
-      throw new BadRequestException('Subscription expired. Renew to create properties.');
+      throw new BadRequestException('Subscription expired. Renew to create apartments.');
     }
-    const count = await this.prisma.property.count({
-      where: { organizationId, deletedAt: null },
-    });
+    const count = await this.prisma.apartment.count({ where: { organizationId } });
     const limit = subscription.propertyLimit;
     if (limit >= 0 && count >= limit) {
-      throw new BadRequestException('Upgrade your plan to add more properties.');
+      throw new BadRequestException('Upgrade your plan to add more apartments.');
     }
   }
 
@@ -117,12 +112,10 @@ export class SubscriptionService {
     const subscription = await this.getForOrganization(organizationId);
     const propertyLimit = PLAN_PROPERTY_LIMITS[plan] ?? PLAN_PROPERTY_LIMITS.starter;
     const price = PLAN_MONTHLY_PRICES[plan] ?? PLAN_MONTHLY_PRICES.starter;
-    const currentCount = await this.prisma.property.count({
-      where: { organizationId, deletedAt: null },
-    });
+    const currentCount = await this.prisma.apartment.count({ where: { organizationId } });
     if (propertyLimit >= 0 && currentCount > propertyLimit) {
       throw new BadRequestException(
-        `You have ${currentCount} properties. ${plan} plan allows ${propertyLimit}. Remove some properties first or choose a higher plan.`,
+        `You have ${currentCount} apartments. ${plan} plan allows ${propertyLimit}. Remove some apartments first or choose a higher plan.`,
       );
     }
     const status = this.hasStatus(subscription, ['trial']) ? 'TRIAL' : 'ACTIVE';
@@ -167,45 +160,8 @@ export class SubscriptionService {
   }
 
   async getTodayUsage(organizationId: string) {
-    const today = formatDateOnly(new Date());
-    const start = parseDateOnly(today);
-    const end = new Date(start);
-    end.setUTCDate(end.getUTCDate() + 1);
-    const [activePropertiesCount, reservationsCount] = await Promise.all([
-      this.prisma.property.count({
-        where: {
-          organizationId,
-          deletedAt: null,
-          isActive: true,
-        },
-      }),
-      this.prisma.reservation.count({
-        where: {
-          organizationId,
-          deletedAt: null,
-          checkIn: { lt: end },
-          checkOut: { gt: start },
-        },
-      }),
-    ]);
-    await this.prisma.usageMeter.upsert({
-      where: {
-        organizationId_date: {
-          organizationId,
-          date: start,
-        },
-      },
-      update: {
-        activePropertiesCount,
-        reservationsCount,
-      },
-      create: {
-        organizationId,
-        date: start,
-        activePropertiesCount,
-        reservationsCount,
-      },
-    });
+    const activePropertiesCount = await this.prisma.apartment.count({ where: { organizationId } });
+    const reservationsCount = 0;
     return { activePropertiesCount, reservationsCount };
   }
 }

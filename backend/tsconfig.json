@@ -20,5 +20,18 @@
     "paths": {
       "@/*": ["src/*"]
     }
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/reservations/**",
+    "src/properties/**",
+    "src/clients/**",
+    "src/calendar/**",
+    "src/cleanings/**",
+    "src/channels/**",
+    "src/manager/**",
+    "src/dashboard/**",
+    "src/exports/**"
+  ]
 }
