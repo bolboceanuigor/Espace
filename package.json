@@ -2,10 +2,6 @@
   "name": "espace",
   "version": "1.0.0",
   "private": true,
-  "workspaces": [
-    "backend",
-    "frontend"
-  ],
   "scripts": {
     "dev": "npm --prefix frontend run dev",
     "dev:all": "concurrently \"npm --prefix backend run start:dev\" \"npm --prefix frontend run dev\"",
@@ -26,18 +22,7 @@
     "concurrently": "^8.2.2"
   },
   "dependencies": {
-    "lucide-react": "^0.575.0",
     "pdfkit": "^0.18.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.2.0",
     "xlsx": "^0.18.5"
-  },
-  "resolutions": {
-    "react": "^18.3.1",
-    "react-dom": "^18.2.0"
-  },
-  "overrides": {
-    "react": "^18.3.1",
-    "react-dom": "^18.2.0"
   }
 }
