@@ -1,0 +1,495 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "manager": "Manager",
+    "owner": "Cabinet Proprietar",
+    "calendar": "Calendar",
+    "properties": "Apartamente",
+    "reservations": "Rezervari",
+    "clients": "Clienti",
+    "cleanings": "Curatenie",
+    "chat": "Chat asociatie",
+    "team": "Echipa",
+    "superadmin": "Superadmin",
+    "settings": "Setari"
+  },
+  "common": {
+    "loading": "Se incarca...",
+    "success": "Succes",
+    "showLabels": "Arata text",
+    "today": "Astazi",
+    "search": "Cauta...",
+    "globalSearch": "Cauta proprietate, oaspete, telefon...",
+    "prev": "Anterior",
+    "next": "Urmator",
+    "allStatuses": "Toate statusurile",
+    "allSources": "Toate sursele",
+    "allProperties": "Toate proprietatile",
+    "calendarLoadError": "Nu am putut incarca datele calendarului.",
+    "calendarNoProperties": "Nu exista apartamente inca. Adauga primul apartament.",
+    "calendarNoAssignedProperties": "Nu ai apartamente asignate. Cere administratorului sa-ti dea acces.",
+    "noReservations": "Nu exista rezervari in acest interval.",
+    "goToApartments": "Mergi la apartamente",
+    "showCancelled": "Arata anulate",
+    "reservationDetails": "Detalii rezervare",
+    "close": "Inchide",
+    "client": "Client",
+    "property": "Proprietate",
+    "status": "Status",
+    "source": "Sursa",
+    "dates": "Date",
+    "notes": "Note",
+    "syncedFrom": "Sincronizat din",
+    "conflict": "Conflict",
+    "editSoon": "Editare (curand)",
+    "cancelSoon": "Anulare (curand)",
+    "moveSoon": "Mutare (curand)",
+    "zoom": "Zoom",
+    "copyLink": "Copiaza link",
+    "copied": "Copiat",
+    "allGroups": "Toate grupurile",
+    "calendarMicrocopy": "Click pe o celula goala pentru a adauga o rezervare. Drag pentru mutare (in curand).",
+    "noCleaningsScheduled": "Nu exista curatenii programate",
+    "createManualCleaning": "Creeaza curatenie manuala",
+    "manualCleaningSoon": "Fluxul de curatenie manuala va fi disponibil in curand.",
+    "saved": "Salvat",
+    "error": "Ceva nu a mers bine",
+    "verified": "Verificat",
+    "notVerified": "Neverificat",
+    "providerLocal": "Local",
+    "providerGoogle": "Google",
+    "providerBoth": "Local + Google",
+    "connectGoogleAccount": "Conecteaza contul Google",
+    "comingSoon": "In curand",
+    "deleteConfirm": "Sigur vrei sa stergi?",
+    "refresh": "Reincarca"
+  },
+  "calendar": {
+    "title": "Calendar",
+    "today": "Astazi",
+    "prev": "Anterior",
+    "next": "Urmator",
+    "newReservation": "Rezervare noua",
+    "editReservation": "Editeaza rezervarea",
+    "cancelReservation": "Anuleaza rezervarea",
+    "endDateHelp": "Data de sfarsit este ziua de checkout (exclusiva).",
+    "filters": "Filtre",
+    "showCancelled": "Arata anulate",
+    "noReservations": "Nu exista rezervari in acest interval.",
+    "noProperties": "Nu exista apartamente inca. Adauga primul apartament.",
+    "noAssigned": "Nu ai apartamente asignate. Cere administratorului sa-ti dea acces."
+  },
+  "reservations": {
+    "title": "Rezervari",
+    "create": "Creeaza rezervare",
+    "edit": "Editeaza rezervarea",
+    "cancel": "Anuleaza rezervarea"
+  },
+  "cleanings": {
+    "title": "Curatenie",
+    "empty": "Nu exista curatenii programate",
+    "markDone": "Marcheaza facuta",
+    "markTodo": "Marcheaza de facut"
+  },
+  "billing": {
+    "limitWarning": "Ai depasit limita planului. Poti face upgrade mai tarziu."
+  },
+  "groups": {
+    "title": "Grupuri",
+    "add": "Adauga grup",
+    "none": "Fara grup"
+  },
+  "support": {
+    "title": "Suport",
+    "desc": "Pentru ajutor, contacteaza echipa noastra la:"
+  },
+  "status": {
+    "CONFIRMED": "Confirmat",
+    "PENDING": "In asteptare",
+    "CANCELLED": "Anulat",
+    "BLOCKED": "Blocat",
+    "TODO": "De facut",
+    "DONE": "Facut"
+  },
+  "actions": {
+    "add": "Adauga",
+    "edit": "Editeaza",
+    "save": "Salveaza",
+    "cancel": "Anuleaza",
+    "delete": "Sterge",
+    "export": "Export CSV",
+    "loadDemo": "Incarca date demo",
+    "skip": "Sari",
+    "create": "Creeaza",
+    "search": "Cauta",
+    "back": "Inapoi la calendar",
+    "openInCalendar": "Deschide in calendar"
+  },
+  "errors": {
+    "CONFLICT_OVERLAP": "Rezervarea se suprapune cu una existenta.",
+    "FORBIDDEN": "Nu ai permisiunea pentru aceasta pagina.",
+    "overlap": "Rezervarea se suprapune cu una existenta.",
+    "required": "Camp obligatoriu.",
+    "invalidDate": "Interval de date invalid.",
+    "validation": "Verifica campurile formularului.",
+    "unauthorized": "Sesiunea a expirat. Autentifica-te din nou.",
+    "forbidden": "Nu ai permisiunea pentru aceasta pagina.",
+    "notFound": "Pagina nu a fost gasita.",
+    "EMAIL_NOT_VERIFIED": "Email neverificat. Verifica emailul inainte de autentificare.",
+    "ORG_PENDING_APPROVAL": "Asociatia este in asteptare. Activarea contului se face dupa aprobarea superadminului.",
+    "INVALID_CREDENTIALS": "Email sau parola invalide.",
+    "WEAK_PASSWORD": "Parola este prea slaba.",
+    "INVALID_TOKEN": "Token invalid.",
+    "TOKEN_EXPIRED": "Token expirat.",
+    "INVITE_INVALID": "Link de invitatie invalid.",
+    "INVITE_EXPIRED": "Link de invitatie expirat.",
+    "INVITE_ALREADY_USED": "Invitatia a fost deja folosita."
+  },
+  "team": {
+    "title": "Echipa / Utilizatori",
+    "description": "Gestioneaza membrii organizatiei si invitatiile.",
+    "invite": "Invita",
+    "addUser": "Adauga utilizator",
+    "email": "Email",
+    "inviteModalTitle": "Invita utilizator",
+    "inviteSent": "Link de invitatie creat",
+    "copyLink": "Copiaza link",
+    "invitesList": "Invitatii",
+    "statusActive": "Activa",
+    "statusExpired": "Expirata",
+    "statusAccepted": "Acceptata",
+    "revoke": "Revoca",
+    "createUserTitle": "Creeaza utilizator echipa",
+    "assignedProperties": "proprietati asignate",
+    "toggleRole": "Schimba rol",
+    "assignProperties": "Asigneaza proprietati",
+    "resetPassword": "Reseteaza parola",
+    "tempPassword": "Parola temporara",
+    "managedByInvite": "Foloseste flow-ul de invitatie pentru membri noi",
+    "page": "Pagina",
+    "cancel": "Anuleaza",
+    "create": "Creeaza",
+    "save": "Salveaza",
+    "acceptInviteTitle": "Accepta invitatia",
+    "acceptInviteBody": "Seteaza parola pentru a intra in organizatie.",
+    "acceptInviteSubmit": "Intra in organizatie",
+    "password": "Parola",
+    "confirmPassword": "Confirma parola",
+    "backToLogin": "Inapoi la login"
+  },
+  "auth": {
+    "titleLogin": "Autentificare",
+    "titleRegister": "Creeaza cont",
+    "subtitleLogin": "Calendar Proprietati",
+    "subtitleRegister": "Incepe sa folosesti Espace PMS in cateva secunde",
+    "orgName": "Nume organizatie",
+    "email": "Email",
+    "password": "Parola",
+    "firstName": "Prenume",
+    "lastName": "Nume",
+    "submitLogin": "Autentificare",
+    "submitRegister": "Creeaza cont",
+    "googleDisabled": "Continua cu Google (curand)",
+    "newHere": "Esti nou aici?",
+    "alreadyHaveAccount": "Ai deja cont?",
+    "register": "Creeaza cont",
+    "login": "Autentificare",
+    "verifyEmail": "Verifica email",
+    "forgot": "Ai uitat parola",
+    "forgotBody": "Introdu emailul pentru a primi linkul de resetare.",
+    "reset": "Reseteaza parola",
+    "resetBody": "Seteaza o parola noua pentru contul tau.",
+    "submitReset": "Actualizeaza parola",
+    "checkEmail": "Verifica emailul",
+    "checkEmailTitle": "Verifica emailul",
+    "checkEmailBody": "Daca nu gasesti emailul, verifica folderul Spam.",
+    "emailVerified": "Email verificat",
+    "passwordUpdated": "Parola actualizata",
+    "ifAccountExists": "Daca acest cont exista, am trimis un link de resetare.",
+    "resendVerification": "Retrimite verificarea",
+    "resend": "Retrimite verificarea",
+    "sendResetLink": "Trimite link resetare",
+    "newPassword": "Parola noua",
+    "confirmPassword": "Confirma parola",
+    "backToLogin": "Inapoi la login"
+  },
+  "form": {
+    "name": "Nume",
+    "code": "Cod",
+    "phone": "Telefon",
+    "email": "Email",
+    "startDate": "Data inceput",
+    "endDate": "Data sfarsit",
+    "endDateCheckout": "Data sfarsit (checkout)",
+    "status": "Status",
+    "notes": "Note",
+    "source": "Sursa",
+    "property": "Proprietate",
+    "guestName": "Nume oaspete",
+    "address": "Adresa",
+    "basePrice": "Pret de baza",
+    "cleaningFee": "Taxa curatenie",
+    "rooms": "Camere",
+    "save": "Salveaza",
+    "cancel": "Anuleaza"
+  },
+  "pages": {
+    "properties": {
+      "title": "Apartamente",
+      "desc": "Administreaza lista de apartamente."
+    },
+    "clients": {
+      "title": "Clienti",
+      "desc": "Lista de oaspeti cu cautare si editare rapida."
+    },
+    "reservations": {
+      "title": "Rezervari",
+      "desc": "Urmareste si filtreaza rezervarile."
+    },
+    "cleanings": {
+      "title": "Curatenie",
+      "desc": "Agenda curateniilor in ziua checkout."
+    },
+    "settings": {
+      "title": "Setari",
+      "desc": "Preferinte organizatie si profil.",
+      "organization": "Organizatie",
+      "profile": "Profilul meu",
+      "sendFeedback": "Trimite feedback",
+      "sendFeedbackDesc": "Trimite idei, bug-uri sau sugestii direct din aplicatie.",
+      "feedbackSubject": "Subiect",
+      "feedbackMessage": "Mesaj",
+      "feedbackInbox": "Inbox feedback",
+      "supportTitle": "Suport",
+      "supportDesc": "Pentru ajutor, contacteaza echipa noastra la:",
+      "activityTitle": "Activitate",
+      "activityDesc": "Actiuni recente din organizatie si jurnal audit.",
+      "activityEmpty": "Nu exista activitate inca.",
+      "openActivity": "Deschide jurnalul de activitate",
+      "adminOnly": "Doar administratorii pot accesa aceasta sectiune.",
+      "permissions": "Matrice permisiuni",
+      "languageRo": "Romana (RO)",
+      "languageRu": "Rusa (RU)",
+      "languageEn": "Engleza (EN)",
+      "firstName": "Prenume",
+      "lastName": "Nume",
+      "weekStartMonday": "Saptamana incepe luni",
+      "weekStartSunday": "Saptamana incepe duminica",
+      "terms": "Termeni",
+      "privacy": "Confidentialitate"
+    }
+  },
+  "manager": {
+    "title": "Manager",
+    "subtitleToday": "Azi: {date}",
+    "kpi": {
+      "assigned": "Apartamente asignate",
+      "checkins": "Check-in astazi",
+      "checkouts": "Check-out astazi",
+      "cleanings": "Curatenii astazi"
+    },
+    "today": {
+      "checkins": "Check-in astazi",
+      "checkouts": "Check-out astazi",
+      "cleanings": "Curateniile de azi"
+    },
+    "upcoming": {
+      "title": "Urmatoarele 7 zile"
+    },
+    "actions": {
+      "openCalendar": "Deschide calendarul",
+      "openCleanings": "Deschide curateniile",
+      "refresh": "Reincarca",
+      "copyDailyReport": "Copiaza raportul zilnic"
+    },
+    "views": {
+      "today": "Azi",
+      "tomorrow": "Maine",
+      "week": "Urmatoarele 7 zile"
+    },
+    "report": {
+      "title": "Raport {date}",
+      "copied": "Copiat",
+      "lines": {
+        "assigned": "- Apartamente asignate: {value}",
+        "checkins": "- Check-in azi: {value}",
+        "checkouts": "- Check-out azi: {value}",
+        "cleanings": "- Curatenii: {done}/{total}",
+        "upcoming": "- Urmatoarele 7 zile: {value} rezervari"
+      }
+    },
+    "empty": {
+      "none": "Nicio sarcina azi",
+      "upcoming": "Nicio rezervare urmatoare"
+    }
+  },
+  "owner": {
+    "title": "Cabinet proprietar",
+    "subtitle": "Asociatia:",
+    "cards": {
+      "monthlyFee": "Taxa lunara",
+      "debt": "Datorii",
+      "repairFund": "Fond reparatii"
+    },
+    "annualSummary": "Fisa de sinteza anuala",
+    "noSummary": "Nu exista inca o fisa publicata.",
+    "year": "An",
+    "admin": "Administrator",
+    "budget": "Buget total",
+    "expenses": "Cheltuieli totale",
+    "summaryDebt": "Datorii totale",
+    "myUnits": "Unitatile mele",
+    "noUnits": "Nu ai unitati atribuite inca.",
+    "unit": "Unitate",
+    "monthlyFee": "Taxa lunara",
+    "debt": "Datorie",
+    "announcements": "Anunturi",
+    "noAnnouncements": "Nu exista anunturi."
+  },
+  "chat": {
+    "title": "Chat asociatie",
+    "subtitle": "Comunicare rapida intre membrii asociatiei, in timp real.",
+    "roomLabel": "Canal comun",
+    "loadOlder": "Mesaje mai vechi",
+    "empty": "Inca nu exista mesaje. Scrie primul mesaj.",
+    "placeholder": "Scrie un mesaj... (Enter trimite, Shift+Enter rand nou)",
+    "send": "Trimite"
+  },
+  "marketing": {
+    "nav": {
+      "brand": "Espace Condo",
+      "features": "Functionalitati",
+      "pricing": "Preturi",
+      "contact": "Contact",
+      "requestDemo": "Cere demo",
+      "tryDemo": "Incearca demo",
+      "footerText": "Espace Condo - platforma SaaS pentru asociatii de proprietari din Romania si Moldova.",
+      "footerSupport": "Suport: contact@espace.md"
+    },
+    "hero": {
+      "title": "Administrarea blocului, simplificata.",
+      "subtitle": "Plati, datorii, sesizari, anunturi si rapoarte intr-o singura platforma.",
+      "ctaDemo": "Cere demo",
+      "ctaTryDemo": "Incearca demo",
+      "ctaFeatures": "Vezi functionalitati"
+    },
+    "problem": {
+      "title": "Probleme reale din teren",
+      "items": {
+        "excel": "Excel-uri diferite pentru fiecare bloc sau administrator.",
+        "chaos": "Haos in apeluri si mesaje despre datorii si sesizari.",
+        "transparency": "Lipsa de transparenta pentru comitet si locatari.",
+        "timeWaste": "Timp pierdut cu calcule manuale si situatii neclare."
+      }
+    },
+    "solution": {
+      "title": "Solutia Espace Condo",
+      "text": "O platforma SaaS moderna pentru asociatii din Romania si Moldova, cu procese digitale complete de administrare, colectare, comunicare si raportare."
+    },
+    "features": {
+      "title": "Functionalitati cheie",
+      "items": {
+        "apartments": { "title": "Evidenta apartamente", "text": "Structura completa pe bloc, scara si apartament, cu date rezidenti actualizate." },
+        "payments": { "title": "Plati si datorii", "text": "Urmaresti solduri, incasari si restante intr-un singur loc, fara Excel." },
+        "notifications": { "title": "Notificari automate", "text": "Trimite remindere pentru datorii si comunicari importante catre locatari." },
+        "issues": { "title": "Sesizari", "text": "Locatarii deschid sesizari, iar administratorul urmareste statusul pana la rezolvare." },
+        "votes": { "title": "Votari", "text": "Organizezi voturi si adunari generale transparent, cu istoric centralizat." },
+        "reports": { "title": "Rapoarte", "text": "Rapoarte clare pentru comitet, cenzor si rezidenti, gata de export." },
+        "portal": { "title": "Portal locatar", "text": "Fiecare locatar vede facturi, plati, anunturi si statusul sesizarilor proprii." }
+      }
+    },
+    "pricing": {
+      "title": "Preturi flexibile pentru fiecare asociatie",
+      "items": {
+        "trial": "Trial 30 zile, fara cost initial.",
+        "custom": "Pret custom in functie de dimensiunea asociatiei.",
+        "models": "Modele de tarifare: per apartament / per m2 / tarif fix."
+      },
+      "cta": "Vezi detalii de pret"
+    },
+    "contact": {
+      "title": "Solicita demo pentru asociatia ta",
+      "subtitle": "Spune-ne cateva detalii, iar echipa noastra te contacteaza cu o prezentare adaptata."
+    },
+    "form": {
+      "name": "Nume complet",
+      "phone": "Telefon",
+      "email": "Email",
+      "associationName": "Numele asociatiei",
+      "apartmentsCount": "Numar apartamente",
+      "preferredDate": "Data preferata",
+      "preferredTime": "Ora preferata",
+      "message": "Mesaj (optional)",
+      "submit": "Trimite cererea",
+      "sending": "Se trimite...",
+      "success": "Cererea a fost trimisa. Te contactam in curand.",
+      "error": "Nu am putut trimite cererea."
+    },
+    "pricingPage": {
+      "title": "Preturi pentru asociatii de proprietari",
+      "subtitle": "Oferim pachete flexibile, adaptate dimensiunii asociatiei, cu onboarding asistat si suport local.",
+      "cards": {
+        "trial": { "label": "Trial", "value": "30 zile", "text": "Testezi platforma complet, fara risc." },
+        "custom": { "label": "Custom", "value": "Per asociatie", "text": "Calculat in functie de numar de apartamente si nevoi." },
+        "models": { "label": "Modele tarifare", "value": "3 optiuni", "text": "Per apartament / per m2 / tarif fix." }
+      },
+      "cta": "Cere demo personalizat"
+    },
+    "featuresPage": {
+      "title": "Functionalitati complete pentru administrare moderna",
+      "subtitle": "Tot ce ai nevoie pentru o administrare eficienta, transparenta si profesionista.",
+      "items": {
+        "apartments": { "title": "Evidenta apartamente", "text": "Structura completa pe bloc, scara, apartament si locatar." },
+        "payments": { "title": "Plati si datorii", "text": "Gestionare rapida facturi, incasari si restante." },
+        "notifications": { "title": "Notificari automate", "text": "Remindere pentru datorii, anunturi si evenimente importante." },
+        "issues": { "title": "Sesizari", "text": "Flux clar de la raportare pana la rezolvare." },
+        "votes": { "title": "Votari", "text": "Consultari transparente pentru decizii de asociatie." },
+        "reports": { "title": "Rapoarte", "text": "Situatii financiare si operationale intr-un format clar." },
+        "portal": { "title": "Portal locatar", "text": "Acces simplu pentru fiecare locatar la datele proprii." }
+      }
+    },
+    "contactPage": {
+      "title": "Contact",
+      "subtitle": "Lucram cu asociatii din Moldova si Romania. Daca vrei o discutie rapida, completeaza formularul si revenim cu un apel.",
+      "detailsTitle": "Date de contact",
+      "email": "Email: contact@espace.md",
+      "phone": "Telefon: +373 60 000 000",
+      "hours": "Program: Luni - Vineri, 09:00 - 18:00",
+      "formTitle": "Lasa-ne un mesaj"
+    },
+    "demoPage": {
+      "title": "Cere demo",
+      "subtitle": "Completeaza formularul si iti prezentam platforma in functie de specificul asociatiei tale."
+    }
+  },
+  "help": {
+    "title": "Help Center",
+    "subtitle": "Ghiduri si articole pentru administratori si locatari.",
+    "searchPlaceholder": "Cauta articol...",
+    "loading": "Se incarca...",
+    "updatedAt": "Actualizat",
+    "articleNotFound": "Articolul nu a fost gasit.",
+    "backToCenter": "Inapoi la help center",
+    "backToArticles": "Inapoi la articole"
+  },
+  "helpAdmin": {
+    "title": "Help articles",
+    "subtitle": "Gestioneaza documentatia interna pentru utilizatori.",
+    "newArticle": "Articol nou",
+    "editArticle": "Editeaza articol",
+    "titleField": "Titlu",
+    "slug": "Slug",
+    "content": "Continut",
+    "published": "Publicat",
+    "draft": "Draft",
+    "articles": "Articole",
+    "create": "Creeaza",
+    "update": "Actualizeaza",
+    "edit": "Editeaza",
+    "delete": "Sterge",
+    "cancel": "Anuleaza",
+    "saving": "Se salveaza...",
+    "deleting": "Se sterge...",
+    "loading": "Se incarca..."
+  }
+}

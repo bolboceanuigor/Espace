@@ -1,0 +1,46 @@
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useAuth } from '@/context/AuthContext';
+
+export default function SignupPage() {
+  const router = useRouter();
+  const { isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    if (isAuthenticated) router.replace('/');
+  }, [isAuthenticated, router]);
+
+  if (isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <p className="text-gray-600">Redirecting...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full text-center space-y-6">
+        <div>
+          <div className="flex justify-center">
+            <div className="w-12 h-12 bg-black rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold text-xl">E</span>
+            </div>
+          </div>
+          <h1 className="mt-6 text-xl font-semibold tracking-tight text-gray-800">Espace PMS</h1>
+          <p className="mt-2 text-gray-600">Public signup is disabled.</p>
+          <p className="text-sm text-gray-500">Only existing users can sign in. Contact your administrator for access.</p>
+        </div>
+        <Link
+          href="/login"
+          className="inline-flex justify-center py-3 px-6 rounded-lg text-sm font-medium text-white bg-black hover:opacity-90"
+        >
+          Go to Sign in
+        </Link>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,2923 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPERADMIN
+  SUPER_ADMIN
+  ADMIN
+  MANAGER
+  TENANT
+  RESIDENT
+}
+
+enum PlatformRole {
+  SUPER_ADMIN
+  ORGANIZATION_USER
+  RESIDENT
+}
+
+enum OrganizationMemberRole {
+  ORG_ADMIN
+  ACCOUNTANT
+  MANAGER
+  TECHNICIAN
+  OPERATOR
+}
+
+enum OrganizationMemberStatus {
+  ACTIVE
+  INVITED
+  DISABLED
+}
+
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+  BOTH
+}
+
+enum ReservationStatus {
+  CONFIRMED
+  PENDING
+  CANCELLED
+  BLOCKED
+}
+
+enum CleaningStatus {
+  TODO
+  DONE
+  CANCELLED
+}
+
+enum PlanCode {
+  FREE
+  TRIAL
+  STARTER
+  PRO
+}
+
+enum BillingType {
+  PER_APARTMENT
+  PER_M2
+  FIXED
+}
+
+enum BillingCurrency {
+  MDL
+  EUR
+  USD
+}
+
+enum OrganizationSubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  SUSPENDED
+  CANCELLED
+}
+
+enum OrganizationInvoiceStatus {
+  UNPAID
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum ContentImportance {
+  NORMAL
+  IMPORTANT
+  URGENT
+}
+
+enum ContentTargetType {
+  ORGANIZATION
+  BUILDING
+  STAIRCASE
+  APARTMENT
+}
+
+enum AnnouncementCommentStatus {
+  VISIBLE
+  HIDDEN
+  DELETED
+}
+
+enum AnnouncementContentType {
+  ANNOUNCEMENT
+  DOCUMENT
+  MAINTENANCE
+  VOTE
+  SYSTEM_NOTICE
+}
+
+enum NotificationType {
+  ANNOUNCEMENT
+  DOCUMENT
+  ISSUE
+  PAYMENT
+  INVOICE
+  VOTE
+  MAINTENANCE
+  SYSTEM
+}
+
+enum NotificationChannelType {
+  IN_APP
+  EMAIL
+  TELEGRAM
+  SMS
+}
+
+enum NotificationJobStatus {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+}
+
+enum EmailIntegrationProvider {
+  SMTP
+  SENDGRID
+  OTHER
+}
+
+enum SmsIntegrationProvider {
+  TWILIO
+  OTHER
+}
+
+enum MaintenanceTaskType {
+  PLANNED
+  REACTIVE
+}
+
+enum MaintenanceTaskStatus {
+  NEW
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum MaintenanceEventStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ChatConversationType {
+  SUPPORT_CHAT
+  COMMUNITY_CHAT
+}
+
+enum ChatConversationStatus {
+  OPEN
+  PENDING
+  CLOSED
+}
+
+enum ChatMessageType {
+  TEXT
+  FILE
+  SYSTEM
+}
+
+enum ChatMessageStatus {
+  VISIBLE
+  HIDDEN
+  DELETED
+}
+
+enum MaintenanceTaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ExpenseCategory {
+  REPAIR
+  CLEANING
+  UTILITIES
+  SALARY
+  OTHER
+}
+
+enum ExpensePaidBy {
+  CASH
+  BANK
+  CARD
+}
+
+enum IssueCategory {
+  WATER
+  ELECTRICITY
+  ELEVATOR
+  CLEANING
+  HEATING
+  SECURITY
+  OTHER
+}
+
+enum IssueLocationType {
+  APARTMENT
+  BUILDING
+  STAIRCASE
+  COMMON_AREA
+}
+
+enum IssueStatus {
+  NEW
+  IN_PROGRESS
+  WAITING
+  RESOLVED
+  CLOSED
+}
+
+enum IssuePriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  CARD
+  ONLINE
+}
+
+enum PaymentStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+  CANCELLED
+}
+
+enum PaymentProvider {
+  MAIB
+  PAYNET
+  OPLATA
+  MANUAL_BANK_TRANSFER
+  CASH
+}
+
+enum FileAssetEntityType {
+  DOCUMENT
+  ISSUE_ATTACHMENT
+  EXPENSE_ATTACHMENT
+  LOGO
+  INVOICE_PDF
+  RECEIPT_PDF
+  OTHER
+}
+
+enum FileStorageProvider {
+  LOCAL
+  S3
+  R2
+  OTHER
+}
+
+enum PaymentIntentStatus {
+  CREATED
+  REDIRECTED
+  PAID
+  FAILED
+  EXPIRED
+  CANCELLED
+}
+
+enum VoteTargetType {
+  ORGANIZATION
+  BUILDING
+  STAIRCASE
+}
+
+enum VoteMethod {
+  BY_APARTMENT
+  BY_AREA_M2
+}
+
+enum VoteSessionStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+  PUBLISHED
+}
+
+enum ImportType {
+  BUILDINGS
+  STAIRCASES
+  APARTMENTS
+  RESIDENTS
+  INITIAL_BALANCES
+}
+
+enum ImportJobStatus {
+  UPLOADED
+  VALIDATED
+  FAILED
+  IMPORTED
+}
+
+enum ImportedPaymentSource {
+  INFOCOM
+  BANK_STATEMENT
+  MAIB_BANK_STATEMENT
+  VICTORIABANK_STATEMENT
+  MOLDINDCONBANK_STATEMENT
+  OPLATA
+  PAYNET
+  MAIB
+  OTHER_BANK_STATEMENT
+  OTHER
+}
+
+enum ImportedPaymentBatchStatus {
+  UPLOADED
+  PARSED
+  RECONCILED
+  FAILED
+}
+
+enum ImportedPaymentStatus {
+  NEW
+  MATCHED
+  NEEDS_REVIEW
+  DUPLICATE
+  IGNORED
+}
+
+enum PaymentMatchStatus {
+  AUTO_MATCHED
+  NEEDS_REVIEW
+  CONFIRMED
+  REJECTED
+}
+
+enum ResidentInvoiceStatus {
+  DRAFT
+  ISSUED
+  PARTIAL
+  PAID
+  CANCELLED
+}
+
+enum ReminderType {
+  EMAIL
+  SMS
+  TELEGRAM
+  IN_APP
+}
+
+enum ReminderStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum ScheduledJobStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum ReminderTriggerType {
+  BEFORE_DUE_DATE
+  AFTER_DUE_DATE
+  DEBT_OVER_AMOUNT
+  MONTHLY_UNPAID
+}
+
+enum ReminderLogStatus {
+  SENT
+  FAILED
+  SKIPPED
+}
+
+enum OnboardingStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum FeedbackType {
+  BUG
+  IDEA
+  QUESTION
+  COMPLAINT
+}
+
+enum FeedbackStatus {
+  NEW
+  REVIEWED
+  IN_PROGRESS
+  RESOLVED
+  REJECTED
+}
+
+enum FeedbackPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum FeatureRequestCategory {
+  PAYMENTS
+  REPORTS
+  MOBILE
+  INTEGRATIONS
+  UX
+  OTHER
+}
+
+enum FeatureRequestStatus {
+  NEW
+  UNDER_REVIEW
+  PLANNED
+  IN_PROGRESS
+  RELEASED
+  REJECTED
+}
+
+enum FeatureRequestVisibility {
+  INTERNAL
+  PUBLIC
+}
+
+enum ReleaseNoteTargetRole {
+  ALL
+  SUPER_ADMIN
+  ADMIN
+  RESIDENT
+}
+
+enum EmailTemplateTargetRole {
+  ADMIN
+  RESIDENT
+  TEAM
+  ALL
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  DEMO_SCHEDULED
+  TRIAL_STARTED
+  WON
+  LOST
+}
+
+enum LeadSource {
+  WEBSITE
+  MANUAL
+  REFERRAL
+  FACEBOOK
+  OTHER
+}
+
+enum LeadActivityType {
+  CALL
+  EMAIL
+  MEETING
+  DEMO
+  NOTE
+}
+
+enum DemoRequestStatus {
+  NEW
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum ClientNoteType {
+  CALL
+  MEETING
+  SUPPORT
+  SALES
+  BILLING
+  OTHER
+}
+
+enum SuperAdminTaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+enum SuperAdminTaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum SuperAdminTaskRelatedType {
+  ORGANIZATION
+  LEAD
+  DEMO_REQUEST
+  FEATURE_REQUEST
+  SUPPORT
+}
+
+enum OrganizationPaymentMethod {
+  CASH
+  BANK_TRANSFER
+  CARD
+  OTHER
+}
+
+enum OrganizationPaymentStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+}
+
+enum PreferredLanguage {
+  RO
+  RU
+  EN
+}
+
+enum SystemErrorSource {
+  BACKEND
+  FRONTEND
+  JOB
+  WEBHOOK
+  PAYMENT_PROVIDER
+}
+
+enum SystemErrorLevel {
+  INFO
+  WARNING
+  ERROR
+  CRITICAL
+}
+
+enum QACheckStatus {
+  NOT_TESTED
+  PASSED
+  FAILED
+}
+
+enum BetaReadinessStatus {
+  NOT_CHECKED
+  PASSED
+  FAILED
+}
+
+enum BetaLaunchStatus {
+  NOT_READY
+  READY_FOR_BETA
+  LIVE
+}
+
+enum HelpTargetRole {
+  ALL
+  SUPER_ADMIN
+  ADMIN
+  RESIDENT
+}
+
+enum HelpCategory {
+  GETTING_STARTED
+  PAYMENTS
+  INVOICES
+  RESIDENTS
+  ISSUES
+  SETTINGS
+  OTHER
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  CANCELLED
+}
+
+enum ResidentType {
+  OWNER
+  TENANT
+  CONTACT
+}
+
+enum Channel {
+  AIRBNB
+  BOOKING
+  DIRECT
+}
+
+model Organization {
+  id                   String    @id @default(uuid())
+  name                 String
+  legalName            String?
+  fiscalCode           String?
+  address              String?
+  phone                String?
+  email                String?
+  website              String?
+  bankName             String?
+  bankAccountIban      String?
+  bankSwift            String?
+  paymentInstructions  String?
+  treasurerName        String?
+  administratorName    String?
+  logoUrl              String?
+  primaryColor         String?
+  invoicePrefix        String?
+  receiptPrefix        String?
+  defaultCurrency      BillingCurrency @default(MDL)
+  status               String    @default("ACTIVE")
+  subscriptionStatus   String    @default("TRIAL")
+  subscriptionPlan     String    @default("FREE")
+  ownerAdminId         String?
+  onboardingCompleted  Boolean   @default(false)
+  onboardingStatus     OnboardingStatus @default(NOT_STARTED)
+  onboardingStep       String?
+  onboardingCompletedAt DateTime?
+  betaAccessEnabled    Boolean   @default(false)
+  isDemo               Boolean   @default(false)
+  defaultLocale        String    @default("ro")
+  weekStart            String    @default("MONDAY")
+  isActive             Boolean   @default(true)
+  createdByAgentId     String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  users              User[]
+  members            OrganizationMember[]
+  teamInvitations    TeamInvitation[]
+  suppliers          Supplier[]
+  maintenanceTasks   MaintenanceTask[]
+  maintenanceEvents  MaintenanceEvent[]
+  expenses           Expense[]
+  notifications      Notification[]
+  notificationJobs   NotificationJob[]
+  notificationPreferences NotificationPreference[]
+  telegramIntegration TelegramIntegration?
+  emailIntegration    EmailIntegration?
+  smsIntegration      SMSIntegration?
+  settings           OrganizationSetting?
+  properties         Property[]
+  propertyGroups     PropertyGroup[]
+  clients            Client[]
+  reservations       Reservation[]
+  cleanings          Cleaning[]
+  subscription       Subscription?
+  usageMeters        UsageMeter[]
+  propertyChannels   PropertyChannel[]
+  syncConflicts      SyncConflict[]
+  invoices           Invoice[]
+  auditLogs          AuditLog[]
+  feedbacks          Feedback[]
+  featureRequests    FeatureRequest[]
+  clientNotes        ClientNote[]
+  leads              Lead[]
+  chatMessages       AssociationChatMessage[]
+  invitations        Invitation[]
+  condoBuildings     CondoBuilding[]
+  condoUnits         CondoUnit[]
+  annualSummaries    AnnualSummary[]
+  announcements      CondoAnnouncement[]
+  buildings          Building[]
+  staircases         Staircase[]
+  apartments         Apartment[]
+  residentProfiles   ResidentProfile[]
+  payments           Payment[]
+  issues             Issue[]
+  publicAnnouncements Announcement[]
+  announcementComments AnnouncementComment[]
+  documents          Document[]
+  voteSessions       VoteSession[]
+  votes              Vote[]
+  importJobs         ImportJob[]
+  importedPaymentBatches ImportedPaymentBatch[]
+  importedPayments      ImportedPayment[]
+  paymentMatches        PaymentMatch[]
+  importMappingTemplates ImportMappingTemplate[]
+  initialBalances    InitialBalance[]
+  monthlyCharges     MonthlyCharge[]
+  residentInvoices   ResidentInvoice[]
+  receipts           Receipt[]
+  paymentReminders   PaymentReminder[]
+  reminderRules      ReminderRule[]
+  apartmentReminderSettings ApartmentReminderSettings[]
+  reminderLogs       ReminderLog[]
+  onboardingChecklist OnboardingChecklist?
+  supportSessions      SupportSession[]
+  paymentIntents     PaymentIntent[]
+  paymentProviderConfigs PaymentProviderConfig[]
+  subscriptionContracts OrganizationSubscription[]
+  billingInvoices      OrganizationInvoice[]
+  billingPayments      OrganizationPayment[]
+  limits             OrganizationLimits?
+  privacySettings    PrivacySettings?
+  fileAssets         FileAsset[]
+  chatConversations  ChatConversation[]
+  supportChatMessages ChatMessage[]
+  pushSubscriptions  PushSubscription[]
+  systemErrorLogs    SystemErrorLog[]
+  createdByAgent     User?       @relation("CreatedByAgent", fields: [createdByAgentId], references: [id], onDelete: SetNull)
+  ownerAdmin        User?        @relation("OrganizationOwnerAdmin", fields: [ownerAdminId], references: [id], onDelete: SetNull)
+
+  @@index([createdByAgentId])
+  @@index([ownerAdminId])
+  @@map("organizations")
+}
+
+model PrivacySettings {
+  id                               String   @id @default(uuid())
+  organizationId                   String   @unique
+  showResidentNamesInCommunity     Boolean  @default(false)
+  showApartmentNumbersInCommunity  Boolean  @default(false)
+  allowResidentsToContactEachOther Boolean  @default(false)
+  showIssueReporterName            Boolean  @default(false)
+  showVoteParticipants             Boolean  @default(false)
+  createdAt                        DateTime @default(now())
+  updatedAt                        DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("privacy_settings")
+}
+
+model OrganizationLimits {
+  id             String   @id @default(uuid())
+  organizationId String   @unique
+  maxApartments  Int?
+  maxBuildings   Int?
+  maxTeamMembers Int?
+  maxResidents   Int?
+  maxStorageMb   Int?
+  modulesJson    Json
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("organization_limits")
+}
+
+model FileAsset {
+  id               String              @id @default(uuid())
+  organizationId   String?
+  uploadedByUserId String
+  entityType       FileAssetEntityType
+  entityId         String?
+  fileName         String
+  fileUrl          String
+  mimeType         String
+  sizeBytes        Int
+  storageProvider  FileStorageProvider @default(LOCAL)
+  createdAt        DateTime            @default(now())
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  uploadedBy   User          @relation("FileAssetUploadedByUser", fields: [uploadedByUserId], references: [id], onDelete: Cascade)
+  chatMessages ChatMessage[]
+
+  @@index([organizationId, entityType])
+  @@index([entityId])
+  @@index([uploadedByUserId])
+  @@map("file_assets")
+}
+
+model OnboardingChecklist {
+  id                        String   @id @default(uuid())
+  organizationId            String   @unique
+  buildingsCreated          Boolean  @default(false)
+  apartmentsImported        Boolean  @default(false)
+  residentsImported         Boolean  @default(false)
+  tariffsConfigured         Boolean  @default(false)
+  paymentProviderConfigured Boolean  @default(false)
+  firstInvoicesGenerated    Boolean  @default(false)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("onboarding_checklists")
+}
+
+model Feedback {
+  id             String   @id @default(uuid())
+  organizationId String?
+  userId         String
+  userRole       String
+  pageUrl        String?
+  type           FeedbackType
+  title          String
+  message        String
+  status         FeedbackStatus   @default(NEW)
+  priority       FeedbackPriority @default(MEDIUM)
+  screenshotUrl  String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@index([userId, createdAt])
+  @@map("feedback")
+}
+
+model FeatureRequest {
+  id              String                   @id @default(uuid())
+  organizationId  String?
+  createdByUserId String
+  title           String
+  description     String
+  category        FeatureRequestCategory
+  status          FeatureRequestStatus     @default(NEW)
+  visibility      FeatureRequestVisibility @default(INTERNAL)
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  createdBy    User          @relation("FeatureRequestCreatedByUser", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  votes        FeatureVote[]
+
+  @@index([status, category, visibility])
+  @@index([organizationId, createdAt])
+  @@index([createdByUserId, createdAt])
+  @@map("feature_requests")
+}
+
+model FeatureVote {
+  id               String   @id @default(uuid())
+  featureRequestId String
+  userId           String
+  createdAt        DateTime @default(now())
+
+  featureRequest FeatureRequest @relation(fields: [featureRequestId], references: [id], onDelete: Cascade)
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([featureRequestId, userId])
+  @@index([userId, createdAt])
+  @@map("feature_votes")
+}
+
+model ReleaseNote {
+  id         String                @id @default(uuid())
+  title      String
+  content    String
+  version    String?
+  targetRole ReleaseNoteTargetRole @default(ALL)
+  isPublished Boolean              @default(false)
+  publishedAt DateTime?
+  createdAt  DateTime              @default(now())
+  updatedAt  DateTime              @updatedAt
+
+  releaseReads ReleaseNoteRead[]
+
+  @@index([isPublished, targetRole, createdAt])
+  @@map("release_notes")
+}
+
+model ReleaseNoteRead {
+  id            String   @id @default(uuid())
+  releaseNoteId String
+  userId        String
+  readAt        DateTime @default(now())
+
+  releaseNote ReleaseNote @relation(fields: [releaseNoteId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([releaseNoteId, userId])
+  @@index([userId, readAt])
+  @@map("release_note_reads")
+}
+
+model EmailTemplate {
+  id         String                  @id @default(uuid())
+  key        String
+  name       String
+  subject    String
+  body       String
+  targetRole EmailTemplateTargetRole @default(ALL)
+  isDefault  Boolean                 @default(false)
+  createdAt  DateTime                @default(now())
+  updatedAt  DateTime                @updatedAt
+
+  @@index([key, targetRole])
+  @@map("email_templates")
+}
+
+model Lead {
+  id               String     @id @default(uuid())
+  name             String
+  phone            String
+  email            String
+  associationName  String?
+  apartmentsCount  Int?
+  city             String?
+  source           LeadSource @default(WEBSITE)
+  notes            String?
+  status           LeadStatus @default(NEW)
+  organizationId   String?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  activities   LeadActivity[]
+  demoRequests DemoRequest[]
+
+  @@index([status, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([source, createdAt])
+  @@index([city, createdAt])
+  @@map("leads")
+}
+
+model DemoRequest {
+  id              String            @id @default(uuid())
+  leadId          String?
+  name            String
+  phone           String
+  email           String
+  associationName String?
+  apartmentsCount Int?
+  preferredDate   String?
+  preferredTime   String?
+  message         String?
+  status          DemoRequestStatus @default(NEW)
+  scheduledAt     DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  lead Lead? @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([leadId, createdAt])
+  @@index([email, createdAt])
+  @@map("demo_requests")
+}
+
+model ClientNote {
+  id              String         @id @default(uuid())
+  organizationId  String
+  createdByUserId String
+  type            ClientNoteType @default(OTHER)
+  title           String
+  content         String
+  followUpAt      DateTime?
+  followUpDone    Boolean        @default(false)
+  followUpDoneAt  DateTime?
+  followUpReminderSentAt DateTime?
+  isImportant     Boolean        @default(false)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdByUser User         @relation("ClientNoteCreatedBy", fields: [createdByUserId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@index([type, createdAt])
+  @@index([followUpAt])
+  @@index([followUpDone, followUpAt])
+  @@map("client_notes")
+}
+
+model SuperAdminTask {
+  id               String                    @id @default(uuid())
+  title            String
+  description      String?
+  status           SuperAdminTaskStatus      @default(TODO)
+  priority         SuperAdminTaskPriority    @default(MEDIUM)
+  relatedType      SuperAdminTaskRelatedType?
+  relatedId        String?
+  dueDate          DateTime?
+  createdByUserId  String
+  assignedToUserId String?
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+
+  createdByUser User  @relation("SuperAdminTaskCreatedBy", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  assignedToUser User? @relation("SuperAdminTaskAssignedTo", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+
+  @@index([status, priority])
+  @@index([dueDate])
+  @@index([createdByUserId, createdAt])
+  @@index([assignedToUserId, createdAt])
+  @@map("superadmin_tasks")
+}
+
+model QACheck {
+  id           String        @id @default(uuid())
+  key          String        @unique
+  section      String
+  title        String
+  status       QACheckStatus @default(NOT_TESTED)
+  notes        String?
+  lastTestedAt DateTime?
+  testedByUserId String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  testedByUser User? @relation("QACheckTestedBy", fields: [testedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([section, status])
+  @@index([lastTestedAt])
+  @@index([testedByUserId, updatedAt])
+  @@map("qa_checks")
+}
+
+model BetaReadinessCheck {
+  id             String              @id @default(uuid())
+  key            String              @unique
+  title          String
+  status         BetaReadinessStatus @default(NOT_CHECKED)
+  notes          String?
+  isCritical     Boolean             @default(true)
+  lastCheckedAt  DateTime?
+  checkedByUserId String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  checkedByUser User? @relation("BetaReadinessCheckedBy", fields: [checkedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([status, isCritical])
+  @@index([lastCheckedAt])
+  @@map("beta_readiness_checks")
+}
+
+model BetaLaunchConfig {
+  id             String           @id @default("default")
+  launchStatus   BetaLaunchStatus @default(NOT_READY)
+  maintenanceMode Boolean         @default(false)
+  updatedByUserId String?
+  updatedAt      DateTime         @updatedAt
+  createdAt      DateTime         @default(now())
+
+  updatedByUser User? @relation("BetaLaunchUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  @@map("beta_launch_config")
+}
+
+model LeadActivity {
+  id              String           @id @default(uuid())
+  leadId          String
+  type            LeadActivityType
+  content         String
+  createdByUserId String
+  createdAt       DateTime         @default(now())
+
+  lead          Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  createdByUser User @relation(fields: [createdByUserId], references: [id], onDelete: Cascade)
+
+  @@index([leadId, createdAt])
+  @@index([createdByUserId, createdAt])
+  @@map("lead_activities")
+}
+
+model HelpArticle {
+  id          String         @id @default(uuid())
+  title       String
+  slug        String         @unique
+  content     String
+  targetRole  HelpTargetRole @default(ALL)
+  category    HelpCategory   @default(OTHER)
+  isPublished Boolean        @default(false)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([targetRole, isPublished, createdAt])
+  @@index([category, isPublished, createdAt])
+  @@map("help_articles")
+}
+
+model AssociationChatMessage {
+  id             String   @id @default(uuid())
+  organizationId String
+  senderId       String
+  text           String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sender       User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@index([senderId, createdAt])
+  @@map("association_chat_messages")
+}
+
+model Invitation {
+  id              String           @id @default(cuid())
+  organizationId  String
+  email           String
+  phone           String?
+  role            Role             @default(RESIDENT)
+  apartmentId     String?
+  residentType    ResidentType?
+  token           String           @unique
+  status          InvitationStatus @default(PENDING)
+  expiresAt       DateTime
+  invitedByUserId String
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy    User         @relation("UserInvitations", fields: [invitedByUserId], references: [id], onDelete: Cascade)
+  apartment    Apartment?   @relation(fields: [apartmentId], references: [id], onDelete: SetNull)
+
+  @@index([expiresAt])
+  @@index([organizationId, createdAt])
+  @@index([organizationId, email])
+  @@index([organizationId, status])
+  @@map("invitations")
+}
+
+model AuditLog {
+  id             String   @id @default(uuid())
+  organizationId String?
+  userId         String
+  action         String
+  entityType     String
+  entityId       String?
+  description    String
+  oldValuesJson  Json?
+  newValuesJson  Json?
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime @default(now())
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  user         User          @relation("AuditLogUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@index([userId, createdAt])
+  @@index([action, entityType, createdAt])
+  @@map("audit_logs")
+}
+
+model Subscription {
+  id                 String    @id @default(uuid())
+  organizationId     String    @unique
+  planId             String?
+  plan               String    // "starter" | "pro" | "enterprise"
+  status             String    // "TRIAL" | "ACTIVE" | "PAST_DUE" | "CANCELLED" (+ legacy values)
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  price              Float     @default(0)
+  customPrice        Float?    // admin override
+  discountPercent    Float?    @default(0)
+  propertyLimit      Int
+  trialEndsAt        DateTime
+  subscriptionEndsAt DateTime?
+  isActive           Boolean   @default(true)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  planDefinition Plan?      @relation(fields: [planId], references: [id], onDelete: SetNull)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([planId])
+  @@index([organizationId])
+  @@map("subscriptions")
+}
+
+model Plan {
+  id           String    @id @default(uuid())
+  code         PlanCode  @unique
+  name         String
+  priceMonthly Float?
+  currency     String?
+  createdAt    DateTime  @default(now())
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+model UsageMeter {
+  id                    String   @id @default(uuid())
+  organizationId        String
+  date                  DateTime
+  activePropertiesCount Int
+  reservationsCount     Int
+  createdAt             DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, date])
+  @@index([organizationId, date])
+  @@map("usage_meters")
+}
+
+model Invoice {
+  id             String    @id @default(uuid())
+  organizationId String
+  plan           String
+  amount         Float
+  discount       Float     @default(0)
+  finalAmount    Float     @default(0)
+  status         String    // "pending" | "paid" | "failed"
+  issuedAt       DateTime  @default(now())
+  paidAt         DateTime?
+  dueDate        DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("invoices")
+}
+
+model User {
+  id             String    @id @default(uuid())
+  email          String    @unique
+  passwordHash   String?
+  authProvider   AuthProvider @default(LOCAL)
+  googleSub      String?   @unique
+  avatarUrl      String?
+  fullName       String?
+  emailVerifiedAt DateTime?
+  firstName      String?
+  lastName       String?
+  role           Role      @default(MANAGER)
+  platformRole   PlatformRole @default(ORGANIZATION_USER)
+  preferredLanguage PreferredLanguage @default(RO)
+  isActive       Boolean   @default(true)
+  isDemoUser     Boolean   @default(false)
+  onboardingDone Boolean   @default(false)
+  organizationId String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  preference     UserPreference?
+  properties     Property[]
+  propertyAccesses PropertyAccess[]
+  createdOrgs    Organization[] @relation("CreatedByAgent")
+  reservationsCreated Reservation[] @relation("ReservationCreatedBy")
+  reservationsUpdated Reservation[] @relation("ReservationUpdatedBy")
+  cleaningsAssigned   Cleaning[]    @relation("CleaningAssignedTo")
+  propertiesCreated  Property[]   @relation("PropertyCreatedBy")
+  propertiesUpdated  Property[]   @relation("PropertyUpdatedBy")
+  clientsCreated     Client[]    @relation("ClientCreatedBy")
+  clientsUpdated     Client[]    @relation("ClientUpdatedBy")
+  feedbacks          Feedback[]
+  featureRequestsCreated FeatureRequest[] @relation("FeatureRequestCreatedByUser")
+  featureVotes       FeatureVote[]
+  releaseNoteReads   ReleaseNoteRead[]
+  clientNotesCreated ClientNote[] @relation("ClientNoteCreatedBy")
+  superadminTasksCreated SuperAdminTask[] @relation("SuperAdminTaskCreatedBy")
+  superadminTasksAssigned SuperAdminTask[] @relation("SuperAdminTaskAssignedTo")
+  leadActivities     LeadActivity[]
+  chatMessages       AssociationChatMessage[]
+  invitationsCreated Invitation[] @relation("UserInvitations")
+  emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens PasswordResetToken[]
+  condoUnitsOwned    CondoUnit[]          @relation("CondoUnitOwner")
+  annualSummariesCreated AnnualSummary[]  @relation("AnnualSummaryCreatedBy")
+  announcementsCreated CondoAnnouncement[] @relation("CondoAnnouncementCreatedBy")
+  ownerAdminOrganizations Organization[] @relation("OrganizationOwnerAdmin")
+  residentProfiles     ResidentProfile[]
+  createdIssues        Issue[]            @relation("IssueCreatedByUser")
+  assignedIssues       Issue[]            @relation("IssueAssignedToUser")
+  issueComments        IssueComment[]
+  issueAttachments     IssueAttachment[]  @relation("IssueAttachmentUploadedByUser")
+  maintenanceEventsCreated MaintenanceEvent[] @relation("MaintenanceEventCreatedByUser")
+  residentChatConversations ChatConversation[] @relation("ChatConversationResidentUser")
+  assignedChatConversations ChatConversation[] @relation("ChatConversationAssignedToUser")
+  chatMessagesSent          ChatMessage[]      @relation("ChatMessageSenderUser")
+  uploadedFiles        FileAsset[]        @relation("FileAssetUploadedByUser")
+  publicAnnouncementsCreated Announcement[] @relation("AnnouncementCreatedByUser")
+  announcementComments AnnouncementComment[]
+  documentsUploaded    Document[]         @relation("DocumentUploadedByUser")
+  notifications        Notification[]
+  createdVoteSessions  VoteSession[] @relation("VoteSessionCreatedByUser")
+  votes                Vote[]
+  importJobsCreated    ImportJob[]   @relation("ImportJobCreatedByUser")
+  importedPaymentBatchesUploaded ImportedPaymentBatch[] @relation("ImportedPaymentBatchUploadedByUser")
+  importMappingTemplatesCreated ImportMappingTemplate[] @relation("ImportMappingTemplateCreatedByUser")
+  monthlyChargesCreated MonthlyCharge[] @relation("MonthlyChargeCreatedByUser")
+  paymentsCreated      Payment[]     @relation("PaymentCreatedByUser")
+  auditLogs            AuditLog[]    @relation("AuditLogUser")
+  organizationMember   OrganizationMember?
+  teamInvitations      TeamInvitation[]
+  maintenanceTasksAssigned MaintenanceTask[] @relation("MaintenanceTaskAssignedTo")
+  maintenanceTasksCreated  MaintenanceTask[] @relation("MaintenanceTaskCreatedBy")
+  expensesCreated         Expense[]         @relation("ExpenseCreatedBy")
+  notificationPreferences NotificationPreference[]
+  channelProfile          UserChannel?
+  notificationJobs        NotificationJob[]
+  supportSessionsStarted  SupportSession[] @relation("SupportSessionSuperAdmin")
+  pushSubscriptions       PushSubscription[]
+  systemErrorLogs         SystemErrorLog[]
+  qaChecksTested          QACheck[]         @relation("QACheckTestedBy")
+  betaReadinessChecks     BetaReadinessCheck[] @relation("BetaReadinessCheckedBy")
+  betaLaunchConfigUpdates BetaLaunchConfig[] @relation("BetaLaunchUpdatedBy")
+
+  @@index([organizationId])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+model SupportSession {
+  id               String   @id @default(uuid())
+  superAdminUserId String
+  organizationId   String
+  startedAt        DateTime @default(now())
+  endedAt          DateTime?
+  reason           String?
+  isActive         Boolean  @default(true)
+
+  superAdminUser User         @relation("SupportSessionSuperAdmin", fields: [superAdminUserId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([superAdminUserId, isActive])
+  @@index([organizationId, isActive])
+  @@map("support_sessions")
+}
+
+model OrganizationMember {
+  id              String                 @id @default(uuid())
+  organizationId  String
+  userId          String                 @unique
+  role            OrganizationMemberRole
+  permissionsJson Json?
+  status          OrganizationMemberStatus @default(ACTIVE)
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, role])
+  @@index([organizationId, status])
+  @@map("organization_members")
+}
+
+model TeamInvitation {
+  id             String                 @id @default(uuid())
+  organizationId String
+  invitedByUserId String
+  email          String
+  role           OrganizationMemberRole
+  permissionsJson Json?
+  status         OrganizationMemberStatus @default(INVITED)
+  token          String                 @unique
+  expiresAt      DateTime
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy    User         @relation(fields: [invitedByUserId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@index([organizationId, email])
+  @@map("team_invitations")
+}
+
+model Building {
+  id             String   @id @default(uuid())
+  organizationId String
+  name           String
+  address        String?
+  cadastralNumber String?
+  totalFloors    Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  staircases   Staircase[]
+  apartments   Apartment[]
+  announcements Announcement[]
+  documents    Document[]
+  issues       Issue[]
+  voteSessions VoteSession[]
+  maintenanceTasks MaintenanceTask[]
+  maintenanceEvents MaintenanceEvent[]
+  chatConversations ChatConversation[]
+
+  @@index([organizationId])
+  @@map("buildings")
+}
+
+model Staircase {
+  id             String   @id @default(uuid())
+  organizationId String
+  buildingId     String
+  name           String
+  floorsCount    Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  building     Building     @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  apartments   Apartment[]
+  announcements Announcement[]
+  documents    Document[]
+  issues       Issue[]
+  voteSessions VoteSession[]
+  maintenanceTasks MaintenanceTask[]
+  maintenanceEvents MaintenanceEvent[]
+  chatConversations ChatConversation[]
+
+  @@index([organizationId])
+  @@index([buildingId])
+  @@map("staircases")
+}
+
+model Apartment {
+  id             String   @id @default(uuid())
+  organizationId String
+  buildingId     String
+  staircaseId    String
+  number         String
+  floor          Int?
+  areaM2         Float?
+  rooms          Int?
+  status         String   @default("EMPTY")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  building     Building     @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  staircase    Staircase    @relation(fields: [staircaseId], references: [id], onDelete: Cascade)
+  residents    ResidentProfile[]
+  payments     Payment[]
+  monthlyCharges MonthlyCharge[]
+  residentInvoices ResidentInvoice[]
+  receipts     Receipt[]
+  paymentReminders PaymentReminder[]
+  reminderSettings ApartmentReminderSettings[]
+  reminderLogs     ReminderLog[]
+  paymentIntents PaymentIntent[]
+  paymentMatches PaymentMatch[]
+  issues       Issue[]
+  votes        Vote[]
+  initialBalances InitialBalance[]
+  invitations  Invitation[]
+  announcements Announcement[]
+  documents    Document[]
+  maintenanceEvents MaintenanceEvent[]
+  chatConversations ChatConversation[]
+
+  @@index([organizationId])
+  @@index([organizationId, status, createdAt])
+  @@index([organizationId, buildingId, staircaseId])
+  @@index([buildingId])
+  @@index([staircaseId])
+  @@unique([staircaseId, number])
+  @@map("apartments")
+}
+
+model ResidentProfile {
+  id             String   @id @default(uuid())
+  userId         String
+  apartmentId    String
+  organizationId String
+  type           ResidentType
+  phone          String?
+  isPrimary      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apartment    Apartment    @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([apartmentId])
+  @@unique([userId, apartmentId])
+  @@index([organizationId, isPrimary])
+  @@index([organizationId, createdAt])
+  @@map("resident_profiles")
+}
+
+model Payment {
+  id                String         @id @default(uuid())
+  organizationId    String
+  apartmentId       String
+  invoiceId         String?
+  paymentIntentId   String?
+  amount            Float
+  currency          BillingCurrency @default(MDL)
+  method            PaymentMethod
+  status            PaymentStatus   @default(PENDING)
+  provider          PaymentProvider?
+  providerPaymentId String?
+  note              String?
+  createdByUserId   String?
+  confirmedAt       DateTime?
+  month             String
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  apartment    Apartment      @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+  invoice      ResidentInvoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  paymentIntent PaymentIntent? @relation(fields: [paymentIntentId], references: [id], onDelete: SetNull)
+  createdBy    User?          @relation("PaymentCreatedByUser", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  receipts     Receipt[]
+  importedPayments ImportedPayment[]
+
+  @@index([organizationId])
+  @@index([organizationId, status, createdAt])
+  @@index([apartmentId])
+  @@index([invoiceId])
+  @@index([paymentIntentId])
+  @@index([status])
+  @@index([createdByUserId])
+  @@index([month])
+  @@index([organizationId, apartmentId, createdAt])
+  @@map("payments")
+}
+
+model PaymentIntent {
+  id             String            @id @default(uuid())
+  organizationId String
+  apartmentId    String
+  invoiceId      String?
+  amount         Float
+  currency       BillingCurrency
+  provider       PaymentProvider
+  status         PaymentIntentStatus @default(CREATED)
+  providerPaymentId String?
+  redirectUrl    String?
+  metadataJson   Json?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  apartment    Apartment      @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+  invoice      ResidentInvoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  payments     Payment[]
+
+  @@index([organizationId, status])
+  @@index([apartmentId])
+  @@index([invoiceId])
+  @@index([provider])
+  @@map("payment_intents")
+}
+
+model PaymentProviderConfig {
+  id             String          @id @default(uuid())
+  organizationId String
+  provider       PaymentProvider
+  isEnabled      Boolean         @default(false)
+  isTestMode     Boolean         @default(true)
+  configJson     Json?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, provider])
+  @@index([organizationId, isEnabled])
+  @@map("payment_provider_configs")
+}
+
+model Issue {
+  id              String   @id @default(uuid())
+  organizationId  String
+  apartmentId     String?
+  buildingId      String?
+  staircaseId     String?
+  createdByUserId String
+  title           String
+  description     String            @default("")
+  category        IssueCategory     @default(OTHER)
+  locationType    IssueLocationType @default(COMMON_AREA)
+  status          IssueStatus   @default(NEW)
+  priority        IssuePriority @default(MEDIUM)
+  assignedToUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  resolvedAt      DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  apartment    Apartment?   @relation(fields: [apartmentId], references: [id], onDelete: SetNull)
+  building     Building?    @relation(fields: [buildingId], references: [id], onDelete: SetNull)
+  staircase    Staircase?   @relation(fields: [staircaseId], references: [id], onDelete: SetNull)
+  createdBy    User         @relation("IssueCreatedByUser", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  assignedTo   User?        @relation("IssueAssignedToUser", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  comments     IssueComment[]
+  attachments  IssueAttachment[]
+  maintenanceTasks MaintenanceTask[]
+
+  @@index([organizationId])
+  @@index([apartmentId])
+  @@index([buildingId])
+  @@index([staircaseId])
+  @@index([createdByUserId])
+  @@index([status, priority])
+  @@index([organizationId, status, createdAt])
+  @@map("issues")
+}
+
+model Supplier {
+  id            String   @id @default(uuid())
+  organizationId String
+  name          String
+  contactPerson String?
+  phone         String?
+  email         String?
+  serviceType   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  expenses     Expense[]
+
+  @@index([organizationId, name])
+  @@map("suppliers")
+}
+
+model MaintenanceTask {
+  id               String                 @id @default(uuid())
+  organizationId   String
+  title            String
+  description      String?
+  notes            String?
+  type             MaintenanceTaskType
+  relatedIssueId   String?
+  buildingId       String?
+  staircaseId      String?
+  assignedToUserId String?
+  status           MaintenanceTaskStatus  @default(NEW)
+  priority         MaintenanceTaskPriority @default(MEDIUM)
+  scheduledAt      DateTime?
+  completedAt      DateTime?
+  createdByUserId  String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  relatedIssue  Issue?       @relation(fields: [relatedIssueId], references: [id], onDelete: SetNull)
+  building      Building?    @relation(fields: [buildingId], references: [id], onDelete: SetNull)
+  staircase     Staircase?   @relation(fields: [staircaseId], references: [id], onDelete: SetNull)
+  assignedTo    User?        @relation("MaintenanceTaskAssignedTo", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  createdBy     User         @relation("MaintenanceTaskCreatedBy", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  expenses      Expense[]
+
+  @@index([organizationId, status, priority])
+  @@index([assignedToUserId])
+  @@index([relatedIssueId])
+  @@index([buildingId])
+  @@index([staircaseId])
+  @@map("maintenance_tasks")
+}
+
+model MaintenanceEvent {
+  id               String                 @id @default(uuid())
+  organizationId   String
+  title            String
+  description      String?
+  targetType       ContentTargetType      @default(ORGANIZATION)
+  buildingId       String?
+  staircaseId      String?
+  apartmentId      String?
+  startsAt         DateTime
+  endsAt           DateTime?
+  status           MaintenanceEventStatus @default(PLANNED)
+  notifyResidents  Boolean                @default(false)
+  createdByUserId  String
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  building     Building?    @relation(fields: [buildingId], references: [id], onDelete: SetNull)
+  staircase    Staircase?   @relation(fields: [staircaseId], references: [id], onDelete: SetNull)
+  apartment    Apartment?   @relation(fields: [apartmentId], references: [id], onDelete: SetNull)
+  createdBy    User         @relation("MaintenanceEventCreatedByUser", fields: [createdByUserId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, startsAt])
+  @@index([organizationId, targetType])
+  @@index([buildingId])
+  @@index([staircaseId])
+  @@index([apartmentId])
+  @@map("maintenance_events")
+}
+
+model ChatConversation {
+  id               String                 @id @default(uuid())
+  organizationId   String
+  type             ChatConversationType   @default(SUPPORT_CHAT)
+  targetType       ContentTargetType?
+  buildingId       String?
+  staircaseId      String?
+  title            String?
+  isDefault        Boolean                @default(false)
+  apartmentId      String?
+  residentUserId   String?
+  assignedToUserId String?
+  status           ChatConversationStatus @default(OPEN)
+  lastMessageAt    DateTime?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  building     Building?    @relation(fields: [buildingId], references: [id], onDelete: SetNull)
+  staircase    Staircase?   @relation(fields: [staircaseId], references: [id], onDelete: SetNull)
+  apartment    Apartment?   @relation(fields: [apartmentId], references: [id], onDelete: SetNull)
+  residentUser User?        @relation("ChatConversationResidentUser", fields: [residentUserId], references: [id], onDelete: SetNull)
+  assignedTo   User?        @relation("ChatConversationAssignedToUser", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  messages     ChatMessage[]
+
+  @@index([organizationId, status, lastMessageAt])
+  @@index([organizationId, type, targetType])
+  @@index([buildingId])
+  @@index([staircaseId])
+  @@index([organizationId, residentUserId])
+  @@index([assignedToUserId])
+  @@index([apartmentId])
+  @@map("chat_conversations")
+}
+
+model ChatMessage {
+  id             String          @id @default(uuid())
+  organizationId String
+  conversationId String
+  senderUserId   String
+  content        String
+  messageType    ChatMessageType @default(TEXT)
+  status         ChatMessageStatus @default(VISIBLE)
+  fileAssetId    String?
+  isRead         Boolean         @default(false)
+  createdAt      DateTime        @default(now())
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  conversation ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User             @relation("ChatMessageSenderUser", fields: [senderUserId], references: [id], onDelete: Cascade)
+  fileAsset    FileAsset?       @relation(fields: [fileAssetId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, conversationId, createdAt])
+  @@index([organizationId, conversationId, status, createdAt])
+  @@index([senderUserId])
+  @@index([fileAssetId])
+  @@map("chat_messages")
+}
+
+model PushSubscription {
+  id             String   @id @default(uuid())
+  userId         String
+  organizationId String?
+  endpoint       String
+  p256dh         String
+  auth           String
+  userAgent      String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([userId, isActive])
+  @@index([organizationId, isActive])
+  @@unique([userId, endpoint])
+  @@map("push_subscriptions")
+}
+
+model SystemErrorLog {
+  id           String            @id @default(uuid())
+  organizationId String?
+  userId       String?
+  source       SystemErrorSource
+  level        SystemErrorLevel
+  message      String
+  stack        String?
+  metadataJson Json?
+  resolved     Boolean           @default(false)
+  resolvedAt   DateTime?
+  createdAt    DateTime          @default(now())
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([source, level, resolved])
+  @@index([organizationId, createdAt])
+  @@map("system_error_logs")
+}
+
+model Expense {
+  id                String         @id @default(uuid())
+  organizationId    String
+  supplierId        String?
+  maintenanceTaskId String?
+  category          ExpenseCategory
+  description       String
+  amount            Float
+  currency          BillingCurrency @default(MDL)
+  expenseDate       DateTime
+  paidBy            ExpensePaidBy
+  invoiceNumber     String?
+  createdByUserId   String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  organization    Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  supplier        Supplier?       @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  maintenanceTask MaintenanceTask? @relation(fields: [maintenanceTaskId], references: [id], onDelete: SetNull)
+  createdBy       User            @relation("ExpenseCreatedBy", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  attachments     ExpenseAttachment[]
+
+  @@index([organizationId, expenseDate])
+  @@index([supplierId])
+  @@index([maintenanceTaskId])
+  @@map("expenses")
+}
+
+model ExpenseAttachment {
+  id         String   @id @default(uuid())
+  expenseId  String
+  fileUrl    String
+  fileName   String
+  createdAt  DateTime @default(now())
+
+  expense Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+
+  @@index([expenseId, createdAt])
+  @@map("expense_attachments")
+}
+
+model IssueComment {
+  id         String   @id @default(uuid())
+  issueId    String
+  userId     String
+  message    String
+  isInternal Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  issue Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([issueId, createdAt])
+  @@index([userId])
+  @@map("issue_comments")
+}
+
+model IssueAttachment {
+  id               String   @id @default(uuid())
+  issueId          String
+  fileUrl          String
+  fileName         String
+  fileType         String
+  uploadedByUserId String
+  createdAt        DateTime @default(now())
+
+  issue      Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  uploadedBy User  @relation("IssueAttachmentUploadedByUser", fields: [uploadedByUserId], references: [id], onDelete: Cascade)
+
+  @@index([issueId, createdAt])
+  @@index([uploadedByUserId])
+  @@map("issue_attachments")
+}
+
+model VoteSession {
+  id              String            @id @default(uuid())
+  organizationId  String
+  title           String
+  description     String
+  targetType      VoteTargetType
+  buildingId      String?
+  staircaseId     String?
+  votingMethod    VoteMethod
+  status          VoteSessionStatus @default(DRAFT)
+  startsAt        DateTime
+  endsAt          DateTime
+  createdByUserId String
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  building     Building?    @relation(fields: [buildingId], references: [id], onDelete: SetNull)
+  staircase    Staircase?   @relation(fields: [staircaseId], references: [id], onDelete: SetNull)
+  createdBy    User         @relation("VoteSessionCreatedByUser", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  options      VoteOption[]
+  votes        Vote[]
+
+  @@index([organizationId, status])
+  @@index([buildingId])
+  @@index([staircaseId])
+  @@index([startsAt, endsAt])
+  @@map("vote_sessions")
+}
+
+model VoteOption {
+  id            String   @id @default(uuid())
+  voteSessionId String
+  label         String
+  createdAt     DateTime @default(now())
+
+  voteSession VoteSession @relation(fields: [voteSessionId], references: [id], onDelete: Cascade)
+  votes       Vote[]
+
+  @@index([voteSessionId])
+  @@map("vote_options")
+}
+
+model Vote {
+  id            String   @id @default(uuid())
+  voteSessionId String
+  voteOptionId  String
+  organizationId String
+  apartmentId   String
+  userId        String
+  weight        Float
+  createdAt     DateTime @default(now())
+
+  voteSession  VoteSession  @relation(fields: [voteSessionId], references: [id], onDelete: Cascade)
+  voteOption   VoteOption   @relation(fields: [voteOptionId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  apartment    Apartment    @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([voteSessionId, apartmentId])
+  @@index([organizationId, voteSessionId])
+  @@index([voteOptionId])
+  @@index([userId])
+  @@map("votes")
+}
+
+model ImportJob {
+  id           String          @id @default(uuid())
+  organizationId String
+  type         ImportType
+  fileName     String
+  status       ImportJobStatus @default(UPLOADED)
+  totalRows    Int             @default(0)
+  validRows    Int             @default(0)
+  invalidRows  Int             @default(0)
+  errorsJson   Json?
+  createdByUserId String
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("ImportJobCreatedByUser", fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, createdAt])
+  @@index([createdByUserId])
+  @@map("import_jobs")
+}
+
+model InitialBalance {
+  id                   String   @id @default(uuid())
+  organizationId       String
+  apartmentId          String
+  initialDebt          Float
+  initialAdvancePayment Float    @default(0)
+  note                 String?
+  createdAt            DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  apartment    Apartment    @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, apartmentId])
+  @@index([organizationId])
+  @@index([apartmentId])
+  @@map("initial_balances")
+}
+
+model MonthlyCharge {
+  id             String   @id @default(uuid())
+  organizationId String
+  apartmentId    String
+  month          Int
+  year           Int
+  tariffName     String
+  amount         Float
+  status         String   @default("PENDING")
+  createdByUserId String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  apartment    Apartment    @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation("MonthlyChargeCreatedByUser", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, month, year])
+  @@index([apartmentId])
+  @@unique([organizationId, apartmentId, month, year, tariffName])
+  @@map("monthly_charges")
+}
+
+model ResidentInvoice {
+  id             String               @id @default(uuid())
+  organizationId String
+  apartmentId    String
+  month          Int
+  year           Int
+  invoiceNumber  String               @unique
+  previousDebt   Float                @default(0)
+  currentCharges Float                @default(0)
+  paymentsAmount Float                @default(0)
+  totalDue       Float                @default(0)
+  status         ResidentInvoiceStatus @default(DRAFT)
+  issuedAt       DateTime?
+  dueDate        DateTime?
+  pdfUrl         String?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  apartment    Apartment    @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+  reminders    PaymentReminder[]
+  reminderLogs ReminderLog[]
+  payments     Payment[]
+  paymentIntents PaymentIntent[]
+  paymentMatches PaymentMatch[]
+
+  @@unique([organizationId, apartmentId, month, year])
+  @@index([organizationId, month, year, status])
+  @@index([invoiceNumber])
+  @@index([organizationId, status, createdAt])
+  @@index([apartmentId])
+  @@map("resident_invoices")
+}
+
+model Receipt {
+  id             String   @id @default(uuid())
+  organizationId String
+  apartmentId    String
+  paymentId      String   @unique
+  receiptNumber  String   @unique
+  amount         Float
+  paymentDate    DateTime
+  pdfUrl         String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  apartment    Apartment    @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+  payment      Payment      @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@index([paymentDate])
+  @@index([apartmentId])
+  @@map("receipts")
+}
+
+model PaymentReminder {
+  id             String         @id @default(uuid())
+  organizationId String
+  apartmentId    String
+  invoiceId      String?
+  type           ReminderType
+  message        String
+  status         ReminderStatus @default(PENDING)
+  sentAt         DateTime?
+  createdAt      DateTime       @default(now())
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  apartment    Apartment      @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+  invoice      ResidentInvoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([apartmentId])
+  @@index([invoiceId])
+  @@map("payment_reminders")
+}
+
+model Announcement {
+  id             String   @id @default(uuid())
+  organizationId String
+  title          String
+  content        String
+  contentType    AnnouncementContentType @default(ANNOUNCEMENT)
+  importance     ContentImportance @default(NORMAL)
+  isPinned       Boolean @default(false)
+  commentsEnabled Boolean @default(true)
+  targetType     ContentTargetType @default(ORGANIZATION)
+  buildingId     String?
+  staircaseId    String?
+  apartmentId    String?
+  createdByUserId String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  building     Building?    @relation(fields: [buildingId], references: [id], onDelete: SetNull)
+  staircase    Staircase?   @relation(fields: [staircaseId], references: [id], onDelete: SetNull)
+  apartment    Apartment?   @relation(fields: [apartmentId], references: [id], onDelete: SetNull)
+  createdBy    User?        @relation("AnnouncementCreatedByUser", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  comments     AnnouncementComment[]
+
+  @@index([organizationId])
+  @@index([organizationId, targetType])
+  @@index([organizationId, isPinned, createdAt])
+  @@index([buildingId])
+  @@index([staircaseId])
+  @@index([apartmentId])
+  @@map("announcements")
+}
+
+model AnnouncementComment {
+  id             String                    @id @default(uuid())
+  organizationId String
+  announcementId String
+  userId         String
+  content        String
+  status         AnnouncementCommentStatus @default(VISIBLE)
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, announcementId, status, createdAt])
+  @@index([userId, createdAt])
+  @@map("announcement_comments")
+}
+
+model Document {
+  id             String   @id @default(uuid())
+  organizationId String
+  title          String
+  description    String?
+  fileUrl        String
+  fileName       String
+  fileType       String
+  targetType     ContentTargetType @default(ORGANIZATION)
+  buildingId     String?
+  staircaseId    String?
+  apartmentId    String?
+  uploadedByUserId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  building     Building?    @relation(fields: [buildingId], references: [id], onDelete: SetNull)
+  staircase    Staircase?   @relation(fields: [staircaseId], references: [id], onDelete: SetNull)
+  apartment    Apartment?   @relation(fields: [apartmentId], references: [id], onDelete: SetNull)
+  uploadedBy   User         @relation("DocumentUploadedByUser", fields: [uploadedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, targetType])
+  @@index([organizationId, createdAt])
+  @@index([buildingId])
+  @@index([staircaseId])
+  @@index([apartmentId])
+  @@map("documents")
+}
+
+model Notification {
+  id             String   @id @default(uuid())
+  organizationId String
+  userId         String
+  title          String
+  message        String
+  type           NotificationType
+  channels       Json?
+  isRead         Boolean  @default(false)
+  link           String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, userId, isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model NotificationPreference {
+  id             String   @id @default(uuid())
+  userId         String
+  organizationId String
+  emailEnabled   Boolean  @default(true)
+  telegramEnabled Boolean @default(false)
+  smsEnabled     Boolean  @default(false)
+  inAppEnabled   Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+  @@map("notification_preferences")
+}
+
+model NotificationJob {
+  id             String              @id @default(uuid())
+  organizationId String
+  userId         String?
+  type           NotificationType
+  payloadJson    Json
+  status         NotificationJobStatus @default(PENDING)
+  attempts       Int                 @default(0)
+  scheduledAt    DateTime            @default(now())
+  processedAt    DateTime?
+  errorMessage   String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status, scheduledAt])
+  @@index([userId])
+  @@map("notification_jobs")
+}
+
+model TelegramIntegration {
+  id             String   @id @default(uuid())
+  organizationId String   @unique
+  botToken       String
+  isActive       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("telegram_integrations")
+}
+
+model EmailIntegration {
+  id             String                   @id @default(uuid())
+  organizationId String                   @unique
+  provider       EmailIntegrationProvider @default(SMTP)
+  configJson     Json?
+  isActive       Boolean                  @default(false)
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("email_integrations")
+}
+
+model SMSIntegration {
+  id             String                @id @default(uuid())
+  organizationId String                @unique
+  provider       SmsIntegrationProvider @default(OTHER)
+  configJson     Json?
+  isActive       Boolean               @default(false)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("sms_integrations")
+}
+
+model UserChannel {
+  id                     String   @id @default(uuid())
+  userId                 String   @unique
+  telegramChatId         String?
+  phone                  String?
+  email                  String
+  telegramLinkToken      String?
+  telegramLinkTokenExpiresAt DateTime?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_channels")
+}
+
+model CondoBuilding {
+  id             String   @id @default(uuid())
+  organizationId String
+  name           String
+  address        String?
+  cadastreNumber String?
+  cadastreStatus String   @default("PENDING")
+  totalUnits     Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  units        CondoUnit[]
+
+  @@index([organizationId])
+  @@index([organizationId, cadastreStatus])
+  @@map("condo_buildings")
+}
+
+model CondoUnit {
+  id                String   @id @default(uuid())
+  organizationId    String
+  buildingId        String
+  number            String
+  floor             String?
+  areaSqm           Float?
+  ownerUserId       String?
+  monthlyFeeMdl     Float    @default(0)
+  repairFundMdl     Float    @default(0)
+  debtMdl           Float    @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  building     CondoBuilding @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  ownerUser     User?         @relation("CondoUnitOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+
+  @@unique([buildingId, number])
+  @@index([organizationId, ownerUserId])
+  @@index([organizationId, buildingId])
+  @@map("condo_units")
+}
+
+model AnnualSummary {
+  id                 String   @id @default(uuid())
+  organizationId     String
+  year               Int
+  status             String   @default("DRAFT")
+  adminName          String
+  totalBudgetMdl     Float    @default(0)
+  totalExpensesMdl   Float    @default(0)
+  repairFundMdl      Float    @default(0)
+  debtTotalMdl       Float    @default(0)
+  notes              String?
+  createdById        String?
+  publishedAt        DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy   User?        @relation("AnnualSummaryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, year])
+  @@index([organizationId, status])
+  @@map("annual_summaries")
+}
+
+model CondoAnnouncement {
+  id             String   @id @default(uuid())
+  organizationId String
+  title          String
+  body           String
+  visibility     String   @default("OWNERS")
+  createdById    String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation("CondoAnnouncementCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@map("condo_announcements")
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(uuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("email_verification_tokens")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
+}
+
+model UserPreference {
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  locale        String?
+  sidebarLabels Boolean  @default(false)
+  calendarZoom  String   @default("md")
+  calendarStatusFilter String? @default("all")
+  calendarGroupId String?
+  welcomeDismissed Boolean @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_preferences")
+}
+
+model OrganizationSetting {
+  id             String   @id @default(uuid())
+  organizationId String   @unique
+  primaryColor   String?  @default("#2563eb")
+  sidebarColor   String?  @default("#ffffff")
+  logoUrl        String?
+  appName        String?  @default("CondoFlow")
+  themeMode      String   @default("LIGHT")
+  menuConfig     Json?
+  weekStart      String   @default("MONDAY")
+  defaultLocale  String   @default("ro")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("organization_settings")
+}
+
+model SubscriptionPlan {
+  id                 String          @id @default(uuid())
+  name               String
+  description        String?
+  defaultBillingType BillingType
+  defaultPrice       Float
+  currency           BillingCurrency @default(MDL)
+  isActive           Boolean         @default(true)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  organizationSubscriptions OrganizationSubscription[]
+
+  @@index([isActive])
+  @@map("subscription_plans")
+}
+
+model OrganizationSubscription {
+  id                    String                       @id @default(uuid())
+  organizationId        String                       @unique
+  planId                String?
+  billingType           BillingType
+  price                 Float
+  currency              BillingCurrency
+  trialStartDate        DateTime?
+  trialEndDate          DateTime?
+  subscriptionStartDate DateTime?
+  nextBillingDate       DateTime?
+  lastBilledAt          DateTime?
+  lastPaymentAt         DateTime?
+  outstandingAmount     Float                        @default(0)
+  status                OrganizationSubscriptionStatus
+  notes                 String?
+  createdAt             DateTime                     @default(now())
+  updatedAt             DateTime                     @updatedAt
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan         SubscriptionPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+  invoices     OrganizationInvoice[]
+  payments     OrganizationPayment[]
+
+  @@index([organizationId])
+  @@index([status])
+  @@map("organization_subscriptions")
+}
+
+model OrganizationInvoice {
+  id             String                  @id @default(uuid())
+  organizationId String
+  subscriptionId String
+  periodStart    DateTime
+  periodEnd      DateTime
+  amount         Float
+  currency       BillingCurrency
+  status         OrganizationInvoiceStatus @default(UNPAID)
+  dueDate        DateTime
+  paidAt         DateTime?
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  subscription OrganizationSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  payments     OrganizationPayment[]
+
+  @@index([organizationId, status])
+  @@index([subscriptionId])
+  @@unique([subscriptionId, periodStart, periodEnd])
+  @@map("organization_invoices")
+}
+
+model OrganizationPayment {
+  id             String          @id @default(uuid())
+  organizationId String
+  subscriptionId String
+  invoiceId      String?
+  amount         Float
+  currency       BillingCurrency
+  method         OrganizationPaymentMethod
+  status         OrganizationPaymentStatus   @default(PENDING)
+  note           String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  subscription OrganizationSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  invoice      OrganizationInvoice?    @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([subscriptionId, createdAt])
+  @@index([invoiceId, createdAt])
+  @@index([status, createdAt])
+  @@map("organization_payments")
+}
+
+model ScheduledJob {
+  id        String             @id @default(uuid())
+  name      String             @unique
+  lastRunAt DateTime?
+  status    ScheduledJobStatus @default(ACTIVE)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  @@index([status])
+  @@map("scheduled_jobs")
+}
+
+model ReminderRule {
+  id             String             @id @default(uuid())
+  organizationId String
+  name           String
+  isActive       Boolean            @default(true)
+  triggerType    ReminderTriggerType
+  daysOffset     Int?
+  debtThreshold  Float?
+  channelsJson   Json?
+  messageTemplate String
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  logs         ReminderLog[]
+
+  @@index([organizationId, isActive])
+  @@map("reminder_rules")
+}
+
+model ApartmentReminderSettings {
+  id             String   @id @default(uuid())
+  organizationId String
+  apartmentId    String
+  remindersPaused Boolean @default(false)
+  pauseReason    String?
+  pausedUntil    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  apartment    Apartment    @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, apartmentId])
+  @@index([organizationId])
+  @@map("apartment_reminder_settings")
+}
+
+model ReminderLog {
+  id             String          @id @default(uuid())
+  organizationId String
+  apartmentId    String
+  invoiceId      String?
+  reminderRuleId String
+  channelsJson   Json?
+  message        String
+  status         ReminderLogStatus
+  reason         String?
+  sentAt         DateTime
+  createdAt      DateTime        @default(now())
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  apartment    Apartment      @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+  invoice      ResidentInvoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  reminderRule ReminderRule   @relation(fields: [reminderRuleId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@index([apartmentId, createdAt])
+  @@index([reminderRuleId])
+  @@map("reminder_logs")
+}
+
+model ImportedPaymentBatch {
+  id            String                    @id @default(uuid())
+  organizationId String
+  fileName      String
+  source        ImportedPaymentSource
+  status        ImportedPaymentBatchStatus @default(UPLOADED)
+  totalRows     Int                       @default(0)
+  matchedRows   Int                       @default(0)
+  reviewRows    Int                       @default(0)
+  duplicateRows Int                       @default(0)
+  ignoredRows   Int                       @default(0)
+  errorsJson    Json?
+  mappingTemplateId String?
+  mappingJson   Json?
+  uploadedByUserId String
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  uploadedBy   User         @relation("ImportedPaymentBatchUploadedByUser", fields: [uploadedByUserId], references: [id], onDelete: Restrict)
+  mappingTemplate ImportMappingTemplate? @relation(fields: [mappingTemplateId], references: [id], onDelete: SetNull)
+  payments     ImportedPayment[]
+
+  @@index([organizationId, createdAt])
+  @@index([uploadedByUserId])
+  @@index([mappingTemplateId])
+  @@map("imported_payment_batches")
+}
+
+model ImportedPayment {
+  id             String               @id @default(uuid())
+  organizationId String
+  batchId        String
+  rawDataJson    Json
+  payerName      String?
+  payerIban      String?
+  apartmentNumber String?
+  buildingName   String?
+  invoiceNumber  String?
+  accountNumber  String?
+  transactionType String?
+  referenceNumber String?
+  amount         Float
+  currency       BillingCurrency      @default(MDL)
+  paymentDate    DateTime
+  description    String?
+  status         ImportedPaymentStatus @default(NEW)
+  matchedPaymentId String?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  batch        ImportedPaymentBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  matchedPayment Payment?           @relation(fields: [matchedPaymentId], references: [id], onDelete: SetNull)
+  matches      PaymentMatch[]
+
+  @@index([organizationId, status])
+  @@index([batchId])
+  @@index([invoiceNumber])
+  @@index([apartmentNumber])
+  @@index([paymentDate])
+  @@map("imported_payments")
+}
+
+model PaymentMatch {
+  id               String            @id @default(uuid())
+  organizationId   String
+  importedPaymentId String
+  invoiceId        String?
+  apartmentId      String?
+  confidenceScore  Int
+  status           PaymentMatchStatus
+  reason           String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  importedPayment ImportedPayment @relation(fields: [importedPaymentId], references: [id], onDelete: Cascade)
+  invoice        ResidentInvoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  apartment      Apartment?       @relation(fields: [apartmentId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status])
+  @@index([importedPaymentId])
+  @@index([invoiceId])
+  @@index([apartmentId])
+  @@map("payment_matches")
+}
+
+model ImportMappingTemplate {
+  id             String                @id @default(uuid())
+  organizationId String
+  source         ImportedPaymentSource
+  name           String
+  mappingJson    Json
+  isDefault      Boolean               @default(false)
+  createdByUserId String
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("ImportMappingTemplateCreatedByUser", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  batches      ImportedPaymentBatch[]
+
+  @@index([organizationId, source])
+  @@index([createdByUserId])
+  @@map("import_mapping_templates")
+}
+
+model Property {
+  id             String   @id @default(uuid())
+  name           String
+  code           String?
+  color          String?  @default("gray")
+  groupId        String?
+  address        String?
+  isActive       Boolean  @default(true)
+  basePrice      Float    @default(0)
+  cleaningFee    Float    @default(0)
+  rooms          Int      @default(1)
+  status         String   @default("active")
+  numberOfRooms  Int      @default(1)
+  cleaningPrice  Float    @default(0)
+  organizationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  deletedAt      DateTime?
+  createdById    String?
+  updatedById    String?
+
+  ownerId      String
+  owner        User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  group        PropertyGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  reservations Reservation[]
+  cleanings    Cleaning[]
+  propertyAccesses PropertyAccess[]
+  channels      PropertyChannel[]
+  syncConflicts SyncConflict[]
+  createdBy     User?         @relation("PropertyCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy     User?         @relation("PropertyUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([ownerId])
+  @@index([organizationId])
+  @@index([organizationId, isActive])
+  @@index([organizationId, groupId])
+  @@index([deletedAt])
+  @@index([createdById])
+  @@index([updatedById])
+  @@map("properties")
+}
+
+model PropertyGroup {
+  id             String   @id @default(uuid())
+  organizationId String
+  name           String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  properties   Property[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("property_groups")
+}
+
+model Client {
+  id             String   @id @default(uuid())
+  firstName      String
+  lastName       String
+  phone          String
+  email          String?
+  notes          String?
+  isArchived     Boolean  @default(false)
+  organizationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  deletedAt      DateTime?
+  createdById    String?
+  updatedById    String?
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  reservations Reservation[]
+  createdBy     User?        @relation("ClientCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy     User?        @relation("ClientUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([organizationId, phone])
+  @@index([deletedAt])
+  @@index([createdById])
+  @@index([updatedById])
+  @@map("clients")
+}
+
+model Reservation {
+  id             String   @id @default(uuid())
+  propertyId     String
+  clientId       String?
+  organizationId String
+  checkIn        DateTime
+  checkOut       DateTime
+  totalPrice     Float
+  status         ReservationStatus @default(CONFIRMED)
+  channel        Channel?
+  source         String?
+  externalId     String?
+  lastSyncAt     DateTime?
+  rawPayload     Json?
+  cleaningStatus CleaningStatus @default(TODO)
+  guestName      String
+  phoneNumber    String?
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  deletedAt      DateTime?
+  createdById    String?
+  updatedById    String?
+
+  property     Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  client       Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy     User?    @relation("ReservationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy     User?    @relation("ReservationUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  cleaning      Cleaning?
+
+  @@index([propertyId, checkIn, checkOut])
+  @@index([organizationId, propertyId, checkIn, checkOut])
+  @@index([organizationId, checkIn, checkOut])
+  @@index([organizationId, channel, externalId])
+  @@index([clientId])
+  @@index([organizationId])
+  @@index([deletedAt])
+  @@index([createdById])
+  @@index([updatedById])
+  @@map("reservations")
+}
+
+model Cleaning {
+  id             String        @id @default(uuid())
+  organizationId String
+  propertyId     String
+  reservationId  String?       @unique
+  date           DateTime
+  status         CleaningStatus @default(TODO)
+  assignedToId   String?
+  notes          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  property     Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  reservation  Reservation? @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+  assignedTo   User?        @relation("CleaningAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, date])
+  @@index([organizationId, propertyId])
+  @@index([assignedToId])
+  @@map("cleanings")
+}
+
+model PropertyChannel {
+  id                String   @id @default(uuid())
+  organizationId    String
+  propertyId        String
+  channel           Channel
+  externalListingId String?
+  icsUrl            String?
+  isEnabled         Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  property     Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([propertyId, channel])
+  @@index([organizationId, channel])
+  @@index([propertyId])
+  @@map("property_channels")
+}
+
+model SyncConflict {
+  id             String   @id @default(uuid())
+  organizationId String
+  propertyId     String
+  channel        Channel
+  externalId     String?
+  reason         String
+  payload        Json?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  property     Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, propertyId, channel])
+  @@index([organizationId, createdAt])
+  @@map("sync_conflicts")
+}
+
+model PropertyAccess {
+  id         String   @id @default(uuid())
+  organizationId String @default("")
+  userId     String
+  propertyId String
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId, propertyId])
+  @@index([organizationId, userId])
+  @@index([userId])
+  @@index([propertyId])
+  @@map("property_accesses")
+}

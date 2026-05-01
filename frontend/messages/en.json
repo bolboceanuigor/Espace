@@ -1,0 +1,495 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "manager": "Manager",
+    "owner": "Owner cabinet",
+    "calendar": "Calendar",
+    "properties": "Apartments",
+    "reservations": "Reservations",
+    "clients": "Clients",
+    "cleanings": "Cleanings",
+    "chat": "Association chat",
+    "team": "Team",
+    "superadmin": "Superadmin",
+    "settings": "Settings"
+  },
+  "common": {
+    "loading": "Loading...",
+    "success": "Success",
+    "showLabels": "Show labels",
+    "today": "Today",
+    "search": "Search...",
+    "globalSearch": "Search property, guest, phone...",
+    "prev": "Prev",
+    "next": "Next",
+    "allStatuses": "All statuses",
+    "allSources": "All sources",
+    "allProperties": "All properties",
+    "calendarLoadError": "Failed to load calendar data.",
+    "calendarNoProperties": "No apartments yet. Add your first apartment.",
+    "calendarNoAssignedProperties": "No apartments assigned to your account. Ask admin to assign access.",
+    "noReservations": "No reservations in this range.",
+    "goToApartments": "Go to apartments",
+    "showCancelled": "Show cancelled",
+    "reservationDetails": "Reservation details",
+    "close": "Close",
+    "client": "Client",
+    "property": "Property",
+    "status": "Status",
+    "source": "Source",
+    "dates": "Dates",
+    "notes": "Notes",
+    "syncedFrom": "Synced from",
+    "conflict": "Conflict",
+    "editSoon": "Edit (soon)",
+    "cancelSoon": "Cancel (soon)",
+    "moveSoon": "Move (soon)",
+    "zoom": "Zoom",
+    "copyLink": "Copy link",
+    "copied": "Copied",
+    "allGroups": "All groups",
+    "calendarMicrocopy": "Click an empty cell to add a reservation. Drag to move (coming soon).",
+    "noCleaningsScheduled": "No cleanings scheduled",
+    "createManualCleaning": "Create manual cleaning",
+    "manualCleaningSoon": "Manual cleaning flow is coming soon.",
+    "saved": "Saved",
+    "error": "Something went wrong",
+    "verified": "Verified",
+    "notVerified": "Not verified",
+    "providerLocal": "Local",
+    "providerGoogle": "Google",
+    "providerBoth": "Local + Google",
+    "connectGoogleAccount": "Connect Google account",
+    "comingSoon": "Coming soon",
+    "deleteConfirm": "Are you sure you want to delete?",
+    "refresh": "Refresh"
+  },
+  "calendar": {
+    "title": "Calendar",
+    "today": "Today",
+    "prev": "Prev",
+    "next": "Next",
+    "newReservation": "New reservation",
+    "editReservation": "Edit reservation",
+    "cancelReservation": "Cancel reservation",
+    "endDateHelp": "End date is checkout day (exclusive).",
+    "filters": "Filters",
+    "showCancelled": "Show cancelled",
+    "noReservations": "No reservations in this range.",
+    "noProperties": "No apartments yet. Add your first apartment.",
+    "noAssigned": "No apartments assigned to your account. Ask admin to assign access."
+  },
+  "reservations": {
+    "title": "Reservations",
+    "create": "Create reservation",
+    "edit": "Edit reservation",
+    "cancel": "Cancel reservation"
+  },
+  "cleanings": {
+    "title": "Cleanings",
+    "empty": "No cleanings scheduled",
+    "markDone": "Mark done",
+    "markTodo": "Mark to do"
+  },
+  "billing": {
+    "limitWarning": "You're above your plan limit. Upgrade later."
+  },
+  "groups": {
+    "title": "Groups",
+    "add": "Add group",
+    "none": "No group"
+  },
+  "support": {
+    "title": "Support",
+    "desc": "For help, contact our support team at:"
+  },
+  "status": {
+    "CONFIRMED": "Confirmed",
+    "PENDING": "Pending",
+    "CANCELLED": "Cancelled",
+    "BLOCKED": "Blocked",
+    "TODO": "To do",
+    "DONE": "Done"
+  },
+  "actions": {
+    "add": "Add",
+    "edit": "Edit",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "export": "Export CSV",
+    "loadDemo": "Load demo data",
+    "skip": "Skip",
+    "create": "Create",
+    "search": "Search",
+    "back": "Back to calendar",
+    "openInCalendar": "Open in calendar"
+  },
+  "errors": {
+    "CONFLICT_OVERLAP": "Reservation overlaps with an existing one.",
+    "FORBIDDEN": "You don't have permission to access this page.",
+    "overlap": "Reservation overlaps with an existing one.",
+    "required": "This field is required.",
+    "invalidDate": "Invalid date range.",
+    "validation": "Please check the form fields.",
+    "unauthorized": "Your session expired. Please login again.",
+    "forbidden": "You don't have permission to access this page.",
+    "notFound": "Page not found.",
+    "EMAIL_NOT_VERIFIED": "Email not verified. Please verify your email first.",
+    "ORG_PENDING_APPROVAL": "Organization is pending approval. A superadmin must approve the account.",
+    "INVALID_CREDENTIALS": "Invalid email or password.",
+    "WEAK_PASSWORD": "Password is too weak.",
+    "INVALID_TOKEN": "Invalid token.",
+    "TOKEN_EXPIRED": "Token expired.",
+    "INVITE_INVALID": "Invitation link is invalid.",
+    "INVITE_EXPIRED": "Invitation link expired.",
+    "INVITE_ALREADY_USED": "Invitation was already used."
+  },
+  "team": {
+    "title": "Team / Users",
+    "description": "Manage organization members and invitations.",
+    "invite": "Invite",
+    "addUser": "Add user",
+    "email": "Email",
+    "inviteModalTitle": "Invite user",
+    "inviteSent": "Invitation link created",
+    "copyLink": "Copy link",
+    "invitesList": "Invitations",
+    "statusActive": "Active",
+    "statusExpired": "Expired",
+    "statusAccepted": "Accepted",
+    "revoke": "Revoke",
+    "createUserTitle": "Create team user",
+    "assignedProperties": "assigned properties",
+    "toggleRole": "Toggle role",
+    "assignProperties": "Assign properties",
+    "resetPassword": "Reset password",
+    "tempPassword": "Temp password",
+    "managedByInvite": "Use invite flow to add team members",
+    "page": "Page",
+    "cancel": "Cancel",
+    "create": "Create",
+    "save": "Save",
+    "acceptInviteTitle": "Accept invitation",
+    "acceptInviteBody": "Set your password to join the organization.",
+    "acceptInviteSubmit": "Join organization",
+    "password": "Password",
+    "confirmPassword": "Confirm password",
+    "backToLogin": "Back to login"
+  },
+  "auth": {
+    "titleLogin": "Sign in",
+    "titleRegister": "Create account",
+    "subtitleLogin": "Property Calendar",
+    "subtitleRegister": "Start using Espace PMS in seconds",
+    "orgName": "Organization name",
+    "email": "Email",
+    "password": "Password",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "submitLogin": "Sign in",
+    "submitRegister": "Create account",
+    "googleDisabled": "Continue with Google (soon)",
+    "newHere": "New here?",
+    "alreadyHaveAccount": "Already have an account?",
+    "register": "Create account",
+    "login": "Sign in",
+    "verifyEmail": "Verify email",
+    "forgot": "Forgot password",
+    "forgotBody": "Enter your email to receive a reset link.",
+    "reset": "Reset password",
+    "resetBody": "Set a new password for your account.",
+    "submitReset": "Update password",
+    "checkEmail": "Check your email",
+    "checkEmailTitle": "Check your email",
+    "checkEmailBody": "If you can't find the email, check Spam.",
+    "emailVerified": "Email verified",
+    "passwordUpdated": "Password updated",
+    "ifAccountExists": "If this email exists, we sent a reset link.",
+    "resendVerification": "Resend verification",
+    "resend": "Resend verification",
+    "sendResetLink": "Send reset link",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm password",
+    "backToLogin": "Back to login"
+  },
+  "form": {
+    "name": "Name",
+    "code": "Code",
+    "phone": "Phone",
+    "email": "Email",
+    "startDate": "Start date",
+    "endDate": "End date",
+    "endDateCheckout": "End date (checkout)",
+    "status": "Status",
+    "notes": "Notes",
+    "source": "Source",
+    "property": "Property",
+    "guestName": "Guest name",
+    "address": "Address",
+    "basePrice": "Base price",
+    "cleaningFee": "Cleaning fee",
+    "rooms": "Rooms",
+    "save": "Save",
+    "cancel": "Cancel"
+  },
+  "pages": {
+    "properties": {
+      "title": "Apartments",
+      "desc": "Manage your apartment inventory."
+    },
+    "clients": {
+      "title": "Clients",
+      "desc": "Guest directory with quick search and edit."
+    },
+    "reservations": {
+      "title": "Reservations",
+      "desc": "Track, filter and update bookings."
+    },
+    "cleanings": {
+      "title": "Cleanings",
+      "desc": "Checkout day cleaning agenda."
+    },
+    "settings": {
+      "title": "Settings",
+      "desc": "Organization and profile preferences.",
+      "organization": "Organization",
+      "profile": "My profile",
+      "sendFeedback": "Send feedback",
+      "sendFeedbackDesc": "Share ideas, bugs, or improvements directly from the app.",
+      "feedbackSubject": "Subject",
+      "feedbackMessage": "Message",
+      "feedbackInbox": "Feedback inbox",
+      "supportTitle": "Support",
+      "supportDesc": "For help, contact our support team at:",
+      "activityTitle": "Activity",
+      "activityDesc": "Recent organization actions and audit events.",
+      "activityEmpty": "No activity yet.",
+      "openActivity": "Open activity log",
+      "adminOnly": "Only admins can access this section.",
+      "permissions": "Permissions matrix",
+      "languageRo": "Romanian (RO)",
+      "languageRu": "Russian (RU)",
+      "languageEn": "English (EN)",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "weekStartMonday": "Week starts Monday",
+      "weekStartSunday": "Week starts Sunday",
+      "terms": "Terms",
+      "privacy": "Privacy"
+    }
+  },
+  "manager": {
+    "title": "Manager",
+    "subtitleToday": "Today: {date}",
+    "kpi": {
+      "assigned": "Assigned apartments",
+      "checkins": "Check-ins today",
+      "checkouts": "Check-outs today",
+      "cleanings": "Cleanings today"
+    },
+    "today": {
+      "checkins": "Check-ins today",
+      "checkouts": "Check-outs today",
+      "cleanings": "Today's cleanings"
+    },
+    "upcoming": {
+      "title": "Next 7 days"
+    },
+    "actions": {
+      "openCalendar": "Open Calendar",
+      "openCleanings": "Open Cleanings",
+      "refresh": "Refresh",
+      "copyDailyReport": "Copy daily report"
+    },
+    "views": {
+      "today": "Today",
+      "tomorrow": "Tomorrow",
+      "week": "Next 7 days"
+    },
+    "report": {
+      "title": "Report {date}",
+      "copied": "Copied",
+      "lines": {
+        "assigned": "- Assigned apartments: {value}",
+        "checkins": "- Check-ins today: {value}",
+        "checkouts": "- Check-outs today: {value}",
+        "cleanings": "- Cleanings: {done}/{total}",
+        "upcoming": "- Next 7 days: {value} reservations"
+      }
+    },
+    "empty": {
+      "none": "No tasks today",
+      "upcoming": "No upcoming reservations"
+    }
+  },
+  "owner": {
+    "title": "Owner cabinet",
+    "subtitle": "Association:",
+    "cards": {
+      "monthlyFee": "Monthly fee",
+      "debt": "Debt",
+      "repairFund": "Repair fund"
+    },
+    "annualSummary": "Annual summary sheet",
+    "noSummary": "No published annual summary yet.",
+    "year": "Year",
+    "admin": "Administrator",
+    "budget": "Total budget",
+    "expenses": "Total expenses",
+    "summaryDebt": "Total debt",
+    "myUnits": "My units",
+    "noUnits": "No units assigned yet.",
+    "unit": "Unit",
+    "monthlyFee": "Monthly fee",
+    "debt": "Debt",
+    "announcements": "Announcements",
+    "noAnnouncements": "No announcements."
+  },
+  "chat": {
+    "title": "Association chat",
+    "subtitle": "Fast real-time communication for all association members.",
+    "roomLabel": "Shared room",
+    "loadOlder": "Load older",
+    "empty": "No messages yet. Send the first one.",
+    "placeholder": "Write a message... (Enter to send, Shift+Enter new line)",
+    "send": "Send"
+  },
+  "marketing": {
+    "nav": {
+      "brand": "Espace Condo",
+      "features": "Features",
+      "pricing": "Pricing",
+      "contact": "Contact",
+      "requestDemo": "Request demo",
+      "tryDemo": "Try demo",
+      "footerText": "Espace Condo - SaaS platform for condominium associations in Romania and Moldova.",
+      "footerSupport": "Support: contact@espace.md"
+    },
+    "hero": {
+      "title": "Condominium management, simplified.",
+      "subtitle": "Payments, debts, issues, announcements and reports in one platform.",
+      "ctaDemo": "Request demo",
+      "ctaTryDemo": "Try demo",
+      "ctaFeatures": "See features"
+    },
+    "problem": {
+      "title": "Real operational problems",
+      "items": {
+        "excel": "Multiple Excel files for each building or administrator.",
+        "chaos": "Call and message chaos around debts and issues.",
+        "transparency": "Lack of transparency for committee and residents.",
+        "timeWaste": "Time lost with manual calculations and unclear situations."
+      }
+    },
+    "solution": {
+      "title": "Espace Condo solution",
+      "text": "A modern SaaS platform for associations in Romania and Moldova, with complete digital workflows for administration, collections, communication and reporting."
+    },
+    "features": {
+      "title": "Key features",
+      "items": {
+        "apartments": { "title": "Apartment registry", "text": "Complete structure by building, staircase and apartment with up-to-date resident data." },
+        "payments": { "title": "Payments and debts", "text": "Track balances, collections and arrears in one place, without Excel." },
+        "notifications": { "title": "Automated notifications", "text": "Send reminders for debts and important communications to residents." },
+        "issues": { "title": "Issues", "text": "Residents submit issues while admins track status to resolution." },
+        "votes": { "title": "Voting", "text": "Run transparent voting and assemblies with centralized history." },
+        "reports": { "title": "Reports", "text": "Clear reports for committee, auditor and residents, ready to export." },
+        "portal": { "title": "Resident portal", "text": "Each resident sees invoices, payments, announcements and issue status." }
+      }
+    },
+    "pricing": {
+      "title": "Flexible pricing for every association",
+      "items": {
+        "trial": "30-day trial, no upfront cost.",
+        "custom": "Custom pricing depending on association size.",
+        "models": "Billing models: per apartment / per m2 / fixed fee."
+      },
+      "cta": "View pricing details"
+    },
+    "contact": {
+      "title": "Request a demo for your association",
+      "subtitle": "Share a few details and our team will contact you with a tailored presentation."
+    },
+    "form": {
+      "name": "Full name",
+      "phone": "Phone",
+      "email": "Email",
+      "associationName": "Association name",
+      "apartmentsCount": "Number of apartments",
+      "preferredDate": "Preferred date",
+      "preferredTime": "Preferred time",
+      "message": "Message (optional)",
+      "submit": "Send request",
+      "sending": "Sending...",
+      "success": "Request sent. We will contact you shortly.",
+      "error": "Could not send request."
+    },
+    "pricingPage": {
+      "title": "Pricing for condominium associations",
+      "subtitle": "We offer flexible packages tailored to association size, with guided onboarding and local support.",
+      "cards": {
+        "trial": { "label": "Trial", "value": "30 days", "text": "Test the full platform with no risk." },
+        "custom": { "label": "Custom", "value": "Per association", "text": "Calculated based on apartment count and needs." },
+        "models": { "label": "Billing models", "value": "3 options", "text": "Per apartment / per m2 / fixed fee." }
+      },
+      "cta": "Request custom demo"
+    },
+    "featuresPage": {
+      "title": "Complete features for modern administration",
+      "subtitle": "Everything you need for efficient, transparent and professional management.",
+      "items": {
+        "apartments": { "title": "Apartment registry", "text": "Complete structure by building, staircase, apartment and resident." },
+        "payments": { "title": "Payments and debts", "text": "Fast management for invoices, collections and arrears." },
+        "notifications": { "title": "Automated notifications", "text": "Reminders for debts, announcements and important events." },
+        "issues": { "title": "Issues", "text": "Clear flow from reporting to resolution." },
+        "votes": { "title": "Voting", "text": "Transparent consultations for association decisions." },
+        "reports": { "title": "Reports", "text": "Financial and operational statements in a clear format." },
+        "portal": { "title": "Resident portal", "text": "Simple access for each resident to their own data." }
+      }
+    },
+    "contactPage": {
+      "title": "Contact",
+      "subtitle": "We work with associations in Moldova and Romania. If you want a quick discussion, complete the form and we'll call you back.",
+      "detailsTitle": "Contact details",
+      "email": "Email: contact@espace.md",
+      "phone": "Phone: +373 60 000 000",
+      "hours": "Hours: Monday - Friday, 09:00 - 18:00",
+      "formTitle": "Leave us a message"
+    },
+    "demoPage": {
+      "title": "Request demo",
+      "subtitle": "Complete the form and we will present the platform based on your association profile."
+    }
+  },
+  "help": {
+    "title": "Help Center",
+    "subtitle": "Guides and articles for admins and residents.",
+    "searchPlaceholder": "Search article...",
+    "loading": "Loading...",
+    "updatedAt": "Updated",
+    "articleNotFound": "Article was not found.",
+    "backToCenter": "Back to help center",
+    "backToArticles": "Back to articles"
+  },
+  "helpAdmin": {
+    "title": "Help articles",
+    "subtitle": "Manage in-app documentation for users.",
+    "newArticle": "New article",
+    "editArticle": "Edit article",
+    "titleField": "Title",
+    "slug": "Slug",
+    "content": "Content",
+    "published": "Published",
+    "draft": "Draft",
+    "articles": "Articles",
+    "create": "Create",
+    "update": "Update",
+    "edit": "Edit",
+    "delete": "Delete",
+    "cancel": "Cancel",
+    "saving": "Saving...",
+    "deleting": "Deleting...",
+    "loading": "Loading..."
+  }
+}

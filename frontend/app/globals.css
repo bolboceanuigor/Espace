@@ -1,0 +1,152 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 220 20% 97%;
+  --foreground: 222 32% 14%;
+  --card: 0 0% 100%;
+  --muted: 220 20% 94%;
+  --muted-foreground: 220 10% 40%;
+  --border: 220 18% 87%;
+  --primary: 222 32% 14%;
+  --secondary: 220 22% 92%;
+  --sidebar-bg: #ffffff;
+  --brand-primary-hex: #111827;
+
+  /* Neutral gray scale - Fresha-like */
+  --gray-50: #F9FAFB;
+  --gray-100: #F3F4F6;
+  --gray-200: #E5E7EB;
+  --gray-400: #9CA3AF;
+  --gray-600: #4B5563;
+  --gray-800: #1F2937;
+
+  /* Reservation block colors - status (muted) */
+  --reservation-confirmed: #374151;
+  --reservation-pending: #92400E;
+  --reservation-cancelled: #7F1D1D;
+}
+
+html[data-theme='dark'] {
+  --background: 250 36% 9%;
+  --foreground: 236 30% 94%;
+  --card: 246 34% 13%;
+  --muted: 247 22% 19%;
+  --muted-foreground: 238 13% 68%;
+  --border: 247 20% 27%;
+  --secondary: 247 18% 22%;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-onest), system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--gray-100);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--gray-200);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gray-400);
+}
+
+/* Form input / label / error - single source of truth (use with ui Card, Button, Modal) */
+.input {
+  @apply w-full rounded-xl border border-border/80 bg-white px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/80 shadow-[0_1px_2px_rgba(16,24,40,0.03)] transition duration-150 ease-out focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50;
+}
+.select {
+  @apply w-full rounded-xl border border-border/80 bg-white px-4 py-2.5 text-sm text-foreground shadow-[0_1px_2px_rgba(16,24,40,0.03)] transition duration-150 ease-out focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50;
+}
+.label {
+  @apply mb-1.5 block text-sm font-medium text-foreground/85;
+}
+.error-box {
+  @apply rounded-2xl border border-red-200 bg-red-50/90 px-4 py-3 text-sm text-red-700;
+}
+
+/* Reservation blocks - neutral status */
+.reservation-block {
+  @apply rounded-lg px-3 py-2 font-medium text-sm text-white transition-opacity;
+}
+.reservation-block:hover {
+  @apply opacity-95;
+}
+.reservation-block:focus-visible {
+  @apply outline-none ring-2 ring-gray-400 ring-offset-1;
+}
+.reservation-block.confirmed {
+  background-color: var(--reservation-confirmed);
+}
+.reservation-block.pending {
+  background-color: var(--reservation-pending);
+}
+.reservation-block.cancelled {
+  background-color: var(--reservation-cancelled);
+  opacity: 0.7;
+}
+
+/* Compact calendar blocks - minimal, no scale */
+.reservation-block.reservation-block-compact {
+  @apply rounded-md px-1 py-0.5 shadow-none text-xs;
+}
+.reservation-block.reservation-block-compact:hover {
+  @apply scale-100 shadow-sm;
+}
+
+/* Cleaning badge - small circle */
+.cleaning-badge {
+  @apply absolute top-1 right-1 w-2.5 h-2.5 rounded-full border border-white;
+}
+.cleaning-badge.cleaning-badge-compact {
+  @apply top-0.5 right-0.5 w-1.5 h-1.5 border-0;
+}
+.cleaning-badge.done {
+  @apply bg-green-500;
+}
+.cleaning-badge.in-progress {
+  @apply bg-orange-500;
+}
+.cleaning-badge.pending {
+  @apply bg-gray-400;
+}
+
+/* Modal entrance */
+@keyframes modal-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.animate-modal-in {
+  animation: modal-fade-in 0.2s ease-out;
+}

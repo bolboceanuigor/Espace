@@ -1,0 +1,17 @@
+[
+  {
+    "title": "Calendar Drag & Drop",
+    "description": "Move and resize reservations directly on the board with overlap-safe validations.",
+    "status": "Coming soon"
+  },
+  {
+    "title": "iCal Sync Foundations",
+    "description": "Import/sync booking channels with conflict-safe mapping and sync status indicators.",
+    "status": "Coming soon"
+  },
+  {
+    "title": "Reports Improvements",
+    "description": "Occupancy and revenue summaries with cleaner filters and export-ready views.",
+    "status": "Coming soon"
+  }
+]
