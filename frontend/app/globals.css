@@ -232,7 +232,8 @@ body {
 }
 
 .input:focus {
-  @apply outline-none border-[#00d4aa]/50 bg-white/8;
+  @apply outline-none border-[#00d4aa]/50;
+  background: rgba(255, 255, 255, 0.08);
   box-shadow: 0 0 20px rgba(0, 212, 170, 0.1);
 }
 
