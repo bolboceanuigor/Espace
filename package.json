@@ -2,12 +2,8 @@
   "name": "espace",
   "version": "1.0.0",
   "private": true,
-  "workspaces": [
-    "backend",
-    "frontend"
-  ],
   "scripts": {
-    "dev": "npm --prefix frontend run dev",
+    "dev": "cd frontend && npm run dev",
     "dev:all": "concurrently \"npm --prefix backend run start:dev\" \"npm --prefix frontend run dev\"",
     "build": "npm --prefix backend run build && npm --prefix frontend run build",
     "seed": "npm --prefix backend run prisma:seed",
