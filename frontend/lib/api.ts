@@ -1,13 +1,11 @@
 import { getToken, getUser, removeToken, removeUser } from './auth';
 import type { ApiEnvelope, ApiErrorPayload } from '@/types/api';
 
-const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL;
-const API_URL = RAW_API_URL?.replace(/\/+$/, '').replace(/\/api$/, '');
+const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL || '';
+const API_URL = RAW_API_URL?.replace(/\/+$/, '').replace(/\/api$/, '') || '';
 const ACTIVE_ORG_STORAGE_KEY = 'activeOrgId';
 
-if (!API_URL) {
-  throw new Error('NEXT_PUBLIC_API_URL is required');
-}
+// API_URL is optional - allows landing pages to work without backend
 
 export class ApiClientError extends Error {
   status: number;
