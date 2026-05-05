@@ -4,6 +4,11 @@ export type AccountStatus = 'cont creat' | 'invitat' | 'fără cont';
 export type MeterType = 'Apă rece' | 'Apă caldă' | 'Gaz' | 'Electricitate';
 export type MeterStatus = 'Actualizat' | 'Lipsă citire' | 'Suspect';
 export type InvoiceStatus = 'Achitat' | 'Neachitat' | 'Întârziat';
+export type IssueCategory = 'Apă' | 'Încălzire' | 'Curățenie' | 'Lift' | 'Reparații' | 'Altele';
+export type IssuePriority = 'Normal' | 'Important' | 'Urgent';
+export type IssueStatus = 'Nouă' | 'În lucru' | 'Rezolvată';
+export type AnnouncementCategory = 'General' | 'Reparații' | 'Urgent' | 'Administrare';
+export type AnnouncementStatus = 'Activ' | 'Arhivat';
 
 export type AdminApartment = {
   id: string;
@@ -58,6 +63,42 @@ export type AdminInvoice = {
   status: InvoiceStatus;
   paymentMethod?: string;
   paidDate?: string;
+};
+
+export type AdminIssue = {
+  id: string;
+  title: string;
+  category: IssueCategory;
+  apartment: string;
+  resident: string;
+  message: string;
+  description: string;
+  date: string;
+  priority: IssuePriority;
+  status: IssueStatus;
+  timeline: Array<{ title: string; date: string; note: string }>;
+  internalNotes: string[];
+};
+
+export type AdminAnnouncement = {
+  id: string;
+  title: string;
+  category: AnnouncementCategory;
+  date: string;
+  preview: string;
+  content: string;
+  status: AnnouncementStatus;
+  audience: string;
+};
+
+export type AdminConversation = {
+  id: string;
+  resident: string;
+  apartment: string;
+  preview: string;
+  time: string;
+  unread: boolean;
+  messages: Array<{ id: string; sender: string; content: string; mine?: boolean; time: string }>;
 };
 
 export const adminApartments: AdminApartment[] = [
@@ -337,6 +378,174 @@ export const invoiceStatusVariant: Record<InvoiceStatus, 'success' | 'warning' |
   Întârziat: 'error',
 };
 
+export const adminIssues: AdminIssue[] = [
+  {
+    id: 'req-1',
+    title: 'Infiltrație la balcon după ploaie',
+    category: 'Apă',
+    apartment: 'Apt. 45',
+    resident: 'Popescu Ion',
+    message: 'Apa se scurge pe lângă rama balconului după ploile puternice.',
+    description: 'Locatarul raportează infiltrații repetate în zona balconului. Este nevoie de verificarea hidroizolației și a scurgerii exterioare.',
+    date: '30 Aprilie 2026',
+    priority: 'Urgent',
+    status: 'În lucru',
+    timeline: [
+      { title: 'Cerere primită', date: '30 Aprilie 2026, 18:20', note: 'Locatarul a trimis descrierea problemei.' },
+      { title: 'Preluată de administrator', date: '30 Aprilie 2026, 18:32', note: 'Cererea a fost marcată în lucru.' },
+      { title: 'Programare verificare', date: '02 Mai 2026, 09:00', note: 'Echipa tehnică verifică balconul și scurgerea.' },
+    ],
+    internalNotes: ['Prioritate ridicată din cauza riscului de deteriorare a finisajelor.', 'Verifică dacă problema afectează și Apt. 46.'],
+  },
+  {
+    id: 'req-2',
+    title: 'Verificare presiune apă caldă',
+    category: 'Încălzire',
+    apartment: 'Apt. 45',
+    resident: 'Popescu Maria',
+    message: 'Presiunea apei calde este scăzută seara.',
+    description: 'Presiunea apei calde scade după ora 20:00. Este necesară verificarea coloanei și a consumului pe scară.',
+    date: '02 Mai 2026',
+    priority: 'Important',
+    status: 'Nouă',
+    timeline: [{ title: 'Cerere primită', date: '02 Mai 2026, 20:14', note: 'Cerere nouă, încă nealocată.' }],
+    internalNotes: ['Poate fi legată de lucrările recente pe Scara 2.'],
+  },
+  {
+    id: 'req-3',
+    title: 'Bec ars pe palier',
+    category: 'Curățenie',
+    apartment: 'Scara 1',
+    resident: 'Ionescu Maria',
+    message: 'Becul de la etajul 3 nu funcționează.',
+    description: 'Iluminatul de pe palierul etajului 3, Scara 1, trebuie înlocuit.',
+    date: '27 Aprilie 2026',
+    priority: 'Normal',
+    status: 'Rezolvată',
+    timeline: [
+      { title: 'Cerere primită', date: '27 Aprilie 2026, 10:12', note: 'Raportată de locatar.' },
+      { title: 'Rezolvată', date: '28 Aprilie 2026, 12:40', note: 'Becul a fost înlocuit.' },
+    ],
+    internalNotes: ['Consumabil înlocuit din stocul APC.'],
+  },
+  {
+    id: 'req-4',
+    title: 'Ușă intrare defectă',
+    category: 'Reparații',
+    apartment: 'Bloc principal',
+    resident: 'Grup locatari',
+    message: 'Ușa de la intrare nu se închide complet.',
+    description: 'Yala ușii de intrare trebuie reglată. Problema afectează accesul în bloc.',
+    date: '04 Mai 2026',
+    priority: 'Urgent',
+    status: 'Nouă',
+    timeline: [{ title: 'Cerere primită', date: '04 Mai 2026, 08:05', note: 'Raportată de mai mulți locatari.' }],
+    internalNotes: ['Contactează furnizorul de mentenanță pentru acces.'],
+  },
+];
+
+export const issueStatusVariant: Record<IssueStatus, 'default' | 'warning' | 'success'> = {
+  Nouă: 'default',
+  'În lucru': 'warning',
+  Rezolvată: 'success',
+};
+
+export const issuePriorityVariant: Record<IssuePriority, 'neutral' | 'warning' | 'error'> = {
+  Normal: 'neutral',
+  Important: 'warning',
+  Urgent: 'error',
+};
+
+export const adminAnnouncements: AdminAnnouncement[] = [
+  {
+    id: 'ann-1',
+    title: 'Lucrări de întreținere la lift',
+    category: 'Reparații',
+    date: '03 Mai 2026',
+    preview: 'Liftul de pe Scara 2 va fi verificat între orele 10:00 și 13:00.',
+    content: 'Stimați locatari, liftul de pe Scara 2 va fi verificat între orele 10:00 și 13:00. Vă rugăm să planificați deplasările în avans. Echipa tehnică va afișa actualizări dacă intervenția durează mai mult.',
+    status: 'Activ',
+    audience: 'Toți locatarii de pe Scara 2',
+  },
+  {
+    id: 'ann-2',
+    title: 'Ședință APC pentru aprobarea bugetului',
+    category: 'Administrare',
+    date: '08 Mai 2026',
+    preview: 'Locatarii sunt invitați la ședința lunară pentru aprobarea cheltuielilor comune.',
+    content: 'Ședința APC va avea loc în data de 08 Mai 2026, ora 18:30, în spațiul comun de la parter. Pe agendă: cheltuieli comune, fond de reparații și planul de lucrări pentru luna următoare.',
+    status: 'Activ',
+    audience: 'Toți proprietarii și reprezentanții',
+  },
+  {
+    id: 'ann-3',
+    title: 'Avarie apă caldă pe Scara 3',
+    category: 'Urgent',
+    date: '01 Mai 2026',
+    preview: 'Echipa tehnică investighează întreruperea apei calde.',
+    content: 'Echipa tehnică investighează întreruperea apei calde pe Scara 3. Revenim cu actualizări imediat ce furnizorul confirmă ora estimată de remediere.',
+    status: 'Activ',
+    audience: 'Locatarii de pe Scara 3',
+  },
+  {
+    id: 'ann-4',
+    title: 'Program colectare deșeuri voluminoase',
+    category: 'General',
+    date: '25 Aprilie 2026',
+    preview: 'Colectarea deșeurilor voluminoase a fost programată pentru weekend.',
+    content: 'Colectarea deșeurilor voluminoase va avea loc sâmbătă, între orele 09:00 și 12:00. Vă rugăm să depozitați obiectele doar în zona marcată.',
+    status: 'Arhivat',
+    audience: 'Toți locatarii',
+  },
+];
+
+export const announcementCategoryVariant: Record<AnnouncementCategory, 'default' | 'warning' | 'error' | 'neutral'> = {
+  General: 'neutral',
+  Reparații: 'warning',
+  Urgent: 'error',
+  Administrare: 'default',
+};
+
+export const adminConversations: AdminConversation[] = [
+  {
+    id: 'chat-1',
+    resident: 'Popescu Ion',
+    apartment: 'Apt. 45',
+    preview: 'Bună ziua, avem o problemă la balcon după ultima ploaie.',
+    time: '18:20',
+    unread: true,
+    messages: [
+      { id: 'm1', sender: 'Popescu Ion', content: 'Bună ziua, avem o problemă la balcon după ultima ploaie.', time: '18:20' },
+      { id: 'm2', sender: 'Admin', content: 'Mulțumesc. Am creat o cerere și revenim cu programarea verificării.', mine: true, time: '18:24' },
+      { id: 'm3', sender: 'Popescu Ion', content: 'Perfect, pot fi acasă mâine după ora 18:00.', time: '18:29' },
+    ],
+  },
+  {
+    id: 'chat-2',
+    resident: 'Ionescu Maria',
+    apartment: 'Apt. 18',
+    preview: 'Mulțumesc, plata a fost confirmată.',
+    time: '11:10',
+    unread: false,
+    messages: [
+      { id: 'm4', sender: 'Admin', content: 'Plata pentru luna Mai a fost confirmată în sistem.', mine: true, time: '11:08' },
+      { id: 'm5', sender: 'Ionescu Maria', content: 'Mulțumesc, plata a fost confirmată.', time: '11:10' },
+    ],
+  },
+  {
+    id: 'chat-3',
+    resident: 'Grup Scara 2',
+    apartment: 'Comunitate',
+    preview: 'Discuție despre programul curățeniei.',
+    time: '09:45',
+    unread: false,
+    messages: [
+      { id: 'm6', sender: 'Grup Scara 2', content: 'Propunem curățenie suplimentară vinerea.', time: '09:45' },
+      { id: 'm7', sender: 'Admin', content: 'Notat. Verific disponibilitatea furnizorului și revin cu opțiuni.', mine: true, time: '09:51' },
+    ],
+  },
+];
+
 export const coldWaterMeter = { type: 'Apă rece', serial: 'AR-024531', value: '124 m³', status: 'Actualizat' };
 export const hotWaterMeter = { type: 'Apă caldă', serial: 'AC-018992', value: '89 m³', status: 'Actualizat' };
 export const gasMeter = { type: 'Gaz', serial: 'GZ-771209', value: 'Lipsă citire', status: 'Lipsă citire' };
@@ -366,4 +575,14 @@ export function findResidentById(id?: string) {
 
 export function residentsForApartment(number: string) {
   return adminResidents.filter((resident) => resident.apartments.includes(number));
+}
+
+export function findIssueById(id?: string) {
+  if (!id) return adminIssues[0];
+  return adminIssues.find((issue) => issue.id === id) ?? adminIssues[0];
+}
+
+export function findAnnouncementById(id?: string) {
+  if (!id) return adminAnnouncements[0];
+  return adminAnnouncements.find((announcement) => announcement.id === id) ?? adminAnnouncements[0];
 }

@@ -1,101 +1,57 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { Eye, EyeOff, MessageCircle, Trash2 } from 'lucide-react';
-import { communicationsApi } from '@/lib/api';
+import { Archive, ArrowLeft, Edit3, Megaphone, Users } from 'lucide-react';
+import { Badge, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
+import { defaultLocale, isLocale } from '@/i18n';
+import { announcementCategoryVariant, findAnnouncementById } from '@/lib/admin-mvp-data';
 
 export default function AdminAnnouncementDetailsPage() {
-  const params = useParams<{ id: string }>();
-  const [announcement, setAnnouncement] = useState<any>(null);
-  const [comments, setComments] = useState<any[]>([]);
-
-  const load = useCallback(async () => {
-    const [announcementsRes, commentsRes] = await Promise.all([
-      communicationsApi.listAdminAnnouncements(),
-      communicationsApi.listAdminAnnouncementComments(params.id),
-    ]);
-    const current = (announcementsRes.data || []).find((item: any) => item.id === params.id) || null;
-    setAnnouncement(current);
-    setComments(commentsRes.data || []);
-  }, [params.id]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  if (!announcement) return <div className="text-sm text-muted-foreground">Loading announcement...</div>;
+  const params = useParams<{ id?: string; locale?: string }>();
+  const localeParam = typeof params?.locale === 'string' ? params.locale : defaultLocale;
+  const locale = isLocale(localeParam) ? localeParam : defaultLocale;
+  const announcement = findAnnouncementById(params?.id);
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-xl border border-border/70 bg-card p-4">
-        <h1 className="text-xl font-semibold text-foreground">{announcement.title}</h1>
-        <p className="mt-2 text-sm text-muted-foreground">{announcement.content}</p>
-        <p className="mt-2 text-xs text-muted-foreground">
-          {announcement.importance} • {announcement.targetType} • {new Date(announcement.createdAt).toLocaleString()}
-        </p>
-      </div>
+    <div className="space-y-5 pb-4">
+      <Link href={`/${locale}/admin/announcements`} className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground">
+        <ArrowLeft className="h-4 w-4" />
+        Înapoi la avizier
+      </Link>
 
-      <div className="rounded-xl border border-border/70 bg-card p-4">
-        <div className="flex items-center gap-2">
-          <MessageCircle className="h-4 w-4 text-muted-foreground" />
-          <p className="text-sm font-medium text-foreground">Comentarii ({comments.length})</p>
+      <PageHeader
+        title={announcement.title}
+        description={`${announcement.category} · ${announcement.date}`}
+        rightSlot={<Badge variant={announcement.status === 'Activ' ? 'success' : 'neutral'}>{announcement.status}</Badge>}
+      />
+
+      <section className="grid gap-3 md:grid-cols-3">
+        <StatCard label="Categorie" value={announcement.category} description="Tip anunț" icon={<Megaphone className="h-5 w-5" />} tone={announcement.category === 'Urgent' ? 'danger' : 'neutral'} />
+        <StatCard label="Audiență" value={announcement.audience} description="Cine vede anunțul" icon={<Users className="h-5 w-5" />} tone="success" />
+        <StatCard label="Status" value={announcement.status} description="Stare publicare" icon={<Archive className="h-5 w-5" />} tone={announcement.status === 'Activ' ? 'success' : 'neutral'} />
+      </section>
+
+      <Card>
+        <div className="flex flex-wrap gap-2">
+          <ButtonLink href={`/${locale}/admin/announcements/${announcement.id}`} variant="secondary"><Edit3 className="h-4 w-4" /> Editează</ButtonLink>
+          <ButtonLink href={`/${locale}/admin/announcements/${announcement.id}`} variant="secondary"><Archive className="h-4 w-4" /> Arhivează</ButtonLink>
         </div>
-        <div className="mt-3 space-y-2">
-          {comments.map((comment) => (
-            <div key={comment.id} className="rounded-lg border border-border/60 p-3">
-              <p className="text-xs text-muted-foreground">
-                {(comment.user?.firstName || '').trim()} {(comment.user?.lastName || '').trim()}
-                {!comment.user?.firstName && !comment.user?.lastName ? comment.user?.email || 'Locatar' : ''}
-                {comment.user?.residentProfiles?.[0]?.apartment?.number
-                  ? ` • Ap. ${comment.user.residentProfiles[0].apartment.number}`
-                  : ''}
-                {' • '}
-                {new Date(comment.createdAt).toLocaleString()}
-                {' • '}
-                {comment.status}
-              </p>
-              <p className="mt-1 text-sm text-foreground">{comment.content}</p>
-              <div className="mt-2 flex gap-3 text-xs">
-                {comment.status === 'HIDDEN' ? (
-                  <button
-                    className="inline-flex items-center gap-1 text-emerald-600"
-                    onClick={async () => {
-                      await communicationsApi.showAdminAnnouncementComment(comment.id);
-                      await load();
-                    }}
-                  >
-                    <Eye className="h-3.5 w-3.5" />
-                    Show
-                  </button>
-                ) : (
-                  <button
-                    className="inline-flex items-center gap-1 text-amber-600"
-                    onClick={async () => {
-                      await communicationsApi.hideAdminAnnouncementComment(comment.id);
-                      await load();
-                    }}
-                  >
-                    <EyeOff className="h-3.5 w-3.5" />
-                    Hide
-                  </button>
-                )}
-                <button
-                  className="inline-flex items-center gap-1 text-rose-600"
-                  onClick={async () => {
-                    await communicationsApi.deleteAdminAnnouncementComment(comment.id);
-                    await load();
-                  }}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  Delete
-                </button>
-              </div>
-            </div>
-          ))}
-          {!comments.length ? <p className="text-sm text-muted-foreground">Nu exista comentarii.</p> : null}
+      </Card>
+
+      <Card>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant={announcementCategoryVariant[announcement.category]}>{announcement.category}</Badge>
+          <Badge variant={announcement.status === 'Activ' ? 'success' : 'neutral'}>{announcement.status}</Badge>
+          <span className="text-sm text-muted-foreground">{announcement.date}</span>
         </div>
-      </div>
+        <div className="mt-5 max-w-3xl space-y-4 text-sm leading-7 text-muted-foreground">
+          <p>{announcement.content}</p>
+          <p className="rounded-2xl border border-border/70 bg-muted/25 p-4">
+            Audiență: <span className="font-semibold text-foreground">{announcement.audience}</span>
+          </p>
+        </div>
+      </Card>
     </div>
   );
 }
