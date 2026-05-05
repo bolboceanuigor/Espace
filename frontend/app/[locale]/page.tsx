@@ -1,4 +1,4 @@
-import LandingPageContent from '@/components/marketing/LandingPageContent';
+import EspaceProductPage from '@/components/marketing/EspaceProductPage';
 import type { Metadata } from 'next';
 import { defaultLocale, isLocale } from '@/i18n';
 
@@ -8,11 +8,11 @@ type LocaleHomePageProps = {
 
 export async function generateMetadata({ params }: LocaleHomePageProps): Promise<Metadata> {
   const locale = isLocale(params.locale || '') ? params.locale : defaultLocale;
-  const title = locale === 'en' ? 'CondoFlow - Condominium Management' : 'CondoFlow - Platforma pentru e-Condominiu';
+  const title = locale === 'en' ? 'Espace - Condominium Management' : 'Espace - Administrare asociații de proprietari';
   const description =
     locale === 'en'
-      ? 'SaaS platform for condominiums: invoices, payments, maintenance and resident communication.'
-      : 'Platforma SaaS pentru administrare asociatii, facturi, plati si comunicare cu locatarii.';
+      ? 'Frontend preview for condominiums: apartments, meters, payments, requests and resident communication.'
+      : 'Preview frontend pentru administrarea apartamentelor, locatarilor, contoarelor, plăților și comunicărilor.';
 
   return {
     title,
@@ -26,5 +26,5 @@ export async function generateMetadata({ params }: LocaleHomePageProps): Promise
 }
 
 export default function LocaleHomePage() {
-  return <LandingPageContent />;
+  return <EspaceProductPage active="home" />;
 }
