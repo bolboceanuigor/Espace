@@ -34,7 +34,7 @@ const paymentVariant = {
 
 const meterVariant = {
   Actualizat: 'success',
-  Lipsă: 'warning',
+  'Lipsă citire': 'warning',
 } as const;
 
 const requestVariant = {

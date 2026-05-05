@@ -1,6 +1,9 @@
 export type ApartmentStatus = 'Activ' | 'Datornic' | 'Nelocuit' | 'Problemă';
 export type PersonRole = 'proprietar' | 'locatar' | 'chiriaș' | 'membru familie' | 'reprezentant';
 export type AccountStatus = 'cont creat' | 'invitat' | 'fără cont';
+export type MeterType = 'Apă rece' | 'Apă caldă' | 'Gaz' | 'Electricitate';
+export type MeterStatus = 'Actualizat' | 'Lipsă citire' | 'Suspect';
+export type InvoiceStatus = 'Achitat' | 'Neachitat' | 'Întârziat';
 
 export type AdminApartment = {
   id: string;
@@ -30,6 +33,31 @@ export type AdminResident = {
   role: PersonRole;
   accountStatus: AccountStatus;
   debt: number;
+};
+
+export type AdminMeter = {
+  id: string;
+  apartment: string;
+  staircase: string;
+  floor: number;
+  type: MeterType;
+  serial: string;
+  reading: string;
+  readingDate: string;
+  status: MeterStatus;
+};
+
+export type AdminInvoice = {
+  id: string;
+  apartment: string;
+  staircase: string;
+  month: string;
+  invoiceNumber: string;
+  amount: number;
+  dueDate: string;
+  status: InvoiceStatus;
+  paymentMethod?: string;
+  paidDate?: string;
 };
 
 export const adminApartments: AdminApartment[] = [
@@ -173,9 +201,145 @@ export const accountStatusVariant: Record<AccountStatus, 'success' | 'warning' |
   'fără cont': 'neutral',
 };
 
+export const adminMeters: AdminMeter[] = [
+  {
+    id: 'meter-45-ar',
+    apartment: '45',
+    staircase: 'Scara 2',
+    floor: 6,
+    type: 'Apă rece',
+    serial: 'AR-024531',
+    reading: '124 m³',
+    readingDate: '30 Aprilie 2026',
+    status: 'Actualizat',
+  },
+  {
+    id: 'meter-45-ac',
+    apartment: '45',
+    staircase: 'Scara 2',
+    floor: 6,
+    type: 'Apă caldă',
+    serial: 'AC-018992',
+    reading: '89 m³',
+    readingDate: '30 Aprilie 2026',
+    status: 'Actualizat',
+  },
+  {
+    id: 'meter-45-gz',
+    apartment: '45',
+    staircase: 'Scara 2',
+    floor: 6,
+    type: 'Gaz',
+    serial: 'GZ-771209',
+    reading: 'Lipsă citire',
+    readingDate: '12 Martie 2026',
+    status: 'Lipsă citire',
+  },
+  {
+    id: 'meter-72-ac',
+    apartment: '72',
+    staircase: 'Scara 3',
+    floor: 9,
+    type: 'Apă caldă',
+    serial: 'AC-307218',
+    reading: '91.8 m³',
+    readingDate: '14 Martie 2026',
+    status: 'Suspect',
+  },
+  {
+    id: 'meter-18-el',
+    apartment: '18',
+    staircase: 'Scara 1',
+    floor: 3,
+    type: 'Electricitate',
+    serial: 'EL-181903',
+    reading: '4,810 kWh',
+    readingDate: '28 Aprilie 2026',
+    status: 'Actualizat',
+  },
+  {
+    id: 'meter-8-ar',
+    apartment: '8',
+    staircase: 'Scara 1',
+    floor: 1,
+    type: 'Apă rece',
+    serial: 'AR-080112',
+    reading: 'Lipsă citire',
+    readingDate: 'Nu există',
+    status: 'Lipsă citire',
+  },
+];
+
+export const adminInvoices: AdminInvoice[] = [
+  {
+    id: 'inv-45-2026-05',
+    apartment: '45',
+    staircase: 'Scara 2',
+    month: 'Mai 2026',
+    invoiceNumber: 'FAC-2026-05-045',
+    amount: 1240,
+    dueDate: '10 Iunie 2026',
+    status: 'Neachitat',
+  },
+  {
+    id: 'inv-45-2026-04',
+    apartment: '45',
+    staircase: 'Scara 2',
+    month: 'Aprilie 2026',
+    invoiceNumber: 'FAC-2026-04-045',
+    amount: 620,
+    dueDate: '10 Mai 2026',
+    status: 'Întârziat',
+  },
+  {
+    id: 'inv-18-2026-05',
+    apartment: '18',
+    staircase: 'Scara 1',
+    month: 'Mai 2026',
+    invoiceNumber: 'FAC-2026-05-018',
+    amount: 1860,
+    dueDate: '10 Iunie 2026',
+    status: 'Achitat',
+    paymentMethod: 'Card bancar',
+    paidDate: '04 Mai 2026',
+  },
+  {
+    id: 'inv-72-2026-05',
+    apartment: '72',
+    staircase: 'Scara 3',
+    month: 'Mai 2026',
+    invoiceNumber: 'FAC-2026-05-072',
+    amount: 3860,
+    dueDate: '10 Iunie 2026',
+    status: 'Întârziat',
+  },
+  {
+    id: 'inv-11-2026-05',
+    apartment: '11',
+    staircase: 'Scara 1',
+    month: 'Mai 2026',
+    invoiceNumber: 'FAC-2026-05-011',
+    amount: 920,
+    dueDate: '10 Iunie 2026',
+    status: 'Neachitat',
+  },
+];
+
+export const meterStatusVariant: Record<MeterStatus, 'success' | 'warning' | 'error'> = {
+  Actualizat: 'success',
+  'Lipsă citire': 'warning',
+  Suspect: 'error',
+};
+
+export const invoiceStatusVariant: Record<InvoiceStatus, 'success' | 'warning' | 'error'> = {
+  Achitat: 'success',
+  Neachitat: 'warning',
+  Întârziat: 'error',
+};
+
 export const coldWaterMeter = { type: 'Apă rece', serial: 'AR-024531', value: '124 m³', status: 'Actualizat' };
 export const hotWaterMeter = { type: 'Apă caldă', serial: 'AC-018992', value: '89 m³', status: 'Actualizat' };
-export const gasMeter = { type: 'Gaz', serial: 'GZ-771209', value: 'Lipsă citire', status: 'Lipsă' };
+export const gasMeter = { type: 'Gaz', serial: 'GZ-771209', value: 'Lipsă citire', status: 'Lipsă citire' };
 
 export const apartmentMeters = [coldWaterMeter, hotWaterMeter, gasMeter];
 
