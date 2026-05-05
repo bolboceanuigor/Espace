@@ -19,6 +19,7 @@ const config: Config = {
         'muted-foreground': 'hsl(var(--muted-foreground))',
         primary: 'hsl(var(--primary))',
         secondary: 'hsl(var(--secondary))',
+        accent: 'hsl(var(--accent))',
         card: 'hsl(var(--card))',
         'reservation-purple': '#A78BFA',
         'reservation-pink': '#F472B6',
