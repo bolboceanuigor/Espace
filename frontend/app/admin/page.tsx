@@ -130,9 +130,9 @@ export default function AdminPage() {
         <p className="text-sm font-semibold text-foreground">Acțiuni rapide</p>
         <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <ButtonLink href="/admin/apartments" variant="primary"><PlusCircle className="h-4 w-4" /> Adaugă apartament</ButtonLink>
+          <ButtonLink href="/admin/residents" variant="secondary"><Users className="h-4 w-4" /> Adaugă locatar</ButtonLink>
           <ButtonLink href="/admin/invoices" variant="secondary"><FileText className="h-4 w-4" /> Emite facturi</ButtonLink>
           <ButtonLink href="/admin/announcements" variant="secondary"><Megaphone className="h-4 w-4" /> Publică anunț</ButtonLink>
-          <ButtonLink href="/admin/issues" variant="secondary"><MessageCircle className="h-4 w-4" /> Vezi cereri</ButtonLink>
         </div>
       </Card>
     </div>

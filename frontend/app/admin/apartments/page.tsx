@@ -5,104 +5,7 @@ import { useMemo, useState } from 'react';
 import { AlertCircle, Gauge, Home, Search, UserX } from 'lucide-react';
 import { Badge, Card, Input, PageHeader, StatCard } from '@/components/ui';
 import { formatMdl } from '@/lib/condo-admin-fallback';
-
-type ApartmentStatus = 'Activ' | 'Datornic' | 'Nelocuit' | 'Problemă';
-
-type AdminApartment = {
-  id: string;
-  number: string;
-  staircase: string;
-  floor: number;
-  areaM2: number;
-  rooms: number;
-  owner: string;
-  phone: string;
-  residents: number;
-  debt: number;
-  lastPayment: string;
-  metersUpdated: number;
-  metersMissing: number;
-  status: ApartmentStatus;
-  hasAccount: boolean;
-};
-
-const apartments: AdminApartment[] = [
-  {
-    id: 'apt-45',
-    number: '45',
-    staircase: 'Scara 2',
-    floor: 6,
-    areaM2: 72.4,
-    rooms: 3,
-    owner: 'Popescu Ion',
-    phone: '+373 69 111 222',
-    residents: 3,
-    debt: 1240,
-    lastPayment: 'Martie 2026',
-    metersUpdated: 2,
-    metersMissing: 1,
-    status: 'Datornic',
-    hasAccount: true,
-  },
-  {
-    id: 'apt-18',
-    number: '18',
-    staircase: 'Scara 1',
-    floor: 3,
-    areaM2: 58.2,
-    rooms: 2,
-    owner: 'Ionescu Maria',
-    phone: '+373 68 333 444',
-    residents: 2,
-    debt: 0,
-    lastPayment: 'Aprilie 2026',
-    metersUpdated: 3,
-    metersMissing: 0,
-    status: 'Activ',
-    hasAccount: true,
-  },
-  {
-    id: 'apt-72',
-    number: '72',
-    staircase: 'Scara 3',
-    floor: 9,
-    areaM2: 81.6,
-    rooms: 4,
-    owner: 'Ceban Andrei',
-    phone: '+373 67 555 666',
-    residents: 4,
-    debt: 3860,
-    lastPayment: 'Februarie 2026',
-    metersUpdated: 1,
-    metersMissing: 2,
-    status: 'Problemă',
-    hasAccount: false,
-  },
-  {
-    id: 'apt-8',
-    number: '8',
-    staircase: 'Scara 1',
-    floor: 1,
-    areaM2: 47.5,
-    rooms: 2,
-    owner: 'Fără proprietar conectat',
-    phone: '-',
-    residents: 0,
-    debt: 0,
-    lastPayment: 'Aprilie 2026',
-    metersUpdated: 0,
-    metersMissing: 3,
-    status: 'Nelocuit',
-    hasAccount: false,
-  },
-];
-
-const statusVariant: Record<ApartmentStatus, 'default' | 'success' | 'warning' | 'error' | 'neutral'> = {
-  Activ: 'success',
-  Datornic: 'error',
-  Nelocuit: 'neutral',
-  Problemă: 'warning',
-};
+import { adminApartments, apartmentStatusVariant, type AdminApartment } from '@/lib/admin-mvp-data';
 
 const summary = [
   { label: 'Total apartamente', value: '142', description: 'În APC Alba Iulia 75', icon: <Home className="h-5 w-5" /> },
@@ -123,7 +26,7 @@ export default function AdminApartmentsPage() {
 
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase();
-    return apartments.filter((item) => {
+    return adminApartments.filter((item) => {
       const matchesSearch =
         !needle ||
         item.number.toLowerCase().includes(needle) ||
@@ -138,8 +41,8 @@ export default function AdminApartmentsPage() {
     });
   }, [floor, onlyDebt, search, staircase, status, withoutAccount]);
 
-  const staircases = ['Toate', ...Array.from(new Set(apartments.map((item) => item.staircase)))];
-  const floors = ['Toate', ...Array.from(new Set(apartments.map((item) => String(item.floor))))];
+  const staircases = ['Toate', ...Array.from(new Set(adminApartments.map((item) => item.staircase)))];
+  const floors = ['Toate', ...Array.from(new Set(adminApartments.map((item) => String(item.floor))))];
 
   return (
     <div className="space-y-5 pb-4">
@@ -186,7 +89,7 @@ export default function AdminApartmentsPage() {
           <div key={item.id} className="grid grid-cols-[0.7fr_0.9fr_0.9fr_1.4fr_0.9fr_1fr_0.8fr_auto] items-center gap-3 border-b border-border/50 px-4 py-4 text-sm last:border-b-0">
             <div>
               <p className="font-semibold text-foreground">Apt. {item.number}</p>
-              <Badge variant={statusVariant[item.status]} className="mt-1">{item.status}</Badge>
+              <Badge variant={apartmentStatusVariant[item.status]} className="mt-1">{item.status}</Badge>
             </div>
             <span className="text-muted-foreground">{item.staircase} · Etaj {item.floor}</span>
             <span className="text-muted-foreground">{item.areaM2} m² · {item.rooms} camere</span>
@@ -216,7 +119,7 @@ function ApartmentMobileCard({ apartment }: { apartment: AdminApartment }) {
           <p className="text-lg font-semibold text-foreground">Apt. {apartment.number}</p>
           <p className="mt-1 text-xs text-muted-foreground">{apartment.staircase} · Etaj {apartment.floor} · {apartment.areaM2} m²</p>
         </div>
-        <Badge variant={statusVariant[apartment.status]}>{apartment.status}</Badge>
+        <Badge variant={apartmentStatusVariant[apartment.status]}>{apartment.status}</Badge>
       </div>
       <div className="mt-4 space-y-3 text-sm">
         <Info label="Proprietar" value={apartment.owner} />
