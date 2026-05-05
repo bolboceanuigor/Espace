@@ -3,24 +3,38 @@
 @tailwind utilities;
 
 :root {
-  --background: 220 20% 97%;
-  --foreground: 222 32% 14%;
+  --background: 40 20% 96%;
+  --foreground: 170 30% 6%;
   --card: 0 0% 100%;
-  --muted: 220 20% 94%;
-  --muted-foreground: 220 10% 40%;
-  --border: 220 18% 87%;
-  --primary: 222 32% 14%;
-  --secondary: 220 22% 92%;
+  --muted: 40 15% 92%;
+  --muted-foreground: 170 10% 40%;
+  --border: 40 10% 88%;
+  --primary: 170 30% 6%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 40 15% 94%;
+  --accent: 168 80% 36%;
+  --accent-foreground: 0 0% 100%;
   --sidebar-bg: #ffffff;
-  --brand-primary-hex: #111827;
+  --brand-primary-hex: #0d1211;
+  --radius: 0.75rem;
 
-  /* Neutral gray scale - Fresha-like */
+  /* Premium color palette */
+  --hero-bg: #0a0f0e;
+  --hero-card-bg: rgba(255, 255, 255, 0.04);
+  --hero-border: rgba(255, 255, 255, 0.08);
+  --teal-500: #14b8a6;
+  --teal-600: #0d9488;
+  --teal-700: #0f766e;
+
+  /* Neutral gray scale */
   --gray-50: #F9FAFB;
   --gray-100: #F3F4F6;
   --gray-200: #E5E7EB;
   --gray-400: #9CA3AF;
   --gray-600: #4B5563;
   --gray-800: #1F2937;
+  --gray-900: #111827;
+  --gray-950: #030712;
 
   /* Reservation block colors - status (muted) */
   --reservation-confirmed: #374151;
@@ -149,4 +163,57 @@ html {
 }
 .animate-modal-in {
   animation: modal-fade-in 0.2s ease-out;
+}
+
+/* Landing page animations */
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-8px) rotate(1deg); }
+}
+@keyframes float-reverse {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(8px) rotate(-1deg); }
+}
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.05); }
+}
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.animate-float { animation: float 6s ease-in-out infinite; }
+.animate-float-reverse { animation: float-reverse 5s ease-in-out infinite; }
+.animate-float-slow { animation: float 8s ease-in-out infinite; }
+.animate-pulse-glow { animation: pulse-glow 4s ease-in-out infinite; }
+.animate-fade-up { animation: fade-up 0.6s ease-out forwards; }
+.animate-scale-in { animation: scale-in 0.5s ease-out forwards; }
+.animate-slide-in-right { animation: slide-in-right 0.5s ease-out forwards; }
+
+/* Staggered animations */
+.animate-delay-100 { animation-delay: 0.1s; }
+.animate-delay-200 { animation-delay: 0.2s; }
+.animate-delay-300 { animation-delay: 0.3s; }
+.animate-delay-400 { animation-delay: 0.4s; }
+.animate-delay-500 { animation-delay: 0.5s; }
+.animate-delay-600 { animation-delay: 0.6s; }
+
+/* Glass morphism */
+.glass {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.glass-light {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 0, 0, 0.05);
 }
