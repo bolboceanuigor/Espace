@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { billingSaasApi } from '@/lib/api';
 import MobilePageHeader from '@/components/common/MobilePageHeader';
 import EmptyState from '@/components/common/EmptyState';
@@ -18,7 +18,7 @@ export default function SuperadminSubscriptionsPage() {
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const res = await billingSaasApi.listSuperadminSubscriptions(status as any);
@@ -26,7 +26,7 @@ export default function SuperadminSubscriptionsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [status]);
 
   const applyQuickAction = async (
     subscriptionId: string,
@@ -52,8 +52,8 @@ export default function SuperadminSubscriptionsPage() {
   };
 
   useEffect(() => {
-    load().catch(() => undefined);
-  }, [status]);
+    void load();
+  }, [load]);
 
   return (
     <div className="space-y-4">

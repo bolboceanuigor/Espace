@@ -1,8 +1,7 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { BillingCurrency, PaymentMethod, PaymentProvider, PaymentStatus, SystemErrorLevel, SystemErrorSource } from '@prisma/client';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BillingCurrency, PaymentMethod, PaymentProvider, PaymentStatus } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { SystemMonitoringService } from '../system-monitoring/system-monitoring.service';
 import { AdminManualPaymentDto, AdminPaymentsQueryDto, ResidentCreateIntentDto, UpdatePaymentProviderConfigDto } from './dto/payments.dto';
 import { PaymentProviderFactory } from './providers/payment-provider.factory';
 import { buildPaginationMeta, resolvePagination } from '../common/pagination';
@@ -13,11 +12,11 @@ type AuthUser = { id?: string; sub?: string; role?: string; organizationId?: str
 export class PaymentsService {
   private static readonly MAX_PAYMENT_AMOUNT = 1_000_000;
   private static readonly MAX_FUTURE_PAYMENT_DAYS = 3;
+  private readonly logger = new Logger(PaymentsService.name);
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
     private readonly paymentProviderFactory: PaymentProviderFactory,
-    private readonly systemMonitoringService: SystemMonitoringService,
   ) {}
 
   private userId(user: AuthUser) {
@@ -32,7 +31,7 @@ export class PaymentsService {
 
   private async residentScope(user: AuthUser) {
     const role = String(user.role || '').toUpperCase();
-    if (!['RESIDENT', 'TENANT'].includes(role)) throw new ForbiddenException('Resident access required');
+    if (!['RESIDENT', 'RESIDENT'].includes(role)) throw new ForbiddenException('Resident access required');
     if (!user.organizationId) throw new ForbiddenException('Organization context missing');
     const userId = this.userId(user);
     const apartments = await this.prisma.residentProfile.findMany({
@@ -287,20 +286,7 @@ export class PaymentsService {
         metadata: {},
       });
     } catch (error) {
-      await this.systemMonitoringService.logError({
-        source: SystemErrorSource.PAYMENT_PROVIDER,
-        level: SystemErrorLevel.ERROR,
-        message: `Payment provider create intent failed: ${dto.provider}`,
-        stack: error instanceof Error ? error.stack : String(error),
-        metadataJson: {
-          provider: dto.provider,
-          paymentIntentId: intent.id,
-          organizationId,
-          apartmentId: dto.apartmentId,
-        },
-        organizationId,
-        userId: this.userId(user),
-      });
+      this.logger.error(`Payment provider create intent failed: ${dto.provider}`, error instanceof Error ? error.stack : String(error));
       throw error;
     }
 
@@ -452,18 +438,7 @@ export class PaymentsService {
       );
       providerResult = await adapter.handleWebhook(payload || {}, headers || {});
     } catch (error) {
-      await this.systemMonitoringService.logError({
-        source: SystemErrorSource.WEBHOOK,
-        level: SystemErrorLevel.ERROR,
-        message: `Payment webhook processing failed for provider ${providerUpper}`,
-        stack: error instanceof Error ? error.stack : String(error),
-        metadataJson: {
-          provider: providerUpper,
-          intentId,
-          payloadKeys: Object.keys(payload || {}),
-        },
-        organizationId: intent.organizationId,
-      });
+      this.logger.error(`Payment webhook processing failed for provider ${providerUpper}`, error instanceof Error ? error.stack : String(error));
       throw error;
     }
 

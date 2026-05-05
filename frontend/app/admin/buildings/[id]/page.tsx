@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { adminStructureApi, billingSaasApi } from '@/lib/api';
 import { isWriteBlockedBySubscription } from '@/lib/subscription-access';
@@ -32,7 +32,7 @@ export default function AdminBuildingDetailsPage() {
     status: 'EMPTY' as 'OCCUPIED' | 'EMPTY' | 'RENTED',
   });
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!id) return;
     setLoading(true);
     setError(null);
@@ -45,15 +45,15 @@ export default function AdminBuildingDetailsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
   useEffect(() => {
-    load().catch(() => undefined);
+    void load();
     billingSaasApi
       .getAdminSubscription()
       .then((res) => setSubscriptionStatus(String(res.data?.status || '').toUpperCase()))
       .catch(() => setSubscriptionStatus(''));
-  }, [id]);
+  }, [load]);
   const writeBlocked = isWriteBlockedBySubscription(subscriptionStatus);
 
   const staircases = useMemo(() => building?.staircases || [], [building]);

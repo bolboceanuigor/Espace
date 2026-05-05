@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { downloadBlob } from '@/lib/download';
 import { reportsApi } from '@/lib/api';
 
@@ -10,14 +10,14 @@ export default function AdminMonthlyReportPage() {
   const [year, setYear] = useState(now.getFullYear());
   const [data, setData] = useState<any>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const res = await reportsApi.adminMonthly({ month, year });
     setData(res.data);
-  };
+  }, [month, year]);
 
   useEffect(() => {
-    load().catch(() => undefined);
-  }, [month, year]);
+    void load();
+  }, [load]);
 
   return (
     <div className="space-y-4">

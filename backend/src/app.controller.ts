@@ -9,25 +9,15 @@ export class AppController {
   @Public()
   @Get()
   getHello(): string {
-    return 'Espace PMS API';
+    return 'Espace condominium management API';
   }
 
   @Public()
   @Get('health')
-  async getHealth() {
-    const timestamp = new Date().toISOString();
-    let databaseStatus: 'UP' | 'DOWN' = 'UP';
-    try {
-      await this.prisma.$queryRaw`SELECT 1`;
-    } catch {
-      databaseStatus = 'DOWN';
-    }
+  getHealth() {
     return {
-      status: databaseStatus === 'UP' ? 'ok' : 'degraded',
-      timestamp,
-      database: databaseStatus,
-      version: process.env.APP_VERSION || process.env.npm_package_version || 'dev',
-      environment: process.env.NODE_ENV || 'development',
+      status: 'ok',
+      service: 'espace-api',
     };
   }
 

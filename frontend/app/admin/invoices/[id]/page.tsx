@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { invoicesApi } from '@/lib/api';
 import { downloadBlob } from '@/lib/download';
@@ -9,14 +9,14 @@ export default function AdminInvoiceDetailsPage() {
   const params = useParams<{ id: string }>();
   const [row, setRow] = useState<any>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const res = await invoicesApi.adminGetOne(params.id);
     setRow(res.data);
-  };
+  }, [params.id]);
 
   useEffect(() => {
-    load().catch(() => undefined);
-  }, [params.id]);
+    void load();
+  }, [load]);
 
   if (!row) return <div className="text-sm text-muted-foreground">Loading invoice...</div>;
 

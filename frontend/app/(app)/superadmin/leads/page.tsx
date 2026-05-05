@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { leadsApi } from '@/lib/api';
@@ -27,7 +27,7 @@ export default function SuperadminLeadsPage() {
     notes: '',
   });
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const res = await leadsApi.superadminList({
@@ -39,11 +39,11 @@ export default function SuperadminLeadsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters.city, filters.source, filters.status]);
 
   useEffect(() => {
-    load().catch(() => undefined);
-  }, [filters.city, filters.source, filters.status]);
+    void load();
+  }, [load]);
 
   return (
     <div className="space-y-4">

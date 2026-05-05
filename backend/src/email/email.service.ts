@@ -43,7 +43,7 @@ export class EmailService {
   async sendVerifyEmail(to: string, link: string) {
     await this.sendEmail({
       to,
-      subject: 'Verify your email - Espace PMS',
+      subject: 'Verify your email - Espace',
       text: `Verify your email by opening this link: ${link}`,
       html: `<p>Verify your email to activate your account.</p><p><a href="${link}">Verify email</a></p>`,
       link,
@@ -53,16 +53,16 @@ export class EmailService {
   async sendWelcomeEmail(to: string) {
     await this.sendEmail({
       to,
-      subject: 'Welcome to Espace PMS',
-      text: 'Your account is now active. Welcome to Espace PMS!',
-      html: '<p>Your account is now active. Welcome to <strong>Espace PMS</strong>!</p>',
+      subject: 'Welcome to Espace',
+      text: 'Your account is now active. Welcome to Espace!',
+      html: '<p>Your account is now active. Welcome to <strong>Espace</strong>!</p>',
     });
   }
 
   async sendResetPassword(to: string, link: string) {
     await this.sendEmail({
       to,
-      subject: 'Reset your password - Espace PMS',
+      subject: 'Reset your password - Espace',
       text: `Reset password link: ${link}`,
       html: `<p>You requested a password reset.</p><p><a href="${link}">Reset password</a></p>`,
       link,
@@ -151,4 +151,3 @@ export class EmailService {
     });
   }
 }
-

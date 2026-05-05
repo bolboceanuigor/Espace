@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Eye, EyeOff, MessageCircle, Trash2 } from 'lucide-react';
 import { communicationsApi } from '@/lib/api';
@@ -10,7 +10,7 @@ export default function AdminAnnouncementDetailsPage() {
   const [announcement, setAnnouncement] = useState<any>(null);
   const [comments, setComments] = useState<any[]>([]);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const [announcementsRes, commentsRes] = await Promise.all([
       communicationsApi.listAdminAnnouncements(),
       communicationsApi.listAdminAnnouncementComments(params.id),
@@ -18,11 +18,11 @@ export default function AdminAnnouncementDetailsPage() {
     const current = (announcementsRes.data || []).find((item: any) => item.id === params.id) || null;
     setAnnouncement(current);
     setComments(commentsRes.data || []);
-  };
+  }, [params.id]);
 
   useEffect(() => {
-    load().catch(() => undefined);
-  }, [params.id]);
+    void load();
+  }, [load]);
 
   if (!announcement) return <div className="text-sm text-muted-foreground">Loading announcement...</div>;
 

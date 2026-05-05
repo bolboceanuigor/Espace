@@ -1,20 +1,20 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { auditLogsApi } from '@/lib/api';
 
 export default function SuperadminAuditLogsPage() {
   const [rows, setRows] = useState<any[]>([]);
   const [filters, setFilters] = useState({ organizationId: '', action: '', entityType: '', from: '', to: '' });
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const res = await auditLogsApi.superadminList(filters);
     setRows(res.data || []);
-  };
+  }, [filters]);
 
   useEffect(() => {
-    load().catch(() => undefined);
-  }, []);
+    void load();
+  }, [load]);
 
   return (
     <div className="space-y-4">

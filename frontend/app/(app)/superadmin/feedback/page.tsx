@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { feedbackApi, superadminApi } from '@/lib/api';
 
 export default function SuperadminFeedbackPage() {
@@ -13,7 +13,7 @@ export default function SuperadminFeedbackPage() {
     priority: '',
   });
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const [res, orgRes] = await Promise.all([
       feedbackApi.superadminList({
         organizationId: filters.organizationId || undefined,
@@ -25,11 +25,11 @@ export default function SuperadminFeedbackPage() {
     ]);
     setItems(res.data || []);
     setOrgs(orgRes.data || []);
-  };
+  }, [filters.organizationId, filters.type, filters.status, filters.priority]);
 
   useEffect(() => {
-    load().catch(() => undefined);
-  }, [filters.organizationId, filters.type, filters.status, filters.priority]);
+    void load();
+  }, [load]);
 
   return (
     <div className="space-y-4">

@@ -6,14 +6,11 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
-import { SystemErrorLevel, SystemErrorSource } from '@prisma/client';
 import { Request, Response } from 'express';
-import { SystemMonitoringService } from '../../system-monitoring/system-monitoring.service';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(HttpExceptionFilter.name);
-  constructor(private readonly systemMonitoringService?: SystemMonitoringService) {}
 
   private getErrorCode(status: number, message: string | string[]): string {
     if (status === HttpStatus.BAD_REQUEST) return 'VALIDATION_ERROR';
@@ -68,21 +65,6 @@ export class HttpExceptionFilter implements ExceptionFilter {
         `${request.method} ${request.url} ${status}`,
         exception instanceof Error ? exception.stack : String(exception),
       );
-      this.systemMonitoringService
-        ?.logError({
-          source: SystemErrorSource.BACKEND,
-          level: SystemErrorLevel.ERROR,
-          message: `${request.method} ${request.url} failed with ${status}`,
-          stack: exception instanceof Error ? exception.stack : String(exception),
-          metadataJson: {
-            path: request.url,
-            method: request.method,
-            status,
-          },
-          userId: (request as any)?.user?.id || (request as any)?.user?.sub || null,
-          organizationId: (request as any)?.user?.organizationId || null,
-        })
-        .catch(() => undefined);
       if (isProduction) {
         message = 'Internal server error';
         details = null;

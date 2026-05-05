@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { leadsApi } from '@/lib/api';
 
@@ -17,7 +17,7 @@ export default function SuperadminLeadDetailsPage() {
   const [activityType, setActivityType] = useState<(typeof ACTIVITY_TYPES)[number]>('NOTE');
   const [activityContent, setActivityContent] = useState('');
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const res = await leadsApi.superadminGet(leadId);
@@ -25,12 +25,12 @@ export default function SuperadminLeadDetailsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [leadId]);
 
   useEffect(() => {
     if (!leadId) return;
-    load().catch(() => setLoading(false));
-  }, [leadId]);
+    void load().catch(() => setLoading(false));
+  }, [leadId, load]);
 
   if (loading) return <div className="text-sm text-muted-foreground">Loading lead...</div>;
   if (!lead) return <div className="text-sm text-destructive">Lead not found.</div>;
@@ -108,4 +108,3 @@ export default function SuperadminLeadDetailsPage() {
     </div>
   );
 }
-

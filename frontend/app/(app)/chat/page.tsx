@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useTranslations } from 'next-intl';
 import { MessageCircle, Paperclip, Phone, Search, Smile } from 'lucide-react';
@@ -68,7 +68,7 @@ export default function AssociationChatPage() {
     });
   };
 
-  const loadInitial = async () => {
+  const loadInitial = useCallback(async () => {
     setLoading(true);
     if (!isApiConfigured()) {
       setMessages([]);
@@ -88,7 +88,7 @@ export default function AssociationChatPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [c, showToast]);
 
   const loadOlder = async () => {
     if (!nextBeforeId || loadingOlder) return;
@@ -130,8 +130,8 @@ export default function AssociationChatPage() {
   };
 
   useEffect(() => {
-    loadInitial().catch(() => undefined);
-  }, []);
+    void loadInitial();
+  }, [loadInitial]);
 
   useEffect(() => {
     if (!SOCKET_URL) return;

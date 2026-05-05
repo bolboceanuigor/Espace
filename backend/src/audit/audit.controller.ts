@@ -19,7 +19,7 @@ export class AuditController {
 
   @Get('superadmin/audit-logs')
   @UseGuards(RolesGuard)
-  @Roles(Role.SUPERADMIN, Role.SUPER_ADMIN)
+  @Roles(Role.SUPERADMIN, Role.SUPERADMIN)
   superadminList(@Query() query: SuperadminAuditQueryDto) {
     return this.auditService.listForSuperadmin(query);
   }

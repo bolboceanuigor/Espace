@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CalendarDays, Plus } from 'lucide-react';
 import { adminStructureApi, maintenanceApi } from '@/lib/api';
 
@@ -28,7 +28,7 @@ export default function AdminMaintenanceCalendarPage() {
     notifyResidents: true,
   });
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const [eventsRes, buildingsRes, apartmentsRes] = await Promise.all([
       maintenanceApi.eventsList({ status: status || undefined }),
       adminStructureApi.listBuildings(),
@@ -44,11 +44,11 @@ export default function AdminMaintenanceCalendarPage() {
       }
     }
     setStaircases(Array.from(uniqueStaircases.values()));
-  };
+  }, [status]);
 
   useEffect(() => {
-    load().catch(() => undefined);
-  }, [status]);
+    void load();
+  }, [load]);
 
   const groupedByDay = useMemo(() => {
     const map = new Map<string, any[]>();

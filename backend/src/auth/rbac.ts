@@ -13,11 +13,11 @@ export function isAdmin(user: RoleCarrier): boolean {
 }
 
 export function isManager(user: RoleCarrier): boolean {
-  return (user?.role || '').toString().toUpperCase() === Role.MANAGER;
+  return (user?.role || '').toString().toUpperCase() === Role.ADMIN;
 }
 
 export function isResident(user: RoleCarrier): boolean {
   const role = (user?.role || '').toString().toUpperCase();
-  return role === Role.TENANT || role === 'RESIDENT';
+  return role === Role.RESIDENT || role === 'RESIDENT';
 }
 

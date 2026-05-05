@@ -12,14 +12,14 @@ export class LimitsController {
 
   @Get('superadmin/organizations/:id/limits')
   @UseGuards(RolesGuard)
-  @Roles(Role.SUPERADMIN, Role.SUPER_ADMIN)
+  @Roles(Role.SUPERADMIN, Role.SUPERADMIN)
   superadminGet(@CurrentUser() user: any, @Param('id') id: string) {
     return this.limitsService.superadminGet(user, id);
   }
 
   @Patch('superadmin/organizations/:id/limits')
   @UseGuards(RolesGuard)
-  @Roles(Role.SUPERADMIN, Role.SUPER_ADMIN)
+  @Roles(Role.SUPERADMIN, Role.SUPERADMIN)
   superadminUpdate(@CurrentUser() user: any, @Param('id') id: string, @Body() dto: UpdateOrganizationLimitsDto) {
     return this.limitsService.superadminUpdate(user, id, dto);
   }

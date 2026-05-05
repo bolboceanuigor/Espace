@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { votesApi } from '@/lib/api';
 
@@ -9,14 +9,14 @@ export default function AdminVoteDetailsPage() {
   const [row, setRow] = useState<any>(null);
   const [newOption, setNewOption] = useState('');
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const res = await votesApi.adminGetOne(params.id);
     setRow(res.data);
-  };
+  }, [params.id]);
 
   useEffect(() => {
-    load().catch(() => undefined);
-  }, [params.id]);
+    void load();
+  }, [load]);
 
   if (!row) return <div className="text-sm text-muted-foreground">Loading vote...</div>;
 

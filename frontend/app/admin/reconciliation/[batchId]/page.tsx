@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { reconciliationApi } from '@/lib/api';
@@ -14,18 +14,18 @@ export default function AdminReconciliationBatchPage() {
   const [status, setStatus] = useState<(typeof STATUS_FILTERS)[number]>('');
   const [loading, setLoading] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const [batchRes, rowsRes] = await Promise.all([
       reconciliationApi.getBatch(params.batchId),
       reconciliationApi.listMatches(params.batchId, status ? { status } : undefined),
     ]);
     setBatch(batchRes.data);
     setRows(rowsRes.data || []);
-  };
+  }, [params.batchId, status]);
 
   useEffect(() => {
-    load().catch(() => undefined);
-  }, [params.batchId, status]);
+    void load();
+  }, [load]);
 
   const summary = useMemo(
     () => ({

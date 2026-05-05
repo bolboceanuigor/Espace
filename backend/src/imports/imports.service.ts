@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { ImportJobStatus, ImportType, ResidentType, Role } from '@prisma/client';
+import { ApartmentStatus, ImportJobStatus, ImportType, ResidentType, Role } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import * as XLSX from 'xlsx';
 import { PrismaService } from '../prisma/prisma.service';
@@ -38,6 +38,11 @@ export class ImportsService {
   private isEmail(value?: string) {
     if (!value) return true;
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  }
+
+  private apartmentStatus(value: unknown): ApartmentStatus {
+    const status = String(value || 'EMPTY').trim().toUpperCase();
+    return Object.values(ApartmentStatus).includes(status as ApartmentStatus) ? (status as ApartmentStatus) : ApartmentStatus.EMPTY;
   }
 
   private toNumber(value: any) {
@@ -260,7 +265,7 @@ export class ImportsService {
               floor: Number(row.floor),
               areaM2: Number(row.areaM2),
               rooms: row.rooms ? Number(row.rooms) : null,
-              status: String(row.status || 'EMPTY'),
+              status: this.apartmentStatus(row.status),
             },
           });
         }

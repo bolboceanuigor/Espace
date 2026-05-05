@@ -5,7 +5,7 @@ import { CreateAnnualSummaryDto } from './dto/create-annual-summary.dto';
 import { CreateAnnouncementDto } from './dto/create-announcement.dto';
 
 function isAdminScope(role: Role) {
-  return role === Role.ADMIN || role === Role.SUPERADMIN || role === Role.SUPER_ADMIN || role === Role.MANAGER;
+  return role === Role.ADMIN || role === Role.SUPERADMIN;
 }
 
 @Injectable()
@@ -17,12 +17,9 @@ export class CondoService {
       throw new ForbiddenException('Organization context missing');
     }
     if (
-      role !== Role.TENANT &&
       role !== Role.RESIDENT &&
       role !== Role.ADMIN &&
-      role !== Role.SUPERADMIN &&
-      role !== Role.SUPER_ADMIN &&
-      role !== Role.MANAGER
+      role !== Role.SUPERADMIN
     ) {
       throw new ForbiddenException('Access denied');
     }

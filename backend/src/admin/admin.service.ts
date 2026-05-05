@@ -265,7 +265,7 @@ export class AdminService {
   }
 
   async setPropertyLimit(organizationId: string, propertyLimit: number, performedById?: string, performedByRole?: string) {
-    if (propertyLimit < 0) throw new BadRequestException('Property limit must be >= 0');
+    if (propertyLimit < 0) throw new BadRequestException('Apartment limit must be >= 0');
     const sub = await this.prisma.subscription.findUnique({ where: { organizationId } });
     if (!sub) throw new NotFoundException('Subscription not found');
     const currentCount = await this.prisma.apartment.count({ where: { organizationId } });

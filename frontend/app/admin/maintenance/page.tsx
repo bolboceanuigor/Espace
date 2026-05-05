@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { adminStructureApi, maintenanceApi, teamApi } from '@/lib/api';
 
@@ -24,7 +24,7 @@ export default function AdminMaintenancePage() {
     scheduledAt: '',
   });
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const [tasksRes, buildingsRes, teamRes] = await Promise.all([
       maintenanceApi.tasksList({
         status: filters.status || undefined,
@@ -38,11 +38,11 @@ export default function AdminMaintenancePage() {
     setRows(tasksRes.data || []);
     setBuildings(buildingsRes.data || []);
     setTeam((teamRes.data?.items || []).filter((x: any) => ['TECHNICIAN', 'MANAGER', 'ORG_ADMIN'].includes(x.role)));
-  };
+  }, [filters.status, filters.priority, filters.assignedTo, filters.buildingId]);
 
   useEffect(() => {
-    load().catch(() => undefined);
-  }, [filters.status, filters.priority, filters.assignedTo, filters.buildingId]);
+    void load();
+  }, [load]);
 
   return (
     <div className="space-y-4">

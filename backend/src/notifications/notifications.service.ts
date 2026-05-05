@@ -1,9 +1,8 @@
 import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
-import { NotificationJobStatus, NotificationType, SystemErrorLevel, SystemErrorSource } from '@prisma/client';
+import { NotificationJobStatus, NotificationType } from '@prisma/client';
 import { randomBytes } from 'crypto';
 import { EmailService } from '../email/email.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { SystemMonitoringService } from '../system-monitoring/system-monitoring.service';
 import {
   AdminNotificationFiltersDto,
   SubscribePushDto,
@@ -24,7 +23,6 @@ export class NotificationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly emailService: EmailService,
-    private readonly systemMonitoringService: SystemMonitoringService,
   ) {}
 
   private userId(user: AuthUser) {
@@ -39,7 +37,7 @@ export class NotificationsService {
 
   private assertResident(user: AuthUser) {
     const role = String(user.role || '').toUpperCase();
-    if (!['RESIDENT', 'TENANT'].includes(role)) throw new ForbiddenException('Resident access required');
+    if (!['RESIDENT', 'RESIDENT'].includes(role)) throw new ForbiddenException('Resident access required');
     if (!user.organizationId) throw new ForbiddenException('Organization context missing');
     return { organizationId: user.organizationId, userId: this.userId(user) };
   }
@@ -436,13 +434,7 @@ export class NotificationsService {
       });
       return { ok: true, linked: true };
     } catch (error) {
-      await this.systemMonitoringService.logError({
-        source: SystemErrorSource.WEBHOOK,
-        level: SystemErrorLevel.ERROR,
-        message: 'Telegram webhook processing failed',
-        stack: error instanceof Error ? error.stack : String(error),
-        metadataJson: { keys: Object.keys(body || {}) },
-      });
+      this.logger.error('Telegram webhook processing failed', error instanceof Error ? error.stack : String(error));
       throw error;
     }
   }
@@ -496,4 +488,3 @@ export class NotificationsService {
     };
   }
 }
-

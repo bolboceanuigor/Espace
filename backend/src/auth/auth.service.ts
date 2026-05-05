@@ -888,7 +888,7 @@ export class AuthService {
   }
 
   private async ensureOrganizationIsApproved(organizationId: string, role: Role) {
-    if (role === Role.SUPERADMIN || role === Role.SUPER_ADMIN) return;
+    if (role === Role.SUPERADMIN) return;
     if (!this.requiresOrganizationApproval()) return;
     const organization = await this.prisma.organization.findUnique({
       where: { id: organizationId },

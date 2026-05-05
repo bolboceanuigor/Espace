@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { reportsApi } from '@/lib/api';
 import { downloadBlob } from '@/lib/download';
 
@@ -9,14 +9,14 @@ export default function AdminPaymentsReportPage() {
   const [to, setTo] = useState('');
   const [rows, setRows] = useState<any[]>([]);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const res = await reportsApi.adminPayments({ from: from || undefined, to: to || undefined });
     setRows(res.data || []);
-  };
+  }, [from, to]);
 
   useEffect(() => {
-    load().catch(() => undefined);
-  }, [from, to]);
+    void load();
+  }, [load]);
 
   return (
     <div className="space-y-4">

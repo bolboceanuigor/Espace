@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { filesApi, issuesApi, maintenanceApi } from '@/lib/api';
 
@@ -11,15 +11,15 @@ export default function AdminIssueDetailsPage() {
   const [isInternal, setIsInternal] = useState(false);
   const [assignUser, setAssignUser] = useState('');
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const res = await issuesApi.adminGetOne(params.id);
     setRow(res.data);
     setAssignUser(res.data?.assignedToUserId || '');
-  };
+  }, [params.id]);
 
   useEffect(() => {
-    load().catch(() => undefined);
-  }, [params.id]);
+    void load();
+  }, [load]);
 
   if (!row) return <div className="text-sm text-muted-foreground">Loading issue...</div>;
 

@@ -30,7 +30,7 @@ export class InvoicesService {
 
   private assertResidentOrTenant(user: AuthUser) {
     const role = String(user.role || '').toUpperCase();
-    if (!['RESIDENT', 'TENANT'].includes(role)) throw new ForbiddenException('Resident access required');
+    if (!['RESIDENT', 'RESIDENT'].includes(role)) throw new ForbiddenException('Resident access required');
     if (!user.organizationId) throw new ForbiddenException('Organization context missing');
     return { organizationId: user.organizationId, userId: this.userId(user) };
   }

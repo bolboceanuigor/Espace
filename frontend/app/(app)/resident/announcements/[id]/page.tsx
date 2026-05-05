@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { MessageCircle, Pencil, Trash2 } from 'lucide-react';
 import { communicationsApi } from '@/lib/api';
@@ -18,7 +18,7 @@ export default function ResidentAnnouncementDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -35,11 +35,11 @@ export default function ResidentAnnouncementDetailsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [params.id]);
 
   useEffect(() => {
-    load().catch(() => undefined);
-  }, [params.id]);
+    void load();
+  }, [load]);
 
   if (loading) return <LoadingState label="Se încarcă anunțul..." />;
   if (error) {

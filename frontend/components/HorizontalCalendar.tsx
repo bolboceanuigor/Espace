@@ -186,8 +186,10 @@ export default function HorizontalCalendar({ readOnly = false }: { readOnly?: bo
   }, []);
 
   useEffect(() => {
-    fetchCalendarData(startDate, days, true);
-  }, []);
+    if (prevRangeKeyRef.current !== null) return;
+    prevRangeKeyRef.current = rangeKey(startDate, days);
+    void fetchCalendarData(startDate, days, true);
+  }, [days, fetchCalendarData, startDate]);
 
   useEffect(() => {
     const key = rangeKey(startDate, days);

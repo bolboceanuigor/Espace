@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import FileUploadField from '@/components/files/FileUploadField';
 import { filesApi, issuesApi } from '@/lib/api';
@@ -10,14 +10,14 @@ export default function ResidentIssueDetailsPage() {
   const [row, setRow] = useState<any>(null);
   const [comment, setComment] = useState('');
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const res = await issuesApi.residentGetOne(params.id);
     setRow(res.data);
-  };
+  }, [params.id]);
 
   useEffect(() => {
-    load().catch(() => undefined);
-  }, [params.id]);
+    void load();
+  }, [load]);
 
   if (!row) return <div className="text-sm text-muted-foreground">Loading issue...</div>;
 

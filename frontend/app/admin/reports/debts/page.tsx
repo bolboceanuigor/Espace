@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { adminStructureApi, reportsApi } from '@/lib/api';
 import { downloadBlob } from '@/lib/download';
 
@@ -10,7 +10,7 @@ export default function AdminDebtsReportPage() {
   const [rows, setRows] = useState<any[]>([]);
   const [filters, setFilters] = useState({ buildingId: '', staircaseId: '', floor: '', minDebt: '', maxDebt: '' });
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const res = await reportsApi.adminDebts({
       buildingId: filters.buildingId || undefined,
       staircaseId: filters.staircaseId || undefined,
@@ -19,7 +19,7 @@ export default function AdminDebtsReportPage() {
       maxDebt: filters.maxDebt ? Number(filters.maxDebt) : undefined,
     });
     setRows(res.data || []);
-  };
+  }, [filters.buildingId, filters.staircaseId, filters.floor, filters.minDebt, filters.maxDebt]);
 
   useEffect(() => {
     Promise.all([adminStructureApi.listBuildings(), adminStructureApi.listApartments()])
@@ -30,12 +30,11 @@ export default function AdminDebtsReportPage() {
         setStaircases(Array.from(map.values()));
       })
       .catch(() => undefined);
-    load().catch(() => undefined);
   }, []);
 
   useEffect(() => {
-    load().catch(() => undefined);
-  }, [filters.buildingId, filters.staircaseId, filters.floor, filters.minDebt, filters.maxDebt]);
+    void load();
+  }, [load]);
 
   const exportParams = {
     buildingId: filters.buildingId || undefined,

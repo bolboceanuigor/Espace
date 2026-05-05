@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, usePathname } from 'next/navigation';
 import { billingSaasApi, superadminApi } from '@/lib/api';
 import Link from 'next/link';
@@ -34,7 +34,7 @@ export default function SuperadminOrganizationSubscriptionPage() {
     isImportant: false,
   });
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const [tableRes, detailsRes] = await Promise.all([
       billingSaasApi.listSuperadminSubscriptions(),
       billingSaasApi.getOrganizationSubscription(orgId!),
@@ -77,11 +77,11 @@ export default function SuperadminOrganizationSubscriptionPage() {
         notes: source.notes || '',
       });
     }
-  };
+  }, [orgId, noteTypeFilter]);
 
   useEffect(() => {
-    load().catch(() => undefined);
-  }, [orgId, noteTypeFilter]);
+    void load();
+  }, [load]);
 
   useEffect(() => {
     if (pathname?.endsWith('/notes')) setActiveTab('notes');

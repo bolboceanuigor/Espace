@@ -101,7 +101,7 @@ export class NavigationService {
     const normalizedRole: 'SUPER_ADMIN' | 'ADMIN' | 'RESIDENT' =
       roleValue === 'SUPERADMIN' || roleValue === 'SUPER_ADMIN'
         ? 'SUPER_ADMIN'
-        : roleValue === 'RESIDENT' || roleValue === 'TENANT'
+        : roleValue === 'RESIDENT' || roleValue === 'RESIDENT'
           ? 'RESIDENT'
           : 'ADMIN';
 

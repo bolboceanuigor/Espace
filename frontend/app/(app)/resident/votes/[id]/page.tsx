@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { votesApi } from '@/lib/api';
 
@@ -10,16 +10,16 @@ export default function ResidentVoteDetailsPage() {
   const [apartmentId, setApartmentId] = useState('');
   const [optionId, setOptionId] = useState('');
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const res = await votesApi.residentGetOne(params.id);
     setRow(res.data);
     setApartmentId((res.data?.relevantApartments || []).find((item: any) => item.residentType === 'OWNER')?.apartmentId || '');
     setOptionId(res.data?.options?.[0]?.id || '');
-  };
+  }, [params.id]);
 
   useEffect(() => {
-    load().catch(() => undefined);
-  }, [params.id]);
+    void load();
+  }, [load]);
 
   if (!row) return <div className="text-sm text-muted-foreground">Loading vote...</div>;
 

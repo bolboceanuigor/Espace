@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { addMonths, format, startOfMonth } from 'date-fns';
 import { useLocale, useTranslations } from 'next-intl';
 import { exportsApi, propertiesApi, reservationsApi } from '@/lib/api';
@@ -91,7 +91,7 @@ export default function ReservationsPage() {
   const normalizeCheckIn = (reservation: Reservation) => reservation.checkIn || reservation.startDate || '';
   const normalizeCheckOut = (reservation: Reservation) => reservation.checkOut || reservation.endDate || '';
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const [reservationsRes, propertiesRes] = await Promise.all([
@@ -113,11 +113,11 @@ export default function ReservationsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, startDate, endDate, statusFilter, sourceFilter, propertyFilter, debouncedSearch, queryFilter]);
 
   useEffect(() => {
-    load();
-  }, [page, startDate, endDate, statusFilter, sourceFilter, propertyFilter, debouncedSearch, queryFilter]);
+    void load();
+  }, [load]);
 
   const filtered = useMemo(() => items, [items]);
 

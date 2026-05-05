@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { getToken, getUser } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
@@ -27,7 +27,7 @@ export default function CleaningPage() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const [resRes, propRes] = await Promise.all([
         reservationsApi.getAll(),
@@ -40,15 +40,15 @@ export default function CleaningPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [router]);
 
   useEffect(() => {
     if (!getToken()) {
       router.push('/');
       return;
     }
-    fetchData();
-  }, [router]);
+    void fetchData();
+  }, [fetchData, router]);
 
   const today = useMemo(() => new Date(), []);
   const todayStart = startOfDay(today);

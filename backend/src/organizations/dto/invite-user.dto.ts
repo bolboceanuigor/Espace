@@ -6,7 +6,7 @@ export class InviteUserDto {
   email: string;
 
   @IsEnum(Role)
-  @IsIn([Role.MANAGER, Role.ADMIN, Role.TENANT])
+  @IsIn([Role.ADMIN, Role.RESIDENT])
   role: Role;
 
   @IsOptional()

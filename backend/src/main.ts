@@ -4,7 +4,6 @@ import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import helmet from 'helmet';
 import { ResponseEnvelopeInterceptor } from './common/interceptors/response-envelope.interceptor';
-import { SystemMonitoringService } from './system-monitoring/system-monitoring.service';
 
 async function bootstrap() {
   if (!process.env.DATABASE_URL) {
@@ -71,7 +70,7 @@ async function bootstrap() {
   );
 
   app.useGlobalInterceptors(new ResponseEnvelopeInterceptor());
-  app.useGlobalFilters(new HttpExceptionFilter(app.get(SystemMonitoringService)));
+  app.useGlobalFilters(new HttpExceptionFilter());
 
   const isProd = process.env.NODE_ENV === 'production';
   const allowedOrigins = [

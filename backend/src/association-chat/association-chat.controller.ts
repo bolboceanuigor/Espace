@@ -11,7 +11,7 @@ import { ListAssociationChatMessagesDto } from './dto/list-association-chat-mess
 
 @Controller(['association-chat', 'api/association-chat'])
 @UseGuards(RolesGuard)
-@Roles(Role.ADMIN, Role.SUPERADMIN, Role.MANAGER, Role.TENANT)
+@Roles(Role.ADMIN, Role.SUPERADMIN, Role.RESIDENT)
 export class AssociationChatController {
   constructor(private readonly associationChatService: AssociationChatService) {}
 

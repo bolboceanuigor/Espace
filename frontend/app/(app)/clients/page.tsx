@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { clientsApi } from '@/lib/api';
 import { Button, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, useToast } from '@/components/ui';
@@ -41,7 +41,7 @@ export default function ClientsPage() {
   const [showArchived, setShowArchived] = useState(false);
   const [meta, setMeta] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 1 });
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const withPaging = await clientsApi.getAll(page, 20, showArchived);
@@ -50,11 +50,11 @@ export default function ClientsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, showArchived]);
 
   useEffect(() => {
-    load();
-  }, [page, showArchived]);
+    void load();
+  }, [load]);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();

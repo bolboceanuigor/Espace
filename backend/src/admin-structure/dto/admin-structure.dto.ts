@@ -213,8 +213,8 @@ export class CreateResidentDto {
   @IsString()
   apartmentId!: string;
 
-  @IsIn(['OWNER', 'TENANT', 'CONTACT'])
-  type!: 'OWNER' | 'TENANT' | 'CONTACT';
+  @IsIn(['OWNER', 'RESIDENT', 'CONTACT'])
+  type!: 'OWNER' | 'RESIDENT' | 'CONTACT';
 
   @IsOptional()
   @IsString()
@@ -231,8 +231,8 @@ export class UpdateResidentDto {
   apartmentId?: string;
 
   @IsOptional()
-  @IsIn(['OWNER', 'TENANT', 'CONTACT'])
-  type?: 'OWNER' | 'TENANT' | 'CONTACT';
+  @IsIn(['OWNER', 'RESIDENT', 'CONTACT'])
+  type?: 'OWNER' | 'RESIDENT' | 'CONTACT';
 
   @IsOptional()
   @IsString()

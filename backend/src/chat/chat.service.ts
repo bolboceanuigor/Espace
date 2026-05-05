@@ -35,7 +35,7 @@ export class ChatService {
 
   private assertResident(user: AuthUser) {
     const role = String(user.role || '').toUpperCase();
-    if (role !== 'RESIDENT' && role !== 'TENANT') throw new ForbiddenException('Resident access required');
+    if (role !== 'RESIDENT' && role !== 'RESIDENT') throw new ForbiddenException('Resident access required');
     return this.assertOrg(user);
   }
 
@@ -101,7 +101,7 @@ export class ChatService {
 
   private mapCommunityMessageForResident(message: any, showNames: boolean, showApartment: boolean, apartmentById: Record<string, { number: string | null }>) {
     const role = String(message.sender?.role || '').toUpperCase();
-    const isResidentLike = role === 'RESIDENT' || role === 'TENANT';
+    const isResidentLike = role === 'RESIDENT' || role === 'RESIDENT';
     const residentApartment = message.sender?.residentProfiles?.[0]?.apartmentId
       ? apartmentById[message.sender.residentProfiles[0].apartmentId]
       : null;

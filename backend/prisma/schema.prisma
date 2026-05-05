@@ -10,10 +10,7 @@ datasource db {
 
 enum Role {
   SUPERADMIN
-  SUPER_ADMIN
   ADMIN
-  MANAGER
-  TENANT
   RESIDENT
 }
 
@@ -41,19 +38,6 @@ enum AuthProvider {
   LOCAL
   GOOGLE
   BOTH
-}
-
-enum ReservationStatus {
-  CONFIRMED
-  PENDING
-  CANCELLED
-  BLOCKED
-}
-
-enum CleaningStatus {
-  TODO
-  DONE
-  CANCELLED
 }
 
 enum PlanCode {
@@ -218,10 +202,11 @@ enum ExpensePaidBy {
 
 enum IssueCategory {
   WATER
-  ELECTRICITY
-  ELEVATOR
   CLEANING
   HEATING
+  ELEVATOR
+  REPAIR
+  ELECTRICITY
   SECURITY
   OTHER
 }
@@ -236,12 +221,14 @@ enum IssueLocationType {
 enum IssueStatus {
   NEW
   IN_PROGRESS
-  WAITING
   RESOLVED
+  WAITING
   CLOSED
 }
 
 enum IssuePriority {
+  NORMAL
+  IMPORTANT
   LOW
   MEDIUM
   HIGH
@@ -250,6 +237,7 @@ enum IssuePriority {
 
 enum PaymentMethod {
   CASH
+  BANK
   BANK_TRANSFER
   CARD
   ONLINE
@@ -609,14 +597,70 @@ enum InvitationStatus {
 
 enum ResidentType {
   OWNER
+  RESIDENT
   TENANT
   CONTACT
 }
 
-enum Channel {
-  AIRBNB
-  BOOKING
-  DIRECT
+enum ApartmentStatus {
+  ACTIVE
+  EMPTY
+  DEBTOR
+  PROBLEM
+  OCCUPIED
+  RENTED
+}
+
+enum ResidentAccountStatus {
+  CREATED
+  INVITED
+  NO_ACCOUNT
+}
+
+enum ApartmentResidentRole {
+  OWNER
+  RESIDENT
+  TENANT
+  FAMILY_MEMBER
+  REPRESENTATIVE
+}
+
+enum MeterType {
+  COLD_WATER
+  HOT_WATER
+  GAS
+  ELECTRICITY
+  HEATING
+}
+
+enum MeterStatus {
+  ACTIVE
+  MISSING_READING
+  SUSPICIOUS
+  INACTIVE
+}
+
+enum MeterReadingSource {
+  ADMIN
+  RESIDENT
+}
+
+enum InvoiceStatus {
+  PAID
+  UNPAID
+  OVERDUE
+}
+
+enum AnnouncementCategory {
+  GENERAL
+  REPAIR
+  URGENT
+  ADMINISTRATION
+}
+
+enum AnnouncementStatus {
+  ACTIVE
+  ARCHIVED
 }
 
 model Organization {
@@ -634,10 +678,13 @@ model Organization {
   paymentInstructions  String?
   treasurerName        String?
   administratorName    String?
+  city                 String?
+  country              String    @default("MD")
   logoUrl              String?
   primaryColor         String?
   invoicePrefix        String?
   receiptPrefix        String?
+  currency             BillingCurrency @default(MDL)
   defaultCurrency      BillingCurrency @default(MDL)
   status               String    @default("ACTIVE")
   subscriptionStatus   String    @default("TRIAL")
@@ -670,15 +717,8 @@ model Organization {
   emailIntegration    EmailIntegration?
   smsIntegration      SMSIntegration?
   settings           OrganizationSetting?
-  properties         Property[]
-  propertyGroups     PropertyGroup[]
-  clients            Client[]
-  reservations       Reservation[]
-  cleanings          Cleaning[]
   subscription       Subscription?
   usageMeters        UsageMeter[]
-  propertyChannels   PropertyChannel[]
-  syncConflicts      SyncConflict[]
   invoices           Invoice[]
   auditLogs          AuditLog[]
   feedbacks          Feedback[]
@@ -695,9 +735,12 @@ model Organization {
   staircases         Staircase[]
   apartments         Apartment[]
   residentProfiles   ResidentProfile[]
+  meters             Meter[]
+  meterReadings      MeterReading[]
   payments           Payment[]
   issues             Issue[]
   publicAnnouncements Announcement[]
+  messageThreads    MessageThread[]
   announcementComments AnnouncementComment[]
   documents          Document[]
   voteSessions       VoteSession[]
@@ -1222,6 +1265,9 @@ model UsageMeter {
 model Invoice {
   id             String    @id @default(uuid())
   organizationId String
+  apartmentId    String?
+  month          Int?
+  year           Int?
   plan           String
   amount         Float
   discount       Float     @default(0)
@@ -1230,10 +1276,14 @@ model Invoice {
   issuedAt       DateTime  @default(now())
   paidAt         DateTime?
   dueDate        DateTime  @default(now())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  apartment    Apartment?    @relation(fields: [apartmentId], references: [id], onDelete: SetNull)
 
   @@index([organizationId])
+  @@index([apartmentId])
   @@map("invoices")
 }
 
@@ -1248,7 +1298,7 @@ model User {
   emailVerifiedAt DateTime?
   firstName      String?
   lastName       String?
-  role           Role      @default(MANAGER)
+  role           Role      @default(ADMIN)
   platformRole   PlatformRole @default(ORGANIZATION_USER)
   preferredLanguage PreferredLanguage @default(RO)
   isActive       Boolean   @default(true)
@@ -1261,16 +1311,7 @@ model User {
 
   organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   preference     UserPreference?
-  properties     Property[]
-  propertyAccesses PropertyAccess[]
   createdOrgs    Organization[] @relation("CreatedByAgent")
-  reservationsCreated Reservation[] @relation("ReservationCreatedBy")
-  reservationsUpdated Reservation[] @relation("ReservationUpdatedBy")
-  cleaningsAssigned   Cleaning[]    @relation("CleaningAssignedTo")
-  propertiesCreated  Property[]   @relation("PropertyCreatedBy")
-  propertiesUpdated  Property[]   @relation("PropertyUpdatedBy")
-  clientsCreated     Client[]    @relation("ClientCreatedBy")
-  clientsUpdated     Client[]    @relation("ClientUpdatedBy")
   feedbacks          Feedback[]
   featureRequestsCreated FeatureRequest[] @relation("FeatureRequestCreatedByUser")
   featureVotes       FeatureVote[]
@@ -1283,6 +1324,7 @@ model User {
   invitationsCreated Invitation[] @relation("UserInvitations")
   emailVerificationTokens EmailVerificationToken[]
   passwordResetTokens PasswordResetToken[]
+  messagesSent       Message[]
   condoUnitsOwned    CondoUnit[]          @relation("CondoUnitOwner")
   annualSummariesCreated AnnualSummary[]  @relation("AnnualSummaryCreatedBy")
   announcementsCreated CondoAnnouncement[] @relation("CondoAnnouncementCreatedBy")
@@ -1392,6 +1434,8 @@ model Building {
   address        String?
   cadastralNumber String?
   totalFloors    Int      @default(0)
+  staircasesCount Int     @default(0)
+  apartmentsCount Int     @default(0)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -1444,14 +1488,20 @@ model Apartment {
   floor          Int?
   areaM2         Float?
   rooms          Int?
-  status         String   @default("EMPTY")
+  status         ApartmentStatus @default(EMPTY)
+  ownerResidentId String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   building     Building     @relation(fields: [buildingId], references: [id], onDelete: Cascade)
   staircase    Staircase    @relation(fields: [staircaseId], references: [id], onDelete: Cascade)
+  ownerResident ResidentProfile? @relation("ApartmentOwnerResident", fields: [ownerResidentId], references: [id], onDelete: SetNull)
   residents    ResidentProfile[]
+  apartmentResidents ApartmentResident[]
+  meters       Meter[]
+  meterReadings MeterReading[]
+  invoices     Invoice[]
   payments     Payment[]
   monthlyCharges MonthlyCharge[]
   residentInvoices ResidentInvoice[]
@@ -1462,6 +1512,7 @@ model Apartment {
   paymentIntents PaymentIntent[]
   paymentMatches PaymentMatch[]
   issues       Issue[]
+  messageThreads MessageThread[]
   votes        Vote[]
   initialBalances InitialBalance[]
   invitations  Invitation[]
@@ -1475,24 +1526,33 @@ model Apartment {
   @@index([organizationId, buildingId, staircaseId])
   @@index([buildingId])
   @@index([staircaseId])
+  @@index([ownerResidentId])
   @@unique([staircaseId, number])
   @@map("apartments")
 }
 
 model ResidentProfile {
   id             String   @id @default(uuid())
-  userId         String
-  apartmentId    String
+  userId         String?
+  apartmentId    String?
   organizationId String
-  type           ResidentType
+  firstName      String @default("")
+  lastName       String @default("")
   phone          String?
+  email          String?
+  accountStatus  ResidentAccountStatus @default(NO_ACCOUNT)
+  type           ResidentType @default(OWNER)
   isPrimary      Boolean  @default(false)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  apartment    Apartment    @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  apartment    Apartment?   @relation(fields: [apartmentId], references: [id], onDelete: SetNull)
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  apartmentResidents ApartmentResident[]
+  ownedApartments Apartment[] @relation("ApartmentOwnerResident")
+  issues       Issue[]
+  messageThreads MessageThread[]
 
   @@index([organizationId])
   @@index([userId])
@@ -1501,6 +1561,60 @@ model ResidentProfile {
   @@index([organizationId, isPrimary])
   @@index([organizationId, createdAt])
   @@map("resident_profiles")
+}
+
+model ApartmentResident {
+  apartmentId String
+  residentId  String
+  role        ApartmentResidentRole
+  isPrimary   Boolean @default(false)
+  createdAt   DateTime @default(now())
+
+  apartment Apartment       @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+  resident  ResidentProfile @relation(fields: [residentId], references: [id], onDelete: Cascade)
+
+  @@id([apartmentId, residentId, role])
+  @@index([residentId])
+  @@map("apartment_residents")
+}
+
+model Meter {
+  id             String      @id @default(uuid())
+  organizationId String
+  apartmentId    String
+  type           MeterType
+  serialNumber   String?
+  status         MeterStatus @default(ACTIVE)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  apartment    Apartment    @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+  readings     MeterReading[]
+
+  @@index([organizationId])
+  @@index([apartmentId])
+  @@map("meters")
+}
+
+model MeterReading {
+  id             String             @id @default(uuid())
+  meterId        String
+  apartmentId    String
+  organizationId String
+  value          Float
+  readingDate    DateTime
+  source         MeterReadingSource @default(ADMIN)
+  createdAt      DateTime           @default(now())
+
+  meter        Meter        @relation(fields: [meterId], references: [id], onDelete: Cascade)
+  apartment    Apartment    @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([meterId, readingDate])
+  @@index([apartmentId, readingDate])
+  @@index([organizationId])
+  @@map("meter_readings")
 }
 
 model Payment {
@@ -1518,6 +1632,7 @@ model Payment {
   note              String?
   createdByUserId   String?
   confirmedAt       DateTime?
+  paidAt            DateTime?
   month             String
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
@@ -1590,6 +1705,7 @@ model Issue {
   id              String   @id @default(uuid())
   organizationId  String
   apartmentId     String?
+  residentId      String?
   buildingId      String?
   staircaseId     String?
   createdByUserId String
@@ -1606,6 +1722,7 @@ model Issue {
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   apartment    Apartment?   @relation(fields: [apartmentId], references: [id], onDelete: SetNull)
+  resident     ResidentProfile? @relation(fields: [residentId], references: [id], onDelete: SetNull)
   building     Building?    @relation(fields: [buildingId], references: [id], onDelete: SetNull)
   staircase    Staircase?   @relation(fields: [staircaseId], references: [id], onDelete: SetNull)
   createdBy    User         @relation("IssueCreatedByUser", fields: [createdByUserId], references: [id], onDelete: Restrict)
@@ -1616,6 +1733,7 @@ model Issue {
 
   @@index([organizationId])
   @@index([apartmentId])
+  @@index([residentId])
   @@index([buildingId])
   @@index([staircaseId])
   @@index([createdByUserId])
@@ -2095,6 +2213,8 @@ model Announcement {
   organizationId String
   title          String
   content        String
+  category       AnnouncementCategory @default(GENERAL)
+  status         AnnouncementStatus @default(ACTIVE)
   contentType    AnnouncementContentType @default(ANNOUNCEMENT)
   importance     ContentImportance @default(NORMAL)
   isPinned       Boolean @default(false)
@@ -2103,6 +2223,7 @@ model Announcement {
   buildingId     String?
   staircaseId    String?
   apartmentId    String?
+  createdById    String?
   createdByUserId String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -2120,7 +2241,44 @@ model Announcement {
   @@index([buildingId])
   @@index([staircaseId])
   @@index([apartmentId])
+  @@index([createdById])
   @@map("announcements")
+}
+
+model MessageThread {
+  id             String   @id @default(uuid())
+  organizationId String
+  apartmentId    String?
+  residentId     String?
+  subject        String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  apartment    Apartment?   @relation(fields: [apartmentId], references: [id], onDelete: SetNull)
+  resident     ResidentProfile? @relation(fields: [residentId], references: [id], onDelete: SetNull)
+  messages     Message[]
+
+  @@index([organizationId])
+  @@index([apartmentId])
+  @@index([residentId])
+  @@map("message_threads")
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  threadId  String
+  senderId  String
+  content   String
+  createdAt DateTime @default(now())
+  readAt    DateTime?
+
+  thread MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender User          @relation(fields: [senderId], references: [id], onDelete: Restrict)
+
+  @@index([threadId])
+  @@index([senderId])
+  @@map("messages")
 }
 
 model AnnouncementComment {
@@ -2423,6 +2581,12 @@ model UserPreference {
 model OrganizationSetting {
   id             String   @id @default(uuid())
   organizationId String   @unique
+  maintenanceFeePerM2 Float @default(0)
+  repairFundPerM2 Float @default(0)
+  developmentFundFixed Float @default(0)
+  contactPhone   String?
+  contactEmail   String?
+  workingHours   String?
   primaryColor   String?  @default("#2563eb")
   sidebarColor   String?  @default("#ffffff")
   logoUrl        String?
@@ -2714,211 +2878,4 @@ model ImportMappingTemplate {
   @@index([organizationId, source])
   @@index([createdByUserId])
   @@map("import_mapping_templates")
-}
-
-model Property {
-  id             String   @id @default(uuid())
-  name           String
-  code           String?
-  color          String?  @default("gray")
-  groupId        String?
-  address        String?
-  isActive       Boolean  @default(true)
-  basePrice      Float    @default(0)
-  cleaningFee    Float    @default(0)
-  rooms          Int      @default(1)
-  status         String   @default("active")
-  numberOfRooms  Int      @default(1)
-  cleaningPrice  Float    @default(0)
-  organizationId String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  deletedAt      DateTime?
-  createdById    String?
-  updatedById    String?
-
-  ownerId      String
-  owner        User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  group        PropertyGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
-  reservations Reservation[]
-  cleanings    Cleaning[]
-  propertyAccesses PropertyAccess[]
-  channels      PropertyChannel[]
-  syncConflicts SyncConflict[]
-  createdBy     User?         @relation("PropertyCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedBy     User?         @relation("PropertyUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-
-  @@index([ownerId])
-  @@index([organizationId])
-  @@index([organizationId, isActive])
-  @@index([organizationId, groupId])
-  @@index([deletedAt])
-  @@index([createdById])
-  @@index([updatedById])
-  @@map("properties")
-}
-
-model PropertyGroup {
-  id             String   @id @default(uuid())
-  organizationId String
-  name           String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  properties   Property[]
-
-  @@unique([organizationId, name])
-  @@index([organizationId])
-  @@map("property_groups")
-}
-
-model Client {
-  id             String   @id @default(uuid())
-  firstName      String
-  lastName       String
-  phone          String
-  email          String?
-  notes          String?
-  isArchived     Boolean  @default(false)
-  organizationId String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  deletedAt      DateTime?
-  createdById    String?
-  updatedById    String?
-
-  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  reservations Reservation[]
-  createdBy     User?        @relation("ClientCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedBy     User?        @relation("ClientUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-
-  @@index([organizationId])
-  @@index([organizationId, phone])
-  @@index([deletedAt])
-  @@index([createdById])
-  @@index([updatedById])
-  @@map("clients")
-}
-
-model Reservation {
-  id             String   @id @default(uuid())
-  propertyId     String
-  clientId       String?
-  organizationId String
-  checkIn        DateTime
-  checkOut       DateTime
-  totalPrice     Float
-  status         ReservationStatus @default(CONFIRMED)
-  channel        Channel?
-  source         String?
-  externalId     String?
-  lastSyncAt     DateTime?
-  rawPayload     Json?
-  cleaningStatus CleaningStatus @default(TODO)
-  guestName      String
-  phoneNumber    String?
-  notes          String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  deletedAt      DateTime?
-  createdById    String?
-  updatedById    String?
-
-  property     Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  client       Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdBy     User?    @relation("ReservationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedBy     User?    @relation("ReservationUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  cleaning      Cleaning?
-
-  @@index([propertyId, checkIn, checkOut])
-  @@index([organizationId, propertyId, checkIn, checkOut])
-  @@index([organizationId, checkIn, checkOut])
-  @@index([organizationId, channel, externalId])
-  @@index([clientId])
-  @@index([organizationId])
-  @@index([deletedAt])
-  @@index([createdById])
-  @@index([updatedById])
-  @@map("reservations")
-}
-
-model Cleaning {
-  id             String        @id @default(uuid())
-  organizationId String
-  propertyId     String
-  reservationId  String?       @unique
-  date           DateTime
-  status         CleaningStatus @default(TODO)
-  assignedToId   String?
-  notes          String?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  property     Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  reservation  Reservation? @relation(fields: [reservationId], references: [id], onDelete: SetNull)
-  assignedTo   User?        @relation("CleaningAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
-
-  @@index([organizationId, date])
-  @@index([organizationId, propertyId])
-  @@index([assignedToId])
-  @@map("cleanings")
-}
-
-model PropertyChannel {
-  id                String   @id @default(uuid())
-  organizationId    String
-  propertyId        String
-  channel           Channel
-  externalListingId String?
-  icsUrl            String?
-  isEnabled         Boolean  @default(false)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  property     Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-
-  @@unique([propertyId, channel])
-  @@index([organizationId, channel])
-  @@index([propertyId])
-  @@map("property_channels")
-}
-
-model SyncConflict {
-  id             String   @id @default(uuid())
-  organizationId String
-  propertyId     String
-  channel        Channel
-  externalId     String?
-  reason         String
-  payload        Json?
-  createdAt      DateTime @default(now())
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  property     Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-
-  @@index([organizationId, propertyId, channel])
-  @@index([organizationId, createdAt])
-  @@map("sync_conflicts")
-}
-
-model PropertyAccess {
-  id         String   @id @default(uuid())
-  organizationId String @default("")
-  userId     String
-  propertyId String
-  createdAt  DateTime @default(now())
-
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-
-  @@unique([organizationId, userId, propertyId])
-  @@index([organizationId, userId])
-  @@index([userId])
-  @@index([propertyId])
-  @@map("property_accesses")
 }

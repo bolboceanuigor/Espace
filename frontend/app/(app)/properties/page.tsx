@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl';
 import { useAuth } from '@/context/AuthContext';
 import { exportsApi, propertiesApi } from '@/lib/api';
 import { Button, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, useToast } from '@/components/ui';
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 
 type Property = {
   id: string;
@@ -64,7 +64,7 @@ export default function PropertiesPage() {
     URL.revokeObjectURL(url);
   };
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const response = await propertiesApi.getAll(showArchived);
@@ -74,11 +74,11 @@ export default function PropertiesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showArchived]);
 
   useEffect(() => {
-    load();
-  }, [showArchived]);
+    void load();
+  }, [load]);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();

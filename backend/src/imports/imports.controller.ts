@@ -5,8 +5,6 @@ import { Response } from 'express';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
-import { AllowsPastDue, RequiresActiveSubscription } from '../subscription/subscription-access.decorator';
-import { SubscriptionAccessGuard } from '../subscription/subscription-access.guard';
 import { UploadImportDto } from './dto/imports.dto';
 import { ImportsService } from './imports.service';
 
@@ -15,9 +13,8 @@ export class ImportsController {
   constructor(private readonly importsService: ImportsService) {}
 
   @Post('admin/imports/upload')
-  @UseGuards(RolesGuard, SubscriptionAccessGuard)
+  @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
-  @RequiresActiveSubscription()
   @UseInterceptors(FileInterceptor('file'))
   adminUpload(
     @CurrentUser() user: any,
@@ -28,33 +25,29 @@ export class ImportsController {
   }
 
   @Get('admin/imports/:id/preview')
-  @UseGuards(RolesGuard, SubscriptionAccessGuard)
+  @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
-  @AllowsPastDue()
   adminPreview(@CurrentUser() user: any, @Param('id') id: string) {
     return this.importsService.previewAdmin(user, id);
   }
 
   @Post('admin/imports/:id/confirm')
-  @UseGuards(RolesGuard, SubscriptionAccessGuard)
+  @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
-  @RequiresActiveSubscription()
   adminConfirm(@CurrentUser() user: any, @Param('id') id: string) {
     return this.importsService.confirmAdmin(user, id);
   }
 
   @Get('admin/imports')
-  @UseGuards(RolesGuard, SubscriptionAccessGuard)
+  @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
-  @AllowsPastDue()
   adminList(@CurrentUser() user: any) {
     return this.importsService.listAdmin(user);
   }
 
   @Get('admin/imports/templates/:type')
-  @UseGuards(RolesGuard, SubscriptionAccessGuard)
+  @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
-  @AllowsPastDue()
   adminTemplate(@Param('type') type: any, @Res() res: Response) {
     const buffer = this.importsService.templateXlsx(type);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -64,7 +57,7 @@ export class ImportsController {
 
   @Post('superadmin/organizations/:id/imports/upload')
   @UseGuards(RolesGuard)
-  @Roles(Role.SUPERADMIN, Role.SUPER_ADMIN)
+  @Roles(Role.SUPERADMIN, Role.SUPERADMIN)
   @UseInterceptors(FileInterceptor('file'))
   superadminUpload(
     @CurrentUser() user: any,
@@ -77,14 +70,14 @@ export class ImportsController {
 
   @Get('superadmin/imports/:id/preview')
   @UseGuards(RolesGuard)
-  @Roles(Role.SUPERADMIN, Role.SUPER_ADMIN)
+  @Roles(Role.SUPERADMIN, Role.SUPERADMIN)
   superadminPreview(@CurrentUser() user: any, @Param('id') id: string) {
     return this.importsService.previewSuperadmin(user, id);
   }
 
   @Post('superadmin/imports/:id/confirm')
   @UseGuards(RolesGuard)
-  @Roles(Role.SUPERADMIN, Role.SUPER_ADMIN)
+  @Roles(Role.SUPERADMIN, Role.SUPERADMIN)
   superadminConfirm(@CurrentUser() user: any, @Param('id') id: string) {
     return this.importsService.confirmSuperadmin(user, id);
   }

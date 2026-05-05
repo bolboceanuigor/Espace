@@ -18,7 +18,7 @@ export class SalesService {
       orderBy: { createdAt: 'desc' },
       include: {
         subscription: true,
-        _count: { select: { properties: true, users: true } },
+        _count: { select: { apartments: true, users: true } },
       },
     });
 
@@ -29,7 +29,7 @@ export class SalesService {
       createdAt: org.createdAt,
       plan: org.subscription?.plan ?? null,
       status: org.subscription?.status ?? null,
-      propertyCount: org._count.properties,
+      apartmentCount: org._count.apartments,
       userCount: org._count.users,
     }));
   }

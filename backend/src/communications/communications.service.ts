@@ -36,7 +36,7 @@ export class CommunicationsService {
 
   private assertResident(user: AuthUser) {
     const role = String(user.role || '').toUpperCase();
-    if (role !== 'RESIDENT' && role !== 'TENANT') {
+    if (role !== 'RESIDENT' && role !== 'RESIDENT') {
       throw new ForbiddenException('Resident access required');
     }
     if (!user.organizationId) throw new ForbiddenException('Organization context missing');

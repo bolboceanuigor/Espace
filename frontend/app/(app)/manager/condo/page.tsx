@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { condoApi } from '@/lib/api';
 import { Button, PageHeader, useToast } from '@/components/ui';
@@ -32,7 +32,7 @@ export default function ManagerCondoPage() {
     visibility: 'OWNERS' as 'OWNERS' | 'ALL',
   });
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const [summaryRes, annRes] = await Promise.all([
@@ -46,11 +46,11 @@ export default function ManagerCondoPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showToast, tCommon]);
 
   useEffect(() => {
-    load().catch(() => undefined);
-  }, []);
+    void load();
+  }, [load]);
 
   return (
     <div className="space-y-4">

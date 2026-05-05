@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { votesApi } from '@/lib/api';
 import LoadingState from '@/components/common/LoadingState';
 import EmptyState from '@/components/common/EmptyState';
@@ -20,7 +20,7 @@ export default function AdminVotesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -31,11 +31,11 @@ export default function AdminVotesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [status]);
 
   useEffect(() => {
-    load().catch(() => undefined);
-  }, [status]);
+    void load();
+  }, [load]);
 
   return (
     <div className="space-y-4">

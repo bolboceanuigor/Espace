@@ -2,7 +2,7 @@ import { AsyncLocalStorage } from 'async_hooks';
 
 /**
  * Request-scoped tenant context for Prisma middleware.
- * When set (tenant flows), organizationId is injected into queries for Property, Reservation, Client, Subscription, Invoice.
+ * When set, organizationId is available to scope condominium organization queries.
  * When null/undefined (Admin/Sales or unauthenticated), no injection happens.
  */
 export interface TenantContextValue {

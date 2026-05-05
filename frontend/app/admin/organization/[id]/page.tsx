@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import PlatformLayout from '@/components/PlatformLayout';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
@@ -74,21 +74,21 @@ export default function AdminOrganizationPage() {
   const [propertyLimit, setPropertyLimit] = useState('');
   const [plan, setPlan] = useState('starter');
 
-  const load = () => {
+  const load = useCallback(() => {
     if (!id) return;
     adminApi.getOrganizationDetail(id)
       .then((res) => setOrg(res.data))
       .catch(() => router.replace('/admin'))
       .finally(() => setLoading(false));
-  };
+  }, [router, id]);
 
   useEffect(() => {
     if (!isAuthenticated || user?.role !== 'SUPERADMIN') {
       router.replace('/login');
       return;
     }
-    load();
-  }, [router, isAuthenticated, user?.role, id]);
+    void load();
+  }, [load, isAuthenticated, router, user?.role]);
 
   const handleStatusToggle = async () => {
     if (!org) return;

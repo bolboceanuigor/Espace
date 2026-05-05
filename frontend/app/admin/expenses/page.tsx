@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { maintenanceApi } from '@/lib/api';
 
 export default function AdminExpensesPage() {
@@ -20,7 +20,7 @@ export default function AdminExpensesPage() {
     invoiceNumber: '',
   });
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const [expensesRes, suppliersRes, tasksRes] = await Promise.all([
       maintenanceApi.expensesList({
         category: filters.category || undefined,
@@ -34,11 +34,11 @@ export default function AdminExpensesPage() {
     setRows(expensesRes.data || []);
     setSuppliers(suppliersRes.data || []);
     setTasks(tasksRes.data || []);
-  };
+  }, [filters.category, filters.supplier, filters.from, filters.to]);
 
   useEffect(() => {
-    load().catch(() => undefined);
-  }, [filters.category, filters.supplier, filters.from, filters.to]);
+    void load();
+  }, [load]);
 
   const total = useMemo(() => rows.reduce((sum, row) => sum + Number(row.amount || 0), 0), [rows]);
 

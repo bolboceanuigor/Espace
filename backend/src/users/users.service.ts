@@ -32,7 +32,7 @@ export class UsersService {
         passwordHash,
         firstName: createUserDto.firstName,
         lastName: createUserDto.lastName,
-        role: createUserDto.role ?? Role.MANAGER,
+        role: createUserDto.role ?? Role.ADMIN,
         authProvider: 'LOCAL',
         emailVerifiedAt: null,
         organization: { connect: { id: createUserDto.organizationId } },

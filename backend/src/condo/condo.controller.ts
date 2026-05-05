@@ -15,7 +15,7 @@ export class CondoController {
   constructor(private readonly condoService: CondoService) {}
 
   @Get('owner-dashboard')
-  @Roles(Role.TENANT, Role.ADMIN, Role.SUPERADMIN, Role.MANAGER)
+  @Roles(Role.RESIDENT, Role.ADMIN, Role.SUPERADMIN)
   getOwnerDashboard(@CurrentUser() user: any, @Req() req: Request) {
     const organizationId = getOrgId(user, req);
     const userId = user?.id ?? user?.sub;
@@ -23,14 +23,14 @@ export class CondoController {
   }
 
   @Get('annual-summaries')
-  @Roles(Role.ADMIN, Role.SUPERADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
   listAnnualSummaries(@CurrentUser() user: any, @Req() req: Request) {
     const organizationId = getOrgId(user, req);
     return this.condoService.listAnnualSummaries(organizationId, user.role);
   }
 
   @Post('annual-summaries')
-  @Roles(Role.ADMIN, Role.SUPERADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
   createAnnualSummary(
     @CurrentUser() user: any,
     @Req() req: Request,
@@ -42,21 +42,21 @@ export class CondoController {
   }
 
   @Patch('annual-summaries/:id/publish')
-  @Roles(Role.ADMIN, Role.SUPERADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
   publishAnnualSummary(@CurrentUser() user: any, @Req() req: Request, @Param('id') id: string) {
     const organizationId = getOrgId(user, req);
     return this.condoService.publishAnnualSummary(organizationId, user.role, id);
   }
 
   @Get('announcements')
-  @Roles(Role.TENANT, Role.ADMIN, Role.SUPERADMIN, Role.MANAGER)
+  @Roles(Role.RESIDENT, Role.ADMIN, Role.SUPERADMIN)
   listAnnouncements(@CurrentUser() user: any, @Req() req: Request) {
     const organizationId = getOrgId(user, req);
     return this.condoService.listAnnouncements(organizationId);
   }
 
   @Post('announcements')
-  @Roles(Role.ADMIN, Role.SUPERADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
   createAnnouncement(
     @CurrentUser() user: any,
     @Req() req: Request,

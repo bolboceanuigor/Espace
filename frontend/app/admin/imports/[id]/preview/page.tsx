@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { importsApi } from '@/lib/api';
 
@@ -9,14 +9,14 @@ export default function AdminImportPreviewPage() {
   const [job, setJob] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const res = await importsApi.preview(params.id);
     setJob(res.data);
-  };
+  }, [params.id]);
 
   useEffect(() => {
-    load().catch(() => undefined);
-  }, [params.id]);
+    void load();
+  }, [load]);
 
   const rows = useMemo(() => (job?.errorsJson?.rows || []) as any[], [job]);
   const invalid = rows.filter((r) => !r._isValid).length;

@@ -36,7 +36,7 @@ export default function ResidentIssueCreatePage() {
         showToast('Nu am putut încărca apartamentele.', 'error');
       })
       .finally(() => setLoadingApartments(false));
-  }, []);
+  }, [showToast]);
 
   return (
     <div className="space-y-4 overflow-x-hidden pb-24 md:pb-4">

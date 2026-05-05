@@ -34,7 +34,7 @@ export class PermissionGuard implements CanActivate {
 
     const role = String(user.role || '').toUpperCase();
     const platformRole = String(user.platformRole || '').toUpperCase();
-    if (role === Role.SUPERADMIN || role === Role.SUPER_ADMIN || platformRole === PlatformRole.SUPER_ADMIN) {
+    if (role === Role.SUPERADMIN || platformRole === PlatformRole.SUPER_ADMIN) {
       return true;
     }
 
@@ -59,4 +59,3 @@ export class PermissionGuard implements CanActivate {
     return true;
   }
 }
-

@@ -63,42 +63,42 @@ export class NotificationsController {
 
   @Get('resident/notifications')
   @UseGuards(RolesGuard)
-  @Roles(Role.RESIDENT, Role.TENANT)
+  @Roles(Role.RESIDENT)
   residentList(@CurrentUser() user: any) {
     return this.notificationsService.residentList(user);
   }
 
   @Patch('resident/notifications/:id/read')
   @UseGuards(RolesGuard)
-  @Roles(Role.RESIDENT, Role.TENANT)
+  @Roles(Role.RESIDENT)
   residentRead(@CurrentUser() user: any, @Param('id') id: string) {
     return this.notificationsService.residentMarkRead(user, id);
   }
 
   @Patch('resident/notifications/read-all')
   @UseGuards(RolesGuard)
-  @Roles(Role.RESIDENT, Role.TENANT)
+  @Roles(Role.RESIDENT)
   residentReadAll(@CurrentUser() user: any) {
     return this.notificationsService.residentMarkAllRead(user);
   }
 
   @Get('resident/notification-preferences')
   @UseGuards(RolesGuard)
-  @Roles(Role.RESIDENT, Role.TENANT)
+  @Roles(Role.RESIDENT)
   residentPrefs(@CurrentUser() user: any) {
     return this.notificationsService.getResidentPreferences(user);
   }
 
   @Patch('resident/notification-preferences')
   @UseGuards(RolesGuard)
-  @Roles(Role.RESIDENT, Role.TENANT)
+  @Roles(Role.RESIDENT)
   updateResidentPrefs(@CurrentUser() user: any, @Body() body: UpdateNotificationPreferencesDto) {
     return this.notificationsService.updateResidentPreferences(user, body);
   }
 
   @Post('resident/notification-preferences/telegram-connect-token')
   @UseGuards(RolesGuard)
-  @Roles(Role.RESIDENT, Role.TENANT)
+  @Roles(Role.RESIDENT)
   telegramToken(@CurrentUser() user: any) {
     return this.notificationsService.createTelegramLinkToken(user);
   }
