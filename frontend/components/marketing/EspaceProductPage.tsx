@@ -70,6 +70,27 @@ const dashboardStats = [
   ['Cereri deschise', '12'],
 ];
 
+const roleCards = [
+  {
+    title: 'Administrator',
+    text: 'Controlează apartamente, locatari, contoare, plăți, cereri și avizier dintr-un singur spațiu calm.',
+    href: '/ro/admin',
+    metric: '142 apartamente',
+  },
+  {
+    title: 'Locatar',
+    text: 'Vede soldul, transmite citiri, urmărește anunțurile și trimite cereri către administrație.',
+    href: '/ro/resident',
+    metric: 'Apt. 45',
+  },
+  {
+    title: 'Superadmin',
+    text: 'Monitorizează asociațiile, activarea administratorilor, utilizarea platformei și venitul lunar.',
+    href: '/ro/superadmin',
+    metric: '38 asociații',
+  },
+];
+
 function Header({ active }: { active: ProductPageProps['active'] }) {
   return (
     <header className="sticky top-0 z-30 border-b border-white/10 bg-[#0d1211]/90 backdrop-blur-xl">
@@ -169,7 +190,7 @@ function Hero({ active }: { active: ProductPageProps['active'] }) {
         <div className="flex flex-col justify-center">
           <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/12 bg-white/[0.06] px-3 py-1 text-sm text-white/78">
             <ShieldCheck className="h-4 w-4 text-teal-300" />
-            SaaS pentru asociații de proprietari
+            Espace · SaaS pentru asociații de proprietari
           </div>
           <h1 className="mt-6 max-w-3xl text-4xl font-semibold leading-[1.04] text-white sm:text-5xl lg:text-6xl">
             Administrare APC mai clară pentru Moldova și România.
@@ -183,18 +204,51 @@ function Hero({ active }: { active: ProductPageProps['active'] }) {
               href="/ro/demo-request"
               className="inline-flex items-center justify-center gap-2 rounded-md bg-white px-4 py-3 text-sm font-semibold text-[#0d1211] shadow-lg shadow-black/20 transition hover:bg-teal-50"
             >
-              Programează un demo
+              Vezi demo
               <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
-              href="/ro/features"
+              href="/ro/admin"
               className="inline-flex items-center justify-center rounded-md border border-white/16 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
             >
-              Vezi funcționalități
+              Intră în platformă
             </Link>
           </div>
         </div>
         <DashboardMockup />
+      </div>
+    </section>
+  );
+}
+
+function RoleSection() {
+  return (
+    <section className="bg-white px-4 py-16 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl">
+        <div className="max-w-2xl">
+          <p className="text-sm font-semibold uppercase tracking-[0.14em] text-teal-700">Roluri</p>
+          <h2 className="mt-3 text-3xl font-semibold text-slate-950 sm:text-4xl">Un produs pentru fiecare parte din asociație.</h2>
+          <p className="mt-4 text-base leading-7 text-slate-600">
+            Administrația lucrează eficient, locatarii au informațiile la îndemână, iar platforma poate fi urmărită la nivel global.
+          </p>
+        </div>
+        <div className="mt-9 grid gap-4 md:grid-cols-3">
+          {roleCards.map((role) => (
+            <Link
+              key={role.title}
+              href={role.href}
+              className="group rounded-lg border border-slate-200 bg-[#f7f5f0] p-5 shadow-sm transition hover:-translate-y-0.5 hover:bg-white hover:shadow-md"
+            >
+              <p className="text-sm font-medium text-teal-700">{role.metric}</p>
+              <h3 className="mt-3 text-xl font-semibold text-slate-950">{role.title}</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600">{role.text}</p>
+              <span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-slate-950">
+                Deschide
+                <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
+              </span>
+            </Link>
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -288,6 +342,7 @@ export default function EspaceProductPage({ active = 'home' }: ProductPageProps)
   return (
     <main className="min-h-screen bg-[#f7f5f0]">
       <Hero active={active} />
+      <RoleSection />
       <FeatureGrid />
       <WorkflowSection />
       <CtaSection />

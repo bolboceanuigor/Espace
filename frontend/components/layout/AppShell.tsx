@@ -52,7 +52,36 @@ function AppShellContent({ children }: AppShellProps) {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const localeParam = typeof params?.locale === 'string' ? params.locale : defaultLocale;
   const locale = isLocale(localeParam) ? localeParam : defaultLocale;
-  const normalizedRole = normalizeRole(user?.role);
+  const previewRole = pathname.includes('/superadmin')
+    ? 'SUPER_ADMIN'
+    : pathname.includes('/resident')
+      ? 'RESIDENT'
+      : 'ADMIN';
+  const isPreviewSession = !loading && !isAuthenticated;
+  const previewUser = isPreviewSession
+    ? {
+        id: 'preview-user',
+        email: 'preview@espace.md',
+        firstName: previewRole === 'SUPER_ADMIN' ? 'Espace' : previewRole === 'RESIDENT' ? 'Ion' : 'Admin',
+        lastName: previewRole === 'SUPER_ADMIN' ? 'Platform' : previewRole === 'RESIDENT' ? 'Popescu' : 'APC',
+        role: previewRole,
+        organizationId: 'preview-org',
+        emailVerifiedAt: new Date().toISOString(),
+        authProvider: 'LOCAL' as const,
+        createdAt: '2026-05-01T00:00:00.000Z',
+        isDemoUser: true,
+      }
+    : null;
+  const activeUser = user ?? previewUser;
+  const activeOrg = org ?? {
+    id: 'preview-org',
+    name: 'APC Alba Iulia 75',
+    weekStart: 'MONDAY' as const,
+    defaultLocale: 'ro' as const,
+    betaAccessEnabled: true,
+    isDemo: true,
+  };
+  const normalizedRole = normalizeRole(activeUser?.role);
   const homeRoute = `/${locale}${roleHomePath(normalizedRole)}`;
 
   useEffect(() => {
@@ -68,13 +97,14 @@ function AppShellContent({ children }: AppShellProps) {
 
   useEffect(() => {
     if (loading) return;
+    if (isPreviewSession) return;
     if (!isAuthenticated) {
       router.replace(`/${locale}/login`);
     }
-  }, [isAuthenticated, loading, locale, router]);
+  }, [isAuthenticated, isPreviewSession, loading, locale, router]);
 
   useEffect(() => {
-    if (loading || !user) return;
+    if (loading || !activeUser || isPreviewSession) return;
     const isTeamRoute = pathname.includes('/team');
     const isSuperadminRoute = pathname.includes('/superadmin');
     if (isTeamRoute && normalizedRole !== 'ADMIN' && normalizedRole !== 'SUPER_ADMIN') {
@@ -84,7 +114,7 @@ function AppShellContent({ children }: AppShellProps) {
     if (isSuperadminRoute && normalizedRole !== 'SUPER_ADMIN') {
       router.replace(homeRoute);
     }
-  }, [homeRoute, loading, pathname, router, user, normalizedRole]);
+  }, [activeUser, homeRoute, isPreviewSession, loading, pathname, router, normalizedRole]);
 
   useEffect(() => {
     if (!featureFlags.softLimits || !isAuthenticated || !user?.organizationId) {
@@ -339,7 +369,7 @@ function AppShellContent({ children }: AppShellProps) {
         ? '/admin/apartments'
         : '/resident/announcements';
 
-  if (loading || !isAuthenticated || !user) {
+  if (loading || !activeUser) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
         Se verifică sesiunea...
@@ -350,12 +380,12 @@ function AppShellContent({ children }: AppShellProps) {
     featureFlags.requireBetaAccess &&
     normalizedRole !== 'SUPER_ADMIN' &&
     ['ADMIN', 'RESIDENT', 'TENANT'].includes(normalizedRole) &&
-    org?.betaAccessEnabled === false;
+    activeOrg?.betaAccessEnabled === false;
   const maintenanceBlocked = normalizedRole !== 'SUPER_ADMIN' && !!system?.maintenanceMode;
   const providerLabel =
-    (user.authProvider || 'LOCAL').toUpperCase() === 'GOOGLE'
+    (activeUser.authProvider || 'LOCAL').toUpperCase() === 'GOOGLE'
       ? c('providerGoogle')
-      : (user.authProvider || 'LOCAL').toUpperCase() === 'BOTH'
+      : (activeUser.authProvider || 'LOCAL').toUpperCase() === 'BOTH'
         ? c('providerBoth')
         : c('providerLocal');
 
@@ -514,12 +544,12 @@ function AppShellContent({ children }: AppShellProps) {
               ) : null}
               <div className="hidden text-right md:block">
                 <p className="text-sm font-medium text-foreground">
-                  {user.firstName} {user.lastName}
+                  {activeUser.firstName} {activeUser.lastName}
                 </p>
-                <p className="text-xs text-muted-foreground">{user.email}</p>
+                <p className="text-xs text-muted-foreground">{activeUser.email}</p>
                 <div className="mt-1 flex justify-end gap-1">
                   <span className="rounded-md border border-border/60 bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                    {user.emailVerifiedAt ? c('verified') : c('notVerified')}
+                    {activeUser.emailVerifiedAt ? c('verified') : c('notVerified')}
                   </span>
                   <span className="rounded-md border border-border/60 bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground">
                     {providerLabel}
@@ -531,10 +561,10 @@ function AppShellContent({ children }: AppShellProps) {
           <div className="mt-3">
             <MainNavigation role={normalizedRole} variant="desktop" />
           </div>
-          {(normalizeRole(user.role) === 'ADMIN' || normalizeRole(user.role) === 'SUPER_ADMIN') &&
+          {(normalizeRole(activeUser.role) === 'ADMIN' || normalizeRole(activeUser.role) === 'SUPER_ADMIN') &&
           !prefs?.welcomeDismissed &&
-          user.createdAt &&
-          Date.now() - new Date(user.createdAt).getTime() < 24 * 60 * 60 * 1000 ? (
+          activeUser.createdAt &&
+          Date.now() - new Date(activeUser.createdAt).getTime() < 24 * 60 * 60 * 1000 ? (
             <div className="mt-3 rounded-2xl border border-border/60 bg-muted/40 px-3 py-2 text-sm text-foreground">
               <div className="flex flex-wrap items-center justify-between gap-2">
               <p>Bun venit în Espace</p>
@@ -642,7 +672,7 @@ function AppShellContent({ children }: AppShellProps) {
               </div>
             </div>
           ) : null}
-          {(user?.isDemoUser || org?.isDemo) ? (
+          {(activeUser?.isDemoUser || activeOrg?.isDemo) ? (
             <div className="mt-3 rounded-2xl border border-indigo-300 bg-indigo-50 px-3 py-2 text-sm text-indigo-900">
               Mod demo activ — datele sunt demonstrative.
             </div>

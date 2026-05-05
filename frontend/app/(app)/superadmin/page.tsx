@@ -1,192 +1,104 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { api } from '@/lib/api';
-import { useAuth } from '@/context/AuthContext';
-import { normalizeRole } from '@/lib/role-routing';
 import Link from 'next/link';
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Building2, CreditCard, ShieldCheck, UserCog, Users } from 'lucide-react';
+import { Card, PageHeader, StatCard } from '@/components/ui';
+
+const stats = [
+  { label: 'Total asociații', value: '38', description: 'În Moldova și România', icon: <Building2 className="h-5 w-5" /> },
+  { label: 'Asociații active', value: '31', description: 'Abonamente active', icon: <ShieldCheck className="h-5 w-5" />, tone: 'success' as const },
+  { label: 'Administratori', value: '74', description: 'Utilizatori cu acces administrativ', icon: <UserCog className="h-5 w-5" /> },
+  { label: 'Locatari conectați', value: '4,820', description: 'Conturi rezident active', icon: <Users className="h-5 w-5" />, tone: 'success' as const },
+  { label: 'Venit lunar platformă', value: '42,900 MDL', description: 'MRR estimat', icon: <CreditCard className="h-5 w-5" />, tone: 'warning' as const },
+];
+
+const associations = [
+  { name: 'APC Alba Iulia 75', city: 'Chișinău', apartments: 142, admins: 3, residents: 286, status: 'Activă', mrr: '3,420 MDL' },
+  { name: 'Asociația Teilor Residence', city: 'Iași', apartments: 96, admins: 2, residents: 178, status: 'Trial', mrr: '0 MDL' },
+  { name: 'APC Ștefan cel Mare 18', city: 'Bălți', apartments: 64, admins: 2, residents: 121, status: 'Activă', mrr: '1,860 MDL' },
+  { name: 'Condominiu Central Park', city: 'București', apartments: 214, admins: 5, residents: 498, status: 'Activă', mrr: '5,980 MDL' },
+];
 
 export default function SuperadminPage() {
-  const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [data, setData] = useState<any>(null);
-
-  useEffect(() => {
-    let active = true;
-    api<any>('/api/superadmin/command-center')
-      .then((res) => {
-        if (active) {
-          setData(res.data);
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setError('Nu am putut încărca Command Center.');
-        }
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  if (normalizeRole(user?.role) !== 'SUPER_ADMIN') return null;
-  if (loading) return <div className="text-sm text-muted-foreground">Loading superadmin overview...</div>;
-  if (error) {
-    return (
-      <div className="space-y-3 rounded-xl border border-border/70 bg-card p-4">
-        <p className="text-sm text-destructive">{error}</p>
-        <button className="rounded-md border border-border/70 px-3 py-2 text-sm" onClick={() => window.location.reload()}>
-          Reîncearcă
-        </button>
-      </div>
-    );
-  }
-  const organizationStatusChartData = [
-    { name: 'Active', value: Number(data?.organizations?.active || 0) },
-    { name: 'Trial', value: Number(data?.organizations?.trial || 0) },
-    { name: 'Past due', value: Number(data?.organizations?.pastDue || 0) },
-    { name: 'Suspended', value: Number(data?.organizations?.suspended || 0) },
-    { name: 'Cancelled', value: Number(data?.organizations?.cancelled || 0) },
-  ];
-  const revenueChartData = [
-    { name: 'MRR', value: Number(data?.revenue?.monthlyRecurringRevenueEstimate || 0) },
-    { name: 'Overdue', value: Number(data?.revenue?.overdueAmount || 0) },
-  ];
-
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-semibold text-foreground">Superadmin Command Center</h1>
-        <Link href="/superadmin/tasks" className="rounded-md border border-border/70 px-3 py-2 text-xs hover:bg-muted/40">
-          Open task board
-        </Link>
-      </div>
+    <div className="space-y-5 pb-4">
+      <PageHeader
+        title="Platformă"
+        description="Vedere de ansamblu pentru Espace: asociații, administratori, locatari conectați și venit lunar."
+        rightSlot={
+          <Link href="/ro/superadmin/organizations" className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background">
+            Vezi asociații
+          </Link>
+        }
+      />
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-        {[
-          ['MRR estimate', data?.revenue?.monthlyRecurringRevenueEstimate],
-          ['Paid org invoices', data?.revenue?.paidOrganizationInvoices],
-          ['Unpaid org invoices', data?.revenue?.unpaidOrganizationInvoices],
-          ['Overdue amount', data?.revenue?.overdueAmount],
-          ['Organizations total', data?.organizations?.total],
-          ['Active organizations', data?.organizations?.active],
-          ['Total apartments', data?.usage?.totalApartments],
-          ['Total residents', data?.usage?.totalResidents],
-          ['New leads (month)', data?.sales?.newLeads],
-          ['Demo requests (month)', data?.sales?.demoRequests],
-          ['Trial conversion %', data?.sales?.trialConversionRate],
-          ['Pending follow-ups', data?.support?.pendingFollowUps],
-        ].map(([label, value]) => (
-          <div key={String(label)} className="rounded-xl border border-border/70 bg-card p-4">
-            <p className="text-xs uppercase text-muted-foreground">{label}</p>
-            <p className="mt-1 text-2xl font-semibold text-foreground">{String(value ?? 0)}</p>
-          </div>
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        {stats.map((item) => (
+          <StatCard key={item.label} {...item} />
         ))}
-      </div>
+      </section>
 
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-        <div className="rounded-xl border border-border/70 bg-card p-4">
-          <p className="mb-2 text-sm font-medium text-foreground">Revenue snapshot</p>
-          <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={revenueChartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip />
-                <Bar dataKey="value" fill="#6366f1" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+      <section className="grid gap-4 lg:grid-cols-[1fr_0.8fr]">
+        <Card>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-foreground">Asociații</h2>
+              <p className="mt-1 text-sm text-muted-foreground">Conturi demo pentru monitorizarea platformei.</p>
+            </div>
+            <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
+              Date mock
+            </span>
           </div>
-        </div>
-        <div className="rounded-xl border border-border/70 bg-card p-4">
-          <p className="mb-2 text-sm font-medium text-foreground">Organization statuses</p>
-          <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={organizationStatusChartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip />
-                <Bar dataKey="value" fill="#0ea5e9" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="mt-5 space-y-3">
+            {associations.map((association) => (
+              <div key={association.name} className="rounded-[1.1rem] border border-border/70 bg-muted/25 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-foreground">{association.name}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{association.city} · {association.apartments} apartamente</p>
+                  </div>
+                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                    association.status === 'Activă' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                  }`}>
+                    {association.status}
+                  </span>
+                </div>
+                <div className="mt-4 grid gap-2 text-sm sm:grid-cols-3">
+                  <Mini label="Administratori" value={String(association.admins)} />
+                  <Mini label="Locatari conectați" value={String(association.residents)} />
+                  <Mini label="MRR" value={association.mrr} />
+                </div>
+              </div>
+            ))}
           </div>
-        </div>
-      </div>
+        </Card>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        <div className="rounded-xl border border-border/70 bg-card p-4">
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-sm font-medium text-foreground">Trials ending soon</p>
-            <Link href="/superadmin/trials" className="text-xs text-primary hover:underline">View all</Link>
-          </div>
-          <div className="space-y-2">
-            {(data?.tables?.trialsEndingSoon || []).map((row: any) => (
-              <div key={row.organizationId} className="rounded-md border border-border/60 px-2 py-1 text-xs">
-                <p className="font-medium text-foreground">{row.organizationName}</p>
-                <p className="text-muted-foreground">{row.trialEndDate ? new Date(row.trialEndDate).toLocaleDateString() : '-'}</p>
+        <Card>
+          <h2 className="text-base font-semibold text-foreground">Semnale platformă</h2>
+          <div className="mt-5 space-y-3">
+            {[
+              ['Trial-uri active', '7 asociații în perioada de test'],
+              ['Necesită follow-up', '3 administratori trebuie contactați'],
+              ['Creștere lunară', '+12% locatari conectați'],
+              ['Stocare', '36% din limita planificată'],
+            ].map(([title, detail]) => (
+              <div key={title} className="rounded-2xl border border-border/70 bg-white px-4 py-3">
+                <p className="text-sm font-semibold text-foreground">{title}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
               </div>
             ))}
-            {!data?.tables?.trialsEndingSoon?.length ? <p className="text-xs text-muted-foreground">No trials ending soon.</p> : null}
           </div>
-        </div>
-        <div className="rounded-xl border border-border/70 bg-card p-4">
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-sm font-medium text-foreground">Overdue organizations</p>
-            <Link href="/superadmin/subscriptions" className="text-xs text-primary hover:underline">View all</Link>
-          </div>
-          <div className="space-y-2">
-            {(data?.tables?.overdueOrganizations || []).map((row: any) => (
-              <div key={row.organizationId} className="rounded-md border border-border/60 px-2 py-1 text-xs">
-                <p className="font-medium text-foreground">{row.organizationName}</p>
-                <p className="text-muted-foreground">{row.status} - {Number(row.outstandingAmount || 0).toFixed(2)} {row.currency}</p>
-              </div>
-            ))}
-            {!data?.tables?.overdueOrganizations?.length ? <p className="text-xs text-muted-foreground">No overdue organizations.</p> : null}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        <div className="rounded-xl border border-border/70 bg-card p-4">
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-sm font-medium text-foreground">Pending follow-ups</p>
-            <Link href="/superadmin/follow-ups" className="text-xs text-primary hover:underline">View all</Link>
-          </div>
-          <div className="space-y-2">
-            {(data?.tables?.pendingFollowUps || []).map((row: any) => (
-              <div key={row.id} className="rounded-md border border-border/60 px-2 py-1 text-xs">
-                <p className="font-medium text-foreground">{row.organizationName}</p>
-                <p className="text-muted-foreground">{row.title}</p>
-                <p className="text-muted-foreground">{row.followUpAt ? new Date(row.followUpAt).toLocaleString() : '-'}</p>
-              </div>
-            ))}
-            {!data?.tables?.pendingFollowUps?.length ? <p className="text-xs text-muted-foreground">No pending follow-ups.</p> : null}
-          </div>
-        </div>
-        <div className="rounded-xl border border-border/70 bg-card p-4">
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-sm font-medium text-foreground">Recent leads</p>
-            <Link href="/superadmin/leads" className="text-xs text-primary hover:underline">View all</Link>
-          </div>
-          <div className="space-y-2">
-            {(data?.tables?.recentLeads || []).map((row: any) => (
-              <div key={row.id} className="rounded-md border border-border/60 px-2 py-1 text-xs">
-                <p className="font-medium text-foreground">{row.name}</p>
-                <p className="text-muted-foreground">{row.email} - {row.status}</p>
-              </div>
-            ))}
-            {!data?.tables?.recentLeads?.length ? <p className="text-xs text-muted-foreground">No leads yet.</p> : null}
-          </div>
-        </div>
-      </div>
+        </Card>
+      </section>
     </div>
   );
 }
 
+function Mini({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-white px-3 py-2">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="mt-1 font-semibold text-foreground">{value}</p>
+    </div>
+  );
+}
