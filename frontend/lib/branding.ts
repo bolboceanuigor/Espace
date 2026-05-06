@@ -5,25 +5,27 @@ export type BrandingMenuItem = {
 };
 
 export const DEFAULT_BRANDING_MENU: BrandingMenuItem[] = [
-  { key: 'dashboard', enabled: true, order: 0 },
-  { key: 'chat', enabled: true, order: 1 },
-  { key: 'calendar', enabled: true, order: 2 },
-  { key: 'properties', enabled: true, order: 3 },
-  { key: 'reservations', enabled: true, order: 4 },
-  { key: 'clients', enabled: true, order: 5 },
-  { key: 'cleanings', enabled: true, order: 6 },
-  { key: 'settings', enabled: true, order: 7 },
+  { key: 'admin', enabled: true, order: 0 },
+  { key: 'apartments', enabled: true, order: 1 },
+  { key: 'residents', enabled: true, order: 2 },
+  { key: 'meters', enabled: true, order: 3 },
+  { key: 'payments', enabled: true, order: 4 },
+  { key: 'issues', enabled: true, order: 5 },
+  { key: 'announcements', enabled: true, order: 6 },
+  { key: 'chat', enabled: true, order: 7 },
+  { key: 'settings', enabled: true, order: 8 },
 ];
 
 export const BRANDING_MENU_LABELS: Record<string, string> = {
-  dashboard: 'Dashboard',
-  chat: 'Chat',
-  calendar: 'Calendar',
-  properties: 'Apartamente',
-  reservations: 'Rezervari',
-  clients: 'Clienti',
-  cleanings: 'Curatenie',
-  settings: 'Setari',
+  admin: 'Acasă',
+  apartments: 'Apartamente',
+  residents: 'Locatari',
+  meters: 'Contoare',
+  payments: 'Plăți',
+  issues: 'Cereri',
+  announcements: 'Avizier',
+  chat: 'Mesaje',
+  settings: 'Setări',
 };
 
 export function normalizeMenuConfig(input: unknown): BrandingMenuItem[] {

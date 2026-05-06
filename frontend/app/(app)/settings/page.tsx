@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useBranding } from '@/context/BrandingContext';
-import { exportsApi, feedbackApi, settingsApi } from '@/lib/api';
+import { feedbackApi, settingsApi } from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/apiError';
 import { Button, PageHeader, useToast } from '@/components/ui';
 import { defaultLocale, isLocale } from '@/i18n';
@@ -35,8 +35,8 @@ export default function SettingsPage() {
   const [profileSaving, setProfileSaving] = useState(false);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [supportEmail, setSupportEmail] = useState('support@espacepms.com');
-  const [appName, setAppName] = useState('CondoFlow');
+  const [supportEmail, setSupportEmail] = useState('support@espace.md');
+  const [appName, setAppName] = useState('Espace');
   const [logoUrl, setLogoUrl] = useState('');
   const [primaryColor, setPrimaryColor] = useState('#2563eb');
   const [sidebarColor, setSidebarColor] = useState('#ffffff');
@@ -48,15 +48,6 @@ export default function SettingsPage() {
   const [feedbackList, setFeedbackList] = useState<any[]>([]);
   const [preferredLocale, setPreferredLocale] = useState<'ro' | 'ru' | 'en'>('ro');
 
-  const downloadCsv = (blob: Blob, fileName: string) => {
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = fileName;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
   useEffect(() => {
     let active = true;
     settingsApi
@@ -66,7 +57,7 @@ export default function SettingsPage() {
         setOrganizationName(res.data?.org?.name || '');
         setDefaultLocaleSetting((res.data?.org?.defaultLocale || 'ro') as 'ro' | 'ru' | 'en');
         setWeekStart((res.data?.org?.weekStart || 'MONDAY') as 'MONDAY' | 'SUNDAY');
-        setAppName(res.data?.org?.appName || 'CondoFlow');
+        setAppName(res.data?.org?.appName || 'Espace');
         setLogoUrl(res.data?.org?.logoUrl || '');
         setPrimaryColor(res.data?.org?.primaryColor || '#2563eb');
         setSidebarColor(res.data?.org?.sidebarColor || '#ffffff');
@@ -74,7 +65,7 @@ export default function SettingsPage() {
         setMenuConfig(normalizeMenuConfig(res.data?.org?.menuConfig));
         setFirstName(res.data?.profile?.firstName || '');
         setLastName(res.data?.profile?.lastName || '');
-        setSupportEmail(res.data?.supportEmail || 'support@espacepms.com');
+        setSupportEmail(res.data?.supportEmail || 'support@espace.md');
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -97,7 +88,7 @@ export default function SettingsPage() {
         name: organizationName.trim(),
         defaultLocale: defaultLocaleSetting,
         weekStart,
-        appName: appName.trim() || 'CondoFlow',
+        appName: appName.trim() || 'Espace',
         logoUrl: logoUrl.trim() || '',
         primaryColor,
         sidebarColor,
@@ -491,71 +482,13 @@ export default function SettingsPage() {
         <div className="rounded-3xl border border-border/60 bg-card/90 p-5 shadow-[0_18px_48px_-30px_rgba(109,40,217,0.35)]">
           <h2 className="text-base font-semibold text-foreground">Backups & Export</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Export organization data as CSV files.
+            Exporturile pentru apartamente, locatari, facturi și plăți vor fi conectate ulterior.
           </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={async () => {
-                try {
-                  const res = await exportsApi.exportProperties();
-                  downloadCsv(res.data, 'properties.csv');
-                } catch (error: unknown) {
-                  showToast(getApiErrorMessage(error, tErrors, tCommon('error')), 'error');
-                }
-              }}
-            >
-              Export properties CSV
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={async () => {
-                try {
-                  const today = new Date();
-                  const start = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
-                  const end = new Date(today.getFullYear(), today.getMonth() + 1, 1).toISOString().slice(0, 10);
-                  const res = await exportsApi.exportReservations(start, end);
-                  downloadCsv(res.data, 'reservations.csv');
-                } catch (error: unknown) {
-                  showToast(getApiErrorMessage(error, tErrors, tCommon('error')), 'error');
-                }
-              }}
-            >
-              Export reservations CSV
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={async () => {
-                try {
-                  const res = await exportsApi.exportClients();
-                  downloadCsv(res.data, 'clients.csv');
-                } catch (error: unknown) {
-                  showToast(getApiErrorMessage(error, tErrors, tCommon('error')), 'error');
-                }
-              }}
-            >
-              Export clients CSV
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={async () => {
-                try {
-                  const today = new Date();
-                  const start = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
-                  const end = new Date(today.getFullYear(), today.getMonth() + 1, 1).toISOString().slice(0, 10);
-                  const res = await exportsApi.exportCleanings(start, end);
-                  downloadCsv(res.data, 'cleanings.csv');
-                } catch (error: unknown) {
-                  showToast(getApiErrorMessage(error, tErrors, tCommon('error')), 'error');
-                }
-              }}
-            >
-              Export cleanings CSV
-            </Button>
+          <div className="mt-3 flex flex-wrap gap-2 text-sm text-muted-foreground">
+            <span className="rounded-full border border-border/70 bg-background px-3 py-2">Apartamente</span>
+            <span className="rounded-full border border-border/70 bg-background px-3 py-2">Locatari</span>
+            <span className="rounded-full border border-border/70 bg-background px-3 py-2">Facturi</span>
+            <span className="rounded-full border border-border/70 bg-background px-3 py-2">Plăți</span>
           </div>
         </div>
       ) : null}

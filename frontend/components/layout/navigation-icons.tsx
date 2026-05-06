@@ -2,7 +2,6 @@
 
 import {
   Building2,
-  Calendar,
   ChartColumnBig,
   CircleAlert,
   CreditCard,
@@ -31,9 +30,7 @@ export const NAVIGATION_ICON_MAP: Record<NavigationIconKey, React.ComponentType<
   megaphone: Megaphone,
   vote: Vote,
   wrench: Wrench,
-  calendar: Calendar,
   settings: Settings,
   sparkles: Sparkles,
   chartColumnBig: ChartColumnBig,
 };
-

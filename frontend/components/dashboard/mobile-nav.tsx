@@ -4,15 +4,15 @@ import Link from 'next/link';
 import { X } from 'lucide-react';
 
 const links = [
-  { href: '/dashboard', label: 'Dashboard' },
-  { href: '/chat', label: 'Chat' },
-  { href: '/calendar', label: 'Calendar' },
-  { href: '/properties', label: 'Apartments' },
-  { href: '/reservations', label: 'Reservations' },
-  { href: '/clients', label: 'Clients' },
-  { href: '/cleanings', label: 'Cleanings' },
-  { href: '/settings/channels', label: 'Notificari' },
-  { href: '/settings', label: 'Settings' },
+  { href: '/admin', label: 'Acasă' },
+  { href: '/admin/apartments', label: 'Apartamente' },
+  { href: '/admin/residents', label: 'Locatari' },
+  { href: '/admin/meters', label: 'Contoare' },
+  { href: '/admin/payments', label: 'Plăți' },
+  { href: '/admin/issues', label: 'Cereri' },
+  { href: '/admin/announcements', label: 'Avizier' },
+  { href: '/admin/chat', label: 'Mesaje' },
+  { href: '/admin/settings/organization', label: 'Setări' },
 ];
 
 export function MobileNav({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -24,7 +24,7 @@ export function MobileNav({ open, onClose }: { open: boolean; onClose: () => voi
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
-          <p className="font-semibold text-foreground">Navigation</p>
+          <p className="font-semibold text-foreground">Navigare</p>
           <button
             type="button"
             onClick={onClose}

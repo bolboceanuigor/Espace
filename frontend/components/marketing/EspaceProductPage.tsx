@@ -111,15 +111,15 @@ function Header({ active }: { active: ProductPageProps['active'] }) {
           <Link className="hover:text-white" href="/ro/pricing">
             Prețuri
           </Link>
-          <Link className="hover:text-white" href="/ro/demo-request">
-            Demo
+          <Link className="hover:text-white" href="/ro/contact">
+            Contact
           </Link>
         </nav>
         <Link
-          href="/ro/demo-request"
+          href="/ro/login"
           className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-[#0d1211] shadow-sm transition hover:bg-teal-50"
         >
-          Cere demo
+          Intră în platformă
         </Link>
       </div>
     </header>
@@ -208,7 +208,7 @@ function Hero({ active }: { active: ProductPageProps['active'] }) {
               <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
-              href="/ro/admin"
+              href="/ro/login"
               className="inline-flex items-center justify-center rounded-md border border-white/16 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
             >
               Intră în platformă
@@ -328,10 +328,10 @@ function CtaSection() {
           </p>
         </div>
         <Link
-          href="/ro/demo-request"
+          href="/ro/login"
           className="inline-flex items-center justify-center rounded-md bg-white px-4 py-3 text-sm font-semibold text-[#0d1211]"
         >
-          Cere acces demo
+          Intră în platformă
         </Link>
       </div>
     </section>

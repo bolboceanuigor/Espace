@@ -12,7 +12,6 @@ import type { NavigationItem } from '@/lib/navigation-config';
 type SidebarProps = {
   role: string | undefined;
   navItems: NavigationItem[];
-  cleaningsTodoCount?: number;
   authProvider?: 'LOCAL' | 'GOOGLE' | 'BOTH' | string;
   emailVerified?: boolean;
   showLabels: boolean;
@@ -25,7 +24,6 @@ type SidebarProps = {
 export default function Sidebar({
   role,
   navItems,
-  cleaningsTodoCount = 0,
   authProvider,
   emailVerified,
   showLabels,
@@ -80,11 +78,6 @@ export default function Sidebar({
             item={item}
             showLabels={showLabels}
             localePrefix={`/${locale}`}
-            badgeCount={
-              normalizedRole === 'MANAGER' && item.href.endsWith('/cleanings') && cleaningsTodoCount > 0
-                ? cleaningsTodoCount
-                : undefined
-            }
           />
         ))}
         {managementItems.length > 0 && showLabels ? (
