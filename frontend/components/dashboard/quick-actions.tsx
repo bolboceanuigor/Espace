@@ -3,16 +3,16 @@
 import Link from 'next/link';
 
 const actions = [
-  { href: '/properties', label: 'Add apartment' },
-  { href: '/reservations', label: 'New reservation' },
-  { href: '/clients', label: 'Add client' },
-  { href: '/settings', label: 'Open settings' },
+  { href: '/admin/apartments', label: 'Adaugă apartament' },
+  { href: '/admin/residents', label: 'Adaugă locatar' },
+  { href: '/admin/invoices', label: 'Emite factură' },
+  { href: '/admin/settings/organization', label: 'Setări' },
 ];
 
 export function QuickActions() {
   return (
     <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-[0_2px_10px_rgba(15,23,42,0.04)]">
-      <h3 className="text-base font-semibold text-foreground">Quick actions</h3>
+      <h3 className="text-base font-semibold text-foreground">Acțiuni rapide</h3>
       <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
         {actions.map((action) => (
           <Link

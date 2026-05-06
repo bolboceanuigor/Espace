@@ -4,22 +4,22 @@ import { FileText, Wallet, Megaphone, AlertTriangle, UserPlus, CalendarClock } f
 
 export function Announcements({ totalReservations }: { totalReservations: number }) {
   const actions = [
-    { title: 'Genereaza Facturi', detail: 'Emite facturile lunare', tone: 'bg-blue-50/80 border-blue-100', icon: FileText },
-    { title: 'Inregistreaza Plata', detail: 'Adauga o plata manuala', tone: 'bg-emerald-50/80 border-emerald-100', icon: Wallet },
-    { title: 'Publica Anunt', detail: 'Informezaza locatarii', tone: 'bg-amber-50/80 border-amber-100', icon: Megaphone },
-    { title: 'Raporteaza Problema', detail: 'Creeaza o sesizare noua', tone: 'bg-rose-50/80 border-rose-100', icon: AlertTriangle },
-    { title: 'Adauga Rezident', detail: 'Inregistreaza un locatar', tone: 'bg-violet-50/80 border-violet-100', icon: UserPlus },
-    { title: 'Programeaza Event', detail: 'Planifica o intalnire', tone: 'bg-cyan-50/80 border-cyan-100', icon: CalendarClock },
+    { title: 'Generează facturi', detail: 'Emite facturile lunare', tone: 'bg-blue-50/80 border-blue-100', icon: FileText },
+    { title: 'Înregistrează plată', detail: 'Adaugă o plată manuală', tone: 'bg-emerald-50/80 border-emerald-100', icon: Wallet },
+    { title: 'Publică anunț', detail: 'Informează locatarii', tone: 'bg-amber-50/80 border-amber-100', icon: Megaphone },
+    { title: 'Raportează problemă', detail: 'Creează o sesizare nouă', tone: 'bg-rose-50/80 border-rose-100', icon: AlertTriangle },
+    { title: 'Adaugă locatar', detail: 'Înregistrează un locatar', tone: 'bg-violet-50/80 border-violet-100', icon: UserPlus },
+    { title: 'Planifică ședință', detail: 'Stabilește o întâlnire cu locatarii', tone: 'bg-cyan-50/80 border-cyan-100', icon: CalendarClock },
   ];
 
   return (
     <div className="rounded-xl border border-border/70 bg-card p-4 shadow-[0_2px_10px_rgba(15,23,42,0.04)]">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-base font-semibold text-foreground">Actiuni Rapide</h3>
-          <p className="text-xs text-muted-foreground">Acces rapid la functiile principale</p>
+          <h3 className="text-base font-semibold text-foreground">Acțiuni rapide</h3>
+          <p className="text-xs text-muted-foreground">Acces rapid la funcțiile principale</p>
         </div>
-        <span className="text-xs text-primary">{totalReservations} total</span>
+        <span className="text-xs text-primary">{totalReservations} elemente</span>
       </div>
       <div className="mt-3 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2 xl:grid-cols-3">
         {actions.map((issue) => (

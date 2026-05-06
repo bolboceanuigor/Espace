@@ -1,17 +1,17 @@
 [
   {
-    "title": "Calendar Drag & Drop",
-    "description": "Move and resize reservations directly on the board with overlap-safe validations.",
+    "title": "Citiri contoare în bloc",
+    "description": "Transmitere rapidă pentru apă, gaz, electricitate și încălzire, cu validări de consum suspect.",
     "status": "Coming soon"
   },
   {
-    "title": "iCal Sync Foundations",
-    "description": "Import/sync booking channels with conflict-safe mapping and sync status indicators.",
+    "title": "Import apartamente și locatari",
+    "description": "Import controlat din fișiere CSV/XLSX pentru asociații cu date existente.",
     "status": "Coming soon"
   },
   {
-    "title": "Reports Improvements",
-    "description": "Occupancy and revenue summaries with cleaner filters and export-ready views.",
+    "title": "Rapoarte financiare",
+    "description": "Situații pentru datorii, încasări, facturi și solduri pe apartamente.",
     "status": "Coming soon"
   }
 ]

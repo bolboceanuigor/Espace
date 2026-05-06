@@ -3,8 +3,8 @@
     "version": "v0.9.0",
     "date": "2026-02-21",
     "changes": [
-      "Calendar board performance and sticky layout improvements",
-      "Property groups and color labels",
+      "Administrare apartamente cu filtre și carduri responsive",
+      "Grupare pe scări, locatari și statusuri de plată",
       "CSV exports and audit-ready settings"
     ]
   },
@@ -13,8 +13,8 @@
     "date": "2026-02-10",
     "changes": [
       "Multi-language routes (RO/RU/EN)",
-      "Team management and property assignments",
-      "Improved overlap validation on reservations"
+      "Management administratori și asociații",
+      "Fluxuri mai clare pentru cereri, contoare și plăți"
     ]
   }
 ]
