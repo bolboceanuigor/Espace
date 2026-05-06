@@ -1,11 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Mail, MessageCircle, Phone, Search, UserRound, Users, UserX } from 'lucide-react';
 import { Badge, Card, Input, PageHeader, StatCard } from '@/components/ui';
 import { formatMdl } from '@/lib/condo-admin-fallback';
-import { accountStatusVariant, adminResidents } from '@/lib/admin-mvp-data';
+import { residentsApi } from '@/lib/api';
+import { accountStatusVariant, adminResidents, normalizeApiResident } from '@/lib/admin-mvp-data';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 export default function AdminResidentsPage() {
@@ -14,26 +15,65 @@ export default function AdminResidentsPage() {
   const [role, setRole] = useState('toate');
   const [account, setAccount] = useState('toate');
   const [withDebt, setWithDebt] = useState(false);
+  const [rows, setRows] = useState(adminResidents);
+  const [source, setSource] = useState<'api' | 'mock'>('mock');
+
+  useEffect(() => {
+    let active = true;
+    residentsApi
+      .list()
+      .then((res) => {
+        if (!active) return;
+        const apiRows = (res.data || []).map(normalizeApiResident);
+        if (apiRows.length) {
+          setRows(apiRows);
+          setSource('api');
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        setRows(adminResidents);
+        setSource('mock');
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return adminResidents.filter((person) => {
+    return rows.filter((person) => {
       const matchesQuery = !needle || `${person.name} ${person.phone} ${person.email} ${person.apartments.join(' ')}`.toLowerCase().includes(needle);
       const matchesRole = role === 'toate' || person.role === role;
       const matchesAccount = account === 'toate' || person.accountStatus === account;
       const matchesDebt = !withDebt || person.debt > 0;
       return matchesQuery && matchesRole && matchesAccount && matchesDebt;
     });
-  }, [account, query, role, withDebt]);
+  }, [account, query, role, rows, withDebt]);
+
+  const totals = useMemo(() => ({
+    total: rows.length,
+    owners: rows.filter((person) => person.role === 'proprietar').length,
+    withoutAccount: rows.filter((person) => person.accountStatus === 'fără cont').length,
+    withDebt: rows.filter((person) => person.debt > 0).length,
+  }), [rows]);
 
   return (
     <div className="space-y-5 pb-4">
-      <PageHeader title="Locatari" description="Persoane conectate la apartamente: proprietari, chiriași, membri de familie și reprezentanți." />
+      <PageHeader
+        title="Locatari"
+        description="Persoane conectate la apartamente: proprietari, chiriași, membri de familie și reprezentanți."
+        rightSlot={
+          <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
+            {source === 'api' ? 'Date reale' : 'Date demo'}
+          </span>
+        }
+      />
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Total persoane" value="386" description="Persoane asociate apartamentelor" icon={<Users className="h-5 w-5" />} />
-        <StatCard label="Proprietari" value="142" description="Persoane cu rol proprietar" icon={<UserRound className="h-5 w-5" />} tone="success" />
-        <StatCard label="Fără cont creat" value="121" description="Necesită invitație" icon={<UserX className="h-5 w-5" />} tone="warning" />
-        <StatCard label="Cu datorii" value="37" description="Datorie pe apartament" icon={<MessageCircle className="h-5 w-5" />} tone="danger" />
+        <StatCard label="Total persoane" value={totals.total} description="Persoane asociate apartamentelor" icon={<Users className="h-5 w-5" />} />
+        <StatCard label="Proprietari" value={totals.owners} description="Persoane cu rol proprietar" icon={<UserRound className="h-5 w-5" />} tone="success" />
+        <StatCard label="Fără cont creat" value={totals.withoutAccount} description="Necesită invitație" icon={<UserX className="h-5 w-5" />} tone="warning" />
+        <StatCard label="Cu datorii" value={totals.withDebt} description="Datorie pe apartament" icon={<MessageCircle className="h-5 w-5" />} tone="danger" />
       </section>
       <Card>
         <div className="grid gap-3 lg:grid-cols-[1.5fr_1fr_1fr_auto]">

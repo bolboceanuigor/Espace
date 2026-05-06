@@ -677,6 +677,11 @@ export const apartmentsApi = {
   get: (id: string) => apiRequest<any>(`/apartments/${id}`),
 };
 
+export const residentsApi = {
+  list: () => apiRequest<any[]>('/residents'),
+  get: (id: string) => apiRequest<any>(`/residents/${id}`),
+};
+
 export const adminStructureApi = {
   listBuildings: () => apiRequest<any[]>('/admin/buildings'),
   createBuilding: (data: { name: string; address: string; cadastralNumber?: string; totalFloors: number }) =>

@@ -682,6 +682,75 @@ export function normalizeApiApartmentRequests(row: any) {
     : [];
 }
 
+function roleFromApi(role?: string): PersonRole {
+  const normalized = String(role || '').toUpperCase();
+  if (normalized === 'OWNER') return 'proprietar';
+  if (normalized === 'TENANT') return 'chiriaș';
+  if (normalized === 'FAMILY_MEMBER') return 'membru familie';
+  if (normalized === 'REPRESENTATIVE') return 'reprezentant';
+  return 'locatar';
+}
+
+function accountFromApi(status?: string): AccountStatus {
+  const normalized = String(status || '').toUpperCase();
+  if (normalized === 'CREATED') return 'cont creat';
+  if (normalized === 'INVITED') return 'invitat';
+  return 'fără cont';
+}
+
+export function normalizeApiResident(row: any): AdminResident {
+  const apartments = Array.isArray(row?.apartments) ? row.apartments.map((apartment: any) => String(apartment.number || '')) : [];
+  return {
+    id: String(row?.id || 'resident'),
+    name: String(row?.name || `${row?.firstName || ''} ${row?.lastName || ''}`.trim() || 'Locatar'),
+    phone: String(row?.phone || '-'),
+    email: String(row?.email || '-'),
+    apartments,
+    role: roleFromApi(row?.role),
+    accountStatus: accountFromApi(row?.accountStatus),
+    debt: Number(row?.debt ?? 0),
+  };
+}
+
+export function normalizeApiResidentApartments(row: any) {
+  return Array.isArray(row?.apartments)
+    ? row.apartments.map((apartment: any) => ({
+        id: String(apartment.id),
+        number: String(apartment.number || ''),
+        staircase: String(apartment.staircase?.name || 'Scara -'),
+        floor: Number(apartment.floor ?? 0),
+        debt: Number(apartment.debt ?? 0),
+        role: roleFromApi(apartment.role),
+      }))
+    : [];
+}
+
+export function normalizeApiResidentIssues(row: any) {
+  return Array.isArray(row?.issues)
+    ? row.issues.map((issue: any) => ({
+        id: String(issue.id),
+        title: String(issue.title || 'Cerere'),
+        status:
+          String(issue.status || '').toUpperCase() === 'RESOLVED'
+            ? 'Rezolvată'
+            : String(issue.status || '').toUpperCase() === 'IN_PROGRESS'
+              ? 'În lucru'
+              : 'Nouă',
+        apartment: issue.apartment?.number ? `Apt. ${issue.apartment.number}` : 'Apt. -',
+      }))
+    : [];
+}
+
+export function normalizeApiResidentMessages(row: any) {
+  return Array.isArray(row?.messages)
+    ? row.messages.map((message: any) => ({
+        id: String(message.id),
+        subject: String(message.subject || 'Mesaj'),
+        apartment: message.apartment?.number ? `Apt. ${message.apartment.number}` : 'Apt. -',
+      }))
+    : [];
+}
+
 export function findIssueById(id?: string) {
   if (!id) return adminIssues[0];
   return adminIssues.find((issue) => issue.id === id) ?? adminIssues[0];

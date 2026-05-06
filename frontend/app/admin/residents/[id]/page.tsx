@@ -2,18 +2,61 @@
 
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Banknote, Building2, FileText, MessageCircle, Phone, UserRound } from 'lucide-react';
 import { Badge, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
 import { defaultLocale, isLocale } from '@/i18n';
-import { accountStatusVariant, adminApartments, findResidentById } from '@/lib/admin-mvp-data';
+import { residentsApi } from '@/lib/api';
+import {
+  accountStatusVariant,
+  adminApartments,
+  findResidentById,
+  normalizeApiResident,
+  normalizeApiResidentApartments,
+  normalizeApiResidentIssues,
+  normalizeApiResidentMessages,
+  type AdminResident,
+} from '@/lib/admin-mvp-data';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 
 export default function AdminResidentDetailPage() {
   const params = useParams<{ id?: string; locale?: string }>();
   const localeParam = typeof params?.locale === 'string' ? params.locale : defaultLocale;
   const locale = isLocale(localeParam) ? localeParam : defaultLocale;
-  const resident = findResidentById(params?.id);
-  const apartments = adminApartments.filter((apartment) => resident.apartments.includes(apartment.number));
+  const id = typeof params?.id === 'string' ? params.id : '';
+  const fallbackResident = useMemo(() => findResidentById(id), [id]);
+  const [resident, setResident] = useState<AdminResident>(fallbackResident);
+  const [apiDetail, setApiDetail] = useState<any>(null);
+  const [source, setSource] = useState<'api' | 'mock'>('mock');
+  const apartments =
+    source === 'api'
+      ? normalizeApiResidentApartments(apiDetail)
+      : adminApartments.filter((apartment) => resident.apartments.includes(apartment.number));
+  const issues = source === 'api' ? normalizeApiResidentIssues(apiDetail) : [];
+  const messages = source === 'api' ? normalizeApiResidentMessages(apiDetail) : [];
+  const firstApartmentId = apartments[0]?.id || '';
+
+  useEffect(() => {
+    if (!id) return;
+    let active = true;
+    residentsApi
+      .get(id)
+      .then((res) => {
+        if (!active) return;
+        setApiDetail(res.data);
+        setResident(normalizeApiResident(res.data));
+        setSource('api');
+      })
+      .catch(() => {
+        if (!active) return;
+        setApiDetail(null);
+        setResident(fallbackResident);
+        setSource('mock');
+      });
+    return () => {
+      active = false;
+    };
+  }, [fallbackResident, id]);
 
   return (
     <div className="space-y-5 pb-4">
@@ -25,7 +68,14 @@ export default function AdminResidentDetailPage() {
       <PageHeader
         title={resident.name}
         description={`${resident.role} · Apt. ${resident.apartments.join(', ')}`}
-        rightSlot={<Badge variant={accountStatusVariant[resident.accountStatus]}>{resident.accountStatus}</Badge>}
+        rightSlot={
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
+              {source === 'api' ? 'Date reale' : 'Date demo'}
+            </span>
+            <Badge variant={accountStatusVariant[resident.accountStatus]}>{resident.accountStatus}</Badge>
+          </div>
+        }
       />
 
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -37,8 +87,8 @@ export default function AdminResidentDetailPage() {
 
       <Card>
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-          <ButtonLink href={`/${locale}/admin/chat`} variant="primary"><MessageCircle className="h-4 w-4" /> Mesaj</ButtonLink>
-          <ButtonLink href={`/${locale}/admin/payments`} variant="secondary"><Banknote className="h-4 w-4" /> Adaugă plată</ButtonLink>
+          <ButtonLink href={`/${locale}/admin/chat`} variant="primary"><MessageCircle className="h-4 w-4" /> Trimite mesaj</ButtonLink>
+          <ButtonLink href={firstApartmentId ? `/${locale}/admin/apartments/${firstApartmentId}` : `/${locale}/admin/apartments`} variant="secondary"><Building2 className="h-4 w-4" /> Vezi apartamentul</ButtonLink>
           <ButtonLink href={`/${locale}/admin/issues`} variant="secondary"><FileText className="h-4 w-4" /> Creează cerere</ButtonLink>
           <ButtonLink href={`/${locale}/admin/residents`} variant="secondary"><UserRound className="h-4 w-4" /> Lista locatari</ButtonLink>
         </div>
@@ -61,12 +111,12 @@ export default function AdminResidentDetailPage() {
         <Card>
           <SectionTitle icon={<Building2 className="h-5 w-5" />} title="Apartamente" description="Unități locative asociate profilului." />
           <div className="grid gap-3 md:grid-cols-2">
-            {apartments.map((apartment) => (
+            {apartments.map((apartment: any) => (
               <Link key={apartment.id} href={`/${locale}/admin/apartments/${apartment.id}`} className="rounded-2xl border border-border/70 bg-muted/25 p-4 hover:bg-muted/45">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="font-semibold text-foreground">Apt. {apartment.number}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">{apartment.staircase} · Etaj {apartment.floor}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{typeof apartment.staircase === 'string' ? apartment.staircase : apartment.staircase?.name} · Etaj {apartment.floor}</p>
                   </div>
                   <Badge variant={apartment.debt > 0 ? 'error' : 'success'}>{apartment.debt > 0 ? 'Cu datorii' : 'Achitat'}</Badge>
                 </div>
@@ -90,9 +140,11 @@ export default function AdminResidentDetailPage() {
         <Card>
           <SectionTitle icon={<MessageCircle className="h-5 w-5" />} title="Mesaje" description="Comunicare rapidă cu administratorul." />
           <div className="space-y-3">
-            <p className="rounded-2xl border border-border/70 bg-muted/25 p-4 text-sm text-muted-foreground">
-              Mesaj trimis administratorului despre citirea contorului.
-            </p>
+            {(messages.length ? messages : [{ id: 'mock-message', subject: 'Mesaj trimis administratorului despre citirea contorului.', apartment: `Apt. ${resident.apartments[0] || '-'}` }]).map((message: any) => (
+              <p key={message.id} className="rounded-2xl border border-border/70 bg-muted/25 p-4 text-sm text-muted-foreground">
+                {message.subject} · {message.apartment}
+              </p>
+            ))}
             <ButtonLink href={`/${locale}/admin/chat`} variant="secondary" className="w-full justify-center">
               Deschide mesaje
             </ButtonLink>
@@ -102,10 +154,12 @@ export default function AdminResidentDetailPage() {
         <Card>
           <SectionTitle icon={<FileText className="h-5 w-5" />} title="Cereri" description="Solicitări conectate acestui locatar." />
           <div className="space-y-3">
-            <p className="rounded-2xl border border-border/70 bg-muted/25 p-4 text-sm font-medium text-foreground">
-              Verificare presiune apă caldă
-            </p>
-            <p className="text-sm text-muted-foreground">Status: în lucru · Apt. {resident.apartments[0]}</p>
+            {(issues.length ? issues : [{ id: 'mock-issue', title: 'Verificare presiune apă caldă', status: 'În lucru', apartment: `Apt. ${resident.apartments[0] || '-'}` }]).map((issue: any) => (
+              <div key={issue.id} className="rounded-2xl border border-border/70 bg-muted/25 p-4">
+                <p className="text-sm font-medium text-foreground">{issue.title}</p>
+                <p className="mt-1 text-sm text-muted-foreground">Status: {issue.status} · {issue.apartment}</p>
+              </div>
+            ))}
           </div>
         </Card>
       </section>
