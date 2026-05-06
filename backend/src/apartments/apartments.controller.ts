@@ -19,6 +19,13 @@ export class ApartmentsController {
     return this.apartmentsService.createApartment(body);
   }
 
+  // Temporary MVP endpoint until the full backend guard stack is re-enabled.
+  @Public()
+  @Post(':apartmentId/residents')
+  linkResident(@Param('apartmentId') apartmentId: string, @Body() body: unknown) {
+    return this.apartmentsService.linkResident(apartmentId, body);
+  }
+
   @Public()
   @Get(':id')
   getApartment(@Param('id') id: string) {

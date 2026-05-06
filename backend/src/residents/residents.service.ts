@@ -1,5 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InvoiceStatus, Prisma } from '@prisma/client';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { InvoiceStatus, Prisma, ResidentAccountStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -9,6 +9,7 @@ export class ResidentsService {
   private residentSelect(): Prisma.ResidentProfileSelect {
     return {
       id: true,
+      organizationId: true,
       firstName: true,
       lastName: true,
       phone: true,
@@ -123,6 +124,7 @@ export class ResidentsService {
 
     return {
       id: row.id,
+      organizationId: row.organizationId,
       firstName: row.firstName,
       lastName: row.lastName,
       name: this.fullName(row),
@@ -149,6 +151,38 @@ export class ResidentsService {
     return residents.map((resident) => this.toResident(resident));
   }
 
+  async createResident(body: unknown) {
+    const input = await this.parseCreateResidentBody(body);
+
+    const organization = await this.prisma.organization.findUnique({
+      where: { id: input.organizationId },
+      select: { id: true },
+    });
+    if (!organization) {
+      throw new NotFoundException('Organization not found');
+    }
+
+    if (input.email) {
+      const existing = await this.prisma.residentProfile.findFirst({
+        where: {
+          organizationId: input.organizationId,
+          email: input.email,
+        },
+        select: { id: true },
+      });
+      if (existing) {
+        throw new ConflictException('Există deja o persoană cu acest email.');
+      }
+    }
+
+    const resident = await this.prisma.residentProfile.create({
+      data: input,
+      select: this.residentSelect(),
+    });
+
+    return this.toResident(resident);
+  }
+
   async getResident(id: string) {
     const resident = await this.prisma.residentProfile.findFirst({
       where: { id },
@@ -160,5 +194,44 @@ export class ResidentsService {
     }
 
     return this.toResident(resident);
+  }
+
+  private async parseCreateResidentBody(body: unknown) {
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const organizationId = this.requiredString(payload.organizationId, 'Organizația este obligatorie.');
+    const firstName = this.requiredString(payload.firstName, 'Prenumele este obligatoriu.');
+    const lastName = this.requiredString(payload.lastName, 'Numele este obligatoriu.');
+    const phone = typeof payload.phone === 'string' ? payload.phone.trim() : null;
+    const email = typeof payload.email === 'string' && payload.email.trim() ? payload.email.trim().toLowerCase() : null;
+    const accountStatus = this.optionalEnum(payload.accountStatus, ResidentAccountStatus, ResidentAccountStatus.NO_ACCOUNT, 'Statusul contului nu este valid.');
+
+    if (email && !email.includes('@')) {
+      throw new BadRequestException('Emailul nu este valid.');
+    }
+
+    return {
+      organizationId,
+      firstName,
+      lastName,
+      phone: phone || null,
+      email,
+      accountStatus,
+    };
+  }
+
+  private requiredString(value: unknown, message: string) {
+    if (typeof value !== 'string' || !value.trim()) {
+      throw new BadRequestException(message);
+    }
+    return value.trim();
+  }
+
+  private optionalEnum<T extends Record<string, string>>(value: unknown, enumValues: T, fallback: T[keyof T], message: string) {
+    if (value === undefined || value === null || value === '') return fallback;
+    if (typeof value !== 'string') throw new BadRequestException(message);
+    const normalized = value.trim().toUpperCase();
+    const allowed = Object.values(enumValues) as string[];
+    if (!allowed.includes(normalized)) throw new BadRequestException(message);
+    return normalized as T[keyof T];
   }
 }

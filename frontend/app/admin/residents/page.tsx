@@ -2,12 +2,30 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { Mail, MessageCircle, Phone, Search, UserRound, Users, UserX } from 'lucide-react';
-import { Badge, Card, Input, PageHeader, StatCard } from '@/components/ui';
+import { Mail, MessageCircle, Phone, Plus, Search, UserRound, Users, UserX } from 'lucide-react';
+import { Badge, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
 import { formatMdl } from '@/lib/condo-admin-fallback';
-import { residentsApi } from '@/lib/api';
-import { accountStatusVariant, adminResidents, normalizeApiResident } from '@/lib/admin-mvp-data';
+import { apartmentsApi, residentsApi } from '@/lib/api';
+import { accountStatusVariant, adminResidents, normalizeApiApartment, normalizeApiResident, type AdminApartment } from '@/lib/admin-mvp-data';
 import { useLocalizedPath } from '@/lib/use-localized-path';
+
+const emptyForm = {
+  firstName: '',
+  lastName: '',
+  phone: '',
+  email: '',
+  apartmentId: '',
+  role: 'RESIDENT' as 'OWNER' | 'RESIDENT' | 'TENANT' | 'FAMILY_MEMBER' | 'REPRESENTATIVE',
+  isPrimary: false,
+};
+
+const roleLabels = {
+  OWNER: 'Proprietar',
+  RESIDENT: 'Locatar',
+  TENANT: 'Chiriaș',
+  FAMILY_MEMBER: 'Membru familie',
+  REPRESENTATIVE: 'Reprezentant',
+} as const;
 
 export default function AdminResidentsPage() {
   const localizedPath = useLocalizedPath();
@@ -16,25 +34,40 @@ export default function AdminResidentsPage() {
   const [account, setAccount] = useState('toate');
   const [withDebt, setWithDebt] = useState(false);
   const [rows, setRows] = useState(adminResidents);
+  const [apartments, setApartments] = useState<AdminApartment[]>([]);
   const [source, setSource] = useState<'api' | 'mock'>('mock');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [form, setForm] = useState(emptyForm);
+  const [isCreating, setIsCreating] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+
+  const loadResidents = async () => {
+    const [residentsRes, apartmentsRes] = await Promise.all([
+      residentsApi.list(),
+      apartmentsApi.list(),
+    ]);
+    const apiRows = (residentsRes.data || []).map(normalizeApiResident);
+    const apiApartments = (apartmentsRes.data || []).map(normalizeApiApartment);
+    if (apiRows.length) {
+      setRows(apiRows);
+      setSource('api');
+    }
+    setApartments(apiApartments);
+    setForm((current) => {
+      if (current.apartmentId || !apiApartments[0]?.id) return current;
+      return { ...current, apartmentId: apiApartments[0].id };
+    });
+  };
 
   useEffect(() => {
     let active = true;
-    residentsApi
-      .list()
-      .then((res) => {
-        if (!active) return;
-        const apiRows = (res.data || []).map(normalizeApiResident);
-        if (apiRows.length) {
-          setRows(apiRows);
-          setSource('api');
-        }
-      })
-      .catch(() => {
-        if (!active) return;
-        setRows(adminResidents);
-        setSource('mock');
-      });
+    loadResidents().catch(() => {
+      if (!active) return;
+      setRows(adminResidents);
+      setApartments([]);
+      setSource('mock');
+    });
     return () => {
       active = false;
     };
@@ -58,17 +91,68 @@ export default function AdminResidentsPage() {
     withDebt: rows.filter((person) => person.debt > 0).length,
   }), [rows]);
 
+  const createResident = async () => {
+    setFormError('');
+    setSuccessMessage('');
+    const selectedApartment = apartments.find((item) => item.id === form.apartmentId);
+    if (!selectedApartment?.organizationId) {
+      setFormError('Alege un apartament real din lista API.');
+      return;
+    }
+    if (!form.firstName.trim() || !form.lastName.trim()) {
+      setFormError('Completează prenumele și numele.');
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      const created = await residentsApi.create({
+        organizationId: selectedApartment.organizationId,
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim(),
+        phone: form.phone.trim(),
+        email: form.email.trim(),
+        accountStatus: 'NO_ACCOUNT',
+      });
+      await apartmentsApi.linkResident(selectedApartment.id, {
+        residentId: created.data.id,
+        role: form.role,
+        isPrimary: form.isPrimary,
+      });
+      setForm({ ...emptyForm, apartmentId: selectedApartment.id });
+      setModalOpen(false);
+      setSuccessMessage('Locatarul a fost creat și conectat la apartament.');
+      await loadResidents();
+    } catch (error: any) {
+      const message = String(error?.message || '');
+      setFormError(message.includes('deja conectată') ? 'Această persoană este deja conectată la apartament.' : 'Nu am putut crea locatarul.');
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   return (
     <div className="space-y-5 pb-4">
       <PageHeader
         title="Locatari"
         description="Persoane conectate la apartamente: proprietari, chiriași, membri de familie și reprezentanți."
         rightSlot={
-          <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-            {source === 'api' ? 'Date reale' : 'Date demo'}
-          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
+              {source === 'api' ? 'Date reale' : 'Date demo'}
+            </span>
+            <button type="button" onClick={() => setModalOpen(true)} className="inline-flex min-h-10 items-center gap-2 rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background">
+              <Plus className="h-4 w-4" />
+              Adaugă locatar
+            </button>
+          </div>
         }
       />
+      {successMessage ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+          {successMessage}
+        </div>
+      ) : null}
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Total persoane" value={totals.total} description="Persoane asociate apartamentelor" icon={<Users className="h-5 w-5" />} />
         <StatCard label="Proprietari" value={totals.owners} description="Persoane cu rol proprietar" icon={<UserRound className="h-5 w-5" />} tone="success" />
@@ -113,7 +197,77 @@ export default function AdminResidentsPage() {
           </Card>
         ))}
       </section>
+
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} maxWidth="2xl">
+        <ModalHeader title="Adaugă locatar" onClose={() => setModalOpen(false)} />
+        <ModalBody>
+          <div className="grid gap-3 md:grid-cols-2">
+            <Field label="Prenume" value={form.firstName} onChange={(value) => setForm({ ...form, firstName: value })} required />
+            <Field label="Nume" value={form.lastName} onChange={(value) => setForm({ ...form, lastName: value })} required />
+            <Field label="Telefon" value={form.phone} onChange={(value) => setForm({ ...form, phone: value })} />
+            <Field label="Email" value={form.email} onChange={(value) => setForm({ ...form, email: value })} type="email" />
+            <label className="block">
+              <span className="label">Apartament</span>
+              <select className="select" value={form.apartmentId} onChange={(event) => setForm({ ...form, apartmentId: event.target.value })}>
+                <option value="">Alege apartamentul</option>
+                {apartments.map((apartment) => (
+                  <option key={apartment.id} value={apartment.id}>Apt. {apartment.number} · {apartment.staircase}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="label">Rol</span>
+              <select className="select" value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value as typeof form.role })}>
+                {Object.entries(roleLabels).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-border/70 bg-white px-3 text-sm font-medium text-foreground md:col-span-2">
+              <input type="checkbox" checked={form.isPrimary} onChange={(event) => setForm({ ...form, isPrimary: event.target.checked })} />
+              Este contact principal
+            </label>
+          </div>
+          {formError ? (
+            <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
+              {formError}
+            </p>
+          ) : null}
+          <p className="mt-4 text-xs text-muted-foreground">
+            Crearea necesită API real. Datele demo rămân doar pentru afișare.
+          </p>
+        </ModalBody>
+        <ModalFooter>
+          <button type="button" onClick={() => setModalOpen(false)} disabled={isCreating} className="rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold disabled:opacity-60">
+            Anulează
+          </button>
+          <button type="button" onClick={createResident} disabled={isCreating} className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background disabled:opacity-60">
+            {isCreating ? 'Se creează...' : 'Creează locatar'}
+          </button>
+        </ModalFooter>
+      </Modal>
     </div>
+  );
+}
+
+function Field({
+  label,
+  value,
+  onChange,
+  required,
+  type = 'text',
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+  type?: string;
+}) {
+  return (
+    <label className="block">
+      <span className="label">{label}{required ? ' *' : ''}</span>
+      <input className="input" type={type} value={value} onChange={(event) => onChange(event.target.value)} />
+    </label>
   );
 }
 

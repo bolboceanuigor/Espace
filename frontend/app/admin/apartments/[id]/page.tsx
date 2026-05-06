@@ -2,11 +2,10 @@
 
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft,
   Banknote,
-  FileText,
   Gauge,
   Home,
   MessageCircle,
@@ -15,9 +14,9 @@ import {
   Users,
   Wrench,
 } from 'lucide-react';
-import { Badge, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
+import { Badge, ButtonLink, Card, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
 import { defaultLocale, isLocale } from '@/i18n';
-import { apartmentsApi } from '@/lib/api';
+import { apartmentsApi, residentsApi } from '@/lib/api';
 import {
   type AdminApartment,
   apartmentMeters,
@@ -51,6 +50,23 @@ const requestVariant = {
   Rezolvată: 'success',
 } as const;
 
+const emptyResidentForm = {
+  firstName: '',
+  lastName: '',
+  phone: '',
+  email: '',
+  role: 'RESIDENT' as 'OWNER' | 'RESIDENT' | 'TENANT' | 'FAMILY_MEMBER' | 'REPRESENTATIVE',
+  isPrimary: false,
+};
+
+const roleLabels = {
+  OWNER: 'Proprietar',
+  RESIDENT: 'Locatar',
+  TENANT: 'Chiriaș',
+  FAMILY_MEMBER: 'Membru familie',
+  REPRESENTATIVE: 'Reprezentant',
+} as const;
+
 export default function AdminApartmentDetailPage() {
   const params = useParams<{ id?: string; locale?: string }>();
   const localeParam = typeof params?.locale === 'string' ? params.locale : defaultLocale;
@@ -60,21 +76,30 @@ export default function AdminApartmentDetailPage() {
   const [apartment, setApartment] = useState<AdminApartment>(fallbackApartment);
   const [apiDetail, setApiDetail] = useState<any>(null);
   const [source, setSource] = useState<'api' | 'mock'>('mock');
+  const [residentModalOpen, setResidentModalOpen] = useState(false);
+  const [residentForm, setResidentForm] = useState(emptyResidentForm);
+  const [isCreatingResident, setIsCreatingResident] = useState(false);
+  const [residentError, setResidentError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const residents = source === 'api' ? normalizeApiApartmentResidents(apiDetail) : residentsForApartment(apartment.number);
   const meters = source === 'api' ? normalizeApiApartmentMeters(apiDetail) : apartmentMeters;
   const payments = source === 'api' ? normalizeApiApartmentPayments(apiDetail) : apartmentPayments;
   const requests = source === 'api' ? normalizeApiApartmentRequests(apiDetail) : apartmentRequests;
 
+  const loadApartment = useCallback(async () => {
+    if (!id) return;
+    const res = await apartmentsApi.get(id);
+    setApiDetail(res.data);
+    setApartment(normalizeApiApartment(res.data));
+    setSource('api');
+  }, [id]);
+
   useEffect(() => {
     if (!id) return;
     let active = true;
-    apartmentsApi
-      .get(id)
-      .then((res) => {
+    loadApartment()
+      .then(() => {
         if (!active) return;
-        setApiDetail(res.data);
-        setApartment(normalizeApiApartment(res.data));
-        setSource('api');
       })
       .catch(() => {
         if (!active) return;
@@ -85,7 +110,48 @@ export default function AdminApartmentDetailPage() {
     return () => {
       active = false;
     };
-  }, [fallbackApartment, id]);
+  }, [fallbackApartment, id, loadApartment]);
+
+  const createResident = async () => {
+    setResidentError('');
+    setSuccessMessage('');
+    const organizationId = apiDetail?.organizationId || apartment.organizationId;
+    const apartmentId = apiDetail?.id || apartment.id;
+    if (!organizationId || source !== 'api') {
+      setResidentError('Conectarea locatarului necesită date reale din API.');
+      return;
+    }
+    if (!residentForm.firstName.trim() || !residentForm.lastName.trim()) {
+      setResidentError('Completează prenumele și numele.');
+      return;
+    }
+
+    setIsCreatingResident(true);
+    try {
+      const created = await residentsApi.create({
+        organizationId,
+        firstName: residentForm.firstName.trim(),
+        lastName: residentForm.lastName.trim(),
+        phone: residentForm.phone.trim(),
+        email: residentForm.email.trim(),
+        accountStatus: 'NO_ACCOUNT',
+      });
+      await apartmentsApi.linkResident(apartmentId, {
+        residentId: created.data.id,
+        role: residentForm.role,
+        isPrimary: residentForm.isPrimary,
+      });
+      setResidentForm(emptyResidentForm);
+      setResidentModalOpen(false);
+      setSuccessMessage('Locatarul a fost creat și conectat la apartament.');
+      await loadApartment().catch(() => undefined);
+    } catch (error: any) {
+      const message = String(error?.message || '');
+      setResidentError(message.includes('deja conectată') ? 'Această persoană este deja conectată la apartament.' : 'Nu am putut crea locatarul.');
+    } finally {
+      setIsCreatingResident(false);
+    }
+  };
 
   return (
     <div className="space-y-5 pb-4">
@@ -107,6 +173,12 @@ export default function AdminApartmentDetailPage() {
         }
       />
 
+      {successMessage ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+          {successMessage}
+        </div>
+      ) : null}
+
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Total datorie" value={formatMdl(apartment.debt)} description={`Facturi neachitate: ${apartment.unpaidInvoices}`} icon={<Banknote className="h-5 w-5" />} tone={apartment.debt > 0 ? 'danger' : 'success'} />
         <StatCard label="Proprietar" value={apartment.owner} description={apartment.phone} icon={<Users className="h-5 w-5" />} tone="success" />
@@ -119,7 +191,9 @@ export default function AdminApartmentDetailPage() {
           <ButtonLink href={`/${locale}/admin/meters`} variant="primary"><Plus className="h-4 w-4" /> Adaugă citire</ButtonLink>
           <ButtonLink href={`/${locale}/admin/payments`} variant="secondary"><Banknote className="h-4 w-4" /> Adaugă plată</ButtonLink>
           <ButtonLink href={`/${locale}/admin/chat`} variant="secondary"><MessageCircle className="h-4 w-4" /> Trimite mesaj</ButtonLink>
-          <ButtonLink href={`/${locale}/admin/issues`} variant="secondary"><FileText className="h-4 w-4" /> Creează cerere</ButtonLink>
+          <button type="button" onClick={() => setResidentModalOpen(true)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-border/70 bg-white px-4 text-sm font-semibold text-foreground shadow-[0_10px_30px_rgba(15,23,42,0.035)] hover:bg-muted/60">
+            <Users className="h-4 w-4" /> Adaugă locatar
+          </button>
         </div>
       </Card>
 
@@ -219,6 +293,43 @@ export default function AdminApartmentDetailPage() {
           </div>
         </Card>
       </section>
+
+      <Modal isOpen={residentModalOpen} onClose={() => setResidentModalOpen(false)} maxWidth="2xl">
+        <ModalHeader title={`Adaugă locatar la Apt. ${apartment.number}`} onClose={() => setResidentModalOpen(false)} />
+        <ModalBody>
+          <div className="grid gap-3 md:grid-cols-2">
+            <Field label="Prenume" value={residentForm.firstName} onChange={(value) => setResidentForm({ ...residentForm, firstName: value })} required />
+            <Field label="Nume" value={residentForm.lastName} onChange={(value) => setResidentForm({ ...residentForm, lastName: value })} required />
+            <Field label="Telefon" value={residentForm.phone} onChange={(value) => setResidentForm({ ...residentForm, phone: value })} />
+            <Field label="Email" value={residentForm.email} onChange={(value) => setResidentForm({ ...residentForm, email: value })} type="email" />
+            <label className="block">
+              <span className="label">Rol</span>
+              <select className="select" value={residentForm.role} onChange={(event) => setResidentForm({ ...residentForm, role: event.target.value as typeof residentForm.role })}>
+                {Object.entries(roleLabels).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-border/70 bg-white px-3 text-sm font-medium text-foreground">
+              <input type="checkbox" checked={residentForm.isPrimary} onChange={(event) => setResidentForm({ ...residentForm, isPrimary: event.target.checked })} />
+              Este contact principal
+            </label>
+          </div>
+          {residentError ? (
+            <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
+              {residentError}
+            </p>
+          ) : null}
+        </ModalBody>
+        <ModalFooter>
+          <button type="button" onClick={() => setResidentModalOpen(false)} disabled={isCreatingResident} className="rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold disabled:opacity-60">
+            Anulează
+          </button>
+          <button type="button" onClick={createResident} disabled={isCreatingResident} className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background disabled:opacity-60">
+            {isCreatingResident ? 'Se creează...' : 'Creează locatar'}
+          </button>
+        </ModalFooter>
+      </Modal>
     </div>
   );
 }
@@ -262,5 +373,26 @@ function Info({ label, value }: { label: string; value: React.ReactNode }) {
       <p className="text-xs font-medium text-muted-foreground">{label}</p>
       <p className="mt-1 text-sm font-semibold text-foreground">{value}</p>
     </div>
+  );
+}
+
+function Field({
+  label,
+  value,
+  onChange,
+  required,
+  type = 'text',
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+  type?: string;
+}) {
+  return (
+    <label className="block">
+      <span className="label">{label}{required ? ' *' : ''}</span>
+      <input className="input" type={type} value={value} onChange={(event) => onChange(event.target.value)} />
+    </label>
   );
 }

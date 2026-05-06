@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { ApartmentStatus, InvoiceStatus, MeterStatus, Prisma } from '@prisma/client';
+import { ApartmentResidentRole, ApartmentStatus, InvoiceStatus, MeterStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -254,6 +254,110 @@ export class ApartmentsService {
     return this.toDetailApartment(apartment);
   }
 
+  async linkResident(apartmentId: string, body: unknown) {
+    const input = this.parseLinkResidentBody(body);
+
+    const apartment = await this.prisma.apartment.findUnique({
+      where: { id: apartmentId },
+      select: {
+        id: true,
+        organizationId: true,
+      },
+    });
+    if (!apartment) {
+      throw new NotFoundException('Apartment not found');
+    }
+
+    const resident = await this.prisma.residentProfile.findFirst({
+      where: {
+        id: input.residentId,
+        organizationId: apartment.organizationId,
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+        email: true,
+        accountStatus: true,
+      },
+    });
+    if (!resident) {
+      throw new NotFoundException('Resident not found');
+    }
+
+    const duplicate = await this.prisma.apartmentResident.findFirst({
+      where: {
+        apartmentId,
+        residentId: input.residentId,
+      },
+      select: { apartmentId: true },
+    });
+    if (duplicate) {
+      throw new ConflictException('Această persoană este deja conectată la apartament.');
+    }
+
+    if (input.isPrimary) {
+      await this.prisma.apartmentResident.updateMany({
+        where: { apartmentId, isPrimary: true },
+        data: { isPrimary: false },
+      });
+    }
+
+    const relation = await this.prisma.apartmentResident.create({
+      data: {
+        apartmentId,
+        residentId: input.residentId,
+        role: input.role,
+        isPrimary: input.isPrimary,
+      },
+      include: {
+        resident: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            phone: true,
+            email: true,
+            accountStatus: true,
+          },
+        },
+        apartment: {
+          select: {
+            id: true,
+            number: true,
+            organizationId: true,
+          },
+        },
+      },
+    });
+
+    if (input.isPrimary && input.role === ApartmentResidentRole.OWNER) {
+      await this.prisma.apartment.update({
+        where: { id: apartmentId },
+        data: { ownerResidentId: input.residentId },
+      });
+    }
+
+    return {
+      apartmentId: relation.apartmentId,
+      residentId: relation.residentId,
+      role: relation.role,
+      isPrimary: relation.isPrimary,
+      createdAt: relation.createdAt,
+      apartment: relation.apartment,
+      resident: {
+        id: relation.resident.id,
+        firstName: relation.resident.firstName,
+        lastName: relation.resident.lastName,
+        name: this.formatResidentName(relation.resident),
+        phone: relation.resident.phone,
+        email: relation.resident.email,
+        accountStatus: relation.resident.accountStatus,
+      },
+    };
+  }
+
   async getApartment(id: string) {
     const apartment = await this.prisma.apartment.findFirst({
       where: {
@@ -289,6 +393,19 @@ export class ApartmentsService {
       areaM2,
       rooms: rooms ?? 1,
       status,
+    };
+  }
+
+  private parseLinkResidentBody(body: unknown) {
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const residentId = this.requiredString(payload.residentId, 'Locatarul este obligatoriu.');
+    const role = this.optionalEnum(payload.role, ApartmentResidentRole, ApartmentResidentRole.RESIDENT, 'Rolul nu este valid.');
+    const isPrimary = Boolean(payload.isPrimary);
+
+    return {
+      residentId,
+      role,
+      isPrimary,
     };
   }
 

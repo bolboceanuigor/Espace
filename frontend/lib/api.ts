@@ -685,11 +685,24 @@ export const apartmentsApi = {
     rooms?: number;
     status?: 'ACTIVE' | 'EMPTY' | 'DEBTOR' | 'PROBLEM';
   }) => apiRequest<any>('/apartments', { method: 'POST', body: data }),
+  linkResident: (apartmentId: string, data: {
+    residentId: string;
+    role: 'OWNER' | 'RESIDENT' | 'TENANT' | 'FAMILY_MEMBER' | 'REPRESENTATIVE';
+    isPrimary?: boolean;
+  }) => apiRequest<any>(`/apartments/${apartmentId}/residents`, { method: 'POST', body: data }),
 };
 
 export const residentsApi = {
   list: () => apiRequest<any[]>('/residents'),
   get: (id: string) => apiRequest<any>(`/residents/${id}`),
+  create: (data: {
+    organizationId: string;
+    firstName: string;
+    lastName: string;
+    phone?: string;
+    email?: string;
+    accountStatus?: 'CREATED' | 'INVITED' | 'NO_ACCOUNT';
+  }) => apiRequest<any>('/residents', { method: 'POST', body: data }),
 };
 
 export const metersApi = {
