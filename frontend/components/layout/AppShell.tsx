@@ -409,16 +409,16 @@ function AppShellContent({ children }: AppShellProps) {
       );
     }
     return (
-      <div className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,hsl(var(--muted))_0,transparent_34rem),linear-gradient(180deg,#fbfaf7_0%,hsl(var(--background))_48rem)] text-foreground md:pl-0">
-        <header className="sticky top-0 z-30 hidden border-b border-border/60 bg-background/82 px-4 py-3 backdrop-blur-xl md:block">
+      <div className="min-h-screen overflow-x-hidden bg-gradient-to-b from-muted/30 via-background to-background text-foreground md:pl-0">
+        <header className="sticky top-0 z-30 hidden border-b border-border/40 bg-white/75 px-4 py-3.5 backdrop-blur-2xl backdrop-saturate-150 md:block">
           <div className="mx-auto max-w-5xl">
             <MainNavigation role={normalizedRole} variant="desktop" />
           </div>
         </header>
-        <main className="mx-auto w-full max-w-5xl px-4 py-5 pb-[calc(env(safe-area-inset-bottom)+8.75rem)] md:py-8 md:pb-[calc(env(safe-area-inset-bottom)+8.75rem)]">{children}</main>
+        <main className="mx-auto w-full max-w-5xl px-4 py-6 pb-[calc(env(safe-area-inset-bottom)+8.75rem)] md:py-8 md:pb-[calc(env(safe-area-inset-bottom)+8.75rem)]">{children}</main>
         <button
           type="button"
-          className="fixed bottom-[calc(env(safe-area-inset-bottom)+8.25rem)] right-4 z-40 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-white shadow-md"
+          className="fixed bottom-[calc(env(safe-area-inset-bottom)+8.25rem)] right-4 z-40 rounded-xl bg-foreground px-4 py-2.5 text-xs font-semibold text-background shadow-[0_4px_20px_rgba(0,0,0,0.15)] transition-all duration-200 hover:bg-foreground/90 active:scale-95"
           onClick={() => setFeedbackOpen(true)}
         >
           Trimite feedback
@@ -449,19 +449,21 @@ function AppShellContent({ children }: AppShellProps) {
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,hsl(var(--muted))_0,transparent_36rem),linear-gradient(180deg,#fbfaf7_0%,hsl(var(--background))_46rem)] text-foreground">
+    <div className="min-h-screen overflow-x-hidden bg-gradient-to-b from-muted/30 via-background to-background text-foreground">
       <div className="min-h-screen">
-        <header className="sticky top-0 z-30 border-b border-border/60 bg-background/82 px-4 py-3 backdrop-blur-xl">
+        <header className="sticky top-0 z-30 border-b border-border/40 bg-white/75 px-4 py-3 backdrop-blur-2xl backdrop-saturate-150">
           <div className="mx-auto max-w-6xl">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center justify-between gap-4">
             <button
               type="button"
               onClick={() => router.push(homeRoute)}
-              className="inline-flex items-center gap-2 rounded-2xl px-2 py-2 text-sm font-semibold text-foreground transition duration-150 ease-out hover:bg-white/70"
+              className="inline-flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm font-semibold text-foreground transition-all duration-200 ease-out hover:bg-muted/50"
             >
-              <span className="inline-block h-7 w-7 rounded-2xl bg-foreground shadow-sm" />
-              <span>Espace</span>
-              <span className="rounded-full border border-border/70 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-foreground text-[10px] font-bold text-background shadow-sm">
+                E
+              </span>
+              <span className="tracking-tight">Espace</span>
+              <span className="rounded-md bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                 Beta
               </span>
             </button>
@@ -477,12 +479,12 @@ function AppShellContent({ children }: AppShellProps) {
                 }
               }}
               placeholder={searchPlaceholder}
-              className="hidden h-10 w-72 rounded-2xl border border-border/70 bg-white/85 px-4 text-sm text-foreground shadow-[0_10px_30px_rgba(15,23,42,0.04)] outline-none transition focus:border-foreground/20 focus:ring-2 focus:ring-foreground/10 lg:block"
+              className="hidden h-11 w-80 rounded-xl border border-border/60 bg-white px-4 text-sm text-foreground shadow-none outline-none transition-all duration-200 placeholder:text-muted-foreground/50 focus:border-primary/30 focus:ring-2 focus:ring-primary/10 lg:block"
             />
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <button
                 type="button"
-                className="hidden rounded-2xl border border-border/60 bg-white/85 px-3 py-2 text-xs font-medium text-foreground shadow-sm hover:bg-white sm:inline-flex"
+                className="hidden rounded-xl border border-border/50 bg-white px-4 py-2.5 text-xs font-medium text-foreground transition-all duration-200 hover:bg-muted/50 hover:border-border sm:inline-flex"
                 onClick={() => setFeedbackOpen(true)}
               >
                 Trimite feedback
@@ -492,36 +494,36 @@ function AppShellContent({ children }: AppShellProps) {
                 <div className="relative">
                   <button
                     type="button"
-                    className="relative rounded-2xl border border-border/60 bg-white/85 p-2 text-muted-foreground shadow-sm hover:bg-white"
+                    className="relative rounded-xl border border-border/50 bg-white p-2.5 text-muted-foreground transition-all duration-200 hover:bg-muted/50 hover:text-foreground"
                     onClick={() => setNotificationsOpen((value) => !value)}
                   >
                     <Bell className="h-4 w-4" />
                     {notifications.filter((item) => !item.isRead).length > 0 ? (
-                      <span className="absolute -right-1 -top-1 inline-flex min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold text-white">
+                      <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-foreground px-1.5 text-[10px] font-bold text-background">
                         {notifications.filter((item) => !item.isRead).length}
                       </span>
                     ) : null}
                   </button>
                   {notificationsOpen ? (
-                    <div className="absolute right-0 z-50 mt-2 w-80 rounded-xl border border-border/70 bg-card p-2 shadow-lg">
-                      <div className="mb-2 flex items-center justify-between">
-                        <p className="text-xs font-semibold text-foreground">Notificări</p>
+                    <div className="absolute right-0 z-50 mt-2 w-80 rounded-2xl border border-border/50 bg-white p-3 shadow-[0_8px_30px_rgba(0,0,0,0.08)]">
+                      <div className="mb-3 flex items-center justify-between">
+                        <p className="text-sm font-semibold text-foreground">Notificari</p>
                         <button
-                          className="text-[11px] text-primary"
+                          className="text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
                           onClick={async () => {
                             await notificationsApi.residentReadAll();
                             setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
                           }}
                         >
-                          Marchează tot ca citit
+                          Marcheaza tot ca citit
                         </button>
                       </div>
-                      <div className="max-h-72 space-y-1 overflow-y-auto">
+                      <div className="max-h-72 space-y-2 overflow-y-auto">
                         {notifications.map((item) => (
                           <button
                             key={item.id}
-                            className={`w-full rounded-lg border px-2 py-1 text-left text-xs ${
-                              item.isRead ? 'border-border/60 text-muted-foreground' : 'border-primary/30 bg-primary/5 text-foreground'
+                            className={`w-full rounded-xl border px-3 py-2.5 text-left text-xs transition-all duration-200 ${
+                              item.isRead ? 'border-border/40 text-muted-foreground hover:bg-muted/30' : 'border-foreground/10 bg-muted/50 text-foreground hover:bg-muted/70'
                             }`}
                             onClick={async () => {
                               if (!item.isRead) {
@@ -533,25 +535,25 @@ function AppShellContent({ children }: AppShellProps) {
                             }}
                           >
                             <p className="font-medium">{item.title}</p>
-                            <p className="line-clamp-2">{item.message}</p>
+                            <p className="mt-0.5 line-clamp-2 text-muted-foreground">{item.message}</p>
                           </button>
                         ))}
-                        {!notifications.length ? <p className="text-xs text-muted-foreground">Nu ai notificări.</p> : null}
+                        {!notifications.length ? <p className="py-4 text-center text-xs text-muted-foreground">Nu ai notificari.</p> : null}
                       </div>
                     </div>
                   ) : null}
                 </div>
               ) : null}
               <div className="hidden text-right md:block">
-                <p className="text-sm font-medium text-foreground">
+                <p className="text-sm font-semibold tracking-tight text-foreground">
                   {activeUser.firstName} {activeUser.lastName}
                 </p>
                 <p className="text-xs text-muted-foreground">{activeUser.email}</p>
-                <div className="mt-1 flex justify-end gap-1">
-                  <span className="rounded-md border border-border/60 bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                <div className="mt-1.5 flex justify-end gap-1.5">
+                  <span className="rounded-md bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
                     {activeUser.emailVerifiedAt ? c('verified') : c('notVerified')}
                   </span>
-                  <span className="rounded-md border border-border/60 bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                  <span className="rounded-md bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
                     {providerLabel}
                   </span>
                 </div>

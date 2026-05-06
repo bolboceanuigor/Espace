@@ -9,23 +9,23 @@ type StatCardProps = {
 };
 
 const toneClasses = {
-  neutral: 'bg-muted text-foreground',
-  success: 'bg-emerald-50 text-emerald-700',
-  warning: 'bg-amber-50 text-amber-700',
-  danger: 'bg-rose-50 text-rose-700',
+  neutral: 'bg-muted/60 text-foreground',
+  success: 'bg-emerald-50 text-emerald-600',
+  warning: 'bg-amber-50 text-amber-600',
+  danger: 'bg-red-50 text-red-600',
 } as const;
 
 export default function StatCard({ label, value, description, icon, tone = 'neutral' }: StatCardProps) {
   return (
-    <div className="rounded-[1.35rem] border border-border/70 bg-white/92 p-4 shadow-[0_14px_40px_rgba(15,23,42,0.045)]">
-      <div className="flex items-start justify-between gap-3">
+    <div className="rounded-2xl border border-border/50 bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02),0_4px_12px_rgba(0,0,0,0.03)] transition-all duration-200 hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)]">
+      <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-sm text-muted-foreground">{label}</p>
+          <p className="text-[13px] font-medium text-muted-foreground">{label}</p>
           <p className="mt-2 truncate text-2xl font-semibold tracking-tight text-foreground">{value}</p>
-          {description ? <p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p> : null}
+          {description ? <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{description}</p> : null}
         </div>
         {icon ? (
-          <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${toneClasses[tone]}`}>
+          <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${toneClasses[tone]}`}>
             {icon}
           </span>
         ) : null}

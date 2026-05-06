@@ -35,25 +35,25 @@ export default function SidebarItem({ item, showLabels, badgeCount, localePrefix
       <Link
         href={target}
         aria-disabled={locked}
-        className={`group flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition duration-150 ease-out text-muted-foreground hover:text-foreground hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${
-          active ? 'bg-muted/90 text-foreground' : ''
-        } ${locked ? 'opacity-60 cursor-not-allowed hover:bg-transparent' : ''}`}
+        className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium transition-all duration-200 ease-out text-muted-foreground hover:text-foreground hover:bg-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 ${
+          active ? 'bg-white text-foreground shadow-[0_1px_3px_rgba(0,0,0,0.04)]' : ''
+        } ${locked ? 'opacity-50 cursor-not-allowed hover:bg-transparent' : ''}`}
       >
         <div
-          className={`flex h-7 w-7 items-center justify-center rounded-md transition ${
-            active ? 'bg-background' : ''
+          className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all duration-200 ${
+            active ? 'bg-foreground text-background' : 'bg-muted/50 group-hover:bg-muted'
           }`}
         >
-          <Icon className="h-5 w-5 shrink-0 text-gray-500" />
+          <Icon className={`h-[18px] w-[18px] shrink-0 transition-colors ${active ? 'text-background' : 'text-muted-foreground group-hover:text-foreground'}`} />
         </div>
         {showLabels ? <span className="truncate">{label}</span> : null}
         {showLabels && locked ? (
-          <span className="ml-auto rounded-full border border-border/60 bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+          <span className="ml-auto rounded-md bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
             locked
           </span>
         ) : null}
         {badgeCount && badgeCount > 0 ? (
-          <span className="ml-auto rounded-full border border-border/60 bg-background px-1.5 py-0.5 text-[10px] font-medium text-foreground">
+          <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-md bg-foreground px-1.5 text-[10px] font-semibold text-background">
             {badgeCount}
           </span>
         ) : null}

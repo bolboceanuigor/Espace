@@ -57,15 +57,15 @@ export default function MainNavigation({ role, variant = 'responsive' }: MainNav
     <>
       {showDesktop ? (
       <nav
-        aria-label="Navigare principală"
+        aria-label="Navigare principala"
         className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+1rem)] z-40 hidden px-4 md:block"
       >
         <div className="flex w-full items-center justify-center">
           <div
-            className={`w-full rounded-[1.65rem] border border-border/70 bg-white/88 p-1.5 shadow-[0_24px_70px_rgba(15,23,42,0.16)] backdrop-blur-2xl supports-[backdrop-filter]:bg-white/78 ${
+            className={`w-full rounded-2xl border border-border/40 bg-white/90 p-1 shadow-[0_8px_40px_rgba(0,0,0,0.08)] backdrop-blur-2xl ${
               isWideMenu
-                ? 'flex max-w-6xl gap-1 overflow-x-auto'
-                : 'grid max-w-5xl gap-1'
+                ? 'flex max-w-6xl gap-0.5 overflow-x-auto'
+                : 'grid max-w-5xl gap-0.5'
             }`}
             style={isWideMenu ? undefined : { gridTemplateColumns }}
           >
@@ -80,16 +80,16 @@ export default function MainNavigation({ role, variant = 'responsive' }: MainNav
                   key={item.href}
                   href={target}
                   aria-current={active ? 'page' : undefined}
-                  className={`group flex min-h-[48px] items-center justify-center gap-2 rounded-2xl px-3 text-sm font-semibold transition duration-200 ease-out ${
-                    isWideMenu ? 'min-w-[132px] flex-1' : ''
+                  className={`group flex min-h-[46px] items-center justify-center gap-2 rounded-xl px-4 text-[13px] font-semibold transition-all duration-200 ${
+                    isWideMenu ? 'min-w-[130px] flex-1' : ''
                   } ${
                     item.center
                       ? active
-                        ? 'bg-foreground text-background shadow-[0_12px_28px_rgba(15,23,42,0.16)]'
-                        : 'bg-muted/70 text-foreground hover:bg-muted'
+                        ? 'bg-foreground text-background shadow-[0_4px_12px_rgba(0,0,0,0.15)]'
+                        : 'bg-muted/50 text-foreground hover:bg-muted/70'
                       : active
-                        ? 'bg-foreground/[0.08] text-foreground'
-                        : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
+                        ? 'bg-muted/60 text-foreground'
+                        : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground'
                   }`}
                 >
                   <Icon className="h-4 w-4 shrink-0" />
@@ -105,10 +105,10 @@ export default function MainNavigation({ role, variant = 'responsive' }: MainNav
       {showMobile ? (
         <>
           <nav
-            aria-label="Navigare principală mobilă"
-            className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-40 rounded-[1.65rem] border border-border/70 bg-white/92 shadow-[0_24px_70px_rgba(15,23,42,0.18)] backdrop-blur-2xl supports-[backdrop-filter]:bg-white/82 md:hidden"
+            aria-label="Navigare principala mobila"
+            className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-40 rounded-2xl border border-border/40 bg-white/95 shadow-[0_8px_40px_rgba(0,0,0,0.1)] backdrop-blur-2xl md:hidden"
           >
-            <div className="mx-auto grid max-w-md grid-cols-5 items-end gap-1 px-2.5 py-2">
+            <div className="mx-auto grid max-w-md grid-cols-5 items-end gap-0.5 px-2 py-1.5">
               {mobilePrimaryItems.map((item) => {
                 const target = `/${locale}${item.href}`;
                 const active = item.center
@@ -120,12 +120,12 @@ export default function MainNavigation({ role, variant = 'responsive' }: MainNav
                     key={item.href}
                     href={target}
                     aria-current={active ? 'page' : undefined}
-                    className={`group flex min-h-[60px] min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[11px] font-semibold leading-none transition duration-200 ease-out ${
-                      active ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+                    className={`group flex min-h-[56px] min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-semibold leading-none transition-all duration-200 ${
+                      active ? 'bg-muted/60 text-foreground' : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground'
                     }`}
                   >
-                    <span className={`flex h-8 w-8 items-center justify-center rounded-full transition ${active ? 'bg-white' : 'bg-transparent group-hover:bg-background'}`}>
-                      <Icon className="h-[18px] w-[18px]" />
+                    <span className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all ${active ? 'bg-foreground text-background' : 'bg-transparent group-hover:bg-muted/50'}`}>
+                      <Icon className="h-[17px] w-[17px]" />
                     </span>
                     <span className="max-w-full truncate">{item.label}</span>
                   </Link>
@@ -134,10 +134,10 @@ export default function MainNavigation({ role, variant = 'responsive' }: MainNav
               <button
                 type="button"
                 onClick={() => setMoreOpen(true)}
-                className="group flex min-h-[60px] min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[11px] font-semibold leading-none text-muted-foreground transition duration-200 ease-out hover:bg-muted/60 hover:text-foreground"
+                className="group flex min-h-[56px] min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-semibold leading-none text-muted-foreground transition-all duration-200 hover:bg-muted/40 hover:text-foreground"
               >
-                <span className="flex h-8 w-8 items-center justify-center rounded-full transition group-hover:bg-background">
-                  <Menu className="h-[18px] w-[18px]" />
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg transition-all group-hover:bg-muted/50">
+                  <Menu className="h-[17px] w-[17px]" />
                 </span>
                 <span className="max-w-full truncate">Mai mult</span>
               </button>
@@ -145,13 +145,13 @@ export default function MainNavigation({ role, variant = 'responsive' }: MainNav
           </nav>
 
           {moreOpen ? (
-            <div className="fixed inset-0 z-50 bg-black/40 md:hidden" onClick={() => setMoreOpen(false)}>
+            <div className="fixed inset-0 z-50 bg-foreground/20 backdrop-blur-sm md:hidden" onClick={() => setMoreOpen(false)}>
               <div
-                className="absolute inset-x-0 bottom-0 max-h-[72vh] overflow-y-auto rounded-t-[1.75rem] border-t border-border/70 bg-white p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-[0_-24px_70px_rgba(15,23,42,0.18)]"
+                className="absolute inset-x-0 bottom-0 max-h-[72vh] overflow-y-auto rounded-t-2xl border-t border-border/40 bg-white p-5 pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-[0_-8px_40px_rgba(0,0,0,0.1)]"
                 onClick={(event) => event.stopPropagation()}
               >
-                <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-muted" />
-                <p className="mb-3 text-sm font-semibold text-foreground">Navigare</p>
+                <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-muted" />
+                <p className="mb-4 text-sm font-semibold text-foreground">Navigare</p>
                 <div className="grid gap-2">
                   {mobileMoreItems.map((item) => {
                     const target = `/${locale}${item.href}`;
@@ -162,14 +162,14 @@ export default function MainNavigation({ role, variant = 'responsive' }: MainNav
                         key={item.href}
                         href={target}
                         onClick={() => setMoreOpen(false)}
-                        className={`flex min-h-12 items-center justify-between rounded-2xl border px-3 text-sm font-semibold ${
+                        className={`flex min-h-12 items-center justify-between rounded-xl border px-4 text-sm font-medium transition-all duration-200 ${
                           active
-                            ? 'border-foreground/20 bg-muted text-foreground'
-                            : 'border-border/70 bg-white text-foreground hover:bg-muted/50'
+                            ? 'border-foreground/10 bg-muted/50 text-foreground'
+                            : 'border-border/50 bg-white text-foreground hover:bg-muted/30'
                         }`}
                       >
                         <span className="inline-flex min-w-0 items-center gap-3">
-                          <Icon className="h-4 w-4 shrink-0" />
+                          <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
                           <span className="truncate">{item.label}</span>
                         </span>
                         <ChevronRight className="h-4 w-4 text-muted-foreground" />
