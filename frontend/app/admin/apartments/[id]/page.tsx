@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { Badge, ButtonLink, Card, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
 import { defaultLocale, isLocale } from '@/i18n';
-import { apartmentsApi, residentsApi } from '@/lib/api';
+import { apartmentsApi, metersApi, residentsApi } from '@/lib/api';
 import {
   type AdminApartment,
   apartmentMeters,
@@ -67,6 +67,27 @@ const roleLabels = {
   REPRESENTATIVE: 'Reprezentant',
 } as const;
 
+const meterTypeLabels = {
+  COLD_WATER: 'Apă rece',
+  HOT_WATER: 'Apă caldă',
+  GAS: 'Gaz',
+  ELECTRICITY: 'Electricitate',
+  HEATING: 'Încălzire',
+} as const;
+
+const meterStatusLabels = {
+  ACTIVE: 'Actualizat',
+  MISSING_READING: 'Lipsă citire',
+  SUSPICIOUS: 'Suspect',
+  INACTIVE: 'Inactiv',
+} as const;
+
+const emptyMeterForm = {
+  type: 'COLD_WATER' as keyof typeof meterTypeLabels,
+  serialNumber: '',
+  status: 'ACTIVE' as keyof typeof meterStatusLabels,
+};
+
 export default function AdminApartmentDetailPage() {
   const params = useParams<{ id?: string; locale?: string }>();
   const localeParam = typeof params?.locale === 'string' ? params.locale : defaultLocale;
@@ -80,6 +101,10 @@ export default function AdminApartmentDetailPage() {
   const [residentForm, setResidentForm] = useState(emptyResidentForm);
   const [isCreatingResident, setIsCreatingResident] = useState(false);
   const [residentError, setResidentError] = useState('');
+  const [meterModalOpen, setMeterModalOpen] = useState(false);
+  const [meterForm, setMeterForm] = useState(emptyMeterForm);
+  const [isCreatingMeter, setIsCreatingMeter] = useState(false);
+  const [meterError, setMeterError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const residents = source === 'api' ? normalizeApiApartmentResidents(apiDetail) : residentsForApartment(apartment.number);
   const meters = source === 'api' ? normalizeApiApartmentMeters(apiDetail) : apartmentMeters;
@@ -153,6 +178,41 @@ export default function AdminApartmentDetailPage() {
     }
   };
 
+  const createMeter = async () => {
+    setMeterError('');
+    setSuccessMessage('');
+    const organizationId = apiDetail?.organizationId || apartment.organizationId;
+    const apartmentId = apiDetail?.id || apartment.id;
+    if (!organizationId || source !== 'api') {
+      setMeterError('Crearea contorului necesită date reale din API.');
+      return;
+    }
+    if (!meterForm.serialNumber.trim()) {
+      setMeterError('Completează seria contorului.');
+      return;
+    }
+
+    setIsCreatingMeter(true);
+    try {
+      await metersApi.create({
+        organizationId,
+        apartmentId,
+        type: meterForm.type,
+        serialNumber: meterForm.serialNumber.trim(),
+        status: meterForm.status,
+      });
+      setMeterForm(emptyMeterForm);
+      setMeterModalOpen(false);
+      setSuccessMessage('Contorul a fost creat.');
+      await loadApartment().catch(() => undefined);
+    } catch (error: any) {
+      const message = String(error?.message || '');
+      setMeterError(message.includes('Acest contor există deja') ? 'Acest contor există deja.' : 'Nu am putut crea contorul.');
+    } finally {
+      setIsCreatingMeter(false);
+    }
+  };
+
   return (
     <div className="space-y-5 pb-4">
       <Link href={`/${locale}/admin/apartments`} className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground">
@@ -187,8 +247,11 @@ export default function AdminApartmentDetailPage() {
       </section>
 
       <Card>
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
           <ButtonLink href={`/${locale}/admin/meters`} variant="primary"><Plus className="h-4 w-4" /> Adaugă citire</ButtonLink>
+          <button type="button" onClick={() => setMeterModalOpen(true)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-border/70 bg-white px-4 text-sm font-semibold text-foreground shadow-[0_10px_30px_rgba(15,23,42,0.035)] hover:bg-muted/60">
+            <Gauge className="h-4 w-4" /> Adaugă contor
+          </button>
           <ButtonLink href={`/${locale}/admin/payments`} variant="secondary"><Banknote className="h-4 w-4" /> Adaugă plată</ButtonLink>
           <ButtonLink href={`/${locale}/admin/chat`} variant="secondary"><MessageCircle className="h-4 w-4" /> Trimite mesaj</ButtonLink>
           <button type="button" onClick={() => setResidentModalOpen(true)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-border/70 bg-white px-4 text-sm font-semibold text-foreground shadow-[0_10px_30px_rgba(15,23,42,0.035)] hover:bg-muted/60">
@@ -327,6 +390,44 @@ export default function AdminApartmentDetailPage() {
           </button>
           <button type="button" onClick={createResident} disabled={isCreatingResident} className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background disabled:opacity-60">
             {isCreatingResident ? 'Se creează...' : 'Creează locatar'}
+          </button>
+        </ModalFooter>
+      </Modal>
+
+      <Modal isOpen={meterModalOpen} onClose={() => setMeterModalOpen(false)} maxWidth="xl">
+        <ModalHeader title={`Adaugă contor la Apt. ${apartment.number}`} onClose={() => setMeterModalOpen(false)} />
+        <ModalBody>
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="block">
+              <span className="label">Tip contor</span>
+              <select className="select" value={meterForm.type} onChange={(event) => setMeterForm({ ...meterForm, type: event.target.value as typeof meterForm.type })}>
+                {Object.entries(meterTypeLabels).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="label">Status</span>
+              <select className="select" value={meterForm.status} onChange={(event) => setMeterForm({ ...meterForm, status: event.target.value as typeof meterForm.status })}>
+                {Object.entries(meterStatusLabels).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </label>
+            <Field label="Serie contor" value={meterForm.serialNumber} onChange={(value) => setMeterForm({ ...meterForm, serialNumber: value })} required />
+          </div>
+          {meterError ? (
+            <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
+              {meterError}
+            </p>
+          ) : null}
+        </ModalBody>
+        <ModalFooter>
+          <button type="button" onClick={() => setMeterModalOpen(false)} disabled={isCreatingMeter} className="rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold disabled:opacity-60">
+            Anulează
+          </button>
+          <button type="button" onClick={createMeter} disabled={isCreatingMeter} className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background disabled:opacity-60">
+            {isCreatingMeter ? 'Se creează...' : 'Creează contor'}
           </button>
         </ModalFooter>
       </Modal>

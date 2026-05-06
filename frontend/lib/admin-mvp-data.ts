@@ -46,6 +46,8 @@ export type AdminResident = {
 
 export type AdminMeter = {
   id: string;
+  organizationId?: string;
+  apartmentId?: string;
   apartment: string;
   staircase: string;
   floor: number;
@@ -693,6 +695,8 @@ export function normalizeApiMeter(row: any): AdminMeter {
 
   return {
     id: String(row?.id || row?.serialNumber || `meter-${apartmentNumber}`),
+    organizationId: row?.organizationId ? String(row.organizationId) : row?.apartment?.organizationId ? String(row.apartment.organizationId) : undefined,
+    apartmentId: row?.apartmentId ? String(row.apartmentId) : row?.apartment?.id ? String(row.apartment.id) : undefined,
     apartment: apartmentNumber,
     staircase: String(row?.staircase?.name || 'Scara -'),
     floor: Number(row?.apartment?.floor ?? 0),

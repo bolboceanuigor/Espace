@@ -1,4 +1,4 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { Public } from '../auth/decorators/public.decorator';
 import { MetersService } from './meters.service';
 
@@ -10,6 +10,13 @@ export class MetersController {
   @Get()
   listMeters() {
     return this.metersService.listMeters();
+  }
+
+  // Temporary MVP endpoint until the full backend guard stack is re-enabled.
+  @Public()
+  @Post()
+  createMeter(@Body() body: unknown) {
+    return this.metersService.createMeter(body);
   }
 
   @Public()

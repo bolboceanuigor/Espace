@@ -708,6 +708,13 @@ export const residentsApi = {
 export const metersApi = {
   list: () => apiRequest<any[]>('/meters'),
   get: (id: string) => apiRequest<any>(`/meters/${id}`),
+  create: (data: {
+    organizationId: string;
+    apartmentId: string;
+    type: 'COLD_WATER' | 'HOT_WATER' | 'GAS' | 'ELECTRICITY' | 'HEATING';
+    serialNumber: string;
+    status?: 'ACTIVE' | 'MISSING_READING' | 'SUSPICIOUS' | 'INACTIVE';
+  }) => apiRequest<any>('/meters', { method: 'POST', body: data }),
 };
 
 export const adminStructureApi = {
