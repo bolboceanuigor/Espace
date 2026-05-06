@@ -32,6 +32,11 @@ export function demoOnboardingPath(locale = 'ro') {
 export function demoLogout(locale = 'ro') {
   clearDemoRole();
   if (typeof window !== 'undefined') {
+    window.localStorage.removeItem('espace_access_token');
+    window.localStorage.removeItem('espace_user');
+    window.localStorage.removeItem('espace_role');
+    window.localStorage.removeItem('accessToken');
+    window.localStorage.removeItem('user');
     window.location.assign(`/${locale}/login`);
   }
 }
