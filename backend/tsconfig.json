@@ -21,10 +21,21 @@
       "@/*": ["src/*"]
     }
   },
+  "include": [
+    "src/main.ts",
+    "src/app.module.ts",
+    "src/app.controller.ts",
+    "src/prisma/**/*.ts",
+    "src/organizations/**/*.ts",
+    "src/common/filters/**/*.ts",
+    "src/common/interceptors/**/*.ts",
+    "src/auth/decorators/public.decorator.ts"
+  ],
   "exclude": [
     "node_modules",
     "dist",
     "prisma/seed.ts",
+    "prisma/seed.demo.ts",
     "prisma/seed.production-base.ts",
     "src/admin/**",
     "src/activity/**",
