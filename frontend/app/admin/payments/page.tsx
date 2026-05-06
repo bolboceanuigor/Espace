@@ -4,8 +4,8 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Clock3, CreditCard, ReceiptText, Search } from 'lucide-react';
 import { Badge, Button, ButtonLink, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
-import { invoicesApi, paymentsApi } from '@/lib/api';
-import { adminInvoices, invoiceStatusVariant, normalizeApiInvoice, type AdminInvoice, type InvoiceStatus } from '@/lib/admin-mvp-data';
+import { apartmentsApi, invoicesApi, paymentsApi } from '@/lib/api';
+import { adminInvoices, invoiceStatusVariant, normalizeApiApartment, normalizeApiInvoice, type AdminApartment, type AdminInvoice, type InvoiceStatus } from '@/lib/admin-mvp-data';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
@@ -17,6 +17,7 @@ const paymentMethods = {
   ONLINE: 'Online',
 } as const;
 const emptyPaymentForm = {
+  apartmentId: '',
   invoiceId: '',
   amount: '',
   method: 'CASH' as keyof typeof paymentMethods,
@@ -28,6 +29,7 @@ export default function AdminPaymentsPage() {
   const [status, setStatus] = useState<'Toate' | InvoiceStatus>('Toate');
   const [query, setQuery] = useState('');
   const [rows, setRows] = useState<AdminInvoice[]>(adminInvoices);
+  const [apartments, setApartments] = useState<AdminApartment[]>([]);
   const [source, setSource] = useState<'api' | 'mock'>('mock');
   const [summary, setSummary] = useState({
     totalIssued: 218400,
@@ -47,15 +49,26 @@ export default function AdminPaymentsPage() {
       paymentsApi.list().catch(() => ({ data: [] })),
       paymentsApi.summary().catch(() => ({ data: null })),
     ]);
+    const apartmentsRes = await apartmentsApi.list().catch(() => ({ data: [] }));
     const payments = paymentRes.data || [];
     const apiRows = (invoiceRes.data || []).map((invoice) => normalizeApiInvoice(invoice, payments));
+    const apiApartments = (apartmentsRes.data || []).map(normalizeApiApartment);
     if (apiRows.length) {
       setRows(apiRows);
       setSource('api');
       setPaymentForm((current) => {
-        if (current.invoiceId || !apiRows[0]?.id) return current;
-        return { ...current, invoiceId: apiRows[0].id, amount: String(apiRows[0].amount || '') };
+        if (current.invoiceId || current.apartmentId || !apiRows[0]?.id) return current;
+        return {
+          ...current,
+          apartmentId: apiRows[0].apartmentId || '',
+          invoiceId: apiRows[0].id,
+          amount: String(apiRows[0].amount || ''),
+        };
       });
+    }
+    setApartments(apiApartments);
+    if (!apiRows.length && apiApartments[0]?.id) {
+      setPaymentForm((current) => current.apartmentId ? current : { ...current, apartmentId: apiApartments[0].id });
     }
     if (summaryRes.data) {
       setSummary({
@@ -93,6 +106,7 @@ export default function AdminPaymentsPage() {
     setSuccessMessage('');
     const selected = invoice || rows.find((item) => item.status !== 'Achitat') || rows[0];
     setPaymentForm({
+      apartmentId: selected?.apartmentId || apartments[0]?.id || '',
       invoiceId: selected?.id || '',
       amount: selected?.amount ? String(selected.amount) : '',
       method: 'CASH',
@@ -105,9 +119,12 @@ export default function AdminPaymentsPage() {
     setPaymentError('');
     setSuccessMessage('');
     const selectedInvoice = rows.find((item) => item.id === paymentForm.invoiceId);
+    const selectedApartment = apartments.find((item) => item.id === paymentForm.apartmentId) || apartments.find((item) => item.id === selectedInvoice?.apartmentId);
     const amount = Number(paymentForm.amount);
-    if (!selectedInvoice?.organizationId || !selectedInvoice.apartmentId) {
-      setPaymentError('Alege o factură reală din lista API.');
+    const organizationId = selectedInvoice?.organizationId || selectedApartment?.organizationId;
+    const apartmentId = selectedInvoice?.apartmentId || selectedApartment?.id;
+    if (!organizationId || !apartmentId) {
+      setPaymentError('Alege un apartament real din lista API.');
       return;
     }
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -118,9 +135,9 @@ export default function AdminPaymentsPage() {
     setIsRegisteringPayment(true);
     try {
       await paymentsApi.create({
-        organizationId: selectedInvoice.organizationId,
-        apartmentId: selectedInvoice.apartmentId,
-        invoiceId: selectedInvoice.id,
+        organizationId,
+        apartmentId,
+        invoiceId: selectedInvoice?.id || undefined,
         amount,
         method: paymentForm.method,
         paidAt: paymentForm.paidAt,
@@ -239,17 +256,37 @@ export default function AdminPaymentsPage() {
         <ModalBody>
           <div className="grid gap-3 md:grid-cols-2">
             <label className="block md:col-span-2">
-              <span className="label">Factură</span>
+              <span className="label">Apartament</span>
+              <select
+                className="select"
+                value={paymentForm.apartmentId}
+                onChange={(event) => setPaymentForm({ ...paymentForm, apartmentId: event.target.value, invoiceId: '' })}
+              >
+                <option value="">Alege apartamentul</option>
+                {apartments.map((apartment) => (
+                  <option key={apartment.id} value={apartment.id}>Apt. {apartment.number} · {apartment.staircase}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block md:col-span-2">
+              <span className="label">Factură opțională</span>
               <select
                 className="select"
                 value={paymentForm.invoiceId}
                 onChange={(event) => {
                   const selected = rows.find((item) => item.id === event.target.value);
-                  setPaymentForm({ ...paymentForm, invoiceId: event.target.value, amount: selected?.amount ? String(selected.amount) : paymentForm.amount });
+                  setPaymentForm({
+                    ...paymentForm,
+                    apartmentId: selected?.apartmentId || paymentForm.apartmentId,
+                    invoiceId: event.target.value,
+                    amount: selected?.amount ? String(selected.amount) : paymentForm.amount,
+                  });
                 }}
               >
-                <option value="">Alege factura</option>
-                {rows.map((invoice) => (
+                <option value="">Fără factură asociată</option>
+                {rows
+                  .filter((invoice) => !paymentForm.apartmentId || invoice.apartmentId === paymentForm.apartmentId)
+                  .map((invoice) => (
                   <option key={invoice.id} value={invoice.id}>Apt. {invoice.apartment} · {invoice.month} · {formatMdl(invoice.amount)}</option>
                 ))}
               </select>
