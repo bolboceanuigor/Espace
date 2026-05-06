@@ -52,7 +52,7 @@ export default function ResidentAccountPage() {
         description="Datele tale principale în aplicația Espace."
         rightSlot={
           <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-            {source === 'api' ? 'Date reale' : 'Date locale'}
+            {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
           </span>
         }
       />

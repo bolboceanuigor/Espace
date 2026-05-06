@@ -20,21 +20,21 @@ const demoRoles: Array<{
     role: 'SUPERADMIN',
     title: 'Superadmin',
     description: 'Gestionează asociații, administratori și configurarea platformei.',
-    button: 'Intră ca Superadmin demo',
+    button: 'Acces demo temporar: Superadmin',
     icon: <ShieldCheck className="h-5 w-5" />,
   },
   {
     role: 'ADMIN',
     title: 'Administrator APC',
     description: 'Administrează apartamente, locatari, contoare, plăți și cereri.',
-    button: 'Intră ca Administrator demo',
+    button: 'Acces demo temporar: Administrator',
     icon: <Building2 className="h-5 w-5" />,
   },
   {
     role: 'RESIDENT',
     title: 'Locatar',
     description: 'Vezi facturi, transmite citiri, urmărește cereri și mesaje.',
-    button: 'Intră ca Locatar demo',
+    button: 'Acces demo temporar: Locatar',
     icon: <UserRound className="h-5 w-5" />,
   },
 ];
@@ -70,7 +70,7 @@ export default function LoginPage() {
       return;
     }
     if (!apiBaseUrl) {
-      setError('API-ul nu este disponibil temporar. Poți folosi autentificarea demo.');
+      setError('API-ul nu este disponibil temporar. Poți folosi accesul demo temporar.');
       return;
     }
 
@@ -105,7 +105,7 @@ export default function LoginPage() {
       if (message === 'Nu există cont cu acest email.' || message === 'Parola nu este corectă.' || message === 'Emailul și parola sunt obligatorii.') {
         setError(message);
       } else if (!apiBaseUrl || message.includes('fetch')) {
-        setError('API-ul nu este disponibil temporar. Poți folosi autentificarea demo.');
+        setError('API-ul nu este disponibil temporar. Poți folosi accesul demo temporar.');
       } else {
         setError('A apărut o eroare. Încearcă din nou.');
       }
@@ -126,7 +126,7 @@ export default function LoginPage() {
                 Intră în platforma pentru condominii, APC și HOA din Moldova și România.
               </p>
               <div className="mt-8 rounded-2xl border border-white/15 bg-white/10 p-4 text-sm text-background/80">
-                Autentificarea reală folosește backend-ul Espace. Demo-ul rămâne disponibil pentru preview rapid.
+                Autentificarea reală folosește backend-ul Espace. Accesul demo temporar rămâne disponibil doar ca fallback.
               </div>
             </div>
 
@@ -171,7 +171,7 @@ export default function LoginPage() {
                 ) : null}
                 {!apiBaseUrl ? (
                   <p className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
-                    API-ul nu este disponibil temporar. Poți folosi autentificarea demo.
+                    API-ul nu este disponibil temporar. Poți folosi accesul demo temporar.
                   </p>
                 ) : null}
 
@@ -186,7 +186,7 @@ export default function LoginPage() {
 
               <div className="my-6 flex items-center gap-3">
                 <span className="h-px flex-1 bg-border/70" />
-                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Demo</span>
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Acces demo temporar</span>
                 <span className="h-px flex-1 bg-border/70" />
               </div>
 
@@ -196,7 +196,7 @@ export default function LoginPage() {
                     key={item.role}
                     type="button"
                     onClick={() => enterAs(item.role)}
-                    className="group flex min-h-24 items-center gap-4 rounded-[1.35rem] border border-border/70 bg-white p-4 text-left shadow-[0_12px_38px_rgba(15,23,42,0.045)] transition hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-[0_18px_50px_rgba(15,23,42,0.08)]"
+                    className="group flex min-h-20 items-center gap-4 rounded-[1.35rem] border border-dashed border-border/80 bg-muted/25 p-4 text-left transition hover:border-foreground/20 hover:bg-white"
                   >
                     <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-muted text-foreground group-hover:bg-foreground group-hover:text-background">
                       {item.icon}
@@ -213,7 +213,7 @@ export default function LoginPage() {
                 <Link href={`/${locale}`} className="font-semibold text-foreground underline underline-offset-4">
                   Înapoi la prezentare
                 </Link>
-                <span>Login real sau demo, fără procesare de plăți.</span>
+                <span>Login real ca flux principal. Demo doar ca fallback.</span>
               </div>
             </div>
           </div>

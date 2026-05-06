@@ -49,10 +49,8 @@ export default function AdminResidentsPage() {
     ]);
     const apiRows = (residentsRes.data || []).map(normalizeApiResident);
     const apiApartments = (apartmentsRes.data || []).map(normalizeApiApartment);
-    if (apiRows.length) {
-      setRows(apiRows);
-      setSource('api');
-    }
+    setRows(apiRows);
+    setSource('api');
     setApartments(apiApartments);
     setForm((current) => {
       if (current.apartmentId || !apiApartments[0]?.id) return current;
@@ -139,7 +137,7 @@ export default function AdminResidentsPage() {
         rightSlot={
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-              {source === 'api' ? 'Date reale' : 'Date demo'}
+              {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
             </span>
             <button type="button" onClick={() => setModalOpen(true)} className="inline-flex min-h-10 items-center gap-2 rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background">
               <Plus className="h-4 w-4" />
@@ -196,6 +194,7 @@ export default function AdminResidentsPage() {
             </div>
           </Card>
         ))}
+        {!filtered.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există locatari încă.</Card> : null}
       </section>
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} maxWidth="2xl">
@@ -234,7 +233,7 @@ export default function AdminResidentsPage() {
             </p>
           ) : null}
           <p className="mt-4 text-xs text-muted-foreground">
-            Crearea necesită API real. Datele demo rămân doar pentru afișare.
+            Crearea necesită API real. Datele temporare apar doar dacă API-ul este indisponibil.
           </p>
         </ModalBody>
         <ModalFooter>

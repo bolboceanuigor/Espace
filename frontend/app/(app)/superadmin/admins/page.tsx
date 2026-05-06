@@ -44,9 +44,9 @@ export default function SuperadminAdminsPage() {
     ]);
     const apiAdmins = (adminsRes.data || []).map(normalizeApiAdministrator);
     const apiAssociations = (orgsRes.data || []).map(normalizeApiAssociation);
-    setAdmins(apiAdmins.length ? apiAdmins : mockAdministrators);
-    setAssociations(apiAssociations.length ? apiAssociations : mockAssociations);
-    setSource(apiAdmins.length || apiAssociations.length ? 'api' : 'mock');
+    setAdmins(apiAdmins);
+    setAssociations(apiAssociations);
+    setSource('api');
     setForm((current) => ({
       ...current,
       organizationId: current.organizationId || apiAssociations[0]?.id || mockAssociations[0]?.id || '',
@@ -138,7 +138,7 @@ export default function SuperadminAdminsPage() {
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <StatCard label="Administratori" value={admins.length} description="Rol ADMIN" icon={<ShieldCheck className="h-5 w-5" />} />
         <StatCard label="Asociații acoperite" value={new Set(admins.map((admin) => admin.organizationId)).size} description="Au administrator" icon={<UserPlus className="h-5 w-5" />} tone="success" />
-        <StatCard label="Sursă date" value={source === 'api' ? 'reale' : 'locale'} description={source === 'api' ? 'API conectat' : 'Fallback local'} icon={<Mail className="h-5 w-5" />} tone={source === 'api' ? 'success' : 'warning'} />
+        <StatCard label="Sursă date" value={source === 'api' ? 'reale' : 'temporare'} description={source === 'api' ? 'API conectat' : 'API indisponibil'} icon={<Mail className="h-5 w-5" />} tone={source === 'api' ? 'success' : 'warning'} />
       </section>
 
       <Card>
@@ -178,6 +178,7 @@ export default function SuperadminAdminsPage() {
             </Card>
           );
         })}
+        {!filtered.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există administratori încă.</Card> : null}
       </section>
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} maxWidth="xl">

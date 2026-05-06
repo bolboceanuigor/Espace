@@ -17,10 +17,8 @@ export default function ResidentAnnouncementsPage() {
       .then((res) => {
         if (!active) return;
         const apiRows = (res.data || []).map(normalizeResidentAnnouncement);
-        if (apiRows.length) {
-          setRows(apiRows);
-          setSource('api');
-        }
+        setRows(apiRows);
+        setSource('api');
       })
       .catch(() => {
         if (!active) return;
@@ -39,7 +37,7 @@ export default function ResidentAnnouncementsPage() {
         description="Anunțurile importante ale comunității tale."
         rightSlot={
           <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-            {source === 'api' ? 'Date reale' : 'Date demo'}
+            {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
           </span>
         }
       />
@@ -70,6 +68,7 @@ export default function ResidentAnnouncementsPage() {
             </p>
           </Card>
         ))}
+        {!rows.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există anunțuri încă.</Card> : null}
       </section>
     </div>
   );

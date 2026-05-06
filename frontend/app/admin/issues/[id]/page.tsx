@@ -70,7 +70,7 @@ export default function AdminIssueDetailsPage() {
         rightSlot={
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-              {source === 'api' ? 'Date reale' : 'Date demo'}
+              {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
             </span>
             <Badge variant={issueStatusVariant[issue.status]}>{issue.status}</Badge>
           </div>

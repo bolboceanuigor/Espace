@@ -46,14 +46,9 @@ export default function SuperadminOrganizationsPage() {
   const loadOrganizations = async () => {
     const res = await superadminApi.listPublicOrganizations();
     const apiRows = (res.data || []).map(normalizeApiAssociation);
-    if (apiRows.length) {
-      setRows(apiRows);
-      setSource('api');
-      setListError('');
-      return;
-    }
-    setRows(mockAssociations);
-    setSource('mock');
+    setRows(apiRows);
+    setSource('api');
+    setListError('');
   };
 
   useEffect(() => {
@@ -66,7 +61,7 @@ export default function SuperadminOrganizationsPage() {
         if (!active) return;
         setRows(mockAssociations);
         setSource('mock');
-        setListError('API indisponibil temporar. Sunt afișate date locale.');
+        setListError('API indisponibil temporar. Sunt afișate date temporare.');
       });
     return () => {
       active = false;
@@ -198,7 +193,7 @@ export default function SuperadminOrganizationsPage() {
             <option value="INACTIVE">Inactive</option>
           </select>
           <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-            {source === 'api' ? 'Date reale' : 'Date locale'}
+            {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
           </span>
         </div>
       </Card>
@@ -232,6 +227,7 @@ export default function SuperadminOrganizationsPage() {
             </div>
           </Card>
         ))}
+        {!filteredRows.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există asociații încă.</Card> : null}
       </section>
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} maxWidth="2xl">

@@ -48,7 +48,7 @@ export default function AdminInvoiceDetailsPage() {
         rightSlot={
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-              {source === 'api' ? 'Date reale' : 'Date demo'}
+              {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
             </span>
             <ButtonLink href={localizedPath('/admin/invoices')} variant="secondary">
               <ArrowLeft className="h-4 w-4" />
@@ -116,7 +116,7 @@ export default function AdminInvoiceDetailsPage() {
               </div>
             ))
           ) : (
-            <p className="rounded-2xl bg-muted/35 px-3 py-3 text-sm text-muted-foreground">Nu există plăți asociate acestei facturi în demo.</p>
+            <p className="rounded-2xl bg-muted/35 px-3 py-3 text-sm text-muted-foreground">Nu există plăți asociate acestei facturi.</p>
           )}
         </div>
       </Card>

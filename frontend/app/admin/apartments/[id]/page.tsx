@@ -278,7 +278,7 @@ export default function AdminApartmentDetailPage() {
         rightSlot={
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-              {source === 'api' ? 'Date reale' : 'Date demo'}
+              {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
             </span>
             <Badge variant={apartmentStatusVariant[apartment.status]}>{apartment.status}</Badge>
           </div>
@@ -349,7 +349,7 @@ export default function AdminApartmentDetailPage() {
 
       <section className="grid gap-4 xl:grid-cols-2">
         <Card>
-          <SectionTitle icon={<Gauge className="h-5 w-5" />} title="Contoare" description="Citiri mock pentru apă și gaz." />
+          <SectionTitle icon={<Gauge className="h-5 w-5" />} title="Contoare" description="Citiri pentru apă, gaz, electricitate și încălzire." />
           <div className="space-y-3">
             {meters.map((meter: any) => (
               <div key={meter.serial} className="grid gap-3 rounded-2xl border border-border/70 bg-muted/25 p-4 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-center">

@@ -50,9 +50,9 @@ export default function ResidentDashboardPage() {
         const apiAnnouncements = (announcementsRes.data || []).map(normalizeResidentAnnouncement);
         const apiMeters = (metersRes.data || []).map(normalizeResidentMeter);
         const apiIssues = (issuesRes.data || []).map(normalizeResidentIssue);
-        if (apiAnnouncements.length) setAnnouncements(apiAnnouncements);
-        if (apiMeters.length) setMeters(apiMeters);
-        if (apiIssues.length) setIssues(apiIssues);
+        setAnnouncements(apiAnnouncements);
+        setMeters(apiMeters);
+        setIssues(apiIssues);
         setSource('api');
       })
       .catch(() => {
@@ -75,7 +75,7 @@ export default function ResidentDashboardPage() {
         description="Tot ce contează pentru locuința ta, într-un singur loc."
         rightSlot={
           <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-            {source === 'api' ? 'Date reale' : 'Date demo'}
+            {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
           </span>
         }
       />
@@ -116,12 +116,18 @@ export default function ResidentDashboardPage() {
             <Link href={localizedPath('/resident/announcements')} className="text-xs font-semibold text-primary">Vezi tot</Link>
           </div>
           <div className="mt-4 rounded-2xl border border-border/70 bg-muted/25 p-3">
-            <div className="flex items-start justify-between gap-2">
-              <p className="text-sm font-medium text-foreground">{latestAnnouncement.title}</p>
-              <Badge variant={latestAnnouncement.category === 'Urgent' ? 'error' : 'warning'}>{latestAnnouncement.category}</Badge>
-            </div>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">{latestAnnouncement.content}</p>
-            <p className="mt-2 text-xs text-muted-foreground">{latestAnnouncement.date}</p>
+            {latestAnnouncement ? (
+              <>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-sm font-medium text-foreground">{latestAnnouncement.title}</p>
+                  <Badge variant={latestAnnouncement.category === 'Urgent' ? 'error' : 'warning'}>{latestAnnouncement.category}</Badge>
+                </div>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">{latestAnnouncement.content}</p>
+                <p className="mt-2 text-xs text-muted-foreground">{latestAnnouncement.date}</p>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">Nu există anunțuri încă.</p>
+            )}
           </div>
         </Card>
 
@@ -129,7 +135,7 @@ export default function ResidentDashboardPage() {
           <h2 className="font-semibold text-foreground">Reminder citiri contoare</h2>
           <p className="mt-4 inline-flex items-start gap-2 rounded-2xl border border-border/70 bg-muted/25 p-3 text-sm text-muted-foreground">
             <Bell className="mt-0.5 h-4 w-4" />
-            Ai {missingMeters.length} citire lipsă pentru contorul de gaz.
+            Ai {missingMeters.length} citiri lipsă.
           </p>
           <Link href={localizedPath('/resident/meters')} className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-border/70 text-sm font-semibold">
             <Send className="h-4 w-4" />
@@ -149,6 +155,7 @@ export default function ResidentDashboardPage() {
                 <p className="mt-1 text-xs text-muted-foreground">Status: {issue.status}</p>
               </div>
             ))}
+            {!activeIssues.length ? <p className="text-sm text-muted-foreground">Nu există cereri active.</p> : null}
           </div>
           <Link href={localizedPath('/resident/issues')} className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-border/70 text-sm font-semibold">Deschide cereri</Link>
         </Card>

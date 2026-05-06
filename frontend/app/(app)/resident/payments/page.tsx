@@ -37,9 +37,9 @@ export default function ResidentPaymentsPage() {
         if (!active) return;
         const apiRows = (invoiceRes.data || []).map(normalizeResidentInvoice);
         const apiPayments = (paymentRes.data || []).map(normalizeResidentPayment);
-        if (apiRows.length) setRows(apiRows);
-        if (apiPayments.length) setPayments(apiPayments);
-        if (apiRows.length || apiPayments.length) setSource('api');
+        setRows(apiRows);
+        setPayments(apiPayments);
+        setSource('api');
       })
       .catch(() => {
         if (!active) return;
@@ -56,10 +56,10 @@ export default function ResidentPaymentsPage() {
     <div className="space-y-5 pb-4">
       <PageHeader
         title="Plăți"
-        description="Soldul și istoricul plăților pentru Apt. 45."
+        description="Soldul și istoricul plăților pentru apartamentul tău."
         rightSlot={
           <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-            {source === 'api' ? 'Date reale' : 'Date demo'}
+            {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
           </span>
         }
       />
@@ -106,6 +106,7 @@ export default function ResidentPaymentsPage() {
             )}
           </Card>
         ))}
+        {!visible.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există facturi încă.</Card> : null}
       </section>
 
       <Card>
@@ -120,6 +121,7 @@ export default function ResidentPaymentsPage() {
               <p className="text-right text-xs text-muted-foreground">{payment.paidAt}</p>
             </div>
           ))}
+          {!payments.length ? <p className="rounded-2xl bg-muted/35 px-3 py-3 text-sm text-muted-foreground">Nu există plăți încă.</p> : null}
         </div>
       </Card>
 

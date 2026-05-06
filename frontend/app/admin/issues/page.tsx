@@ -36,10 +36,8 @@ export default function AdminIssuesPage() {
   const loadIssues = async () => {
     const res = await issuesApi.list();
     const apiRows = (res.data || []).map(normalizeApiIssue);
-    if (apiRows.length) {
-      setRows(apiRows);
-      setSource('api');
-    }
+    setRows(apiRows);
+    setSource('api');
   };
 
   useEffect(() => {
@@ -90,7 +88,7 @@ export default function AdminIssuesPage() {
         description="Solicitări și intervenții pentru apartamente și spații comune."
         rightSlot={
           <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-            {source === 'api' ? 'Date reale' : 'Date demo'}
+            {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
           </span>
         }
       />
@@ -155,6 +153,7 @@ export default function AdminIssuesPage() {
             </div>
           </Card>
         ))}
+        {!filtered.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există cereri încă.</Card> : null}
       </section>
     </div>
   );

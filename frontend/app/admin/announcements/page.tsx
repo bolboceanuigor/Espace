@@ -43,10 +43,8 @@ export default function AdminAnnouncementsPage() {
     ]);
     const apiRows = (announcementRes.data || []).map(normalizeApiAnnouncement);
     const fallbackOrganizationId = announcementRes.data?.[0]?.organizationId || apartmentRes.data?.[0]?.organizationId || '';
-    if (apiRows.length) {
-      setRows(apiRows);
-      setSource('api');
-    }
+    setRows(apiRows);
+    setSource('api');
     setOrganizationId(String(fallbackOrganizationId || ''));
   };
 
@@ -103,7 +101,7 @@ export default function AdminAnnouncementsPage() {
         rightSlot={
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-              {source === 'api' ? 'Date reale' : 'Date demo'}
+              {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
             </span>
             <button type="button" onClick={() => setModalOpen(true)} className="inline-flex min-h-10 items-center gap-2 rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background">
               <PlusCircle className="h-4 w-4" /> Adaugă anunț
@@ -157,6 +155,7 @@ export default function AdminAnnouncementsPage() {
             </div>
           </Card>
         ))}
+        {!rows.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există anunțuri încă.</Card> : null}
       </section>
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} maxWidth="2xl">

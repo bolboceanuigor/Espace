@@ -1,41 +1,32 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { AlertCircle, Bell, Building2, CreditCard, FileText, Gauge, Megaphone, MessageCircle, PlusCircle, Users } from 'lucide-react';
 import { ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
 import { formatMdl } from '@/lib/condo-admin-fallback';
+import { announcementsApi, apartmentsApi, invoicesApi, issuesApi, metersApi, paymentsApi, residentsApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
-const BUILDING_NAME = 'APC Alba Iulia 75';
-
-const summaryCards = [
-  { label: 'Total apartamente', value: '142', description: 'Unități locative administrate', icon: <Building2 className="h-5 w-5" /> },
-  { label: 'Datorii totale', value: formatMdl(86450), description: 'Sold total curent', icon: <CreditCard className="h-5 w-5" />, tone: 'danger' as const },
-  { label: 'Citiri lipsă', value: '23', description: 'Contoare de verificat', icon: <Gauge className="h-5 w-5" />, tone: 'warning' as const },
-  { label: 'Cereri deschise', value: '12', description: 'În lucru sau noi', icon: <MessageCircle className="h-5 w-5" />, tone: 'warning' as const },
-  { label: 'Facturi neachitate', value: '37', description: 'Pentru luna curentă', icon: <FileText className="h-5 w-5" />, tone: 'danger' as const },
-  { label: 'Locatari conectați', value: '98', description: 'Conturi active în aplicație', icon: <Users className="h-5 w-5" />, tone: 'success' as const },
+const fallbackRecentActivity = [
+  'Citire apă rece adăugată pentru un apartament',
+  'Factura lunii curente a fost marcată neachitată',
+  'Un locatar a confirmat primirea notificării',
 ];
 
-const recentActivity = [
-  'Citire apă rece adăugată pentru Apt. 45',
-  'Factura lunii Aprilie a fost marcată neachitată pentru Apt. 31',
-  'Popescu Ion a confirmat primirea notificării',
-];
-
-const urgentRequests = [
-  { title: 'Infiltrație la etajul 6', apartment: 'Apt. 45', status: 'Urgent' },
+const fallbackUrgentRequests = [
+  { title: 'Infiltrație la etaj superior', apartment: 'Apartament', status: 'Urgent' },
   { title: 'Lipsă apă caldă pe Scara 2', apartment: 'Scara 2', status: 'Nouă' },
   { title: 'Ușă intrare defectă', apartment: 'Bloc principal', status: 'În lucru' },
 ];
 
-const latestPayments = [
+const fallbackLatestPayments = [
   { apartment: 'Apt. 18', payer: 'Ionescu Maria', amount: 1860, date: '29 Apr 2026' },
   { apartment: 'Apt. 72', payer: 'Ceban Andrei', amount: 920, date: '28 Apr 2026' },
   { apartment: 'Apt. 11', payer: 'Rusu Elena', amount: 1240, date: '27 Apr 2026' },
 ];
 
-const announcements = [
+const fallbackAnnouncements = [
   'Lucrări de întreținere la lift pe 3 mai',
   'Program colectare deșeuri voluminoase',
   'Ședință APC - aprobarea bugetului lunar',
@@ -43,13 +34,105 @@ const announcements = [
 
 export default function AdminPage() {
   const localizedPath = useLocalizedPath();
+  const [source, setSource] = useState<'api' | 'fallback'>('fallback');
+  const [summary, setSummary] = useState({
+    apartments: 0,
+    totalDebt: 0,
+    missingReadings: 0,
+    openIssues: 0,
+    unpaidInvoices: 0,
+    residents: 0,
+  });
+  const [recentActivity, setRecentActivity] = useState(fallbackRecentActivity);
+  const [urgentRequests, setUrgentRequests] = useState(fallbackUrgentRequests);
+  const [latestPayments, setLatestPayments] = useState(fallbackLatestPayments);
+  const [announcements, setAnnouncements] = useState(fallbackAnnouncements);
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([
+      apartmentsApi.list(),
+      invoicesApi.list().catch(() => ({ data: [] })),
+      metersApi.list().catch(() => ({ data: [] })),
+      issuesApi.list().catch(() => ({ data: [] })),
+      residentsApi.list().catch(() => ({ data: [] })),
+      paymentsApi.list().catch(() => ({ data: [] })),
+      announcementsApi.list().catch(() => ({ data: [] })),
+    ])
+      .then(([apartmentsRes, invoicesRes, metersRes, issuesRes, residentsRes, paymentsRes, announcementsRes]) => {
+        if (!active) return;
+        const apartments = apartmentsRes.data || [];
+        const invoices = invoicesRes.data || [];
+        const meters = metersRes.data || [];
+        const issues = issuesRes.data || [];
+        const residents = residentsRes.data || [];
+        const payments = paymentsRes.data || [];
+        const apiAnnouncements = announcementsRes.data || [];
+        const unpaidInvoices = invoices.filter((invoice: any) => ['UNPAID', 'OVERDUE', 'Neachitat', 'Întârziat'].includes(String(invoice.status)));
+        const openIssues = issues.filter((issue: any) => !['RESOLVED', 'Rezolvată'].includes(String(issue.status)));
+
+        setSummary({
+          apartments: apartments.length,
+          totalDebt: unpaidInvoices.reduce((sum: number, invoice: any) => sum + Number(invoice.finalAmount ?? invoice.amount ?? 0), 0),
+          missingReadings: meters.filter((meter: any) => String(meter.status).toUpperCase() === 'MISSING_READING').length,
+          openIssues: openIssues.length,
+          unpaidInvoices: unpaidInvoices.length,
+          residents: residents.length,
+        });
+        setUrgentRequests(
+          openIssues.slice(0, 3).map((issue: any) => ({
+            title: String(issue.title || 'Cerere'),
+            apartment: issue.apartmentNumber ? `Apt. ${issue.apartmentNumber}` : 'Spațiu comun',
+            status: String(issue.priority || issue.status || 'Nouă'),
+          })),
+        );
+        setLatestPayments(
+          payments.slice(0, 3).map((payment: any) => ({
+            apartment: payment.apartmentNumber ? `Apt. ${payment.apartmentNumber}` : 'Apartament',
+            payer: String(payment.method || 'Plată înregistrată'),
+            amount: Number(payment.amount || 0),
+            date: payment.paidAt ? new Date(payment.paidAt).toLocaleDateString('ro-RO') : '-',
+          })),
+        );
+        setAnnouncements(apiAnnouncements.slice(0, 3).map((item: any) => String(item.title || 'Anunț')));
+        setRecentActivity([
+          `${apartments.length} apartamente în evidență`,
+          `${unpaidInvoices.length} facturi neachitate`,
+          `${openIssues.length} cereri deschise`,
+        ]);
+        setSource('api');
+      })
+      .catch(() => {
+        if (!active) return;
+        setSource('fallback');
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const summaryCards = [
+    { label: 'Total apartamente', value: String(summary.apartments), description: 'Unități locative administrate', icon: <Building2 className="h-5 w-5" /> },
+    { label: 'Datorii totale', value: formatMdl(summary.totalDebt), description: 'Sold total curent', icon: <CreditCard className="h-5 w-5" />, tone: 'danger' as const },
+    { label: 'Citiri lipsă', value: String(summary.missingReadings), description: 'Contoare de verificat', icon: <Gauge className="h-5 w-5" />, tone: 'warning' as const },
+    { label: 'Cereri deschise', value: String(summary.openIssues), description: 'În lucru sau noi', icon: <MessageCircle className="h-5 w-5" />, tone: 'warning' as const },
+    { label: 'Facturi neachitate', value: String(summary.unpaidInvoices), description: 'Pentru luna curentă', icon: <FileText className="h-5 w-5" />, tone: 'danger' as const },
+    { label: 'Locatari conectați', value: String(summary.residents), description: 'Persoane în evidență', icon: <Users className="h-5 w-5" />, tone: 'success' as const },
+  ];
 
   return (
     <div className="space-y-5 pb-4">
       <PageHeader
         title="Acasă"
-        description={`${BUILDING_NAME} - vedere de ansamblu pentru administrarea blocului.`}
-        rightSlot={<ButtonLink href="/admin/announcements" variant="secondary">Publică anunț</ButtonLink>}
+        description="Vedere de ansamblu pentru administrarea asociației curente."
+        rightSlot={
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
+              {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
+            </span>
+            <ButtonLink href={localizedPath('/admin/announcements')} variant="secondary">Publică anunț</ButtonLink>
+          </div>
+        }
       />
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -91,6 +174,7 @@ export default function AdminPage() {
                 <span className="mt-1 block text-xs text-muted-foreground">{item.apartment} · {item.status}</span>
               </Link>
             ))}
+            {!urgentRequests.length ? <p className="text-sm text-muted-foreground">Nu există cereri urgente.</p> : null}
           </div>
         </Card>
       </section>
@@ -111,6 +195,7 @@ export default function AdminPage() {
                 <p className="text-sm font-semibold text-foreground">{formatMdl(payment.amount)}</p>
               </div>
             ))}
+            {!latestPayments.length ? <p className="text-sm text-muted-foreground">Nu există plăți încă.</p> : null}
           </div>
         </Card>
 
@@ -125,6 +210,7 @@ export default function AdminPage() {
                 {title}
               </div>
             ))}
+            {!announcements.length ? <p className="text-sm text-muted-foreground">Nu există anunțuri încă.</p> : null}
           </div>
         </Card>
       </section>
@@ -132,10 +218,10 @@ export default function AdminPage() {
       <Card>
         <p className="text-sm font-semibold text-foreground">Acțiuni rapide</p>
         <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          <ButtonLink href="/admin/apartments" variant="primary"><PlusCircle className="h-4 w-4" /> Adaugă apartament</ButtonLink>
-          <ButtonLink href="/admin/residents" variant="secondary"><Users className="h-4 w-4" /> Adaugă locatar</ButtonLink>
-          <ButtonLink href="/admin/invoices" variant="secondary"><FileText className="h-4 w-4" /> Emite facturi</ButtonLink>
-          <ButtonLink href="/admin/announcements" variant="secondary"><Megaphone className="h-4 w-4" /> Publică anunț</ButtonLink>
+          <ButtonLink href={localizedPath('/admin/apartments')} variant="primary"><PlusCircle className="h-4 w-4" /> Adaugă apartament</ButtonLink>
+          <ButtonLink href={localizedPath('/admin/residents')} variant="secondary"><Users className="h-4 w-4" /> Adaugă locatar</ButtonLink>
+          <ButtonLink href={localizedPath('/admin/invoices')} variant="secondary"><FileText className="h-4 w-4" /> Emite facturi</ButtonLink>
+          <ButtonLink href={localizedPath('/admin/announcements')} variant="secondary"><Megaphone className="h-4 w-4" /> Publică anunț</ButtonLink>
         </div>
       </Card>
     </div>

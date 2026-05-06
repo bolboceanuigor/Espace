@@ -29,13 +29,8 @@ export default function SuperadminSubscriptionsPage() {
   const loadPlans = async () => {
     const res = await superadminApi.listPlans();
     const apiPlans = (res.data || []).map(normalizeApiPlan);
-    if (apiPlans.length) {
-      setPlans(apiPlans);
-      setSource('api');
-      return;
-    }
-    setPlans(mockPlans);
-    setSource('mock');
+    setPlans(apiPlans);
+    setSource('api');
   };
 
   useEffect(() => {
@@ -44,7 +39,7 @@ export default function SuperadminSubscriptionsPage() {
       if (!active) return;
       setPlans(mockPlans);
       setSource('mock');
-      setError('API indisponibil temporar. Sunt afișate planuri locale.');
+      setError('API indisponibil temporar. Sunt afișate planuri temporare.');
     });
     return () => {
       active = false;
@@ -129,7 +124,7 @@ export default function SuperadminSubscriptionsPage() {
             <p className="mt-1 text-sm text-muted-foreground">Limitele și funcționalitățile sunt folosite pentru management manual MVP.</p>
           </div>
           <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-            {source === 'api' ? 'Date reale' : 'Date locale'}
+            {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
           </span>
         </div>
 
@@ -156,6 +151,7 @@ export default function SuperadminSubscriptionsPage() {
               </div>
             </div>
           ))}
+          {!plans.length ? <div className="rounded-[1.25rem] border border-border/70 bg-white p-4 text-sm font-medium text-muted-foreground">Nu există planuri încă.</div> : null}
         </div>
       </Card>
 

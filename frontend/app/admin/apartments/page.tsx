@@ -10,7 +10,7 @@ import { adminApartments, apartmentStatusVariant, normalizeApiApartment, type Ad
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 const summary = [
-  { label: 'Total apartamente', value: '142', description: 'În APC Alba Iulia 75', icon: <Home className="h-5 w-5" /> },
+  { label: 'Total apartamente', value: '142', description: 'În asociația curentă', icon: <Home className="h-5 w-5" /> },
   { label: 'Cu datorii', value: '37', description: 'Au sold neachitat', icon: <AlertCircle className="h-5 w-5" />, tone: 'danger' as const },
   { label: 'Fără cont creat', value: '44', description: 'Necesită invitație', icon: <UserX className="h-5 w-5" />, tone: 'warning' as const },
   { label: 'Citiri lipsă', value: '23', description: 'Contoare neactualizate', icon: <Gauge className="h-5 w-5" />, tone: 'warning' as const },
@@ -46,15 +46,13 @@ export default function AdminApartmentsPage() {
   const loadApartments = async () => {
     const res = await apartmentsApi.list();
     const apiRows = (res.data || []).map(normalizeApiApartment);
-    if (apiRows.length) {
-      setRows(apiRows);
-      setSource('api');
-      setForm((current) => {
-        const first = apiRows.find((item) => item.buildingId && item.staircaseId);
-        if (!first || current.buildingId || current.staircaseId) return current;
-        return { ...current, buildingId: first.buildingId || '', staircaseId: first.staircaseId || '' };
-      });
-    }
+    setRows(apiRows);
+    setSource('api');
+    setForm((current) => {
+      const first = apiRows.find((item) => item.buildingId && item.staircaseId);
+      if (!first || current.buildingId || current.staircaseId) return current;
+      return { ...current, buildingId: first.buildingId || '', staircaseId: first.staircaseId || '' };
+    });
   };
 
   useEffect(() => {
@@ -172,13 +170,12 @@ export default function AdminApartmentsPage() {
         rightSlot={
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-              {source === 'api' ? 'Date reale' : 'Date demo'}
+              {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
             </span>
             <button type="button" onClick={() => setModalOpen(true)} className="inline-flex min-h-10 items-center gap-2 rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background">
               <Plus className="h-4 w-4" />
               Adaugă apartament
             </button>
-            <Link href={localizedPath('/admin/apartments/apt-45')} className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background">Deschide Apt. 45</Link>
           </div>
         }
       />
@@ -209,6 +206,7 @@ export default function AdminApartmentsPage() {
 
       <section className="grid gap-3 md:hidden">
         {filtered.map((item) => <ApartmentMobileCard key={item.id} apartment={item} />)}
+        {!filtered.length ? <EmptyState text="Nu există apartamente încă." /> : null}
       </section>
 
       <section className="hidden overflow-hidden rounded-[1.35rem] border border-border/70 bg-white/92 shadow-[0_14px_40px_rgba(15,23,42,0.045)] md:block">
@@ -243,6 +241,7 @@ export default function AdminApartmentsPage() {
             <Link href={localizedPath(`/admin/apartments/${item.id}`)} className="rounded-xl border border-border/70 px-3 py-2 text-xs font-semibold text-foreground hover:bg-muted/60">Deschide</Link>
           </div>
         ))}
+        {!filtered.length ? <div className="px-4 py-8 text-sm font-medium text-muted-foreground">Nu există apartamente încă.</div> : null}
       </section>
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} maxWidth="2xl">
@@ -347,6 +346,10 @@ function Field({
       <input className="input" type={type} value={value} onChange={(event) => onChange(event.target.value)} />
     </label>
   );
+}
+
+function EmptyState({ text }: { text: string }) {
+  return <Card className="p-5 text-sm font-medium text-muted-foreground">{text}</Card>;
 }
 
 function Info({ label, value, danger }: { label: string; value: string; danger?: boolean }) {

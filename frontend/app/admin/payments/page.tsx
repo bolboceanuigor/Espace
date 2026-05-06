@@ -53,19 +53,17 @@ export default function AdminPaymentsPage() {
     const payments = paymentRes.data || [];
     const apiRows = (invoiceRes.data || []).map((invoice) => normalizeApiInvoice(invoice, payments));
     const apiApartments = (apartmentsRes.data || []).map(normalizeApiApartment);
-    if (apiRows.length) {
-      setRows(apiRows);
-      setSource('api');
-      setPaymentForm((current) => {
-        if (current.invoiceId || current.apartmentId || !apiRows[0]?.id) return current;
-        return {
-          ...current,
-          apartmentId: apiRows[0].apartmentId || '',
-          invoiceId: apiRows[0].id,
-          amount: String(apiRows[0].amount || ''),
-        };
-      });
-    }
+    setRows(apiRows);
+    setSource('api');
+    setPaymentForm((current) => {
+      if (current.invoiceId || current.apartmentId || !apiRows[0]?.id) return current;
+      return {
+        ...current,
+        apartmentId: apiRows[0].apartmentId || '',
+        invoiceId: apiRows[0].id,
+        amount: String(apiRows[0].amount || ''),
+      };
+    });
     setApartments(apiApartments);
     if (!apiRows.length && apiApartments[0]?.id) {
       setPaymentForm((current) => current.apartmentId ? current : { ...current, apartmentId: apiApartments[0].id });
@@ -157,10 +155,10 @@ export default function AdminPaymentsPage() {
     <div className="space-y-5 pb-4">
       <PageHeader
         title="Plăți / Datorii"
-        description="Facturi, încasări și restanțe pentru APC Alba Iulia 75."
+        description="Facturi, încasări și restanțe pentru asociația curentă."
         rightSlot={
           <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-            {source === 'api' ? 'Date reale' : 'Date demo'}
+            {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
           </span>
         }
       />
@@ -228,12 +226,14 @@ export default function AdminPaymentsPage() {
             </div>
           </div>
         ))}
+        {!visible.length ? <div className="px-4 py-8 text-sm font-medium text-muted-foreground">Nu există plăți sau facturi încă.</div> : null}
       </section>
 
       <section className="grid gap-3 md:hidden">
         {visible.map((invoice) => (
           <PaymentCard key={invoice.id} invoice={invoice} href={localizedPath(`/admin/invoices/${invoice.id}`)} />
         ))}
+        {!visible.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există plăți sau facturi încă.</Card> : null}
       </section>
 
       <Card>

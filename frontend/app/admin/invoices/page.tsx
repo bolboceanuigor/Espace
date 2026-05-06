@@ -46,10 +46,8 @@ export default function AdminInvoicesPage() {
     ]);
     const apiRows = (invoiceRes.data || []).map((invoice) => normalizeApiInvoice(invoice, paymentRes.data || []));
     const apiApartments = (apartmentsRes.data || []).map(normalizeApiApartment);
-    if (apiRows.length) {
-      setRows(apiRows);
-      setSource('api');
-    }
+    setRows(apiRows);
+    setSource('api');
     setApartmentRows(apiApartments);
     setForm((current) => {
       if (current.apartmentId || !apiApartments[0]?.id) return current;
@@ -140,7 +138,7 @@ export default function AdminInvoicesPage() {
         rightSlot={
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-              {source === 'api' ? 'Date reale' : 'Date demo'}
+              {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
             </span>
             <ButtonLink href={localizedPath('/admin/payments')} variant="secondary">Vezi plăți</ButtonLink>
           </div>
@@ -196,12 +194,14 @@ export default function AdminInvoicesPage() {
             <ButtonLink href={localizedPath(`/admin/invoices/${invoice.id}`)} size="sm" variant="secondary">Deschide</ButtonLink>
           </div>
         ))}
+        {!filtered.length ? <div className="px-4 py-8 text-sm font-medium text-muted-foreground">Nu există facturi încă.</div> : null}
       </section>
 
       <section className="grid gap-3 md:hidden">
         {filtered.map((invoice) => (
           <InvoiceCard key={invoice.id} invoice={invoice} href={localizedPath(`/admin/invoices/${invoice.id}`)} />
         ))}
+        {!filtered.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există facturi încă.</Card> : null}
       </section>
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} maxWidth="2xl">

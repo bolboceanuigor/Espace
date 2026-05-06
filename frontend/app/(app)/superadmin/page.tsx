@@ -25,7 +25,8 @@ export default function SuperadminPage() {
         if (!active) return;
         if (organizationsResult.status === 'fulfilled') {
           const apiRows = (organizationsResult.value.data || []).map(normalizeApiAssociation);
-          if (apiRows.length) setAssociations(apiRows);
+          setAssociations(apiRows);
+          setSource('api');
         }
         if (overviewResult.status === 'fulfilled' && overviewResult.value.data) {
           setOverview(overviewResult.value.data);
@@ -95,7 +96,7 @@ export default function SuperadminPage() {
               <p className="mt-1 text-sm text-muted-foreground">Asociații conectate în platformă.</p>
             </div>
             <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-              {source === 'api' ? 'Date reale' : 'Date locale · API indisponibil temporar'}
+              {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
             </span>
           </div>
           <div className="mt-5 space-y-3">
@@ -119,6 +120,11 @@ export default function SuperadminPage() {
                 </div>
               </div>
             ))}
+            {!associations.length ? (
+              <div className="rounded-[1.1rem] border border-border/70 bg-muted/25 p-4 text-sm font-medium text-muted-foreground">
+                Nu există asociații încă.
+              </div>
+            ) : null}
           </div>
         </Card>
 

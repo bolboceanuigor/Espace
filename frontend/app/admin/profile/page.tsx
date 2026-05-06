@@ -13,7 +13,7 @@ export default function AdminProfilePage() {
 
   return (
     <div className="space-y-5 pb-4">
-      <PageHeader title="Profil administrator" description="Profil demo pentru administrarea APC Alba Iulia 75." />
+      <PageHeader title="Profil administrator" description="Profilul administratorului pentru asociația curentă." />
       <Card>
         <div className="flex items-center gap-4">
           <div className="flex h-16 w-16 items-center justify-center rounded-[1.35rem] bg-foreground text-xl font-semibold text-background">A</div>
@@ -25,7 +25,7 @@ export default function AdminProfilePage() {
         <div className="mt-6 space-y-3 text-sm">
           <Info icon={<Mail className="h-4 w-4" />} label="Email" value="admin@espace.md" />
           <Info icon={<ShieldCheck className="h-4 w-4" />} label="Rol" value="Administrator" />
-          <Info icon={<UserRound className="h-4 w-4" />} label="Organizație" value="APC Alba Iulia 75" />
+          <Info icon={<UserRound className="h-4 w-4" />} label="Organizație" value="Asociația curentă" />
         </div>
         <Button type="button" variant="danger" className="mt-6 w-full" onClick={() => demoLogout(locale)}>
           <LogOut className="h-4 w-4" />

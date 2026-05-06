@@ -22,7 +22,7 @@ type SettingsForm = {
 };
 
 const initialForm: SettingsForm = {
-  name: 'APC Alba Iulia 75',
+  name: 'Asociația curentă',
   legalName: 'Asociația de Proprietari în Condominiu Alba Iulia 75',
   fiscalCode: '1024600012345',
   address: 'Bd. Alba Iulia 75, Chișinău',

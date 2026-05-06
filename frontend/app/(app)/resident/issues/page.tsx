@@ -22,10 +22,8 @@ export default function ResidentIssuesPage() {
       .then((res) => {
         if (!activeRequest) return;
         const apiRows = (res.data || []).map(normalizeResidentIssue);
-        if (apiRows.length) {
-          setRows(apiRows);
-          setSource('api');
-        }
+        setRows(apiRows);
+        setSource('api');
       })
       .catch(() => {
         if (!activeRequest) return;
@@ -45,7 +43,7 @@ export default function ResidentIssuesPage() {
         rightSlot={
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-              {source === 'api' ? 'Date reale' : 'Date demo'}
+              {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
             </span>
             <ButtonLink href={localizedPath('/resident/issues/new')}><PlusCircle className="h-4 w-4" /> Cerere nouă</ButtonLink>
           </div>
