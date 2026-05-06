@@ -1,10 +1,17 @@
 'use client';
 
 import { LogOut, Mail, Phone, ShieldCheck, UserRound } from 'lucide-react';
+import { useParams } from 'next/navigation';
 import { Button, Card, PageHeader } from '@/components/ui';
 import { residentProfile } from '@/lib/resident-mvp-data';
+import { demoLogout } from '@/lib/demo-auth';
+import { defaultLocale, isLocale } from '@/i18n';
 
 export default function ResidentAccountPage() {
+  const params = useParams<{ locale?: string }>();
+  const localeParam = typeof params?.locale === 'string' ? params.locale : defaultLocale;
+  const locale = isLocale(localeParam) ? localeParam : defaultLocale;
+
   return (
     <div className="space-y-5 pb-4">
       <PageHeader title="Cont" description="Datele tale principale în aplicația Espace." />
@@ -24,7 +31,7 @@ export default function ResidentAccountPage() {
           <Info icon={<UserRound className="h-4 w-4" />} label="Apartament" value={`${residentProfile.apartment}, ${residentProfile.staircase}`} />
           <Info icon={<ShieldCheck className="h-4 w-4" />} label="Rol" value={residentProfile.role} />
         </div>
-        <Button type="button" variant="danger" className="mt-6 w-full">
+        <Button type="button" variant="danger" className="mt-6 w-full" onClick={() => demoLogout(locale)}>
           <LogOut className="h-4 w-4" />
           Deconectare
         </Button>

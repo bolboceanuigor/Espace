@@ -1,11 +1,18 @@
 'use client';
 
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { Bell, Building2, LogOut, Mail, Phone, UserRound } from 'lucide-react';
 import { Button, Card, PageHeader } from '@/components/ui';
 import { residentProfile } from '@/lib/resident-mvp-data';
+import { demoLogout } from '@/lib/demo-auth';
+import { defaultLocale, isLocale } from '@/i18n';
 
 export default function ResidentProfilePage() {
+  const params = useParams<{ locale?: string }>();
+  const localeParam = typeof params?.locale === 'string' ? params.locale : defaultLocale;
+  const locale = isLocale(localeParam) ? localeParam : defaultLocale;
+
   return (
     <div className="space-y-5 pb-4">
       <PageHeader title="Profil" description="Profilul locatarului și setări rapide." />
@@ -31,7 +38,7 @@ export default function ResidentProfilePage() {
           <Bell className="h-4 w-4" />
           Notificări
         </Link>
-        <Button type="button" variant="danger" className="w-full">
+        <Button type="button" variant="danger" className="w-full" onClick={() => demoLogout(locale)}>
           <LogOut className="h-4 w-4" />
           Deconectare
         </Button>

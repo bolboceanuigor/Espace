@@ -1,275 +1,103 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import { useAuth } from '@/context/AuthContext';
+import { Building2, ShieldCheck, UserRound } from 'lucide-react';
 import { defaultLocale, isLocale } from '@/i18n';
-import { ApiClientError, authApi } from '@/lib/api';
-import { featureFlags } from '@/lib/featureFlags';
-import { useToast } from '@/components/ui';
-import { getUser } from '@/lib/auth';
-import { roleHomePath } from '@/lib/role-routing';
-import { getApiBaseUrl } from '@/lib/runtime-config';
+import { demoRolePath, setDemoRole, type DemoRole } from '@/lib/demo-auth';
+
+const demoRoles: Array<{
+  role: DemoRole;
+  title: string;
+  description: string;
+  button: string;
+  icon: React.ReactNode;
+}> = [
+  {
+    role: 'SUPERADMIN',
+    title: 'Superadmin',
+    description: 'Gestionează asociații, administratori și configurarea platformei.',
+    button: 'Intră ca Superadmin',
+    icon: <ShieldCheck className="h-5 w-5" />,
+  },
+  {
+    role: 'ADMIN',
+    title: 'Administrator APC',
+    description: 'Administrează apartamente, locatari, contoare, plăți și cereri.',
+    button: 'Intră ca Administrator',
+    icon: <Building2 className="h-5 w-5" />,
+  },
+  {
+    role: 'RESIDENT',
+    title: 'Locatar',
+    description: 'Vezi facturi, transmite citiri, urmărește cereri și mesaje.',
+    button: 'Intră ca Locatar',
+    icon: <UserRound className="h-5 w-5" />,
+  },
+];
 
 export default function LoginPage() {
   const router = useRouter();
   const params = useParams<{ locale?: string }>();
-  const { login, loading, isAuthenticated, user } = useAuth();
-  const { showToast } = useToast();
   const localeParam = typeof params?.locale === 'string' ? params.locale : defaultLocale;
   const locale = isLocale(localeParam) ? localeParam : defaultLocale;
-  const tAuth = useTranslations('auth');
-  const tCommon = useTranslations('common');
-  const tErrors = useTranslations('errors');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
-  const [submitting, setSubmitting] = useState(false);
-  const [info, setInfo] = useState('');
-  const [resending, setResending] = useState(false);
-  const [emailNotVerified, setEmailNotVerified] = useState(false);
-  const [verifyStatus, setVerifyStatus] = useState<string | null>(null);
-  const [initialEmail, setInitialEmail] = useState('');
-  const googleAuthBase = getApiBaseUrl();
-  const googleAuthUrl = `${googleAuthBase}/api/auth/google?locale=${locale}`;
-  const destination = `/${locale}${roleHomePath(user?.role)}`;
 
-  useEffect(() => {
-    if (!loading && isAuthenticated) {
-      router.replace(destination);
-    }
-  }, [loading, isAuthenticated, destination, router]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const search = new URLSearchParams(window.location.search);
-    setVerifyStatus(search.get('verify'));
-    setInitialEmail(search.get('email') || '');
-    if (search.get('expired') === '1') {
-      setError('Sesiunea a expirat. Te rugăm să te autentifici din nou.');
-    }
-  }, []);
-
-  useEffect(() => {
-    if (verifyStatus === 'sent') {
-      setInfo(tAuth('checkEmailBody'));
-      if (initialEmail) setEmail(initialEmail);
-    } else if (verifyStatus === 'ok') {
-      setInfo(tAuth('emailVerified'));
-    }
-  }, [verifyStatus, initialEmail, tAuth]);
-
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setError('');
-    setEmailNotVerified(false);
-    const nextFieldErrors = {
-      email: email.trim() ? undefined : 'Emailul este obligatoriu.',
-      password: password ? undefined : 'Parola este obligatorie.',
-    };
-    setFieldErrors(nextFieldErrors);
-    if (nextFieldErrors.email || nextFieldErrors.password) {
-      return;
-    }
-    setSubmitting(true);
-    try {
-      await login(email.trim(), password);
-      const cachedUser = getUser();
-      const nextDestination = `/${locale}${roleHomePath(cachedUser?.role)}`;
-      router.replace(nextDestination);
-    } catch (err: unknown) {
-      const apiErr =
-        err instanceof ApiClientError
-          ? err
-          : (err as { status?: number; code?: string; message?: string } | null);
-      const code = apiErr?.code;
-      if (code === 'EMAIL_NOT_VERIFIED') {
-        setError(tErrors('EMAIL_NOT_VERIFIED'));
-        setEmailNotVerified(true);
-      } else if (code === 'WRONG_PASSWORD' || code === 'INVALID_CREDENTIALS') {
-        setError('Parola nu este corectă.');
-        showToast('Parola nu este corectă.', 'error');
-      } else if (code === 'ACCOUNT_NOT_FOUND') {
-        setError('Nu există cont cu acest email.');
-        showToast('Nu există cont cu acest email.', 'error');
-      } else if (code === 'API_URL_MISSING') {
-        const message = 'Autentificarea va funcționa după conectarea backend-ului. Momentan frontend-ul este publicat ca interfață de prezentare.';
-        setError(message);
-        showToast(message, 'error');
-      } else if (code === 'NETWORK_ERROR') {
-        const message = 'API-ul nu răspunde momentan. Verifică după ce backend-ul este publicat la domeniul API.';
-        setError(message);
-        showToast(message, 'error');
-      } else {
-        const message = 'A apărut o eroare. Încearcă din nou.';
-        setError(message);
-        showToast(message, 'error');
-      }
-      if (process.env.NODE_ENV !== 'production') console.error('[login:error]', apiErr);
-    } finally {
-      setSubmitting(false);
-    }
+  const enterAs = (role: DemoRole) => {
+    setDemoRole(role);
+    router.replace(demoRolePath(role, locale));
   };
 
-  if (loading || isAuthenticated) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4 text-center text-muted-foreground">
-        Se verifică sesiunea...
-      </div>
-    );
-  }
-
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
-      <div className="w-full max-w-md space-y-6 rounded-2xl border border-border/60 bg-card p-6 shadow-sm">
-        <div>
-          <div className="flex justify-center">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-black text-lg font-semibold text-white">E</div>
-          </div>
-          <h1 className="mt-5 text-center text-xl font-semibold tracking-tight text-foreground">{tAuth('titleLogin')}</h1>
-          <p className="mt-1 text-center text-sm text-muted-foreground">{tAuth('subtitleLogin')}</p>
-        </div>
-
-        <form className="space-y-5" onSubmit={handleSubmit}>
-          {info ? <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{info}</div> : null}
-          {error ? <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
-          {submitting ? <div className="rounded-xl border border-border/70 bg-muted/40 px-3 py-2 text-sm text-foreground">Se verifică datele...</div> : null}
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-foreground">{tAuth('email')}</label>
-            <input
-              id="email"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(event) => {
-                setEmail(event.target.value);
-                if (fieldErrors.email) setFieldErrors((current) => ({ ...current, email: undefined }));
-              }}
-              onBlur={() => setFieldErrors((current) => ({ ...current, email: email.trim() ? undefined : 'Emailul este obligatoriu.' }))}
-              aria-invalid={!!fieldErrors.email}
-              aria-describedby={fieldErrors.email ? 'email-error' : undefined}
-              className="mt-1 block w-full rounded-xl border border-border/60 bg-background px-3 py-2 text-sm text-foreground"
-            />
-            {fieldErrors.email ? <p id="email-error" className="mt-1 text-xs text-red-600">{fieldErrors.email}</p> : null}
-          </div>
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-foreground">{tAuth('password')}</label>
-            <input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(event) => {
-                setPassword(event.target.value);
-                if (fieldErrors.password) setFieldErrors((current) => ({ ...current, password: undefined }));
-              }}
-              onBlur={() => setFieldErrors((current) => ({ ...current, password: password ? undefined : 'Parola este obligatorie.' }))}
-              aria-invalid={!!fieldErrors.password}
-              aria-describedby={fieldErrors.password ? 'password-error' : undefined}
-              className="mt-1 block w-full rounded-xl border border-border/60 bg-background px-3 py-2 text-sm text-foreground"
-            />
-            {fieldErrors.password ? <p id="password-error" className="mt-1 text-xs text-red-600">{fieldErrors.password}</p> : null}
-          </div>
-          <button
-            type="submit"
-            disabled={submitting}
-            className="flex w-full justify-center rounded-xl bg-foreground px-4 py-2.5 text-sm font-medium text-background hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {submitting ? 'Se autentifică...' : 'Autentificare'}
-          </button>
-          {featureFlags.googleAuth ? (
-            <a
-              href={googleAuthUrl}
-              className="flex w-full justify-center rounded-xl border border-border/60 bg-background px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted/60"
-            >
-              Continue with Google
-            </a>
-          ) : (
-            <button
-              type="button"
-              disabled
-              className="flex w-full cursor-not-allowed justify-center rounded-xl border border-border/60 bg-muted/40 px-4 py-2.5 text-sm font-medium text-muted-foreground"
-              title="Google auth will be enabled later"
-            >
-              {tAuth('googleDisabled')}
-            </button>
-          )}
-          {emailNotVerified ? (
-            <button
-              type="button"
-              disabled={resending || !email}
-              onClick={async () => {
-                setResending(true);
-                try {
-                  await authApi.resendVerification({ email, locale });
-                  setInfo(tAuth('checkEmailBody'));
-                  setError('');
-                } catch (err: any) {
-                  const message = err?.message || tCommon('error');
-                  setError(message);
-                  showToast(message, 'error');
-                } finally {
-                  setResending(false);
-                }
-              }}
-              className="w-full rounded-xl border border-border/60 px-4 py-2.5 text-sm text-foreground hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {resending ? tCommon('loading') : tAuth('resend')}
-            </button>
-          ) : null}
-          <p className="text-center text-xs text-muted-foreground">
-            {tAuth('newHere')}{' '}
-            <Link href={`/${locale}/register`} className="font-medium text-foreground underline underline-offset-2">
-              {tAuth('titleRegister')}
-            </Link>
-          </p>
-          <p className="text-center text-xs text-muted-foreground">
-            <Link href={`/${locale}/forgot-password`} className="font-medium text-foreground underline underline-offset-2">
-              {tAuth('forgotPassword')}
-            </Link>
-          </p>
-          {process.env.NODE_ENV !== 'production' ? (
-            <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-xs text-foreground">
-              <p className="font-medium">Dev accounts</p>
-              <div className="mt-2 space-y-2">
-                <div className="flex items-center justify-between gap-2 rounded-md border border-border/60 px-2 py-1">
-                  <span className="truncate">SUPERADMIN: bolboceanuigor@gmail.com / SuperAdmin123!</span>
-                  <button
-                    type="button"
-                    className="rounded-md border border-border/60 px-2 py-1"
-                    onClick={async () => navigator.clipboard.writeText('bolboceanuigor@gmail.com / SuperAdmin123!')}
-                  >
-                    Copy
-                  </button>
-                </div>
-                <div className="flex items-center justify-between gap-2 rounded-md border border-border/60 px-2 py-1">
-                  <span className="truncate">MANAGER: manager.test@example.com / Manager123!</span>
-                  <button
-                    type="button"
-                    className="rounded-md border border-border/60 px-2 py-1"
-                    onClick={async () => navigator.clipboard.writeText('manager.test@example.com / Manager123!')}
-                  >
-                    Copy
-                  </button>
-                </div>
-                <div className="flex items-center justify-between gap-2 rounded-md border border-border/60 px-2 py-1">
-                  <span className="truncate">TENANT: tenant.test@example.com / Tenant123!</span>
-                  <button
-                    type="button"
-                    className="rounded-md border border-border/60 px-2 py-1"
-                    onClick={async () => navigator.clipboard.writeText('tenant.test@example.com / Tenant123!')}
-                  >
-                    Copy
-                  </button>
-                </div>
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(15,23,42,0.08),transparent_34%),linear-gradient(180deg,#f8fafc_0%,#eef2f7_100%)] px-4 py-8">
+      <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-5xl items-center justify-center">
+        <section className="w-full overflow-hidden rounded-[2rem] border border-border/70 bg-white/92 shadow-[0_28px_90px_rgba(15,23,42,0.12)]">
+          <div className="grid lg:grid-cols-[0.9fr_1.1fr]">
+            <div className="bg-foreground p-6 text-background md:p-8">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-xl font-semibold text-foreground">E</div>
+              <h1 className="mt-8 text-3xl font-semibold tracking-tight md:text-4xl">Espace demo</h1>
+              <p className="mt-4 max-w-sm text-sm leading-6 text-background/75">
+                Alege rolul cu care vrei să explorezi platforma pentru condominii, APC și HOA din Moldova și România.
+              </p>
+              <div className="mt-8 rounded-2xl border border-white/15 bg-white/10 p-4 text-sm text-background/80">
+                Autentificarea este mock frontend-only. Nu există parole, JWT sau apeluri către backend.
               </div>
             </div>
-          ) : null}
-        </form>
+
+            <div className="p-5 md:p-8">
+              <div className="mb-6">
+                <p className="text-sm font-semibold text-muted-foreground">Intră în platformă</p>
+                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">Alege un rol demo</h2>
+              </div>
+
+              <div className="grid gap-3">
+                {demoRoles.map((item) => (
+                  <button
+                    key={item.role}
+                    type="button"
+                    onClick={() => enterAs(item.role)}
+                    className="group flex min-h-24 items-center gap-4 rounded-[1.35rem] border border-border/70 bg-white p-4 text-left shadow-[0_12px_38px_rgba(15,23,42,0.045)] transition hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-[0_18px_50px_rgba(15,23,42,0.08)]"
+                  >
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-muted text-foreground group-hover:bg-foreground group-hover:text-background">
+                      {item.icon}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-semibold text-foreground">{item.button}</span>
+                      <span className="mt-1 block text-sm leading-5 text-muted-foreground">{item.description}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="mt-6 flex flex-col gap-2 text-center text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:text-left">
+                <Link href={`/${locale}`} className="font-semibold text-foreground underline underline-offset-4">
+                  Înapoi la prezentare
+                </Link>
+                <span>Fără date reale. Doar preview local.</span>
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }

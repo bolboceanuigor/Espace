@@ -1,18 +1,23 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
 import { Languages, LogOut, Mail, Phone, ShieldCheck, UserRound } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { settingsApi } from '@/lib/api';
 import Button from '@/components/ui/Button';
 import { useToast } from '@/components/ui/ToastProvider';
+import { demoLogout } from '@/lib/demo-auth';
+import { defaultLocale, isLocale } from '@/i18n';
 
 type ContPageProps = {
   organizationLabel?: string;
 };
 
 export default function ContPage({ organizationLabel = 'Organizație' }: ContPageProps) {
-  const { user, org, prefs, updatePreferences, logout } = useAuth();
+  const { user, org, prefs } = useAuth();
+  const params = useParams<{ locale?: string }>();
+  const localeParam = typeof params?.locale === 'string' ? params.locale : defaultLocale;
+  const locale = isLocale(localeParam) ? localeParam : defaultLocale;
   const { showToast } = useToast();
   const [displayName, setDisplayName] = useState('');
   const [phone, setPhone] = useState('');
@@ -28,19 +33,10 @@ export default function ContPage({ organizationLabel = 'Organizație' }: ContPag
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true);
-    try {
-      const [firstName, ...rest] = displayName.trim().split(/\s+/);
-      await Promise.all([
-        settingsApi.updateProfile({ firstName: firstName || '', lastName: rest.join(' ') || '' }).catch(() => null),
-        updatePreferences({ locale: language }),
-      ]);
-      const phoneChanged = phone.trim() !== String((user as any)?.phone || '').trim();
-      showToast(phoneChanged ? 'Numele și limba au fost salvate. Telefonul rămâne local momentan.' : 'Setările au fost salvate.');
-    } catch {
-      showToast('Datele au fost păstrate local. Salvarea completă va fi conectată ulterior.', 'error');
-    } finally {
+    window.setTimeout(() => {
+      showToast('Setările au fost păstrate local pentru demo.');
       setSaving(false);
-    }
+    }, 250);
   }
 
   return (
@@ -130,7 +126,7 @@ export default function ContPage({ organizationLabel = 'Organizație' }: ContPag
 
             <div className="mt-6 flex flex-col gap-2 sm:flex-row">
               <Button type="submit" isLoading={saving}>Salvează</Button>
-              <Button type="button" variant="danger" onClick={() => logout()}>
+              <Button type="button" variant="danger" onClick={() => demoLogout(locale)}>
                 <LogOut className="h-4 w-4" />
                 Deconectare
               </Button>
