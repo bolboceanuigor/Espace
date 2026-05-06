@@ -1,6 +1,7 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { InvoiceStatus, Prisma, ResidentAccountStatus } from '@prisma/client';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { InvoiceStatus, Prisma, ResidentAccountStatus, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import type { MvpUser } from '../security/mvp-auth.guard';
 
 @Injectable()
 export class ResidentsService {
@@ -142,8 +143,26 @@ export class ResidentsService {
     };
   }
 
-  async listResidents() {
+  private isSuperadmin(user: MvpUser) {
+    return String(user.role).toUpperCase() === Role.SUPERADMIN;
+  }
+
+  private organizationWhere(user: MvpUser) {
+    return this.isSuperadmin(user) ? {} : { organizationId: user.organizationId };
+  }
+
+  private assertOrganizationAccess(user: MvpUser, organizationId: string) {
+    if (!this.isSuperadmin(user) && organizationId !== user.organizationId) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN_ORGANIZATION',
+        message: 'Nu ai acces la aceste date.',
+      });
+    }
+  }
+
+  async listResidents(user: MvpUser) {
     const residents = await this.prisma.residentProfile.findMany({
+      where: this.organizationWhere(user),
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }, { createdAt: 'asc' }],
       select: this.residentSelect(),
     });
@@ -151,15 +170,19 @@ export class ResidentsService {
     return residents.map((resident) => this.toResident(resident));
   }
 
-  async createResident(body: unknown) {
+  async createResident(user: MvpUser, body: unknown) {
     const input = await this.parseCreateResidentBody(body);
+    if (!this.isSuperadmin(user)) {
+      input.organizationId = user.organizationId;
+    }
+    this.assertOrganizationAccess(user, input.organizationId);
 
     const organization = await this.prisma.organization.findUnique({
       where: { id: input.organizationId },
       select: { id: true },
     });
     if (!organization) {
-      throw new NotFoundException('Organization not found');
+      throw new NotFoundException('Înregistrarea nu a fost găsită.');
     }
 
     if (input.email) {
@@ -183,14 +206,14 @@ export class ResidentsService {
     return this.toResident(resident);
   }
 
-  async getResident(id: string) {
+  async getResident(user: MvpUser, id: string) {
     const resident = await this.prisma.residentProfile.findFirst({
-      where: { id },
+      where: { id, ...this.organizationWhere(user) },
       select: this.residentSelect(),
     });
 
     if (!resident) {
-      throw new NotFoundException('Resident not found');
+      throw new NotFoundException('Înregistrarea nu a fost găsită.');
     }
 
     return this.toResident(resident);

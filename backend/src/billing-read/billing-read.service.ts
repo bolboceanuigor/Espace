@@ -1,6 +1,7 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { InvoiceStatus, PaymentMethod, PaymentStatus, Prisma } from '@prisma/client';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { InvoiceStatus, PaymentMethod, PaymentStatus, Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import type { MvpUser } from '../security/mvp-auth.guard';
 
 @Injectable()
 export class BillingReadService {
@@ -131,8 +132,26 @@ export class BillingReadService {
     };
   }
 
-  async listInvoices() {
+  private isSuperadmin(user: MvpUser) {
+    return String(user.role).toUpperCase() === Role.SUPERADMIN;
+  }
+
+  private organizationWhere(user: MvpUser) {
+    return this.isSuperadmin(user) ? {} : { organizationId: user.organizationId };
+  }
+
+  private assertOrganizationAccess(user: MvpUser, organizationId: string) {
+    if (!this.isSuperadmin(user) && organizationId !== user.organizationId) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN_ORGANIZATION',
+        message: 'Nu ai acces la aceste date.',
+      });
+    }
+  }
+
+  async listInvoices(user: MvpUser) {
     const invoices = await this.prisma.invoice.findMany({
+      where: this.organizationWhere(user),
       orderBy: [{ year: 'desc' }, { month: 'desc' }, { createdAt: 'desc' }],
       select: this.invoiceSelect(),
     });
@@ -140,8 +159,12 @@ export class BillingReadService {
     return invoices.map((invoice) => this.toInvoice(invoice));
   }
 
-  async createInvoice(body: unknown) {
+  async createInvoice(user: MvpUser, body: unknown) {
     const input = this.parseCreateInvoiceBody(body);
+    if (!this.isSuperadmin(user)) {
+      input.organizationId = user.organizationId;
+    }
+    this.assertOrganizationAccess(user, input.organizationId);
     const [organization, apartment] = await Promise.all([
       this.prisma.organization.findUnique({ where: { id: input.organizationId }, select: { id: true } }),
       this.prisma.apartment.findFirst({
@@ -153,8 +176,8 @@ export class BillingReadService {
       }),
     ]);
 
-    if (!organization) throw new NotFoundException('Organization not found');
-    if (!apartment) throw new NotFoundException('Apartment not found');
+    if (!organization) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    if (!apartment) throw new NotFoundException('Înregistrarea nu a fost găsită.');
 
     const duplicate = await this.prisma.invoice.findFirst({
       where: {
@@ -187,14 +210,14 @@ export class BillingReadService {
     return this.toInvoice(invoice);
   }
 
-  async getInvoice(id: string) {
+  async getInvoice(user: MvpUser, id: string) {
     const invoice = await this.prisma.invoice.findFirst({
-      where: { id },
+      where: { id, ...this.organizationWhere(user) },
       select: this.invoiceSelect(),
     });
 
     if (!invoice) {
-      throw new NotFoundException('Invoice not found');
+      throw new NotFoundException('Înregistrarea nu a fost găsită.');
     }
 
     const payments = invoice.apartmentId
@@ -209,8 +232,9 @@ export class BillingReadService {
     return this.toInvoice(invoice, payments.map((payment) => this.toPayment(payment)));
   }
 
-  async listPayments() {
+  async listPayments(user: MvpUser) {
     const payments = await this.prisma.payment.findMany({
+      where: this.organizationWhere(user),
       orderBy: [{ paidAt: 'desc' }, { createdAt: 'desc' }],
       select: this.paymentSelect(),
     });
@@ -218,8 +242,12 @@ export class BillingReadService {
     return payments.map((payment) => this.toPayment(payment));
   }
 
-  async createPayment(body: unknown) {
+  async createPayment(user: MvpUser, body: unknown) {
     const input = this.parseCreatePaymentBody(body);
+    if (!this.isSuperadmin(user)) {
+      input.organizationId = user.organizationId;
+    }
+    this.assertOrganizationAccess(user, input.organizationId);
     const [organization, apartment, invoice] = await Promise.all([
       this.prisma.organization.findUnique({ where: { id: input.organizationId }, select: { id: true } }),
       this.prisma.apartment.findFirst({
@@ -245,9 +273,9 @@ export class BillingReadService {
         : Promise.resolve(null),
     ]);
 
-    if (!organization) throw new NotFoundException('Organization not found');
-    if (!apartment) throw new NotFoundException('Apartment not found');
-    if (input.invoiceId && !invoice) throw new NotFoundException('Invoice not found');
+    if (!organization) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    if (!apartment) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    if (input.invoiceId && !invoice) throw new NotFoundException('Înregistrarea nu a fost găsită.');
 
     const payment = await this.prisma.payment.create({
       data: {
@@ -277,22 +305,23 @@ export class BillingReadService {
     return this.toPayment(payment);
   }
 
-  async getPayment(id: string) {
+  async getPayment(user: MvpUser, id: string) {
     const payment = await this.prisma.payment.findFirst({
-      where: { id },
+      where: { id, ...this.organizationWhere(user) },
       select: this.paymentSelect(),
     });
 
     if (!payment) {
-      throw new NotFoundException('Payment not found');
+      throw new NotFoundException('Înregistrarea nu a fost găsită.');
     }
 
     return this.toPayment(payment);
   }
 
-  async getSummary() {
+  async getSummary(user: MvpUser) {
     const [invoices, payments] = await Promise.all([
       this.prisma.invoice.findMany({
+        where: this.organizationWhere(user),
         select: {
           amount: true,
           finalAmount: true,
@@ -300,6 +329,7 @@ export class BillingReadService {
         },
       }),
       this.prisma.payment.findMany({
+        where: this.organizationWhere(user),
         select: {
           amount: true,
           status: true,

@@ -1,6 +1,7 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { MeterReadingSource, MeterStatus, MeterType, Prisma } from '@prisma/client';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { MeterReadingSource, MeterStatus, MeterType, Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import type { MvpUser } from '../security/mvp-auth.guard';
 
 @Injectable()
 export class MetersService {
@@ -90,8 +91,26 @@ export class MetersService {
     };
   }
 
-  async listMeters() {
+  private isSuperadmin(user: MvpUser) {
+    return String(user.role).toUpperCase() === Role.SUPERADMIN;
+  }
+
+  private organizationWhere(user: MvpUser) {
+    return this.isSuperadmin(user) ? {} : { organizationId: user.organizationId };
+  }
+
+  private assertOrganizationAccess(user: MvpUser, organizationId: string) {
+    if (!this.isSuperadmin(user) && organizationId !== user.organizationId) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN_ORGANIZATION',
+        message: 'Nu ai acces la aceste date.',
+      });
+    }
+  }
+
+  async listMeters(user: MvpUser) {
     const meters = await this.prisma.meter.findMany({
+      where: this.organizationWhere(user),
       orderBy: [
         { apartment: { staircase: { name: 'asc' } } },
         { apartment: { number: 'asc' } },
@@ -103,8 +122,12 @@ export class MetersService {
     return meters.map((meter) => this.toMeter(meter));
   }
 
-  async createMeter(body: unknown) {
+  async createMeter(user: MvpUser, body: unknown) {
     const input = this.parseCreateMeterBody(body);
+    if (!this.isSuperadmin(user)) {
+      input.organizationId = user.organizationId;
+    }
+    this.assertOrganizationAccess(user, input.organizationId);
 
     const [organization, apartment] = await Promise.all([
       this.prisma.organization.findUnique({
@@ -120,8 +143,8 @@ export class MetersService {
       }),
     ]);
 
-    if (!organization) throw new NotFoundException('Organization not found');
-    if (!apartment) throw new NotFoundException('Apartment not found');
+    if (!organization) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    if (!apartment) throw new NotFoundException('Înregistrarea nu a fost găsită.');
 
     const duplicate = await this.prisma.meter.findFirst({
       where: {
@@ -142,7 +165,7 @@ export class MetersService {
     return this.toMeter(meter);
   }
 
-  async addReading(meterId: string, body: unknown) {
+  async addReading(user: MvpUser, meterId: string, body: unknown) {
     const input = this.parseAddReadingBody(body);
     const meter = await this.prisma.meter.findUnique({
       where: { id: meterId },
@@ -154,8 +177,9 @@ export class MetersService {
     });
 
     if (!meter) {
-      throw new NotFoundException('Meter not found');
+      throw new NotFoundException('Înregistrarea nu a fost găsită.');
     }
+    this.assertOrganizationAccess(user, meter.organizationId);
 
     const reading = await this.prisma.meterReading.create({
       data: {
@@ -186,16 +210,17 @@ export class MetersService {
     return reading;
   }
 
-  async getMeter(id: string) {
+  async getMeter(user: MvpUser, id: string) {
     const meter = await this.prisma.meter.findFirst({
       where: {
+        ...this.organizationWhere(user),
         OR: [{ id }, { serialNumber: id }],
       },
       select: this.meterSelect(),
     });
 
     if (!meter) {
-      throw new NotFoundException('Meter not found');
+      throw new NotFoundException('Înregistrarea nu a fost găsită.');
     }
 
     return this.toMeter(meter);

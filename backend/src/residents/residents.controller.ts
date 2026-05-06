@@ -1,27 +1,28 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
-import { Public } from '../auth/decorators/public.decorator';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Role } from '@prisma/client';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { MvpAuthGuard, MvpRolesGuard, MvpUser } from '../security/mvp-auth.guard';
 import { ResidentsService } from './residents.service';
 
 @Controller(['residents', 'api/residents'])
+@UseGuards(MvpAuthGuard, MvpRolesGuard)
+@Roles(Role.ADMIN, Role.SUPERADMIN)
 export class ResidentsController {
   constructor(private readonly residentsService: ResidentsService) {}
 
-  @Public()
   @Get()
-  listResidents() {
-    return this.residentsService.listResidents();
+  listResidents(@CurrentUser() user: MvpUser) {
+    return this.residentsService.listResidents(user);
   }
 
-  // Temporary MVP endpoint until the full backend guard stack is re-enabled.
-  @Public()
   @Post()
-  createResident(@Body() body: unknown) {
-    return this.residentsService.createResident(body);
+  createResident(@CurrentUser() user: MvpUser, @Body() body: unknown) {
+    return this.residentsService.createResident(user, body);
   }
 
-  @Public()
   @Get(':id')
-  getResident(@Param('id') id: string) {
-    return this.residentsService.getResident(id);
+  getResident(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.residentsService.getResident(user, id);
   }
 }

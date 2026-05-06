@@ -1,46 +1,43 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
-import { Public } from '../auth/decorators/public.decorator';
+import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Role } from '@prisma/client';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { MvpAuthGuard, MvpRolesGuard, MvpUser } from '../security/mvp-auth.guard';
 import { CommunityReadService } from './community-read.service';
 
 @Controller()
+@UseGuards(MvpAuthGuard, MvpRolesGuard)
+@Roles(Role.ADMIN, Role.SUPERADMIN)
 export class CommunityReadController {
   constructor(private readonly communityReadService: CommunityReadService) {}
 
-  @Public()
   @Get(['issues', 'api/issues'])
-  listIssues() {
-    return this.communityReadService.listIssues();
+  listIssues(@CurrentUser() user: MvpUser) {
+    return this.communityReadService.listIssues(user);
   }
 
-  @Public()
   @Get(['issues/:id', 'api/issues/:id'])
-  getIssue(@Param('id') id: string) {
-    return this.communityReadService.getIssue(id);
+  getIssue(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.communityReadService.getIssue(user, id);
   }
 
-  // Temporary MVP endpoint until the full backend guard stack is re-enabled.
-  @Public()
   @Patch(['issues/:id/status', 'api/issues/:id/status'])
-  updateIssueStatus(@Param('id') id: string, @Body() body: unknown) {
-    return this.communityReadService.updateIssueStatus(id, body);
+  updateIssueStatus(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.communityReadService.updateIssueStatus(user, id, body);
   }
 
-  @Public()
   @Get(['announcements', 'api/announcements'])
-  listAnnouncements() {
-    return this.communityReadService.listAnnouncements();
+  listAnnouncements(@CurrentUser() user: MvpUser) {
+    return this.communityReadService.listAnnouncements(user);
   }
 
-  // Temporary MVP endpoint until the full backend guard stack is re-enabled.
-  @Public()
   @Post(['announcements', 'api/announcements'])
-  createAnnouncement(@Body() body: unknown) {
-    return this.communityReadService.createAnnouncement(body);
+  createAnnouncement(@CurrentUser() user: MvpUser, @Body() body: unknown) {
+    return this.communityReadService.createAnnouncement(user, body);
   }
 
-  @Public()
   @Get(['announcements/:id', 'api/announcements/:id'])
-  getAnnouncement(@Param('id') id: string) {
-    return this.communityReadService.getAnnouncement(id);
+  getAnnouncement(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.communityReadService.getAnnouncement(user, id);
   }
 }

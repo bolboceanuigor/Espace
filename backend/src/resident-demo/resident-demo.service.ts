@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   InvoiceStatus,
   IssueCategory,
@@ -11,16 +11,24 @@ import {
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-
-const DEMO_APARTMENT_NUMBER = '45';
+import type { MvpUser } from '../security/mvp-auth.guard';
 
 @Injectable()
 export class ResidentDemoService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private async getDemoApartment() {
+  private async getResidentApartment(user: MvpUser) {
     return this.prisma.apartment.findFirst({
-      where: { number: DEMO_APARTMENT_NUMBER },
+      where: {
+        organizationId: user.organizationId,
+        apartmentResidents: {
+          some: {
+            resident: {
+              userId: user.id,
+            },
+          },
+        },
+      },
       select: {
         id: true,
         organizationId: true,
@@ -51,6 +59,17 @@ export class ResidentDemoService {
         },
       },
     });
+  }
+
+  private async requireResidentApartment(user: MvpUser) {
+    const apartment = await this.getResidentApartment(user);
+    if (!apartment) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN_RESIDENT_SCOPE',
+        message: 'Nu ai acces la aceste date.',
+      });
+    }
+    return apartment;
   }
 
   private invoiceSelect(): Prisma.InvoiceSelect {
@@ -253,9 +272,8 @@ export class ResidentDemoService {
     };
   }
 
-  async listInvoices() {
-    const apartment = await this.getDemoApartment();
-    if (!apartment) return [];
+  async listInvoices(user: MvpUser) {
+    const apartment = await this.requireResidentApartment(user);
 
     const invoices = await this.prisma.invoice.findMany({
       where: { apartmentId: apartment.id },
@@ -266,9 +284,8 @@ export class ResidentDemoService {
     return invoices.map((invoice) => this.toInvoice(invoice));
   }
 
-  async listPayments() {
-    const apartment = await this.getDemoApartment();
-    if (!apartment) return [];
+  async listPayments(user: MvpUser) {
+    const apartment = await this.requireResidentApartment(user);
 
     const payments = await this.prisma.payment.findMany({
       where: { apartmentId: apartment.id },
@@ -279,9 +296,8 @@ export class ResidentDemoService {
     return payments.map((payment) => this.toPayment(payment));
   }
 
-  async listMeters() {
-    const apartment = await this.getDemoApartment();
-    if (!apartment) return [];
+  async listMeters(user: MvpUser) {
+    const apartment = await this.requireResidentApartment(user);
 
     const meters = await this.prisma.meter.findMany({
       where: { apartmentId: apartment.id },
@@ -292,9 +308,8 @@ export class ResidentDemoService {
     return meters.map((meter) => this.toMeter(meter));
   }
 
-  async addMeterReading(meterId: string, body: unknown) {
-    const apartment = await this.getDemoApartment();
-    if (!apartment) throw new NotFoundException('Apartment not found');
+  async addMeterReading(user: MvpUser, meterId: string, body: unknown) {
+    const apartment = await this.requireResidentApartment(user);
 
     const input = this.parseMeterReadingBody(body);
     const meter = await this.prisma.meter.findFirst({
@@ -309,7 +324,7 @@ export class ResidentDemoService {
       },
     });
 
-    if (!meter) throw new NotFoundException('Meter not found');
+    if (!meter) throw new NotFoundException('Înregistrarea nu a fost găsită.');
 
     const reading = await this.prisma.meterReading.create({
       data: {
@@ -340,9 +355,8 @@ export class ResidentDemoService {
     return reading;
   }
 
-  async listIssues() {
-    const apartment = await this.getDemoApartment();
-    if (!apartment) return [];
+  async listIssues(user: MvpUser) {
+    const apartment = await this.requireResidentApartment(user);
 
     const issues = await this.prisma.issue.findMany({
       where: { apartmentId: apartment.id },
@@ -353,9 +367,8 @@ export class ResidentDemoService {
     return issues.map((issue) => this.toIssue(issue));
   }
 
-  async createIssue(body: unknown) {
-    const apartment = await this.getDemoApartment();
-    if (!apartment) throw new NotFoundException('Apartment not found');
+  async createIssue(user: MvpUser, body: unknown) {
+    const apartment = await this.requireResidentApartment(user);
 
     const input = this.parseCreateIssueBody(body);
     const residentRelation = apartment.apartmentResidents?.[0] ?? null;
@@ -382,9 +395,8 @@ export class ResidentDemoService {
     return this.toIssue(issue);
   }
 
-  async listAnnouncements() {
-    const apartment = await this.getDemoApartment();
-    if (!apartment) return [];
+  async listAnnouncements(user: MvpUser) {
+    const apartment = await this.requireResidentApartment(user);
 
     const announcements = await this.prisma.announcement.findMany({
       where: {
@@ -398,24 +410,14 @@ export class ResidentDemoService {
     return announcements.map((announcement) => this.toAnnouncement(announcement));
   }
 
-  async getDemoContext() {
-    const apartment = await this.getDemoApartment();
-    if (!apartment) {
-      return {
-        resident: null,
-        apartment: null,
-        balance: { current: 0, status: 'UNPAID', nextDueDate: null },
-        latestAnnouncement: null,
-        meterReminder: { missingCount: 0 },
-        activeIssueSummary: { count: 0, latest: null },
-      };
-    }
+  async getDemoContext(user: MvpUser) {
+    const apartment = await this.requireResidentApartment(user);
 
     const [invoices, meters, issues, announcements] = await Promise.all([
-      this.listInvoices(),
-      this.listMeters(),
-      this.listIssues(),
-      this.listAnnouncements(),
+      this.listInvoices(user),
+      this.listMeters(user),
+      this.listIssues(user),
+      this.listAnnouncements(user),
     ]);
     const residentRelation = apartment.apartmentResidents?.[0];
     const openInvoices = invoices.filter((invoice) => invoice.status === InvoiceStatus.UNPAID || invoice.status === InvoiceStatus.OVERDUE);

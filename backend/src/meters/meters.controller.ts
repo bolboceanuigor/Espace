@@ -1,34 +1,33 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
-import { Public } from '../auth/decorators/public.decorator';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Role } from '@prisma/client';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { MvpAuthGuard, MvpRolesGuard, MvpUser } from '../security/mvp-auth.guard';
 import { MetersService } from './meters.service';
 
 @Controller(['meters', 'api/meters'])
+@UseGuards(MvpAuthGuard, MvpRolesGuard)
+@Roles(Role.ADMIN, Role.SUPERADMIN)
 export class MetersController {
   constructor(private readonly metersService: MetersService) {}
 
-  @Public()
   @Get()
-  listMeters() {
-    return this.metersService.listMeters();
+  listMeters(@CurrentUser() user: MvpUser) {
+    return this.metersService.listMeters(user);
   }
 
-  // Temporary MVP endpoint until the full backend guard stack is re-enabled.
-  @Public()
   @Post()
-  createMeter(@Body() body: unknown) {
-    return this.metersService.createMeter(body);
+  createMeter(@CurrentUser() user: MvpUser, @Body() body: unknown) {
+    return this.metersService.createMeter(user, body);
   }
 
-  // Temporary MVP endpoint until the full backend guard stack is re-enabled.
-  @Public()
   @Post(':meterId/readings')
-  addReading(@Param('meterId') meterId: string, @Body() body: unknown) {
-    return this.metersService.addReading(meterId, body);
+  addReading(@CurrentUser() user: MvpUser, @Param('meterId') meterId: string, @Body() body: unknown) {
+    return this.metersService.addReading(user, meterId, body);
   }
 
-  @Public()
   @Get(':id')
-  getMeter(@Param('id') id: string) {
-    return this.metersService.getMeter(id);
+  getMeter(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.metersService.getMeter(user, id);
   }
 }

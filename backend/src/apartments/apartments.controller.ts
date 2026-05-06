@@ -1,34 +1,33 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
-import { Public } from '../auth/decorators/public.decorator';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Role } from '@prisma/client';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { MvpAuthGuard, MvpRolesGuard, MvpUser } from '../security/mvp-auth.guard';
 import { ApartmentsService } from './apartments.service';
 
 @Controller(['apartments', 'api/apartments'])
+@UseGuards(MvpAuthGuard, MvpRolesGuard)
+@Roles(Role.ADMIN, Role.SUPERADMIN)
 export class ApartmentsController {
   constructor(private readonly apartmentsService: ApartmentsService) {}
 
-  @Public()
   @Get()
-  listApartments() {
-    return this.apartmentsService.listApartments();
+  listApartments(@CurrentUser() user: MvpUser) {
+    return this.apartmentsService.listApartments(user);
   }
 
-  // Temporary MVP endpoint until the full backend guard stack is re-enabled.
-  @Public()
   @Post()
-  createApartment(@Body() body: unknown) {
-    return this.apartmentsService.createApartment(body);
+  createApartment(@CurrentUser() user: MvpUser, @Body() body: unknown) {
+    return this.apartmentsService.createApartment(user, body);
   }
 
-  // Temporary MVP endpoint until the full backend guard stack is re-enabled.
-  @Public()
   @Post(':apartmentId/residents')
-  linkResident(@Param('apartmentId') apartmentId: string, @Body() body: unknown) {
-    return this.apartmentsService.linkResident(apartmentId, body);
+  linkResident(@CurrentUser() user: MvpUser, @Param('apartmentId') apartmentId: string, @Body() body: unknown) {
+    return this.apartmentsService.linkResident(user, apartmentId, body);
   }
 
-  @Public()
   @Get(':id')
-  getApartment(@Param('id') id: string) {
-    return this.apartmentsService.getApartment(id);
+  getApartment(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.apartmentsService.getApartment(user, id);
   }
 }

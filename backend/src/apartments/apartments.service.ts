@@ -1,6 +1,7 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { ApartmentResidentRole, ApartmentStatus, InvoiceStatus, MeterStatus, Prisma } from '@prisma/client';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ApartmentResidentRole, ApartmentStatus, InvoiceStatus, MeterStatus, Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import type { MvpUser } from '../security/mvp-auth.guard';
 
 @Injectable()
 export class ApartmentsService {
@@ -198,8 +199,26 @@ export class ApartmentsService {
     };
   }
 
-  async listApartments() {
+  private isSuperadmin(user: MvpUser) {
+    return String(user.role).toUpperCase() === Role.SUPERADMIN;
+  }
+
+  private organizationWhere(user: MvpUser) {
+    return this.isSuperadmin(user) ? {} : { organizationId: user.organizationId };
+  }
+
+  private assertOrganizationAccess(user: MvpUser, organizationId: string) {
+    if (!this.isSuperadmin(user) && organizationId !== user.organizationId) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN_ORGANIZATION',
+        message: 'Nu ai acces la aceste date.',
+      });
+    }
+  }
+
+  async listApartments(user: MvpUser) {
     const apartments = await this.prisma.apartment.findMany({
+      where: this.organizationWhere(user),
       orderBy: [{ staircase: { name: 'asc' } }, { floor: 'asc' }, { number: 'asc' }],
       select: this.apartmentSelect(),
     });
@@ -207,8 +226,12 @@ export class ApartmentsService {
     return apartments.map((apartment) => this.toListApartment(apartment));
   }
 
-  async createApartment(body: unknown) {
+  async createApartment(user: MvpUser, body: unknown) {
     const input = this.parseCreateApartmentBody(body);
+    if (!this.isSuperadmin(user)) {
+      input.organizationId = user.organizationId;
+    }
+    this.assertOrganizationAccess(user, input.organizationId);
 
     const [organization, building, staircase] = await Promise.all([
       this.prisma.organization.findUnique({ where: { id: input.organizationId }, select: { id: true } }),
@@ -229,9 +252,9 @@ export class ApartmentsService {
       }),
     ]);
 
-    if (!organization) throw new NotFoundException('Organization not found');
-    if (!building) throw new NotFoundException('Building not found');
-    if (!staircase) throw new NotFoundException('Staircase not found');
+    if (!organization) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    if (!building) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    if (!staircase) throw new NotFoundException('Înregistrarea nu a fost găsită.');
 
     const duplicate = await this.prisma.apartment.findUnique({
       where: {
@@ -254,7 +277,7 @@ export class ApartmentsService {
     return this.toDetailApartment(apartment);
   }
 
-  async linkResident(apartmentId: string, body: unknown) {
+  async linkResident(user: MvpUser, apartmentId: string, body: unknown) {
     const input = this.parseLinkResidentBody(body);
 
     const apartment = await this.prisma.apartment.findUnique({
@@ -265,8 +288,9 @@ export class ApartmentsService {
       },
     });
     if (!apartment) {
-      throw new NotFoundException('Apartment not found');
+      throw new NotFoundException('Înregistrarea nu a fost găsită.');
     }
+    this.assertOrganizationAccess(user, apartment.organizationId);
 
     const resident = await this.prisma.residentProfile.findFirst({
       where: {
@@ -283,7 +307,7 @@ export class ApartmentsService {
       },
     });
     if (!resident) {
-      throw new NotFoundException('Resident not found');
+      throw new NotFoundException('Înregistrarea nu a fost găsită.');
     }
 
     const duplicate = await this.prisma.apartmentResident.findFirst({
@@ -358,16 +382,17 @@ export class ApartmentsService {
     };
   }
 
-  async getApartment(id: string) {
+  async getApartment(user: MvpUser, id: string) {
     const apartment = await this.prisma.apartment.findFirst({
       where: {
+        ...this.organizationWhere(user),
         OR: [{ id }, { number: id.replace(/^apt-/, '') }],
       },
       select: this.apartmentSelect(),
     });
 
     if (!apartment) {
-      throw new NotFoundException('Apartment not found');
+      throw new NotFoundException('Înregistrarea nu a fost găsită.');
     }
 
     return this.toDetailApartment(apartment);

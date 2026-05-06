@@ -1,45 +1,40 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Role } from '@prisma/client';
 import { OrganizationsService } from './organizations.service';
-import { Public } from '../auth/decorators/public.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { MvpAuthGuard, MvpRolesGuard } from '../security/mvp-auth.guard';
 
 @Controller(['organizations', 'api/organizations'])
+@UseGuards(MvpAuthGuard, MvpRolesGuard)
+@Roles(Role.SUPERADMIN)
 export class OrganizationsController {
   constructor(private readonly organizationsService: OrganizationsService) {}
 
-  @Public()
   @Get()
   listPublicOrganizations() {
     return this.organizationsService.listPublicOrganizations();
   }
 
-  // Temporary MVP endpoint until the full backend guard stack is re-enabled.
-  @Public()
   @Post()
   createPublicOrganization(@Body() body: unknown) {
     return this.organizationsService.createPublicOrganization(body);
   }
 
-  // Temporary MVP endpoint until the full backend guard stack is re-enabled.
-  @Public()
   @Get(':organizationId/admins')
   listPublicOrganizationAdmins(@Param('organizationId') organizationId: string) {
     return this.organizationsService.listPublicOrganizationAdmins(organizationId);
   }
 
-  // Temporary MVP endpoint until the full backend guard stack is re-enabled.
-  @Public()
   @Post(':organizationId/admins')
   createPublicOrganizationAdmin(@Param('organizationId') organizationId: string, @Body() body: unknown) {
     return this.organizationsService.createPublicOrganizationAdmin(organizationId, body);
   }
 
-  @Public()
   @Patch(':id/status')
   updatePublicOrganizationStatus(@Param('id') id: string, @Body() body: unknown) {
     return this.organizationsService.updatePublicOrganizationStatus(id, body);
   }
 
-  @Public()
   @Get(':id')
   getPublicOrganization(@Param('id') id: string) {
     return this.organizationsService.findPublicOrganization(id);

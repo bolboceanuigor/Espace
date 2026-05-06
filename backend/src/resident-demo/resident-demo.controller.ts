@@ -1,58 +1,53 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
-import { Public } from '../auth/decorators/public.decorator';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Role } from '@prisma/client';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { MvpAuthGuard, MvpRolesGuard, MvpUser } from '../security/mvp-auth.guard';
 import { ResidentDemoService } from './resident-demo.service';
 
 @Controller()
+@UseGuards(MvpAuthGuard, MvpRolesGuard)
+@Roles(Role.RESIDENT)
 export class ResidentDemoController {
   constructor(private readonly residentDemoService: ResidentDemoService) {}
 
-  @Public()
-  @Get(['resident/demo', 'api/resident/demo'])
-  getDemoContext() {
-    return this.residentDemoService.getDemoContext();
+  @Get(['resident/me', 'api/resident/me', 'resident/demo', 'api/resident/demo'])
+  getDemoContext(@CurrentUser() user: MvpUser) {
+    return this.residentDemoService.getDemoContext(user);
   }
 
-  @Public()
   @Get(['resident/invoices', 'api/resident/invoices'])
-  listInvoices() {
-    return this.residentDemoService.listInvoices();
+  listInvoices(@CurrentUser() user: MvpUser) {
+    return this.residentDemoService.listInvoices(user);
   }
 
-  @Public()
   @Get(['resident/payments', 'api/resident/payments'])
-  listPayments() {
-    return this.residentDemoService.listPayments();
+  listPayments(@CurrentUser() user: MvpUser) {
+    return this.residentDemoService.listPayments(user);
   }
 
-  @Public()
   @Get(['resident/meters', 'api/resident/meters'])
-  listMeters() {
-    return this.residentDemoService.listMeters();
+  listMeters(@CurrentUser() user: MvpUser) {
+    return this.residentDemoService.listMeters(user);
   }
 
-  // Temporary MVP endpoint: uses seeded demo resident context until full auth scoping is enabled.
-  @Public()
   @Post(['resident/meters/:meterId/readings', 'api/resident/meters/:meterId/readings'])
-  addMeterReading(@Param('meterId') meterId: string, @Body() body: unknown) {
-    return this.residentDemoService.addMeterReading(meterId, body);
+  addMeterReading(@CurrentUser() user: MvpUser, @Param('meterId') meterId: string, @Body() body: unknown) {
+    return this.residentDemoService.addMeterReading(user, meterId, body);
   }
 
-  @Public()
   @Get(['resident/issues', 'api/resident/issues'])
-  listIssues() {
-    return this.residentDemoService.listIssues();
+  listIssues(@CurrentUser() user: MvpUser) {
+    return this.residentDemoService.listIssues(user);
   }
 
-  // Temporary MVP endpoint: uses seeded demo resident context until full auth scoping is enabled.
-  @Public()
   @Post(['resident/issues', 'api/resident/issues'])
-  createIssue(@Body() body: unknown) {
-    return this.residentDemoService.createIssue(body);
+  createIssue(@CurrentUser() user: MvpUser, @Body() body: unknown) {
+    return this.residentDemoService.createIssue(user, body);
   }
 
-  @Public()
   @Get(['resident/announcements', 'api/resident/announcements'])
-  listAnnouncements() {
-    return this.residentDemoService.listAnnouncements();
+  listAnnouncements(@CurrentUser() user: MvpUser) {
+    return this.residentDemoService.listAnnouncements(user);
   }
 }

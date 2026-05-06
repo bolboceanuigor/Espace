@@ -1,6 +1,7 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { AnnouncementCategory, AnnouncementStatus, IssueStatus, Prisma } from '@prisma/client';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { AnnouncementCategory, AnnouncementStatus, IssueStatus, Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import type { MvpUser } from '../security/mvp-auth.guard';
 
 @Injectable()
 export class CommunityReadService {
@@ -122,8 +123,26 @@ export class CommunityReadService {
     };
   }
 
-  async listIssues() {
+  private isSuperadmin(user: MvpUser) {
+    return String(user.role).toUpperCase() === Role.SUPERADMIN;
+  }
+
+  private organizationWhere(user: MvpUser) {
+    return this.isSuperadmin(user) ? {} : { organizationId: user.organizationId };
+  }
+
+  private assertOrganizationAccess(user: MvpUser, organizationId: string) {
+    if (!this.isSuperadmin(user) && organizationId !== user.organizationId) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN_ORGANIZATION',
+        message: 'Nu ai acces la aceste date.',
+      });
+    }
+  }
+
+  async listIssues(user: MvpUser) {
     const issues = await this.prisma.issue.findMany({
+      where: this.organizationWhere(user),
       orderBy: { createdAt: 'desc' },
       select: this.issueSelect(),
     });
@@ -131,29 +150,30 @@ export class CommunityReadService {
     return issues.map((issue) => this.toIssue(issue));
   }
 
-  async getIssue(id: string) {
+  async getIssue(user: MvpUser, id: string) {
     const issue = await this.prisma.issue.findFirst({
-      where: { id },
+      where: { id, ...this.organizationWhere(user) },
       select: this.issueSelect(),
     });
 
     if (!issue) {
-      throw new NotFoundException('Issue not found');
+      throw new NotFoundException('Înregistrarea nu a fost găsită.');
     }
 
     return this.toIssue(issue);
   }
 
-  async updateIssueStatus(id: string, body: unknown) {
+  async updateIssueStatus(user: MvpUser, id: string, body: unknown) {
     const status = this.parseIssueStatus(body);
-    const existing = await this.prisma.issue.findUnique({
-      where: { id },
-      select: { id: true },
+    const existing = await this.prisma.issue.findFirst({
+      where: { id, ...this.organizationWhere(user) },
+      select: { id: true, organizationId: true },
     });
 
     if (!existing) {
-      throw new NotFoundException('Issue not found');
+      throw new NotFoundException('Înregistrarea nu a fost găsită.');
     }
+    this.assertOrganizationAccess(user, existing.organizationId);
 
     const issue = await this.prisma.issue.update({
       where: { id },
@@ -167,8 +187,9 @@ export class CommunityReadService {
     return this.toIssue(issue);
   }
 
-  async listAnnouncements() {
+  async listAnnouncements(user: MvpUser) {
     const announcements = await this.prisma.announcement.findMany({
+      where: this.organizationWhere(user),
       orderBy: [{ createdAt: 'desc' }],
       select: this.announcementSelect(),
     });
@@ -176,15 +197,19 @@ export class CommunityReadService {
     return announcements.map((announcement) => this.toAnnouncement(announcement));
   }
 
-  async createAnnouncement(body: unknown) {
+  async createAnnouncement(user: MvpUser, body: unknown) {
     const input = this.parseCreateAnnouncementBody(body);
+    if (!this.isSuperadmin(user)) {
+      input.organizationId = user.organizationId;
+    }
+    this.assertOrganizationAccess(user, input.organizationId);
     const organization = await this.prisma.organization.findUnique({
       where: { id: input.organizationId },
       select: { id: true },
     });
 
     if (!organization) {
-      throw new NotFoundException('Organization not found');
+      throw new NotFoundException('Înregistrarea nu a fost găsită.');
     }
 
     const announcement = await this.prisma.announcement.create({
@@ -195,14 +220,14 @@ export class CommunityReadService {
     return this.toAnnouncement(announcement);
   }
 
-  async getAnnouncement(id: string) {
+  async getAnnouncement(user: MvpUser, id: string) {
     const announcement = await this.prisma.announcement.findFirst({
-      where: { id },
+      where: { id, ...this.organizationWhere(user) },
       select: this.announcementSelect(),
     });
 
     if (!announcement) {
-      throw new NotFoundException('Announcement not found');
+      throw new NotFoundException('Înregistrarea nu a fost găsită.');
     }
 
     return this.toAnnouncement(announcement);
