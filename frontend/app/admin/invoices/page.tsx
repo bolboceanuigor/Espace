@@ -1,42 +1,86 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { CalendarDays, CheckCircle2, Clock3, FileText, Search, Send } from 'lucide-react';
 import { Badge, Button, ButtonLink, Card, Input, PageHeader, StatCard } from '@/components/ui';
-import { adminInvoices, invoiceStatusVariant, type AdminInvoice, type InvoiceStatus } from '@/lib/admin-mvp-data';
+import { invoicesApi, paymentsApi } from '@/lib/api';
+import { adminInvoices, invoiceStatusVariant, normalizeApiInvoice, type AdminInvoice, type InvoiceStatus } from '@/lib/admin-mvp-data';
 import { formatMdl } from '@/lib/condo-admin-fallback';
+import { useLocalizedPath } from '@/lib/use-localized-path';
 
 const months = ['Toate', 'Mai 2026', 'Aprilie 2026', 'Martie 2026'];
 const statuses: Array<'Toate' | InvoiceStatus> = ['Toate', 'Achitat', 'Neachitat', 'Întârziat'];
 
 export default function AdminInvoicesPage() {
+  const localizedPath = useLocalizedPath();
   const [month, setMonth] = useState('Toate');
   const [status, setStatus] = useState<'Toate' | InvoiceStatus>('Toate');
   const [query, setQuery] = useState('');
+  const [rows, setRows] = useState<AdminInvoice[]>(adminInvoices);
+  const [source, setSource] = useState<'api' | 'mock'>('mock');
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([
+      invoicesApi.list(),
+      paymentsApi.list().catch(() => ({ data: [] })),
+    ])
+      .then(([invoiceRes, paymentRes]) => {
+        if (!active) return;
+        const apiRows = (invoiceRes.data || []).map((invoice) => normalizeApiInvoice(invoice, paymentRes.data || []));
+        if (apiRows.length) {
+          setRows(apiRows);
+          setSource('api');
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        setRows(adminInvoices);
+        setSource('mock');
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return adminInvoices.filter((invoice) => {
+    return rows.filter((invoice) => {
       const matchesSearch = !needle || `${invoice.apartment} ${invoice.staircase} ${invoice.month} ${invoice.invoiceNumber}`.toLowerCase().includes(needle);
       const matchesMonth = month === 'Toate' || invoice.month === month;
       const matchesStatus = status === 'Toate' || invoice.status === status;
       return matchesSearch && matchesMonth && matchesStatus;
     });
-  }, [month, query, status]);
+  }, [month, query, rows, status]);
+
+  const currentMonths = ['Toate', ...Array.from(new Set(rows.map((invoice) => invoice.month)))];
+  const totals = useMemo(() => ({
+    issued: rows.length,
+    paid: rows.filter((invoice) => invoice.status === 'Achitat'),
+    unpaid: rows.filter((invoice) => invoice.status !== 'Achitat'),
+    nextDue: rows.find((invoice) => invoice.status !== 'Achitat')?.dueDate || 'Nu există',
+  }), [rows]);
 
   return (
     <div className="space-y-5 pb-4">
       <PageHeader
         title="Facturi"
         description="Facturi lunare pe apartament, cu status de plată și scadențe."
-        rightSlot={<ButtonLink href="/admin/payments" variant="secondary">Vezi plăți</ButtonLink>}
+        rightSlot={
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
+              {source === 'api' ? 'Date reale' : 'Date demo'}
+            </span>
+            <ButtonLink href={localizedPath('/admin/payments')} variant="secondary">Vezi plăți</ButtonLink>
+          </div>
+        }
       />
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Facturi emise" value="142" description="Pentru Mai 2026" icon={<FileText className="h-5 w-5" />} />
-        <StatCard label="Achitate" value="105" description={formatMdl(131950)} icon={<CheckCircle2 className="h-5 w-5" />} tone="success" />
-        <StatCard label="Neachitate" value="37" description={formatMdl(86450)} icon={<Clock3 className="h-5 w-5" />} tone="danger" />
-        <StatCard label="Următoarea scadență" value="10 Iunie" description="Termen de plată curent" icon={<CalendarDays className="h-5 w-5" />} tone="warning" />
+        <StatCard label="Facturi emise" value={String(totals.issued)} description="În evidența curentă" icon={<FileText className="h-5 w-5" />} />
+        <StatCard label="Achitate" value={String(totals.paid.length)} description={formatMdl(totals.paid.reduce((sum, invoice) => sum + invoice.amount, 0))} icon={<CheckCircle2 className="h-5 w-5" />} tone="success" />
+        <StatCard label="Neachitate" value={String(totals.unpaid.length)} description={formatMdl(totals.unpaid.reduce((sum, invoice) => sum + invoice.amount, 0))} icon={<Clock3 className="h-5 w-5" />} tone="danger" />
+        <StatCard label="Următoarea scadență" value={totals.nextDue} description="Termen de plată curent" icon={<CalendarDays className="h-5 w-5" />} tone="warning" />
       </section>
 
       <Card>
@@ -45,7 +89,7 @@ export default function AdminInvoicesPage() {
             <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input className="pl-9" placeholder="Caută apartament, lună sau număr factură" value={query} onChange={(event) => setQuery(event.target.value)} />
           </label>
-          <Select value={month} onChange={setMonth} options={months} label="Luna" />
+          <Select value={month} onChange={setMonth} options={currentMonths.length > 1 ? currentMonths : months} label="Luna" />
           <Select value={status} onChange={(value) => setStatus(value as 'Toate' | InvoiceStatus)} options={statuses} label="Status" />
           <Button className="self-end" variant="primary"><Send className="h-4 w-4" /> Emite facturi</Button>
         </div>
@@ -72,21 +116,21 @@ export default function AdminInvoicesPage() {
             <span className="font-semibold text-foreground">{formatMdl(invoice.amount)}</span>
             <span className="text-muted-foreground">{invoice.dueDate}</span>
             <Badge variant={invoiceStatusVariant[invoice.status]}>{invoice.status}</Badge>
-            <ButtonLink href="/admin/invoices" size="sm" variant="secondary">Deschide</ButtonLink>
+            <ButtonLink href={localizedPath(`/admin/invoices/${invoice.id}`)} size="sm" variant="secondary">Deschide</ButtonLink>
           </div>
         ))}
       </section>
 
       <section className="grid gap-3 md:hidden">
         {filtered.map((invoice) => (
-          <InvoiceCard key={invoice.id} invoice={invoice} />
+          <InvoiceCard key={invoice.id} invoice={invoice} href={localizedPath(`/admin/invoices/${invoice.id}`)} />
         ))}
       </section>
     </div>
   );
 }
 
-function InvoiceCard({ invoice }: { invoice: AdminInvoice }) {
+function InvoiceCard({ invoice, href }: { invoice: AdminInvoice; href: string }) {
   return (
     <Card className="p-4">
       <div className="flex items-start justify-between gap-3">
@@ -101,7 +145,7 @@ function InvoiceCard({ invoice }: { invoice: AdminInvoice }) {
         <Info label="Data scadentă" value={invoice.dueDate} />
         <Info label="Metodă plată" value={invoice.paymentMethod ?? '-'} />
       </div>
-      <ButtonLink href="/admin/invoices" className="mt-4 w-full" variant="secondary">Deschide</ButtonLink>
+      <ButtonLink href={href} className="mt-4 w-full" variant="secondary">Deschide</ButtonLink>
     </Card>
   );
 }

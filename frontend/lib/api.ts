@@ -940,6 +940,8 @@ export const importsApi = {
 };
 
 export const invoicesApi = {
+  list: () => apiRequest<any[]>('/invoices'),
+  get: (id: string) => apiRequest<any>(`/invoices/${id}`),
   generateMonthly: (data: { month: number; year: number; dueDate?: string }) =>
     apiRequest<any>('/api/admin/invoices/generate-monthly', { method: 'POST', body: data }),
   adminList: (params?: { month?: number; year?: number; buildingId?: string; staircaseId?: string; status?: string; page?: number; limit?: number }) =>
@@ -962,6 +964,9 @@ export const invoicesApi = {
 };
 
 export const paymentsApi = {
+  list: () => apiRequest<any[]>('/payments'),
+  get: (id: string) => apiRequest<any>(`/payments/${id}`),
+  summary: () => apiRequest<any>('/billing/summary'),
   adminList: (params?: {
     buildingId?: string;
     staircaseId?: string;

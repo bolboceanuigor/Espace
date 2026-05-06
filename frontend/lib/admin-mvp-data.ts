@@ -696,6 +696,48 @@ export function normalizeApiMeter(row: any): AdminMeter {
   };
 }
 
+function invoiceStatusFromApi(status?: string): InvoiceStatus {
+  const normalized = String(status || '').toUpperCase();
+  if (normalized === 'PAID') return 'Achitat';
+  if (normalized === 'OVERDUE') return 'Întârziat';
+  return 'Neachitat';
+}
+
+function invoiceMonthLabel(month?: number | string | null, year?: number | string | null) {
+  const monthNumber = Number(month || 0);
+  const yearNumber = Number(year || new Date().getFullYear());
+  if (!monthNumber) return 'Luna curentă';
+  const date = new Date(yearNumber, monthNumber - 1, 1);
+  return new Intl.DateTimeFormat('ro-RO', { month: 'long', year: 'numeric' }).format(date);
+}
+
+function paymentMethodFromApi(method?: string | null) {
+  const normalized = String(method || '').toUpperCase();
+  if (normalized === 'CASH') return 'Numerar';
+  if (normalized === 'BANK' || normalized === 'BANK_TRANSFER') return 'Transfer bancar';
+  if (normalized === 'CARD') return 'Card bancar';
+  if (normalized === 'ONLINE') return 'Online';
+  return undefined;
+}
+
+export function normalizeApiInvoice(row: any, payments: any[] = []): AdminInvoice {
+  const apartment = String(row?.apartmentNumber || row?.apartment?.number || '-');
+  const paidPayment = payments.find((payment) => String(payment.apartmentId || '') === String(row?.apartmentId || '') && payment.status === 'CONFIRMED');
+
+  return {
+    id: String(row?.id || `invoice-${apartment}`),
+    apartment,
+    staircase: String(row?.apartment?.staircase?.name || row?.staircase?.name || 'Scara -'),
+    month: invoiceMonthLabel(row?.month, row?.year),
+    invoiceNumber: String(row?.invoiceNumber || `FAC-${row?.year || '2026'}-${String(row?.month || '').padStart(2, '0')}-${apartment}`),
+    amount: Number(row?.amount ?? row?.finalAmount ?? 0),
+    dueDate: dateLabel(row?.dueDate),
+    status: invoiceStatusFromApi(row?.status),
+    paymentMethod: paymentMethodFromApi(paidPayment?.method) || paymentMethodFromApi(row?.paymentMethod),
+    paidDate: dateLabel(paidPayment?.paidAt || row?.paidAt),
+  };
+}
+
 export function normalizeApiApartmentPayments(row: any) {
   if (Array.isArray(row?.invoices) && row.invoices.length) {
     return row.invoices.map((invoice: any) => ({

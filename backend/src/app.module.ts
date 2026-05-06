@@ -5,6 +5,7 @@ import { OrganizationsModule } from './organizations/organizations.module';
 import { ApartmentsModule } from './apartments/apartments.module';
 import { ResidentsModule } from './residents/residents.module';
 import { MetersModule } from './meters/meters.module';
+import { BillingReadModule } from './billing-read/billing-read.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -17,6 +18,7 @@ import { AppController } from './app.controller';
     ApartmentsModule,
     ResidentsModule,
     MetersModule,
+    BillingReadModule,
   ],
   controllers: [AppController],
   providers: [],

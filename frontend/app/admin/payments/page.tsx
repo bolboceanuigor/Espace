@@ -1,10 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Clock3, CreditCard, ReceiptText, Search } from 'lucide-react';
-import { Badge, ButtonLink, Card, Input, PageHeader, StatCard } from '@/components/ui';
-import { adminInvoices, invoiceStatusVariant, type AdminInvoice, type InvoiceStatus } from '@/lib/admin-mvp-data';
+import { Badge, Button, ButtonLink, Card, Input, Modal, ModalBody, ModalCloseButton, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
+import { invoicesApi, paymentsApi } from '@/lib/api';
+import { adminInvoices, invoiceStatusVariant, normalizeApiInvoice, type AdminInvoice, type InvoiceStatus } from '@/lib/admin-mvp-data';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
@@ -14,25 +15,76 @@ export default function AdminPaymentsPage() {
   const localizedPath = useLocalizedPath();
   const [status, setStatus] = useState<'Toate' | InvoiceStatus>('Toate');
   const [query, setQuery] = useState('');
+  const [rows, setRows] = useState<AdminInvoice[]>(adminInvoices);
+  const [source, setSource] = useState<'api' | 'mock'>('mock');
+  const [summary, setSummary] = useState({
+    totalIssued: 218400,
+    totalPaid: 131950,
+    totalDebt: 86450,
+    overdueInvoices: 37,
+  });
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([
+      invoicesApi.list(),
+      paymentsApi.list().catch(() => ({ data: [] })),
+      paymentsApi.summary().catch(() => ({ data: null })),
+    ])
+      .then(([invoiceRes, paymentRes, summaryRes]) => {
+        if (!active) return;
+        const payments = paymentRes.data || [];
+        const apiRows = (invoiceRes.data || []).map((invoice) => normalizeApiInvoice(invoice, payments));
+        if (apiRows.length) {
+          setRows(apiRows);
+          setSource('api');
+        }
+        if (summaryRes.data) {
+          setSummary({
+            totalIssued: Number(summaryRes.data.totalIssued ?? 0),
+            totalPaid: Number(summaryRes.data.totalPaid ?? 0),
+            totalDebt: Number(summaryRes.data.totalDebt ?? 0),
+            overdueInvoices: Number(summaryRes.data.overdueInvoices ?? 0),
+          });
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        setRows(adminInvoices);
+        setSource('mock');
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return adminInvoices.filter((invoice) => {
+    return rows.filter((invoice) => {
       const matchesSearch = !needle || `${invoice.apartment} ${invoice.month} ${invoice.invoiceNumber} ${invoice.staircase}`.toLowerCase().includes(needle);
       const matchesStatus = status === 'Toate' || invoice.status === status;
       return matchesSearch && matchesStatus;
     });
-  }, [query, status]);
+  }, [query, rows, status]);
 
   return (
     <div className="space-y-5 pb-4">
-      <PageHeader title="Plăți / Datorii" description="Facturi, încasări și restanțe pentru APC Alba Iulia 75." />
+      <PageHeader
+        title="Plăți / Datorii"
+        description="Facturi, încasări și restanțe pentru APC Alba Iulia 75."
+        rightSlot={
+          <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
+            {source === 'api' ? 'Date reale' : 'Date demo'}
+          </span>
+        }
+      />
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Total emis" value={formatMdl(218400)} description="Facturi emise luna curentă" icon={<ReceiptText className="h-5 w-5" />} />
-        <StatCard label="Total achitat" value={formatMdl(131950)} description="Plăți confirmate" icon={<CheckCircle2 className="h-5 w-5" />} tone="success" />
-        <StatCard label="Restanțe" value={formatMdl(86450)} description="Solduri neachitate" icon={<CreditCard className="h-5 w-5" />} tone="danger" />
-        <StatCard label="Facturi întârziate" value="37" description="Scadență depășită" icon={<Clock3 className="h-5 w-5" />} tone="warning" />
+        <StatCard label="Total emis" value={formatMdl(summary.totalIssued)} description="Facturi emise" icon={<ReceiptText className="h-5 w-5" />} />
+        <StatCard label="Total achitat" value={formatMdl(summary.totalPaid)} description="Plăți confirmate" icon={<CheckCircle2 className="h-5 w-5" />} tone="success" />
+        <StatCard label="Restanțe" value={formatMdl(summary.totalDebt)} description="Solduri neachitate" icon={<CreditCard className="h-5 w-5" />} tone="danger" />
+        <StatCard label="Facturi întârziate" value={String(summary.overdueInvoices)} description="Scadență depășită" icon={<Clock3 className="h-5 w-5" />} tone="warning" />
       </section>
 
       <Card>
@@ -79,14 +131,14 @@ export default function AdminPaymentsPage() {
             <span className="text-muted-foreground">{invoice.dueDate}</span>
             <Badge variant={invoiceStatusVariant[invoice.status]}>{invoice.status}</Badge>
             <span className="text-muted-foreground">{invoice.paymentMethod ?? '-'}</span>
-            <ButtonLink href="/admin/invoices" size="sm" variant="secondary">Deschide</ButtonLink>
+            <ButtonLink href={localizedPath(`/admin/invoices/${invoice.id}`)} size="sm" variant="secondary">Deschide</ButtonLink>
           </div>
         ))}
       </section>
 
       <section className="grid gap-3 md:hidden">
         {visible.map((invoice) => (
-          <PaymentCard key={invoice.id} invoice={invoice} />
+          <PaymentCard key={invoice.id} invoice={invoice} href={localizedPath(`/admin/invoices/${invoice.id}`)} />
         ))}
       </section>
 
@@ -94,18 +146,31 @@ export default function AdminPaymentsPage() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="font-semibold text-foreground">Emitere facturi lunare</p>
-            <p className="mt-1 text-sm text-muted-foreground">Flux mock pentru generarea facturilor după citiri și tarife.</p>
+            <p className="mt-1 text-sm text-muted-foreground">Plățile online și procesatorii bancari vor fi conectați într-o etapă separată.</p>
           </div>
-          <Link href={localizedPath('/admin/invoices')} className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-foreground px-4 text-sm font-semibold text-background">
-            Vezi facturi
-          </Link>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button type="button" onClick={() => setPaymentModalOpen(true)}>Înregistrează plată</Button>
+            <Link href={localizedPath('/admin/invoices')} className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-foreground px-4 text-sm font-semibold text-background">
+              Vezi facturi
+            </Link>
+          </div>
         </div>
       </Card>
+
+      <Modal isOpen={paymentModalOpen} onClose={() => setPaymentModalOpen(false)} maxWidth="md">
+        <ModalHeader title="Plăți online" onClose={() => setPaymentModalOpen(false)} />
+        <ModalBody>
+          <p className="text-sm text-muted-foreground">Integrarea plăților va fi conectată ulterior.</p>
+        </ModalBody>
+        <ModalFooter>
+          <ModalCloseButton onClick={() => setPaymentModalOpen(false)}>Am înțeles</ModalCloseButton>
+        </ModalFooter>
+      </Modal>
     </div>
   );
 }
 
-function PaymentCard({ invoice }: { invoice: AdminInvoice }) {
+function PaymentCard({ invoice, href }: { invoice: AdminInvoice; href: string }) {
   return (
     <Card className="p-4">
       <div className="flex items-start justify-between gap-3">
@@ -120,7 +185,7 @@ function PaymentCard({ invoice }: { invoice: AdminInvoice }) {
         <Info label="Data scadentă" value={invoice.dueDate} />
         <Info label="Metodă plată" value={invoice.paymentMethod ?? '-'} />
       </div>
-      <ButtonLink href="/admin/invoices" className="mt-4 w-full" variant="secondary">Deschide</ButtonLink>
+      <ButtonLink href={href} className="mt-4 w-full" variant="secondary">Deschide</ButtonLink>
     </Card>
   );
 }
