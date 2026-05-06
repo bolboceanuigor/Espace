@@ -1441,6 +1441,24 @@ export const superadminApi = {
       method: 'POST',
       body: data,
     }),
+  listPublicAdmins: () =>
+    apiRequest<any[]>('/admins'),
+  listPublicOrganizationAdmins: (organizationId: string) =>
+    apiRequest<any[]>(`/organizations/${organizationId}/admins`),
+  createPublicOrganizationAdmin: (
+    organizationId: string,
+    data: {
+      firstName: string;
+      lastName: string;
+      email: string;
+      phone?: string;
+      password: string;
+    },
+  ) =>
+    apiRequest<any>(`/organizations/${organizationId}/admins`, {
+      method: 'POST',
+      body: data,
+    }),
   listOrgs: () =>
     apiRequest<
       Array<{

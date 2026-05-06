@@ -121,6 +121,20 @@ export function normalizeApiAssociation(row: any): MvpAssociation {
   };
 }
 
+export function normalizeApiAdministrator(row: any): MvpAdministrator {
+  const fullName = String(row?.fullName || '').trim();
+  const [firstFromFull, ...restFromFull] = fullName.split(' ').filter(Boolean);
+  return {
+    id: String(row?.id || crypto.randomUUID()),
+    firstName: String(row?.firstName || firstFromFull || 'Administrator'),
+    lastName: String(row?.lastName || restFromFull.join(' ') || ''),
+    email: String(row?.email || ''),
+    phone: String(row?.phone || ''),
+    organizationId: String(row?.organizationId || row?.organization?.id || ''),
+    role: 'ADMIN',
+  };
+}
+
 export function createAssociationId(name: string) {
   const slug = name
     .toLowerCase()

@@ -1,11 +1,18 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Mail, Phone, Plus, Search, ShieldCheck, UserPlus } from 'lucide-react';
 import { Badge, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
 import { superadminApi } from '@/lib/api';
-import { mockAdministrators, mockAssociations, type MvpAdministrator } from '@/lib/superadmin-mvp-data';
+import {
+  mockAdministrators,
+  mockAssociations,
+  normalizeApiAdministrator,
+  normalizeApiAssociation,
+  type MvpAdministrator,
+  type MvpAssociation,
+} from '@/lib/superadmin-mvp-data';
 
 const emptyForm = {
   firstName: '',
@@ -13,19 +20,54 @@ const emptyForm = {
   email: '',
   phone: '',
   organizationId: mockAssociations[0]?.id || '',
+  password: '',
 };
 
 export default function SuperadminAdminsPage() {
   const [admins, setAdmins] = useState<MvpAdministrator[]>(mockAdministrators);
+  const [associations, setAssociations] = useState<MvpAssociation[]>(mockAssociations);
   const [query, setQuery] = useState('');
   const [organizationId, setOrganizationId] = useState('ALL');
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [source, setSource] = useState<'api' | 'mock'>('mock');
+  const [isCreating, setIsCreating] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+
+  const loadAdmins = async () => {
+    const [adminsRes, orgsRes] = await Promise.all([
+      superadminApi.listPublicAdmins(),
+      superadminApi.listPublicOrganizations(),
+    ]);
+    const apiAdmins = (adminsRes.data || []).map(normalizeApiAdministrator);
+    const apiAssociations = (orgsRes.data || []).map(normalizeApiAssociation);
+    setAdmins(apiAdmins.length ? apiAdmins : mockAdministrators);
+    setAssociations(apiAssociations.length ? apiAssociations : mockAssociations);
+    setSource(apiAdmins.length || apiAssociations.length ? 'api' : 'mock');
+    setForm((current) => ({
+      ...current,
+      organizationId: current.organizationId || apiAssociations[0]?.id || mockAssociations[0]?.id || '',
+    }));
+  };
+
+  useEffect(() => {
+    let active = true;
+    loadAdmins().catch(() => {
+      if (!active) return;
+      setAdmins(mockAdministrators);
+      setAssociations(mockAssociations);
+      setSource('mock');
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return admins.filter((admin) => {
-      const association = mockAssociations.find((item) => item.id === admin.organizationId);
+      const association = associations.find((item) => item.id === admin.organizationId);
       const matchesQuery =
         !needle ||
         [admin.firstName, admin.lastName, admin.email, admin.phone, association?.name]
@@ -35,26 +77,37 @@ export default function SuperadminAdminsPage() {
       const matchesOrg = organizationId === 'ALL' || admin.organizationId === organizationId;
       return matchesQuery && matchesOrg;
     });
-  }, [admins, organizationId, query]);
+  }, [admins, associations, organizationId, query]);
 
-  const createAdmin = () => {
-    if (!form.firstName.trim() || !form.email.trim() || !form.organizationId) return;
-    const next: MvpAdministrator = {
-      id: `admin-local-${Date.now().toString(36)}`,
-      firstName: form.firstName.trim(),
-      lastName: form.lastName.trim(),
-      email: form.email.trim(),
-      phone: form.phone.trim(),
-      organizationId: form.organizationId,
-      role: 'ADMIN',
-    };
-    setAdmins((current) => [next, ...current]);
-    setForm(emptyForm);
-    setModalOpen(false);
+  const createAdmin = async () => {
+    setFormError('');
+    setSuccessMessage('');
+    if (!form.firstName.trim() || !form.lastName.trim() || !form.email.trim() || !form.organizationId || !form.password) {
+      setFormError('Completează prenumele, numele, emailul, asociația și parola temporară.');
+      return;
+    }
 
-    superadminApi
-      .createUser({ orgId: next.organizationId, email: next.email, role: 'ADMIN' })
-      .catch(() => undefined);
+    setIsCreating(true);
+    try {
+      const created = await superadminApi.createPublicOrganizationAdmin(form.organizationId, {
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+        password: form.password,
+      });
+      const next = normalizeApiAdministrator(created.data);
+      setAdmins((current) => [next, ...current.filter((admin) => admin.id !== next.id)]);
+      setForm({ ...emptyForm, organizationId: form.organizationId });
+      setModalOpen(false);
+      setSuccessMessage('Administratorul a fost creat.');
+      await loadAdmins().catch(() => undefined);
+    } catch (error: any) {
+      const message = String(error?.message || '');
+      setFormError(message.includes('Există deja un utilizator cu acest email') ? 'Există deja un utilizator cu acest email.' : 'Nu am putut crea administratorul.');
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   return (
@@ -74,10 +127,16 @@ export default function SuperadminAdminsPage() {
         }
       />
 
+      {successMessage ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+          {successMessage}
+        </div>
+      ) : null}
+
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <StatCard label="Administratori" value={admins.length} description="Rol ADMIN" icon={<ShieldCheck className="h-5 w-5" />} />
         <StatCard label="Asociații acoperite" value={new Set(admins.map((admin) => admin.organizationId)).size} description="Au administrator" icon={<UserPlus className="h-5 w-5" />} tone="success" />
-        <StatCard label="Invitații locale" value="preview" description="Persistă doar în această pagină" icon={<Mail className="h-5 w-5" />} tone="warning" />
+        <StatCard label="Sursă date" value={source === 'api' ? 'reale' : 'demo'} description={source === 'api' ? 'API conectat' : 'Fallback local'} icon={<Mail className="h-5 w-5" />} tone={source === 'api' ? 'success' : 'warning'} />
       </section>
 
       <Card>
@@ -88,7 +147,7 @@ export default function SuperadminAdminsPage() {
           </label>
           <select value={organizationId} onChange={(event) => setOrganizationId(event.target.value)} className="h-11 rounded-2xl border border-border/70 bg-white px-3 text-sm outline-none">
             <option value="ALL">Toate asociațiile</option>
-            {mockAssociations.map((association) => (
+            {associations.map((association) => (
               <option key={association.id} value={association.id}>{association.name}</option>
             ))}
           </select>
@@ -97,7 +156,7 @@ export default function SuperadminAdminsPage() {
 
       <section className="grid gap-3 lg:grid-cols-2">
         {filtered.map((admin) => {
-          const association = mockAssociations.find((item) => item.id === admin.organizationId);
+          const association = associations.find((item) => item.id === admin.organizationId);
           return (
             <Card key={admin.id} className="p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -127,25 +186,31 @@ export default function SuperadminAdminsPage() {
             <Field label="Nume" value={form.lastName} onChange={(value) => setForm({ ...form, lastName: value })} />
             <Field label="Email" value={form.email} onChange={(value) => setForm({ ...form, email: value })} type="email" required />
             <Field label="Telefon" value={form.phone} onChange={(value) => setForm({ ...form, phone: value })} />
+            <Field label="Parolă temporară" value={form.password} onChange={(value) => setForm({ ...form, password: value })} type="password" required />
             <label className="block md:col-span-2">
               <span className="label">Asociație</span>
               <select className="select" value={form.organizationId} onChange={(event) => setForm({ ...form, organizationId: event.target.value })}>
-                {mockAssociations.map((association) => (
+                {associations.map((association) => (
                   <option key={association.id} value={association.id}>{association.name}</option>
                 ))}
               </select>
             </label>
           </div>
+          {formError ? (
+            <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
+              {formError}
+            </p>
+          ) : null}
           <p className="mt-4 text-xs text-muted-foreground">
-            Dacă API-ul nu este conectat, administratorul este adăugat doar local în această pagină.
+            Administratorul este creat în baza de date cu rol ADMIN. Parola temporară nu este afișată după salvare.
           </p>
         </ModalBody>
         <ModalFooter>
-          <button type="button" onClick={() => setModalOpen(false)} className="rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold">
+          <button type="button" onClick={() => setModalOpen(false)} disabled={isCreating} className="rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold disabled:opacity-60">
             Anulează
           </button>
-          <button type="button" onClick={createAdmin} className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background">
-            Invită administrator
+          <button type="button" onClick={createAdmin} disabled={isCreating} className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background disabled:opacity-60">
+            {isCreating ? 'Se creează...' : 'Creează administrator'}
           </button>
         </ModalFooter>
       </Modal>

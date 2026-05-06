@@ -4,14 +4,16 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { Building2, Mail, MapPin, Phone, UserPlus } from 'lucide-react';
-import { Badge, Card, PageHeader, StatCard } from '@/components/ui';
+import { Badge, Card, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
 import { superadminApi } from '@/lib/api';
 import {
   mockAdministrators,
   mockAssociations,
+  normalizeApiAdministrator,
   normalizeApiAssociation,
   statusBadgeVariant,
   statusLabel,
+  type MvpAdministrator,
   type MvpAssociation,
 } from '@/lib/superadmin-mvp-data';
 
@@ -31,6 +33,14 @@ function associationFromId(id: string): MvpAssociation {
   };
 }
 
+const emptyAdminForm = {
+  firstName: '',
+  lastName: '',
+  email: '',
+  phone: '',
+  password: '',
+};
+
 export default function SuperadminOrganizationDetailsPage() {
   const params = useParams<{ id?: string }>();
   const id = typeof params?.id === 'string' ? params.id : '';
@@ -40,7 +50,20 @@ export default function SuperadminOrganizationDetailsPage() {
   );
   const [association, setAssociation] = useState<MvpAssociation>(fallbackAssociation);
   const [source, setSource] = useState<'api' | 'mock'>('mock');
-  const administrators = mockAdministrators.filter((admin) => admin.organizationId === association.id);
+  const [administrators, setAdministrators] = useState<MvpAdministrator[]>(
+    mockAdministrators.filter((admin) => admin.organizationId === id),
+  );
+  const [adminModalOpen, setAdminModalOpen] = useState(false);
+  const [adminForm, setAdminForm] = useState(emptyAdminForm);
+  const [isCreatingAdmin, setIsCreatingAdmin] = useState(false);
+  const [adminError, setAdminError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+
+  const loadAdmins = async (organizationId: string) => {
+    const res = await superadminApi.listPublicOrganizationAdmins(organizationId);
+    const apiAdmins = (res.data || []).map(normalizeApiAdministrator);
+    setAdministrators(apiAdmins);
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -51,16 +74,53 @@ export default function SuperadminOrganizationDetailsPage() {
         if (!active) return;
         setAssociation(normalizeApiAssociation(res.data));
         setSource('api');
+        loadAdmins(id).catch(() => {
+          setAdministrators(mockAdministrators.filter((admin) => admin.organizationId === id));
+        });
       })
       .catch(() => {
         if (!active) return;
         setAssociation(fallbackAssociation);
         setSource('mock');
+        setAdministrators(mockAdministrators.filter((admin) => admin.organizationId === id));
       });
     return () => {
       active = false;
     };
   }, [fallbackAssociation, id]);
+
+  const createAdmin = async () => {
+    setAdminError('');
+    setSuccessMessage('');
+    if (!id) return;
+    const payload = {
+      firstName: adminForm.firstName.trim(),
+      lastName: adminForm.lastName.trim(),
+      email: adminForm.email.trim(),
+      phone: adminForm.phone.trim(),
+      password: adminForm.password,
+    };
+    if (!payload.firstName || !payload.lastName || !payload.email || !payload.password) {
+      setAdminError('Completează prenumele, numele, emailul și parola temporară.');
+      return;
+    }
+
+    setIsCreatingAdmin(true);
+    try {
+      const created = await superadminApi.createPublicOrganizationAdmin(id, payload);
+      const next = normalizeApiAdministrator(created.data);
+      setAdministrators((current) => [next, ...current.filter((admin) => admin.id !== next.id)]);
+      setAdminForm(emptyAdminForm);
+      setAdminModalOpen(false);
+      setSuccessMessage('Administratorul a fost creat.');
+      await loadAdmins(id).catch(() => undefined);
+    } catch (error: any) {
+      const message = String(error?.message || '');
+      setAdminError(message.includes('Există deja un utilizator cu acest email') ? 'Există deja un utilizator cu acest email.' : 'Nu am putut crea administratorul.');
+    } finally {
+      setIsCreatingAdmin(false);
+    }
+  };
 
   return (
     <div className="space-y-5 pb-4">
@@ -75,9 +135,23 @@ export default function SuperadminOrganizationDetailsPage() {
             <Link href="/ro/superadmin/organizations" className="rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted/60">
               Înapoi la asociații
             </Link>
+            <button
+              type="button"
+              onClick={() => setAdminModalOpen(true)}
+              className="inline-flex min-h-10 items-center gap-2 rounded-2xl bg-foreground px-4 text-sm font-semibold text-background"
+            >
+              <UserPlus className="h-4 w-4" />
+              Adaugă administrator
+            </button>
           </div>
         }
       />
+
+      {successMessage ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+          {successMessage}
+        </div>
+      ) : null}
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Apartamente" value={association.apartmentsCount} description="Unități administrate" icon={<Building2 className="h-5 w-5" />} />
@@ -105,15 +179,29 @@ export default function SuperadminOrganizationDetailsPage() {
 
         <Card>
           <h2 className="text-base font-semibold text-foreground">Administrator principal</h2>
-          <div className="mt-5 rounded-[1.1rem] border border-border/70 bg-muted/25 p-4">
-            <p className="font-semibold text-foreground">{association.administratorName}</p>
-            <p className="mt-1 text-sm text-muted-foreground">{association.administratorEmail || 'Email necompletat'}</p>
-            <p className="text-sm text-muted-foreground">{association.administratorPhone || 'Telefon necompletat'}</p>
-            <Badge className="mt-3" variant="success">ADMIN</Badge>
+          <div className="mt-5 grid gap-3">
+            {(administrators.length ? administrators : [
+              {
+                id: 'fallback-admin',
+                firstName: association.administratorName,
+                lastName: '',
+                email: association.administratorEmail,
+                phone: association.administratorPhone,
+                role: 'ADMIN' as const,
+                organizationId: association.id,
+              },
+            ]).map((admin) => (
+              <div key={admin.id} className="rounded-[1.1rem] border border-border/70 bg-muted/25 p-4">
+                <p className="font-semibold text-foreground">{`${admin.firstName} ${admin.lastName}`.trim() || 'Administrator neatribuit'}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{admin.email || 'Email necompletat'}</p>
+                <p className="text-sm text-muted-foreground">{admin.phone || 'Telefon necompletat'}</p>
+                <Badge className="mt-3" variant="success">ADMIN</Badge>
+              </div>
+            ))}
           </div>
-          <Link href="/ro/superadmin/admins" className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-2xl bg-foreground px-4 text-sm font-semibold text-background">
-            Creează sau invită administrator
-          </Link>
+          <button type="button" onClick={() => setAdminModalOpen(true)} className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-2xl bg-foreground px-4 text-sm font-semibold text-background">
+            Adaugă administrator
+          </button>
         </Card>
       </section>
 
@@ -127,6 +215,35 @@ export default function SuperadminOrganizationDetailsPage() {
           ))}
         </div>
       </Card>
+
+      <Modal isOpen={adminModalOpen} onClose={() => setAdminModalOpen(false)} maxWidth="xl">
+        <ModalHeader title="Adaugă administrator" onClose={() => setAdminModalOpen(false)} />
+        <ModalBody>
+          <div className="grid gap-3 md:grid-cols-2">
+            <Field label="Prenume" value={adminForm.firstName} onChange={(value) => setAdminForm({ ...adminForm, firstName: value })} required />
+            <Field label="Nume" value={adminForm.lastName} onChange={(value) => setAdminForm({ ...adminForm, lastName: value })} required />
+            <Field label="Email" value={adminForm.email} onChange={(value) => setAdminForm({ ...adminForm, email: value })} type="email" required />
+            <Field label="Telefon" value={adminForm.phone} onChange={(value) => setAdminForm({ ...adminForm, phone: value })} />
+            <Field label="Parolă temporară" value={adminForm.password} onChange={(value) => setAdminForm({ ...adminForm, password: value })} type="password" required />
+          </div>
+          {adminError ? (
+            <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
+              {adminError}
+            </p>
+          ) : null}
+          <p className="mt-4 text-xs text-muted-foreground">
+            Parola temporară este salvată doar ca hash. Trimite parola administratorului printr-un canal sigur.
+          </p>
+        </ModalBody>
+        <ModalFooter>
+          <button type="button" onClick={() => setAdminModalOpen(false)} disabled={isCreatingAdmin} className="rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold disabled:opacity-60">
+            Anulează
+          </button>
+          <button type="button" onClick={createAdmin} disabled={isCreatingAdmin} className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background disabled:opacity-60">
+            {isCreatingAdmin ? 'Se creează...' : 'Creează administrator'}
+          </button>
+        </ModalFooter>
+      </Modal>
     </div>
   );
 }
@@ -137,5 +254,26 @@ function Info({ icon, label, value }: { icon: React.ReactNode; label: string; va
       <p className="inline-flex items-center gap-2 text-xs text-muted-foreground">{icon}{label}</p>
       <p className="mt-2 font-medium text-foreground">{value}</p>
     </div>
+  );
+}
+
+function Field({
+  label,
+  value,
+  onChange,
+  required,
+  type = 'text',
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+  type?: string;
+}) {
+  return (
+    <label className="block">
+      <span className="label">{label}{required ? ' *' : ''}</span>
+      <input className="input" type={type} value={value} onChange={(event) => onChange(event.target.value)} />
+    </label>
   );
 }
