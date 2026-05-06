@@ -3,7 +3,7 @@
 import { forwardRef } from 'react';
 
 const cardBase =
-  'rounded-2xl border border-border bg-white shadow-soft';
+  'rounded-2xl border border-border bg-white';
 
 export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   /** No padding (e.g. for tables). Default: p-6 */

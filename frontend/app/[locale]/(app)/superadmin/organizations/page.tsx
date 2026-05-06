@@ -2,14 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Building2, Plus, Search, UserPlus, ArrowUpRight, Filter } from 'lucide-react';
-import { Badge, Card, Modal, ModalBody, ModalFooter, ModalHeader, StatCard } from '@/components/ui';
+import { Building2, Plus, Search, ArrowRight, MoreHorizontal, Mail, Phone, MapPin } from 'lucide-react';
+import { Modal, ModalBody, ModalFooter, ModalHeader } from '@/components/ui';
 import { superadminApi } from '@/lib/api';
 import {
   mockAssociations,
   normalizeApiAssociation,
-  statusBadgeVariant,
-  statusLabel,
   type AssociationStatus,
   type MvpAssociation,
 } from '@/lib/superadmin-mvp-data';
@@ -36,8 +34,6 @@ export default function SuperadminOrganizationsPage() {
   const [form, setForm] = useState(emptyForm);
   const [isCreating, setIsCreating] = useState(false);
   const [formError, setFormError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
-  const [listError, setListError] = useState('');
 
   const loadOrganizations = async () => {
     const res = await superadminApi.listPublicOrganizations();
@@ -45,7 +41,6 @@ export default function SuperadminOrganizationsPage() {
     if (apiRows.length) {
       setRows(apiRows);
       setSource('api');
-      setListError('');
       return;
     }
     setRows(mockAssociations);
@@ -54,19 +49,12 @@ export default function SuperadminOrganizationsPage() {
 
   useEffect(() => {
     let active = true;
-    loadOrganizations()
-      .then(() => {
-        if (!active) return;
-      })
-      .catch(() => {
-        if (!active) return;
-        setRows(mockAssociations);
-        setSource('mock');
-        setListError('API indisponibil temporar. Sunt afisate date demo.');
-      });
-    return () => {
-      active = false;
-    };
+    loadOrganizations().catch(() => {
+      if (!active) return;
+      setRows(mockAssociations);
+      setSource('mock');
+    });
+    return () => { active = false; };
   }, []);
 
   const filteredRows = useMemo(() => {
@@ -83,18 +71,15 @@ export default function SuperadminOrganizationsPage() {
     });
   }, [query, rows, status]);
 
-  const totals = useMemo(() => {
-    return {
-      total: rows.length,
-      active: rows.filter((row) => row.status === 'ACTIVE').length,
-      trial: rows.filter((row) => row.status === 'TRIAL').length,
-      apartments: rows.reduce((sum, row) => sum + row.apartmentsCount, 0),
-    };
-  }, [rows]);
+  const counts = useMemo(() => ({
+    all: rows.length,
+    active: rows.filter((r) => r.status === 'ACTIVE').length,
+    trial: rows.filter((r) => r.status === 'TRIAL').length,
+    inactive: rows.filter((r) => r.status === 'INACTIVE').length,
+  }), [rows]);
 
   const createAssociation = async () => {
     setFormError('');
-    setSuccessMessage('');
     const payload = {
       name: form.name.trim(),
       address: form.address.trim(),
@@ -104,7 +89,7 @@ export default function SuperadminOrganizationsPage() {
       status: form.status,
     };
     if (!payload.name || !payload.address || !payload.city || !payload.country) {
-      setFormError('Completeaza numele, adresa, orasul si tara.');
+      setFormError('Completeaza toate campurile obligatorii.');
       return;
     }
 
@@ -116,7 +101,6 @@ export default function SuperadminOrganizationsPage() {
       setSource('api');
       setForm(emptyForm);
       setModalOpen(false);
-      setSuccessMessage('Asociatia a fost creata.');
       await loadOrganizations().catch(() => undefined);
     } catch {
       setFormError('Nu am putut crea asociatia. Incearca din nou.');
@@ -126,13 +110,13 @@ export default function SuperadminOrganizationsPage() {
   };
 
   return (
-    <div className="space-y-6 pb-6">
+    <div className="animate-page-in space-y-6 pb-12">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">Asociatii</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Organizatiile din platforma, administratorii lor si starea de activare.
+            {counts.all} asociatii inregistrate in platforma
           </p>
         </div>
         <button
@@ -141,231 +125,210 @@ export default function SuperadminOrganizationsPage() {
           className="inline-flex items-center gap-2 rounded-xl bg-foreground px-4 py-2.5 text-sm font-medium text-white transition hover:bg-foreground/90"
         >
           <Plus className="h-4 w-4" />
-          Adauga asociatie
+          Asociatie noua
         </button>
       </div>
 
-      {/* Alerts */}
-      {successMessage && (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
-          {successMessage}
+      {/* Search & Filters */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Cauta dupa nume, oras sau administrator..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="h-11 w-full rounded-xl border border-border bg-white pl-10 pr-4 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-foreground/20 focus:ring-4 focus:ring-foreground/5"
+          />
         </div>
-      )}
-      {listError && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
-          {listError}
+        
+        {/* Status Tabs */}
+        <div className="flex items-center gap-1 rounded-xl border border-border bg-white p-1">
+          {[
+            { key: 'ALL', label: 'Toate', count: counts.all },
+            { key: 'ACTIVE', label: 'Active', count: counts.active },
+            { key: 'TRIAL', label: 'Trial', count: counts.trial },
+            { key: 'INACTIVE', label: 'Inactive', count: counts.inactive },
+          ].map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setStatus(tab.key as typeof status)}
+              className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+                status === tab.key
+                  ? 'bg-foreground text-white'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              }`}
+            >
+              {tab.label}
+              <span className="ml-1.5 text-xs opacity-70">{tab.count}</span>
+            </button>
+          ))}
         </div>
-      )}
+      </div>
 
-      {/* Stats */}
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard 
-          label="Total asociatii" 
-          value={totals.total} 
-          description="In platforma" 
-          icon={<Building2 className="h-5 w-5" />} 
-        />
-        <StatCard 
-          label="Active" 
-          value={totals.active} 
-          description="Cu acces operational" 
-          icon={<Building2 className="h-5 w-5" />} 
-          tone="success" 
-        />
-        <StatCard 
-          label="Trial" 
-          value={totals.trial} 
-          description="In evaluare" 
-          icon={<UserPlus className="h-5 w-5" />} 
-          tone="warning" 
-        />
-        <StatCard 
-          label="Apartamente" 
-          value={totals.apartments} 
-          description="Administrate total" 
-          icon={<Building2 className="h-5 w-5" />} 
-        />
-      </section>
+      {/* Data Source Indicator */}
+      <div className="flex items-center gap-2 text-sm">
+        <span className={`h-2 w-2 rounded-full ${source === 'api' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+        <span className="text-muted-foreground">
+          {source === 'api' ? 'Date sincronizate cu API-ul' : 'Afisare date demonstrative'}
+        </span>
+      </div>
 
-      {/* Filters */}
-      <Card className="p-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="relative flex-1 lg:max-w-md">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Cauta asociatie, oras sau administrator..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="h-10 w-full rounded-lg border border-border bg-white pl-10 pr-4 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-foreground/20 focus:ring-2 focus:ring-foreground/5"
-            />
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value as 'ALL' | AssociationStatus)}
-                className="h-10 rounded-lg border border-border bg-white px-3 text-sm text-foreground outline-none transition focus:border-foreground/20"
-              >
-                <option value="ALL">Toate statusurile</option>
-                <option value="ACTIVE">Active</option>
-                <option value="TRIAL">Trial</option>
-                <option value="INACTIVE">Inactive</option>
-              </select>
-            </div>
-            <span className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
-              source === 'api' 
-                ? 'bg-emerald-50 text-emerald-700' 
-                : 'bg-amber-50 text-amber-700'
-            }`}>
-              {source === 'api' ? 'Date reale' : 'Date demo'}
-            </span>
-          </div>
+      {/* Organizations Grid */}
+      {filteredRows.length === 0 ? (
+        <div className="rounded-2xl border border-border bg-white py-16 text-center">
+          <Building2 className="mx-auto h-12 w-12 text-muted-foreground/40" />
+          <p className="mt-4 font-medium text-foreground">Nicio asociatie gasita</p>
+          <p className="mt-1 text-sm text-muted-foreground">Modifica filtrele sau termenul de cautare</p>
         </div>
-      </Card>
-
-      {/* Organizations List */}
-      <section className="space-y-3">
-        {filteredRows.length === 0 ? (
-          <Card className="py-12 text-center">
-            <Building2 className="mx-auto h-12 w-12 text-muted-foreground/50" />
-            <p className="mt-4 text-sm font-medium text-foreground">Nicio asociatie gasita</p>
-            <p className="mt-1 text-sm text-muted-foreground">Incearca sa modifici filtrele sau termenul de cautare.</p>
-          </Card>
-        ) : (
-          filteredRows.map((row) => (
-            <Card key={row.id} className="p-5 transition hover:shadow-md">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-muted">
-                    <Building2 className="h-6 w-6 text-muted-foreground" />
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {filteredRows.map((org) => (
+            <div
+              key={org.id}
+              className="group relative rounded-2xl border border-border bg-white p-5 transition hover:border-gray-300 hover:shadow-sm"
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-muted">
+                    <Building2 className="h-5 w-5 text-muted-foreground" />
                   </div>
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="text-base font-semibold text-foreground">{row.name}</h2>
-                      <Badge variant={statusBadgeVariant(row.status)}>{statusLabel(row.status)}</Badge>
+                  <div>
+                    <h3 className="font-semibold text-foreground">{org.name}</h3>
+                    <div className="mt-0.5 flex items-center gap-1.5 text-sm text-muted-foreground">
+                      <MapPin className="h-3 w-3" />
+                      {org.city}, {org.country}
                     </div>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {row.address}, {row.city}, {row.country} · {row.apartmentsCount} apartamente · {row.currency}
-                    </p>
                   </div>
                 </div>
-                
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-                  <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[400px]">
-                    <InfoCell label="Administrator" value={row.administratorName} />
-                    <InfoCell label="Email" value={row.administratorEmail || '-'} />
-                    <InfoCell label="Telefon" value={row.administratorPhone || '-'} />
-                  </div>
-                  <Link 
-                    href={`/ro/superadmin/organizations/${row.id}`} 
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground transition hover:bg-muted"
-                  >
-                    Deschide
-                    <ArrowUpRight className="h-4 w-4" />
-                  </Link>
+                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                  org.status === 'ACTIVE'
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : org.status === 'TRIAL'
+                    ? 'bg-amber-100 text-amber-700'
+                    : 'bg-gray-100 text-gray-600'
+                }`}>
+                  {org.status === 'ACTIVE' ? 'Activ' : org.status === 'TRIAL' ? 'Trial' : 'Inactiv'}
+                </span>
+              </div>
+
+              {/* Stats */}
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <div className="rounded-lg bg-muted/50 px-3 py-2">
+                  <p className="text-xs text-muted-foreground">Apartamente</p>
+                  <p className="text-lg font-semibold text-foreground">{org.apartmentsCount}</p>
+                </div>
+                <div className="rounded-lg bg-muted/50 px-3 py-2">
+                  <p className="text-xs text-muted-foreground">MRR</p>
+                  <p className="text-lg font-semibold text-foreground">{(org.apartmentsCount * 24).toLocaleString()} {org.currency}</p>
                 </div>
               </div>
-            </Card>
-          ))
-        )}
-      </section>
+
+              {/* Admin */}
+              {org.administratorName && (
+                <div className="mt-4 rounded-lg border border-border bg-muted/30 p-3">
+                  <p className="text-xs font-medium text-muted-foreground">Administrator</p>
+                  <p className="mt-1 font-medium text-foreground">{org.administratorName}</p>
+                  <div className="mt-2 flex flex-wrap gap-3 text-sm text-muted-foreground">
+                    {org.administratorEmail && (
+                      <span className="flex items-center gap-1">
+                        <Mail className="h-3 w-3" /> {org.administratorEmail}
+                      </span>
+                    )}
+                    {org.administratorPhone && (
+                      <span className="flex items-center gap-1">
+                        <Phone className="h-3 w-3" /> {org.administratorPhone}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Action */}
+              <Link
+                href={`/ro/superadmin/organizations/${org.id}`}
+                className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-border py-2.5 text-sm font-medium text-foreground transition hover:bg-muted"
+              >
+                Deschide detalii
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Create Modal */}
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} maxWidth="2xl">
-        <ModalHeader title="Adauga asociatie" onClose={() => setModalOpen(false)} />
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} maxWidth="lg">
+        <ModalHeader title="Asociatie noua" onClose={() => setModalOpen(false)} />
         <ModalBody>
-          <div className="grid gap-4 md:grid-cols-2">
-            <FormField 
-              label="Nume asociatie" 
-              value={form.name} 
-              onChange={(v) => setForm({ ...form, name: v })} 
-              required 
-            />
-            <FormField 
-              label="Oras" 
-              value={form.city} 
-              onChange={(v) => setForm({ ...form, city: v })} 
-            />
-            <FormField 
-              label="Adresa" 
-              value={form.address} 
-              onChange={(v) => setForm({ ...form, address: v })} 
-            />
-            <FormField 
-              label="Tara" 
-              value={form.country} 
-              onChange={(v) => setForm({ ...form, country: v })} 
-            />
-            <label className="block">
-              <span className="mb-1.5 block text-sm font-medium text-foreground">Moneda</span>
-              <select 
-                className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-foreground outline-none transition focus:border-foreground/20" 
-                value={form.currency} 
-                onChange={(e) => setForm({ ...form, currency: e.target.value as typeof form.currency })}
-              >
-                <option value="MDL">MDL</option>
-                <option value="EUR">EUR</option>
-                <option value="USD">USD</option>
-              </select>
-            </label>
-            <label className="block">
-              <span className="mb-1.5 block text-sm font-medium text-foreground">Status</span>
-              <select 
-                className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-foreground outline-none transition focus:border-foreground/20" 
-                value={form.status} 
-                onChange={(e) => setForm({ ...form, status: e.target.value as AssociationStatus })}
-              >
-                <option value="ACTIVE">Activa</option>
-                <option value="TRIAL">Trial</option>
-                <option value="INACTIVE">Inactiva</option>
-              </select>
-            </label>
-            <FormField 
-              label="Administrator" 
-              value={form.administratorName} 
-              onChange={(v) => setForm({ ...form, administratorName: v })} 
-            />
-            <FormField 
-              label="Email administrator" 
-              value={form.administratorEmail} 
-              onChange={(v) => setForm({ ...form, administratorEmail: v })} 
-              type="email" 
-            />
-            <FormField 
-              label="Telefon administrator" 
-              value={form.administratorPhone} 
-              onChange={(v) => setForm({ ...form, administratorPhone: v })} 
-            />
+          <div className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Nume asociatie" value={form.name} onChange={(v) => setForm({ ...form, name: v })} required />
+              <Field label="Oras" value={form.city} onChange={(v) => setForm({ ...form, city: v })} />
+            </div>
+            <Field label="Adresa" value={form.address} onChange={(v) => setForm({ ...form, address: v })} />
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Field label="Tara" value={form.country} onChange={(v) => setForm({ ...form, country: v })} />
+              <div>
+                <label className="mb-2 block text-sm font-medium text-foreground">Moneda</label>
+                <select
+                  className="h-11 w-full rounded-xl border border-border bg-white px-3 text-sm text-foreground outline-none transition focus:border-foreground/20"
+                  value={form.currency}
+                  onChange={(e) => setForm({ ...form, currency: e.target.value as typeof form.currency })}
+                >
+                  <option value="MDL">MDL</option>
+                  <option value="EUR">EUR</option>
+                  <option value="USD">USD</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-foreground">Status</label>
+                <select
+                  className="h-11 w-full rounded-xl border border-border bg-white px-3 text-sm text-foreground outline-none transition focus:border-foreground/20"
+                  value={form.status}
+                  onChange={(e) => setForm({ ...form, status: e.target.value as AssociationStatus })}
+                >
+                  <option value="ACTIVE">Activ</option>
+                  <option value="TRIAL">Trial</option>
+                  <option value="INACTIVE">Inactiv</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="border-t border-border pt-4">
+              <p className="mb-3 text-sm font-medium text-foreground">Administrator (optional)</p>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <Field label="Nume" value={form.administratorName} onChange={(v) => setForm({ ...form, administratorName: v })} />
+                <Field label="Email" value={form.administratorEmail} onChange={(v) => setForm({ ...form, administratorEmail: v })} type="email" />
+                <Field label="Telefon" value={form.administratorPhone} onChange={(v) => setForm({ ...form, administratorPhone: v })} />
+              </div>
+            </div>
           </div>
-          
+
           {formError && (
-            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            <div className="mt-4 rounded-xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-600">
               {formError}
             </div>
           )}
-          
-          <p className="mt-4 text-xs text-muted-foreground">
-            Asociatia este creata in baza de date prin API-ul Espace. Administratorul poate fi adaugat intr-un pas separat.
-          </p>
         </ModalBody>
         <ModalFooter>
-          <button 
-            type="button" 
-            onClick={() => setModalOpen(false)} 
-            disabled={isCreating} 
-            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-muted disabled:opacity-50"
+          <button
+            type="button"
+            onClick={() => setModalOpen(false)}
+            disabled={isCreating}
+            className="rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground transition hover:bg-muted disabled:opacity-50"
           >
             Anuleaza
           </button>
-          <button 
-            type="button" 
-            onClick={createAssociation} 
-            disabled={isCreating} 
-            className="rounded-lg bg-foreground px-4 py-2 text-sm font-medium text-white transition hover:bg-foreground/90 disabled:opacity-50"
+          <button
+            type="button"
+            onClick={createAssociation}
+            disabled={isCreating}
+            className="rounded-xl bg-foreground px-4 py-2.5 text-sm font-medium text-white transition hover:bg-foreground/90 disabled:opacity-50"
           >
-            {isCreating ? 'Se creeaza...' : 'Creeaza asociatie'}
+            {isCreating ? 'Se creeaza...' : 'Creeaza'}
           </button>
         </ModalFooter>
       </Modal>
@@ -373,16 +336,7 @@ export default function SuperadminOrganizationsPage() {
   );
 }
 
-function InfoCell({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg bg-muted/50 px-3 py-2">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-0.5 truncate text-sm font-medium text-foreground">{value}</p>
-    </div>
-  );
-}
-
-function FormField({
+function Field({
   label,
   value,
   onChange,
@@ -391,21 +345,21 @@ function FormField({
 }: {
   label: string;
   value: string;
-  onChange: (value: string) => void;
+  onChange: (v: string) => void;
   required?: boolean;
   type?: string;
 }) {
   return (
-    <label className="block">
-      <span className="mb-1.5 block text-sm font-medium text-foreground">
+    <div>
+      <label className="mb-2 block text-sm font-medium text-foreground">
         {label}{required && <span className="text-red-500"> *</span>}
-      </span>
-      <input 
-        className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-foreground/20 focus:ring-2 focus:ring-foreground/5" 
-        type={type} 
-        value={value} 
-        onChange={(e) => onChange(e.target.value)} 
+      </label>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-11 w-full rounded-xl border border-border bg-white px-4 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-foreground/20 focus:ring-4 focus:ring-foreground/5"
       />
-    </label>
+    </div>
   );
 }

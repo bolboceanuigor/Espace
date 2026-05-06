@@ -3,57 +3,50 @@
 @tailwind utilities;
 
 :root {
-  /* Fresha/Doma/EVO inspired - Clean white with subtle grays */
-  --background: 0 0% 98%;
-  --foreground: 220 13% 13%;
+  /* Clean, modern palette - Fresha/Doma/EVO inspired */
+  --background: 0 0% 99%;
+  --foreground: 224 71% 4%;
   --card: 0 0% 100%;
   --muted: 220 14% 96%;
   --muted-foreground: 220 9% 46%;
   --border: 220 13% 91%;
-  --primary: 220 13% 13%;
+  --primary: 224 71% 4%;
   --primary-foreground: 0 0% 100%;
   --secondary: 220 14% 96%;
-  --accent: 220 13% 13%;
+  --accent: 142 76% 36%;
   --accent-foreground: 0 0% 100%;
   --sidebar-bg: 0 0% 100%;
-  --brand-primary-hex: #1a1d21;
 
-  /* Clean neutral scale */
+  /* Neutrals */
   --gray-50: #FAFAFA;
-  --gray-100: #F5F5F5;
-  --gray-200: #E5E5E5;
-  --gray-300: #D4D4D4;
-  --gray-400: #A3A3A3;
-  --gray-500: #737373;
-  --gray-600: #525252;
-  --gray-700: #404040;
-  --gray-800: #262626;
-  --gray-900: #171717;
+  --gray-100: #F4F4F5;
+  --gray-200: #E4E4E7;
+  --gray-300: #D4D4D8;
+  --gray-400: #A1A1AA;
+  --gray-500: #71717A;
+  --gray-600: #52525B;
+  --gray-700: #3F3F46;
+  --gray-800: #27272A;
+  --gray-900: #18181B;
 
-  /* Status colors */
-  --reservation-confirmed: #171717;
-  --reservation-pending: #EA580C;
-  --reservation-cancelled: #DC2626;
-  
-  /* Semantic */
-  --success: #16A34A;
-  --warning: #EA580C;
-  --info: #2563EB;
-  --danger: #DC2626;
+  /* Status */
+  --success: #22C55E;
+  --warning: #F59E0B;
+  --danger: #EF4444;
+  --info: #3B82F6;
 
-  /* Radius */
-  --radius: 0.75rem;
+  --radius: 12px;
 }
 
 html[data-theme='dark'] {
-  --background: 220 13% 8%;
+  --background: 224 71% 4%;
   --foreground: 0 0% 98%;
-  --card: 220 13% 11%;
-  --muted: 220 13% 15%;
+  --card: 224 71% 6%;
+  --muted: 224 71% 12%;
   --muted-foreground: 220 9% 60%;
-  --border: 220 13% 20%;
-  --secondary: 220 13% 18%;
-  --sidebar-bg: 220 13% 9%;
+  --border: 224 71% 15%;
+  --secondary: 224 71% 10%;
+  --sidebar-bg: 224 71% 5%;
 }
 
 * {
@@ -63,63 +56,59 @@ html[data-theme='dark'] {
 body {
   margin: 0;
   padding: 0;
-  font-family: var(--font-onest), system-ui, -apple-system, sans-serif;
+  font-family: var(--font-onest), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background: hsl(var(--background));
   color: hsl(var(--foreground));
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
 html {
   scroll-behavior: smooth;
 }
 
-/* Fresha-style scrollbar */
+/* Clean scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
-
 ::-webkit-scrollbar-track {
-  background: hsl(var(--muted));
+  background: transparent;
 }
-
 ::-webkit-scrollbar-thumb {
   background: var(--gray-300);
-  border-radius: 4px;
+  border-radius: 3px;
 }
-
 ::-webkit-scrollbar-thumb:hover {
   background: var(--gray-400);
 }
 
-/* Selection */
 ::selection {
-  background: hsl(var(--primary) / 0.1);
+  background: hsl(var(--primary) / 0.08);
 }
 
-/* Form Elements - Fresha style */
+/* Form Elements */
 .input {
-  @apply w-full rounded-xl border border-border bg-white px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground shadow-sm transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-foreground/5 focus:border-foreground/20;
+  @apply w-full rounded-xl border border-border bg-white px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground transition focus:outline-none focus:border-foreground/30 focus:ring-4 focus:ring-foreground/5;
 }
 .select {
-  @apply w-full rounded-xl border border-border bg-white px-4 py-3 text-sm text-foreground shadow-sm transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-foreground/5 focus:border-foreground/20;
+  @apply w-full rounded-xl border border-border bg-white px-4 py-3 text-sm text-foreground transition focus:outline-none focus:border-foreground/30 focus:ring-4 focus:ring-foreground/5;
 }
 .label {
-  @apply mb-1.5 block text-sm font-medium text-foreground;
+  @apply mb-2 block text-sm font-medium text-foreground;
 }
 .error-box {
-  @apply rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600;
+  @apply rounded-xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-600;
 }
 .success-box {
-  @apply rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-600;
+  @apply rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-3 text-sm text-emerald-600;
 }
 
 /* Reservation blocks */
 .reservation-block {
-  @apply rounded-lg px-3 py-2 font-medium text-sm text-white transition-all duration-150;
+  @apply rounded-lg px-3 py-2 font-medium text-sm text-white transition;
 }
 .reservation-block:hover {
   @apply opacity-90;
@@ -128,16 +117,14 @@ html {
   @apply outline-none ring-2 ring-foreground/20 ring-offset-2;
 }
 .reservation-block.confirmed {
-  background-color: var(--reservation-confirmed);
+  @apply bg-foreground;
 }
 .reservation-block.pending {
-  background-color: var(--reservation-pending);
+  @apply bg-amber-500;
 }
 .reservation-block.cancelled {
-  background-color: var(--reservation-cancelled);
-  opacity: 0.7;
+  @apply bg-red-500 opacity-70;
 }
-
 .reservation-block.reservation-block-compact {
   @apply rounded-md px-1.5 py-1 text-xs;
 }
@@ -153,7 +140,7 @@ html {
   @apply bg-emerald-500;
 }
 .cleaning-badge.in-progress {
-  @apply bg-orange-500;
+  @apply bg-amber-500;
 }
 .cleaning-badge.pending {
   @apply bg-gray-400;
@@ -161,26 +148,18 @@ html {
 
 /* Modal animation */
 @keyframes modal-fade-in {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+  from { opacity: 0; transform: translateY(4px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 .animate-modal-in {
-  animation: modal-fade-in 0.2s ease-out;
+  animation: modal-fade-in 0.15s ease-out;
 }
 
-/* Fresha-style shadow utilities */
-.shadow-soft {
-  box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.04);
+/* Page fade in */
+@keyframes page-fade {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
-.shadow-medium {
-  box-shadow: 0 4px 6px rgba(0,0,0,0.04), 0 10px 24px rgba(0,0,0,0.06);
-}
-.shadow-large {
-  box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+.animate-page-in {
+  animation: page-fade 0.3s ease-out;
 }

@@ -4,17 +4,18 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { 
   Building2, 
-  CreditCard, 
-  ShieldCheck, 
-  UserCog, 
   Users,
-  ArrowUpRight,
+  ArrowRight,
   TrendingUp,
   Clock,
   AlertCircle,
-  HardDrive
+  Banknote,
+  CheckCircle2,
+  Plus,
+  MessageSquare,
+  FileText,
+  Settings
 } from 'lucide-react';
-import { Card, PageHeader, StatCard } from '@/components/ui';
 import { superadminApi } from '@/lib/api';
 import {
   mockAssociations,
@@ -43,214 +44,249 @@ export default function SuperadminPage() {
         setAssociations(mockAssociations);
         setSource('mock');
       });
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, []);
 
   const totals = useMemo(() => {
-    const totalApartments = associations.reduce((sum, item) => sum + item.apartmentsCount, 0);
-    const active = associations.filter((item) => item.status === 'ACTIVE').length;
+    const totalApartments = associations.reduce((sum, a) => sum + a.apartmentsCount, 0);
+    const active = associations.filter((a) => a.status === 'ACTIVE').length;
     return {
       total: associations.length,
       active,
-      admins: associations.filter((item) => item.administratorEmail).length,
       residents: Math.max(totalApartments * 2, source === 'api' ? totalApartments : 4820),
-      mrr: `${Math.max(totalApartments * 24, source === 'api' ? 0 : 42900).toLocaleString('ro-RO')} MDL`,
+      mrr: Math.max(totalApartments * 24, source === 'api' ? 0 : 42900),
     };
   }, [associations, source]);
 
-  const stats = [
-    { label: 'Total asociatii', value: String(totals.total), description: 'In Moldova si Romania', icon: <Building2 className="h-5 w-5" /> },
-    { label: 'Asociatii active', value: String(totals.active), description: 'Abonamente active', icon: <ShieldCheck className="h-5 w-5" />, tone: 'success' as const },
-    { label: 'Administratori', value: String(totals.admins), description: 'Utilizatori cu acces administrativ', icon: <UserCog className="h-5 w-5" /> },
-    { label: 'Locatari conectati', value: totals.residents.toLocaleString('ro-RO'), description: 'Conturi rezident active', icon: <Users className="h-5 w-5" />, tone: 'success' as const },
-    { label: 'Venit lunar platforma', value: totals.mrr, description: 'MRR estimat', icon: <CreditCard className="h-5 w-5" />, tone: 'warning' as const },
-  ];
-
-  const signals = [
-    { 
-      title: 'Trial-uri active', 
-      detail: '7 asociatii in perioada de test',
-      icon: Clock,
-      color: 'text-blue-600 bg-blue-50'
-    },
-    { 
-      title: 'Necesita follow-up', 
-      detail: '3 administratori trebuie contactati',
-      icon: AlertCircle,
-      color: 'text-amber-600 bg-amber-50'
-    },
-    { 
-      title: 'Crestere lunara', 
-      detail: '+12% locatari conectati',
-      icon: TrendingUp,
-      color: 'text-emerald-600 bg-emerald-50'
-    },
-    { 
-      title: 'Stocare', 
-      detail: '36% din limita planificata',
-      icon: HardDrive,
-      color: 'text-slate-600 bg-slate-50'
-    },
-  ];
-
   return (
-    <div className="space-y-6 pb-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Platforma</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Vedere de ansamblu pentru Espace: asociatii, administratori, locatari si venit lunar.
+    <div className="animate-page-in space-y-8 pb-12">
+      {/* Hero Header */}
+      <header className="relative overflow-hidden rounded-2xl bg-foreground p-8 text-white">
+        <div className="relative z-10">
+          <p className="text-sm font-medium text-white/60">Super Admin</p>
+          <h1 className="mt-1 text-3xl font-semibold tracking-tight">Buna ziua!</h1>
+          <p className="mt-2 max-w-xl text-base text-white/70">
+            Platforma Espace gestioneaza {totals.total} asociatii cu {totals.residents.toLocaleString('ro-RO')} locatari conectati.
           </p>
         </div>
-        <Link 
-          href="/ro/superadmin/organizations" 
-          className="inline-flex items-center gap-2 rounded-xl bg-foreground px-4 py-2.5 text-sm font-medium text-white transition hover:bg-foreground/90"
-        >
-          Vezi asociatii
-          <ArrowUpRight className="h-4 w-4" />
-        </Link>
-      </div>
+        <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/5" />
+        <div className="absolute -bottom-20 -right-20 h-48 w-48 rounded-full bg-white/5" />
+      </header>
 
       {/* Stats Grid */}
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        {stats.map((item) => (
-          <StatCard key={item.label} {...item} />
-        ))}
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard 
+          label="Asociatii" 
+          value={totals.total} 
+          change="+3 luna aceasta"
+          icon={Building2}
+          color="bg-blue-500"
+        />
+        <StatCard 
+          label="Active" 
+          value={totals.active} 
+          change={`${Math.round((totals.active / totals.total) * 100)}% rata activare`}
+          icon={CheckCircle2}
+          color="bg-emerald-500"
+        />
+        <StatCard 
+          label="Locatari" 
+          value={totals.residents.toLocaleString('ro-RO')} 
+          change="+12% vs. luna trecuta"
+          icon={Users}
+          color="bg-violet-500"
+        />
+        <StatCard 
+          label="Venit lunar" 
+          value={`${totals.mrr.toLocaleString('ro-RO')} MDL`} 
+          change="MRR estimat"
+          icon={Banknote}
+          color="bg-amber-500"
+        />
       </section>
 
-      {/* Main Content Grid */}
-      <section className="grid gap-6 lg:grid-cols-3">
-        {/* Associations List - Takes 2 columns */}
-        <div className="lg:col-span-2">
-          <Card>
-            <div className="flex items-center justify-between gap-4 border-b border-border pb-4">
-              <div>
-                <h2 className="text-base font-semibold text-foreground">Asociatii</h2>
-                <p className="mt-0.5 text-sm text-muted-foreground">Conturi pentru monitorizarea platformei</p>
-              </div>
-              <span className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
-                source === 'api' 
-                  ? 'bg-emerald-50 text-emerald-700' 
-                  : 'bg-amber-50 text-amber-700'
-              }`}>
-                {source === 'api' ? 'Date API' : 'Date demo'}
-              </span>
-            </div>
-            
-            <div className="mt-4 space-y-3">
-              {associations.slice(0, 5).map((association) => (
-                <div 
-                  key={association.name} 
-                  className="rounded-xl border border-border bg-white p-4 transition hover:border-border/80 hover:shadow-sm"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
-                          <Building2 className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-medium text-foreground">{association.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {association.city} · {association.apartmentsCount} apartamente
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    <span className={`rounded-lg px-2.5 py-1 text-xs font-medium ${
-                      association.status === 'ACTIVE' 
-                        ? 'bg-emerald-50 text-emerald-700' 
-                        : 'bg-amber-50 text-amber-700'
+      {/* Main Grid */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Recent Organizations */}
+        <section className="lg:col-span-2">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-foreground">Asociatii recente</h2>
+            <Link 
+              href="/ro/superadmin/organizations"
+              className="flex items-center gap-1 text-sm font-medium text-muted-foreground transition hover:text-foreground"
+            >
+              Vezi toate <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+          
+          <div className="space-y-3">
+            {associations.slice(0, 5).map((org) => (
+              <div 
+                key={org.name}
+                className="group flex items-center gap-4 rounded-xl border border-border bg-white p-4 transition hover:border-gray-300 hover:shadow-sm"
+              >
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-muted">
+                  <Building2 className="h-5 w-5 text-muted-foreground" />
+                </div>
+                
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-foreground">{org.name}</p>
+                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                      org.status === 'ACTIVE' 
+                        ? 'bg-emerald-100 text-emerald-700' 
+                        : org.status === 'TRIAL'
+                        ? 'bg-amber-100 text-amber-700'
+                        : 'bg-gray-100 text-gray-600'
                     }`}>
-                      {association.status === 'ACTIVE' ? 'Activa' : association.status === 'TRIAL' ? 'Trial' : 'Inactiva'}
+                      {org.status === 'ACTIVE' ? 'Activ' : org.status === 'TRIAL' ? 'Trial' : 'Inactiv'}
                     </span>
                   </div>
-                  
-                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                    <InfoCell label="Administrator" value={association.administratorName} />
-                    <InfoCell label="Email" value={association.administratorEmail || '-'} />
-                    <InfoCell label="MRR estimat" value={`${(association.apartmentsCount * 24).toLocaleString('ro-RO')} MDL`} />
-                  </div>
+                  <p className="mt-0.5 text-sm text-muted-foreground">
+                    {org.city} · {org.apartmentsCount} apartamente · {org.administratorName || 'Fara admin'}
+                  </p>
                 </div>
-              ))}
-            </div>
 
-            {associations.length > 5 && (
-              <Link 
-                href="/ro/superadmin/organizations"
-                className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-border py-3 text-sm font-medium text-foreground transition hover:bg-muted"
-              >
-                Vezi toate asociatiile
-                <ArrowUpRight className="h-4 w-4" />
-              </Link>
-            )}
-          </Card>
-        </div>
+                <Link 
+                  href={`/ro/superadmin/organizations/${org.id || org.name}`}
+                  className="rounded-lg border border-border p-2 text-muted-foreground opacity-0 transition group-hover:opacity-100 hover:bg-muted hover:text-foreground"
+                >
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+            ))}
+          </div>
+        </section>
 
-        {/* Signals Panel */}
-        <div>
-          <Card>
-            <div className="border-b border-border pb-4">
-              <h2 className="text-base font-semibold text-foreground">Semnale platforma</h2>
-              <p className="mt-0.5 text-sm text-muted-foreground">Alerte si metrici importante</p>
+        {/* Sidebar */}
+        <aside className="space-y-6">
+          {/* Alerts */}
+          <div>
+            <h3 className="mb-3 text-sm font-semibold text-foreground">Atentie necesara</h3>
+            <div className="space-y-2">
+              <AlertItem 
+                icon={Clock} 
+                title="7 trial-uri expira" 
+                desc="In urmatoarele 7 zile"
+                color="text-blue-600 bg-blue-50"
+              />
+              <AlertItem 
+                icon={AlertCircle} 
+                title="3 necesita follow-up" 
+                desc="Administratori de contactat"
+                color="text-amber-600 bg-amber-50"
+              />
+              <AlertItem 
+                icon={TrendingUp} 
+                title="+24% crestere" 
+                desc="Locatari noi saptamana aceasta"
+                color="text-emerald-600 bg-emerald-50"
+              />
             </div>
-            
-            <div className="mt-4 space-y-3">
-              {signals.map((signal) => {
-                const Icon = signal.icon;
-                return (
-                  <div 
-                    key={signal.title} 
-                    className="flex items-start gap-3 rounded-xl border border-border bg-white p-4 transition hover:border-border/80"
-                  >
-                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${signal.color}`}>
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-medium text-foreground">{signal.title}</p>
-                      <p className="mt-0.5 text-sm text-muted-foreground">{signal.detail}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
+          </div>
 
           {/* Quick Actions */}
-          <Card className="mt-4">
-            <h3 className="text-sm font-semibold text-foreground">Actiuni rapide</h3>
-            <div className="mt-3 space-y-2">
-              {[
-                { label: 'Adauga asociatie', href: '/ro/superadmin/organizations' },
-                { label: 'Vezi leads', href: '/ro/superadmin/leads' },
-                { label: 'Demo requests', href: '/ro/superadmin/demo-requests' },
-                { label: 'System status', href: '/ro/superadmin/system/status' },
-              ].map((action) => (
-                <Link
-                  key={action.label}
-                  href={action.href}
-                  className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5 text-sm font-medium text-foreground transition hover:bg-muted"
-                >
-                  {action.label}
-                  <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
-                </Link>
-              ))}
+          <div>
+            <h3 className="mb-3 text-sm font-semibold text-foreground">Actiuni rapide</h3>
+            <div className="grid grid-cols-2 gap-2">
+              <QuickAction href="/ro/superadmin/organizations" icon={Plus} label="Asociatie noua" />
+              <QuickAction href="/ro/superadmin/leads" icon={Users} label="Vezi leads" />
+              <QuickAction href="/ro/superadmin/feedback" icon={MessageSquare} label="Feedback" />
+              <QuickAction href="/ro/superadmin/demo-requests" icon={FileText} label="Demo requests" />
             </div>
-          </Card>
-        </div>
-      </section>
+          </div>
+
+          {/* Data Source */}
+          <div className="rounded-xl border border-border bg-muted/30 p-4">
+            <div className="flex items-center gap-3">
+              <div className={`h-2 w-2 rounded-full ${source === 'api' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  {source === 'api' ? 'Date live' : 'Date demonstrative'}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {source === 'api' ? 'Conectat la API' : 'Foloseste date mock'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
     </div>
   );
 }
 
-function InfoCell({ label, value }: { label: string; value: string }) {
+function StatCard({ 
+  label, 
+  value, 
+  change, 
+  icon: Icon, 
+  color 
+}: { 
+  label: string; 
+  value: number | string; 
+  change: string; 
+  icon: React.ElementType;
+  color: string;
+}) {
   return (
-    <div className="rounded-lg bg-muted/50 px-3 py-2">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-0.5 truncate text-sm font-medium text-foreground">{value}</p>
+    <div className="rounded-2xl border border-border bg-white p-5">
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-sm text-muted-foreground">{label}</p>
+          <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">{value}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{change}</p>
+        </div>
+        <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}>
+          <Icon className="h-5 w-5 text-white" />
+        </div>
+      </div>
     </div>
+  );
+}
+
+function AlertItem({ 
+  icon: Icon, 
+  title, 
+  desc, 
+  color 
+}: { 
+  icon: React.ElementType; 
+  title: string; 
+  desc: string;
+  color: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-border bg-white p-3 transition hover:border-gray-300">
+      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${color}`}>
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-foreground">{title}</p>
+        <p className="text-xs text-muted-foreground">{desc}</p>
+      </div>
+    </div>
+  );
+}
+
+function QuickAction({ 
+  href, 
+  icon: Icon, 
+  label 
+}: { 
+  href: string; 
+  icon: React.ElementType; 
+  label: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="flex flex-col items-center gap-2 rounded-xl border border-border bg-white p-4 text-center transition hover:border-gray-300 hover:bg-muted/50"
+    >
+      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
+        <Icon className="h-4 w-4 text-muted-foreground" />
+      </div>
+      <span className="text-xs font-medium text-foreground">{label}</span>
+    </Link>
   );
 }
