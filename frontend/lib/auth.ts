@@ -1,11 +1,39 @@
 const ACCESS_TOKEN_KEY = 'accessToken';
 const USER_KEY = 'user';
 const ROLE_COOKIE = 'role';
+const DEMO_ROLE_COOKIE = 'espace_demo_role';
 export const ESPACE_ACCESS_TOKEN_KEY = 'espace_access_token';
 export const ESPACE_USER_KEY = 'espace_user';
 export const ESPACE_ROLE_KEY = 'espace_role';
 const isProd = typeof window !== 'undefined' && window.location.protocol === 'https:';
 const cookieSecurity = isProd ? '; secure' : '';
+
+export type EspaceRole = 'SUPERADMIN' | 'ADMIN' | 'RESIDENT';
+
+export type StoredAuth = {
+  token: string | null;
+  user: any | null;
+  role: EspaceRole | null;
+  isDemo: boolean;
+};
+
+export function normalizeEspaceRole(role: string | null | undefined): EspaceRole | null {
+  const value = String(role || '').toUpperCase();
+  if (value === 'SUPERADMIN' || value === 'SUPER_ADMIN') return 'SUPERADMIN';
+  if (value === 'ADMIN' || value === 'MANAGER') return 'ADMIN';
+  if (value === 'RESIDENT' || value === 'TENANT' || value === 'LOCATAR') return 'RESIDENT';
+  return null;
+}
+
+function setCookie(name: string, value: string, maxAge = 60 * 60 * 24 * 7) {
+  if (typeof window === 'undefined') return;
+  document.cookie = `${name}=${value}; path=/; max-age=${maxAge}; samesite=lax${cookieSecurity}`;
+}
+
+function clearCookie(name: string) {
+  if (typeof window === 'undefined') return;
+  document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; samesite=lax${cookieSecurity}`;
+}
 
 export const getToken = () => {
   if (typeof window === 'undefined') return null;
@@ -15,14 +43,14 @@ export const getToken = () => {
 export const setToken = (token: string) => {
   if (typeof window === 'undefined') return;
   localStorage.setItem(ACCESS_TOKEN_KEY, token);
-  document.cookie = `${ACCESS_TOKEN_KEY}=${token}; path=/; max-age=604800; samesite=lax${cookieSecurity}`;
+  setCookie(ACCESS_TOKEN_KEY, token);
 };
 
 export const removeToken = () => {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(ESPACE_ACCESS_TOKEN_KEY);
   localStorage.removeItem(ACCESS_TOKEN_KEY);
-  document.cookie = `${ACCESS_TOKEN_KEY}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; samesite=lax${cookieSecurity}`;
+  clearCookie(ACCESS_TOKEN_KEY);
 };
 
 export const getUser = () => {
@@ -36,7 +64,7 @@ export const setUser = (user: any) => {
   localStorage.setItem(USER_KEY, JSON.stringify(user));
   const role = (user?.role || '').toString().toUpperCase();
   if (role) {
-    document.cookie = `${ROLE_COOKIE}=${role}; path=/; max-age=604800; samesite=lax${cookieSecurity}`;
+    setCookie(ROLE_COOKIE, role);
   }
 };
 
@@ -45,21 +73,28 @@ export const removeUser = () => {
   localStorage.removeItem(ESPACE_USER_KEY);
   localStorage.removeItem(ESPACE_ROLE_KEY);
   localStorage.removeItem(USER_KEY);
-  document.cookie = `${ROLE_COOKIE}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; samesite=lax${cookieSecurity}`;
+  clearCookie(ROLE_COOKIE);
 };
 
 export const clearAuthCookies = () => {
   if (typeof window === 'undefined') return;
-  document.cookie = `${ACCESS_TOKEN_KEY}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; samesite=lax${cookieSecurity}`;
-  document.cookie = `${ROLE_COOKIE}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; samesite=lax${cookieSecurity}`;
+  clearCookie(ACCESS_TOKEN_KEY);
+  clearCookie(ROLE_COOKIE);
+  clearCookie(DEMO_ROLE_COOKIE);
 };
 
 export const saveRealSession = (accessToken: string, user: any) => {
   if (typeof window === 'undefined') return;
-  const role = (user?.role || '').toString().toUpperCase();
+  const role = normalizeEspaceRole(user?.role);
   localStorage.setItem(ESPACE_ACCESS_TOKEN_KEY, accessToken);
   localStorage.setItem(ESPACE_USER_KEY, JSON.stringify(user));
-  if (role) localStorage.setItem(ESPACE_ROLE_KEY, role);
+  localStorage.removeItem('espace_demo_role');
+  if (role) {
+    localStorage.setItem(ESPACE_ROLE_KEY, role);
+    setCookie(ROLE_COOKIE, role);
+  }
+  setCookie(ACCESS_TOKEN_KEY, accessToken);
+  clearCookie(DEMO_ROLE_COOKIE);
 };
 
 export const clearRealSession = () => {
@@ -67,4 +102,43 @@ export const clearRealSession = () => {
   localStorage.removeItem(ESPACE_ACCESS_TOKEN_KEY);
   localStorage.removeItem(ESPACE_USER_KEY);
   localStorage.removeItem(ESPACE_ROLE_KEY);
+  clearCookie(ACCESS_TOKEN_KEY);
+  clearCookie(ROLE_COOKIE);
 };
+
+export function getCurrentRole(): EspaceRole | null {
+  if (typeof window === 'undefined') return null;
+  const storedRole = localStorage.getItem(ESPACE_ROLE_KEY);
+  const userRole = getUser()?.role;
+  const demoRole = localStorage.getItem('espace_demo_role');
+  return normalizeEspaceRole(storedRole || userRole || demoRole);
+}
+
+export function getStoredAuth(): StoredAuth {
+  if (typeof window === 'undefined') {
+    return { token: null, user: null, role: null, isDemo: false };
+  }
+  const token = getToken();
+  const user = getUser();
+  const role = getCurrentRole();
+  const isDemo = !token && !!localStorage.getItem('espace_demo_role');
+  return { token, user, role, isDemo };
+}
+
+export function getDashboardForRole(role: string | null | undefined, locale = 'ro') {
+  const normalized = normalizeEspaceRole(role);
+  if (normalized === 'SUPERADMIN') return `/${locale}/superadmin`;
+  if (normalized === 'RESIDENT') return `/${locale}/resident`;
+  return `/${locale}/admin`;
+}
+
+export function clearAuth() {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(ESPACE_ACCESS_TOKEN_KEY);
+  localStorage.removeItem(ESPACE_USER_KEY);
+  localStorage.removeItem(ESPACE_ROLE_KEY);
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+  localStorage.removeItem('espace_demo_role');
+  clearAuthCookies();
+}

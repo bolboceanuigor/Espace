@@ -18,6 +18,7 @@ const PUBLIC_ROUTES = [
   '/contact',
   '/demo',
   '/demo-request',
+  '/onboarding',
   '/terms',
   '/privacy',
   '/403',
@@ -26,6 +27,7 @@ const PUBLIC_ROUTES = [
   '/forbidden',
 ];
 const LOCALE_COOKIE = 'locale';
+const DEMO_ROLE_COOKIE = 'espace_demo_role';
 const KNOWN_ROLES = ['SUPERADMIN', 'SUPER_ADMIN', 'ADMIN', 'MANAGER', 'RESIDENT', 'TENANT', 'LOCATAR'] as const;
 const CANONICAL_LOGIN_ROUTE = '/login';
 
@@ -49,10 +51,30 @@ function getPayloadFromToken(token: string): TokenPayload | null {
 function clearAuthCookies(response: NextResponse) {
   response.cookies.delete('accessToken');
   response.cookies.delete('role');
+  response.cookies.delete(DEMO_ROLE_COOKIE);
 }
 
 function safeHomePathForRole(role: string): string {
   return roleHomePath(role);
+}
+
+function localizedLoginPath(locale: string) {
+  return `/${locale}${CANONICAL_LOGIN_ROUTE}`;
+}
+
+function normalizeMiddlewareRole(role: string | null | undefined): 'SUPERADMIN' | 'ADMIN' | 'RESIDENT' | null {
+  const value = (role || '').toUpperCase();
+  if (value === 'SUPERADMIN' || value === 'SUPER_ADMIN') return 'SUPERADMIN';
+  if (value === 'ADMIN' || value === 'MANAGER') return 'ADMIN';
+  if (value === 'RESIDENT' || value === 'TENANT' || value === 'LOCATAR') return 'RESIDENT';
+  return null;
+}
+
+function requiredRoleForPath(pathWithoutLocale: string): 'SUPERADMIN' | 'ADMIN' | 'RESIDENT' | null {
+  if (pathWithoutLocale === '/superadmin' || pathWithoutLocale.startsWith('/superadmin/')) return 'SUPERADMIN';
+  if (pathWithoutLocale === '/admin' || pathWithoutLocale.startsWith('/admin/')) return 'ADMIN';
+  if (pathWithoutLocale === '/resident' || pathWithoutLocale.startsWith('/resident/')) return 'RESIDENT';
+  return null;
 }
 
 export function middleware(request: NextRequest) {
@@ -64,16 +86,20 @@ export function middleware(request: NextRequest) {
   const preferredLocale = cookieLocale && isLocale(cookieLocale) ? cookieLocale : defaultLocale;
   const token = request.cookies.get('accessToken')?.value;
   const roleCookie = request.cookies.get('role')?.value;
+  const demoRoleCookie = request.cookies.get(DEMO_ROLE_COOKIE)?.value;
   const tokenPayload = token ? getPayloadFromToken(token) : null;
   const tokenExpired = !!tokenPayload?.exp && tokenPayload.exp * 1000 <= Date.now();
   const hasUsableToken = !!token && !!tokenPayload && !tokenExpired;
-  const role = (roleCookie || tokenPayload?.role || '').toUpperCase();
+  const realRole = normalizeMiddlewareRole(roleCookie || tokenPayload?.role);
+  const demoRole = !hasUsableToken ? normalizeMiddlewareRole(demoRoleCookie) : null;
+  const activeRole = realRole || demoRole;
+  const hasDemoRole = !!demoRole;
 
   if (!hasLocale) {
     const pathWithoutTrailingSlash = pathname.replace(/\/+$/, '') || '/';
     if (pathWithoutTrailingSlash === CANONICAL_LOGIN_ROUTE) {
       if (token && (!tokenPayload || tokenExpired)) {
-        const loginUrl = new URL(CANONICAL_LOGIN_ROUTE, request.url);
+        const loginUrl = new URL(localizedLoginPath(preferredLocale), request.url);
         loginUrl.searchParams.set('expired', '1');
         const response = NextResponse.redirect(loginUrl);
         response.cookies.set(LOCALE_COOKIE, preferredLocale, { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax' });
@@ -81,11 +107,11 @@ export function middleware(request: NextRequest) {
         return response;
       }
       if (hasUsableToken) {
-        const response = NextResponse.redirect(new URL(`/${preferredLocale}${safeHomePathForRole(role)}`, request.url));
+        const response = NextResponse.redirect(new URL(`/${preferredLocale}${safeHomePathForRole(realRole || '')}`, request.url));
         response.cookies.set(LOCALE_COOKIE, preferredLocale, { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax' });
         return response;
       }
-      const response = NextResponse.next();
+      const response = NextResponse.redirect(new URL(localizedLoginPath(preferredLocale), request.url));
       response.cookies.set(LOCALE_COOKIE, preferredLocale, { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax' });
       return response;
     }
@@ -98,15 +124,15 @@ export function middleware(request: NextRequest) {
 
   const locale = maybeLocale;
   const pathWithoutLocale = `/${segments.slice(1).join('/')}`.replace(/\/+$/, '') || '/';
-  const hasKnownRole = KNOWN_ROLES.includes(role as (typeof KNOWN_ROLES)[number]);
-  const homeRoute = safeHomePathForRole(role);
+  const hasKnownRole = !!activeRole && KNOWN_ROLES.includes(activeRole as (typeof KNOWN_ROLES)[number]);
+  const homeRoute = safeHomePathForRole(activeRole || '');
   const isPublicRoute = PUBLIC_ROUTES.some(
     (route) => pathWithoutLocale === route || pathWithoutLocale.startsWith(`${route}/`),
   );
-  const isForbiddenRoute = pathWithoutLocale === '/forbidden' || pathWithoutLocale === '/403';
+  const requiredRole = requiredRoleForPath(pathWithoutLocale);
 
   if (token && (!tokenPayload || tokenExpired)) {
-    const loginUrl = new URL(CANONICAL_LOGIN_ROUTE, request.url);
+    const loginUrl = new URL(localizedLoginPath(locale), request.url);
     loginUrl.searchParams.set('expired', '1');
     const response = NextResponse.redirect(loginUrl);
     response.cookies.set(LOCALE_COOKIE, locale, { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax' });
@@ -114,68 +140,44 @@ export function middleware(request: NextRequest) {
     return response;
   }
 
-  if (pathWithoutLocale === CANONICAL_LOGIN_ROUTE && !hasUsableToken) {
-    const response = NextResponse.redirect(new URL(`${CANONICAL_LOGIN_ROUTE}${search}`, request.url));
+  if (pathWithoutLocale === CANONICAL_LOGIN_ROUTE && !hasUsableToken && !hasDemoRole) {
+    const response = NextResponse.next();
     response.cookies.set(LOCALE_COOKIE, locale, { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax' });
     return response;
   }
 
-  if (!hasUsableToken && !isPublicRoute) {
-    const response = NextResponse.redirect(new URL(CANONICAL_LOGIN_ROUTE, request.url));
+  if (!activeRole && !isPublicRoute) {
+    const response = NextResponse.redirect(new URL(localizedLoginPath(locale), request.url));
     response.cookies.set(LOCALE_COOKIE, locale, { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax' });
     return response;
   }
 
   // Prevent redirect loops when token exists but role is missing/corrupted.
-  if (hasUsableToken && !hasKnownRole) {
-    const response = NextResponse.redirect(new URL(CANONICAL_LOGIN_ROUTE, request.url));
+  if ((hasUsableToken || hasDemoRole) && !hasKnownRole) {
+    const response = NextResponse.redirect(new URL(localizedLoginPath(locale), request.url));
     response.cookies.set(LOCALE_COOKIE, locale, { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax' });
     clearAuthCookies(response);
     return response;
   }
 
-  if (hasUsableToken && isPublicRoute && !isForbiddenRoute) {
+  if (activeRole && pathWithoutLocale === CANONICAL_LOGIN_ROUTE) {
     const response = NextResponse.redirect(new URL(`/${locale}${homeRoute}`, request.url));
     response.cookies.set(LOCALE_COOKIE, locale, { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax' });
     return response;
   }
 
-  if (hasUsableToken && pathWithoutLocale === '/') {
+  if (activeRole && pathWithoutLocale.startsWith('/team')) {
+    if (!['ADMIN', 'SUPERADMIN'].includes(activeRole)) {
+      const response = NextResponse.redirect(new URL(`/${locale}${homeRoute}`, request.url));
+      response.cookies.set(LOCALE_COOKIE, locale, { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax' });
+      return response;
+    }
+  }
+
+  if (requiredRole && activeRole && activeRole !== requiredRole) {
     const response = NextResponse.redirect(new URL(`/${locale}${homeRoute}`, request.url));
     response.cookies.set(LOCALE_COOKIE, locale, { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax' });
     return response;
-  }
-
-  if (hasUsableToken && pathWithoutLocale.startsWith('/team')) {
-    if (!['ADMIN', 'SUPERADMIN', 'SUPER_ADMIN'].includes(role)) {
-      const response = NextResponse.redirect(new URL(`/${locale}/403`, request.url));
-      response.cookies.set(LOCALE_COOKIE, locale, { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax' });
-      return response;
-    }
-  }
-
-  if (hasUsableToken && pathWithoutLocale.startsWith('/superadmin')) {
-    if (role !== 'SUPERADMIN' && role !== 'SUPER_ADMIN') {
-      const response = NextResponse.redirect(new URL(`/${locale}/403`, request.url));
-      response.cookies.set(LOCALE_COOKIE, locale, { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax' });
-      return response;
-    }
-  }
-
-  if (hasUsableToken && pathWithoutLocale.startsWith('/admin')) {
-    if (!['ADMIN', 'MANAGER', 'SUPERADMIN', 'SUPER_ADMIN'].includes(role)) {
-      const response = NextResponse.redirect(new URL(`/${locale}/403`, request.url));
-      response.cookies.set(LOCALE_COOKIE, locale, { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax' });
-      return response;
-    }
-  }
-
-  if (hasUsableToken && pathWithoutLocale.startsWith('/resident')) {
-    if (!['RESIDENT', 'TENANT', 'LOCATAR'].includes(role)) {
-      const response = NextResponse.redirect(new URL(`/${locale}/403`, request.url));
-      response.cookies.set(LOCALE_COOKIE, locale, { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax' });
-      return response;
-    }
   }
 
   const response = NextResponse.next();
