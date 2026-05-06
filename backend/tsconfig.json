@@ -33,6 +33,7 @@
     "src/billing-read/**/*.ts",
     "src/community-read/**/*.ts",
     "src/resident-demo/**/*.ts",
+    "src/demo-auth-read/**/*.ts",
     "src/common/filters/**/*.ts",
     "src/common/interceptors/**/*.ts",
     "src/auth/decorators/public.decorator.ts"
