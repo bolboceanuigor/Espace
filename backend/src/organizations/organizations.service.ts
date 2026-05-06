@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BillingCurrency, OrganizationStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -62,6 +63,17 @@ export class OrganizationsService {
     return organizations.map((organization) => this.toPublicOrganization(organization));
   }
 
+  async createPublicOrganization(body: unknown) {
+    const input = this.parseCreateOrganizationBody(body);
+
+    const organization = await this.prisma.organization.create({
+      data: input,
+      select: this.publicSelect,
+    });
+
+    return this.toPublicOrganization(organization);
+  }
+
   async findPublicOrganization(id: string) {
     const organization = await this.prisma.organization.findUnique({
       where: { id },
@@ -73,5 +85,41 @@ export class OrganizationsService {
     }
 
     return this.toPublicOrganization(organization);
+  }
+
+  private parseCreateOrganizationBody(body: unknown) {
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const name = this.requiredString(payload.name, 'Numele asociației este obligatoriu.');
+    const address = this.requiredString(payload.address, 'Adresa este obligatorie.');
+    const city = this.requiredString(payload.city, 'Orașul este obligatoriu.');
+    const country = this.requiredString(payload.country, 'Țara este obligatorie.');
+    const currency = this.optionalEnum(payload.currency, BillingCurrency, BillingCurrency.MDL, 'Moneda nu este validă.');
+    const status = this.optionalEnum(payload.status, OrganizationStatus, OrganizationStatus.ACTIVE, 'Statusul nu este valid.');
+
+    return {
+      name,
+      address,
+      city,
+      country,
+      currency,
+      defaultCurrency: currency,
+      status,
+    };
+  }
+
+  private requiredString(value: unknown, message: string) {
+    if (typeof value !== 'string' || !value.trim()) {
+      throw new BadRequestException(message);
+    }
+    return value.trim();
+  }
+
+  private optionalEnum<T extends Record<string, string>>(value: unknown, enumValues: T, fallback: T[keyof T], message: string) {
+    if (value === undefined || value === null || value === '') return fallback;
+    if (typeof value !== 'string') throw new BadRequestException(message);
+    const normalized = value.trim().toUpperCase();
+    const allowed = Object.values(enumValues) as string[];
+    if (!allowed.includes(normalized)) throw new BadRequestException(message);
+    return normalized as T[keyof T];
   }
 }

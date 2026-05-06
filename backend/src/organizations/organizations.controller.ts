@@ -1,4 +1,4 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { OrganizationsService } from './organizations.service';
 import { Public } from '../auth/decorators/public.decorator';
 
@@ -10,6 +10,13 @@ export class OrganizationsController {
   @Get()
   listPublicOrganizations() {
     return this.organizationsService.listPublicOrganizations();
+  }
+
+  // Temporary MVP endpoint until the full backend guard stack is re-enabled.
+  @Public()
+  @Post()
+  createPublicOrganization(@Body() body: unknown) {
+    return this.organizationsService.createPublicOrganization(body);
   }
 
   @Public()

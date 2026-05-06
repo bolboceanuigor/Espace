@@ -6,7 +6,6 @@ import { Building2, Plus, Search, UserPlus } from 'lucide-react';
 import { Badge, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
 import { superadminApi } from '@/lib/api';
 import {
-  createAssociationId,
   mockAssociations,
   normalizeApiAssociation,
   statusBadgeVariant,
@@ -19,9 +18,9 @@ const emptyForm = {
   name: '',
   address: '',
   city: 'Chișinău',
-  country: 'MD',
-  currency: 'MDL' as MvpAssociation['currency'],
-  status: 'TRIAL' as AssociationStatus,
+  country: 'Moldova',
+  currency: 'MDL' as 'MDL' | 'EUR' | 'USD',
+  status: 'ACTIVE' as AssociationStatus,
   apartmentsCount: '0',
   administratorName: '',
   administratorEmail: '',
@@ -35,23 +34,35 @@ export default function SuperadminOrganizationsPage() {
   const [source, setSource] = useState<'mock' | 'api'>('mock');
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [isCreating, setIsCreating] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+  const [listError, setListError] = useState('');
+
+  const loadOrganizations = async () => {
+    const res = await superadminApi.listPublicOrganizations();
+    const apiRows = (res.data || []).map(normalizeApiAssociation);
+    if (apiRows.length) {
+      setRows(apiRows);
+      setSource('api');
+      setListError('');
+      return;
+    }
+    setRows(mockAssociations);
+    setSource('mock');
+  };
 
   useEffect(() => {
     let active = true;
-    superadminApi
-      .listPublicOrganizations()
-      .then((res) => {
+    loadOrganizations()
+      .then(() => {
         if (!active) return;
-        const apiRows = (res.data || []).map(normalizeApiAssociation);
-        if (apiRows.length) {
-          setRows(apiRows);
-          setSource('api');
-        }
       })
       .catch(() => {
         if (!active) return;
         setRows(mockAssociations);
         setSource('mock');
+        setListError('API indisponibil temporar. Sunt afișate date demo.');
       });
     return () => {
       active = false;
@@ -82,27 +93,36 @@ export default function SuperadminOrganizationsPage() {
   }, [rows]);
 
   const createAssociation = async () => {
-    if (!form.name.trim()) return;
-    const next: MvpAssociation = {
-      id: createAssociationId(form.name),
+    setFormError('');
+    setSuccessMessage('');
+    const payload = {
       name: form.name.trim(),
-      address: form.address.trim() || 'Adresă necompletată',
-      city: form.city.trim() || 'Chișinău',
-      country: form.country.trim() || 'MD',
+      address: form.address.trim(),
+      city: form.city.trim(),
+      country: form.country.trim(),
       currency: form.currency,
       status: form.status,
-      apartmentsCount: Number(form.apartmentsCount || 0),
-      administratorName: form.administratorName.trim() || 'Administrator neatribuit',
-      administratorEmail: form.administratorEmail.trim(),
-      administratorPhone: form.administratorPhone.trim(),
     };
+    if (!payload.name || !payload.address || !payload.city || !payload.country) {
+      setFormError('Completează numele, adresa, orașul și țara.');
+      return;
+    }
 
-    setRows((current) => [next, ...current]);
-    setSource('mock');
-    setForm(emptyForm);
-    setModalOpen(false);
-
-    superadminApi.createOrg({ name: next.name }).catch(() => undefined);
+    setIsCreating(true);
+    try {
+      const created = await superadminApi.createPublicOrganization(payload);
+      const next = normalizeApiAssociation(created.data);
+      setRows((current) => [next, ...current.filter((row) => row.id !== next.id)]);
+      setSource('api');
+      setForm(emptyForm);
+      setModalOpen(false);
+      setSuccessMessage('Asociația a fost creată.');
+      await loadOrganizations().catch(() => undefined);
+    } catch {
+      setFormError('Nu am putut crea asociația. Încearcă din nou.');
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   return (
@@ -121,6 +141,17 @@ export default function SuperadminOrganizationsPage() {
           </button>
         }
       />
+
+      {successMessage ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+          {successMessage}
+        </div>
+      ) : null}
+      {listError ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+          {listError}
+        </div>
+      ) : null}
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Total asociații" value={totals.total} description="În platformă" icon={<Building2 className="h-5 w-5" />} />
@@ -146,7 +177,7 @@ export default function SuperadminOrganizationsPage() {
             <option value="INACTIVE">Inactive</option>
           </select>
           <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-            Date: {source === 'api' ? 'API' : 'mock/local'}
+            {source === 'api' ? 'Date reale' : 'Date demo'}
           </span>
         </div>
       </Card>
@@ -185,12 +216,19 @@ export default function SuperadminOrganizationsPage() {
             <Field label="Oraș" value={form.city} onChange={(value) => setForm({ ...form, city: value })} />
             <Field label="Adresă" value={form.address} onChange={(value) => setForm({ ...form, address: value })} />
             <Field label="Țară" value={form.country} onChange={(value) => setForm({ ...form, country: value })} />
-            <Field label="Apartamente" value={form.apartmentsCount} onChange={(value) => setForm({ ...form, apartmentsCount: value })} type="number" />
+            <label className="block">
+              <span className="label">Monedă</span>
+              <select className="select" value={form.currency} onChange={(event) => setForm({ ...form, currency: event.target.value as typeof form.currency })}>
+                <option value="MDL">MDL</option>
+                <option value="EUR">EUR</option>
+                <option value="USD">USD</option>
+              </select>
+            </label>
             <label className="block">
               <span className="label">Status</span>
               <select className="select" value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as AssociationStatus })}>
-                <option value="TRIAL">Trial</option>
                 <option value="ACTIVE">Activă</option>
+                <option value="TRIAL">Trial</option>
                 <option value="INACTIVE">Inactivă</option>
               </select>
             </label>
@@ -198,16 +236,21 @@ export default function SuperadminOrganizationsPage() {
             <Field label="Email administrator" value={form.administratorEmail} onChange={(value) => setForm({ ...form, administratorEmail: value })} type="email" />
             <Field label="Telefon administrator" value={form.administratorPhone} onChange={(value) => setForm({ ...form, administratorPhone: value })} />
           </div>
+          {formError ? (
+            <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
+              {formError}
+            </p>
+          ) : null}
           <p className="mt-4 text-xs text-muted-foreground">
-            În preview, asociația creată este păstrată doar în starea locală a paginii dacă API-ul nu este conectat.
+            Asociația este creată în baza de date prin API-ul Espace. Administratorul poate fi adăugat într-un pas separat.
           </p>
         </ModalBody>
         <ModalFooter>
-          <button type="button" onClick={() => setModalOpen(false)} className="rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold">
+          <button type="button" onClick={() => setModalOpen(false)} disabled={isCreating} className="rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold disabled:opacity-60">
             Anulează
           </button>
-          <button type="button" onClick={createAssociation} className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background">
-            Creează asociație
+          <button type="button" onClick={createAssociation} disabled={isCreating} className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background disabled:opacity-60">
+            {isCreating ? 'Se creează...' : 'Creează asociație'}
           </button>
         </ModalFooter>
       </Modal>

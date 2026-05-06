@@ -1429,6 +1429,18 @@ export const superadminApi = {
     apiRequest<any[]>('/organizations'),
   getPublicOrganization: (id: string) =>
     apiRequest<any>(`/organizations/${id}`),
+  createPublicOrganization: (data: {
+    name: string;
+    address: string;
+    city: string;
+    country: string;
+    currency?: 'MDL' | 'EUR' | 'USD';
+    status?: 'ACTIVE' | 'TRIAL' | 'INACTIVE';
+  }) =>
+    apiRequest<any>('/organizations', {
+      method: 'POST',
+      body: data,
+    }),
   listOrgs: () =>
     apiRequest<
       Array<{
