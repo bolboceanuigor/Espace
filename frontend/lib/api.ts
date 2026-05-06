@@ -715,6 +715,8 @@ export const metersApi = {
     serialNumber: string;
     status?: 'ACTIVE' | 'MISSING_READING' | 'SUSPICIOUS' | 'INACTIVE';
   }) => apiRequest<any>('/meters', { method: 'POST', body: data }),
+  addReading: (meterId: string, data: { value: number; readingDate?: string; source?: 'ADMIN' | 'RESIDENT' }) =>
+    apiRequest<any>(`/meters/${meterId}/readings`, { method: 'POST', body: data }),
 };
 
 export const adminStructureApi = {
@@ -858,6 +860,8 @@ export const communicationsApi = {
 export const issuesApi = {
   list: () => apiRequest<any[]>('/issues'),
   get: (id: string) => apiRequest<any>(`/issues/${id}`),
+  updateStatus: (id: string, status: 'NEW' | 'IN_PROGRESS' | 'RESOLVED') =>
+    apiRequest<any>(`/issues/${id}/status`, { method: 'PATCH', body: { status } }),
   residentList: (params?: { status?: 'NEW' | 'IN_PROGRESS' | 'WAITING' | 'RESOLVED' | 'CLOSED' }) =>
     apiRequest<any[]>('/api/resident/issues', { params }),
   residentCreate: (data: {
@@ -899,6 +903,13 @@ export const issuesApi = {
 export const announcementsApi = {
   list: () => apiRequest<any[]>('/announcements'),
   get: (id: string) => apiRequest<any>(`/announcements/${id}`),
+  create: (data: {
+    organizationId: string;
+    title: string;
+    content: string;
+    category?: 'GENERAL' | 'REPAIR' | 'URGENT' | 'ADMINISTRATION';
+    status?: 'ACTIVE' | 'ARCHIVED';
+  }) => apiRequest<any>('/announcements', { method: 'POST', body: data }),
 };
 
 export const residentDemoApi = {
@@ -988,6 +999,15 @@ export const importsApi = {
 export const invoicesApi = {
   list: () => apiRequest<any[]>('/invoices'),
   get: (id: string) => apiRequest<any>(`/invoices/${id}`),
+  create: (data: {
+    organizationId: string;
+    apartmentId: string;
+    month: number;
+    year: number;
+    amount: number;
+    status?: 'PAID' | 'UNPAID' | 'OVERDUE';
+    dueDate: string;
+  }) => apiRequest<any>('/invoices', { method: 'POST', body: data }),
   generateMonthly: (data: { month: number; year: number; dueDate?: string }) =>
     apiRequest<any>('/api/admin/invoices/generate-monthly', { method: 'POST', body: data }),
   adminList: (params?: { month?: number; year?: number; buildingId?: string; staircaseId?: string; status?: string; page?: number; limit?: number }) =>
@@ -1013,6 +1033,14 @@ export const paymentsApi = {
   list: () => apiRequest<any[]>('/payments'),
   get: (id: string) => apiRequest<any>(`/payments/${id}`),
   summary: () => apiRequest<any>('/billing/summary'),
+  create: (data: {
+    organizationId: string;
+    apartmentId: string;
+    invoiceId?: string;
+    amount: number;
+    method: 'CASH' | 'BANK' | 'BANK_TRANSFER' | 'CARD' | 'ONLINE';
+    paidAt?: string;
+  }) => apiRequest<any>('/payments', { method: 'POST', body: data }),
   adminList: (params?: {
     buildingId?: string;
     staircaseId?: string;

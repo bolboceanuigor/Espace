@@ -1,5 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InvoiceStatus, PaymentStatus, Prisma } from '@prisma/client';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { InvoiceStatus, PaymentMethod, PaymentStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -140,6 +140,53 @@ export class BillingReadService {
     return invoices.map((invoice) => this.toInvoice(invoice));
   }
 
+  async createInvoice(body: unknown) {
+    const input = this.parseCreateInvoiceBody(body);
+    const [organization, apartment] = await Promise.all([
+      this.prisma.organization.findUnique({ where: { id: input.organizationId }, select: { id: true } }),
+      this.prisma.apartment.findFirst({
+        where: {
+          id: input.apartmentId,
+          organizationId: input.organizationId,
+        },
+        select: { id: true },
+      }),
+    ]);
+
+    if (!organization) throw new NotFoundException('Organization not found');
+    if (!apartment) throw new NotFoundException('Apartment not found');
+
+    const duplicate = await this.prisma.invoice.findFirst({
+      where: {
+        organizationId: input.organizationId,
+        apartmentId: input.apartmentId,
+        month: input.month,
+        year: input.year,
+      },
+      select: { id: true },
+    });
+    if (duplicate) {
+      throw new ConflictException('Factura pentru acest apartament și această lună există deja.');
+    }
+
+    const invoice = await this.prisma.invoice.create({
+      data: {
+        organizationId: input.organizationId,
+        apartmentId: input.apartmentId,
+        month: input.month,
+        year: input.year,
+        amount: input.amount,
+        finalAmount: input.amount,
+        plan: 'APARTMENT_MONTHLY',
+        status: input.status,
+        dueDate: input.dueDate,
+      },
+      select: this.invoiceSelect(),
+    });
+
+    return this.toInvoice(invoice);
+  }
+
   async getInvoice(id: string) {
     const invoice = await this.prisma.invoice.findFirst({
       where: { id },
@@ -169,6 +216,65 @@ export class BillingReadService {
     });
 
     return payments.map((payment) => this.toPayment(payment));
+  }
+
+  async createPayment(body: unknown) {
+    const input = this.parseCreatePaymentBody(body);
+    const [organization, apartment, invoice] = await Promise.all([
+      this.prisma.organization.findUnique({ where: { id: input.organizationId }, select: { id: true } }),
+      this.prisma.apartment.findFirst({
+        where: {
+          id: input.apartmentId,
+          organizationId: input.organizationId,
+        },
+        select: { id: true },
+      }),
+      input.invoiceId
+        ? this.prisma.invoice.findFirst({
+            where: {
+              id: input.invoiceId,
+              organizationId: input.organizationId,
+              apartmentId: input.apartmentId,
+            },
+            select: {
+              id: true,
+              amount: true,
+              finalAmount: true,
+            },
+          })
+        : Promise.resolve(null),
+    ]);
+
+    if (!organization) throw new NotFoundException('Organization not found');
+    if (!apartment) throw new NotFoundException('Apartment not found');
+    if (input.invoiceId && !invoice) throw new NotFoundException('Invoice not found');
+
+    const payment = await this.prisma.payment.create({
+      data: {
+        organizationId: input.organizationId,
+        apartmentId: input.apartmentId,
+        amount: input.amount,
+        method: input.method,
+        status: PaymentStatus.CONFIRMED,
+        paidAt: input.paidAt,
+        confirmedAt: input.paidAt,
+        month: input.month,
+        note: input.invoiceId ? `Invoice ${input.invoiceId}` : undefined,
+      },
+      select: this.paymentSelect(),
+    });
+
+    if (invoice && input.amount >= Number(invoice.finalAmount || invoice.amount || 0)) {
+      await this.prisma.invoice.update({
+        where: { id: invoice.id },
+        data: {
+          status: InvoiceStatus.PAID,
+          paidAt: input.paidAt,
+        },
+      });
+    }
+
+    return this.toPayment(payment);
   }
 
   async getPayment(id: string) {
@@ -213,5 +319,69 @@ export class BillingReadService {
       totalDebt: openInvoices.reduce((sum, invoice) => sum + Number(invoice.finalAmount || invoice.amount || 0), 0),
       overdueInvoices: invoices.filter((invoice) => invoice.status === InvoiceStatus.OVERDUE).length,
     };
+  }
+
+  private parseCreateInvoiceBody(body: unknown) {
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const organizationId = this.requiredString(payload.organizationId, 'Organizația este obligatorie.');
+    const apartmentId = this.requiredString(payload.apartmentId, 'Apartamentul este obligatoriu.');
+    const month = this.requiredInt(payload.month, 'Luna este obligatorie.');
+    const year = this.requiredInt(payload.year, 'Anul este obligatoriu.');
+    const amount = this.requiredNumber(payload.amount, 'Suma este obligatorie.');
+    const status = this.optionalEnum(payload.status, InvoiceStatus, InvoiceStatus.UNPAID, 'Statusul facturii nu este valid.');
+    const dueDate = this.requiredDate(payload.dueDate, 'Data scadentă este obligatorie.');
+
+    if (month < 1 || month > 12) throw new BadRequestException('Luna nu este validă.');
+
+    return { organizationId, apartmentId, month, year, amount, status, dueDate };
+  }
+
+  private parseCreatePaymentBody(body: unknown) {
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const organizationId = this.requiredString(payload.organizationId, 'Organizația este obligatorie.');
+    const apartmentId = this.requiredString(payload.apartmentId, 'Apartamentul este obligatoriu.');
+    const invoiceId = typeof payload.invoiceId === 'string' && payload.invoiceId.trim() ? payload.invoiceId.trim() : null;
+    const amount = this.requiredNumber(payload.amount, 'Suma este obligatorie.');
+    const method = this.optionalEnum(payload.method, PaymentMethod, PaymentMethod.CASH, 'Metoda de plată nu este validă.');
+    const paidAt =
+      typeof payload.paidAt === 'string' && payload.paidAt.trim()
+        ? this.requiredDate(payload.paidAt, 'Data plății nu este validă.')
+        : new Date();
+    const month = `${paidAt.getFullYear()}-${String(paidAt.getMonth() + 1).padStart(2, '0')}`;
+
+    return { organizationId, apartmentId, invoiceId, amount, method, paidAt, month };
+  }
+
+  private requiredString(value: unknown, message: string) {
+    if (typeof value !== 'string' || !value.trim()) throw new BadRequestException(message);
+    return value.trim();
+  }
+
+  private requiredNumber(value: unknown, message: string) {
+    const parsed = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(parsed)) throw new BadRequestException(message);
+    return parsed;
+  }
+
+  private requiredInt(value: unknown, message: string) {
+    const parsed = this.requiredNumber(value, message);
+    if (!Number.isInteger(parsed)) throw new BadRequestException(message);
+    return parsed;
+  }
+
+  private requiredDate(value: unknown, message: string) {
+    if (typeof value !== 'string' || !value.trim()) throw new BadRequestException(message);
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) throw new BadRequestException(message);
+    return parsed;
+  }
+
+  private optionalEnum<T extends Record<string, string>>(value: unknown, enumValues: T, fallback: T[keyof T], message: string) {
+    if (value === undefined || value === null || value === '') return fallback;
+    if (typeof value !== 'string') throw new BadRequestException(message);
+    const normalized = value.trim().toUpperCase();
+    const allowed = Object.values(enumValues) as string[];
+    if (!allowed.includes(normalized)) throw new BadRequestException(message);
+    return normalized as T[keyof T];
   }
 }

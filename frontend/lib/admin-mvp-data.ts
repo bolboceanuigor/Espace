@@ -60,6 +60,10 @@ export type AdminMeter = {
 
 export type AdminInvoice = {
   id: string;
+  organizationId?: string;
+  apartmentId?: string;
+  monthNumber?: number;
+  yearNumber?: number;
   apartment: string;
   staircase: string;
   month: string;
@@ -88,6 +92,7 @@ export type AdminIssue = {
 
 export type AdminAnnouncement = {
   id: string;
+  organizationId?: string;
   title: string;
   category: AnnouncementCategory;
   date: string;
@@ -653,6 +658,7 @@ export function normalizeApiApartmentMeters(row: any) {
   };
   return Array.isArray(row?.meters)
     ? row.meters.map((meter: any) => ({
+        id: String(meter.id || meter.serialNumber || 'meter'),
         type: typeLabel[String(meter.type)] || String(meter.type || 'Contor'),
         serial: String(meter.serialNumber || '-'),
         value: meter.lastReading === null || meter.lastReading === undefined ? 'Lipsă citire' : `${meter.lastReading} m³`,
@@ -738,6 +744,10 @@ export function normalizeApiInvoice(row: any, payments: any[] = []): AdminInvoic
 
   return {
     id: String(row?.id || `invoice-${apartment}`),
+    organizationId: row?.organizationId ? String(row.organizationId) : undefined,
+    apartmentId: row?.apartmentId ? String(row.apartmentId) : row?.apartment?.id ? String(row.apartment.id) : undefined,
+    monthNumber: Number(row?.month || 0) || undefined,
+    yearNumber: Number(row?.year || 0) || undefined,
     apartment,
     staircase: String(row?.apartment?.staircase?.name || row?.staircase?.name || 'Scara -'),
     month: invoiceMonthLabel(row?.month, row?.year),
@@ -924,6 +934,7 @@ function audienceFromApi(audience?: string | null) {
 export function normalizeApiAnnouncement(row: any): AdminAnnouncement {
   return {
     id: String(row?.id || 'announcement'),
+    organizationId: row?.organizationId ? String(row.organizationId) : undefined,
     title: String(row?.title || 'Anunț'),
     category: announcementCategoryFromApi(row?.category),
     date: dateLabel(row?.createdAt),

@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { MeterStatus, MeterType, Prisma } from '@prisma/client';
+import { MeterReadingSource, MeterStatus, MeterType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -142,6 +142,50 @@ export class MetersService {
     return this.toMeter(meter);
   }
 
+  async addReading(meterId: string, body: unknown) {
+    const input = this.parseAddReadingBody(body);
+    const meter = await this.prisma.meter.findUnique({
+      where: { id: meterId },
+      select: {
+        id: true,
+        apartmentId: true,
+        organizationId: true,
+      },
+    });
+
+    if (!meter) {
+      throw new NotFoundException('Meter not found');
+    }
+
+    const reading = await this.prisma.meterReading.create({
+      data: {
+        meterId: meter.id,
+        apartmentId: meter.apartmentId,
+        organizationId: meter.organizationId,
+        value: input.value,
+        readingDate: input.readingDate,
+        source: input.source,
+      },
+      select: {
+        id: true,
+        meterId: true,
+        apartmentId: true,
+        organizationId: true,
+        value: true,
+        readingDate: true,
+        source: true,
+        createdAt: true,
+      },
+    });
+
+    await this.prisma.meter.update({
+      where: { id: meter.id },
+      data: { status: MeterStatus.ACTIVE },
+    });
+
+    return reading;
+  }
+
   async getMeter(id: string) {
     const meter = await this.prisma.meter.findFirst({
       where: {
@@ -176,6 +220,34 @@ export class MetersService {
       serialNumber,
       status,
     };
+  }
+
+  private parseAddReadingBody(body: unknown) {
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const value = this.requiredNumber(payload.value, 'Valoarea citirii este obligatorie.');
+    const readingDate =
+      typeof payload.readingDate === 'string' && payload.readingDate.trim()
+        ? new Date(payload.readingDate)
+        : new Date();
+    const source = this.optionalEnum(payload.source, MeterReadingSource, MeterReadingSource.ADMIN, 'Sursa citirii nu este validă.');
+
+    if (Number.isNaN(readingDate.getTime())) {
+      throw new BadRequestException('Data citirii nu este validă.');
+    }
+
+    return {
+      value,
+      readingDate,
+      source,
+    };
+  }
+
+  private requiredNumber(value: unknown, message: string) {
+    const parsed = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(parsed)) {
+      throw new BadRequestException(message);
+    }
+    return parsed;
   }
 
   private requiredString(value: unknown, message: string) {

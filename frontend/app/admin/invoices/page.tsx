@@ -2,14 +2,27 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { CalendarDays, CheckCircle2, Clock3, FileText, Search, Send } from 'lucide-react';
-import { Badge, Button, ButtonLink, Card, Input, PageHeader, StatCard } from '@/components/ui';
-import { invoicesApi, paymentsApi } from '@/lib/api';
-import { adminInvoices, invoiceStatusVariant, normalizeApiInvoice, type AdminInvoice, type InvoiceStatus } from '@/lib/admin-mvp-data';
+import { Badge, Button, ButtonLink, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
+import { apartmentsApi, invoicesApi, paymentsApi } from '@/lib/api';
+import { adminInvoices, invoiceStatusVariant, normalizeApiApartment, normalizeApiInvoice, type AdminApartment, type AdminInvoice, type InvoiceStatus } from '@/lib/admin-mvp-data';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 const months = ['Toate', 'Mai 2026', 'Aprilie 2026', 'Martie 2026'];
 const statuses: Array<'Toate' | InvoiceStatus> = ['Toate', 'Achitat', 'Neachitat', 'Întârziat'];
+const invoiceStatuses = {
+  UNPAID: 'Neachitat',
+  PAID: 'Achitat',
+  OVERDUE: 'Întârziat',
+} as const;
+const emptyInvoiceForm = {
+  apartmentId: '',
+  month: String(new Date().getMonth() + 1),
+  year: String(new Date().getFullYear()),
+  amount: '',
+  dueDate: new Date().toISOString().slice(0, 10),
+  status: 'UNPAID' as keyof typeof invoiceStatuses,
+};
 
 export default function AdminInvoicesPage() {
   const localizedPath = useLocalizedPath();
@@ -17,25 +30,39 @@ export default function AdminInvoicesPage() {
   const [status, setStatus] = useState<'Toate' | InvoiceStatus>('Toate');
   const [query, setQuery] = useState('');
   const [rows, setRows] = useState<AdminInvoice[]>(adminInvoices);
+  const [apartmentRows, setApartmentRows] = useState<AdminApartment[]>([]);
   const [source, setSource] = useState<'api' | 'mock'>('mock');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [form, setForm] = useState(emptyInvoiceForm);
+  const [isCreating, setIsCreating] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+
+  const loadInvoices = async () => {
+    const [invoiceRes, paymentRes, apartmentsRes] = await Promise.all([
+      invoicesApi.list(),
+      paymentsApi.list().catch(() => ({ data: [] })),
+      apartmentsApi.list().catch(() => ({ data: [] })),
+    ]);
+    const apiRows = (invoiceRes.data || []).map((invoice) => normalizeApiInvoice(invoice, paymentRes.data || []));
+    const apiApartments = (apartmentsRes.data || []).map(normalizeApiApartment);
+    if (apiRows.length) {
+      setRows(apiRows);
+      setSource('api');
+    }
+    setApartmentRows(apiApartments);
+    setForm((current) => {
+      if (current.apartmentId || !apiApartments[0]?.id) return current;
+      return { ...current, apartmentId: apiApartments[0].id };
+    });
+  };
 
   useEffect(() => {
     let active = true;
-    Promise.all([
-      invoicesApi.list(),
-      paymentsApi.list().catch(() => ({ data: [] })),
-    ])
-      .then(([invoiceRes, paymentRes]) => {
-        if (!active) return;
-        const apiRows = (invoiceRes.data || []).map((invoice) => normalizeApiInvoice(invoice, paymentRes.data || []));
-        if (apiRows.length) {
-          setRows(apiRows);
-          setSource('api');
-        }
-      })
-      .catch(() => {
+    loadInvoices().catch(() => {
         if (!active) return;
         setRows(adminInvoices);
+        setApartmentRows([]);
         setSource('mock');
       });
     return () => {
@@ -61,6 +88,50 @@ export default function AdminInvoicesPage() {
     nextDue: rows.find((invoice) => invoice.status !== 'Achitat')?.dueDate || 'Nu există',
   }), [rows]);
 
+  const createInvoice = async () => {
+    setFormError('');
+    setSuccessMessage('');
+    const selectedApartment = apartmentRows.find((item) => item.id === form.apartmentId);
+    const amount = Number(form.amount);
+    const monthNumber = Number(form.month);
+    const yearNumber = Number(form.year);
+    if (!selectedApartment?.organizationId) {
+      setFormError('Alege un apartament real din lista API.');
+      return;
+    }
+    if (!Number.isInteger(monthNumber) || monthNumber < 1 || monthNumber > 12 || !Number.isInteger(yearNumber)) {
+      setFormError('Completează luna și anul.');
+      return;
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setFormError('Completează suma facturii.');
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      await invoicesApi.create({
+        organizationId: selectedApartment.organizationId,
+        apartmentId: selectedApartment.id,
+        month: monthNumber,
+        year: yearNumber,
+        amount,
+        dueDate: form.dueDate,
+        status: form.status,
+      });
+      setModalOpen(false);
+      setForm({ ...emptyInvoiceForm, apartmentId: selectedApartment.id });
+      setSuccessMessage('Factura a fost emisă.');
+      setSource('api');
+      await loadInvoices().catch(() => undefined);
+    } catch (error: any) {
+      const message = String(error?.message || '');
+      setFormError(message.includes('există deja') ? 'Factura pentru acest apartament și această lună există deja.' : 'Nu am putut emite factura.');
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   return (
     <div className="space-y-5 pb-4">
       <PageHeader
@@ -75,6 +146,12 @@ export default function AdminInvoicesPage() {
           </div>
         }
       />
+
+      {successMessage ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+          {successMessage}
+        </div>
+      ) : null}
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Facturi emise" value={String(totals.issued)} description="În evidența curentă" icon={<FileText className="h-5 w-5" />} />
@@ -91,7 +168,7 @@ export default function AdminInvoicesPage() {
           </label>
           <Select value={month} onChange={setMonth} options={currentMonths.length > 1 ? currentMonths : months} label="Luna" />
           <Select value={status} onChange={(value) => setStatus(value as 'Toate' | InvoiceStatus)} options={statuses} label="Status" />
-          <Button className="self-end" variant="primary"><Send className="h-4 w-4" /> Emite facturi</Button>
+          <Button type="button" onClick={() => setModalOpen(true)} className="self-end" variant="primary"><Send className="h-4 w-4" /> Emite factură</Button>
         </div>
       </Card>
 
@@ -126,6 +203,48 @@ export default function AdminInvoicesPage() {
           <InvoiceCard key={invoice.id} invoice={invoice} href={localizedPath(`/admin/invoices/${invoice.id}`)} />
         ))}
       </section>
+
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} maxWidth="2xl">
+        <ModalHeader title="Emite factură" onClose={() => setModalOpen(false)} />
+        <ModalBody>
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="block">
+              <span className="label">Apartament</span>
+              <select className="select" value={form.apartmentId} onChange={(event) => setForm({ ...form, apartmentId: event.target.value })}>
+                <option value="">Alege apartamentul</option>
+                {apartmentRows.map((apartment) => (
+                  <option key={apartment.id} value={apartment.id}>Apt. {apartment.number} · {apartment.staircase}</option>
+                ))}
+              </select>
+            </label>
+            <Field label="Luna" value={form.month} onChange={(value) => setForm({ ...form, month: value })} type="number" required />
+            <Field label="Anul" value={form.year} onChange={(value) => setForm({ ...form, year: value })} type="number" required />
+            <Field label="Suma" value={form.amount} onChange={(value) => setForm({ ...form, amount: value })} type="number" required />
+            <Field label="Data scadentă" value={form.dueDate} onChange={(value) => setForm({ ...form, dueDate: value })} type="date" required />
+            <label className="block">
+              <span className="label">Status</span>
+              <select className="select" value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as typeof form.status })}>
+                {Object.entries(invoiceStatuses).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+          {formError ? (
+            <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
+              {formError}
+            </p>
+          ) : null}
+        </ModalBody>
+        <ModalFooter>
+          <button type="button" onClick={() => setModalOpen(false)} disabled={isCreating} className="rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold disabled:opacity-60">
+            Anulează
+          </button>
+          <button type="button" onClick={createInvoice} disabled={isCreating} className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background disabled:opacity-60">
+            {isCreating ? 'Se emite...' : 'Emite factură'}
+          </button>
+        </ModalFooter>
+      </Modal>
     </div>
   );
 }
@@ -156,6 +275,27 @@ function Info({ label, value, strong }: { label: string; value: string; strong?:
       <span className="text-muted-foreground">{label}</span>
       <span className={`text-right ${strong ? 'font-semibold text-foreground' : 'font-medium text-foreground'}`}>{value}</span>
     </div>
+  );
+}
+
+function Field({
+  label,
+  value,
+  onChange,
+  required,
+  type = 'text',
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+  type?: string;
+}) {
+  return (
+    <label className="block">
+      <span className="label">{label}{required ? ' *' : ''}</span>
+      <input className="input" type={type} value={value} onChange={(event) => onChange(event.target.value)} />
+    </label>
   );
 }
 

@@ -36,6 +36,11 @@ const emptyForm = {
   serialNumber: '',
   status: 'ACTIVE' as keyof typeof meterStatusLabels,
 };
+const emptyReadingForm = {
+  meterId: '',
+  value: '',
+  readingDate: new Date().toISOString().slice(0, 10),
+};
 
 export default function AdminMetersPage() {
   const [staircase, setStaircase] = useState('Toate');
@@ -50,6 +55,10 @@ export default function AdminMetersPage() {
   const [form, setForm] = useState(emptyForm);
   const [isCreating, setIsCreating] = useState(false);
   const [formError, setFormError] = useState('');
+  const [readingModalOpen, setReadingModalOpen] = useState(false);
+  const [readingForm, setReadingForm] = useState(emptyReadingForm);
+  const [isAddingReading, setIsAddingReading] = useState(false);
+  const [readingError, setReadingError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
   const loadMeters = async () => {
@@ -141,6 +150,49 @@ export default function AdminMetersPage() {
     }
   };
 
+  const openReadingModal = (meter: AdminMeter) => {
+    setReadingError('');
+    setSuccessMessage('');
+    setReadingForm({
+      meterId: meter.id,
+      value: '',
+      readingDate: new Date().toISOString().slice(0, 10),
+    });
+    setReadingModalOpen(true);
+  };
+
+  const addReading = async () => {
+    setReadingError('');
+    setSuccessMessage('');
+    const value = Number(readingForm.value);
+    if (!readingForm.meterId) {
+      setReadingError('Alege contorul.');
+      return;
+    }
+    if (!Number.isFinite(value)) {
+      setReadingError('Completează o valoare numerică.');
+      return;
+    }
+
+    setIsAddingReading(true);
+    try {
+      await metersApi.addReading(readingForm.meterId, {
+        value,
+        readingDate: readingForm.readingDate,
+        source: 'ADMIN',
+      });
+      setReadingModalOpen(false);
+      setReadingForm(emptyReadingForm);
+      setSource('api');
+      setSuccessMessage('Citirea a fost adăugată.');
+      await loadMeters().catch(() => undefined);
+    } catch {
+      setReadingError('Nu am putut adăuga citirea.');
+    } finally {
+      setIsAddingReading(false);
+    }
+  };
+
   return (
     <div className="space-y-5 pb-4">
       <PageHeader
@@ -186,7 +238,7 @@ export default function AdminMetersPage() {
 
       <section className="grid gap-3 lg:grid-cols-2">
         {filtered.map((meter) => (
-          <MeterCard key={meter.id} meter={meter} />
+          <MeterCard key={meter.id} meter={meter} onAddReading={openReadingModal} />
         ))}
       </section>
 
@@ -239,11 +291,42 @@ export default function AdminMetersPage() {
           </button>
         </ModalFooter>
       </Modal>
+
+      <Modal isOpen={readingModalOpen} onClose={() => setReadingModalOpen(false)} maxWidth="xl">
+        <ModalHeader title="Adaugă citire" onClose={() => setReadingModalOpen(false)} />
+        <ModalBody>
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="block">
+              <span className="label">Contor</span>
+              <select className="select" value={readingForm.meterId} onChange={(event) => setReadingForm({ ...readingForm, meterId: event.target.value })}>
+                {rows.map((meter) => (
+                  <option key={meter.id} value={meter.id}>Apt. {meter.apartment} · {meter.type} · {meter.serial}</option>
+                ))}
+              </select>
+            </label>
+            <Field label="Valoare" value={readingForm.value} onChange={(value) => setReadingForm({ ...readingForm, value })} type="number" required />
+            <Field label="Data citirii" value={readingForm.readingDate} onChange={(value) => setReadingForm({ ...readingForm, readingDate: value })} type="date" required />
+          </div>
+          {readingError ? (
+            <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
+              {readingError}
+            </p>
+          ) : null}
+        </ModalBody>
+        <ModalFooter>
+          <button type="button" onClick={() => setReadingModalOpen(false)} disabled={isAddingReading} className="rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold disabled:opacity-60">
+            Anulează
+          </button>
+          <button type="button" onClick={addReading} disabled={isAddingReading} className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background disabled:opacity-60">
+            {isAddingReading ? 'Se adaugă...' : 'Adaugă citire'}
+          </button>
+        </ModalFooter>
+      </Modal>
     </div>
   );
 }
 
-function MeterCard({ meter }: { meter: AdminMeter }) {
+function MeterCard({ meter, onAddReading }: { meter: AdminMeter; onAddReading: (meter: AdminMeter) => void }) {
   return (
     <Card className="p-4">
       <div className="flex items-start justify-between gap-3">
@@ -261,7 +344,7 @@ function MeterCard({ meter }: { meter: AdminMeter }) {
         <Info label="Data citirii" value={meter.readingDate} />
       </div>
 
-      <Button className="mt-4 w-full sm:w-auto" variant={meter.status === 'Actualizat' ? 'secondary' : 'primary'}>
+      <Button type="button" onClick={() => onAddReading(meter)} className="mt-4 w-full sm:w-auto" variant={meter.status === 'Actualizat' ? 'secondary' : 'primary'}>
         <Plus className="h-4 w-4" />
         Adaugă citire
       </Button>

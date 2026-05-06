@@ -19,6 +19,13 @@ export class MetersController {
     return this.metersService.createMeter(body);
   }
 
+  // Temporary MVP endpoint until the full backend guard stack is re-enabled.
+  @Public()
+  @Post(':meterId/readings')
+  addReading(@Param('meterId') meterId: string, @Body() body: unknown) {
+    return this.metersService.addReading(meterId, body);
+  }
+
   @Public()
   @Get(':id')
   getMeter(@Param('id') id: string) {

@@ -29,20 +29,22 @@ export default function AdminIssuesPage() {
   const [status, setStatus] = useState<'Toate' | IssueStatus>('Toate');
   const [rows, setRows] = useState<AdminIssue[]>(adminIssues);
   const [source, setSource] = useState<'api' | 'mock'>('mock');
+  const [actionMessage, setActionMessage] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [updatingId, setUpdatingId] = useState('');
+
+  const loadIssues = async () => {
+    const res = await issuesApi.list();
+    const apiRows = (res.data || []).map(normalizeApiIssue);
+    if (apiRows.length) {
+      setRows(apiRows);
+      setSource('api');
+    }
+  };
 
   useEffect(() => {
     let active = true;
-    issuesApi
-      .list()
-      .then((res) => {
-        if (!active) return;
-        const apiRows = (res.data || []).map(normalizeApiIssue);
-        if (apiRows.length) {
-          setRows(apiRows);
-          setSource('api');
-        }
-      })
-      .catch(() => {
+    loadIssues().catch(() => {
         if (!active) return;
         setRows(adminIssues);
         setSource('mock');
@@ -63,6 +65,24 @@ export default function AdminIssuesPage() {
     });
   }, [category, priority, query, rows, status]);
 
+  const updateStatus = async (requestId: string, nextStatus: 'NEW' | 'IN_PROGRESS' | 'RESOLVED') => {
+    setActionError('');
+    setActionMessage('');
+    setUpdatingId(requestId);
+    try {
+      const res = await issuesApi.updateStatus(requestId, nextStatus);
+      const next = normalizeApiIssue(res.data);
+      setRows((current) => current.map((item) => (item.id === requestId ? next : item)));
+      setSource('api');
+      setActionMessage('Statusul cererii a fost actualizat.');
+      await loadIssues().catch(() => undefined);
+    } catch {
+      setActionError('Nu am putut actualiza statusul cererii.');
+    } finally {
+      setUpdatingId('');
+    }
+  };
+
   return (
     <div className="space-y-5 pb-4">
       <PageHeader
@@ -74,6 +94,17 @@ export default function AdminIssuesPage() {
           </span>
         }
       />
+
+      {actionMessage ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+          {actionMessage}
+        </div>
+      ) : null}
+      {actionError ? (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+          {actionError}
+        </div>
+      ) : null}
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Cereri noi" value={rows.filter((item) => item.status === 'Nouă').length} description="Așteaptă preluare" icon={<AlertCircle className="h-5 w-5" />} tone="warning" />
@@ -110,9 +141,17 @@ export default function AdminIssuesPage() {
                 </p>
                 <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">{request.message}</p>
               </div>
-              <Link href={localizedPath(`/admin/issues/${request.id}`)} className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-border/70 px-4 text-sm font-semibold text-foreground hover:bg-muted/60">
-                Deschide
-              </Link>
+              <div className="flex flex-col gap-2 sm:flex-row lg:flex-col xl:flex-row">
+                <button type="button" onClick={() => updateStatus(request.id, request.status === 'Rezolvată' ? 'NEW' : 'IN_PROGRESS')} disabled={updatingId === request.id} className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-border/70 px-4 text-sm font-semibold text-foreground hover:bg-muted/60 disabled:opacity-60">
+                  {request.status === 'Rezolvată' ? 'Redeschide' : 'În lucru'}
+                </button>
+                <button type="button" onClick={() => updateStatus(request.id, 'RESOLVED')} disabled={updatingId === request.id} className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-border/70 px-4 text-sm font-semibold text-foreground hover:bg-muted/60 disabled:opacity-60">
+                  Rezolvată
+                </button>
+                <Link href={localizedPath(`/admin/issues/${request.id}`)} className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-border/70 px-4 text-sm font-semibold text-foreground hover:bg-muted/60">
+                  Deschide
+                </Link>
+              </div>
             </div>
           </Card>
         ))}

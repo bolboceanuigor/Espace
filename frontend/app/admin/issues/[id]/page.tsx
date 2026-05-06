@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, CheckCircle2, Clock3, MessageCircle, StickyNote, Wrench } from 'lucide-react';
 import { Badge, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
@@ -16,18 +16,20 @@ export default function AdminIssueDetailsPage() {
   const fallback = useMemo(() => findIssueById(params?.id), [params?.id]);
   const [issue, setIssue] = useState<AdminIssue>(fallback);
   const [source, setSource] = useState<'api' | 'mock'>('mock');
+  const [actionMessage, setActionMessage] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const loadIssue = useCallback(async () => {
+    if (!params?.id) return undefined;
+    const res = await issuesApi.get(params.id);
+    setIssue(normalizeApiIssue(res.data));
+    setSource('api');
+  }, [params?.id]);
 
   useEffect(() => {
     let active = true;
-    if (!params?.id) return undefined;
-    issuesApi
-      .get(params.id)
-      .then((res) => {
-        if (!active) return;
-        setIssue(normalizeApiIssue(res.data));
-        setSource('api');
-      })
-      .catch(() => {
+    loadIssue().catch(() => {
         if (!active) return;
         setIssue(fallback);
         setSource('mock');
@@ -35,7 +37,25 @@ export default function AdminIssueDetailsPage() {
     return () => {
       active = false;
     };
-  }, [fallback, params?.id]);
+  }, [fallback, loadIssue, params?.id]);
+
+  const updateStatus = async (nextStatus: 'NEW' | 'IN_PROGRESS' | 'RESOLVED') => {
+    if (!params?.id) return;
+    setActionError('');
+    setActionMessage('');
+    setIsUpdating(true);
+    try {
+      const res = await issuesApi.updateStatus(params.id, nextStatus);
+      setIssue(normalizeApiIssue(res.data));
+      setSource('api');
+      setActionMessage('Statusul cererii a fost actualizat.');
+      await loadIssue().catch(() => undefined);
+    } catch {
+      setActionError('Nu am putut actualiza statusul cererii.');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   return (
     <div className="space-y-5 pb-4">
@@ -57,6 +77,17 @@ export default function AdminIssueDetailsPage() {
         }
       />
 
+      {actionMessage ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+          {actionMessage}
+        </div>
+      ) : null}
+      {actionError ? (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+          {actionError}
+        </div>
+      ) : null}
+
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Prioritate" value={issue.priority} description="Nivel de intervenție" icon={<Wrench className="h-5 w-5" />} tone={issue.priority === 'Urgent' ? 'danger' : issue.priority === 'Important' ? 'warning' : 'neutral'} />
         <StatCard label="Status" value={issue.status} description="Flux administrativ" icon={<Clock3 className="h-5 w-5" />} tone={issue.status === 'Rezolvată' ? 'success' : 'warning'} />
@@ -66,8 +97,15 @@ export default function AdminIssueDetailsPage() {
 
       <Card>
         <div className="flex flex-wrap gap-2">
-          <ButtonLink href={`/${locale}/admin/issues/${issue.id}`} variant="secondary"><Clock3 className="h-4 w-4" /> Marchează în lucru</ButtonLink>
-          <ButtonLink href={`/${locale}/admin/issues/${issue.id}`} variant="secondary"><CheckCircle2 className="h-4 w-4" /> Marchează rezolvată</ButtonLink>
+          <button type="button" onClick={() => updateStatus('IN_PROGRESS')} disabled={isUpdating} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-border/70 bg-white px-4 text-sm font-semibold text-foreground shadow-[0_10px_30px_rgba(15,23,42,0.035)] hover:bg-muted/60 disabled:opacity-60">
+            <Clock3 className="h-4 w-4" /> Marchează în lucru
+          </button>
+          <button type="button" onClick={() => updateStatus('RESOLVED')} disabled={isUpdating} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-border/70 bg-white px-4 text-sm font-semibold text-foreground shadow-[0_10px_30px_rgba(15,23,42,0.035)] hover:bg-muted/60 disabled:opacity-60">
+            <CheckCircle2 className="h-4 w-4" /> Marchează rezolvată
+          </button>
+          <button type="button" onClick={() => updateStatus('NEW')} disabled={isUpdating} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-border/70 bg-white px-4 text-sm font-semibold text-foreground shadow-[0_10px_30px_rgba(15,23,42,0.035)] hover:bg-muted/60 disabled:opacity-60">
+            Redeschide
+          </button>
           <ButtonLink href={`/${locale}/admin/chat`} variant="primary"><MessageCircle className="h-4 w-4" /> Scrie locatarului</ButtonLink>
         </div>
       </Card>

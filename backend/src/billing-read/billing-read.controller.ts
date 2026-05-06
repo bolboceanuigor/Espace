@@ -1,4 +1,4 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { Public } from '../auth/decorators/public.decorator';
 import { BillingReadService } from './billing-read.service';
 
@@ -12,6 +12,13 @@ export class BillingReadController {
     return this.billingReadService.listInvoices();
   }
 
+  // Temporary MVP endpoint until the full backend guard stack is re-enabled.
+  @Public()
+  @Post(['invoices', 'api/invoices'])
+  createInvoice(@Body() body: unknown) {
+    return this.billingReadService.createInvoice(body);
+  }
+
   @Public()
   @Get(['invoices/:id', 'api/invoices/:id'])
   getInvoice(@Param('id') id: string) {
@@ -22,6 +29,13 @@ export class BillingReadController {
   @Get(['payments', 'api/payments'])
   listPayments() {
     return this.billingReadService.listPayments();
+  }
+
+  // Temporary MVP endpoint until the full backend guard stack is re-enabled.
+  @Public()
+  @Post(['payments', 'api/payments'])
+  createPayment(@Body() body: unknown) {
+    return this.billingReadService.createPayment(body);
   }
 
   @Public()

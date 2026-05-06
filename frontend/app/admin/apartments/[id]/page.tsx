@@ -87,6 +87,11 @@ const emptyMeterForm = {
   serialNumber: '',
   status: 'ACTIVE' as keyof typeof meterStatusLabels,
 };
+const emptyReadingForm = {
+  meterId: '',
+  value: '',
+  readingDate: new Date().toISOString().slice(0, 10),
+};
 
 export default function AdminApartmentDetailPage() {
   const params = useParams<{ id?: string; locale?: string }>();
@@ -105,6 +110,10 @@ export default function AdminApartmentDetailPage() {
   const [meterForm, setMeterForm] = useState(emptyMeterForm);
   const [isCreatingMeter, setIsCreatingMeter] = useState(false);
   const [meterError, setMeterError] = useState('');
+  const [readingModalOpen, setReadingModalOpen] = useState(false);
+  const [readingForm, setReadingForm] = useState(emptyReadingForm);
+  const [isAddingReading, setIsAddingReading] = useState(false);
+  const [readingError, setReadingError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const residents = source === 'api' ? normalizeApiApartmentResidents(apiDetail) : residentsForApartment(apartment.number);
   const meters = source === 'api' ? normalizeApiApartmentMeters(apiDetail) : apartmentMeters;
@@ -213,6 +222,49 @@ export default function AdminApartmentDetailPage() {
     }
   };
 
+  const openReadingModal = (meterId?: string) => {
+    setReadingError('');
+    setSuccessMessage('');
+    const firstMeterId = meterId || (Array.isArray(apiDetail?.meters) ? String(apiDetail.meters[0]?.id || '') : '');
+    setReadingForm({
+      meterId: firstMeterId,
+      value: '',
+      readingDate: new Date().toISOString().slice(0, 10),
+    });
+    setReadingModalOpen(true);
+  };
+
+  const addReading = async () => {
+    setReadingError('');
+    setSuccessMessage('');
+    const value = Number(readingForm.value);
+    if (!readingForm.meterId) {
+      setReadingError('Alege contorul.');
+      return;
+    }
+    if (!Number.isFinite(value)) {
+      setReadingError('Completează o valoare numerică.');
+      return;
+    }
+
+    setIsAddingReading(true);
+    try {
+      await metersApi.addReading(readingForm.meterId, {
+        value,
+        readingDate: readingForm.readingDate,
+        source: 'ADMIN',
+      });
+      setReadingModalOpen(false);
+      setReadingForm(emptyReadingForm);
+      setSuccessMessage('Citirea a fost adăugată.');
+      await loadApartment().catch(() => undefined);
+    } catch {
+      setReadingError('Nu am putut adăuga citirea.');
+    } finally {
+      setIsAddingReading(false);
+    }
+  };
+
   return (
     <div className="space-y-5 pb-4">
       <Link href={`/${locale}/admin/apartments`} className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground">
@@ -248,7 +300,9 @@ export default function AdminApartmentDetailPage() {
 
       <Card>
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-          <ButtonLink href={`/${locale}/admin/meters`} variant="primary"><Plus className="h-4 w-4" /> Adaugă citire</ButtonLink>
+          <button type="button" onClick={() => openReadingModal()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-foreground px-4 text-sm font-semibold text-background hover:opacity-90">
+            <Plus className="h-4 w-4" /> Adaugă citire
+          </button>
           <button type="button" onClick={() => setMeterModalOpen(true)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-border/70 bg-white px-4 text-sm font-semibold text-foreground shadow-[0_10px_30px_rgba(15,23,42,0.035)] hover:bg-muted/60">
             <Gauge className="h-4 w-4" /> Adaugă contor
           </button>
@@ -302,7 +356,14 @@ export default function AdminApartmentDetailPage() {
                 <Info label="Tip" value={meter.type} />
                 <Info label="Serie" value={meter.serial} />
                 <Info label="Citire" value={meter.value} />
-                <Badge variant={meterVariant[meter.status as keyof typeof meterVariant]}>{meter.status}</Badge>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant={meterVariant[meter.status as keyof typeof meterVariant]}>{meter.status}</Badge>
+                  {meter.id ? (
+                    <button type="button" onClick={() => openReadingModal(meter.id)} className="inline-flex min-h-9 items-center rounded-xl border border-border/70 bg-white px-3 text-xs font-semibold hover:bg-muted/60">
+                      Citire
+                    </button>
+                  ) : null}
+                </div>
               </div>
             ))}
           </div>
@@ -428,6 +489,38 @@ export default function AdminApartmentDetailPage() {
           </button>
           <button type="button" onClick={createMeter} disabled={isCreatingMeter} className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background disabled:opacity-60">
             {isCreatingMeter ? 'Se creează...' : 'Creează contor'}
+          </button>
+        </ModalFooter>
+      </Modal>
+
+      <Modal isOpen={readingModalOpen} onClose={() => setReadingModalOpen(false)} maxWidth="xl">
+        <ModalHeader title={`Adaugă citire la Apt. ${apartment.number}`} onClose={() => setReadingModalOpen(false)} />
+        <ModalBody>
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="block">
+              <span className="label">Contor</span>
+              <select className="select" value={readingForm.meterId} onChange={(event) => setReadingForm({ ...readingForm, meterId: event.target.value })}>
+                <option value="">Alege contorul</option>
+                {(Array.isArray(apiDetail?.meters) ? apiDetail.meters : []).map((meter: any) => (
+                  <option key={meter.id} value={meter.id}>{meterTypeLabels[meter.type as keyof typeof meterTypeLabels] || meter.type} · {meter.serialNumber}</option>
+                ))}
+              </select>
+            </label>
+            <Field label="Valoare" value={readingForm.value} onChange={(value) => setReadingForm({ ...readingForm, value })} type="number" required />
+            <Field label="Data citirii" value={readingForm.readingDate} onChange={(value) => setReadingForm({ ...readingForm, readingDate: value })} type="date" required />
+          </div>
+          {readingError ? (
+            <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
+              {readingError}
+            </p>
+          ) : null}
+        </ModalBody>
+        <ModalFooter>
+          <button type="button" onClick={() => setReadingModalOpen(false)} disabled={isAddingReading} className="rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold disabled:opacity-60">
+            Anulează
+          </button>
+          <button type="button" onClick={addReading} disabled={isAddingReading} className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background disabled:opacity-60">
+            {isAddingReading ? 'Se adaugă...' : 'Adaugă citire'}
           </button>
         </ModalFooter>
       </Modal>

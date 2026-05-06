@@ -3,13 +3,25 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Clock3, CreditCard, ReceiptText, Search } from 'lucide-react';
-import { Badge, Button, ButtonLink, Card, Input, Modal, ModalBody, ModalCloseButton, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
+import { Badge, Button, ButtonLink, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
 import { invoicesApi, paymentsApi } from '@/lib/api';
 import { adminInvoices, invoiceStatusVariant, normalizeApiInvoice, type AdminInvoice, type InvoiceStatus } from '@/lib/admin-mvp-data';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 const filters: Array<'Toate' | InvoiceStatus> = ['Toate', 'Achitat', 'Neachitat', 'Întârziat'];
+const paymentMethods = {
+  CASH: 'Numerar',
+  BANK_TRANSFER: 'Transfer bancar',
+  CARD: 'Card bancar',
+  ONLINE: 'Online',
+} as const;
+const emptyPaymentForm = {
+  invoiceId: '',
+  amount: '',
+  method: 'CASH' as keyof typeof paymentMethods,
+  paidAt: new Date().toISOString().slice(0, 10),
+};
 
 export default function AdminPaymentsPage() {
   const localizedPath = useLocalizedPath();
@@ -24,32 +36,40 @@ export default function AdminPaymentsPage() {
     overdueInvoices: 37,
   });
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [paymentForm, setPaymentForm] = useState(emptyPaymentForm);
+  const [isRegisteringPayment, setIsRegisteringPayment] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
-  useEffect(() => {
-    let active = true;
-    Promise.all([
+  const loadBilling = async () => {
+    const [invoiceRes, paymentRes, summaryRes] = await Promise.all([
       invoicesApi.list(),
       paymentsApi.list().catch(() => ({ data: [] })),
       paymentsApi.summary().catch(() => ({ data: null })),
-    ])
-      .then(([invoiceRes, paymentRes, summaryRes]) => {
-        if (!active) return;
-        const payments = paymentRes.data || [];
-        const apiRows = (invoiceRes.data || []).map((invoice) => normalizeApiInvoice(invoice, payments));
-        if (apiRows.length) {
-          setRows(apiRows);
-          setSource('api');
-        }
-        if (summaryRes.data) {
-          setSummary({
-            totalIssued: Number(summaryRes.data.totalIssued ?? 0),
-            totalPaid: Number(summaryRes.data.totalPaid ?? 0),
-            totalDebt: Number(summaryRes.data.totalDebt ?? 0),
-            overdueInvoices: Number(summaryRes.data.overdueInvoices ?? 0),
-          });
-        }
-      })
-      .catch(() => {
+    ]);
+    const payments = paymentRes.data || [];
+    const apiRows = (invoiceRes.data || []).map((invoice) => normalizeApiInvoice(invoice, payments));
+    if (apiRows.length) {
+      setRows(apiRows);
+      setSource('api');
+      setPaymentForm((current) => {
+        if (current.invoiceId || !apiRows[0]?.id) return current;
+        return { ...current, invoiceId: apiRows[0].id, amount: String(apiRows[0].amount || '') };
+      });
+    }
+    if (summaryRes.data) {
+      setSummary({
+        totalIssued: Number(summaryRes.data.totalIssued ?? 0),
+        totalPaid: Number(summaryRes.data.totalPaid ?? 0),
+        totalDebt: Number(summaryRes.data.totalDebt ?? 0),
+        overdueInvoices: Number(summaryRes.data.overdueInvoices ?? 0),
+      });
+    }
+  };
+
+  useEffect(() => {
+    let active = true;
+    loadBilling().catch(() => {
         if (!active) return;
         setRows(adminInvoices);
         setSource('mock');
@@ -68,6 +88,54 @@ export default function AdminPaymentsPage() {
     });
   }, [query, rows, status]);
 
+  const openPaymentModal = (invoice?: AdminInvoice) => {
+    setPaymentError('');
+    setSuccessMessage('');
+    const selected = invoice || rows.find((item) => item.status !== 'Achitat') || rows[0];
+    setPaymentForm({
+      invoiceId: selected?.id || '',
+      amount: selected?.amount ? String(selected.amount) : '',
+      method: 'CASH',
+      paidAt: new Date().toISOString().slice(0, 10),
+    });
+    setPaymentModalOpen(true);
+  };
+
+  const registerPayment = async () => {
+    setPaymentError('');
+    setSuccessMessage('');
+    const selectedInvoice = rows.find((item) => item.id === paymentForm.invoiceId);
+    const amount = Number(paymentForm.amount);
+    if (!selectedInvoice?.organizationId || !selectedInvoice.apartmentId) {
+      setPaymentError('Alege o factură reală din lista API.');
+      return;
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setPaymentError('Completează suma plății.');
+      return;
+    }
+
+    setIsRegisteringPayment(true);
+    try {
+      await paymentsApi.create({
+        organizationId: selectedInvoice.organizationId,
+        apartmentId: selectedInvoice.apartmentId,
+        invoiceId: selectedInvoice.id,
+        amount,
+        method: paymentForm.method,
+        paidAt: paymentForm.paidAt,
+      });
+      setPaymentModalOpen(false);
+      setSuccessMessage('Plata a fost înregistrată.');
+      setSource('api');
+      await loadBilling().catch(() => undefined);
+    } catch {
+      setPaymentError('Nu am putut înregistra plata.');
+    } finally {
+      setIsRegisteringPayment(false);
+    }
+  };
+
   return (
     <div className="space-y-5 pb-4">
       <PageHeader
@@ -79,6 +147,12 @@ export default function AdminPaymentsPage() {
           </span>
         }
       />
+
+      {successMessage ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+          {successMessage}
+        </div>
+      ) : null}
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Total emis" value={formatMdl(summary.totalIssued)} description="Facturi emise" icon={<ReceiptText className="h-5 w-5" />} />
@@ -131,7 +205,10 @@ export default function AdminPaymentsPage() {
             <span className="text-muted-foreground">{invoice.dueDate}</span>
             <Badge variant={invoiceStatusVariant[invoice.status]}>{invoice.status}</Badge>
             <span className="text-muted-foreground">{invoice.paymentMethod ?? '-'}</span>
-            <ButtonLink href={localizedPath(`/admin/invoices/${invoice.id}`)} size="sm" variant="secondary">Deschide</ButtonLink>
+            <div className="flex items-center gap-2">
+              <Button type="button" onClick={() => openPaymentModal(invoice)} size="sm" variant="secondary">Plată</Button>
+              <ButtonLink href={localizedPath(`/admin/invoices/${invoice.id}`)} size="sm" variant="secondary">Deschide</ButtonLink>
+            </div>
           </div>
         ))}
       </section>
@@ -149,7 +226,7 @@ export default function AdminPaymentsPage() {
             <p className="mt-1 text-sm text-muted-foreground">Plățile online și procesatorii bancari vor fi conectați într-o etapă separată.</p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
-            <Button type="button" onClick={() => setPaymentModalOpen(true)}>Înregistrează plată</Button>
+            <Button type="button" onClick={() => openPaymentModal()}>Înregistrează plată</Button>
             <Link href={localizedPath('/admin/invoices')} className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-foreground px-4 text-sm font-semibold text-background">
               Vezi facturi
             </Link>
@@ -157,13 +234,53 @@ export default function AdminPaymentsPage() {
         </div>
       </Card>
 
-      <Modal isOpen={paymentModalOpen} onClose={() => setPaymentModalOpen(false)} maxWidth="md">
-        <ModalHeader title="Plăți online" onClose={() => setPaymentModalOpen(false)} />
+      <Modal isOpen={paymentModalOpen} onClose={() => setPaymentModalOpen(false)} maxWidth="2xl">
+        <ModalHeader title="Înregistrează plată" onClose={() => setPaymentModalOpen(false)} />
         <ModalBody>
-          <p className="text-sm text-muted-foreground">Integrarea plăților va fi conectată ulterior.</p>
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="block md:col-span-2">
+              <span className="label">Factură</span>
+              <select
+                className="select"
+                value={paymentForm.invoiceId}
+                onChange={(event) => {
+                  const selected = rows.find((item) => item.id === event.target.value);
+                  setPaymentForm({ ...paymentForm, invoiceId: event.target.value, amount: selected?.amount ? String(selected.amount) : paymentForm.amount });
+                }}
+              >
+                <option value="">Alege factura</option>
+                {rows.map((invoice) => (
+                  <option key={invoice.id} value={invoice.id}>Apt. {invoice.apartment} · {invoice.month} · {formatMdl(invoice.amount)}</option>
+                ))}
+              </select>
+            </label>
+            <Field label="Suma" value={paymentForm.amount} onChange={(value) => setPaymentForm({ ...paymentForm, amount: value })} type="number" required />
+            <label className="block">
+              <span className="label">Metodă</span>
+              <select className="select" value={paymentForm.method} onChange={(event) => setPaymentForm({ ...paymentForm, method: event.target.value as typeof paymentForm.method })}>
+                {Object.entries(paymentMethods).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </label>
+            <Field label="Data plății" value={paymentForm.paidAt} onChange={(value) => setPaymentForm({ ...paymentForm, paidAt: value })} type="date" required />
+          </div>
+          <p className="mt-4 text-xs text-muted-foreground">
+            Aceasta este înregistrare manuală a plății. Integrarea procesatorilor bancari va fi conectată ulterior.
+          </p>
+          {paymentError ? (
+            <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
+              {paymentError}
+            </p>
+          ) : null}
         </ModalBody>
         <ModalFooter>
-          <ModalCloseButton onClick={() => setPaymentModalOpen(false)}>Am înțeles</ModalCloseButton>
+          <button type="button" onClick={() => setPaymentModalOpen(false)} disabled={isRegisteringPayment} className="rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold disabled:opacity-60">
+            Anulează
+          </button>
+          <button type="button" onClick={registerPayment} disabled={isRegisteringPayment} className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background disabled:opacity-60">
+            {isRegisteringPayment ? 'Se înregistrează...' : 'Înregistrează plată'}
+          </button>
         </ModalFooter>
       </Modal>
     </div>
@@ -196,5 +313,26 @@ function Info({ label, value, strong }: { label: string; value: string; strong?:
       <span className="text-muted-foreground">{label}</span>
       <span className={`text-right ${strong ? 'font-semibold text-foreground' : 'font-medium text-foreground'}`}>{value}</span>
     </div>
+  );
+}
+
+function Field({
+  label,
+  value,
+  onChange,
+  required,
+  type = 'text',
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+  type?: string;
+}) {
+  return (
+    <label className="block">
+      <span className="label">{label}{required ? ' *' : ''}</span>
+      <input className="input" type={type} value={value} onChange={(event) => onChange(event.target.value)} />
+    </label>
   );
 }
