@@ -672,6 +672,11 @@ export const adminApi = {
     apiRequest<any>(`/admin/organization/${id}/property-limit`, { method: 'PATCH', body: { propertyLimit } }),
 };
 
+export const apartmentsApi = {
+  list: () => apiRequest<any[]>('/apartments'),
+  get: (id: string) => apiRequest<any>(`/apartments/${id}`),
+};
+
 export const adminStructureApi = {
   listBuildings: () => apiRequest<any[]>('/admin/buildings'),
   createBuilding: (data: { name: string; address: string; cadastralNumber?: string; totalFloors: number }) =>

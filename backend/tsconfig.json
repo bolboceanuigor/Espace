@@ -27,6 +27,7 @@
     "src/app.controller.ts",
     "src/prisma/**/*.ts",
     "src/organizations/**/*.ts",
+    "src/apartments/**/*.ts",
     "src/common/filters/**/*.ts",
     "src/common/interceptors/**/*.ts",
     "src/auth/decorators/public.decorator.ts"

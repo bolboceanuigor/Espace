@@ -1,11 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, Gauge, Home, Search, UserX } from 'lucide-react';
 import { Badge, Card, Input, PageHeader, StatCard } from '@/components/ui';
 import { formatMdl } from '@/lib/condo-admin-fallback';
-import { adminApartments, apartmentStatusVariant, type AdminApartment } from '@/lib/admin-mvp-data';
+import { apartmentsApi } from '@/lib/api';
+import { adminApartments, apartmentStatusVariant, normalizeApiApartment, type AdminApartment } from '@/lib/admin-mvp-data';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 const summary = [
@@ -25,10 +26,34 @@ export default function AdminApartmentsPage() {
   const [status, setStatus] = useState('Toate');
   const [onlyDebt, setOnlyDebt] = useState(false);
   const [withoutAccount, setWithoutAccount] = useState(false);
+  const [rows, setRows] = useState<AdminApartment[]>(adminApartments);
+  const [source, setSource] = useState<'api' | 'mock'>('mock');
+
+  useEffect(() => {
+    let active = true;
+    apartmentsApi
+      .list()
+      .then((res) => {
+        if (!active) return;
+        const apiRows = (res.data || []).map(normalizeApiApartment);
+        if (apiRows.length) {
+          setRows(apiRows);
+          setSource('api');
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        setRows(adminApartments);
+        setSource('mock');
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase();
-    return adminApartments.filter((item) => {
+    return rows.filter((item) => {
       const matchesSearch =
         !needle ||
         item.number.toLowerCase().includes(needle) ||
@@ -41,21 +66,40 @@ export default function AdminApartmentsPage() {
       const matchesAccount = !withoutAccount || !item.hasAccount;
       return matchesSearch && matchesStaircase && matchesFloor && matchesStatus && matchesDebt && matchesAccount;
     });
-  }, [floor, onlyDebt, search, staircase, status, withoutAccount]);
+  }, [floor, onlyDebt, rows, search, staircase, status, withoutAccount]);
 
-  const staircases = ['Toate', ...Array.from(new Set(adminApartments.map((item) => item.staircase)))];
-  const floors = ['Toate', ...Array.from(new Set(adminApartments.map((item) => String(item.floor))))];
+  const staircases = ['Toate', ...Array.from(new Set(rows.map((item) => item.staircase)))];
+  const floors = ['Toate', ...Array.from(new Set(rows.map((item) => String(item.floor))))];
+  const totals = useMemo(() => ({
+    total: rows.length,
+    debt: rows.filter((item) => item.debt > 0).length,
+    withoutAccount: rows.filter((item) => !item.hasAccount).length,
+    missingReadings: rows.reduce((sum, item) => sum + item.metersMissing, 0),
+  }), [rows]);
+  const summaryRows = [
+    { ...summary[0], value: String(totals.total) },
+    { ...summary[1], value: String(totals.debt) },
+    { ...summary[2], value: String(totals.withoutAccount) },
+    { ...summary[3], value: String(totals.missingReadings) },
+  ];
 
   return (
     <div className="space-y-5 pb-4">
       <PageHeader
         title="Apartamente"
         description="Gestionarea apartamentelor, contoarelor și datoriilor"
-        rightSlot={<Link href={localizedPath('/admin/apartments/apt-45')} className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background">Deschide Apt. 45</Link>}
+        rightSlot={
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
+              {source === 'api' ? 'Date reale' : 'Date demo'}
+            </span>
+            <Link href={localizedPath('/admin/apartments/apt-45')} className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background">Deschide Apt. 45</Link>
+          </div>
+        }
       />
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {summary.map((item) => <StatCard key={item.label} {...item} />)}
+        {summaryRows.map((item) => <StatCard key={item.label} {...item} />)}
       </section>
 
       <Card>

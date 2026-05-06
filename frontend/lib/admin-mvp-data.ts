@@ -577,6 +577,111 @@ export function residentsForApartment(number: string) {
   return adminResidents.filter((resident) => resident.apartments.includes(number));
 }
 
+function statusFromApi(status?: string): ApartmentStatus {
+  const normalized = String(status || '').toUpperCase();
+  if (normalized === 'DEBTOR') return 'Datornic';
+  if (normalized === 'PROBLEM') return 'Problemă';
+  if (normalized === 'EMPTY') return 'Nelocuit';
+  return 'Activ';
+}
+
+function lastPaymentLabel(value?: string | null) {
+  if (!value) return 'Nu există';
+  return new Intl.DateTimeFormat('ro-RO', { month: 'long', year: 'numeric' }).format(new Date(value));
+}
+
+export function normalizeApiApartment(row: any): AdminApartment {
+  const number = String(row?.number || '');
+  return {
+    id: String(row?.id || `apt-${number || 'nou'}`),
+    number,
+    staircase: String(row?.staircase?.name || row?.staircaseName || 'Scara -'),
+    floor: Number(row?.floor ?? 0),
+    areaM2: Number(row?.areaM2 ?? 0),
+    rooms: Number(row?.rooms ?? 0),
+    owner: String(row?.owner?.name || 'Fără proprietar conectat'),
+    phone: String(row?.owner?.phone || '-'),
+    residents: Number(row?.residentsCount ?? row?.residents?.length ?? 0),
+    debt: Number(row?.debt ?? 0),
+    unpaidInvoices: Number(row?.unpaidInvoices ?? 0),
+    lastPayment: lastPaymentLabel(row?.lastPayment),
+    metersUpdated: Number(row?.metersUpdated ?? 0),
+    metersMissing: Number(row?.metersMissing ?? 0),
+    status: statusFromApi(row?.status),
+    hasAccount: Boolean(row?.owner?.email),
+  };
+}
+
+export function normalizeApiApartmentResidents(row: any) {
+  return Array.isArray(row?.residents)
+    ? row.residents.map((resident: any) => ({
+        id: String(resident.id),
+        name: String(resident.name || 'Locatar'),
+        role:
+          String(resident.role || '').toUpperCase() === 'OWNER'
+            ? 'proprietar'
+            : String(resident.role || '').toUpperCase() === 'FAMILY_MEMBER'
+              ? 'membru familie'
+              : 'locatar',
+        accountStatus:
+          String(resident.accountStatus || '').toUpperCase() === 'CREATED'
+            ? 'cont creat'
+            : String(resident.accountStatus || '').toUpperCase() === 'INVITED'
+              ? 'invitat'
+              : 'fără cont',
+      }))
+    : [];
+}
+
+export function normalizeApiApartmentMeters(row: any) {
+  const typeLabel: Record<string, string> = {
+    COLD_WATER: 'Apă rece',
+    HOT_WATER: 'Apă caldă',
+    GAS: 'Gaz',
+    ELECTRICITY: 'Electricitate',
+    HEATING: 'Încălzire',
+  };
+  return Array.isArray(row?.meters)
+    ? row.meters.map((meter: any) => ({
+        type: typeLabel[String(meter.type)] || String(meter.type || 'Contor'),
+        serial: String(meter.serialNumber || '-'),
+        value: meter.lastReading === null || meter.lastReading === undefined ? 'Lipsă citire' : `${meter.lastReading} m³`,
+        status: String(meter.status || '').toUpperCase() === 'MISSING_READING' ? 'Lipsă citire' : 'Actualizat',
+      }))
+    : [];
+}
+
+export function normalizeApiApartmentPayments(row: any) {
+  if (Array.isArray(row?.invoices) && row.invoices.length) {
+    return row.invoices.map((invoice: any) => ({
+      month: `${String(invoice.month || '').padStart(2, '0')}.${invoice.year || ''}`,
+      amount: Number(invoice.finalAmount || invoice.amount || 0),
+      status:
+        String(invoice.status || '').toUpperCase() === 'PAID'
+          ? 'Achitat'
+          : String(invoice.status || '').toUpperCase() === 'OVERDUE'
+            ? 'Întârziat'
+            : 'Neachitat',
+    }));
+  }
+  return [];
+}
+
+export function normalizeApiApartmentRequests(row: any) {
+  return Array.isArray(row?.issues)
+    ? row.issues.map((issue: any) => ({
+        title: String(issue.title || 'Cerere'),
+        status:
+          String(issue.status || '').toUpperCase() === 'RESOLVED'
+            ? 'Rezolvată'
+            : String(issue.status || '').toUpperCase() === 'IN_PROGRESS'
+              ? 'În lucru'
+              : 'Nouă',
+        date: issue.createdAt ? new Intl.DateTimeFormat('ro-RO').format(new Date(issue.createdAt)) : '-',
+      }))
+    : [];
+}
+
 export function findIssueById(id?: string) {
   if (!id) return adminIssues[0];
   return adminIssues.find((issue) => issue.id === id) ?? adminIssues[0];
