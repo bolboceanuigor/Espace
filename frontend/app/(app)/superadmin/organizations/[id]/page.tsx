@@ -3,18 +3,23 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { Building2, Mail, MapPin, Phone, UserPlus } from 'lucide-react';
 import { Badge, Card, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
 import { superadminApi } from '@/lib/api';
 import {
   mockAdministrators,
   mockAssociations,
+  mockUsage,
   normalizeApiAdministrator,
   normalizeApiAssociation,
+  normalizeApiUsage,
   statusBadgeVariant,
   statusLabel,
+  type AssociationStatus,
   type MvpAdministrator,
   type MvpAssociation,
+  type MvpUsage,
 } from '@/lib/superadmin-mvp-data';
 
 function associationFromId(id: string): MvpAssociation {
@@ -58,6 +63,8 @@ export default function SuperadminOrganizationDetailsPage() {
   const [isCreatingAdmin, setIsCreatingAdmin] = useState(false);
   const [adminError, setAdminError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [usage, setUsage] = useState<MvpUsage>(mockUsage);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
 
   const loadAdmins = async (organizationId: string) => {
     const res = await superadminApi.listPublicOrganizationAdmins(organizationId);
@@ -77,6 +84,9 @@ export default function SuperadminOrganizationDetailsPage() {
         loadAdmins(id).catch(() => {
           setAdministrators(mockAdministrators.filter((admin) => admin.organizationId === id));
         });
+        superadminApi.getOrganizationUsage(id).then((usageRes) => {
+          if (active) setUsage(normalizeApiUsage(usageRes.data));
+        }).catch(() => undefined);
       })
       .catch(() => {
         if (!active) return;
@@ -122,6 +132,20 @@ export default function SuperadminOrganizationDetailsPage() {
     }
   };
 
+  const updateStatus = async (status: AssociationStatus) => {
+    if (!id) return;
+    setSuccessMessage('');
+    setUpdatingStatus(true);
+    try {
+      const updated = await superadminApi.updatePublicOrganizationStatus(id, status);
+      setAssociation(normalizeApiAssociation(updated.data));
+      setSource('api');
+      setSuccessMessage('Statusul asociației a fost actualizat.');
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
   return (
     <div className="space-y-5 pb-4">
       <PageHeader
@@ -134,6 +158,9 @@ export default function SuperadminOrganizationDetailsPage() {
             </span>
             <Link href="/ro/superadmin/organizations" className="rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted/60">
               Înapoi la asociații
+            </Link>
+            <Link href={`/ro/superadmin/organizations/${id}/subscription`} className="rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted/60">
+              Abonament
             </Link>
             <button
               type="button"
@@ -158,6 +185,29 @@ export default function SuperadminOrganizationDetailsPage() {
         <StatCard label="Status" value={statusLabel(association.status)} description="Stare platformă" icon={<Building2 className="h-5 w-5" />} tone={association.status === 'ACTIVE' ? 'success' : 'warning'} />
         <StatCard label="Monedă" value={association.currency} description="Pentru plăți și solduri" icon={<Building2 className="h-5 w-5" />} />
         <StatCard label="Administratori" value={Math.max(administrators.length, association.administratorEmail ? 1 : 0)} description="Conturi ADMIN" icon={<UserPlus className="h-5 w-5" />} />
+      </section>
+
+      <Card>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-foreground">Control status</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Activează, pune în trial sau dezactivează accesul asociației.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <StatusButton disabled={updatingStatus || association.status === 'ACTIVE'} onClick={() => updateStatus('ACTIVE')}>Activează</StatusButton>
+            <StatusButton disabled={updatingStatus || association.status === 'TRIAL'} onClick={() => updateStatus('TRIAL')}>Pune în trial</StatusButton>
+            <StatusButton disabled={updatingStatus || association.status === 'INACTIVE'} onClick={() => updateStatus('INACTIVE')}>Dezactivează</StatusButton>
+          </div>
+        </div>
+      </Card>
+
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+        <StatCard label="Apartamente utilizate" value={usage.apartmentsCount} description={`${usage.usagePercentage}% din limită`} icon={<Building2 className="h-5 w-5" />} tone={usage.usagePercentage > 90 ? 'warning' : 'success'} />
+        <StatCard label="Utilizatori" value={usage.usersCount} description="Conturi platformă" icon={<UserPlus className="h-5 w-5" />} />
+        <StatCard label="Locatari" value={usage.residentsCount} description="Profiluri persoane" icon={<UserPlus className="h-5 w-5" />} />
+        <StatCard label="Contoare" value={usage.metersCount} description="Apă, gaz, electricitate" icon={<Building2 className="h-5 w-5" />} />
+        <StatCard label="Facturi" value={usage.invoicesCount} description="Înregistrări lunare" icon={<Building2 className="h-5 w-5" />} />
+        <StatCard label="Limită plan" value={usage.apartmentLimit} description="Apartamente incluse" icon={<Building2 className="h-5 w-5" />} />
       </section>
 
       <section className="grid gap-4 lg:grid-cols-[1fr_0.9fr]">
@@ -248,7 +298,7 @@ export default function SuperadminOrganizationDetailsPage() {
   );
 }
 
-function Info({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+function Info({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
   return (
     <div className="rounded-2xl border border-border/70 bg-muted/25 p-3">
       <p className="inline-flex items-center gap-2 text-xs text-muted-foreground">{icon}{label}</p>
@@ -275,5 +325,18 @@ function Field({
       <span className="label">{label}{required ? ' *' : ''}</span>
       <input className="input" type={type} value={value} onChange={(event) => onChange(event.target.value)} />
     </label>
+  );
+}
+
+function StatusButton({ children, disabled, onClick }: { children: ReactNode; disabled?: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className="min-h-10 rounded-2xl border border-border/70 px-4 text-sm font-semibold text-foreground hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-45"
+    >
+      {children}
+    </button>
   );
 }

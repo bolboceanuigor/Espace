@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { Building2, Plus, Search, UserPlus } from 'lucide-react';
 import { Badge, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
@@ -35,6 +36,7 @@ export default function SuperadminOrganizationsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [isCreating, setIsCreating] = useState(false);
+  const [updatingStatusId, setUpdatingStatusId] = useState('');
   const [formError, setFormError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [listError, setListError] = useState('');
@@ -125,6 +127,23 @@ export default function SuperadminOrganizationsPage() {
     }
   };
 
+  const updateAssociationStatus = async (id: string, nextStatus: AssociationStatus) => {
+    setSuccessMessage('');
+    setListError('');
+    setUpdatingStatusId(id);
+    try {
+      const updated = await superadminApi.updatePublicOrganizationStatus(id, nextStatus);
+      const next = normalizeApiAssociation(updated.data);
+      setRows((current) => current.map((row) => (row.id === id ? { ...row, ...next } : row)));
+      setSource('api');
+      setSuccessMessage('Statusul asociației a fost actualizat.');
+    } catch {
+      setListError('Nu am putut actualiza statusul asociației.');
+    } finally {
+      setUpdatingStatusId('');
+    }
+  };
+
   return (
     <div className="space-y-5 pb-4">
       <PageHeader
@@ -200,9 +219,14 @@ export default function SuperadminOrganizationsPage() {
                 <Mini label="Email" value={row.administratorEmail || '-'} />
                 <Mini label="Telefon" value={row.administratorPhone || '-'} />
               </div>
-              <Link href={`/ro/superadmin/organizations/${row.id}`} className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-border/70 px-4 text-sm font-semibold text-foreground hover:bg-muted/60">
-                Deschide
-              </Link>
+              <div className="flex flex-wrap gap-2 lg:max-w-[220px]">
+                <StatusButton disabled={updatingStatusId === row.id || row.status === 'ACTIVE'} onClick={() => updateAssociationStatus(row.id, 'ACTIVE')}>Activează</StatusButton>
+                <StatusButton disabled={updatingStatusId === row.id || row.status === 'TRIAL'} onClick={() => updateAssociationStatus(row.id, 'TRIAL')}>Pune în trial</StatusButton>
+                <StatusButton disabled={updatingStatusId === row.id || row.status === 'INACTIVE'} onClick={() => updateAssociationStatus(row.id, 'INACTIVE')}>Dezactivează</StatusButton>
+                <Link href={`/ro/superadmin/organizations/${row.id}`} className="inline-flex min-h-10 flex-1 items-center justify-center rounded-2xl border border-border/70 px-4 text-sm font-semibold text-foreground hover:bg-muted/60">
+                  Deschide
+                </Link>
+              </div>
             </div>
           </Card>
         ))}
@@ -255,6 +279,19 @@ export default function SuperadminOrganizationsPage() {
         </ModalFooter>
       </Modal>
     </div>
+  );
+}
+
+function StatusButton({ children, disabled, onClick }: { children: ReactNode; disabled?: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className="min-h-9 rounded-2xl border border-border/70 px-3 text-xs font-semibold text-foreground hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-45"
+    >
+      {children}
+    </button>
   );
 }
 

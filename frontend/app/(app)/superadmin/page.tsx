@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { Building2, CreditCard, ShieldCheck, UserCog, Users } from 'lucide-react';
+import { Building2, CreditCard, ShieldCheck, Timer, UserCog, Users } from 'lucide-react';
 import { Card, PageHeader, StatCard } from '@/components/ui';
 import { superadminApi } from '@/lib/api';
 import {
@@ -14,16 +14,19 @@ import {
 export default function SuperadminPage() {
   const [associations, setAssociations] = useState<MvpAssociation[]>(mockAssociations);
   const [source, setSource] = useState<'api' | 'mock'>('mock');
+  const [overview, setOverview] = useState<any | null>(null);
 
   useEffect(() => {
     let active = true;
-    superadminApi
-      .listPublicOrganizations()
-      .then((res) => {
+    Promise.allSettled([superadminApi.listPublicOrganizations(), superadminApi.overview()])
+      .then(([organizationsResult, overviewResult]) => {
         if (!active) return;
-        const apiRows = (res.data || []).map(normalizeApiAssociation);
-        if (apiRows.length) {
-          setAssociations(apiRows);
+        if (organizationsResult.status === 'fulfilled') {
+          const apiRows = (organizationsResult.value.data || []).map(normalizeApiAssociation);
+          if (apiRows.length) setAssociations(apiRows);
+        }
+        if (overviewResult.status === 'fulfilled' && overviewResult.value.data) {
+          setOverview(overviewResult.value.data);
           setSource('api');
         }
       })
@@ -41,20 +44,27 @@ export default function SuperadminPage() {
     const totalApartments = associations.reduce((sum, item) => sum + item.apartmentsCount, 0);
     const active = associations.filter((item) => item.status === 'ACTIVE').length;
     return {
-      total: associations.length,
-      active,
+      total: Number(overview?.organizationsTotal ?? associations.length),
+      active: Number(overview?.organizationsActive ?? active),
+      trial: Number(overview?.organizationsTrial ?? associations.filter((item) => item.status === 'TRIAL').length),
+      inactive: Number(overview?.organizationsInactive ?? associations.filter((item) => item.status === 'INACTIVE').length),
       admins: associations.filter((item) => item.administratorEmail).length,
-      residents: Math.max(totalApartments * 2, source === 'api' ? totalApartments : 4820),
-      mrr: `${Math.max(totalApartments * 24, source === 'api' ? 0 : 42900).toLocaleString('ro-RO')} MDL`,
+      adminsReal: Number(overview?.adminsCount ?? associations.filter((item) => item.administratorEmail).length),
+      residents: Number(overview?.residentsCount ?? Math.max(totalApartments * 2, source === 'api' ? totalApartments : 4820)),
+      apartments: Number(overview?.apartmentsCount ?? totalApartments),
+      mrr: `${Number(overview?.estimatedMonthlyRevenue ?? Math.max(totalApartments * 24, source === 'api' ? 0 : 42900)).toLocaleString('ro-RO')} MDL`,
     };
-  }, [associations, source]);
+  }, [associations, overview, source]);
 
   const stats = [
     { label: 'Total asociații', value: String(totals.total), description: 'În Moldova și România', icon: <Building2 className="h-5 w-5" /> },
-    { label: 'Asociații active', value: String(totals.active), description: 'Abonamente active', icon: <ShieldCheck className="h-5 w-5" />, tone: 'success' as const },
-    { label: 'Administratori', value: String(totals.admins), description: 'Utilizatori cu acces administrativ', icon: <UserCog className="h-5 w-5" /> },
+    { label: 'Active', value: String(totals.active), description: 'Abonamente active', icon: <ShieldCheck className="h-5 w-5" />, tone: 'success' as const },
+    { label: 'Trial', value: String(totals.trial), description: 'În evaluare', icon: <Timer className="h-5 w-5" />, tone: 'warning' as const },
+    { label: 'Inactive', value: String(totals.inactive), description: 'Acces dezactivat', icon: <Building2 className="h-5 w-5" /> },
+    { label: 'Administratori', value: String(totals.adminsReal), description: 'Utilizatori cu acces administrativ', icon: <UserCog className="h-5 w-5" /> },
     { label: 'Locatari conectați', value: totals.residents.toLocaleString('ro-RO'), description: 'Conturi rezident active', icon: <Users className="h-5 w-5" />, tone: 'success' as const },
-    { label: 'Venit lunar platformă', value: totals.mrr, description: 'MRR estimat', icon: <CreditCard className="h-5 w-5" />, tone: 'warning' as const },
+    { label: 'Apartamente', value: totals.apartments.toLocaleString('ro-RO'), description: 'Unități administrate', icon: <Building2 className="h-5 w-5" /> },
+    { label: 'Venit lunar estimat', value: totals.mrr, description: 'Abonamente manuale', icon: <CreditCard className="h-5 w-5" />, tone: 'warning' as const },
   ];
 
   return (
@@ -69,7 +79,7 @@ export default function SuperadminPage() {
         }
       />
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {stats.map((item) => (
           <StatCard key={item.label} {...item} />
         ))}

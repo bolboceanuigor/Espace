@@ -164,6 +164,21 @@ export class OrganizationsService {
     return this.toPublicOrganization(organization);
   }
 
+  async updatePublicOrganizationStatus(id: string, body: unknown) {
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const status = this.optionalEnum(payload.status, OrganizationStatus, OrganizationStatus.ACTIVE, 'Statusul nu este valid.');
+
+    const organization = await this.prisma.organization.update({
+      where: { id },
+      data: { status },
+      select: this.publicSelect,
+    }).catch(() => {
+      throw new NotFoundException('Organization not found');
+    });
+
+    return this.toPublicOrganization(organization);
+  }
+
   private parseCreateOrganizationBody(body: unknown) {
     const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
     const name = this.requiredString(payload.name, 'Numele asociației este obligatoriu.');

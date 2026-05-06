@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { OrganizationsService } from './organizations.service';
 import { Public } from '../auth/decorators/public.decorator';
 
@@ -31,6 +31,12 @@ export class OrganizationsController {
   @Post(':organizationId/admins')
   createPublicOrganizationAdmin(@Param('organizationId') organizationId: string, @Body() body: unknown) {
     return this.organizationsService.createPublicOrganizationAdmin(organizationId, body);
+  }
+
+  @Public()
+  @Patch(':id/status')
+  updatePublicOrganizationStatus(@Param('id') id: string, @Body() body: unknown) {
+    return this.organizationsService.updatePublicOrganizationStatus(id, body);
   }
 
   @Public()

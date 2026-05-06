@@ -24,6 +24,44 @@ export type MvpAdministrator = {
   role: 'ADMIN';
 };
 
+export type MvpPlan = {
+  id: string;
+  name: string;
+  code: 'FREE' | 'TRIAL' | 'STARTER' | 'PRO';
+  priceMonthly: number;
+  currency: 'MDL' | 'EUR' | 'USD';
+  apartmentLimit: number;
+  features: string[];
+  status: 'ACTIVE' | 'INACTIVE';
+};
+
+export type MvpUsage = {
+  apartmentsCount: number;
+  usersCount: number;
+  residentsCount: number;
+  metersCount: number;
+  invoicesCount: number;
+  apartmentLimit: number;
+  usagePercentage: number;
+};
+
+export type MvpSubscription = {
+  id: string;
+  organizationId: string;
+  planId: string;
+  planCode: MvpPlan['code'];
+  planName: string;
+  status: 'TRIAL' | 'ACTIVE' | 'PAST_DUE' | 'CANCELLED';
+  trialEndsAt: string;
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  monthlyCost: number;
+  currency: MvpPlan['currency'];
+  apartmentLimit: number;
+  apartmentsCount: number;
+  usagePercentage: number;
+};
+
 export const mockAssociations: MvpAssociation[] = [
   {
     id: 'apc-alba-iulia-75',
@@ -92,6 +130,49 @@ export const mockAdministrators: MvpAdministrator[] = mockAssociations.map((asso
   };
 });
 
+export const mockPlans: MvpPlan[] = [
+  {
+    id: 'plan-starter',
+    name: 'Starter',
+    code: 'STARTER',
+    priceMonthly: 1290,
+    currency: 'MDL',
+    apartmentLimit: 150,
+    features: ['Apartamente', 'Locatari', 'Contoare', 'Plăți', 'Cereri'],
+    status: 'ACTIVE',
+  },
+  {
+    id: 'plan-pro',
+    name: 'Pro',
+    code: 'PRO',
+    priceMonthly: 2490,
+    currency: 'MDL',
+    apartmentLimit: 500,
+    features: ['Apartamente', 'Locatari', 'Contoare', 'Plăți', 'Cereri', 'Mesaje', 'Rapoarte'],
+    status: 'ACTIVE',
+  },
+  {
+    id: 'plan-trial',
+    name: 'Trial',
+    code: 'TRIAL',
+    priceMonthly: 0,
+    currency: 'MDL',
+    apartmentLimit: 75,
+    features: ['Apartamente', 'Locatari', 'Contoare', 'Cereri'],
+    status: 'ACTIVE',
+  },
+];
+
+export const mockUsage: MvpUsage = {
+  apartmentsCount: 142,
+  usersCount: 4,
+  residentsCount: 386,
+  metersCount: 219,
+  invoicesCount: 37,
+  apartmentLimit: 150,
+  usagePercentage: 95,
+};
+
 export function statusLabel(status: AssociationStatus) {
   if (status === 'ACTIVE') return 'Activă';
   if (status === 'TRIAL') return 'Trial';
@@ -132,6 +213,55 @@ export function normalizeApiAdministrator(row: any): MvpAdministrator {
     phone: String(row?.phone || ''),
     organizationId: String(row?.organizationId || row?.organization?.id || ''),
     role: 'ADMIN',
+  };
+}
+
+export function normalizeApiPlan(row: any): MvpPlan {
+  const code = String(row?.code || 'STARTER').toUpperCase();
+  return {
+    id: String(row?.id || crypto.randomUUID()),
+    name: String(row?.name || 'Starter'),
+    code: (['FREE', 'TRIAL', 'STARTER', 'PRO'].includes(code) ? code : 'STARTER') as MvpPlan['code'],
+    priceMonthly: Number(row?.priceMonthly ?? row?.price ?? 0),
+    currency: (row?.currency || 'MDL') as MvpPlan['currency'],
+    apartmentLimit: Number(row?.apartmentLimit ?? 150),
+    features: Array.isArray(row?.features) ? row.features.map(String) : ['Apartamente', 'Locatari', 'Contoare'],
+    status: String(row?.status || 'ACTIVE').toUpperCase() === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',
+  };
+}
+
+export function normalizeApiUsage(row: any): MvpUsage {
+  return {
+    apartmentsCount: Number(row?.apartmentsCount ?? 0),
+    usersCount: Number(row?.usersCount ?? 0),
+    residentsCount: Number(row?.residentsCount ?? 0),
+    metersCount: Number(row?.metersCount ?? 0),
+    invoicesCount: Number(row?.invoicesCount ?? 0),
+    apartmentLimit: Number(row?.apartmentLimit ?? 150),
+    usagePercentage: Number(row?.usagePercentage ?? 0),
+  };
+}
+
+export function normalizeApiSubscription(row: any, fallbackOrganizationId = ''): MvpSubscription | null {
+  const source = row?.subscription ?? row;
+  if (!source) return null;
+  const status = String(source.status || 'TRIAL').toUpperCase();
+  const code = String(source.planCode || source.plan || 'STARTER').toUpperCase();
+  return {
+    id: String(source.id || ''),
+    organizationId: String(source.organizationId || row?.organizationId || fallbackOrganizationId),
+    planId: String(source.planId || ''),
+    planCode: (['FREE', 'TRIAL', 'STARTER', 'PRO'].includes(code) ? code : 'STARTER') as MvpPlan['code'],
+    planName: String(source.planName || source.plan || 'Starter'),
+    status: (['TRIAL', 'ACTIVE', 'PAST_DUE', 'CANCELLED'].includes(status) ? status : 'TRIAL') as MvpSubscription['status'],
+    trialEndsAt: String(source.trialEndsAt || ''),
+    currentPeriodStart: String(source.currentPeriodStart || ''),
+    currentPeriodEnd: String(source.currentPeriodEnd || ''),
+    monthlyCost: Number(source.monthlyCost ?? source.customPrice ?? source.price ?? 0),
+    currency: (source.currency || 'MDL') as MvpPlan['currency'],
+    apartmentLimit: Number(source.apartmentLimit ?? 150),
+    apartmentsCount: Number(source.apartmentsCount ?? row?.apartmentsCount ?? 0),
+    usagePercentage: Number(source.usagePercentage ?? 0),
   };
 }
 

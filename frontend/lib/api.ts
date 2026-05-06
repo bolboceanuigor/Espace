@@ -1491,6 +1491,8 @@ export const onboardingApi = {
 };
 
 export const superadminApi = {
+  overview: () =>
+    apiRequest<any>('/superadmin/overview'),
   listPublicOrganizations: () =>
     apiRequest<any[]>('/organizations'),
   getPublicOrganization: (id: string) =>
@@ -1504,6 +1506,63 @@ export const superadminApi = {
     status?: 'ACTIVE' | 'TRIAL' | 'INACTIVE';
   }) =>
     apiRequest<any>('/organizations', {
+      method: 'POST',
+      body: data,
+    }),
+  updatePublicOrganizationStatus: (id: string, status: 'ACTIVE' | 'TRIAL' | 'INACTIVE') =>
+    apiRequest<any>(`/organizations/${id}/status`, {
+      method: 'PATCH',
+      body: { status },
+    }),
+  getOrganizationUsage: (id: string) =>
+    apiRequest<any>(`/organizations/${id}/usage`),
+  listPlans: () =>
+    apiRequest<any[]>('/plans'),
+  createPlan: (data: {
+    name: string;
+    code: 'FREE' | 'TRIAL' | 'STARTER' | 'PRO';
+    priceMonthly?: number;
+    currency?: 'MDL' | 'EUR' | 'USD';
+    apartmentLimit?: number;
+    features?: string[];
+    status?: 'ACTIVE' | 'INACTIVE';
+  }) =>
+    apiRequest<any>('/plans', {
+      method: 'POST',
+      body: data,
+    }),
+  updatePlan: (
+    id: string,
+    data: Partial<{
+      name: string;
+      priceMonthly: number;
+      currency: 'MDL' | 'EUR' | 'USD';
+      apartmentLimit: number;
+      features: string[];
+      status: 'ACTIVE' | 'INACTIVE';
+    }>,
+  ) =>
+    apiRequest<any>(`/plans/${id}`, {
+      method: 'PATCH',
+      body: data,
+    }),
+  getOrganizationSubscription: (id: string) =>
+    apiRequest<any>(`/organizations/${id}/subscription`),
+  upsertOrganizationSubscription: (
+    id: string,
+    data: Partial<{
+      planId: string;
+      planCode: 'FREE' | 'TRIAL' | 'STARTER' | 'PRO';
+      status: 'TRIAL' | 'ACTIVE' | 'PAST_DUE' | 'CANCELLED';
+      trialEndsAt: string;
+      currentPeriodStart: string;
+      currentPeriodEnd: string;
+      price: number;
+      customPrice: number;
+      apartmentLimit: number;
+    }>,
+  ) =>
+    apiRequest<any>(`/organizations/${id}/subscription`, {
       method: 'POST',
       body: data,
     }),
