@@ -22,6 +22,26 @@ export class AppController {
   }
 
   @Public()
+  @Get('health/db')
+  async getDatabaseHealth() {
+    const [organizations, users, apartments] = await Promise.all([
+      this.prisma.organization.count(),
+      this.prisma.user.count(),
+      this.prisma.apartment.count(),
+    ]);
+
+    return {
+      status: 'ok',
+      database: 'connected',
+      counts: {
+        organizations,
+        users,
+        apartments,
+      },
+    };
+  }
+
+  @Public()
   @Get('api/health')
   async getApiHealth() {
     const time = new Date().toISOString();

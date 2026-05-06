@@ -74,10 +74,12 @@ async function bootstrap() {
 
   const isProd = process.env.NODE_ENV === 'production';
   const allowedOrigins = [
-    ...(isProd ? [] : ['http://localhost:3001', 'http://localhost:3000']),
+    'https://espace.md',
+    'https://www.espace.md',
+    'http://localhost:3000',
+    'http://localhost:3001',
     process.env.FRONTEND_URL,
     process.env.CORS_ORIGIN,
-    'https://www.espace.md',
   ]
     .flatMap((value) => (value || '').split(','))
     .map((value) => value.trim())
@@ -111,7 +113,7 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization', 'x-org-id'],
   });
 
-  const port = Number(process.env.PORT || 3001);
+  const port = Number(process.env.PORT || 4000);
   await app.listen(port, '0.0.0.0');
   const publicApiUrl = process.env.API_URL?.replace(/\/+$/, '');
   console.log(`API listening on ${publicApiUrl || `http://localhost:${port}`}`);

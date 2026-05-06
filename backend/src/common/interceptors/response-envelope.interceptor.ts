@@ -3,9 +3,15 @@ import { map, Observable } from 'rxjs';
 
 @Injectable()
 export class ResponseEnvelopeInterceptor implements NestInterceptor {
-  intercept(_context: ExecutionContext, next: CallHandler): Observable<any> {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+    const request = context.switchToHttp().getRequest<{ path?: string; originalUrl?: string }>();
+    const path = request?.path || request?.originalUrl || '';
+
     return next.handle().pipe(
       map((body) => {
+        if (path === '/health' || path === '/health/db') {
+          return body;
+        }
         if (
           body &&
           typeof body === 'object' &&
@@ -18,4 +24,3 @@ export class ResponseEnvelopeInterceptor implements NestInterceptor {
     );
   }
 }
-
