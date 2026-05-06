@@ -10,6 +10,9 @@ export default function ResidentMetersPage() {
   const [meters, setMeters] = useState(residentMeters);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [source, setSource] = useState<'api' | 'mock'>('mock');
+  const [isSubmitting, setIsSubmitting] = useState('');
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -33,17 +36,48 @@ export default function ResidentMetersPage() {
     };
   }, []);
 
-  const submitReading = (id: string, unit: string) => {
+  const loadMeters = async () => {
+    const res = await residentDemoApi.meters();
+    const apiRows = (res.data || []).map(normalizeResidentMeter);
+    if (apiRows.length) {
+      setMeters(apiRows);
+      setSource('api');
+    }
+  };
+
+  const submitReading = async (id: string, unit: string) => {
     const value = drafts[id]?.trim();
     if (!value) return;
-    setMeters((current) =>
-      current.map((meter) =>
-        meter.id === id
-          ? { ...meter, reading: `${value} ${unit}`, date: new Date().toLocaleDateString('ro-MD'), status: 'Actualizat' as ResidentMeterStatus }
-          : meter,
-      ),
-    );
-    setDrafts((current) => ({ ...current, [id]: '' }));
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue)) {
+      setError('Completează o valoare numerică.');
+      return;
+    }
+    setMessage('');
+    setError('');
+    setIsSubmitting(id);
+    try {
+      await residentDemoApi.addMeterReading(id, {
+        value: numericValue,
+        readingDate: new Date().toISOString().slice(0, 10),
+        source: 'RESIDENT',
+      });
+      setMeters((current) =>
+        current.map((meter) =>
+          meter.id === id
+            ? { ...meter, reading: `${numericValue.toLocaleString('ro-RO')} ${unit}`, date: new Date().toLocaleDateString('ro-MD'), status: 'Actualizat' as ResidentMeterStatus }
+            : meter,
+        ),
+      );
+      setDrafts((current) => ({ ...current, [id]: '' }));
+      setSource('api');
+      setMessage('Citirea a fost transmisă.');
+      await loadMeters().catch(() => undefined);
+    } catch {
+      setError('Nu am putut transmite citirea.');
+    } finally {
+      setIsSubmitting('');
+    }
   };
 
   return (
@@ -57,6 +91,16 @@ export default function ResidentMetersPage() {
           </span>
         }
       />
+      {message ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+          {message}
+        </div>
+      ) : null}
+      {error ? (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+          {error}
+        </div>
+      ) : null}
       <section className="grid gap-3 sm:grid-cols-2">
         <StatCard label="Contoare active" value={meters.length} description="Apt. 45" icon={<Gauge className="h-5 w-5" />} />
         <StatCard label="Citiri lipsă" value={meters.filter((meter) => meter.status === 'Lipsă citire').length} description="De completat luna aceasta" icon={<Droplets className="h-5 w-5" />} tone="warning" />
@@ -83,9 +127,9 @@ export default function ResidentMetersPage() {
                 placeholder={`Citire nouă (${meter.unit})`}
                 inputMode="decimal"
               />
-              <Button onClick={() => submitReading(meter.id, meter.unit)} disabled={!drafts[meter.id]?.trim()}>
+              <Button onClick={() => submitReading(meter.id, meter.unit)} disabled={!drafts[meter.id]?.trim() || isSubmitting === meter.id}>
                 <CheckCircle2 className="h-4 w-4" />
-                Transmite citire
+                {isSubmitting === meter.id ? 'Se transmite...' : 'Transmite citire'}
               </Button>
             </div>
           </Card>

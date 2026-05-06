@@ -917,7 +917,15 @@ export const residentDemoApi = {
   invoices: () => apiRequest<any[]>('/resident/invoices'),
   payments: () => apiRequest<any[]>('/resident/payments'),
   meters: () => apiRequest<any[]>('/resident/meters'),
+  addMeterReading: (meterId: string, data: { value: number; readingDate?: string; source?: 'RESIDENT' }) =>
+    apiRequest<any>(`/resident/meters/${meterId}/readings`, { method: 'POST', body: data }),
   issues: () => apiRequest<any[]>('/resident/issues'),
+  createIssue: (data: {
+    category: 'WATER' | 'HEATING' | 'CLEANING' | 'ELEVATOR' | 'REPAIR' | 'OTHER';
+    priority?: 'NORMAL' | 'IMPORTANT' | 'URGENT';
+    title: string;
+    description: string;
+  }) => apiRequest<any>('/resident/issues', { method: 'POST', body: data }),
   announcements: () => apiRequest<any[]>('/resident/announcements'),
 };
 

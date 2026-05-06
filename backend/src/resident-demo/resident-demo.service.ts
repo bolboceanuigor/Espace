@@ -1,5 +1,15 @@
-import { Injectable } from '@nestjs/common';
-import { InvoiceStatus, IssueStatus, MeterStatus, PaymentStatus, Prisma } from '@prisma/client';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  InvoiceStatus,
+  IssueCategory,
+  IssueLocationType,
+  IssuePriority,
+  IssueStatus,
+  MeterReadingSource,
+  MeterStatus,
+  PaymentStatus,
+  Prisma,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 const DEMO_APARTMENT_NUMBER = '45';
@@ -29,6 +39,7 @@ export class ResidentDemoService {
             resident: {
               select: {
                 id: true,
+                userId: true,
                 firstName: true,
                 lastName: true,
                 phone: true,
@@ -281,6 +292,54 @@ export class ResidentDemoService {
     return meters.map((meter) => this.toMeter(meter));
   }
 
+  async addMeterReading(meterId: string, body: unknown) {
+    const apartment = await this.getDemoApartment();
+    if (!apartment) throw new NotFoundException('Apartment not found');
+
+    const input = this.parseMeterReadingBody(body);
+    const meter = await this.prisma.meter.findFirst({
+      where: {
+        id: meterId,
+        apartmentId: apartment.id,
+      },
+      select: {
+        id: true,
+        apartmentId: true,
+        organizationId: true,
+      },
+    });
+
+    if (!meter) throw new NotFoundException('Meter not found');
+
+    const reading = await this.prisma.meterReading.create({
+      data: {
+        meterId: meter.id,
+        apartmentId: meter.apartmentId,
+        organizationId: meter.organizationId,
+        value: input.value,
+        readingDate: input.readingDate,
+        source: MeterReadingSource.RESIDENT,
+      },
+      select: {
+        id: true,
+        meterId: true,
+        apartmentId: true,
+        organizationId: true,
+        value: true,
+        readingDate: true,
+        source: true,
+        createdAt: true,
+      },
+    });
+
+    await this.prisma.meter.update({
+      where: { id: meter.id },
+      data: { status: MeterStatus.ACTIVE },
+    });
+
+    return reading;
+  }
+
   async listIssues() {
     const apartment = await this.getDemoApartment();
     if (!apartment) return [];
@@ -292,6 +351,35 @@ export class ResidentDemoService {
     });
 
     return issues.map((issue) => this.toIssue(issue));
+  }
+
+  async createIssue(body: unknown) {
+    const apartment = await this.getDemoApartment();
+    if (!apartment) throw new NotFoundException('Apartment not found');
+
+    const input = this.parseCreateIssueBody(body);
+    const residentRelation = apartment.apartmentResidents?.[0] ?? null;
+    const createdByUserId = await this.resolveDemoCreatedByUserId(apartment.organizationId, residentRelation?.resident?.userId);
+
+    const issue = await this.prisma.issue.create({
+      data: {
+        organizationId: apartment.organizationId,
+        apartmentId: apartment.id,
+        residentId: residentRelation?.resident?.id ?? null,
+        buildingId: apartment.building?.id,
+        staircaseId: apartment.staircase?.id,
+        createdByUserId,
+        title: input.title,
+        description: input.description,
+        category: input.category,
+        priority: input.priority,
+        status: IssueStatus.NEW,
+        locationType: IssueLocationType.APARTMENT,
+      },
+      select: this.issueSelect(),
+    });
+
+    return this.toIssue(issue);
   }
 
   async listAnnouncements() {
@@ -370,5 +458,69 @@ export class ResidentDemoService {
         latest: activeIssues[0] ?? null,
       },
     };
+  }
+
+  private async resolveDemoCreatedByUserId(organizationId: string, residentUserId?: string | null) {
+    if (residentUserId) return residentUserId;
+    const user = await this.prisma.user.findFirst({
+      where: { organizationId },
+      orderBy: [
+        { role: 'desc' },
+        { createdAt: 'asc' },
+      ],
+      select: { id: true },
+    });
+    if (!user) throw new NotFoundException('User not found');
+    return user.id;
+  }
+
+  private parseMeterReadingBody(body: unknown) {
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const value = this.requiredNumber(payload.value, 'Valoarea citirii este obligatorie.');
+    const readingDate =
+      typeof payload.readingDate === 'string' && payload.readingDate.trim()
+        ? this.requiredDate(payload.readingDate, 'Data citirii nu este validă.')
+        : new Date();
+    if (payload.source && String(payload.source).toUpperCase() !== MeterReadingSource.RESIDENT) {
+      throw new BadRequestException('Sursa citirii trebuie să fie RESIDENT.');
+    }
+    return { value, readingDate };
+  }
+
+  private parseCreateIssueBody(body: unknown) {
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    return {
+      title: this.requiredString(payload.title, 'Titlul este obligatoriu.'),
+      description: this.requiredString(payload.description, 'Descrierea este obligatorie.'),
+      category: this.optionalEnum(payload.category, IssueCategory, IssueCategory.OTHER, 'Categoria cererii nu este validă.'),
+      priority: this.optionalEnum(payload.priority, IssuePriority, IssuePriority.NORMAL, 'Prioritatea cererii nu este validă.'),
+    };
+  }
+
+  private requiredString(value: unknown, message: string) {
+    if (typeof value !== 'string' || !value.trim()) throw new BadRequestException(message);
+    return value.trim();
+  }
+
+  private requiredNumber(value: unknown, message: string) {
+    const parsed = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(parsed)) throw new BadRequestException(message);
+    return parsed;
+  }
+
+  private requiredDate(value: unknown, message: string) {
+    if (typeof value !== 'string' || !value.trim()) throw new BadRequestException(message);
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) throw new BadRequestException(message);
+    return parsed;
+  }
+
+  private optionalEnum<T extends Record<string, string>>(value: unknown, enumValues: T, fallback: T[keyof T], message: string) {
+    if (value === undefined || value === null || value === '') return fallback;
+    if (typeof value !== 'string') throw new BadRequestException(message);
+    const normalized = value.trim().toUpperCase();
+    const allowed = Object.values(enumValues) as string[];
+    if (!allowed.includes(normalized)) throw new BadRequestException(message);
+    return normalized as T[keyof T];
   }
 }

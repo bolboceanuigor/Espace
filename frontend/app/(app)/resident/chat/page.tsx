@@ -28,7 +28,15 @@ export default function ResidentChatPage() {
 
   return (
     <div className="space-y-5 pb-4">
-      <PageHeader title="Mesaje" description="Discuție simplă cu administrația." />
+      <PageHeader
+        title="Mesaje"
+        description="Discuție simplă cu administrația."
+        rightSlot={
+          <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
+            Demo
+          </span>
+        }
+      />
       <section className="overflow-hidden rounded-[1.35rem] border border-border/70 bg-white shadow-[0_14px_40px_rgba(15,23,42,0.045)]">
         <div className="border-b border-border/70 p-4">
           <h2 className="inline-flex items-center gap-2 font-semibold text-foreground">

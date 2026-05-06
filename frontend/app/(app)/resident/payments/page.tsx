@@ -126,7 +126,7 @@ export default function ResidentPaymentsPage() {
       <Modal isOpen={paymentModalOpen} onClose={() => setPaymentModalOpen(false)} maxWidth="md">
         <ModalHeader title="Plăți online" onClose={() => setPaymentModalOpen(false)} />
         <ModalBody>
-          <p className="text-sm text-muted-foreground">Integrarea plăților va fi conectată ulterior.</p>
+          <p className="text-sm text-muted-foreground">Integrarea plăților online va fi conectată ulterior.</p>
         </ModalBody>
         <ModalFooter>
           <ModalCloseButton onClick={() => setPaymentModalOpen(false)}>Am înțeles</ModalCloseButton>
