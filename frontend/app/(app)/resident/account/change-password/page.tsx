@@ -5,9 +5,11 @@ import { useState } from 'react';
 import { authApi } from '@/lib/api';
 import MobilePageHeader from '@/components/common/MobilePageHeader';
 import { useToast } from '@/components/ui/ToastProvider';
+import { useLocalizedPath } from '@/lib/use-localized-path';
 
 export default function ResidentChangePasswordPage() {
   const { showToast } = useToast();
+  const localizedPath = useLocalizedPath();
   const [form, setForm] = useState({ oldPassword: '', newPassword: '', confirmPassword: '' });
   const [saving, setSaving] = useState(false);
 
@@ -65,8 +67,8 @@ export default function ResidentChangePasswordPage() {
           </button>
         </div>
       </div>
-      <Link href="/resident/account" className="text-sm text-primary hover:underline">
-        Back to Account
+      <Link href={localizedPath('/resident/account')} className="text-sm text-primary hover:underline">
+        Înapoi la cont
       </Link>
     </div>
   );

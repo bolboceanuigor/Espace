@@ -7,11 +7,13 @@ import { Button, Card, PageHeader } from '@/components/ui';
 import { residentProfile } from '@/lib/resident-mvp-data';
 import { demoLogout } from '@/lib/demo-auth';
 import { defaultLocale, isLocale } from '@/i18n';
+import { useLocalizedPath } from '@/lib/use-localized-path';
 
 export default function ResidentProfilePage() {
   const params = useParams<{ locale?: string }>();
   const localeParam = typeof params?.locale === 'string' ? params.locale : defaultLocale;
   const locale = isLocale(localeParam) ? localeParam : defaultLocale;
+  const localizedPath = useLocalizedPath();
 
   return (
     <div className="space-y-5 pb-4">
@@ -34,7 +36,7 @@ export default function ResidentProfilePage() {
         </div>
       </Card>
       <div className="grid gap-3">
-        <Link href="/resident/notifications" className="inline-flex min-h-12 items-center gap-3 rounded-2xl border border-border/70 bg-white px-4 text-sm font-semibold text-foreground">
+        <Link href={localizedPath('/resident/notifications')} className="inline-flex min-h-12 items-center gap-3 rounded-2xl border border-border/70 bg-white px-4 text-sm font-semibold text-foreground">
           <Bell className="h-4 w-4" />
           Notificări
         </Link>
