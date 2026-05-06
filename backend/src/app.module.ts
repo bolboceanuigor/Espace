@@ -9,6 +9,7 @@ import { BillingReadModule } from './billing-read/billing-read.module';
 import { CommunityReadModule } from './community-read/community-read.module';
 import { ResidentDemoModule } from './resident-demo/resident-demo.module';
 import { DemoAuthReadModule } from './demo-auth-read/demo-auth-read.module';
+import { MinimalAuthModule } from './minimal-auth/minimal-auth.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -25,6 +26,7 @@ import { AppController } from './app.controller';
     CommunityReadModule,
     ResidentDemoModule,
     DemoAuthReadModule,
+    MinimalAuthModule,
   ],
   controllers: [AppController],
   providers: [],

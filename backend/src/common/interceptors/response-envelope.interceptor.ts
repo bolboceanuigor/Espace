@@ -9,7 +9,14 @@ export class ResponseEnvelopeInterceptor implements NestInterceptor {
 
     return next.handle().pipe(
       map((body) => {
-        if (path === '/health' || path === '/health/db') {
+        if (
+          path === '/health' ||
+          path === '/health/db' ||
+          path === '/auth/login' ||
+          path === '/api/auth/login' ||
+          path === '/auth/me' ||
+          path === '/api/auth/me'
+        ) {
           return body;
         }
         if (
