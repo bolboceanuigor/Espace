@@ -838,6 +838,90 @@ export function normalizeApiResidentMessages(row: any) {
     : [];
 }
 
+function issueCategoryFromApi(category?: string): IssueCategory {
+  const normalized = String(category || '').toUpperCase();
+  if (normalized === 'WATER') return 'Apă';
+  if (normalized === 'HEATING') return 'Încălzire';
+  if (normalized === 'CLEANING') return 'Curățenie';
+  if (normalized === 'ELEVATOR') return 'Lift';
+  if (normalized === 'REPAIR') return 'Reparații';
+  return 'Altele';
+}
+
+function issuePriorityFromApi(priority?: string): IssuePriority {
+  const normalized = String(priority || '').toUpperCase();
+  if (normalized === 'URGENT' || normalized === 'HIGH') return 'Urgent';
+  if (normalized === 'IMPORTANT' || normalized === 'MEDIUM') return 'Important';
+  return 'Normal';
+}
+
+function issueStatusFromApi(status?: string): IssueStatus {
+  const normalized = String(status || '').toUpperCase();
+  if (normalized === 'RESOLVED' || normalized === 'CLOSED') return 'Rezolvată';
+  if (normalized === 'IN_PROGRESS' || normalized === 'WAITING') return 'În lucru';
+  return 'Nouă';
+}
+
+export function normalizeApiIssue(row: any): AdminIssue {
+  const category = issueCategoryFromApi(row?.category);
+  const priority = issuePriorityFromApi(row?.priority);
+  const status = issueStatusFromApi(row?.status);
+  const apartment = row?.apartmentNumber ? `Apt. ${row.apartmentNumber}` : row?.apartment?.number ? `Apt. ${row.apartment.number}` : 'Spații comune';
+  const resident = String(row?.residentName || row?.resident?.name || 'Locatar');
+  const createdDate = dateLabel(row?.createdAt);
+
+  return {
+    id: String(row?.id || 'issue'),
+    title: String(row?.title || 'Cerere'),
+    category,
+    apartment,
+    resident,
+    message: String(row?.preview || row?.description || ''),
+    description: String(row?.description || row?.preview || ''),
+    date: createdDate,
+    priority,
+    status,
+    timeline: [
+      { title: 'Cerere primită', date: createdDate, note: 'Înregistrată în platformă.' },
+      ...(status !== 'Nouă' ? [{ title: 'Status actualizat', date: dateLabel(row?.updatedAt), note: `Status curent: ${status}.` }] : []),
+    ],
+    internalNotes: ['Note interne vizibile doar administratorilor.'],
+  };
+}
+
+function announcementCategoryFromApi(category?: string): AnnouncementCategory {
+  const normalized = String(category || '').toUpperCase();
+  if (normalized === 'REPAIR') return 'Reparații';
+  if (normalized === 'URGENT') return 'Urgent';
+  if (normalized === 'ADMINISTRATION') return 'Administrare';
+  return 'General';
+}
+
+function announcementStatusFromApi(status?: string): AnnouncementStatus {
+  return String(status || '').toUpperCase() === 'ARCHIVED' ? 'Arhivat' : 'Activ';
+}
+
+function audienceFromApi(audience?: string | null) {
+  const normalized = String(audience || '').toUpperCase();
+  if (normalized === 'BUILDING') return 'Locatarii din blocul selectat';
+  if (normalized === 'STAIRCASE') return 'Locatarii de pe scara selectată';
+  if (normalized === 'APARTMENT') return 'Apartamentul selectat';
+  return 'Toți locatarii';
+}
+
+export function normalizeApiAnnouncement(row: any): AdminAnnouncement {
+  return {
+    id: String(row?.id || 'announcement'),
+    title: String(row?.title || 'Anunț'),
+    category: announcementCategoryFromApi(row?.category),
+    date: dateLabel(row?.createdAt),
+    preview: String(row?.preview || row?.content || ''),
+    content: String(row?.content || row?.preview || ''),
+    status: announcementStatusFromApi(row?.status),
+    audience: audienceFromApi(row?.audience),
+  };
+}
+
 export function findIssueById(id?: string) {
   if (!id) return adminIssues[0];
   return adminIssues.find((issue) => issue.id === id) ?? adminIssues[0];

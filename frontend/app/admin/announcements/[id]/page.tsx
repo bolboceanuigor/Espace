@@ -1,17 +1,41 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Archive, ArrowLeft, Edit3, Megaphone, Users } from 'lucide-react';
 import { Badge, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
 import { defaultLocale, isLocale } from '@/i18n';
-import { announcementCategoryVariant, findAnnouncementById } from '@/lib/admin-mvp-data';
+import { announcementsApi } from '@/lib/api';
+import { announcementCategoryVariant, findAnnouncementById, normalizeApiAnnouncement, type AdminAnnouncement } from '@/lib/admin-mvp-data';
 
 export default function AdminAnnouncementDetailsPage() {
   const params = useParams<{ id?: string; locale?: string }>();
   const localeParam = typeof params?.locale === 'string' ? params.locale : defaultLocale;
   const locale = isLocale(localeParam) ? localeParam : defaultLocale;
-  const announcement = findAnnouncementById(params?.id);
+  const fallback = useMemo(() => findAnnouncementById(params?.id), [params?.id]);
+  const [announcement, setAnnouncement] = useState<AdminAnnouncement>(fallback);
+  const [source, setSource] = useState<'api' | 'mock'>('mock');
+
+  useEffect(() => {
+    let active = true;
+    if (!params?.id) return undefined;
+    announcementsApi
+      .get(params.id)
+      .then((res) => {
+        if (!active) return;
+        setAnnouncement(normalizeApiAnnouncement(res.data));
+        setSource('api');
+      })
+      .catch(() => {
+        if (!active) return;
+        setAnnouncement(fallback);
+        setSource('mock');
+      });
+    return () => {
+      active = false;
+    };
+  }, [fallback, params?.id]);
 
   return (
     <div className="space-y-5 pb-4">
@@ -23,7 +47,14 @@ export default function AdminAnnouncementDetailsPage() {
       <PageHeader
         title={announcement.title}
         description={`${announcement.category} · ${announcement.date}`}
-        rightSlot={<Badge variant={announcement.status === 'Activ' ? 'success' : 'neutral'}>{announcement.status}</Badge>}
+        rightSlot={
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
+              {source === 'api' ? 'Date reale' : 'Date demo'}
+            </span>
+            <Badge variant={announcement.status === 'Activ' ? 'success' : 'neutral'}>{announcement.status}</Badge>
+          </div>
+        }
       />
 
       <section className="grid gap-3 md:grid-cols-3">

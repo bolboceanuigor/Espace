@@ -1,20 +1,53 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { CalendarDays, Megaphone, PlusCircle, Tag } from 'lucide-react';
 import { Badge, ButtonLink, Card, PageHeader } from '@/components/ui';
-import { adminAnnouncements, announcementCategoryVariant } from '@/lib/admin-mvp-data';
+import { announcementsApi } from '@/lib/api';
+import { adminAnnouncements, announcementCategoryVariant, normalizeApiAnnouncement, type AdminAnnouncement } from '@/lib/admin-mvp-data';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 export default function AdminAnnouncementsPage() {
   const localizedPath = useLocalizedPath();
+  const [rows, setRows] = useState<AdminAnnouncement[]>(adminAnnouncements);
+  const [source, setSource] = useState<'api' | 'mock'>('mock');
+
+  useEffect(() => {
+    let active = true;
+    announcementsApi
+      .list()
+      .then((res) => {
+        if (!active) return;
+        const apiRows = (res.data || []).map(normalizeApiAnnouncement);
+        if (apiRows.length) {
+          setRows(apiRows);
+          setSource('api');
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        setRows(adminAnnouncements);
+        setSource('mock');
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
     <div className="space-y-5 pb-4">
       <PageHeader
         title="Avizier"
         description="Anunțuri oficiale pentru locatari, cu categorii clare și stare de publicare."
-        rightSlot={<ButtonLink href="/admin/announcements/ann-1"><PlusCircle className="h-4 w-4" /> Adaugă anunț</ButtonLink>}
+        rightSlot={
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
+              {source === 'api' ? 'Date reale' : 'Date demo'}
+            </span>
+            <ButtonLink href={localizedPath('/admin/announcements/ann-1')}><PlusCircle className="h-4 w-4" /> Adaugă anunț</ButtonLink>
+          </div>
+        }
       />
 
       <div className="flex flex-wrap gap-2">
@@ -26,7 +59,7 @@ export default function AdminAnnouncementsPage() {
       </div>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {adminAnnouncements.map((item) => (
+        {rows.map((item) => (
           <Card key={item.id} className={`p-4 ${item.category === 'Urgent' ? 'border-rose-200 bg-rose-50/35' : item.category === 'Reparații' ? 'border-amber-200 bg-amber-50/35' : ''}`}>
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">

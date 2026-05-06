@@ -31,6 +31,7 @@
     "src/residents/**/*.ts",
     "src/meters/**/*.ts",
     "src/billing-read/**/*.ts",
+    "src/community-read/**/*.ts",
     "src/common/filters/**/*.ts",
     "src/common/interceptors/**/*.ts",
     "src/auth/decorators/public.decorator.ts"

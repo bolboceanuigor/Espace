@@ -826,6 +826,8 @@ export const communicationsApi = {
 };
 
 export const issuesApi = {
+  list: () => apiRequest<any[]>('/issues'),
+  get: (id: string) => apiRequest<any>(`/issues/${id}`),
   residentList: (params?: { status?: 'NEW' | 'IN_PROGRESS' | 'WAITING' | 'RESOLVED' | 'CLOSED' }) =>
     apiRequest<any[]>('/api/resident/issues', { params }),
   residentCreate: (data: {
@@ -862,6 +864,11 @@ export const issuesApi = {
   adminDelete: (id: string) => apiRequest<any>(`/api/admin/issues/${id}`, { method: 'DELETE' }),
 
   superadminOverview: () => apiRequest<any>('/api/superadmin/issues/overview'),
+};
+
+export const announcementsApi = {
+  list: () => apiRequest<any[]>('/announcements'),
+  get: (id: string) => apiRequest<any>(`/announcements/${id}`),
 };
 
 export const votesApi = {

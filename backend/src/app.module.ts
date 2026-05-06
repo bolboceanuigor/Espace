@@ -6,6 +6,7 @@ import { ApartmentsModule } from './apartments/apartments.module';
 import { ResidentsModule } from './residents/residents.module';
 import { MetersModule } from './meters/meters.module';
 import { BillingReadModule } from './billing-read/billing-read.module';
+import { CommunityReadModule } from './community-read/community-read.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -19,6 +20,7 @@ import { AppController } from './app.controller';
     ResidentsModule,
     MetersModule,
     BillingReadModule,
+    CommunityReadModule,
   ],
   controllers: [AppController],
   providers: [],

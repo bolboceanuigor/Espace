@@ -1,17 +1,41 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, CheckCircle2, Clock3, MessageCircle, StickyNote, Wrench } from 'lucide-react';
 import { Badge, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
 import { defaultLocale, isLocale } from '@/i18n';
-import { findIssueById, issuePriorityVariant, issueStatusVariant } from '@/lib/admin-mvp-data';
+import { issuesApi } from '@/lib/api';
+import { findIssueById, issuePriorityVariant, issueStatusVariant, normalizeApiIssue, type AdminIssue } from '@/lib/admin-mvp-data';
 
 export default function AdminIssueDetailsPage() {
   const params = useParams<{ id?: string; locale?: string }>();
   const localeParam = typeof params?.locale === 'string' ? params.locale : defaultLocale;
   const locale = isLocale(localeParam) ? localeParam : defaultLocale;
-  const issue = findIssueById(params?.id);
+  const fallback = useMemo(() => findIssueById(params?.id), [params?.id]);
+  const [issue, setIssue] = useState<AdminIssue>(fallback);
+  const [source, setSource] = useState<'api' | 'mock'>('mock');
+
+  useEffect(() => {
+    let active = true;
+    if (!params?.id) return undefined;
+    issuesApi
+      .get(params.id)
+      .then((res) => {
+        if (!active) return;
+        setIssue(normalizeApiIssue(res.data));
+        setSource('api');
+      })
+      .catch(() => {
+        if (!active) return;
+        setIssue(fallback);
+        setSource('mock');
+      });
+    return () => {
+      active = false;
+    };
+  }, [fallback, params?.id]);
 
   return (
     <div className="space-y-5 pb-4">
@@ -23,7 +47,14 @@ export default function AdminIssueDetailsPage() {
       <PageHeader
         title={issue.title}
         description={`${issue.category} · ${issue.apartment} · ${issue.resident}`}
-        rightSlot={<Badge variant={issueStatusVariant[issue.status]}>{issue.status}</Badge>}
+        rightSlot={
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
+              {source === 'api' ? 'Date reale' : 'Date demo'}
+            </span>
+            <Badge variant={issueStatusVariant[issue.status]}>{issue.status}</Badge>
+          </div>
+        }
       />
 
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">

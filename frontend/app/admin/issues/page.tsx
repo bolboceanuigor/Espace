@@ -1,13 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, CheckCircle2, Clock3, Search, Siren, Wrench } from 'lucide-react';
 import { Badge, Card, Input, PageHeader, StatCard } from '@/components/ui';
+import { issuesApi } from '@/lib/api';
 import {
   adminIssues,
   issuePriorityVariant,
   issueStatusVariant,
+  normalizeApiIssue,
+  type AdminIssue,
   type IssueCategory,
   type IssuePriority,
   type IssueStatus,
@@ -24,27 +27,59 @@ export default function AdminIssuesPage() {
   const [category, setCategory] = useState<'Toate' | IssueCategory>('Toate');
   const [priority, setPriority] = useState<'Toate' | IssuePriority>('Toate');
   const [status, setStatus] = useState<'Toate' | IssueStatus>('Toate');
+  const [rows, setRows] = useState<AdminIssue[]>(adminIssues);
+  const [source, setSource] = useState<'api' | 'mock'>('mock');
+
+  useEffect(() => {
+    let active = true;
+    issuesApi
+      .list()
+      .then((res) => {
+        if (!active) return;
+        const apiRows = (res.data || []).map(normalizeApiIssue);
+        if (apiRows.length) {
+          setRows(apiRows);
+          setSource('api');
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        setRows(adminIssues);
+        setSource('mock');
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return adminIssues.filter((item) => {
+    return rows.filter((item) => {
       const matchesQuery = !needle || `${item.title} ${item.apartment} ${item.category} ${item.resident} ${item.message}`.toLowerCase().includes(needle);
       const matchesCategory = category === 'Toate' || item.category === category;
       const matchesPriority = priority === 'Toate' || item.priority === priority;
       const matchesStatus = status === 'Toate' || item.status === status;
       return matchesQuery && matchesCategory && matchesPriority && matchesStatus;
     });
-  }, [category, priority, query, status]);
+  }, [category, priority, query, rows, status]);
 
   return (
     <div className="space-y-5 pb-4">
-      <PageHeader title="Cereri" description="Solicitări și intervenții pentru apartamente și spații comune." />
+      <PageHeader
+        title="Cereri"
+        description="Solicitări și intervenții pentru apartamente și spații comune."
+        rightSlot={
+          <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
+            {source === 'api' ? 'Date reale' : 'Date demo'}
+          </span>
+        }
+      />
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Cereri noi" value={adminIssues.filter((item) => item.status === 'Nouă').length} description="Așteaptă preluare" icon={<AlertCircle className="h-5 w-5" />} tone="warning" />
-        <StatCard label="În lucru" value={adminIssues.filter((item) => item.status === 'În lucru').length} description="Urmărite activ" icon={<Clock3 className="h-5 w-5" />} tone="warning" />
-        <StatCard label="Rezolvate" value={adminIssues.filter((item) => item.status === 'Rezolvată').length} description="Închise recent" icon={<CheckCircle2 className="h-5 w-5" />} tone="success" />
-        <StatCard label="Urgente" value={adminIssues.filter((item) => item.priority === 'Urgent').length} description="Necesită atenție rapidă" icon={<Siren className="h-5 w-5" />} tone="danger" />
+        <StatCard label="Cereri noi" value={rows.filter((item) => item.status === 'Nouă').length} description="Așteaptă preluare" icon={<AlertCircle className="h-5 w-5" />} tone="warning" />
+        <StatCard label="În lucru" value={rows.filter((item) => item.status === 'În lucru').length} description="Urmărite activ" icon={<Clock3 className="h-5 w-5" />} tone="warning" />
+        <StatCard label="Rezolvate" value={rows.filter((item) => item.status === 'Rezolvată').length} description="Închise recent" icon={<CheckCircle2 className="h-5 w-5" />} tone="success" />
+        <StatCard label="Urgente" value={rows.filter((item) => item.priority === 'Urgent').length} description="Necesită atenție rapidă" icon={<Siren className="h-5 w-5" />} tone="danger" />
       </section>
 
       <Card>
