@@ -6,22 +6,21 @@ import { Loader2 } from 'lucide-react';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 const base =
-  'inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-all duration-200 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-45 active:scale-[0.98]';
+  'inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground/10 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50';
 
 const variants = {
   primary:
-    'bg-foreground text-background shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_-8px_rgba(0,0,0,0.25)] hover:bg-foreground/95 hover:shadow-[0_1px_2px_rgba(0,0,0,0.05),0_12px_32px_-8px_rgba(0,0,0,0.3)]',
-  secondary: 'border border-border bg-white text-foreground hover:bg-muted/60 hover:border-border/80',
-  ghost: 'text-foreground/80 hover:bg-muted/50 hover:text-foreground',
-  danger: 'border border-red-200/80 bg-red-50 text-red-700 hover:bg-red-100 hover:border-red-300',
-  outline: 'border border-border bg-transparent text-foreground hover:bg-muted/40',
-  accent: 'bg-accent text-accent-foreground shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_-8px_rgba(251,146,60,0.35)] hover:bg-accent/90',
+    'bg-foreground text-white shadow-medium hover:bg-foreground/90',
+  secondary: 'border border-border bg-white text-foreground hover:bg-muted',
+  ghost: 'text-foreground hover:bg-muted',
+  danger: 'bg-red-600 text-white hover:bg-red-700',
+  outline: 'border border-border bg-white text-foreground hover:bg-muted',
 } as const;
 
 const sizes = {
-  sm: 'h-9 px-3.5 text-xs',
+  sm: 'h-9 px-3.5 text-sm',
   default: 'h-11 px-5 text-sm',
-  lg: 'h-12 px-7 text-sm',
+  lg: 'h-12 px-6 text-sm',
   icon: 'h-10 w-10',
 } as const;
 

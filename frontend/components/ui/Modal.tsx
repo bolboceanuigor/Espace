@@ -3,9 +3,9 @@
 import { useEffect } from 'react';
 import Button from './Button';
 
-const overlayClass = 'fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 backdrop-blur-md';
+const overlayClass = 'fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm';
 const panelBase =
-  'w-full max-h-[90vh] overflow-y-auto rounded-2xl border border-border/50 bg-white shadow-[0_25px_50px_-12px_rgba(0,0,0,0.15)] animate-modal-in';
+  'w-full max-h-[90vh] overflow-y-auto rounded-2xl border border-border bg-white shadow-large animate-modal-in';
 
 export interface ModalProps {
   isOpen: boolean;
@@ -69,13 +69,13 @@ export function ModalHeader({
   className?: string;
 }) {
   return (
-    <div className={`flex items-center justify-between border-b border-border/40 px-6 py-5 ${className}`.trim()}>
-      <h2 className="text-lg font-semibold tracking-tight text-foreground">{title}</h2>
+    <div className={`flex items-center justify-between border-b border-border p-5 ${className}`.trim()}>
+      <h2 className="text-lg font-semibold text-foreground">{title}</h2>
       {onClose && (
         <button
           type="button"
           onClick={onClose}
-          className="rounded-lg p-1.5 text-muted-foreground transition-all duration-200 hover:bg-muted/50 hover:text-foreground"
+          className="rounded-lg p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
           aria-label="Close"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -88,12 +88,12 @@ export function ModalHeader({
 }
 
 export function ModalBody({ className = '', ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={`px-6 py-5 ${className}`.trim()} {...props} />;
+  return <div className={`p-5 ${className}`.trim()} {...props} />;
 }
 
 export function ModalFooter({ className = '', ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={`flex flex-wrap justify-end gap-2.5 border-t border-border/40 px-6 py-4 ${className}`.trim()} {...props} />
+    <div className={`flex flex-wrap justify-end gap-2 border-t border-border p-5 ${className}`.trim()} {...props} />
   );
 }
 

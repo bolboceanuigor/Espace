@@ -18,7 +18,7 @@ export default function Tabs({ items, value, onChange, ariaLabel = 'Sectiuni' }:
     <div
       role="tablist"
       aria-label={ariaLabel}
-      className="inline-flex max-w-full gap-1 overflow-x-auto rounded-xl border border-border/50 bg-muted/30 p-1"
+      className="inline-flex max-w-full gap-1 overflow-x-auto rounded-xl border border-border bg-muted p-1"
     >
       {items.map((item) => {
         const active = item.key === value;
@@ -30,10 +30,10 @@ export default function Tabs({ items, value, onChange, ariaLabel = 'Sectiuni' }:
             aria-selected={active}
             disabled={item.disabled}
             onClick={() => onChange(item.key)}
-            className={`min-h-10 shrink-0 rounded-lg px-4 text-sm font-medium transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-40 ${
+            className={`min-h-9 shrink-0 rounded-lg px-4 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
               active
-                ? 'bg-white text-foreground shadow-[0_1px_3px_rgba(0,0,0,0.06)]'
-                : 'text-muted-foreground hover:bg-white/50 hover:text-foreground'
+                ? 'bg-white text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             {item.label}

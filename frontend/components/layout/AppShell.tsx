@@ -409,8 +409,8 @@ function AppShellContent({ children }: AppShellProps) {
       );
     }
     return (
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-b from-muted/30 via-background to-background text-foreground md:pl-0">
-        <header className="sticky top-0 z-30 hidden border-b border-border/40 bg-white/75 px-4 py-3.5 backdrop-blur-2xl backdrop-saturate-150 md:block">
+      <div className="min-h-screen overflow-x-hidden bg-background text-foreground md:pl-0">
+        <header className="sticky top-0 z-30 hidden border-b border-border bg-white px-4 py-3 md:block">
           <div className="mx-auto max-w-5xl">
             <MainNavigation role={normalizedRole} variant="desktop" />
           </div>
@@ -418,7 +418,7 @@ function AppShellContent({ children }: AppShellProps) {
         <main className="mx-auto w-full max-w-5xl px-4 py-6 pb-[calc(env(safe-area-inset-bottom)+8.75rem)] md:py-8 md:pb-[calc(env(safe-area-inset-bottom)+8.75rem)]">{children}</main>
         <button
           type="button"
-          className="fixed bottom-[calc(env(safe-area-inset-bottom)+8.25rem)] right-4 z-40 rounded-xl bg-foreground px-4 py-2.5 text-xs font-semibold text-background shadow-[0_4px_20px_rgba(0,0,0,0.15)] transition-all duration-200 hover:bg-foreground/90 active:scale-95"
+          className="fixed bottom-[calc(env(safe-area-inset-bottom)+8.25rem)] right-4 z-40 rounded-xl bg-foreground px-4 py-2 text-xs font-medium text-white shadow-medium transition hover:bg-foreground/90"
           onClick={() => setFeedbackOpen(true)}
         >
           Trimite feedback
@@ -449,21 +449,21 @@ function AppShellContent({ children }: AppShellProps) {
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-gradient-to-b from-muted/30 via-background to-background text-foreground">
+    <div className="min-h-screen overflow-x-hidden bg-background text-foreground">
       <div className="min-h-screen">
-        <header className="sticky top-0 z-30 border-b border-border/40 bg-white/75 px-4 py-3 backdrop-blur-2xl backdrop-saturate-150">
+        <header className="sticky top-0 z-30 border-b border-border bg-white px-4 py-3">
           <div className="mx-auto max-w-6xl">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center justify-between gap-3">
             <button
               type="button"
               onClick={() => router.push(homeRoute)}
-              className="inline-flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm font-semibold text-foreground transition-all duration-200 ease-out hover:bg-muted/50"
+              className="inline-flex items-center gap-2 rounded-xl px-2 py-2 text-sm font-semibold text-foreground transition hover:bg-muted"
             >
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-foreground text-[10px] font-bold text-background shadow-sm">
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-foreground text-[10px] font-bold text-white">
                 E
               </span>
-              <span className="tracking-tight">Espace</span>
-              <span className="rounded-md bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <span>Espace</span>
+              <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                 Beta
               </span>
             </button>
@@ -479,12 +479,12 @@ function AppShellContent({ children }: AppShellProps) {
                 }
               }}
               placeholder={searchPlaceholder}
-              className="hidden h-11 w-80 rounded-xl border border-border/60 bg-white px-4 text-sm text-foreground shadow-none outline-none transition-all duration-200 placeholder:text-muted-foreground/50 focus:border-primary/30 focus:ring-2 focus:ring-primary/10 lg:block"
+              className="hidden h-10 w-72 rounded-xl border border-border bg-white px-4 text-sm text-foreground shadow-sm outline-none transition placeholder:text-muted-foreground focus:border-foreground/20 focus:ring-2 focus:ring-foreground/5 lg:block"
             />
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                className="hidden rounded-xl border border-border/50 bg-white px-4 py-2.5 text-xs font-medium text-foreground transition-all duration-200 hover:bg-muted/50 hover:border-border sm:inline-flex"
+                className="hidden rounded-xl border border-border bg-white px-3 py-2 text-xs font-medium text-foreground transition hover:bg-muted sm:inline-flex"
                 onClick={() => setFeedbackOpen(true)}
               >
                 Trimite feedback
@@ -494,22 +494,22 @@ function AppShellContent({ children }: AppShellProps) {
                 <div className="relative">
                   <button
                     type="button"
-                    className="relative rounded-xl border border-border/50 bg-white p-2.5 text-muted-foreground transition-all duration-200 hover:bg-muted/50 hover:text-foreground"
+                    className="relative rounded-xl border border-border bg-white p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground"
                     onClick={() => setNotificationsOpen((value) => !value)}
                   >
                     <Bell className="h-4 w-4" />
                     {notifications.filter((item) => !item.isRead).length > 0 ? (
-                      <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-foreground px-1.5 text-[10px] font-bold text-background">
+                      <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-medium text-white">
                         {notifications.filter((item) => !item.isRead).length}
                       </span>
                     ) : null}
                   </button>
                   {notificationsOpen ? (
-                    <div className="absolute right-0 z-50 mt-2 w-80 rounded-2xl border border-border/50 bg-white p-3 shadow-[0_8px_30px_rgba(0,0,0,0.08)]">
-                      <div className="mb-3 flex items-center justify-between">
+                    <div className="absolute right-0 z-50 mt-2 w-80 rounded-xl border border-border bg-white p-3 shadow-large">
+                      <div className="mb-2 flex items-center justify-between">
                         <p className="text-sm font-semibold text-foreground">Notificari</p>
                         <button
-                          className="text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+                          className="text-xs text-muted-foreground transition hover:text-foreground"
                           onClick={async () => {
                             await notificationsApi.residentReadAll();
                             setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
@@ -518,12 +518,12 @@ function AppShellContent({ children }: AppShellProps) {
                           Marcheaza tot ca citit
                         </button>
                       </div>
-                      <div className="max-h-72 space-y-2 overflow-y-auto">
+                      <div className="max-h-72 space-y-1 overflow-y-auto">
                         {notifications.map((item) => (
                           <button
                             key={item.id}
-                            className={`w-full rounded-xl border px-3 py-2.5 text-left text-xs transition-all duration-200 ${
-                              item.isRead ? 'border-border/40 text-muted-foreground hover:bg-muted/30' : 'border-foreground/10 bg-muted/50 text-foreground hover:bg-muted/70'
+                            className={`w-full rounded-lg border px-3 py-2 text-left text-xs transition ${
+                              item.isRead ? 'border-border text-muted-foreground hover:bg-muted' : 'border-border bg-muted text-foreground hover:bg-muted/80'
                             }`}
                             onClick={async () => {
                               if (!item.isRead) {
@@ -545,15 +545,15 @@ function AppShellContent({ children }: AppShellProps) {
                 </div>
               ) : null}
               <div className="hidden text-right md:block">
-                <p className="text-sm font-semibold tracking-tight text-foreground">
+                <p className="text-sm font-medium text-foreground">
                   {activeUser.firstName} {activeUser.lastName}
                 </p>
                 <p className="text-xs text-muted-foreground">{activeUser.email}</p>
-                <div className="mt-1.5 flex justify-end gap-1.5">
-                  <span className="rounded-md bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                <div className="mt-1 flex justify-end gap-1">
+                  <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
                     {activeUser.emailVerifiedAt ? c('verified') : c('notVerified')}
                   </span>
-                  <span className="rounded-md bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                  <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
                     {providerLabel}
                   </span>
                 </div>
