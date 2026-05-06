@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, ForbiddenException 
 import { PlanCode, Role } from '@prisma/client';
 import { hasPermission, Permission } from '../auth/permissions';
 import { PrismaService } from '../prisma/prisma.service';
-import { PLAN_PROPERTY_LIMITS, PLAN_MONTHLY_PRICES } from './subscription.constants';
+import { PLAN_APARTMENT_LIMITS, PLAN_MONTHLY_PRICES } from './subscription.constants';
 import { addDays } from 'date-fns';
 
 @Injectable()
@@ -32,7 +32,7 @@ export class SubscriptionService {
         currentPeriodStart: new Date(),
         currentPeriodEnd: trialEndsAt,
         price: PLAN_MONTHLY_PRICES.starter,
-        propertyLimit: PLAN_PROPERTY_LIMITS.starter,
+        apartmentLimit: PLAN_APARTMENT_LIMITS.starter,
         trialEndsAt,
         subscriptionEndsAt: null,
         isActive: true,
@@ -69,7 +69,7 @@ export class SubscriptionService {
       plan: subscription.plan,
       status: isExpired ? 'expired' : subscription.status,
       daysRemaining: isExpired ? 0 : daysRemaining,
-      propertyLimit: subscription.propertyLimit,
+      apartmentLimit: subscription.apartmentLimit,
       currentPropertyCount,
       monthlyCostMdl: currentPropertyCount * this.monthlyPricePerApartmentMdl,
     };
@@ -81,7 +81,7 @@ export class SubscriptionService {
       throw new BadRequestException('Subscription expired. Renew to create apartments.');
     }
     const count = await this.prisma.apartment.count({ where: { organizationId } });
-    const limit = subscription.propertyLimit;
+    const limit = subscription.apartmentLimit;
     if (limit >= 0 && count >= limit) {
       throw new BadRequestException('Upgrade your plan to add more apartments.');
     }
@@ -110,12 +110,12 @@ export class SubscriptionService {
       throw new BadRequestException(`Plan must be one of: ${allowed.join(', ')}`);
     }
     const subscription = await this.getForOrganization(organizationId);
-    const propertyLimit = PLAN_PROPERTY_LIMITS[plan] ?? PLAN_PROPERTY_LIMITS.starter;
+    const apartmentLimit = PLAN_APARTMENT_LIMITS[plan] ?? PLAN_APARTMENT_LIMITS.starter;
     const price = PLAN_MONTHLY_PRICES[plan] ?? PLAN_MONTHLY_PRICES.starter;
     const currentCount = await this.prisma.apartment.count({ where: { organizationId } });
-    if (propertyLimit >= 0 && currentCount > propertyLimit) {
+    if (apartmentLimit >= 0 && currentCount > apartmentLimit) {
       throw new BadRequestException(
-        `You have ${currentCount} apartments. ${plan} plan allows ${propertyLimit}. Remove some apartments first or choose a higher plan.`,
+        `You have ${currentCount} apartments. ${plan} plan allows ${apartmentLimit}. Remove some apartments first or choose a higher plan.`,
       );
     }
     const status = this.hasStatus(subscription, ['trial']) ? 'TRIAL' : 'ACTIVE';
@@ -123,7 +123,7 @@ export class SubscriptionService {
       where: { organizationId },
       data: {
         plan,
-        propertyLimit,
+        apartmentLimit,
         price,
         status,
         isActive: true,
@@ -160,8 +160,8 @@ export class SubscriptionService {
   }
 
   async getTodayUsage(organizationId: string) {
-    const activePropertiesCount = await this.prisma.apartment.count({ where: { organizationId } });
-    const reservationsCount = 0;
-    return { activePropertiesCount, reservationsCount };
+    const activeApartmentsCount = await this.prisma.apartment.count({ where: { organizationId } });
+    const dashboardEventsCount = 0;
+    return { activeApartmentsCount, dashboardEventsCount };
   }
 }

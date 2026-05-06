@@ -14,6 +14,12 @@ enum Role {
   RESIDENT
 }
 
+enum OrganizationStatus {
+  ACTIVE
+  TRIAL
+  INACTIVE
+}
+
 enum PlatformRole {
   SUPER_ADMIN
   ORGANIZATION_USER
@@ -608,7 +614,6 @@ enum ApartmentStatus {
   DEBTOR
   PROBLEM
   OCCUPIED
-  RENTED
 }
 
 enum ResidentAccountStatus {
@@ -686,7 +691,7 @@ model Organization {
   receiptPrefix        String?
   currency             BillingCurrency @default(MDL)
   defaultCurrency      BillingCurrency @default(MDL)
-  status               String    @default("ACTIVE")
+  status               OrganizationStatus @default(ACTIVE)
   subscriptionStatus   String    @default("TRIAL")
   subscriptionPlan     String    @default("FREE")
   ownerAdminId         String?
@@ -1219,7 +1224,7 @@ model Subscription {
   price              Float     @default(0)
   customPrice        Float?    // admin override
   discountPercent    Float?    @default(0)
-  propertyLimit      Int
+  apartmentLimit      Int
   trialEndsAt        DateTime
   subscriptionEndsAt DateTime?
   isActive           Boolean   @default(true)
@@ -1251,8 +1256,8 @@ model UsageMeter {
   id                    String   @id @default(uuid())
   organizationId        String
   date                  DateTime
-  activePropertiesCount Int
-  reservationsCount     Int
+  activeApartmentsCount Int
+  dashboardEventsCount     Int
   createdAt             DateTime @default(now())
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -1272,7 +1277,7 @@ model Invoice {
   amount         Float
   discount       Float     @default(0)
   finalAmount    Float     @default(0)
-  status         String    // "pending" | "paid" | "failed"
+  status         InvoiceStatus @default(UNPAID)
   issuedAt       DateTime  @default(now())
   paidAt         DateTime?
   dueDate        DateTime  @default(now())
@@ -1298,6 +1303,7 @@ model User {
   emailVerifiedAt DateTime?
   firstName      String?
   lastName       String?
+  phone          String?
   role           Role      @default(ADMIN)
   platformRole   PlatformRole @default(ORGANIZATION_USER)
   preferredLanguage PreferredLanguage @default(RO)
@@ -2565,9 +2571,9 @@ model UserPreference {
   userId        String   @unique
   locale        String?
   sidebarLabels Boolean  @default(false)
-  calendarZoom  String   @default("md")
-  calendarStatusFilter String? @default("all")
-  calendarGroupId String?
+  dashboardDensity  String   @default("md")
+  dashboardStatusFilter String? @default("all")
+  dashboardGroupId String?
   welcomeDismissed Boolean @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -2590,7 +2596,7 @@ model OrganizationSetting {
   primaryColor   String?  @default("#2563eb")
   sidebarColor   String?  @default("#ffffff")
   logoUrl        String?
-  appName        String?  @default("CondoFlow")
+  appName        String?  @default("Espace")
   themeMode      String   @default("LIGHT")
   menuConfig     Json?
   weekStart      String   @default("MONDAY")

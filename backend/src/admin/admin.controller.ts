@@ -17,7 +17,7 @@ import { UpdateOrgPlanDto } from './dto/update-org-plan.dto';
 import { SetCustomPriceDto } from './dto/set-custom-price.dto';
 import { SetDiscountDto } from './dto/set-discount.dto';
 import { ExtendTrialDto } from './dto/extend-trial.dto';
-import { SetPropertyLimitDto } from './dto/set-property-limit.dto';
+import { SetApartmentLimitDto } from './dto/set-apartment-limit.dto';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, SuperAdminGuard)
@@ -123,12 +123,12 @@ export class AdminController {
     return this.adminService.markInvoicePaid(id, user.id, user.role);
   }
 
-  @Patch('organization/:id/property-limit')
-  setPropertyLimit(
+  @Patch('organization/:id/apartment-limit')
+  setApartmentLimit(
     @Param('id') id: string,
-    @Body() dto: SetPropertyLimitDto,
+    @Body() dto: SetApartmentLimitDto,
     @CurrentUser() user: { id: string; role: string },
   ) {
-    return this.adminService.setPropertyLimit(id, dto.propertyLimit, user.id, user.role);
+    return this.adminService.setApartmentLimit(id, dto.apartmentLimit, user.id, user.role);
   }
 }

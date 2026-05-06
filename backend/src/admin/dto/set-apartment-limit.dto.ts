@@ -1,7 +1,7 @@
 import { IsNumber, Min } from 'class-validator';
 
-export class SetPropertyLimitDto {
+export class SetApartmentLimitDto {
   @IsNumber()
   @Min(0)
-  propertyLimit: number;
+  apartmentLimit: number;
 }

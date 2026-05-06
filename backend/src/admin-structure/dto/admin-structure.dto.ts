@@ -89,8 +89,8 @@ export class ListApartmentsQueryDto {
   floor?: number;
 
   @IsOptional()
-  @IsIn(['OCCUPIED', 'EMPTY', 'RENTED'])
-  status?: 'OCCUPIED' | 'EMPTY' | 'RENTED';
+  @IsIn(['ACTIVE', 'EMPTY', 'DEBTOR', 'PROBLEM', 'OCCUPIED'])
+  status?: 'ACTIVE' | 'EMPTY' | 'DEBTOR' | 'PROBLEM' | 'OCCUPIED';
 
   @IsOptional()
   @IsString()
@@ -149,8 +149,8 @@ export class CreateApartmentDto {
   @Min(0)
   rooms?: number;
 
-  @IsIn(['OCCUPIED', 'EMPTY', 'RENTED'])
-  status!: 'OCCUPIED' | 'EMPTY' | 'RENTED';
+  @IsIn(['ACTIVE', 'EMPTY', 'DEBTOR', 'PROBLEM', 'OCCUPIED'])
+  status!: 'ACTIVE' | 'EMPTY' | 'DEBTOR' | 'PROBLEM' | 'OCCUPIED';
 }
 
 export class UpdateApartmentDto {
@@ -185,8 +185,8 @@ export class UpdateApartmentDto {
   rooms?: number;
 
   @IsOptional()
-  @IsIn(['OCCUPIED', 'EMPTY', 'RENTED'])
-  status?: 'OCCUPIED' | 'EMPTY' | 'RENTED';
+  @IsIn(['ACTIVE', 'EMPTY', 'DEBTOR', 'PROBLEM', 'OCCUPIED'])
+  status?: 'ACTIVE' | 'EMPTY' | 'DEBTOR' | 'PROBLEM' | 'OCCUPIED';
 }
 
 export class CreateResidentDto {

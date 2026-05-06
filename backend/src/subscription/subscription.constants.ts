@@ -1,4 +1,4 @@
-export const PLAN_PROPERTY_LIMITS: Record<string, number> = {
+export const PLAN_APARTMENT_LIMITS: Record<string, number> = {
   starter: 3,
   pro: 20,
   enterprise: 999999, // unlimited

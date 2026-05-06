@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { addDays } from 'date-fns';
-import { PLAN_PROPERTY_LIMITS, PLAN_MONTHLY_PRICES } from '../subscription/subscription.constants';
+import { PLAN_APARTMENT_LIMITS, PLAN_MONTHLY_PRICES } from '../subscription/subscription.constants';
 
 function effectiveMonthlyPrice(sub: { price: number; customPrice: number | null; discountPercent: number | null }): number {
   const base = sub.customPrice ?? sub.price;
@@ -97,7 +97,7 @@ export class AdminService {
         plan: sub?.plan ?? null,
         subscriptionStatus: sub?.status ?? null,
         propertyCount: org._count.apartments,
-        propertyLimit: sub?.propertyLimit ?? null,
+        apartmentLimit: sub?.apartmentLimit ?? null,
         monthlyPrice,
         lastPaymentDate: lastPayment,
         nextBillingDate: nextBilling,
@@ -139,7 +139,7 @@ export class AdminService {
   }
 
   async updateOrganizationPlan(id: string, plan: string) {
-    const limit = PLAN_PROPERTY_LIMITS[plan] ?? PLAN_PROPERTY_LIMITS.starter;
+    const limit = PLAN_APARTMENT_LIMITS[plan] ?? PLAN_APARTMENT_LIMITS.starter;
     const price = PLAN_MONTHLY_PRICES[plan] ?? PLAN_MONTHLY_PRICES.starter;
     const sub = await this.prisma.subscription.findUnique({
       where: { organizationId: id },
@@ -151,7 +151,7 @@ export class AdminService {
           plan,
           status: 'active',
           price,
-          propertyLimit: limit,
+          apartmentLimit: limit,
           trialEndsAt: new Date(),
           isActive: true,
         },
@@ -172,7 +172,7 @@ export class AdminService {
     }
     const updated = await this.prisma.subscription.update({
       where: { organizationId: id },
-      data: { plan, propertyLimit: limit, status: 'active', price, isActive: true }, // keep customPrice/discountPercent if set
+      data: { plan, apartmentLimit: limit, status: 'active', price, isActive: true }, // keep customPrice/discountPercent if set
     });
     const dueDate = addDays(new Date(), 14);
     await this.prisma.invoice.create({
@@ -264,17 +264,17 @@ export class AdminService {
     return this.getOrganizationDetail(invoice.organizationId);
   }
 
-  async setPropertyLimit(organizationId: string, propertyLimit: number, performedById?: string, performedByRole?: string) {
-    if (propertyLimit < 0) throw new BadRequestException('Apartment limit must be >= 0');
+  async setApartmentLimit(organizationId: string, apartmentLimit: number, performedById?: string, performedByRole?: string) {
+    if (apartmentLimit < 0) throw new BadRequestException('Apartment limit must be >= 0');
     const sub = await this.prisma.subscription.findUnique({ where: { organizationId } });
     if (!sub) throw new NotFoundException('Subscription not found');
     const currentCount = await this.prisma.apartment.count({ where: { organizationId } });
-    if (propertyLimit >= 0 && currentCount > propertyLimit) throw new BadRequestException(`Organization has ${currentCount} apartments. Set limit >= ${currentCount} or remove apartments first.`);
+    if (apartmentLimit >= 0 && currentCount > apartmentLimit) throw new BadRequestException(`Organization has ${currentCount} apartments. Set limit >= ${currentCount} or remove apartments first.`);
     await this.prisma.subscription.update({
       where: { organizationId },
-      data: { propertyLimit },
+      data: { apartmentLimit },
     });
-    await this.audit(organizationId, 'SET_PROPERTY_LIMIT', { propertyLimit }, performedById, performedByRole);
+    await this.audit(organizationId, 'SET_APARTMENT_LIMIT', { apartmentLimit }, performedById, performedByRole);
     return this.getOrganizationDetail(organizationId);
   }
 }

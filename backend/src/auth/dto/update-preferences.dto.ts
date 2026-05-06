@@ -13,15 +13,15 @@ export class UpdatePreferencesDto {
   @IsOptional()
   @IsString()
   @IsIn(['sm', 'md', 'lg'])
-  calendarZoom?: string;
+  dashboardDensity?: string;
 
   @IsOptional()
   @IsString()
-  calendarStatusFilter?: string;
+  dashboardStatusFilter?: string;
 
   @IsOptional()
   @IsString()
-  calendarGroupId?: string;
+  dashboardGroupId?: string;
 
   @IsOptional()
   @IsBoolean()
