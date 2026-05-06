@@ -29,6 +29,7 @@
     "src/organizations/**/*.ts",
     "src/apartments/**/*.ts",
     "src/residents/**/*.ts",
+    "src/meters/**/*.ts",
     "src/common/filters/**/*.ts",
     "src/common/interceptors/**/*.ts",
     "src/auth/decorators/public.decorator.ts"

@@ -1,12 +1,13 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Gauge, Plus, Search, TimerReset } from 'lucide-react';
 import { Badge, Button, Card, Input, PageHeader, StatCard } from '@/components/ui';
-import { adminMeters, meterStatusVariant, type AdminMeter, type MeterStatus, type MeterType } from '@/lib/admin-mvp-data';
+import { metersApi } from '@/lib/api';
+import { adminMeters, meterStatusVariant, normalizeApiMeter, type AdminMeter, type MeterStatus, type MeterType } from '@/lib/admin-mvp-data';
 
 const statusOptions: Array<'Toate' | MeterStatus> = ['Toate', 'Actualizat', 'Lipsă citire', 'Suspect'];
-const typeOptions: Array<'Toate' | MeterType> = ['Toate', 'Apă rece', 'Apă caldă', 'Gaz', 'Electricitate'];
+const typeOptions: Array<'Toate' | MeterType> = ['Toate', 'Apă rece', 'Apă caldă', 'Gaz', 'Electricitate', 'Încălzire'];
 
 export default function AdminMetersPage() {
   const [staircase, setStaircase] = useState('Toate');
@@ -14,10 +15,34 @@ export default function AdminMetersPage() {
   const [type, setType] = useState<'Toate' | MeterType>('Toate');
   const [status, setStatus] = useState<'Toate' | MeterStatus>('Toate');
   const [query, setQuery] = useState('');
+  const [rows, setRows] = useState<AdminMeter[]>(adminMeters);
+  const [source, setSource] = useState<'api' | 'mock'>('mock');
+
+  useEffect(() => {
+    let active = true;
+    metersApi
+      .list()
+      .then((res) => {
+        if (!active) return;
+        const apiRows = (res.data || []).map(normalizeApiMeter);
+        if (apiRows.length) {
+          setRows(apiRows);
+          setSource('api');
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        setRows(adminMeters);
+        setSource('mock');
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return adminMeters.filter((meter) => {
+    return rows.filter((meter) => {
       const matchesSearch = !needle || `${meter.apartment} ${meter.staircase} ${meter.type} ${meter.serial}`.toLowerCase().includes(needle);
       const matchesStaircase = staircase === 'Toate' || meter.staircase === staircase;
       const matchesApartment = apartment === 'Toate' || meter.apartment === apartment;
@@ -25,20 +50,34 @@ export default function AdminMetersPage() {
       const matchesStatus = status === 'Toate' || meter.status === status;
       return matchesSearch && matchesStaircase && matchesApartment && matchesType && matchesStatus;
     });
-  }, [apartment, query, staircase, status, type]);
+  }, [apartment, query, rows, staircase, status, type]);
 
-  const staircases = ['Toate', ...Array.from(new Set(adminMeters.map((meter) => meter.staircase)))];
-  const apartments = ['Toate', ...Array.from(new Set(adminMeters.map((meter) => meter.apartment)))];
+  const staircases = ['Toate', ...Array.from(new Set(rows.map((meter) => meter.staircase)))];
+  const apartments = ['Toate', ...Array.from(new Set(rows.map((meter) => meter.apartment)))];
+  const totals = useMemo(() => ({
+    total: rows.length,
+    updated: rows.filter((meter) => meter.status === 'Actualizat').length,
+    missing: rows.filter((meter) => meter.status === 'Lipsă citire').length,
+    suspicious: rows.filter((meter) => meter.status === 'Suspect').length,
+  }), [rows]);
 
   return (
     <div className="space-y-5 pb-4">
-      <PageHeader title="Contoare" description="Citiri pentru apă, gaz și electricitate în APC Alba Iulia 75." />
+      <PageHeader
+        title="Contoare"
+        description="Citiri pentru apă, gaz, electricitate și încălzire în APC Alba Iulia 75."
+        rightSlot={
+          <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
+            {source === 'api' ? 'Date reale' : 'Date demo'}
+          </span>
+        }
+      />
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Total contoare" value="426" description="În toate apartamentele" icon={<Gauge className="h-5 w-5" />} />
-        <StatCard label="Citiri actualizate" value="381" description="Citiri confirmate luna curentă" icon={<CheckCircle2 className="h-5 w-5" />} tone="success" />
-        <StatCard label="Citiri lipsă" value="23" description="Necesită transmitere" icon={<TimerReset className="h-5 w-5" />} tone="warning" />
-        <StatCard label="Citiri suspecte" value="8" description="Valori de verificat" icon={<AlertTriangle className="h-5 w-5" />} tone="danger" />
+        <StatCard label="Total contoare" value={String(totals.total)} description="În apartamentele conectate" icon={<Gauge className="h-5 w-5" />} />
+        <StatCard label="Citiri actualizate" value={String(totals.updated)} description="Citiri confirmate luna curentă" icon={<CheckCircle2 className="h-5 w-5" />} tone="success" />
+        <StatCard label="Citiri lipsă" value={String(totals.missing)} description="Necesită transmitere" icon={<TimerReset className="h-5 w-5" />} tone="warning" />
+        <StatCard label="Citiri suspecte" value={String(totals.suspicious)} description="Valori de verificat" icon={<AlertTriangle className="h-5 w-5" />} tone="danger" />
       </section>
 
       <Card>

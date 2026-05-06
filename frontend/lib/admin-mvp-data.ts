@@ -1,7 +1,7 @@
 export type ApartmentStatus = 'Activ' | 'Datornic' | 'Nelocuit' | 'Problemă';
 export type PersonRole = 'proprietar' | 'locatar' | 'chiriaș' | 'membru familie' | 'reprezentant';
 export type AccountStatus = 'cont creat' | 'invitat' | 'fără cont';
-export type MeterType = 'Apă rece' | 'Apă caldă' | 'Gaz' | 'Electricitate';
+export type MeterType = 'Apă rece' | 'Apă caldă' | 'Gaz' | 'Electricitate' | 'Încălzire';
 export type MeterStatus = 'Actualizat' | 'Lipsă citire' | 'Suspect';
 export type InvoiceStatus = 'Achitat' | 'Neachitat' | 'Întârziat';
 export type IssueCategory = 'Apă' | 'Încălzire' | 'Curățenie' | 'Lift' | 'Reparații' | 'Altele';
@@ -649,6 +649,51 @@ export function normalizeApiApartmentMeters(row: any) {
         status: String(meter.status || '').toUpperCase() === 'MISSING_READING' ? 'Lipsă citire' : 'Actualizat',
       }))
     : [];
+}
+
+function meterTypeFromApi(type?: string): MeterType {
+  const normalized = String(type || '').toUpperCase();
+  if (normalized === 'HOT_WATER') return 'Apă caldă';
+  if (normalized === 'GAS') return 'Gaz';
+  if (normalized === 'ELECTRICITY') return 'Electricitate';
+  if (normalized === 'HEATING') return 'Încălzire';
+  return 'Apă rece';
+}
+
+function meterStatusFromApi(status?: string, hasReading = true): MeterStatus {
+  const normalized = String(status || '').toUpperCase();
+  if (normalized === 'SUSPICIOUS') return 'Suspect';
+  if (normalized === 'MISSING_READING' || normalized === 'INACTIVE' || !hasReading) return 'Lipsă citire';
+  return 'Actualizat';
+}
+
+function meterReadingLabel(type: MeterType, value?: number | string | null) {
+  if (value === null || value === undefined || value === '') return 'Lipsă citire';
+  const unit = type === 'Electricitate' ? 'kWh' : type === 'Gaz' ? 'm³' : type === 'Încălzire' ? 'MWh' : 'm³';
+  return `${Number(value).toLocaleString('ro-RO')} ${unit}`;
+}
+
+function dateLabel(value?: string | null) {
+  if (!value) return 'Nu există';
+  return new Intl.DateTimeFormat('ro-RO', { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(value));
+}
+
+export function normalizeApiMeter(row: any): AdminMeter {
+  const type = meterTypeFromApi(row?.type);
+  const hasReading = row?.lastReading?.value !== null && row?.lastReading?.value !== undefined;
+  const apartmentNumber = String(row?.apartment?.number || '-');
+
+  return {
+    id: String(row?.id || row?.serialNumber || `meter-${apartmentNumber}`),
+    apartment: apartmentNumber,
+    staircase: String(row?.staircase?.name || 'Scara -'),
+    floor: Number(row?.apartment?.floor ?? 0),
+    type,
+    serial: String(row?.serialNumber || '-'),
+    reading: meterReadingLabel(type, row?.lastReading?.value),
+    readingDate: dateLabel(row?.lastReading?.readingDate),
+    status: meterStatusFromApi(row?.status, hasReading),
+  };
 }
 
 export function normalizeApiApartmentPayments(row: any) {
