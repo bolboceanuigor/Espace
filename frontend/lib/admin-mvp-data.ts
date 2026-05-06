@@ -12,6 +12,10 @@ export type AnnouncementStatus = 'Activ' | 'Arhivat';
 
 export type AdminApartment = {
   id: string;
+  organizationId?: string;
+  buildingId?: string;
+  buildingName?: string;
+  staircaseId?: string;
   number: string;
   staircase: string;
   floor: number;
@@ -594,6 +598,10 @@ export function normalizeApiApartment(row: any): AdminApartment {
   const number = String(row?.number || '');
   return {
     id: String(row?.id || `apt-${number || 'nou'}`),
+    organizationId: row?.organizationId ? String(row.organizationId) : undefined,
+    buildingId: row?.building?.id ? String(row.building.id) : row?.buildingId ? String(row.buildingId) : undefined,
+    buildingName: row?.building?.name ? String(row.building.name) : row?.buildingName ? String(row.buildingName) : undefined,
+    staircaseId: row?.staircase?.id ? String(row.staircase.id) : row?.staircaseId ? String(row.staircaseId) : undefined,
     number,
     staircase: String(row?.staircase?.name || row?.staircaseName || 'Scara -'),
     floor: Number(row?.floor ?? 0),

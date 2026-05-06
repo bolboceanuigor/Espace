@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, Gauge, Home, Search, UserX } from 'lucide-react';
-import { Badge, Card, Input, PageHeader, StatCard } from '@/components/ui';
+import { AlertCircle, Gauge, Home, Plus, Search, UserX } from 'lucide-react';
+import { Badge, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { apartmentsApi } from '@/lib/api';
 import { adminApartments, apartmentStatusVariant, normalizeApiApartment, type AdminApartment } from '@/lib/admin-mvp-data';
@@ -17,6 +17,15 @@ const summary = [
 ];
 
 const statusOptions = ['Toate', 'Activ', 'Datornic', 'Nelocuit', 'Problemă'];
+const emptyForm = {
+  number: '',
+  buildingId: '',
+  staircaseId: '',
+  floor: '',
+  areaM2: '',
+  rooms: '1',
+  status: 'ACTIVE' as 'ACTIVE' | 'EMPTY' | 'DEBTOR' | 'PROBLEM',
+};
 
 export default function AdminApartmentsPage() {
   const localizedPath = useLocalizedPath();
@@ -28,24 +37,33 @@ export default function AdminApartmentsPage() {
   const [withoutAccount, setWithoutAccount] = useState(false);
   const [rows, setRows] = useState<AdminApartment[]>(adminApartments);
   const [source, setSource] = useState<'api' | 'mock'>('mock');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [form, setForm] = useState(emptyForm);
+  const [isCreating, setIsCreating] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+
+  const loadApartments = async () => {
+    const res = await apartmentsApi.list();
+    const apiRows = (res.data || []).map(normalizeApiApartment);
+    if (apiRows.length) {
+      setRows(apiRows);
+      setSource('api');
+      setForm((current) => {
+        const first = apiRows.find((item) => item.buildingId && item.staircaseId);
+        if (!first || current.buildingId || current.staircaseId) return current;
+        return { ...current, buildingId: first.buildingId || '', staircaseId: first.staircaseId || '' };
+      });
+    }
+  };
 
   useEffect(() => {
     let active = true;
-    apartmentsApi
-      .list()
-      .then((res) => {
-        if (!active) return;
-        const apiRows = (res.data || []).map(normalizeApiApartment);
-        if (apiRows.length) {
-          setRows(apiRows);
-          setSource('api');
-        }
-      })
-      .catch(() => {
-        if (!active) return;
-        setRows(adminApartments);
-        setSource('mock');
-      });
+    loadApartments().catch(() => {
+      if (!active) return;
+      setRows(adminApartments);
+      setSource('mock');
+    });
     return () => {
       active = false;
     };
@@ -82,6 +100,69 @@ export default function AdminApartmentsPage() {
     { ...summary[2], value: String(totals.withoutAccount) },
     { ...summary[3], value: String(totals.missingReadings) },
   ];
+  const buildingOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    rows.forEach((item) => {
+      if (item.buildingId) map.set(item.buildingId, item.buildingName || 'Bloc principal');
+    });
+    return Array.from(map, ([id, name]) => ({ id, name }));
+  }, [rows]);
+  const staircaseOptions = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; buildingId?: string; organizationId?: string }>();
+    rows.forEach((item) => {
+      if (!item.staircaseId) return;
+      if (form.buildingId && item.buildingId !== form.buildingId) return;
+      map.set(item.staircaseId, {
+        id: item.staircaseId,
+        name: item.staircase,
+        buildingId: item.buildingId,
+        organizationId: item.organizationId,
+      });
+    });
+    return Array.from(map.values());
+  }, [form.buildingId, rows]);
+
+  const createApartment = async () => {
+    setFormError('');
+    setSuccessMessage('');
+    const selectedStaircase = staircaseOptions.find((item) => item.id === form.staircaseId);
+    const selectedBuildingId = form.buildingId || selectedStaircase?.buildingId || '';
+    const organizationId = selectedStaircase?.organizationId || rows.find((item) => item.buildingId === selectedBuildingId)?.organizationId || '';
+    if (!organizationId || !selectedBuildingId || !form.staircaseId) {
+      setFormError('Nu am găsit clădirea și scara reale. Reîncarcă pagina după conectarea API-ului.');
+      return;
+    }
+    if (!form.number.trim() || form.floor === '' || form.areaM2 === '') {
+      setFormError('Completează numărul apartamentului, etajul și suprafața.');
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      const created = await apartmentsApi.create({
+        organizationId,
+        buildingId: selectedBuildingId,
+        staircaseId: form.staircaseId,
+        number: form.number.trim(),
+        floor: Number(form.floor),
+        areaM2: Number(form.areaM2),
+        rooms: Number(form.rooms || 1),
+        status: form.status,
+      });
+      const next = normalizeApiApartment(created.data);
+      setRows((current) => [next, ...current.filter((item) => item.id !== next.id)]);
+      setSource('api');
+      setForm({ ...emptyForm, buildingId: selectedBuildingId, staircaseId: form.staircaseId });
+      setModalOpen(false);
+      setSuccessMessage('Apartamentul a fost creat.');
+      await loadApartments().catch(() => undefined);
+    } catch (error: any) {
+      const message = String(error?.message || '');
+      setFormError(message.includes('Acest apartament există deja') ? 'Acest apartament există deja.' : 'Nu am putut crea apartamentul.');
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   return (
     <div className="space-y-5 pb-4">
@@ -93,10 +174,20 @@ export default function AdminApartmentsPage() {
             <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
               {source === 'api' ? 'Date reale' : 'Date demo'}
             </span>
+            <button type="button" onClick={() => setModalOpen(true)} className="inline-flex min-h-10 items-center gap-2 rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background">
+              <Plus className="h-4 w-4" />
+              Adaugă apartament
+            </button>
             <Link href={localizedPath('/admin/apartments/apt-45')} className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background">Deschide Apt. 45</Link>
           </div>
         }
       />
+
+      {successMessage ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+          {successMessage}
+        </div>
+      ) : null}
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {summaryRows.map((item) => <StatCard key={item.label} {...item} />)}
@@ -153,6 +244,61 @@ export default function AdminApartmentsPage() {
           </div>
         ))}
       </section>
+
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} maxWidth="2xl">
+        <ModalHeader title="Adaugă apartament" onClose={() => setModalOpen(false)} />
+        <ModalBody>
+          <div className="grid gap-3 md:grid-cols-2">
+            <Field label="Număr apartament" value={form.number} onChange={(value) => setForm({ ...form, number: value })} required />
+            <label className="block">
+              <span className="label">Bloc / clădire</span>
+              <select className="select" value={form.buildingId} onChange={(event) => setForm({ ...form, buildingId: event.target.value, staircaseId: '' })}>
+                <option value="">Alege clădirea</option>
+                {buildingOptions.map((item) => (
+                  <option key={item.id} value={item.id}>{item.name}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="label">Scara</span>
+              <select className="select" value={form.staircaseId} onChange={(event) => setForm({ ...form, staircaseId: event.target.value })}>
+                <option value="">Alege scara</option>
+                {staircaseOptions.map((item) => (
+                  <option key={item.id} value={item.id}>{item.name}</option>
+                ))}
+              </select>
+            </label>
+            <Field label="Etaj" value={form.floor} onChange={(value) => setForm({ ...form, floor: value })} type="number" required />
+            <Field label="Suprafață m²" value={form.areaM2} onChange={(value) => setForm({ ...form, areaM2: value })} type="number" required />
+            <Field label="Camere" value={form.rooms} onChange={(value) => setForm({ ...form, rooms: value })} type="number" />
+            <label className="block">
+              <span className="label">Status</span>
+              <select className="select" value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as typeof form.status })}>
+                <option value="ACTIVE">Activ</option>
+                <option value="EMPTY">Nelocuit</option>
+                <option value="DEBTOR">Datornic</option>
+                <option value="PROBLEM">Problemă</option>
+              </select>
+            </label>
+          </div>
+          {formError ? (
+            <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
+              {formError}
+            </p>
+          ) : null}
+          <p className="mt-4 text-xs text-muted-foreground">
+            Apartamentul este creat în baza de date pentru clădirea și scara selectate.
+          </p>
+        </ModalBody>
+        <ModalFooter>
+          <button type="button" onClick={() => setModalOpen(false)} disabled={isCreating} className="rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold disabled:opacity-60">
+            Anulează
+          </button>
+          <button type="button" onClick={createApartment} disabled={isCreating} className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background disabled:opacity-60">
+            {isCreating ? 'Se creează...' : 'Creează apartament'}
+          </button>
+        </ModalFooter>
+      </Modal>
     </div>
   );
 }
@@ -179,6 +325,27 @@ function ApartmentMobileCard({ apartment }: { apartment: AdminApartment }) {
         Deschide
       </span>
     </Link>
+  );
+}
+
+function Field({
+  label,
+  value,
+  onChange,
+  required,
+  type = 'text',
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+  type?: string;
+}) {
+  return (
+    <label className="block">
+      <span className="label">{label}{required ? ' *' : ''}</span>
+      <input className="input" type={type} value={value} onChange={(event) => onChange(event.target.value)} />
+    </label>
   );
 }
 

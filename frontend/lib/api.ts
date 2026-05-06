@@ -675,6 +675,16 @@ export const adminApi = {
 export const apartmentsApi = {
   list: () => apiRequest<any[]>('/apartments'),
   get: (id: string) => apiRequest<any>(`/apartments/${id}`),
+  create: (data: {
+    organizationId: string;
+    buildingId: string;
+    staircaseId: string;
+    number: string;
+    floor: number;
+    areaM2: number;
+    rooms?: number;
+    status?: 'ACTIVE' | 'EMPTY' | 'DEBTOR' | 'PROBLEM';
+  }) => apiRequest<any>('/apartments', { method: 'POST', body: data }),
 };
 
 export const residentsApi = {

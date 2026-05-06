@@ -1,5 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InvoiceStatus, MeterStatus, Prisma } from '@prisma/client';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ApartmentStatus, InvoiceStatus, MeterStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -9,6 +9,9 @@ export class ApartmentsService {
   private apartmentSelect(): Prisma.ApartmentSelect {
     return {
       id: true,
+      organizationId: true,
+      buildingId: true,
+      staircaseId: true,
       number: true,
       floor: true,
       areaM2: true,
@@ -138,6 +141,9 @@ export class ApartmentsService {
 
     return {
       id: apartment.id,
+      organizationId: apartment.organizationId,
+      buildingId: apartment.buildingId,
+      staircaseId: apartment.staircaseId,
       number: apartment.number,
       floor: apartment.floor,
       areaM2: apartment.areaM2,
@@ -201,6 +207,53 @@ export class ApartmentsService {
     return apartments.map((apartment) => this.toListApartment(apartment));
   }
 
+  async createApartment(body: unknown) {
+    const input = this.parseCreateApartmentBody(body);
+
+    const [organization, building, staircase] = await Promise.all([
+      this.prisma.organization.findUnique({ where: { id: input.organizationId }, select: { id: true } }),
+      this.prisma.building.findFirst({
+        where: {
+          id: input.buildingId,
+          organizationId: input.organizationId,
+        },
+        select: { id: true },
+      }),
+      this.prisma.staircase.findFirst({
+        where: {
+          id: input.staircaseId,
+          buildingId: input.buildingId,
+          organizationId: input.organizationId,
+        },
+        select: { id: true },
+      }),
+    ]);
+
+    if (!organization) throw new NotFoundException('Organization not found');
+    if (!building) throw new NotFoundException('Building not found');
+    if (!staircase) throw new NotFoundException('Staircase not found');
+
+    const duplicate = await this.prisma.apartment.findUnique({
+      where: {
+        staircaseId_number: {
+          staircaseId: input.staircaseId,
+          number: input.number,
+        },
+      },
+      select: { id: true },
+    });
+    if (duplicate) {
+      throw new ConflictException('Acest apartament există deja.');
+    }
+
+    const apartment = await this.prisma.apartment.create({
+      data: input,
+      select: this.apartmentSelect(),
+    });
+
+    return this.toDetailApartment(apartment);
+  }
+
   async getApartment(id: string) {
     const apartment = await this.prisma.apartment.findFirst({
       where: {
@@ -214,5 +267,59 @@ export class ApartmentsService {
     }
 
     return this.toDetailApartment(apartment);
+  }
+
+  private parseCreateApartmentBody(body: unknown) {
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const organizationId = this.requiredString(payload.organizationId, 'Organizația este obligatorie.');
+    const buildingId = this.requiredString(payload.buildingId, 'Clădirea este obligatorie.');
+    const staircaseId = this.requiredString(payload.staircaseId, 'Scara este obligatorie.');
+    const number = this.requiredString(payload.number, 'Numărul apartamentului este obligatoriu.');
+    const floor = this.requiredNumber(payload.floor, 'Etajul este obligatoriu.');
+    const areaM2 = this.requiredNumber(payload.areaM2, 'Suprafața este obligatorie.');
+    const rooms = this.optionalNumber(payload.rooms);
+    const status = this.optionalEnum(payload.status, ApartmentStatus, ApartmentStatus.ACTIVE, 'Statusul nu este valid.');
+
+    return {
+      organizationId,
+      buildingId,
+      staircaseId,
+      number,
+      floor,
+      areaM2,
+      rooms: rooms ?? 1,
+      status,
+    };
+  }
+
+  private requiredString(value: unknown, message: string) {
+    if (typeof value !== 'string' || !value.trim()) {
+      throw new BadRequestException(message);
+    }
+    return value.trim();
+  }
+
+  private requiredNumber(value: unknown, message: string) {
+    const parsed = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(parsed)) {
+      throw new BadRequestException(message);
+    }
+    return parsed;
+  }
+
+  private optionalNumber(value: unknown) {
+    if (value === undefined || value === null || value === '') return null;
+    const parsed = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(parsed)) return null;
+    return parsed;
+  }
+
+  private optionalEnum<T extends Record<string, string>>(value: unknown, enumValues: T, fallback: T[keyof T], message: string) {
+    if (value === undefined || value === null || value === '') return fallback;
+    if (typeof value !== 'string') throw new BadRequestException(message);
+    const normalized = value.trim().toUpperCase();
+    const allowed = Object.values(enumValues) as string[];
+    if (!allowed.includes(normalized)) throw new BadRequestException(message);
+    return normalized as T[keyof T];
   }
 }

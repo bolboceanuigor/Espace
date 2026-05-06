@@ -1,4 +1,4 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { Public } from '../auth/decorators/public.decorator';
 import { ApartmentsService } from './apartments.service';
 
@@ -10,6 +10,13 @@ export class ApartmentsController {
   @Get()
   listApartments() {
     return this.apartmentsService.listApartments();
+  }
+
+  // Temporary MVP endpoint until the full backend guard stack is re-enabled.
+  @Public()
+  @Post()
+  createApartment(@Body() body: unknown) {
+    return this.apartmentsService.createApartment(body);
   }
 
   @Public()
