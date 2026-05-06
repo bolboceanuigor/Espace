@@ -40,8 +40,11 @@ export const getToken = () => {
   return localStorage.getItem(ESPACE_ACCESS_TOKEN_KEY) || localStorage.getItem(ACCESS_TOKEN_KEY);
 };
 
+export const getStoredToken = getToken;
+
 export const setToken = (token: string) => {
   if (typeof window === 'undefined') return;
+  localStorage.setItem(ESPACE_ACCESS_TOKEN_KEY, token);
   localStorage.setItem(ACCESS_TOKEN_KEY, token);
   setCookie(ACCESS_TOKEN_KEY, token);
 };
@@ -56,14 +59,22 @@ export const removeToken = () => {
 export const getUser = () => {
   if (typeof window === 'undefined') return null;
   const userStr = localStorage.getItem(ESPACE_USER_KEY) || localStorage.getItem(USER_KEY);
-  return userStr ? JSON.parse(userStr) : null;
+  try {
+    return userStr ? JSON.parse(userStr) : null;
+  } catch {
+    return null;
+  }
 };
+
+export const getStoredUser = getUser;
 
 export const setUser = (user: any) => {
   if (typeof window === 'undefined') return;
+  localStorage.setItem(ESPACE_USER_KEY, JSON.stringify(user));
   localStorage.setItem(USER_KEY, JSON.stringify(user));
-  const role = (user?.role || '').toString().toUpperCase();
+  const role = normalizeEspaceRole(user?.role);
   if (role) {
+    localStorage.setItem(ESPACE_ROLE_KEY, role);
     setCookie(ROLE_COOKIE, role);
   }
 };
@@ -114,6 +125,8 @@ export function getCurrentRole(): EspaceRole | null {
   return normalizeEspaceRole(storedRole || userRole || demoRole);
 }
 
+export const getStoredRole = getCurrentRole;
+
 export function getStoredAuth(): StoredAuth {
   if (typeof window === 'undefined') {
     return { token: null, user: null, role: null, isDemo: false };
@@ -123,6 +136,19 @@ export function getStoredAuth(): StoredAuth {
   const role = getCurrentRole();
   const isDemo = !token && !!localStorage.getItem('espace_demo_role');
   return { token, user, role, isDemo };
+}
+
+export function saveAuth(accessToken: string, user: any) {
+  saveRealSession(accessToken, user);
+}
+
+export function isRealAuthenticated() {
+  return !!getToken();
+}
+
+export function isDemoAuthenticated() {
+  if (typeof window === 'undefined') return false;
+  return !getToken() && !!localStorage.getItem('espace_demo_role');
 }
 
 export function getDashboardForRole(role: string | null | undefined, locale = 'ro') {

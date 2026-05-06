@@ -140,7 +140,7 @@ export class MinimalAuthService {
     if (!token) {
       throw new UnauthorizedException({
         code: 'TOKEN_REQUIRED',
-        message: 'Tokenul lipsește.',
+        message: 'Sesiunea a expirat. Te rugăm să te autentifici din nou.',
       });
     }
 
@@ -158,7 +158,7 @@ export class MinimalAuthService {
       if (!user) {
         throw new UnauthorizedException({
           code: 'INVALID_TOKEN',
-          message: 'Sesiunea nu mai este validă.',
+          message: 'Sesiunea a expirat. Te rugăm să te autentifici din nou.',
         });
       }
 
@@ -171,7 +171,7 @@ export class MinimalAuthService {
       }
       throw new UnauthorizedException({
         code: 'INVALID_TOKEN',
-        message: 'Sesiunea nu mai este validă.',
+        message: 'Sesiunea a expirat. Te rugăm să te autentifici din nou.',
       });
     }
   }

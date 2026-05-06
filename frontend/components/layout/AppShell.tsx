@@ -35,7 +35,7 @@ function AppShellContent({ children }: AppShellProps) {
   const params = useParams<{ locale?: string }>();
   const c = useTranslations('common');
   const billingT = useTranslations('billing');
-  const { user, org, prefs, system, loading, isAuthenticated, updatePreferences } = useAuth();
+  const { user, org, prefs, system, loading, isAuthenticated, isDemoAuthenticated, updatePreferences } = useAuth();
   const [search, setSearch] = useState('');
   const [planLimitWarning, setPlanLimitWarning] = useState<string | null>(null);
   const [trialInfo, setTrialInfo] = useState<{ status: string; daysRemaining: number } | null>(null);
@@ -57,7 +57,7 @@ function AppShellContent({ children }: AppShellProps) {
     : pathname.includes('/resident')
       ? 'RESIDENT'
       : 'ADMIN';
-  const isPreviewSession = !loading && !isAuthenticated;
+  const isPreviewSession = !loading && !isAuthenticated && isDemoAuthenticated;
   const previewUser = isPreviewSession
     ? {
         id: 'preview-user',
@@ -107,11 +107,21 @@ function AppShellContent({ children }: AppShellProps) {
     if (loading || !activeUser || isPreviewSession) return;
     const isTeamRoute = pathname.includes('/team');
     const isSuperadminRoute = pathname.includes('/superadmin');
+    const isAdminRoute = pathname.includes('/admin');
+    const isResidentRoute = pathname.includes('/resident');
     if (isTeamRoute && normalizedRole !== 'ADMIN' && normalizedRole !== 'SUPER_ADMIN') {
       router.replace(homeRoute);
       return;
     }
     if (isSuperadminRoute && normalizedRole !== 'SUPER_ADMIN') {
+      router.replace(homeRoute);
+      return;
+    }
+    if (isAdminRoute && normalizedRole !== 'ADMIN') {
+      router.replace(homeRoute);
+      return;
+    }
+    if (isResidentRoute && normalizedRole !== 'RESIDENT') {
       router.replace(homeRoute);
     }
   }, [activeUser, homeRoute, isPreviewSession, loading, pathname, router, normalizedRole]);

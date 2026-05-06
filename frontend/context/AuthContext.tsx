@@ -1,7 +1,18 @@
 'use client';
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { clearAuthCookies, removeToken, getUser, setToken, setUser, removeUser } from '@/lib/auth';
+import {
+  clearAuth,
+  clearAuthCookies,
+  getToken,
+  getUser,
+  isDemoAuthenticated,
+  removeToken,
+  removeUser,
+  saveAuth,
+  setToken,
+  setUser,
+} from '@/lib/auth';
 import { authApi } from '@/lib/api';
 import { defaultLocale, isLocale } from '@/i18n';
 import { isApiConfigured } from '@/lib/runtime-config';
@@ -59,6 +70,7 @@ type AuthContextValue = {
   logout: () => Promise<void>;
   updatePreferences: (data: Partial<Prefs>) => Promise<void>;
   isAuthenticated: boolean;
+  isDemoAuthenticated: boolean;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -99,12 +111,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [org, setOrg] = useState<Org | null>(null);
   const [prefs, setPrefs] = useState<Prefs | null>(null);
   const [system, setSystem] = useState<{ maintenanceMode: boolean } | null>(null);
+  const [demoAuthenticated, setDemoAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
     const bootstrap = async () => {
       setAccessTokenState(null);
+      setDemoAuthenticated(isDemoAuthenticated());
 
       if (!isApiConfigured()) {
         removeToken();
@@ -114,23 +128,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setOrg(null);
           setPrefs(null);
           setSystem(null);
+          setDemoAuthenticated(isDemoAuthenticated());
           setLoading(false);
         }
         return;
       }
 
+      const cachedToken = getToken();
       const cached = getUser();
+      if (cachedToken && active) {
+        setAccessTokenState(cachedToken);
+      }
       if (cached && active) {
         setUserState(cached);
+      }
+
+      if (!cachedToken) {
+        if (active) {
+          setDemoAuthenticated(isDemoAuthenticated());
+          setLoading(false);
+        }
+        return;
       }
 
       try {
         const response = await authApi.getMe();
         const payload = response.data;
         const serverUser = payload?.user ?? payload;
-        setUser(serverUser);
+        saveAuth(cachedToken, serverUser);
         if (active) {
           setUserState(serverUser);
+          setAccessTokenState(cachedToken);
+          setDemoAuthenticated(false);
           if (payload?.org) setOrg(payload.org);
           if (payload?.prefs) setPrefs(payload.prefs);
           if (payload?.system) setSystem(payload.system);
@@ -144,6 +173,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setOrg(null);
           setPrefs(null);
           setSystem(null);
+          setDemoAuthenticated(isDemoAuthenticated());
         }
         if (typeof window !== 'undefined' && err?.status === 401) {
           const maybeLocale = window.location.pathname.split('/').filter(Boolean)[0];
@@ -169,13 +199,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const res = await authApi.login({ email, password });
     const userData = res.data.user;
     if (res.data.accessToken) {
-      setToken(res.data.accessToken);
+      saveAuth(res.data.accessToken, userData);
       setAccessTokenState(res.data.accessToken);
     } else {
       setAccessTokenState(null);
     }
     setUser(userData);
     setUserState(userData);
+    setDemoAuthenticated(false);
     const payload = await authApi.getMe();
     if (payload.data?.user) {
       setUser(payload.data.user);
@@ -198,8 +229,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const res = await authApi.register(data);
       if (res.data?.accessToken && res.data?.user) {
         const userData = res.data.user;
-        setToken(res.data.accessToken);
-        setAccessTokenState(res.data.accessToken);
+          setToken(res.data.accessToken);
+          saveAuth(res.data.accessToken, userData);
+          setAccessTokenState(res.data.accessToken);
         setUser(userData);
         setUserState(userData);
         const payload = await authApi.getMe();
@@ -226,12 +258,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     removeToken();
     removeUser();
+    clearAuth();
     clearAuthCookies();
     setAccessTokenState(null);
     setUserState(null);
     setOrg(null);
     setPrefs(null);
     setSystem(null);
+    setDemoAuthenticated(false);
     if (typeof window !== 'undefined') {
       localStorage.removeItem('activeOrgId');
     }
@@ -266,6 +300,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     logout,
     updatePreferences,
     isAuthenticated: !!user,
+    isDemoAuthenticated: demoAuthenticated,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

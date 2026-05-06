@@ -206,7 +206,7 @@ export const authApi = {
     apiRequest<any>('/auth/reset-password', { method: 'POST', body: data }),
   changePassword: (data: { oldPassword: string; newPassword: string }) =>
     apiRequest<any>('/auth/change-password', { method: 'POST', body: data }),
-  getMe: () => apiRequest<any>('/api/me'),
+  getMe: () => apiRequest<any>('/auth/me'),
   getNavigation: () => apiRequest<any[]>('/api/me/navigation'),
   updatePreferences: (data: {
     locale?: 'ro' | 'ru' | 'en';
