@@ -60,7 +60,7 @@ export default function SuperadminPage() {
   }, [associations, overview, source]);
 
   const stats = [
-    { label: 'Total asociații', value: String(totals.total), description: 'În Moldova și România', icon: <Building2 className="h-5 w-5" /> },
+    { label: 'Total asociații', value: String(totals.total), description: 'Republica Moldova', icon: <Building2 className="h-5 w-5" /> },
     { label: 'Active', value: String(totals.active), description: 'Abonamente active', icon: <ShieldCheck className="h-5 w-5" />, tone: 'success' as const },
     { label: 'Trial', value: String(totals.trial), description: 'În evaluare', icon: <Timer className="h-5 w-5" />, tone: 'warning' as const },
     { label: 'Inactive', value: String(totals.inactive), description: 'Acces dezactivat', icon: <Building2 className="h-5 w-5" /> },

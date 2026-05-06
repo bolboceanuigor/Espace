@@ -10,6 +10,8 @@ export class OrganizationsService {
   private readonly publicSelect = {
     id: true,
     name: true,
+    legalName: true,
+    fiscalCode: true,
     address: true,
     city: true,
     country: true,
@@ -45,6 +47,8 @@ export class OrganizationsService {
   private toPublicOrganization(organization: {
     id: string;
     name: string;
+    legalName: string | null;
+    fiscalCode: string | null;
     address: string | null;
     city: string | null;
     country: string;
@@ -57,12 +61,17 @@ export class OrganizationsService {
       users?: number;
     };
   }) {
+    const associationCode = organization.fiscalCode || this.extractAssociationCode(organization.name, organization.legalName);
     return {
       id: organization.id,
       name: organization.name,
+      shortName: organization.name,
+      legalName: organization.legalName || this.legalNameForCode(associationCode) || organization.name,
+      associationCode,
+      associationNumber: this.associationNumberFromCode(associationCode),
       address: organization.address,
       city: organization.city,
-      country: organization.country,
+      country: this.normalizeCountryLabel(organization.country),
       currency: organization.currency,
       status: organization.status,
       createdAt: organization.createdAt,
@@ -181,15 +190,24 @@ export class OrganizationsService {
 
   private parseCreateOrganizationBody(body: unknown) {
     const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
-    const name = this.requiredString(payload.name, 'Numele asociației este obligatoriu.');
+    const associationCode = this.requiredString(payload.associationCode ?? payload.code ?? payload.fiscalCode, 'Codul APC este obligatoriu.').toUpperCase();
+    if (!/^A\d{4}-\d{4}$/.test(associationCode)) {
+      throw new BadRequestException('Format recomandat: A0123-0940');
+    }
+    const shortName = this.optionalString(payload.shortName) || this.optionalString(payload.name) || `A.P.C. ${associationCode}`;
+    const legalName =
+      this.optionalString(payload.legalName) ||
+      `Asociația de Proprietari din Condominiu ${associationCode}`;
     const address = this.requiredString(payload.address, 'Adresa este obligatorie.');
     const city = this.requiredString(payload.city, 'Orașul este obligatoriu.');
-    const country = this.requiredString(payload.country, 'Țara este obligatorie.');
+    const country = this.normalizeCountryLabel(this.optionalString(payload.country) || 'Republica Moldova');
     const currency = this.optionalEnum(payload.currency, BillingCurrency, BillingCurrency.MDL, 'Moneda nu este validă.');
     const status = this.optionalEnum(payload.status, OrganizationStatus, OrganizationStatus.ACTIVE, 'Statusul nu este valid.');
 
     return {
-      name,
+      name: shortName,
+      legalName,
+      fiscalCode: associationCode,
       address,
       city,
       country,
@@ -270,6 +288,32 @@ export class OrganizationsService {
       throw new BadRequestException(message);
     }
     return value.trim();
+  }
+
+  private optionalString(value: unknown) {
+    return typeof value === 'string' && value.trim() ? value.trim() : '';
+  }
+
+  private extractAssociationCode(...values: Array<string | null | undefined>) {
+    for (const value of values) {
+      const match = String(value || '').match(/A\d{4}-\d{4}/i);
+      if (match) return match[0].toUpperCase();
+    }
+    return '';
+  }
+
+  private legalNameForCode(code: string) {
+    return code ? `Asociația de Proprietari din Condominiu ${code}` : '';
+  }
+
+  private associationNumberFromCode(code: string) {
+    const match = code.match(/-(\d{4})$/);
+    return match?.[1] || '';
+  }
+
+  private normalizeCountryLabel(value: string) {
+    const normalized = value.trim();
+    return normalized === 'MD' || normalized.toLowerCase() === 'moldova' ? 'Republica Moldova' : normalized;
   }
 
   private optionalEnum<T extends Record<string, string>>(value: unknown, enumValues: T, fallback: T[keyof T], message: string) {

@@ -181,7 +181,7 @@
     "titleLogin": "Autentificare",
     "titleRegister": "Creeaza cont",
     "subtitleLogin": "Calendar Proprietati",
-    "subtitleRegister": "Incepe sa folosesti Espace PMS in cateva secunde",
+    "subtitleRegister": "Incepe sa folosesti Espace in cateva secunde",
     "orgName": "Nume organizatie",
     "email": "Email",
     "password": "Parola",
@@ -363,7 +363,7 @@
       "contact": "Contact",
       "requestDemo": "Cere demo",
       "tryDemo": "Incearca demo",
-      "footerText": "Espace Condo - platforma SaaS pentru asociatii de proprietari din Romania si Moldova.",
+      "footerText": "Espace - platforma SaaS pentru A.P.C. din Republica Moldova.",
       "footerSupport": "Suport: contact@espace.md"
     },
     "hero": {
@@ -384,7 +384,7 @@
     },
     "solution": {
       "title": "Solutia Espace Condo",
-      "text": "O platforma SaaS moderna pentru asociatii din Romania si Moldova, cu procese digitale complete de administrare, colectare, comunicare si raportare."
+      "text": "O platforma SaaS moderna pentru A.P.C. din Republica Moldova, cu procese digitale complete de administrare, colectare, comunicare si raportare."
     },
     "features": {
       "title": "Functionalitati cheie",
@@ -450,7 +450,7 @@
     },
     "contactPage": {
       "title": "Contact",
-      "subtitle": "Lucram cu asociatii din Moldova si Romania. Daca vrei o discutie rapida, completeaza formularul si revenim cu un apel.",
+      "subtitle": "Lucram cu A.P.C. din Republica Moldova. Daca vrei o discutie rapida, completeaza formularul si revenim cu un apel.",
       "detailsTitle": "Date de contact",
       "email": "Email: contact@espace.md",
       "phone": "Telefon: +373 60 000 000",

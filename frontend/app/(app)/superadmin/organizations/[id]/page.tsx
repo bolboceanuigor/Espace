@@ -24,12 +24,17 @@ import {
 } from '@/lib/superadmin-mvp-data';
 
 function associationFromId(id: string): MvpAssociation {
+  const associationCode = 'A0123-0940';
   return {
     id,
-    name: 'Asociație nouă',
+    name: `A.P.C. ${associationCode}`,
+    legalName: `Asociația de Proprietari din Condominiu ${associationCode}`,
+    shortName: `A.P.C. ${associationCode}`,
+    associationCode,
+    associationNumber: '0940',
     address: 'Adresă necompletată',
     city: 'Chișinău',
-    country: 'MD',
+    country: 'Republica Moldova',
     currency: 'MDL',
     status: 'TRIAL',
     apartmentsCount: 0,
@@ -151,8 +156,8 @@ export default function SuperadminOrganizationDetailsPage() {
   return (
     <div className="space-y-5 pb-4">
       <PageHeader
-        title={association.name}
-        description="Detalii minime pentru asociație, administrator și activarea MVP."
+        title={association.shortName}
+        description={association.legalName}
         rightSlot={
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
@@ -217,12 +222,19 @@ export default function SuperadminOrganizationDetailsPage() {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-base font-semibold text-foreground">Date asociație</h2>
-              <p className="mt-1 text-sm text-muted-foreground">Informațiile folosite în fluxul superadmin minim.</p>
+              <p className="mt-1 text-sm text-muted-foreground">Identitatea A.P.C. folosită în Republica Moldova.</p>
             </div>
             <Badge variant={statusBadgeVariant(association.status)}>{statusLabel(association.status)}</Badge>
           </div>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <Info icon={<Building2 className="h-4 w-4" />} label="Denumire lungă" value={association.legalName} />
+            <Info icon={<Building2 className="h-4 w-4" />} label="Denumire scurtă" value={association.shortName} />
+            <Info icon={<Building2 className="h-4 w-4" />} label="Cod APC" value={association.associationCode || '-'} />
+            <Info icon={<Building2 className="h-4 w-4" />} label="Număr intern" value={association.associationNumber || '-'} />
             <Info icon={<MapPin className="h-4 w-4" />} label="Adresă" value={`${association.address}, ${association.city}, ${association.country}`} />
+            <Info icon={<Building2 className="h-4 w-4" />} label="Oraș" value={association.city} />
+            <Info icon={<Building2 className="h-4 w-4" />} label="Țară" value={association.country || 'Republica Moldova'} />
+            <Info icon={<Building2 className="h-4 w-4" />} label="Monedă" value={association.currency} />
             <Info icon={<Building2 className="h-4 w-4" />} label="Apartamente" value={`${association.apartmentsCount} apartamente`} />
             <Info icon={<Mail className="h-4 w-4" />} label="Email administrator" value={association.administratorEmail || '-'} />
             <Info icon={<Phone className="h-4 w-4" />} label="Telefon administrator" value={association.administratorPhone || '-'} />

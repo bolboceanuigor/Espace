@@ -36,13 +36,13 @@ const contexts: Record<DemoRole, DemoContext> = {
     ],
   },
   ADMIN: {
-    eyebrow: 'APC Alba Iulia 75',
+    eyebrow: 'A.P.C. A0123-0940',
     title: 'Ai ales demo-ul pentru Administrator',
     description: 'Explorează administrarea zilnică pentru apartamente, locatari, contoare, plăți și cereri.',
     button: 'Intră în administrare',
     icon: <Building2 className="h-5 w-5" />,
     stats: [
-      { label: 'Asociație', value: 'APC Alba Iulia 75' },
+      { label: 'Asociație', value: 'A.P.C. A0123-0940' },
       { label: 'Apartamente', value: '142 apartamente' },
       { label: 'Scări', value: '4 scări' },
       { label: 'Datorii totale', value: '86,450 MDL' },

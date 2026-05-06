@@ -1498,7 +1498,10 @@ export const superadminApi = {
   getPublicOrganization: (id: string) =>
     apiRequest<any>(`/organizations/${id}`),
   createPublicOrganization: (data: {
-    name: string;
+    associationCode: string;
+    legalName: string;
+    shortName: string;
+    name?: string;
     address: string;
     city: string;
     country: string;

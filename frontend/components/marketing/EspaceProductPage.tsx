@@ -193,7 +193,7 @@ function Hero({ active }: { active: ProductPageProps['active'] }) {
             Espace · SaaS pentru asociații de proprietari
           </div>
           <h1 className="mt-6 max-w-3xl text-4xl font-semibold leading-[1.04] text-white sm:text-5xl lg:text-6xl">
-            Administrare APC mai clară pentru Moldova și România.
+            Administrare A.P.C. mai clară pentru Republica Moldova.
           </h1>
           <p className="mt-5 max-w-2xl text-base leading-7 text-white/72 sm:text-lg">
             Espace centralizează apartamente, locatari, contoare, plăți, cereri, avizier și mesaje într-un produs calm,

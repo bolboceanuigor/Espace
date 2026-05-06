@@ -36,7 +36,7 @@ export default function PlatformLayout({ children, title, navItems }: PlatformLa
                 E
               </div>
               <div className="hidden min-w-0 sm:block">
-                <span className="block truncate text-sm font-semibold tracking-tight text-foreground">Espace PMS</span>
+                <span className="block truncate text-sm font-semibold tracking-tight text-foreground">Espace</span>
                 <span className="block truncate text-xs text-muted-foreground">{title}</span>
               </div>
             </div>

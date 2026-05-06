@@ -30,15 +30,15 @@ export default function SignupPage() {
               <span className="text-white font-bold text-xl">E</span>
             </div>
           </div>
-          <h1 className="mt-6 text-xl font-semibold tracking-tight text-gray-800">Espace PMS</h1>
-          <p className="mt-2 text-gray-600">Public signup is disabled.</p>
-          <p className="text-sm text-gray-500">Only existing users can sign in. Contact your administrator for access.</p>
+          <h1 className="mt-6 text-xl font-semibold tracking-tight text-gray-800">Espace</h1>
+          <p className="mt-2 text-gray-600">Înregistrarea publică este dezactivată.</p>
+          <p className="text-sm text-gray-500">Doar utilizatorii existenți se pot autentifica. Contactează administratorul A.P.C. pentru acces.</p>
         </div>
         <Link
           href="/login"
           className="inline-flex justify-center py-3 px-6 rounded-lg text-sm font-medium text-white bg-black hover:opacity-90"
         >
-          Go to Sign in
+          Intră în platformă
         </Link>
       </div>
     </div>

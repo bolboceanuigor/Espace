@@ -38,7 +38,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 E
               </div>
               <span className="hidden truncate text-sm font-semibold tracking-tight text-foreground sm:block">
-                Espace PMS
+                Espace
               </span>
             </div>
             <div className="hidden flex-1 justify-center md:flex" />

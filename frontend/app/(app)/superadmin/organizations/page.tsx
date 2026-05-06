@@ -17,17 +17,34 @@ import {
 } from '@/lib/superadmin-mvp-data';
 
 const emptyForm = {
-  name: '',
+  associationCode: '',
+  legalName: '',
+  shortName: '',
   address: '',
   city: 'Chișinău',
-  country: 'Moldova',
-  currency: 'MDL' as 'MDL' | 'EUR' | 'USD',
+  country: 'Republica Moldova',
+  currency: 'MDL' as const,
   status: 'ACTIVE' as AssociationStatus,
-  apartmentsCount: '0',
   administratorName: '',
   administratorEmail: '',
   administratorPhone: '',
 };
+
+function normalizeAssociationCode(value: string) {
+  return value.trim().toUpperCase();
+}
+
+function legalNameForCode(code: string) {
+  return code ? `Asociația de Proprietari din Condominiu ${code}` : '';
+}
+
+function shortNameForCode(code: string) {
+  return code ? `A.P.C. ${code}` : '';
+}
+
+function associationNumberFromCode(code: string) {
+  return code.match(/-(\d{4})$/)?.[1] || '';
+}
 
 export default function SuperadminOrganizationsPage() {
   const localizedPath = useLocalizedPath();
@@ -73,7 +90,7 @@ export default function SuperadminOrganizationsPage() {
     return rows.filter((row) => {
       const matchesQuery =
         !needle ||
-        [row.name, row.city, row.address, row.administratorName, row.administratorEmail]
+        [row.shortName, row.legalName, row.associationCode, row.associationNumber, row.city, row.address, row.administratorName, row.administratorEmail]
           .join(' ')
           .toLowerCase()
           .includes(needle);
@@ -94,16 +111,23 @@ export default function SuperadminOrganizationsPage() {
   const createAssociation = async () => {
     setFormError('');
     setSuccessMessage('');
+    const associationCode = normalizeAssociationCode(form.associationCode);
     const payload = {
-      name: form.name.trim(),
+      associationCode,
+      legalName: form.legalName.trim(),
+      shortName: form.shortName.trim(),
       address: form.address.trim(),
       city: form.city.trim(),
       country: form.country.trim(),
       currency: form.currency,
       status: form.status,
     };
-    if (!payload.name || !payload.address || !payload.city || !payload.country) {
-      setFormError('Completează numele, adresa, orașul și țara.');
+    if (!payload.associationCode || !payload.legalName || !payload.shortName || !payload.address || !payload.city) {
+      setFormError('Completează codul APC, denumirile, adresa și orașul.');
+      return;
+    }
+    if (!/^A\d{4}-\d{4}$/.test(payload.associationCode)) {
+      setFormError('Format recomandat: A0123-0940');
       return;
     }
 
@@ -153,7 +177,7 @@ export default function SuperadminOrganizationsPage() {
             className="inline-flex min-h-10 items-center gap-2 rounded-2xl bg-foreground px-4 text-sm font-semibold text-background"
           >
             <Plus className="h-4 w-4" />
-            Adaugă asociație
+            Adaugă A.P.C.
           </button>
         }
       />
@@ -180,7 +204,7 @@ export default function SuperadminOrganizationsPage() {
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <label className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input className="pl-9" placeholder="Caută asociație, oraș sau administrator" value={query} onChange={(event) => setQuery(event.target.value)} />
+            <Input className="pl-9" placeholder="Caută A.P.C., cod, oraș sau administrator" value={query} onChange={(event) => setQuery(event.target.value)} />
           </label>
           <select
             value={status}
@@ -204,9 +228,13 @@ export default function SuperadminOrganizationsPage() {
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-lg font-semibold text-foreground">{row.name}</h2>
+                  <h2 className="text-lg font-semibold text-foreground">{row.shortName}</h2>
                   <Badge variant={statusBadgeVariant(row.status)}>{statusLabel(row.status)}</Badge>
                 </div>
+                <p className="mt-1 text-sm font-medium text-foreground/80">{row.legalName}</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Cod APC {row.associationCode || '-'} · Nr. intern {row.associationNumber || '-'}
+                </p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {row.address}, {row.city}, {row.country} · {row.apartmentsCount} apartamente · {row.currency}
                 </p>
@@ -231,19 +259,35 @@ export default function SuperadminOrganizationsPage() {
       </section>
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} maxWidth="2xl">
-        <ModalHeader title="Adaugă asociație" onClose={() => setModalOpen(false)} />
+        <ModalHeader title="Adaugă A.P.C." onClose={() => setModalOpen(false)} />
         <ModalBody>
           <div className="grid gap-3 md:grid-cols-2">
-            <Field label="Nume asociație" value={form.name} onChange={(value) => setForm({ ...form, name: value })} required />
+            <Field
+              label="Cod APC"
+              value={form.associationCode}
+              placeholder="A0123-0940"
+              onChange={(value) => {
+                const code = normalizeAssociationCode(value);
+                const previousCode = normalizeAssociationCode(form.associationCode);
+                setForm({
+                  ...form,
+                  associationCode: code,
+                  legalName: !form.legalName || form.legalName === legalNameForCode(previousCode) ? legalNameForCode(code) : form.legalName,
+                  shortName: !form.shortName || form.shortName === shortNameForCode(previousCode) ? shortNameForCode(code) : form.shortName,
+                });
+              }}
+              required
+            />
+            <Field label="Număr intern" value={associationNumberFromCode(form.associationCode)} onChange={() => undefined} disabled />
+            <Field label="Denumire lungă" value={form.legalName} onChange={(value) => setForm({ ...form, legalName: value })} required />
+            <Field label="Denumire scurtă" value={form.shortName} onChange={(value) => setForm({ ...form, shortName: value })} required />
             <Field label="Oraș" value={form.city} onChange={(value) => setForm({ ...form, city: value })} />
             <Field label="Adresă" value={form.address} onChange={(value) => setForm({ ...form, address: value })} />
-            <Field label="Țară" value={form.country} onChange={(value) => setForm({ ...form, country: value })} />
+            <Field label="Țară" value={form.country} onChange={(value) => setForm({ ...form, country: value })} disabled />
             <label className="block">
               <span className="label">Monedă</span>
-              <select className="select" value={form.currency} onChange={(event) => setForm({ ...form, currency: event.target.value as typeof form.currency })}>
+              <select className="select" value={form.currency} onChange={(event) => setForm({ ...form, currency: event.target.value as typeof form.currency })} disabled>
                 <option value="MDL">MDL</option>
-                <option value="EUR">EUR</option>
-                <option value="USD">USD</option>
               </select>
             </label>
             <label className="block">
@@ -264,7 +308,10 @@ export default function SuperadminOrganizationsPage() {
             </p>
           ) : null}
           <p className="mt-4 text-xs text-muted-foreground">
-            Asociația este creată în baza de date prin API-ul Espace. Administratorul poate fi adăugat într-un pas separat.
+            Format recomandat pentru Cod APC: A0123-0940. Ultimele 4 cifre devin numărul intern al asociației.
+          </p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            A.P.C.-ul este creat în baza de date prin API-ul Espace. Administratorul poate fi adăugat într-un pas separat.
           </p>
         </ModalBody>
         <ModalFooter>
@@ -272,7 +319,7 @@ export default function SuperadminOrganizationsPage() {
             Anulează
           </button>
           <button type="button" onClick={createAssociation} disabled={isCreating} className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background disabled:opacity-60">
-            {isCreating ? 'Se creează...' : 'Creează asociație'}
+            {isCreating ? 'Se creează...' : 'Creează A.P.C.'}
           </button>
         </ModalFooter>
       </Modal>
@@ -308,17 +355,21 @@ function Field({
   onChange,
   required,
   type = 'text',
+  placeholder,
+  disabled,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   required?: boolean;
   type?: string;
+  placeholder?: string;
+  disabled?: boolean;
 }) {
   return (
     <label className="block">
       <span className="label">{label}{required ? ' *' : ''}</span>
-      <input className="input" type={type} value={value} onChange={(event) => onChange(event.target.value)} />
+      <input className="input" type={type} value={value} placeholder={placeholder} disabled={disabled} onChange={(event) => onChange(event.target.value)} />
     </label>
   );
 }

@@ -3,10 +3,14 @@ export type AssociationStatus = 'ACTIVE' | 'TRIAL' | 'INACTIVE';
 export type MvpAssociation = {
   id: string;
   name: string;
+  legalName: string;
+  shortName: string;
+  associationCode: string;
+  associationNumber: string;
   address: string;
   city: string;
   country: string;
-  currency: 'MDL' | 'RON' | 'EUR';
+  currency: 'MDL' | 'EUR' | 'USD';
   status: AssociationStatus;
   apartmentsCount: number;
   administratorName: string;
@@ -65,10 +69,14 @@ export type MvpSubscription = {
 export const mockAssociations: MvpAssociation[] = [
   {
     id: 'apc-alba-iulia-75',
-    name: 'APC Alba Iulia 75',
+    name: 'A.P.C. A0123-0940',
+    legalName: 'Asociația de Proprietari din Condominiu A0123-0940',
+    shortName: 'A.P.C. A0123-0940',
+    associationCode: 'A0123-0940',
+    associationNumber: '0940',
     address: 'Bd. Alba Iulia 75',
     city: 'Chișinău',
-    country: 'MD',
+    country: 'Republica Moldova',
     currency: 'MDL',
     status: 'ACTIVE',
     apartmentsCount: 142,
@@ -77,24 +85,32 @@ export const mockAssociations: MvpAssociation[] = [
     administratorPhone: '+373 69 220 175',
   },
   {
-    id: 'asociatia-teilor-residence',
-    name: 'Asociația Teilor Residence',
-    address: 'Str. Teilor 14',
-    city: 'Iași',
-    country: 'RO',
-    currency: 'RON',
+    id: 'apc-dacia-118',
+    name: 'A.P.C. A0123-1180',
+    legalName: 'Asociația de Proprietari din Condominiu A0123-1180',
+    shortName: 'A.P.C. A0123-1180',
+    associationCode: 'A0123-1180',
+    associationNumber: '1180',
+    address: 'Bd. Dacia 118',
+    city: 'Chișinău',
+    country: 'Republica Moldova',
+    currency: 'MDL',
     status: 'TRIAL',
     apartmentsCount: 96,
     administratorName: 'Elena Munteanu',
-    administratorEmail: 'elena.munteanu@example.ro',
-    administratorPhone: '+40 721 300 018',
+    administratorEmail: 'elena.munteanu@apc.md',
+    administratorPhone: '+373 69 300 018',
   },
   {
     id: 'apc-stefan-cel-mare-18',
-    name: 'APC Ștefan cel Mare 18',
+    name: 'A.P.C. A0123-0018',
+    legalName: 'Asociația de Proprietari din Condominiu A0123-0018',
+    shortName: 'A.P.C. A0123-0018',
+    associationCode: 'A0123-0018',
+    associationNumber: '0018',
     address: 'Str. Ștefan cel Mare 18',
     city: 'Bălți',
-    country: 'MD',
+    country: 'Republica Moldova',
     currency: 'MDL',
     status: 'ACTIVE',
     apartmentsCount: 64,
@@ -103,17 +119,21 @@ export const mockAssociations: MvpAssociation[] = [
     administratorPhone: '+373 78 440 018',
   },
   {
-    id: 'condominiu-central-park',
-    name: 'Condominiu Central Park',
-    address: 'Str. Parcului 9',
-    city: 'București',
-    country: 'RO',
-    currency: 'RON',
+    id: 'apc-independentei-44',
+    name: 'A.P.C. A0123-0044',
+    legalName: 'Asociația de Proprietari din Condominiu A0123-0044',
+    shortName: 'A.P.C. A0123-0044',
+    associationCode: 'A0123-0044',
+    associationNumber: '0044',
+    address: 'Str. Independenței 44',
+    city: 'Orhei',
+    country: 'Republica Moldova',
+    currency: 'MDL',
     status: 'INACTIVE',
     apartmentsCount: 214,
-    administratorName: 'Andreea Pop',
-    administratorEmail: 'andreea.pop@example.ro',
-    administratorPhone: '+40 730 110 214',
+    administratorName: 'Ana Lungu',
+    administratorEmail: 'ana.lungu@apc.md',
+    administratorPhone: '+373 68 110 214',
   },
 ];
 
@@ -187,12 +207,25 @@ export function statusBadgeVariant(status: AssociationStatus): 'success' | 'warn
 
 export function normalizeApiAssociation(row: any): MvpAssociation {
   const status = String(row?.status || row?.subscriptionStatus || (row?.isActive === false ? 'INACTIVE' : 'ACTIVE')).toUpperCase();
+  const associationCode = String(row?.associationCode || row?.fiscalCode || '').toUpperCase();
+  const shortName = String(row?.shortName || row?.name || (associationCode ? `A.P.C. ${associationCode}` : 'A.P.C.'));
+  const legalName = String(
+    row?.legalName ||
+      (associationCode ? `Asociația de Proprietari din Condominiu ${associationCode}` : row?.name || 'Asociația de Proprietari din Condominiu'),
+  );
+  const associationNumber = String(row?.associationNumber || associationCode.match(/-(\d{4})$/)?.[1] || '');
+  const rawCountry = String(row?.country || 'Republica Moldova');
+  const country = rawCountry === 'MD' || rawCountry.toLowerCase() === 'moldova' ? 'Republica Moldova' : rawCountry;
   return {
     id: String(row?.id || crypto.randomUUID()),
-    name: String(row?.name || 'Asociație fără nume'),
+    name: shortName,
+    shortName,
+    legalName,
+    associationCode,
+    associationNumber,
     address: String(row?.address || 'Adresă necompletată'),
     city: String(row?.city || 'Chișinău'),
-    country: String(row?.country || 'MD'),
+    country,
     currency: (row?.currency || 'MDL') as MvpAssociation['currency'],
     status: status.includes('TRIAL') ? 'TRIAL' : status.includes('INACTIVE') || status.includes('DISABLED') ? 'INACTIVE' : 'ACTIVE',
     apartmentsCount: Number(row?.apartmentsCount ?? row?.activeApartments ?? 0),

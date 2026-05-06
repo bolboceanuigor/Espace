@@ -6,8 +6,8 @@ export default function PrivacyPage() {
         Placeholder privacy page for launch. Replace this content with your legal text.
       </p>
       <div className="rounded-2xl border border-border/60 bg-card p-5 text-sm text-foreground">
-        Espace PMS stores account and operational data to provide booking, calendar, and team
-        features.
+        Espace stores account and operational data to provide A.P.C. administration, invoices,
+        resident requests, announcements, messages, and team access.
       </div>
     </main>
   );

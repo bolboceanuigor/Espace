@@ -219,15 +219,15 @@ export default function AdminOrganizationPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
-            <p className="text-xs font-medium text-gray-500 uppercase">Properties</p>
+            <p className="text-xs font-medium text-gray-500 uppercase">Apartamente</p>
             <p className="text-xl font-semibold text-gray-800 mt-1">{org._count.properties}</p>
           </div>
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
-            <p className="text-xs font-medium text-gray-500 uppercase">Reservations</p>
+            <p className="text-xs font-medium text-gray-500 uppercase">Cereri</p>
             <p className="text-xl font-semibold text-gray-800 mt-1">{org._count.reservations}</p>
           </div>
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
-            <p className="text-xs font-medium text-gray-500 uppercase">Monthly revenue (PMS)</p>
+            <p className="text-xs font-medium text-gray-500 uppercase">Venit lunar platformă</p>
             <p className="text-xl font-semibold text-gray-800 mt-1">{Number(org.monthlyRevenue).toFixed(0)}€</p>
           </div>
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">

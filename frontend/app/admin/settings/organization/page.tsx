@@ -17,19 +17,19 @@ type SettingsForm = {
   bank: string;
   invoicePrefix: string;
   receiptPrefix: string;
-  currency: 'MDL' | 'RON' | 'EUR';
+  currency: 'MDL' | 'EUR';
   primaryColor: string;
 };
 
 const initialForm: SettingsForm = {
-  name: 'Asociația curentă',
-  legalName: 'Asociația de Proprietari în Condominiu Alba Iulia 75',
-  fiscalCode: '1024600012345',
+  name: 'A.P.C. A0123-0940',
+  legalName: 'Asociația de Proprietari din Condominiu A0123-0940',
+  fiscalCode: 'A0123-0940',
   address: 'Bd. Alba Iulia 75, Chișinău',
   phone: '+373 22 000 111',
   email: 'admin@albaiulia75.md',
   administrator: 'Administrator Bloc',
-  treasurer: 'Contabil APC',
+  treasurer: 'Contabil A.P.C.',
   iban: 'MD00EX000000000000000000',
   bank: 'BC Moldova Agroindbank SA',
   invoicePrefix: 'FAC',
@@ -93,7 +93,6 @@ export default function AdminOrganizationSettingsPage() {
               Monedă
               <select className="h-11 w-full rounded-2xl border border-border/70 bg-white px-3 text-sm outline-none" value={form.currency} onChange={(event) => update('currency', event.target.value as SettingsForm['currency'])}>
                 <option value="MDL">MDL</option>
-                <option value="RON">RON</option>
                 <option value="EUR">EUR</option>
               </select>
             </label>

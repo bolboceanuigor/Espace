@@ -18,7 +18,7 @@ export const residentProfile = {
   apartment: 'Apt. 45',
   staircase: 'Scara 2',
   role: 'Proprietar',
-  building: 'APC Alba Iulia 75',
+  building: 'A.P.C. A0123-0940',
   currentBalance: 1240,
   status: 'Întârziat',
   nextDueDate: '25 Mai 2026',

@@ -183,9 +183,9 @@ export default function SuperadminOrganizationSubscriptionPage() {
         <Card>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="text-base font-semibold text-foreground">{association.name}</h2>
+              <h2 className="text-base font-semibold text-foreground">{association.shortName}</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                {association.city} · {association.apartmentsCount} apartamente · {statusLabel(association.status)}
+                {association.legalName} · {association.city} · {association.apartmentsCount} apartamente · {statusLabel(association.status)}
               </p>
             </div>
             <Badge variant={subscription?.status === 'ACTIVE' ? 'success' : subscription?.status === 'TRIAL' ? 'warning' : 'neutral'}>

@@ -29,16 +29,16 @@ export default function OnboardingWizard({ isOpen, onClose, onCompleted }: Onboa
 
         <div className="mt-4 space-y-3">
           <div className="rounded-xl border border-border/60 p-3">
-            <p className="text-sm font-medium text-foreground">1. Create first property</p>
-            <p className="text-xs text-muted-foreground">Add apartments/properties to start scheduling.</p>
+            <p className="text-sm font-medium text-foreground">1. Adaugă primul apartament</p>
+            <p className="text-xs text-muted-foreground">Definește blocul, scara și apartamentele pentru A.P.C.</p>
           </div>
           <div className="rounded-xl border border-border/60 p-3">
-            <p className="text-sm font-medium text-foreground">2. Add first reservation</p>
-            <p className="text-xs text-muted-foreground">Create a reservation from calendar cell click.</p>
+            <p className="text-sm font-medium text-foreground">2. Adaugă primul locatar</p>
+            <p className="text-xs text-muted-foreground">Leagă proprietarii și locatarii de apartamente.</p>
           </div>
           <div className="rounded-xl border border-border/60 p-3">
-            <p className="text-sm font-medium text-foreground">3. Invite team (optional)</p>
-            <p className="text-xs text-muted-foreground">Invite managers and assign properties.</p>
+            <p className="text-sm font-medium text-foreground">3. Invită echipa</p>
+            <p className="text-xs text-muted-foreground">Adaugă administratorii care gestionează condominiul.</p>
           </div>
         </div>
 

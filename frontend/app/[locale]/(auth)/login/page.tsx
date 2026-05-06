@@ -123,7 +123,7 @@ export default function LoginPage() {
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-xl font-semibold text-foreground">E</div>
               <h1 className="mt-8 text-3xl font-semibold tracking-tight md:text-4xl">Espace</h1>
               <p className="mt-4 max-w-sm text-sm leading-6 text-background/75">
-                Intră în platforma pentru condominii, APC și HOA din Moldova și România.
+                Intră în platforma pentru condominii și A.P.C. din Republica Moldova.
               </p>
               <div className="mt-8 rounded-2xl border border-white/15 bg-white/10 p-4 text-sm text-background/80">
                 Autentificarea reală folosește backend-ul Espace. Accesul demo temporar rămâne disponibil doar ca fallback.
