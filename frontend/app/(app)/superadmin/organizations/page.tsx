@@ -39,7 +39,7 @@ export default function SuperadminOrganizationsPage() {
   useEffect(() => {
     let active = true;
     superadminApi
-      .listOrgs()
+      .listPublicOrganizations()
       .then((res) => {
         if (!active) return;
         const apiRows = (res.data || []).map(normalizeApiAssociation);

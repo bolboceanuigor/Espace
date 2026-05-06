@@ -1389,6 +1389,10 @@ export const onboardingApi = {
 };
 
 export const superadminApi = {
+  listPublicOrganizations: () =>
+    apiRequest<any[]>('/organizations'),
+  getPublicOrganization: (id: string) =>
+    apiRequest<any>(`/organizations/${id}`),
   listOrgs: () =>
     apiRequest<
       Array<{

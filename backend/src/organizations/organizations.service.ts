@@ -10,6 +10,83 @@ import * as crypto from 'crypto';
 export class OrganizationsService {
   constructor(private prisma: PrismaService) {}
 
+  private publicOrganizationSelect() {
+    return {
+      id: true,
+      name: true,
+      address: true,
+      city: true,
+      country: true,
+      currency: true,
+      status: true,
+      isActive: true,
+      createdAt: true,
+      updatedAt: true,
+      users: {
+        where: { deletedAt: null, role: Role.ADMIN },
+        select: {
+          firstName: true,
+          lastName: true,
+          email: true,
+          phone: true,
+        },
+      },
+      _count: {
+        select: {
+          apartments: true,
+          users: {
+            where: { deletedAt: null, role: Role.ADMIN },
+          },
+        },
+      },
+    } as const;
+  }
+
+  private toPublicOrganization(organization: any) {
+    const primaryAdmin = organization.users?.[0];
+    const administratorName = primaryAdmin
+      ? `${primaryAdmin.firstName || ''} ${primaryAdmin.lastName || ''}`.trim() || 'Administrator neatribuit'
+      : 'Administrator neatribuit';
+
+    return {
+      id: organization.id,
+      name: organization.name,
+      address: organization.address,
+      city: organization.city,
+      country: organization.country,
+      currency: organization.currency,
+      status: organization.isActive === false ? 'INACTIVE' : organization.status,
+      createdAt: organization.createdAt,
+      updatedAt: organization.updatedAt,
+      apartmentsCount: organization._count?.apartments ?? 0,
+      adminCount: organization._count?.users ?? 0,
+      administratorName,
+      administratorEmail: primaryAdmin?.email ?? null,
+      administratorPhone: primaryAdmin?.phone ?? null,
+    };
+  }
+
+  async listPublicOrganizations() {
+    const organizations = await this.prisma.organization.findMany({
+      orderBy: { createdAt: 'desc' },
+      select: this.publicOrganizationSelect(),
+    });
+
+    return organizations.map((organization) => this.toPublicOrganization(organization));
+  }
+
+  async findPublicOrganization(id: string) {
+    const organization = await this.prisma.organization.findUnique({
+      where: { id },
+      select: this.publicOrganizationSelect(),
+    });
+    if (!organization) {
+      throw new NotFoundException('Organization not found');
+    }
+
+    return this.toPublicOrganization(organization);
+  }
+
   async findMyOrganization(organizationId: string) {
     const [org, settings] = await Promise.all([
       this.prisma.organization.findUnique({

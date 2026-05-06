@@ -1,12 +1,13 @@
-import { Controller, Get, Patch, Post, Body, Query, Req } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Body, Query, Req, Param } from '@nestjs/common';
 import { OrganizationsService } from './organizations.service';
 import { UpdateOrganizationDto } from './dto/update-organization.dto';
 import { InviteUserDto } from './dto/invite-user.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Public } from '../auth/decorators/public.decorator';
 import type { Request } from 'express';
 import { getOrgScope, getRequestedOrgId } from '../common/org-scope';
 
-@Controller('organizations')
+@Controller(['organizations', 'api/organizations'])
 export class OrganizationsController {
   constructor(private readonly organizationsService: OrganizationsService) {}
 
@@ -80,5 +81,17 @@ export class OrganizationsController {
       user.sub ?? user.id,
       user.role,
     );
+  }
+
+  @Public()
+  @Get()
+  listPublicOrganizations() {
+    return this.organizationsService.listPublicOrganizations();
+  }
+
+  @Public()
+  @Get(':id')
+  getPublicOrganization(@Param('id') id: string) {
+    return this.organizationsService.findPublicOrganization(id);
   }
 }

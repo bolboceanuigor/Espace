@@ -1,25 +1,62 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
 import { Building2, CreditCard, ShieldCheck, UserCog, Users } from 'lucide-react';
 import { Card, PageHeader, StatCard } from '@/components/ui';
-
-const stats = [
-  { label: 'Total asociații', value: '38', description: 'În Moldova și România', icon: <Building2 className="h-5 w-5" /> },
-  { label: 'Asociații active', value: '31', description: 'Abonamente active', icon: <ShieldCheck className="h-5 w-5" />, tone: 'success' as const },
-  { label: 'Administratori', value: '74', description: 'Utilizatori cu acces administrativ', icon: <UserCog className="h-5 w-5" /> },
-  { label: 'Locatari conectați', value: '4,820', description: 'Conturi rezident active', icon: <Users className="h-5 w-5" />, tone: 'success' as const },
-  { label: 'Venit lunar platformă', value: '42,900 MDL', description: 'MRR estimat', icon: <CreditCard className="h-5 w-5" />, tone: 'warning' as const },
-];
-
-const associations = [
-  { name: 'APC Alba Iulia 75', city: 'Chișinău', apartments: 142, admins: 3, residents: 286, status: 'Activă', mrr: '3,420 MDL' },
-  { name: 'Asociația Teilor Residence', city: 'Iași', apartments: 96, admins: 2, residents: 178, status: 'Trial', mrr: '0 MDL' },
-  { name: 'APC Ștefan cel Mare 18', city: 'Bălți', apartments: 64, admins: 2, residents: 121, status: 'Activă', mrr: '1,860 MDL' },
-  { name: 'Condominiu Central Park', city: 'București', apartments: 214, admins: 5, residents: 498, status: 'Activă', mrr: '5,980 MDL' },
-];
+import { superadminApi } from '@/lib/api';
+import {
+  mockAssociations,
+  normalizeApiAssociation,
+  type MvpAssociation,
+} from '@/lib/superadmin-mvp-data';
 
 export default function SuperadminPage() {
+  const [associations, setAssociations] = useState<MvpAssociation[]>(mockAssociations);
+  const [source, setSource] = useState<'api' | 'mock'>('mock');
+
+  useEffect(() => {
+    let active = true;
+    superadminApi
+      .listPublicOrganizations()
+      .then((res) => {
+        if (!active) return;
+        const apiRows = (res.data || []).map(normalizeApiAssociation);
+        if (apiRows.length) {
+          setAssociations(apiRows);
+          setSource('api');
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        setAssociations(mockAssociations);
+        setSource('mock');
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const totals = useMemo(() => {
+    const totalApartments = associations.reduce((sum, item) => sum + item.apartmentsCount, 0);
+    const active = associations.filter((item) => item.status === 'ACTIVE').length;
+    return {
+      total: associations.length,
+      active,
+      admins: associations.filter((item) => item.administratorEmail).length,
+      residents: Math.max(totalApartments * 2, source === 'api' ? totalApartments : 4820),
+      mrr: `${Math.max(totalApartments * 24, source === 'api' ? 0 : 42900).toLocaleString('ro-RO')} MDL`,
+    };
+  }, [associations, source]);
+
+  const stats = [
+    { label: 'Total asociații', value: String(totals.total), description: 'În Moldova și România', icon: <Building2 className="h-5 w-5" /> },
+    { label: 'Asociații active', value: String(totals.active), description: 'Abonamente active', icon: <ShieldCheck className="h-5 w-5" />, tone: 'success' as const },
+    { label: 'Administratori', value: String(totals.admins), description: 'Utilizatori cu acces administrativ', icon: <UserCog className="h-5 w-5" /> },
+    { label: 'Locatari conectați', value: totals.residents.toLocaleString('ro-RO'), description: 'Conturi rezident active', icon: <Users className="h-5 w-5" />, tone: 'success' as const },
+    { label: 'Venit lunar platformă', value: totals.mrr, description: 'MRR estimat', icon: <CreditCard className="h-5 w-5" />, tone: 'warning' as const },
+  ];
+
   return (
     <div className="space-y-5 pb-4">
       <PageHeader
@@ -46,7 +83,7 @@ export default function SuperadminPage() {
               <p className="mt-1 text-sm text-muted-foreground">Conturi demo pentru monitorizarea platformei.</p>
             </div>
             <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-              Date mock
+              {source === 'api' ? 'Date API' : 'Date demo · API indisponibil temporar'}
             </span>
           </div>
           <div className="mt-5 space-y-3">
@@ -55,18 +92,18 @@ export default function SuperadminPage() {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="font-semibold text-foreground">{association.name}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">{association.city} · {association.apartments} apartamente</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{association.city} · {association.apartmentsCount} apartamente</p>
                   </div>
                   <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                    association.status === 'Activă' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                    association.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
                   }`}>
-                    {association.status}
+                    {association.status === 'ACTIVE' ? 'Activă' : association.status === 'TRIAL' ? 'Trial' : 'Inactivă'}
                   </span>
                 </div>
                 <div className="mt-4 grid gap-2 text-sm sm:grid-cols-3">
-                  <Mini label="Administratori" value={String(association.admins)} />
-                  <Mini label="Locatari conectați" value={String(association.residents)} />
-                  <Mini label="MRR" value={association.mrr} />
+                  <Mini label="Administrator" value={association.administratorName} />
+                  <Mini label="Email" value={association.administratorEmail || '-'} />
+                  <Mini label="MRR estimat" value={`${(association.apartmentsCount * 24).toLocaleString('ro-RO')} MDL`} />
                 </div>
               </div>
             ))}
