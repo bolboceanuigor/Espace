@@ -25,6 +25,10 @@ export function demoRolePath(role: DemoRole, locale = 'ro') {
   return `/${locale}/admin`;
 }
 
+export function demoOnboardingPath(locale = 'ro') {
+  return `/${locale}/onboarding`;
+}
+
 export function demoLogout(locale = 'ro') {
   clearDemoRole();
   if (typeof window !== 'undefined') {

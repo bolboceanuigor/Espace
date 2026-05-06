@@ -1,326 +1,188 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Building2 } from 'lucide-react';
-import { getToken } from '@/lib/auth';
-import { organizationsApi, propertiesApi, clientsApi } from '@/lib/api';
+import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { useParams, useRouter } from 'next/navigation';
+import { ArrowRight, Building2, CheckCircle2, Home, ShieldCheck, UserRound } from 'lucide-react';
+import { defaultLocale, isLocale } from '@/i18n';
+import { clearDemoRole, demoRolePath, getDemoRole, type DemoRole } from '@/lib/demo-auth';
 
-const STEPS = 4;
+type DemoContext = {
+  eyebrow: string;
+  title: string;
+  description: string;
+  button: string;
+  icon: React.ReactNode;
+  stats: Array<{ label: string; value: string }>;
+};
+
+const roleLabels: Record<DemoRole, string> = {
+  SUPERADMIN: 'Superadmin',
+  ADMIN: 'Administrator',
+  RESIDENT: 'Locatar',
+};
+
+const contexts: Record<DemoRole, DemoContext> = {
+  SUPERADMIN: {
+    eyebrow: 'Platformă Espace',
+    title: 'Ai ales demo-ul pentru Superadmin',
+    description: 'Vezi cum arată controlul platformei: asociații, administratori, abonamente și suport.',
+    button: 'Intră în Superadmin',
+    icon: <ShieldCheck className="h-5 w-5" />,
+    stats: [
+      { label: 'Context', value: 'Platformă Espace' },
+      { label: 'Asociații', value: '18 asociații' },
+      { label: 'Locatari conectați', value: '2,480 locatari' },
+    ],
+  },
+  ADMIN: {
+    eyebrow: 'APC Alba Iulia 75',
+    title: 'Ai ales demo-ul pentru Administrator',
+    description: 'Explorează administrarea zilnică pentru apartamente, locatari, contoare, plăți și cereri.',
+    button: 'Intră în administrare',
+    icon: <Building2 className="h-5 w-5" />,
+    stats: [
+      { label: 'Asociație', value: 'APC Alba Iulia 75' },
+      { label: 'Apartamente', value: '142 apartamente' },
+      { label: 'Scări', value: '4 scări' },
+      { label: 'Datorii totale', value: '86,450 MDL' },
+    ],
+  },
+  RESIDENT: {
+    eyebrow: 'Apt. 45, Scara 2',
+    title: 'Ai ales demo-ul pentru Locatar',
+    description: 'Intră într-o experiență simplă pentru facturi, citiri, anunțuri, cereri și mesaje.',
+    button: 'Intră ca locatar',
+    icon: <UserRound className="h-5 w-5" />,
+    stats: [
+      { label: 'Apartament', value: 'Apt. 45' },
+      { label: 'Scara', value: 'Scara 2' },
+      { label: 'Sold curent', value: '1,240 MDL' },
+      { label: 'Ultimul anunț', value: 'Lucrări programate la lift' },
+    ],
+  },
+};
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const [step, setStep] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  // Step 2: first property
-  const [propertyName, setPropertyName] = useState('');
-  const [basePrice, setBasePrice] = useState('');
-  const [rooms, setRooms] = useState('1');
-
-  // Step 3: first client (optional)
-  const [clientFirstName, setClientFirstName] = useState('');
-  const [clientLastName, setClientLastName] = useState('');
-  const [clientPhone, setClientPhone] = useState('');
-  const [clientEmail, setClientEmail] = useState('');
+  const params = useParams<{ locale?: string }>();
+  const localeParam = typeof params?.locale === 'string' ? params.locale : defaultLocale;
+  const locale = isLocale(localeParam) ? localeParam : defaultLocale;
+  const [role, setRole] = useState<DemoRole | null>(null);
+  const [storageChecked, setStorageChecked] = useState(false);
 
   useEffect(() => {
-    const token = getToken();
-    if (!token) {
-      router.replace('/');
-      return;
-    }
-    organizationsApi.getMe().then((res) => {
-      if (res.data?.onboardingCompleted === true) {
-        router.replace('/calendar');
-      }
-    }).catch(() => {});
-  }, [router]);
+    setRole(getDemoRole());
+    setStorageChecked(true);
+  }, []);
 
-  const handleStartSetup = () => {
-    setError('');
-    setStep(2);
+  const context = useMemo(() => (role ? contexts[role] : null), [role]);
+  const selectedRoleLabel = role ? roleLabels[role] : '';
+
+  const changeRole = () => {
+    clearDemoRole();
+    router.replace(`/${locale}/login`);
   };
 
-  const handleCreateProperty = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-    try {
-      await propertiesApi.create({
-        name: propertyName.trim(),
-        address: 'Address to be updated',
-        basePrice: Math.max(0.01, parseFloat(basePrice) || 0),
-        cleaningFee: 0,
-        rooms: Math.max(1, parseInt(rooms, 10) || 1),
-      });
-      setStep(3);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to create property');
-    } finally {
-      setLoading(false);
-    }
+  const enterDemo = () => {
+    if (!role) return;
+    router.replace(demoRolePath(role, locale));
   };
-
-  const handleSkipClient = () => {
-    setError('');
-    setStep(4);
-  };
-
-  const handleAddClient = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    if (!clientFirstName.trim() || !clientPhone.trim()) {
-      setError('First name and phone are required');
-      return;
-    }
-    setLoading(true);
-    try {
-      await clientsApi.create({
-        firstName: clientFirstName.trim(),
-        lastName: clientLastName.trim() || undefined,
-        phone: clientPhone.trim(),
-        email: clientEmail.trim() || undefined,
-      });
-      setStep(4);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to add client');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleFinish = async () => {
-    setError('');
-    setLoading(true);
-    try {
-      await organizationsApi.updateMe({ onboardingCompleted: true });
-      router.replace('/calendar');
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Something went wrong');
-      setLoading(false);
-    }
-  };
-
-  const progress = (step / STEPS) * 100;
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Progress bar */}
-      <div className="h-1 bg-gray-200">
-        <div
-          className="h-full bg-gray-800 transition-all duration-300 ease-in-out"
-          style={{ width: `${progress}%` }}
-        />
-      </div>
-
-      <div className="flex-1 flex items-center justify-center px-4 py-12">
-        <div className="w-full max-w-lg">
-          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8 transition-all duration-200 ease-in-out">
-            {error && (
-              <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                {error}
-              </div>
-            )}
-
-            {/* Step 1: Welcome */}
-            {step === 1 && (
-              <div className="text-center animate-modal-in">
-                <div className="w-20 h-20 mx-auto mb-6 bg-gray-100 rounded-2xl flex items-center justify-center text-4xl">
-                  <Building2 className="h-8 w-8 text-gray-700" />
-                </div>
-                <h1 className="text-xl font-semibold tracking-tight text-gray-800">
-                  Welcome to Espace PMS
-                </h1>
-                <p className="mt-4 text-sm text-gray-600 max-w-sm mx-auto">
-                  Set up your first property and client in a few steps. You can always add more later from the dashboard.
-                </p>
-                <button
-                  type="button"
-                  onClick={handleStartSetup}
-                  className="mt-8 w-full sm:w-auto px-8 py-3 text-sm font-medium text-white bg-black rounded-lg hover:opacity-90 transition-all duration-200"
-                >
-                  Start Setup
-                </button>
-              </div>
-            )}
-
-            {/* Step 2: Create first property */}
-            {step === 2 && (
-              <div className="animate-modal-in">
-                <h2 className="text-base font-medium text-gray-800">
-                  Add your first property
-                </h2>
-                <p className="mt-1 text-sm text-gray-600">
-                  Name, base price, and number of rooms.
-                </p>
-                <form onSubmit={handleCreateProperty} className="mt-6 space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
-                    <input
-                      type="text"
-                      value={propertyName}
-                      onChange={(e) => setPropertyName(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:border-gray-400"
-                      placeholder="e.g. Beach House"
-                      required
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Base price (€) *</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0.01"
-                        value={basePrice}
-                        onChange={(e) => setBasePrice(e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:border-gray-400"
-                        placeholder="0"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Rooms *</label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={rooms}
-                        onChange={(e) => setRooms(e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:border-gray-400"
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div className="flex gap-3 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setStep(1)}
-                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-all duration-200"
-                    >
-                      Back
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      className="px-4 py-2 text-sm font-medium text-white bg-black rounded-lg hover:opacity-90 transition-all duration-200 disabled:opacity-50"
-                    >
-                      {loading ? 'Creating...' : 'Continue'}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            )}
-
-            {/* Step 3: Add first client (optional) */}
-            {step === 3 && (
-              <div className="animate-modal-in">
-                <h2 className="text-base font-medium text-gray-800">
-                  Add your first client
-                </h2>
-                <p className="mt-1 text-sm text-gray-600">
-                  Optional. You can skip and add clients later.
-                </p>
-                <form onSubmit={handleAddClient} className="mt-6 space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">First name</label>
-                      <input
-                        type="text"
-                        value={clientFirstName}
-                        onChange={(e) => setClientFirstName(e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:border-gray-400"
-                        placeholder="John"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Last name</label>
-                      <input
-                        type="text"
-                        value={clientLastName}
-                        onChange={(e) => setClientLastName(e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:border-gray-400"
-                        placeholder="Doe"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                    <input
-                      type="text"
-                      value={clientPhone}
-                      onChange={(e) => setClientPhone(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:border-gray-400"
-                      placeholder="+33 6 12 34 56 78"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                    <input
-                      type="email"
-                      value={clientEmail}
-                      onChange={(e) => setClientEmail(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:border-gray-400"
-                      placeholder="john@example.com"
-                    />
-                  </div>
-                  <div className="flex gap-3 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setStep(2)}
-                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-all duration-200"
-                    >
-                      Back
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSkipClient}
-                      className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-all duration-200"
-                    >
-                      Skip
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={loading || (!clientFirstName.trim() || !clientPhone.trim())}
-                      className="px-4 py-2 text-sm font-medium text-white bg-black rounded-lg hover:opacity-90 transition-all duration-200 disabled:opacity-50"
-                    >
-                      {loading ? 'Adding...' : 'Add client'}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            )}
-
-            {/* Step 4: Confirmation */}
-            {step === 4 && (
-              <div className="text-center animate-modal-in">
-                <div className="w-20 h-20 mx-auto mb-6 bg-green-50 rounded-2xl flex items-center justify-center text-4xl">
-                  ✓
-                </div>
-                <h1 className="text-xl font-semibold tracking-tight text-gray-800">
-                  You&apos;re all set
-                </h1>
-                <p className="mt-4 text-sm text-gray-600 max-w-sm mx-auto">
-                  Your workspace is ready. Go to the dashboard to manage properties, clients, and reservations.
-                </p>
-                <button
-                  type="button"
-                  onClick={handleFinish}
-                  disabled={loading}
-                  className="mt-8 w-full sm:w-auto px-8 py-3 text-sm font-medium text-white bg-black rounded-lg hover:opacity-90 transition-all duration-200 disabled:opacity-50"
-                >
-                  {loading ? 'Loading...' : 'Go to Dashboard'}
-                </button>
-              </div>
-            )}
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(15,23,42,0.08),transparent_34%),linear-gradient(180deg,#f8fafc_0%,#eef2f7_100%)] px-4 py-8 text-foreground">
+      <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-4xl items-center justify-center">
+        <section className="w-full overflow-hidden rounded-[2rem] border border-border/70 bg-white/95 shadow-[0_28px_90px_rgba(15,23,42,0.12)]">
+          <div className="border-b border-border/70 px-5 py-4 sm:px-8">
+            <Link href={`/${locale}`} className="inline-flex items-center gap-3 text-sm font-semibold text-foreground">
+              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-foreground text-background">E</span>
+              Espace
+            </Link>
           </div>
 
-          <p className="mt-6 text-center text-xs text-gray-400">
-            Step {step} of {STEPS}
-          </p>
-        </div>
+          {storageChecked && context ? (
+            <div className="grid gap-0 lg:grid-cols-[0.95fr_1.05fr]">
+              <div className="bg-foreground p-6 text-background sm:p-8">
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-background/85">
+                  {context.icon}
+                  {context.eyebrow}
+                </div>
+                <h1 className="mt-8 text-3xl font-semibold tracking-tight sm:text-4xl">
+                  Bun venit în demo-ul Espace
+                </h1>
+                <p className="mt-4 max-w-sm text-sm leading-6 text-background/75">
+                  Confirmă contextul de lucru și intră în platformă. Datele sunt mock, păstrate doar în frontend.
+                </p>
+                <div className="mt-8 rounded-2xl border border-white/15 bg-white/10 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-background/50">Rol selectat</p>
+                  <p className="mt-2 text-xl font-semibold">{selectedRoleLabel}</p>
+                </div>
+              </div>
+
+              <div className="p-5 sm:p-8">
+                <div className="rounded-[1.5rem] border border-border/70 bg-muted/30 p-5">
+                  <div className="flex items-start gap-3">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-foreground shadow-sm">
+                      <CheckCircle2 className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <p className="text-sm font-semibold text-muted-foreground">Context demo</p>
+                      <h2 className="mt-1 text-2xl font-semibold tracking-tight">{context.title}</h2>
+                      <p className="mt-2 text-sm leading-6 text-muted-foreground">{context.description}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                    {context.stats.map((item) => (
+                      <div key={item.label} className="rounded-2xl border border-border/70 bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.04)]">
+                        <p className="text-xs font-semibold text-muted-foreground">{item.label}</p>
+                        <p className="mt-2 text-lg font-semibold tracking-tight text-foreground">{item.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-6 grid gap-3 sm:grid-cols-[1fr_auto]">
+                  <button
+                    type="button"
+                    onClick={enterDemo}
+                    className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-foreground px-5 py-3 text-sm font-semibold text-background transition hover:opacity-90"
+                  >
+                    {context.button}
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={changeRole}
+                    className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-border bg-white px-5 py-3 text-sm font-semibold text-foreground transition hover:bg-muted"
+                  >
+                    Schimbă rolul demo
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-6 sm:p-8">
+              <div className="mx-auto max-w-xl rounded-[1.5rem] border border-border/70 bg-muted/30 p-6 text-center">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-foreground shadow-sm">
+                  <Home className="h-5 w-5" />
+                </div>
+                <h1 className="mt-5 text-2xl font-semibold tracking-tight">Alege un rol demo</h1>
+                <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                  Nu am găsit un rol selectat. Poți intra din nou în pagina de login și alege Superadmin, Administrator sau Locatar.
+                </p>
+                <button
+                  type="button"
+                  onClick={changeRole}
+                  className="mt-6 inline-flex min-h-12 items-center justify-center rounded-2xl bg-foreground px-5 py-3 text-sm font-semibold text-background transition hover:opacity-90"
+                >
+                  Mergi la login
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
       </div>
-    </div>
+    </main>
   );
 }

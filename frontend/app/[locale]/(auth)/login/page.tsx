@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { Building2, ShieldCheck, UserRound } from 'lucide-react';
 import { defaultLocale, isLocale } from '@/i18n';
-import { demoRolePath, setDemoRole, type DemoRole } from '@/lib/demo-auth';
+import { demoOnboardingPath, setDemoRole, type DemoRole } from '@/lib/demo-auth';
 
 const demoRoles: Array<{
   role: DemoRole;
@@ -44,7 +44,7 @@ export default function LoginPage() {
 
   const enterAs = (role: DemoRole) => {
     setDemoRole(role);
-    router.replace(demoRolePath(role, locale));
+    router.replace(demoOnboardingPath(locale));
   };
 
   return (
