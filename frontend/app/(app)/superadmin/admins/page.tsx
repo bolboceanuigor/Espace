@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Mail, Phone, Plus, Search, ShieldCheck, UserPlus } from 'lucide-react';
 import { Badge, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
 import { superadminApi } from '@/lib/api';
+import { useLocalizedPath } from '@/lib/use-localized-path';
 import {
   mockAdministrators,
   mockAssociations,
@@ -24,6 +25,7 @@ const emptyForm = {
 };
 
 export default function SuperadminAdminsPage() {
+  const localizedPath = useLocalizedPath();
   const [admins, setAdmins] = useState<MvpAdministrator[]>(mockAdministrators);
   const [associations, setAssociations] = useState<MvpAssociation[]>(mockAssociations);
   const [query, setQuery] = useState('');
@@ -136,7 +138,7 @@ export default function SuperadminAdminsPage() {
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <StatCard label="Administratori" value={admins.length} description="Rol ADMIN" icon={<ShieldCheck className="h-5 w-5" />} />
         <StatCard label="Asociații acoperite" value={new Set(admins.map((admin) => admin.organizationId)).size} description="Au administrator" icon={<UserPlus className="h-5 w-5" />} tone="success" />
-        <StatCard label="Sursă date" value={source === 'api' ? 'reale' : 'demo'} description={source === 'api' ? 'API conectat' : 'Fallback local'} icon={<Mail className="h-5 w-5" />} tone={source === 'api' ? 'success' : 'warning'} />
+        <StatCard label="Sursă date" value={source === 'api' ? 'reale' : 'locale'} description={source === 'api' ? 'API conectat' : 'Fallback local'} icon={<Mail className="h-5 w-5" />} tone={source === 'api' ? 'success' : 'warning'} />
       </section>
 
       <Card>
@@ -170,7 +172,7 @@ export default function SuperadminAdminsPage() {
                 <span className="inline-flex items-center gap-2 text-muted-foreground"><Mail className="h-4 w-4" />{admin.email}</span>
                 <span className="inline-flex items-center gap-2 text-muted-foreground"><Phone className="h-4 w-4" />{admin.phone || '-'}</span>
               </div>
-              <Link href={`/ro/superadmin/organizations/${admin.organizationId}`} className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-2xl border border-border/70 text-sm font-semibold hover:bg-muted/60">
+              <Link href={localizedPath(`/superadmin/organizations/${admin.organizationId}`)} className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-2xl border border-border/70 text-sm font-semibold hover:bg-muted/60">
                 Deschide asociația
               </Link>
             </Card>

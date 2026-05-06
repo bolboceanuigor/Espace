@@ -44,7 +44,7 @@ export default function SuperadminSubscriptionsPage() {
       if (!active) return;
       setPlans(mockPlans);
       setSource('mock');
-      setError('API indisponibil temporar. Sunt afișate planuri demo.');
+      setError('API indisponibil temporar. Sunt afișate planuri locale.');
     });
     return () => {
       active = false;
@@ -129,7 +129,7 @@ export default function SuperadminSubscriptionsPage() {
             <p className="mt-1 text-sm text-muted-foreground">Limitele și funcționalitățile sunt folosite pentru management manual MVP.</p>
           </div>
           <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-            {source === 'api' ? 'Date reale' : 'Date demo'}
+            {source === 'api' ? 'Date reale' : 'Date locale'}
           </span>
         </div>
 

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Building2, Plus, Search, UserPlus } from 'lucide-react';
 import { Badge, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
 import { superadminApi } from '@/lib/api';
+import { useLocalizedPath } from '@/lib/use-localized-path';
 import {
   mockAssociations,
   normalizeApiAssociation,
@@ -29,6 +30,7 @@ const emptyForm = {
 };
 
 export default function SuperadminOrganizationsPage() {
+  const localizedPath = useLocalizedPath();
   const [rows, setRows] = useState<MvpAssociation[]>(mockAssociations);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<'ALL' | AssociationStatus>('ALL');
@@ -64,7 +66,7 @@ export default function SuperadminOrganizationsPage() {
         if (!active) return;
         setRows(mockAssociations);
         setSource('mock');
-        setListError('API indisponibil temporar. Sunt afișate date demo.');
+        setListError('API indisponibil temporar. Sunt afișate date locale.');
       });
     return () => {
       active = false;
@@ -196,7 +198,7 @@ export default function SuperadminOrganizationsPage() {
             <option value="INACTIVE">Inactive</option>
           </select>
           <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-            {source === 'api' ? 'Date reale' : 'Date demo'}
+            {source === 'api' ? 'Date reale' : 'Date locale'}
           </span>
         </div>
       </Card>
@@ -223,7 +225,7 @@ export default function SuperadminOrganizationsPage() {
                 <StatusButton disabled={updatingStatusId === row.id || row.status === 'ACTIVE'} onClick={() => updateAssociationStatus(row.id, 'ACTIVE')}>Activează</StatusButton>
                 <StatusButton disabled={updatingStatusId === row.id || row.status === 'TRIAL'} onClick={() => updateAssociationStatus(row.id, 'TRIAL')}>Pune în trial</StatusButton>
                 <StatusButton disabled={updatingStatusId === row.id || row.status === 'INACTIVE'} onClick={() => updateAssociationStatus(row.id, 'INACTIVE')}>Dezactivează</StatusButton>
-                <Link href={`/ro/superadmin/organizations/${row.id}`} className="inline-flex min-h-10 flex-1 items-center justify-center rounded-2xl border border-border/70 px-4 text-sm font-semibold text-foreground hover:bg-muted/60">
+                <Link href={localizedPath(`/superadmin/organizations/${row.id}`)} className="inline-flex min-h-10 flex-1 items-center justify-center rounded-2xl border border-border/70 px-4 text-sm font-semibold text-foreground hover:bg-muted/60">
                   Deschide
                 </Link>
               </div>

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Building2, CreditCard, ShieldCheck, Timer, UserCog, Users } from 'lucide-react';
 import { Card, PageHeader, StatCard } from '@/components/ui';
 import { superadminApi } from '@/lib/api';
+import { useLocalizedPath } from '@/lib/use-localized-path';
 import {
   mockAssociations,
   normalizeApiAssociation,
@@ -12,6 +13,7 @@ import {
 } from '@/lib/superadmin-mvp-data';
 
 export default function SuperadminPage() {
+  const localizedPath = useLocalizedPath();
   const [associations, setAssociations] = useState<MvpAssociation[]>(mockAssociations);
   const [source, setSource] = useState<'api' | 'mock'>('mock');
   const [overview, setOverview] = useState<any | null>(null);
@@ -73,7 +75,7 @@ export default function SuperadminPage() {
         title="Platformă"
         description="Vedere de ansamblu pentru Espace: asociații, administratori, locatari conectați și venit lunar."
         rightSlot={
-          <Link href="/ro/superadmin/organizations" className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background">
+          <Link href={localizedPath('/superadmin/organizations')} className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background">
             Vezi asociații
           </Link>
         }
@@ -90,10 +92,10 @@ export default function SuperadminPage() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-base font-semibold text-foreground">Asociații</h2>
-              <p className="mt-1 text-sm text-muted-foreground">Conturi demo pentru monitorizarea platformei.</p>
+              <p className="mt-1 text-sm text-muted-foreground">Asociații conectate în platformă.</p>
             </div>
             <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-              {source === 'api' ? 'Date API' : 'Date demo · API indisponibil temporar'}
+              {source === 'api' ? 'Date reale' : 'Date locale · API indisponibil temporar'}
             </span>
           </div>
           <div className="mt-5 space-y-3">
