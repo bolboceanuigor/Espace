@@ -6,8 +6,10 @@ import { Mail, MessageCircle, Phone, Search, UserRound, Users, UserX } from 'luc
 import { Badge, Card, Input, PageHeader, StatCard } from '@/components/ui';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { accountStatusVariant, adminResidents } from '@/lib/admin-mvp-data';
+import { useLocalizedPath } from '@/lib/use-localized-path';
 
 export default function AdminResidentsPage() {
+  const localizedPath = useLocalizedPath();
   const [query, setQuery] = useState('');
   const [role, setRole] = useState('toate');
   const [account, setAccount] = useState('toate');
@@ -64,8 +66,8 @@ export default function AdminResidentsPage() {
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-3">
               <p className={person.debt > 0 ? 'font-semibold text-rose-600' : 'font-semibold text-emerald-700'}>{formatMdl(person.debt)}</p>
               <div className="flex gap-2">
-                <Link href={`/admin/residents/${person.id}`} className="rounded-xl border border-border/70 px-3 py-2 text-xs font-semibold hover:bg-muted/60">Deschide</Link>
-                <Link href="/admin/chat" className="rounded-xl border border-border/70 px-3 py-2 text-xs font-semibold hover:bg-muted/60">Mesaj</Link>
+                <Link href={localizedPath(`/admin/residents/${person.id}`)} className="rounded-xl border border-border/70 px-3 py-2 text-xs font-semibold hover:bg-muted/60">Deschide</Link>
+                <Link href={localizedPath('/admin/chat')} className="rounded-xl border border-border/70 px-3 py-2 text-xs font-semibold hover:bg-muted/60">Mesaj</Link>
               </div>
             </div>
           </Card>

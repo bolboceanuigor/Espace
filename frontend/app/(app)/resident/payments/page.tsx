@@ -21,7 +21,7 @@ export default function ResidentPaymentsPage() {
         <StatCard label="Facturi neachitate" value={unpaidCount} description="Necesită atenție" icon={<Clock3 className="h-5 w-5" />} tone="warning" />
       </section>
 
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      <div className="flex flex-wrap gap-2">
         {(['Toate', 'Achitat', 'Neachitat', 'Întârziat'] as const).map((item) => (
           <button
             key={item}

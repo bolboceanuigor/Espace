@@ -3,6 +3,7 @@
 import { forwardRef } from 'react';
 import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
+import { useLocalizedPath } from '@/lib/use-localized-path';
 
 const base =
   'inline-flex items-center justify-center gap-1.5 rounded-2xl font-medium transition duration-150 ease-out focus:outline-none focus:ring-2 focus:ring-primary/35 focus:ring-offset-1 disabled:pointer-events-none disabled:opacity-50';
@@ -69,9 +70,11 @@ export function ButtonLink({
   children,
   ...props
 }: ButtonLinkProps) {
+  const localizedPath = useLocalizedPath();
+
   return (
     <Link
-      href={href}
+      href={localizedPath(href)}
       className={`${base} ${variants[variant]} ${sizes[size]} ${className}`.trim()}
       {...props}
     >

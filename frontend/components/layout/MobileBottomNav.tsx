@@ -63,7 +63,7 @@ export default function MobileBottomNav({ navItems }: { navItems: NavigationItem
             className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[11px] font-medium text-muted-foreground transition hover:text-foreground"
           >
             <Menu className="h-4.5 w-4.5" />
-            <span>More</span>
+            <span>Mai mult</span>
           </button>
         </div>
       </nav>
@@ -75,7 +75,7 @@ export default function MobileBottomNav({ navItems }: { navItems: NavigationItem
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-muted" />
-            <p className="mb-3 text-sm font-semibold text-foreground">More</p>
+            <p className="mb-3 text-sm font-semibold text-foreground">Navigare</p>
             <div className="space-y-1">
               {moreItems.map((item) => {
                 const target = resolveTarget(item);

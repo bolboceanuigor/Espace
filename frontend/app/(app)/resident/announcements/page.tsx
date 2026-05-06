@@ -8,7 +8,7 @@ export default function ResidentAnnouncementsPage() {
   return (
     <div className="space-y-5 pb-4">
       <PageHeader title="Avizier" description="Anunțurile importante ale comunității tale." />
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      <div className="flex flex-wrap gap-2">
         {['General', 'Reparații', 'Urgent', 'Administrare'].map((category) => (
           <span key={category} className="shrink-0 rounded-full border border-border/70 bg-white px-3 py-2 text-sm font-semibold text-muted-foreground">
             {category}

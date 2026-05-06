@@ -6,6 +6,7 @@ import { AlertCircle, Gauge, Home, Search, UserX } from 'lucide-react';
 import { Badge, Card, Input, PageHeader, StatCard } from '@/components/ui';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { adminApartments, apartmentStatusVariant, type AdminApartment } from '@/lib/admin-mvp-data';
+import { useLocalizedPath } from '@/lib/use-localized-path';
 
 const summary = [
   { label: 'Total apartamente', value: '142', description: 'În APC Alba Iulia 75', icon: <Home className="h-5 w-5" /> },
@@ -17,6 +18,7 @@ const summary = [
 const statusOptions = ['Toate', 'Activ', 'Datornic', 'Nelocuit', 'Problemă'];
 
 export default function AdminApartmentsPage() {
+  const localizedPath = useLocalizedPath();
   const [search, setSearch] = useState('');
   const [staircase, setStaircase] = useState('Toate');
   const [floor, setFloor] = useState('Toate');
@@ -49,7 +51,7 @@ export default function AdminApartmentsPage() {
       <PageHeader
         title="Apartamente"
         description="Gestionarea apartamentelor, contoarelor și datoriilor"
-        rightSlot={<Link href="/admin/apartments/apt-45" className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background">Deschide Apt. 45</Link>}
+        rightSlot={<Link href={localizedPath('/admin/apartments/apt-45')} className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background">Deschide Apt. 45</Link>}
       />
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -103,7 +105,7 @@ export default function AdminApartmentsPage() {
               <p className="text-xs text-muted-foreground">Ultima plată: {item.lastPayment}</p>
             </div>
             <span className="text-muted-foreground">{item.metersUpdated} actualizate, {item.metersMissing} lipsă</span>
-            <Link href={`/admin/apartments/${item.id}`} className="rounded-xl border border-border/70 px-3 py-2 text-xs font-semibold text-foreground hover:bg-muted/60">Deschide</Link>
+            <Link href={localizedPath(`/admin/apartments/${item.id}`)} className="rounded-xl border border-border/70 px-3 py-2 text-xs font-semibold text-foreground hover:bg-muted/60">Deschide</Link>
           </div>
         ))}
       </section>
@@ -112,8 +114,10 @@ export default function AdminApartmentsPage() {
 }
 
 function ApartmentMobileCard({ apartment }: { apartment: AdminApartment }) {
+  const localizedPath = useLocalizedPath();
+
   return (
-    <Link href={`/admin/apartments/${apartment.id}`} className="block rounded-[1.35rem] border border-border/70 bg-white/92 p-4 shadow-[0_14px_40px_rgba(15,23,42,0.045)]">
+    <Link href={localizedPath(`/admin/apartments/${apartment.id}`)} className="block rounded-[1.35rem] border border-border/70 bg-white/92 p-4 shadow-[0_14px_40px_rgba(15,23,42,0.045)]">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-lg font-semibold text-foreground">Apt. {apartment.number}</p>

@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
-import { Building2, CircleAlert, CreditCard, Gauge, Headphones, Home, Megaphone, MessageCircle, Settings, Shield, UserRound, Users } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Building2, ChevronRight, CircleAlert, CreditCard, Gauge, Headphones, Home, Megaphone, Menu, MessageCircle, Settings, Shield, UserRound, Users } from 'lucide-react';
 import { defaultLocale, isLocale } from '@/i18n';
 import {
   getMainNavigationItems,
@@ -36,6 +37,7 @@ const ICONS: Record<MainNavigationKey, React.ComponentType<{ className?: string 
 };
 
 export default function MainNavigation({ role, variant = 'responsive' }: MainNavigationProps) {
+  const [moreOpen, setMoreOpen] = useState(false);
   const pathname = usePathname();
   const params = useParams<{ locale?: string }>();
   const localeParam = typeof params?.locale === 'string' ? params.locale : defaultLocale;
@@ -48,7 +50,8 @@ export default function MainNavigation({ role, variant = 'responsive' }: MainNav
   const showMobile = variant !== 'desktop';
   const isWideMenu = items.length > 5;
   const gridTemplateColumns = `repeat(${items.length}, minmax(0, 1fr))`;
-  const mobileGridTemplateColumns = `repeat(${items.length}, minmax(${isWideMenu ? '76px' : '0'}, 1fr))`;
+  const mobilePrimaryItems = useMemo(() => items.slice(0, 4), [items]);
+  const mobileMoreItems = useMemo(() => items.slice(4), [items]);
 
   return (
     <>
@@ -100,58 +103,84 @@ export default function MainNavigation({ role, variant = 'responsive' }: MainNav
       ) : null}
 
       {showMobile ? (
-      <nav
-        aria-label="Navigare principală mobilă"
-        className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-40 overflow-x-auto rounded-[1.65rem] border border-border/70 bg-white/92 shadow-[0_24px_70px_rgba(15,23,42,0.18)] backdrop-blur-2xl supports-[backdrop-filter]:bg-white/82 md:hidden"
-      >
-        <div
-          className={`mx-auto grid items-end gap-1 px-2.5 py-2 ${
-            isWideMenu ? 'min-w-max max-w-none' : 'max-w-md'
-          }`}
-          style={{ gridTemplateColumns: mobileGridTemplateColumns }}
-        >
-        {items.map((item) => {
-          const target = `/${locale}${item.href}`;
-          const active = item.center
-            ? pathname === target
-            : pathname === target || pathname.startsWith(`${target}/`);
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.href}
-              href={target}
-              aria-current={active ? 'page' : undefined}
-              className={`group flex min-h-[60px] flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[11px] font-semibold leading-none transition duration-200 ease-out ${
-                item.center && !isWideMenu
-                  ? `relative -translate-y-4 mx-0.5 min-h-[76px] rounded-[1.35rem] border shadow-[0_16px_36px_rgba(15,23,42,0.16)] ${
-                      active
-                        ? 'border-foreground bg-foreground text-background'
-                        : 'border-border bg-background text-foreground'
-                    }`
-                  : active
-                    ? 'bg-muted text-foreground'
-                    : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
-              }`}
-            >
-              <span
-                className={`flex items-center justify-center rounded-full transition ${
-                  item.center
-                    ? active
-                      ? 'bg-white/15'
-                      : 'bg-muted'
-                    : active
-                      ? 'bg-white'
-                      : 'bg-transparent group-hover:bg-background'
-                } ${item.center ? 'h-10 w-10' : 'h-8 w-8'}`}
+        <>
+          <nav
+            aria-label="Navigare principală mobilă"
+            className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-40 rounded-[1.65rem] border border-border/70 bg-white/92 shadow-[0_24px_70px_rgba(15,23,42,0.18)] backdrop-blur-2xl supports-[backdrop-filter]:bg-white/82 md:hidden"
+          >
+            <div className="mx-auto grid max-w-md grid-cols-5 items-end gap-1 px-2.5 py-2">
+              {mobilePrimaryItems.map((item) => {
+                const target = `/${locale}${item.href}`;
+                const active = item.center
+                  ? pathname === target
+                  : pathname === target || pathname.startsWith(`${target}/`);
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={target}
+                    aria-current={active ? 'page' : undefined}
+                    className={`group flex min-h-[60px] min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[11px] font-semibold leading-none transition duration-200 ease-out ${
+                      active ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+                    }`}
+                  >
+                    <span className={`flex h-8 w-8 items-center justify-center rounded-full transition ${active ? 'bg-white' : 'bg-transparent group-hover:bg-background'}`}>
+                      <Icon className="h-[18px] w-[18px]" />
+                    </span>
+                    <span className="max-w-full truncate">{item.label}</span>
+                  </Link>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => setMoreOpen(true)}
+                className="group flex min-h-[60px] min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[11px] font-semibold leading-none text-muted-foreground transition duration-200 ease-out hover:bg-muted/60 hover:text-foreground"
               >
-                <Icon className={item.center ? 'h-5 w-5' : 'h-[18px] w-[18px]'} />
-              </span>
-              <span className="max-w-full truncate">{item.label}</span>
-            </Link>
-          );
-        })}
-        </div>
-      </nav>
+                <span className="flex h-8 w-8 items-center justify-center rounded-full transition group-hover:bg-background">
+                  <Menu className="h-[18px] w-[18px]" />
+                </span>
+                <span className="max-w-full truncate">Mai mult</span>
+              </button>
+            </div>
+          </nav>
+
+          {moreOpen ? (
+            <div className="fixed inset-0 z-50 bg-black/40 md:hidden" onClick={() => setMoreOpen(false)}>
+              <div
+                className="absolute inset-x-0 bottom-0 max-h-[72vh] overflow-y-auto rounded-t-[1.75rem] border-t border-border/70 bg-white p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-[0_-24px_70px_rgba(15,23,42,0.18)]"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-muted" />
+                <p className="mb-3 text-sm font-semibold text-foreground">Navigare</p>
+                <div className="grid gap-2">
+                  {mobileMoreItems.map((item) => {
+                    const target = `/${locale}${item.href}`;
+                    const active = pathname === target || pathname.startsWith(`${target}/`);
+                    const Icon = item.icon;
+                    return (
+                      <Link
+                        key={item.href}
+                        href={target}
+                        onClick={() => setMoreOpen(false)}
+                        className={`flex min-h-12 items-center justify-between rounded-2xl border px-3 text-sm font-semibold ${
+                          active
+                            ? 'border-foreground/20 bg-muted text-foreground'
+                            : 'border-border/70 bg-white text-foreground hover:bg-muted/50'
+                        }`}
+                      >
+                        <span className="inline-flex min-w-0 items-center gap-3">
+                          <Icon className="h-4 w-4 shrink-0" />
+                          <span className="truncate">{item.label}</span>
+                        </span>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </>
       ) : null}
     </>
   );

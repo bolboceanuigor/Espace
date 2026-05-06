@@ -190,14 +190,14 @@ function AppShellContent({ children }: AppShellProps) {
   }, [isAuthenticated, normalizedRole, user?.organizationId]);
 
   useEffect(() => {
-    if (normalizedRole !== 'ADMIN') return;
+    if (isPreviewSession || normalizedRole !== 'ADMIN') return;
     if (!adminSubscription?.status) return;
     if (!isAdminHardBlocked(adminSubscription.status)) return;
     const isAllowedRoute = pathname.includes('/admin/subscription') || pathname.includes('/support');
     if (!isAllowedRoute) {
       router.replace(`/${locale}/admin/subscription`);
     }
-  }, [adminSubscription?.status, locale, normalizedRole, pathname, router]);
+  }, [adminSubscription?.status, isPreviewSession, locale, normalizedRole, pathname, router]);
 
   useEffect(() => {
     if (!navigationItems.length) return;
@@ -233,10 +233,10 @@ function AppShellContent({ children }: AppShellProps) {
     return () => {
       active = false;
     };
-  }, [locale, normalizedRole, pathname, router]);
+  }, [isPreviewSession, locale, normalizedRole, pathname, router]);
 
   useEffect(() => {
-    if (normalizedRole !== 'ADMIN') {
+    if (isPreviewSession || normalizedRole !== 'ADMIN') {
       setShowOnboardingTips(false);
       return;
     }
@@ -255,7 +255,7 @@ function AppShellContent({ children }: AppShellProps) {
     return () => {
       active = false;
     };
-  }, [normalizedRole, pathname]);
+  }, [isPreviewSession, normalizedRole, pathname]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -263,7 +263,7 @@ function AppShellContent({ children }: AppShellProps) {
   }, []);
 
   useEffect(() => {
-    if (normalizedRole !== 'SUPER_ADMIN') {
+    if (isPreviewSession || normalizedRole !== 'SUPER_ADMIN') {
       setSupportSession(null);
       return;
     }
@@ -281,7 +281,7 @@ function AppShellContent({ children }: AppShellProps) {
     return () => {
       active = false;
     };
-  }, [normalizedRole, pathname]);
+  }, [isPreviewSession, normalizedRole, pathname]);
 
   useEffect(() => {
     if (!isAuthenticated || !user?.id) {
@@ -334,7 +334,7 @@ function AppShellContent({ children }: AppShellProps) {
   }, [isAuthenticated, user?.id, normalizedRole]);
 
   useEffect(() => {
-    if (!['RESIDENT', 'TENANT'].includes(normalizedRole)) {
+    if (isPreviewSession || !['RESIDENT', 'TENANT'].includes(normalizedRole)) {
       setNotifications([]);
       return;
     }
@@ -352,7 +352,7 @@ function AppShellContent({ children }: AppShellProps) {
     return () => {
       active = false;
     };
-  }, [normalizedRole, pathname]);
+  }, [isPreviewSession, normalizedRole, pathname]);
 
   const canUseDemoPresentation = normalizedRole === 'SUPER_ADMIN' && !!supportSession?.organization?.isDemo;
   const effectiveDemoPresentationMode = canUseDemoPresentation && demoPresentationMode;
@@ -505,7 +505,7 @@ function AppShellContent({ children }: AppShellProps) {
                   {notificationsOpen ? (
                     <div className="absolute right-0 z-50 mt-2 w-80 rounded-xl border border-border/70 bg-card p-2 shadow-lg">
                       <div className="mb-2 flex items-center justify-between">
-                        <p className="text-xs font-semibold text-foreground">Notifications</p>
+                        <p className="text-xs font-semibold text-foreground">Notificări</p>
                         <button
                           className="text-[11px] text-primary"
                           onClick={async () => {
@@ -513,7 +513,7 @@ function AppShellContent({ children }: AppShellProps) {
                             setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
                           }}
                         >
-                          Mark all read
+                          Marchează tot ca citit
                         </button>
                       </div>
                       <div className="max-h-72 space-y-1 overflow-y-auto">
@@ -536,7 +536,7 @@ function AppShellContent({ children }: AppShellProps) {
                             <p className="line-clamp-2">{item.message}</p>
                           </button>
                         ))}
-                        {!notifications.length ? <p className="text-xs text-muted-foreground">No notifications.</p> : null}
+                        {!notifications.length ? <p className="text-xs text-muted-foreground">Nu ai notificări.</p> : null}
                       </div>
                     </div>
                   ) : null}
@@ -575,7 +575,7 @@ function AppShellContent({ children }: AppShellProps) {
                     updatePreferences({ welcomeDismissed: true }).catch(() => undefined);
                   }}
                 >
-                  Dismiss
+                  Închide
                 </button>
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
@@ -596,12 +596,12 @@ function AppShellContent({ children }: AppShellProps) {
               <span className="inline-flex items-center rounded-md border border-border/60 bg-background px-2 py-0.5 text-xs font-medium">
                 Trial
               </span>{' '}
-              — {trialInfo.daysRemaining} days left
+              — {trialInfo.daysRemaining} zile rămase
             </div>
           ) : null}
           {trialInfo?.status === 'EXPIRED' || trialInfo?.status === 'PAST_DUE' ? (
             <div className="mt-3 rounded-2xl border border-border/60 bg-muted/50 px-3 py-2 text-sm text-foreground">
-              Trial ended — contact us
+              Trial expirat — contactează-ne
             </div>
           ) : null}
           {planLimitWarning ? (
@@ -611,7 +611,7 @@ function AppShellContent({ children }: AppShellProps) {
           ) : null}
           {normalizedRole === 'SUPER_ADMIN' && supportSession?.isActive ? (
             <div className="mt-3 flex items-center justify-between gap-2 rounded-2xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-              <span>Support mode active: {supportSession.organization?.name || 'Organization'}</span>
+              <span>Mod suport activ: {supportSession.organization?.name || 'Asociație'}</span>
               <div className="flex items-center gap-2">
                 {canUseDemoPresentation ? (
                   <>
@@ -625,13 +625,13 @@ function AppShellContent({ children }: AppShellProps) {
                           localStorage.setItem(DEMO_PRESENTATION_MODE_KEY, next ? 'true' : 'false');
                         }}
                       />
-                      demoPresentationMode
+                      Mod prezentare
                     </label>
                     <button
                       className="rounded-md border border-amber-400 bg-white px-2 py-1 text-xs"
                       onClick={() => router.push(`/${locale}/admin`)}
                     >
-                      Start Demo
+                      Pornește demo
                     </button>
                   </>
                 ) : null}
@@ -644,7 +644,7 @@ function AppShellContent({ children }: AppShellProps) {
                     localStorage.setItem(DEMO_PRESENTATION_MODE_KEY, 'false');
                   }}
                 >
-                  Exit support mode
+                  Ieși din suport
                 </button>
               </div>
             </div>
@@ -658,10 +658,10 @@ function AppShellContent({ children }: AppShellProps) {
                     className="rounded-md border border-sky-400 bg-white px-2 py-1"
                     onClick={() => router.push(`/${locale}/admin`)}
                   >
-                    Start Demo
+                    Pornește demo
                   </button>
                   <Link href={`/${locale}/superadmin/demo`} className="rounded-md border border-sky-400 bg-white px-2 py-1">
-                    Reset demo data
+                    Resetează datele demo
                   </Link>
                 </div>
               </div>
@@ -705,9 +705,9 @@ function AppShellContent({ children }: AppShellProps) {
           <div className="fixed right-4 top-24 z-50 w-full max-w-sm rounded-xl border border-border/70 bg-card p-4 shadow-lg">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <p className="text-sm font-semibold text-foreground">What&apos;s new</p>
+                <p className="text-sm font-semibold text-foreground">Noutăți</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Ai {unreadReleaseNotes.length} release note{unreadReleaseNotes.length > 1 ? 's' : ''} necitite.
+                  Ai {unreadReleaseNotes.length} actualizări necitite.
                 </p>
               </div>
               <button className="rounded-md border border-border/70 p-1" onClick={() => setReleaseNotesPromptOpen(false)}>
@@ -730,10 +730,10 @@ function AppShellContent({ children }: AppShellProps) {
                   setReleaseNotesPromptOpen(false);
                 }}
               >
-                View release notes
+                Vezi noutățile
               </button>
               <button className="rounded-md border border-border/70 px-3 py-1.5 text-xs" onClick={() => setReleaseNotesPromptOpen(false)}>
-                Later
+                Mai târziu
               </button>
             </div>
           </div>

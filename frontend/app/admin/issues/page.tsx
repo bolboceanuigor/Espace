@@ -12,12 +12,14 @@ import {
   type IssuePriority,
   type IssueStatus,
 } from '@/lib/admin-mvp-data';
+import { useLocalizedPath } from '@/lib/use-localized-path';
 
 const categories: Array<'Toate' | IssueCategory> = ['Toate', 'Apă', 'Încălzire', 'Curățenie', 'Lift', 'Reparații', 'Altele'];
 const priorities: Array<'Toate' | IssuePriority> = ['Toate', 'Normal', 'Important', 'Urgent'];
 const statuses: Array<'Toate' | IssueStatus> = ['Toate', 'Nouă', 'În lucru', 'Rezolvată'];
 
 export default function AdminIssuesPage() {
+  const localizedPath = useLocalizedPath();
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<'Toate' | IssueCategory>('Toate');
   const [priority, setPriority] = useState<'Toate' | IssuePriority>('Toate');
@@ -73,7 +75,7 @@ export default function AdminIssuesPage() {
                 </p>
                 <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">{request.message}</p>
               </div>
-              <Link href={`/admin/issues/${request.id}`} className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-border/70 px-4 text-sm font-semibold text-foreground hover:bg-muted/60">
+              <Link href={localizedPath(`/admin/issues/${request.id}`)} className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-border/70 px-4 text-sm font-semibold text-foreground hover:bg-muted/60">
                 Deschide
               </Link>
             </div>

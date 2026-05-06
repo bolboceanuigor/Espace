@@ -58,13 +58,13 @@ export default function AdminChatPage() {
             <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input className="pl-9" placeholder="Caută conversații" value={query} onChange={(event) => setQuery(event.target.value)} />
           </label>
-          <div className="mt-3 flex gap-2 overflow-x-auto pb-1 lg:block lg:space-y-2 lg:overflow-visible lg:pb-0">
+          <div className="mt-3 grid gap-2">
             {filtered.map((conversation) => (
               <button
                 key={conversation.id}
                 type="button"
                 onClick={() => selectConversation(conversation.id)}
-                className={`min-w-[260px] rounded-2xl border p-3 text-left transition lg:w-full lg:min-w-0 ${
+                className={`w-full rounded-2xl border p-3 text-left transition ${
                   selected?.id === conversation.id ? 'border-foreground/20 bg-muted/70' : 'border-border/60 bg-white hover:bg-muted/50'
                 }`}
               >

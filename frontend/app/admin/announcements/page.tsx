@@ -4,8 +4,11 @@ import Link from 'next/link';
 import { CalendarDays, Megaphone, PlusCircle, Tag } from 'lucide-react';
 import { Badge, ButtonLink, Card, PageHeader } from '@/components/ui';
 import { adminAnnouncements, announcementCategoryVariant } from '@/lib/admin-mvp-data';
+import { useLocalizedPath } from '@/lib/use-localized-path';
 
 export default function AdminAnnouncementsPage() {
+  const localizedPath = useLocalizedPath();
+
   return (
     <div className="space-y-5 pb-4">
       <PageHeader
@@ -14,7 +17,7 @@ export default function AdminAnnouncementsPage() {
         rightSlot={<ButtonLink href="/admin/announcements/ann-1"><PlusCircle className="h-4 w-4" /> Adaugă anunț</ButtonLink>}
       />
 
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      <div className="flex flex-wrap gap-2">
         {['General', 'Reparații', 'Urgent', 'Administrare'].map((category) => (
           <span key={category} className="shrink-0 rounded-full border border-border/70 bg-white px-3 py-2 text-sm font-semibold text-muted-foreground">
             {category}
@@ -47,7 +50,7 @@ export default function AdminAnnouncementsPage() {
                 <Megaphone className="h-3.5 w-3.5" />
                 {item.status}
               </span>
-              <Link href={`/admin/announcements/${item.id}`} className="inline-flex min-h-10 items-center rounded-xl border border-border/70 px-3 text-xs font-semibold hover:bg-muted/60">
+              <Link href={localizedPath(`/admin/announcements/${item.id}`)} className="inline-flex min-h-10 items-center rounded-xl border border-border/70 px-3 text-xs font-semibold hover:bg-muted/60">
                 Deschide
               </Link>
             </div>

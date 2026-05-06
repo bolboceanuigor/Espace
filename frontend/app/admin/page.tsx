@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { AlertCircle, Bell, Building2, CreditCard, FileText, Gauge, Megaphone, MessageCircle, PlusCircle, Users } from 'lucide-react';
 import { ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
 import { formatMdl } from '@/lib/condo-admin-fallback';
+import { useLocalizedPath } from '@/lib/use-localized-path';
 
 const BUILDING_NAME = 'APC Alba Iulia 75';
 
@@ -41,6 +42,8 @@ const announcements = [
 ];
 
 export default function AdminPage() {
+  const localizedPath = useLocalizedPath();
+
   return (
     <div className="space-y-5 pb-4">
       <PageHeader
@@ -83,7 +86,7 @@ export default function AdminPage() {
           </div>
           <div className="mt-4 space-y-2">
             {urgentRequests.map((item) => (
-              <Link key={item.title} href="/admin/issues" className="block rounded-2xl border border-border/60 bg-white px-3 py-2 text-sm hover:bg-muted/40">
+              <Link key={item.title} href={localizedPath('/admin/issues')} className="block rounded-2xl border border-border/60 bg-white px-3 py-2 text-sm hover:bg-muted/40">
                 <span className="font-medium text-foreground">{item.title}</span>
                 <span className="mt-1 block text-xs text-muted-foreground">{item.apartment} · {item.status}</span>
               </Link>
@@ -96,7 +99,7 @@ export default function AdminPage() {
         <Card>
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold text-foreground">Ultimele plăți</p>
-            <Link href="/admin/payments" className="text-xs font-semibold text-primary">Vezi toate</Link>
+            <Link href={localizedPath('/admin/payments')} className="text-xs font-semibold text-primary">Vezi toate</Link>
           </div>
           <div className="mt-4 space-y-2">
             {latestPayments.map((payment) => (
@@ -114,7 +117,7 @@ export default function AdminPage() {
         <Card>
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold text-foreground">Anunțuri recente</p>
-            <Link href="/admin/announcements" className="text-xs font-semibold text-primary">Avizier</Link>
+            <Link href={localizedPath('/admin/announcements')} className="text-xs font-semibold text-primary">Avizier</Link>
           </div>
           <div className="mt-4 space-y-2">
             {announcements.map((title) => (

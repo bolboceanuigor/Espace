@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { PlusCircle, Wrench } from 'lucide-react';
 import { Badge, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
 import { residentIssues, residentIssuePriorityVariant, residentIssueStatusVariant } from '@/lib/resident-mvp-data';
+import { useLocalizedPath } from '@/lib/use-localized-path';
 
 export default function ResidentIssuesPage() {
   const active = residentIssues.filter((request) => request.status !== 'Rezolvată');
@@ -43,6 +44,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function IssueCard({ request }: { request: (typeof residentIssues)[number] }) {
+  const localizedPath = useLocalizedPath();
+
   return (
     <Card className="p-4">
       <div className="flex items-start justify-between gap-3">
@@ -55,7 +58,7 @@ function IssueCard({ request }: { request: (typeof residentIssues)[number] }) {
       <p className="mt-3 text-sm leading-6 text-muted-foreground">{request.message}</p>
       <div className="mt-3 flex flex-wrap gap-2">
         <Badge variant={residentIssuePriorityVariant[request.priority]}>{request.priority}</Badge>
-        <Link href="/resident/chat" className="inline-flex min-h-9 items-center rounded-xl border border-border/70 px-3 text-xs font-semibold hover:bg-muted/60">
+        <Link href={localizedPath('/resident/chat')} className="inline-flex min-h-9 items-center rounded-xl border border-border/70 px-3 text-xs font-semibold hover:bg-muted/60">
           Mesaj
         </Link>
       </div>

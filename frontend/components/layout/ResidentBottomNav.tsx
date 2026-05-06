@@ -6,11 +6,11 @@ import { CreditCard, FileText, Home, Menu, Wrench } from 'lucide-react';
 import { defaultLocale, isLocale } from '@/i18n';
 
 const ITEMS = [
-  { href: '/resident', label: 'Home', icon: Home },
-  { href: '/resident/invoices', label: 'Invoices', icon: FileText },
-  { href: '/resident/payments/new', label: 'Pay', icon: CreditCard },
-  { href: '/resident/issues', label: 'Issues', icon: Wrench },
-  { href: '/resident/profile', label: 'More', icon: Menu },
+  { href: '/resident', label: 'Acasă', icon: Home },
+  { href: '/resident/invoices', label: 'Facturi', icon: FileText },
+  { href: '/resident/payments/new', label: 'Achită', icon: CreditCard },
+  { href: '/resident/issues', label: 'Cereri', icon: Wrench },
+  { href: '/resident/account', label: 'Cont', icon: Menu },
 ];
 
 export default function ResidentBottomNav() {
@@ -43,4 +43,3 @@ export default function ResidentBottomNav() {
     </nav>
   );
 }
-

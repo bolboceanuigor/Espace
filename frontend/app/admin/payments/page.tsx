@@ -6,10 +6,12 @@ import { CheckCircle2, Clock3, CreditCard, ReceiptText, Search } from 'lucide-re
 import { Badge, ButtonLink, Card, Input, PageHeader, StatCard } from '@/components/ui';
 import { adminInvoices, invoiceStatusVariant, type AdminInvoice, type InvoiceStatus } from '@/lib/admin-mvp-data';
 import { formatMdl } from '@/lib/condo-admin-fallback';
+import { useLocalizedPath } from '@/lib/use-localized-path';
 
 const filters: Array<'Toate' | InvoiceStatus> = ['Toate', 'Achitat', 'Neachitat', 'Întârziat'];
 
 export default function AdminPaymentsPage() {
+  const localizedPath = useLocalizedPath();
   const [status, setStatus] = useState<'Toate' | InvoiceStatus>('Toate');
   const [query, setQuery] = useState('');
 
@@ -39,7 +41,7 @@ export default function AdminPaymentsPage() {
             <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input className="pl-9" placeholder="Caută apartament, lună sau număr factură" value={query} onChange={(event) => setQuery(event.target.value)} />
           </label>
-          <div className="flex gap-2 overflow-x-auto pb-1 md:pb-0">
+          <div className="flex flex-wrap gap-2">
             {filters.map((item) => (
               <button
                 key={item}
@@ -94,7 +96,7 @@ export default function AdminPaymentsPage() {
             <p className="font-semibold text-foreground">Emitere facturi lunare</p>
             <p className="mt-1 text-sm text-muted-foreground">Flux mock pentru generarea facturilor după citiri și tarife.</p>
           </div>
-          <Link href="/admin/invoices" className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-foreground px-4 text-sm font-semibold text-background">
+          <Link href={localizedPath('/admin/invoices')} className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-foreground px-4 text-sm font-semibold text-background">
             Vezi facturi
           </Link>
         </div>

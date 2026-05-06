@@ -5,6 +5,7 @@ import { Bell, CreditCard, Gauge, MessageCircle, Send, Wrench } from 'lucide-rea
 import { Badge, Card, PageHeader } from '@/components/ui';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { residentAnnouncements, residentIssues, residentMeters, residentProfile } from '@/lib/resident-mvp-data';
+import { useLocalizedPath } from '@/lib/use-localized-path';
 
 const quickActions = [
   { label: 'Transmite citiri', icon: <Gauge className="h-5 w-5" />, href: '/resident/meters' },
@@ -14,6 +15,7 @@ const quickActions = [
 ];
 
 export default function ResidentDashboardPage() {
+  const localizedPath = useLocalizedPath();
   const latestAnnouncement = residentAnnouncements[0];
   const missingMeters = residentMeters.filter((meter) => meter.status === 'Lipsă citire');
   const activeIssues = residentIssues.filter((issue) => issue.status !== 'Rezolvată');
@@ -41,7 +43,7 @@ export default function ResidentDashboardPage() {
           {quickActions.map((item) => (
             <Link
               key={item.label}
-              href={item.href}
+              href={localizedPath(item.href)}
               className="flex min-h-14 items-center gap-3 rounded-2xl border border-border/70 bg-muted/25 px-4 text-sm font-semibold text-foreground transition hover:bg-white"
             >
               <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-foreground text-background">{item.icon}</span>
@@ -55,7 +57,7 @@ export default function ResidentDashboardPage() {
         <Card>
           <div className="flex items-center justify-between">
             <h2 className="font-semibold text-foreground">Ultimul anunț</h2>
-            <Link href="/resident/announcements" className="text-xs font-semibold text-primary">Vezi tot</Link>
+            <Link href={localizedPath('/resident/announcements')} className="text-xs font-semibold text-primary">Vezi tot</Link>
           </div>
           <div className="mt-4 rounded-2xl border border-border/70 bg-muted/25 p-3">
             <div className="flex items-start justify-between gap-2">
@@ -73,7 +75,7 @@ export default function ResidentDashboardPage() {
             <Bell className="mt-0.5 h-4 w-4" />
             Ai {missingMeters.length} citire lipsă pentru contorul de gaz.
           </p>
-          <Link href="/resident/meters" className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-border/70 text-sm font-semibold">
+          <Link href={localizedPath('/resident/meters')} className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-border/70 text-sm font-semibold">
             <Send className="h-4 w-4" />
             Transmite acum
           </Link>
@@ -92,7 +94,7 @@ export default function ResidentDashboardPage() {
               </div>
             ))}
           </div>
-          <Link href="/resident/issues" className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-border/70 text-sm font-semibold">Deschide cereri</Link>
+          <Link href={localizedPath('/resident/issues')} className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-border/70 text-sm font-semibold">Deschide cereri</Link>
         </Card>
       </section>
     </div>
