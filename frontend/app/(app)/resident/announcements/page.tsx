@@ -1,13 +1,48 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { CalendarDays, Megaphone, Tag } from 'lucide-react';
 import { Badge, Card, PageHeader } from '@/components/ui';
-import { residentAnnouncementVariant, residentAnnouncements } from '@/lib/resident-mvp-data';
+import { residentDemoApi } from '@/lib/api';
+import { normalizeResidentAnnouncement, residentAnnouncementVariant, residentAnnouncements } from '@/lib/resident-mvp-data';
 
 export default function ResidentAnnouncementsPage() {
+  const [rows, setRows] = useState(residentAnnouncements);
+  const [source, setSource] = useState<'api' | 'mock'>('mock');
+
+  useEffect(() => {
+    let active = true;
+    residentDemoApi
+      .announcements()
+      .then((res) => {
+        if (!active) return;
+        const apiRows = (res.data || []).map(normalizeResidentAnnouncement);
+        if (apiRows.length) {
+          setRows(apiRows);
+          setSource('api');
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        setRows(residentAnnouncements);
+        setSource('mock');
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <div className="space-y-5 pb-4">
-      <PageHeader title="Avizier" description="Anunțurile importante ale comunității tale." />
+      <PageHeader
+        title="Avizier"
+        description="Anunțurile importante ale comunității tale."
+        rightSlot={
+          <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
+            {source === 'api' ? 'Date reale' : 'Date demo'}
+          </span>
+        }
+      />
       <div className="flex flex-wrap gap-2">
         {['General', 'Reparații', 'Urgent', 'Administrare'].map((category) => (
           <span key={category} className="shrink-0 rounded-full border border-border/70 bg-white px-3 py-2 text-sm font-semibold text-muted-foreground">
@@ -16,7 +51,7 @@ export default function ResidentAnnouncementsPage() {
         ))}
       </div>
       <section className="grid gap-3">
-        {residentAnnouncements.map((item) => (
+        {rows.map((item) => (
           <Card key={item.id} className={`p-4 ${item.category === 'Urgent' ? 'border-rose-200 bg-rose-50/40' : item.category === 'Reparații' ? 'border-amber-200 bg-amber-50/40' : ''}`}>
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">

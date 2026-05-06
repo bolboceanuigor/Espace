@@ -871,6 +871,15 @@ export const announcementsApi = {
   get: (id: string) => apiRequest<any>(`/announcements/${id}`),
 };
 
+export const residentDemoApi = {
+  context: () => apiRequest<any>('/resident/demo'),
+  invoices: () => apiRequest<any[]>('/resident/invoices'),
+  payments: () => apiRequest<any[]>('/resident/payments'),
+  meters: () => apiRequest<any[]>('/resident/meters'),
+  issues: () => apiRequest<any[]>('/resident/issues'),
+  announcements: () => apiRequest<any[]>('/resident/announcements'),
+};
+
 export const votesApi = {
   adminList: (params?: { status?: 'DRAFT' | 'ACTIVE' | 'CLOSED' | 'PUBLISHED' }) =>
     apiRequest<any[]>('/api/admin/votes', { params }),

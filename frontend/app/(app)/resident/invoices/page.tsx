@@ -1,15 +1,50 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { Badge, Card, PageHeader } from '@/components/ui';
+import { residentDemoApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
-import { residentInvoices, residentInvoiceStatusVariant } from '@/lib/resident-mvp-data';
+import { normalizeResidentInvoice, residentInvoices, residentInvoiceStatusVariant } from '@/lib/resident-mvp-data';
 
 export default function ResidentInvoicesPage() {
+  const [rows, setRows] = useState(residentInvoices);
+  const [source, setSource] = useState<'api' | 'mock'>('mock');
+
+  useEffect(() => {
+    let active = true;
+    residentDemoApi
+      .invoices()
+      .then((res) => {
+        if (!active) return;
+        const apiRows = (res.data || []).map(normalizeResidentInvoice);
+        if (apiRows.length) {
+          setRows(apiRows);
+          setSource('api');
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        setRows(residentInvoices);
+        setSource('mock');
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <div className="space-y-5 pb-4">
-      <PageHeader title="Facturi" description="Facturile lunare pentru Apt. 45." />
+      <PageHeader
+        title="Facturi"
+        description="Facturile lunare pentru Apt. 45."
+        rightSlot={
+          <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
+            {source === 'api' ? 'Date reale' : 'Date demo'}
+          </span>
+        }
+      />
       <section className="grid gap-3">
-        {residentInvoices.map((invoice) => (
+        {rows.map((invoice) => (
           <Card key={invoice.id} className="p-4">
             <div className="flex items-start justify-between gap-3">
               <div>

@@ -3,6 +3,13 @@ export type ResidentMeterStatus = 'Actualizat' | 'Lipsă citire';
 export type ResidentIssueStatus = 'Nouă' | 'În lucru' | 'Rezolvată';
 export type ResidentIssuePriority = 'Normal' | 'Important' | 'Urgent';
 export type ResidentAnnouncementCategory = 'General' | 'Reparații' | 'Urgent' | 'Administrare';
+export type ResidentPayment = {
+  id: string;
+  amount: number;
+  method: string;
+  paidAt: string;
+  status: string;
+};
 
 export const residentProfile = {
   name: 'Popescu Ion',
@@ -133,6 +140,170 @@ export const residentMessages = [
   { id: 'msg-2', sender: 'Administrație', content: 'Mulțumim. Am creat o cerere și revenim cu programarea verificării.', mine: false, time: '18:24' },
   { id: 'msg-3', sender: 'Tu', content: 'Perfect, sunt acasă după ora 18:00.', mine: true, time: '18:29' },
 ];
+
+export const residentPayments: ResidentPayment[] = [
+  { id: 'pay-2026-04', amount: 1160, method: 'Card bancar', paidAt: '21 Aprilie 2026', status: 'CONFIRMED' },
+  { id: 'pay-2026-03', amount: 980, method: 'Transfer bancar', paidAt: '18 Martie 2026', status: 'CONFIRMED' },
+];
+
+function dateLabel(value?: string | null) {
+  if (!value) return 'Nu există';
+  return new Intl.DateTimeFormat('ro-RO', { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(value));
+}
+
+function monthLabel(month?: number | string | null, year?: number | string | null) {
+  const monthNumber = Number(month || 0);
+  const yearNumber = Number(year || new Date().getFullYear());
+  if (!monthNumber) return 'Luna curentă';
+  return new Intl.DateTimeFormat('ro-RO', { month: 'long', year: 'numeric' }).format(new Date(yearNumber, monthNumber - 1, 1));
+}
+
+function invoiceStatusFromApi(status?: string): ResidentInvoiceStatus {
+  const normalized = String(status || '').toUpperCase();
+  if (normalized === 'PAID') return 'Achitat';
+  if (normalized === 'OVERDUE') return 'Întârziat';
+  return 'Neachitat';
+}
+
+function meterTypeFromApi(type?: string) {
+  const normalized = String(type || '').toUpperCase();
+  if (normalized === 'HOT_WATER') return 'Apă caldă';
+  if (normalized === 'GAS') return 'Gaz';
+  if (normalized === 'ELECTRICITY') return 'Electricitate';
+  if (normalized === 'HEATING') return 'Încălzire';
+  return 'Apă rece';
+}
+
+function meterUnit(type: string) {
+  if (type === 'Electricitate') return 'kWh';
+  if (type === 'Încălzire') return 'MWh';
+  return 'm³';
+}
+
+function meterStatusFromApi(status?: string, hasReading = true): ResidentMeterStatus {
+  const normalized = String(status || '').toUpperCase();
+  return normalized === 'MISSING_READING' || normalized === 'INACTIVE' || !hasReading ? 'Lipsă citire' : 'Actualizat';
+}
+
+function issueCategoryFromApi(category?: string) {
+  const normalized = String(category || '').toUpperCase();
+  if (normalized === 'WATER') return 'Apă';
+  if (normalized === 'HEATING') return 'Încălzire';
+  if (normalized === 'CLEANING') return 'Curățenie';
+  if (normalized === 'ELEVATOR') return 'Lift';
+  if (normalized === 'REPAIR') return 'Reparații';
+  return 'Altele';
+}
+
+function issuePriorityFromApi(priority?: string): ResidentIssuePriority {
+  const normalized = String(priority || '').toUpperCase();
+  if (normalized === 'URGENT' || normalized === 'HIGH') return 'Urgent';
+  if (normalized === 'IMPORTANT' || normalized === 'MEDIUM') return 'Important';
+  return 'Normal';
+}
+
+function issueStatusFromApi(status?: string): ResidentIssueStatus {
+  const normalized = String(status || '').toUpperCase();
+  if (normalized === 'RESOLVED' || normalized === 'CLOSED') return 'Rezolvată';
+  if (normalized === 'IN_PROGRESS' || normalized === 'WAITING') return 'În lucru';
+  return 'Nouă';
+}
+
+function announcementCategoryFromApi(category?: string): ResidentAnnouncementCategory {
+  const normalized = String(category || '').toUpperCase();
+  if (normalized === 'REPAIR') return 'Reparații';
+  if (normalized === 'URGENT') return 'Urgent';
+  if (normalized === 'ADMINISTRATION') return 'Administrare';
+  return 'General';
+}
+
+function paymentMethodFromApi(method?: string | null) {
+  const normalized = String(method || '').toUpperCase();
+  if (normalized === 'CASH') return 'Numerar';
+  if (normalized === 'BANK' || normalized === 'BANK_TRANSFER') return 'Transfer bancar';
+  if (normalized === 'CARD') return 'Card bancar';
+  if (normalized === 'ONLINE') return 'Online';
+  return '-';
+}
+
+export function normalizeResidentInvoice(row: any) {
+  return {
+    id: String(row?.id || 'invoice'),
+    number: String(row?.invoiceNumber || `FAC-${row?.year || '2026'}-${String(row?.month || '').padStart(2, '0')}-${row?.apartmentNumber || '45'}`),
+    month: monthLabel(row?.month, row?.year),
+    amount: Number(row?.amount ?? 0),
+    dueDate: dateLabel(row?.dueDate),
+    status: invoiceStatusFromApi(row?.status),
+    services: Array.isArray(row?.services) && row.services.length ? row.services : ['întreținere', 'fond reparații', 'apă', 'încălzire', 'curățenie', 'lift'],
+    paidDate: row?.paidAt ? dateLabel(row.paidAt) : '',
+  };
+}
+
+export function normalizeResidentPayment(row: any): ResidentPayment {
+  return {
+    id: String(row?.id || 'payment'),
+    amount: Number(row?.amount || 0),
+    method: paymentMethodFromApi(row?.method),
+    paidAt: dateLabel(row?.paidAt || row?.createdAt),
+    status: String(row?.status || 'CONFIRMED'),
+  };
+}
+
+export function normalizeResidentMeter(row: any) {
+  const type = meterTypeFromApi(row?.type);
+  const unit = meterUnit(type);
+  const lastValue = row?.lastReading?.value;
+  const hasReading = lastValue !== null && lastValue !== undefined;
+  return {
+    id: String(row?.id || 'meter'),
+    type,
+    serial: String(row?.serialNumber || '-'),
+    reading: hasReading ? `${Number(lastValue).toLocaleString('ro-RO')} ${unit}` : 'Lipsă citire',
+    date: dateLabel(row?.lastReading?.readingDate),
+    status: meterStatusFromApi(row?.status, hasReading),
+    unit,
+  };
+}
+
+export function normalizeResidentIssue(row: any) {
+  return {
+    id: String(row?.id || 'issue'),
+    title: String(row?.title || 'Cerere'),
+    category: issueCategoryFromApi(row?.category),
+    date: dateLabel(row?.createdAt),
+    status: issueStatusFromApi(row?.status),
+    priority: issuePriorityFromApi(row?.priority),
+    message: String(row?.preview || row?.description || ''),
+  };
+}
+
+export function normalizeResidentAnnouncement(row: any) {
+  return {
+    id: String(row?.id || 'announcement'),
+    title: String(row?.title || 'Anunț'),
+    category: announcementCategoryFromApi(row?.category),
+    date: dateLabel(row?.createdAt),
+    content: String(row?.content || row?.preview || ''),
+  };
+}
+
+export function normalizeResidentContext(row: any) {
+  const apartment = row?.apartment;
+  const resident = row?.resident;
+  const status = String(row?.balance?.status || '').toUpperCase();
+  return {
+    name: String(resident?.name || residentProfile.name),
+    phone: String(resident?.phone || residentProfile.phone),
+    email: String(resident?.email || residentProfile.email),
+    apartment: apartment?.number ? `Apt. ${apartment.number}` : residentProfile.apartment,
+    staircase: String(apartment?.staircase?.name || residentProfile.staircase),
+    role: String(resident?.role || residentProfile.role),
+    building: String(apartment?.building?.name || residentProfile.building),
+    currentBalance: Number(row?.balance?.current ?? residentProfile.currentBalance),
+    status: status === 'PAID' ? 'Achitat' : status === 'OVERDUE' ? 'Întârziat' : 'Neachitat',
+    nextDueDate: row?.balance?.nextDueDate ? dateLabel(row.balance.nextDueDate) : residentProfile.nextDueDate,
+  };
+}
 
 export const residentInvoiceStatusVariant: Record<ResidentInvoiceStatus, 'success' | 'warning' | 'error'> = {
   Achitat: 'success',

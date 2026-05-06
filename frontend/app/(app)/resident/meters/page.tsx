@@ -1,13 +1,37 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CheckCircle2, Droplets, Gauge } from 'lucide-react';
 import { Badge, Button, Card, Input, PageHeader, StatCard } from '@/components/ui';
-import { residentMeters, residentMeterStatusVariant, type ResidentMeterStatus } from '@/lib/resident-mvp-data';
+import { residentDemoApi } from '@/lib/api';
+import { normalizeResidentMeter, residentMeters, residentMeterStatusVariant, type ResidentMeterStatus } from '@/lib/resident-mvp-data';
 
 export default function ResidentMetersPage() {
   const [meters, setMeters] = useState(residentMeters);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [source, setSource] = useState<'api' | 'mock'>('mock');
+
+  useEffect(() => {
+    let active = true;
+    residentDemoApi
+      .meters()
+      .then((res) => {
+        if (!active) return;
+        const apiRows = (res.data || []).map(normalizeResidentMeter);
+        if (apiRows.length) {
+          setMeters(apiRows);
+          setSource('api');
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        setMeters(residentMeters);
+        setSource('mock');
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const submitReading = (id: string, unit: string) => {
     const value = drafts[id]?.trim();
@@ -24,7 +48,15 @@ export default function ResidentMetersPage() {
 
   return (
     <div className="space-y-5 pb-4">
-      <PageHeader title="Contoare" description="Transmite citirile pentru apartamentul tău." />
+      <PageHeader
+        title="Contoare"
+        description="Transmite citirile pentru apartamentul tău."
+        rightSlot={
+          <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
+            {source === 'api' ? 'Date reale' : 'Date demo'}
+          </span>
+        }
+      />
       <section className="grid gap-3 sm:grid-cols-2">
         <StatCard label="Contoare active" value={meters.length} description="Apt. 45" icon={<Gauge className="h-5 w-5" />} />
         <StatCard label="Citiri lipsă" value={meters.filter((meter) => meter.status === 'Lipsă citire').length} description="De completat luna aceasta" icon={<Droplets className="h-5 w-5" />} tone="warning" />

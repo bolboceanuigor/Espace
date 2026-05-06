@@ -1,10 +1,21 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { Bell, CreditCard, Gauge, MessageCircle, Send, Wrench } from 'lucide-react';
 import { Badge, Card, PageHeader } from '@/components/ui';
+import { residentDemoApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
-import { residentAnnouncements, residentIssues, residentMeters, residentProfile } from '@/lib/resident-mvp-data';
+import {
+  normalizeResidentAnnouncement,
+  normalizeResidentContext,
+  normalizeResidentIssue,
+  normalizeResidentMeter,
+  residentAnnouncements,
+  residentIssues,
+  residentMeters,
+  residentProfile,
+} from '@/lib/resident-mvp-data';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 const quickActions = [
@@ -16,24 +27,69 @@ const quickActions = [
 
 export default function ResidentDashboardPage() {
   const localizedPath = useLocalizedPath();
-  const latestAnnouncement = residentAnnouncements[0];
-  const missingMeters = residentMeters.filter((meter) => meter.status === 'Lipsă citire');
-  const activeIssues = residentIssues.filter((issue) => issue.status !== 'Rezolvată');
+  const [profile, setProfile] = useState(residentProfile);
+  const [announcements, setAnnouncements] = useState(residentAnnouncements);
+  const [meters, setMeters] = useState(residentMeters);
+  const [issues, setIssues] = useState(residentIssues);
+  const [source, setSource] = useState<'api' | 'mock'>('mock');
+  const latestAnnouncement = announcements[0];
+  const missingMeters = meters.filter((meter) => meter.status === 'Lipsă citire');
+  const activeIssues = issues.filter((issue) => issue.status !== 'Rezolvată');
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([
+      residentDemoApi.context(),
+      residentDemoApi.announcements().catch(() => ({ data: [] })),
+      residentDemoApi.meters().catch(() => ({ data: [] })),
+      residentDemoApi.issues().catch(() => ({ data: [] })),
+    ])
+      .then(([contextRes, announcementsRes, metersRes, issuesRes]) => {
+        if (!active) return;
+        setProfile(normalizeResidentContext(contextRes.data));
+        const apiAnnouncements = (announcementsRes.data || []).map(normalizeResidentAnnouncement);
+        const apiMeters = (metersRes.data || []).map(normalizeResidentMeter);
+        const apiIssues = (issuesRes.data || []).map(normalizeResidentIssue);
+        if (apiAnnouncements.length) setAnnouncements(apiAnnouncements);
+        if (apiMeters.length) setMeters(apiMeters);
+        if (apiIssues.length) setIssues(apiIssues);
+        setSource('api');
+      })
+      .catch(() => {
+        if (!active) return;
+        setProfile(residentProfile);
+        setAnnouncements(residentAnnouncements);
+        setMeters(residentMeters);
+        setIssues(residentIssues);
+        setSource('mock');
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
     <div className="space-y-5 pb-4">
-      <PageHeader title="Acasă" description="Tot ce contează pentru locuința ta, într-un singur loc." />
+      <PageHeader
+        title="Acasă"
+        description="Tot ce contează pentru locuința ta, într-un singur loc."
+        rightSlot={
+          <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
+            {source === 'api' ? 'Date reale' : 'Date demo'}
+          </span>
+        }
+      />
 
       <Card className="overflow-hidden p-0">
         <div className="bg-foreground p-5 text-background">
-          <p className="text-sm opacity-75">{residentProfile.building}</p>
-          <h1 className="mt-2 text-3xl font-semibold">{residentProfile.apartment}</h1>
-          <p className="mt-1 text-sm opacity-75">{residentProfile.staircase}</p>
+          <p className="text-sm opacity-75">{profile.building}</p>
+          <h1 className="mt-2 text-3xl font-semibold">{profile.apartment}</h1>
+          <p className="mt-1 text-sm opacity-75">{profile.staircase}</p>
         </div>
         <div className="grid gap-3 p-4 sm:grid-cols-3">
-          <Info label="Sold curent" value={formatMdl(residentProfile.currentBalance)} danger />
-          <Info label="Status" value={residentProfile.status} danger />
-          <Info label="Următoarea scadență" value={residentProfile.nextDueDate} />
+          <Info label="Sold curent" value={formatMdl(profile.currentBalance)} danger={profile.currentBalance > 0} />
+          <Info label="Status" value={profile.status} danger={profile.status !== 'Achitat'} />
+          <Info label="Următoarea scadență" value={profile.nextDueDate} />
         </div>
       </Card>
 

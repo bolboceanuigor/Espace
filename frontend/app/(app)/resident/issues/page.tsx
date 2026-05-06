@@ -1,25 +1,59 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { PlusCircle, Wrench } from 'lucide-react';
 import { Badge, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
-import { residentIssues, residentIssuePriorityVariant, residentIssueStatusVariant } from '@/lib/resident-mvp-data';
+import { residentDemoApi } from '@/lib/api';
+import { normalizeResidentIssue, residentIssues, residentIssuePriorityVariant, residentIssueStatusVariant } from '@/lib/resident-mvp-data';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 export default function ResidentIssuesPage() {
-  const active = residentIssues.filter((request) => request.status !== 'Rezolvată');
-  const history = residentIssues.filter((request) => request.status === 'Rezolvată');
+  const localizedPath = useLocalizedPath();
+  const [rows, setRows] = useState(residentIssues);
+  const [source, setSource] = useState<'api' | 'mock'>('mock');
+  const active = rows.filter((request) => request.status !== 'Rezolvată');
+  const history = rows.filter((request) => request.status === 'Rezolvată');
+
+  useEffect(() => {
+    let activeRequest = true;
+    residentDemoApi
+      .issues()
+      .then((res) => {
+        if (!activeRequest) return;
+        const apiRows = (res.data || []).map(normalizeResidentIssue);
+        if (apiRows.length) {
+          setRows(apiRows);
+          setSource('api');
+        }
+      })
+      .catch(() => {
+        if (!activeRequest) return;
+        setRows(residentIssues);
+        setSource('mock');
+      });
+    return () => {
+      activeRequest = false;
+    };
+  }, []);
 
   return (
     <div className="space-y-5 pb-4">
       <PageHeader
         title="Cereri"
         description="Trimite și urmărește solicitările pentru apartamentul tău."
-        rightSlot={<ButtonLink href="/resident/issues/new"><PlusCircle className="h-4 w-4" /> Cerere nouă</ButtonLink>}
+        rightSlot={
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
+              {source === 'api' ? 'Date reale' : 'Date demo'}
+            </span>
+            <ButtonLink href={localizedPath('/resident/issues/new')}><PlusCircle className="h-4 w-4" /> Cerere nouă</ButtonLink>
+          </div>
+        }
       />
       <section className="grid gap-3 sm:grid-cols-3">
         <StatCard label="Active" value={active.length} description="În atenția administrației" icon={<Wrench className="h-5 w-5" />} tone="warning" />
-        <StatCard label="Noi" value={residentIssues.filter((item) => item.status === 'Nouă').length} description="Trimise recent" icon={<Wrench className="h-5 w-5" />} />
+        <StatCard label="Noi" value={rows.filter((item) => item.status === 'Nouă').length} description="Trimise recent" icon={<Wrench className="h-5 w-5" />} />
         <StatCard label="Rezolvate" value={history.length} description="Finalizate" icon={<Wrench className="h-5 w-5" />} tone="success" />
       </section>
 
