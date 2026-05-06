@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Building2, Plus, Search, UserPlus } from 'lucide-react';
-import { Badge, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
+import { Building2, Plus, Search, UserPlus, ArrowUpRight, Filter } from 'lucide-react';
+import { Badge, Card, Modal, ModalBody, ModalFooter, ModalHeader, StatCard } from '@/components/ui';
 import { superadminApi } from '@/lib/api';
 import {
   mockAssociations,
@@ -17,7 +17,7 @@ import {
 const emptyForm = {
   name: '',
   address: '',
-  city: 'Chișinău',
+  city: 'Chisinau',
   country: 'Moldova',
   currency: 'MDL' as 'MDL' | 'EUR' | 'USD',
   status: 'ACTIVE' as AssociationStatus,
@@ -62,7 +62,7 @@ export default function SuperadminOrganizationsPage() {
         if (!active) return;
         setRows(mockAssociations);
         setSource('mock');
-        setListError('API indisponibil temporar. Sunt afișate date demo.');
+        setListError('API indisponibil temporar. Sunt afisate date demo.');
       });
     return () => {
       active = false;
@@ -104,7 +104,7 @@ export default function SuperadminOrganizationsPage() {
       status: form.status,
     };
     if (!payload.name || !payload.address || !payload.city || !payload.country) {
-      setFormError('Completează numele, adresa, orașul și țara.');
+      setFormError('Completeaza numele, adresa, orasul si tara.');
       return;
     }
 
@@ -116,141 +116,256 @@ export default function SuperadminOrganizationsPage() {
       setSource('api');
       setForm(emptyForm);
       setModalOpen(false);
-      setSuccessMessage('Asociația a fost creată.');
+      setSuccessMessage('Asociatia a fost creata.');
       await loadOrganizations().catch(() => undefined);
     } catch {
-      setFormError('Nu am putut crea asociația. Încearcă din nou.');
+      setFormError('Nu am putut crea asociatia. Incearca din nou.');
     } finally {
       setIsCreating(false);
     }
   };
 
   return (
-    <div className="space-y-5 pb-4">
-      <PageHeader
-        title="Asociații"
-        description="Organizațiile din platformă, administratorii lor și starea de activare."
-        rightSlot={
-          <button
-            type="button"
-            onClick={() => setModalOpen(true)}
-            className="inline-flex min-h-10 items-center gap-2 rounded-2xl bg-foreground px-4 text-sm font-semibold text-background"
-          >
-            <Plus className="h-4 w-4" />
-            Adaugă asociație
-          </button>
-        }
-      />
+    <div className="space-y-6 pb-6">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Asociatii</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Organizatiile din platforma, administratorii lor si starea de activare.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setModalOpen(true)}
+          className="inline-flex items-center gap-2 rounded-xl bg-foreground px-4 py-2.5 text-sm font-medium text-white transition hover:bg-foreground/90"
+        >
+          <Plus className="h-4 w-4" />
+          Adauga asociatie
+        </button>
+      </div>
 
-      {successMessage ? (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+      {/* Alerts */}
+      {successMessage && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
           {successMessage}
         </div>
-      ) : null}
-      {listError ? (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+      )}
+      {listError && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
           {listError}
         </div>
-      ) : null}
+      )}
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Total asociații" value={totals.total} description="În platformă" icon={<Building2 className="h-5 w-5" />} />
-        <StatCard label="Active" value={totals.active} description="Cu acces operațional" icon={<Building2 className="h-5 w-5" />} tone="success" />
-        <StatCard label="Trial" value={totals.trial} description="În evaluare" icon={<UserPlus className="h-5 w-5" />} tone="warning" />
-        <StatCard label="Apartamente" value={totals.apartments} description="Administrate total" icon={<Building2 className="h-5 w-5" />} />
+      {/* Stats */}
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard 
+          label="Total asociatii" 
+          value={totals.total} 
+          description="In platforma" 
+          icon={<Building2 className="h-5 w-5" />} 
+        />
+        <StatCard 
+          label="Active" 
+          value={totals.active} 
+          description="Cu acces operational" 
+          icon={<Building2 className="h-5 w-5" />} 
+          tone="success" 
+        />
+        <StatCard 
+          label="Trial" 
+          value={totals.trial} 
+          description="In evaluare" 
+          icon={<UserPlus className="h-5 w-5" />} 
+          tone="warning" 
+        />
+        <StatCard 
+          label="Apartamente" 
+          value={totals.apartments} 
+          description="Administrate total" 
+          icon={<Building2 className="h-5 w-5" />} 
+        />
       </section>
 
-      <Card>
+      {/* Filters */}
+      <Card className="p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <label className="relative min-w-0 flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input className="pl-9" placeholder="Caută asociație, oraș sau administrator" value={query} onChange={(event) => setQuery(event.target.value)} />
-          </label>
-          <select
-            value={status}
-            onChange={(event) => setStatus(event.target.value as 'ALL' | AssociationStatus)}
-            className="h-11 rounded-2xl border border-border/70 bg-white px-3 text-sm text-foreground outline-none"
-          >
-            <option value="ALL">Toate statusurile</option>
-            <option value="ACTIVE">Active</option>
-            <option value="TRIAL">Trial</option>
-            <option value="INACTIVE">Inactive</option>
-          </select>
-          <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-            {source === 'api' ? 'Date reale' : 'Date demo'}
-          </span>
+          <div className="relative flex-1 lg:max-w-md">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Cauta asociatie, oras sau administrator..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="h-10 w-full rounded-lg border border-border bg-white pl-10 pr-4 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-foreground/20 focus:ring-2 focus:ring-foreground/5"
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value as 'ALL' | AssociationStatus)}
+                className="h-10 rounded-lg border border-border bg-white px-3 text-sm text-foreground outline-none transition focus:border-foreground/20"
+              >
+                <option value="ALL">Toate statusurile</option>
+                <option value="ACTIVE">Active</option>
+                <option value="TRIAL">Trial</option>
+                <option value="INACTIVE">Inactive</option>
+              </select>
+            </div>
+            <span className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
+              source === 'api' 
+                ? 'bg-emerald-50 text-emerald-700' 
+                : 'bg-amber-50 text-amber-700'
+            }`}>
+              {source === 'api' ? 'Date reale' : 'Date demo'}
+            </span>
+          </div>
         </div>
       </Card>
 
-      <section className="grid gap-3">
-        {filteredRows.map((row) => (
-          <Card key={row.id} className="p-4">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-lg font-semibold text-foreground">{row.name}</h2>
-                  <Badge variant={statusBadgeVariant(row.status)}>{statusLabel(row.status)}</Badge>
-                </div>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {row.address}, {row.city}, {row.country} · {row.apartmentsCount} apartamente · {row.currency}
-                </p>
-              </div>
-              <div className="grid gap-2 text-sm sm:grid-cols-3 lg:min-w-[520px]">
-                <Mini label="Administrator" value={row.administratorName} />
-                <Mini label="Email" value={row.administratorEmail || '-'} />
-                <Mini label="Telefon" value={row.administratorPhone || '-'} />
-              </div>
-              <Link href={`/ro/superadmin/organizations/${row.id}`} className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-border/70 px-4 text-sm font-semibold text-foreground hover:bg-muted/60">
-                Deschide
-              </Link>
-            </div>
+      {/* Organizations List */}
+      <section className="space-y-3">
+        {filteredRows.length === 0 ? (
+          <Card className="py-12 text-center">
+            <Building2 className="mx-auto h-12 w-12 text-muted-foreground/50" />
+            <p className="mt-4 text-sm font-medium text-foreground">Nicio asociatie gasita</p>
+            <p className="mt-1 text-sm text-muted-foreground">Incearca sa modifici filtrele sau termenul de cautare.</p>
           </Card>
-        ))}
+        ) : (
+          filteredRows.map((row) => (
+            <Card key={row.id} className="p-5 transition hover:shadow-md">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-muted">
+                    <Building2 className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-base font-semibold text-foreground">{row.name}</h2>
+                      <Badge variant={statusBadgeVariant(row.status)}>{statusLabel(row.status)}</Badge>
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {row.address}, {row.city}, {row.country} · {row.apartmentsCount} apartamente · {row.currency}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                  <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[400px]">
+                    <InfoCell label="Administrator" value={row.administratorName} />
+                    <InfoCell label="Email" value={row.administratorEmail || '-'} />
+                    <InfoCell label="Telefon" value={row.administratorPhone || '-'} />
+                  </div>
+                  <Link 
+                    href={`/ro/superadmin/organizations/${row.id}`} 
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground transition hover:bg-muted"
+                  >
+                    Deschide
+                    <ArrowUpRight className="h-4 w-4" />
+                  </Link>
+                </div>
+              </div>
+            </Card>
+          ))
+        )}
       </section>
 
+      {/* Create Modal */}
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} maxWidth="2xl">
-        <ModalHeader title="Adaugă asociație" onClose={() => setModalOpen(false)} />
+        <ModalHeader title="Adauga asociatie" onClose={() => setModalOpen(false)} />
         <ModalBody>
-          <div className="grid gap-3 md:grid-cols-2">
-            <Field label="Nume asociație" value={form.name} onChange={(value) => setForm({ ...form, name: value })} required />
-            <Field label="Oraș" value={form.city} onChange={(value) => setForm({ ...form, city: value })} />
-            <Field label="Adresă" value={form.address} onChange={(value) => setForm({ ...form, address: value })} />
-            <Field label="Țară" value={form.country} onChange={(value) => setForm({ ...form, country: value })} />
+          <div className="grid gap-4 md:grid-cols-2">
+            <FormField 
+              label="Nume asociatie" 
+              value={form.name} 
+              onChange={(v) => setForm({ ...form, name: v })} 
+              required 
+            />
+            <FormField 
+              label="Oras" 
+              value={form.city} 
+              onChange={(v) => setForm({ ...form, city: v })} 
+            />
+            <FormField 
+              label="Adresa" 
+              value={form.address} 
+              onChange={(v) => setForm({ ...form, address: v })} 
+            />
+            <FormField 
+              label="Tara" 
+              value={form.country} 
+              onChange={(v) => setForm({ ...form, country: v })} 
+            />
             <label className="block">
-              <span className="label">Monedă</span>
-              <select className="select" value={form.currency} onChange={(event) => setForm({ ...form, currency: event.target.value as typeof form.currency })}>
+              <span className="mb-1.5 block text-sm font-medium text-foreground">Moneda</span>
+              <select 
+                className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-foreground outline-none transition focus:border-foreground/20" 
+                value={form.currency} 
+                onChange={(e) => setForm({ ...form, currency: e.target.value as typeof form.currency })}
+              >
                 <option value="MDL">MDL</option>
                 <option value="EUR">EUR</option>
                 <option value="USD">USD</option>
               </select>
             </label>
             <label className="block">
-              <span className="label">Status</span>
-              <select className="select" value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as AssociationStatus })}>
-                <option value="ACTIVE">Activă</option>
+              <span className="mb-1.5 block text-sm font-medium text-foreground">Status</span>
+              <select 
+                className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-foreground outline-none transition focus:border-foreground/20" 
+                value={form.status} 
+                onChange={(e) => setForm({ ...form, status: e.target.value as AssociationStatus })}
+              >
+                <option value="ACTIVE">Activa</option>
                 <option value="TRIAL">Trial</option>
-                <option value="INACTIVE">Inactivă</option>
+                <option value="INACTIVE">Inactiva</option>
               </select>
             </label>
-            <Field label="Administrator" value={form.administratorName} onChange={(value) => setForm({ ...form, administratorName: value })} />
-            <Field label="Email administrator" value={form.administratorEmail} onChange={(value) => setForm({ ...form, administratorEmail: value })} type="email" />
-            <Field label="Telefon administrator" value={form.administratorPhone} onChange={(value) => setForm({ ...form, administratorPhone: value })} />
+            <FormField 
+              label="Administrator" 
+              value={form.administratorName} 
+              onChange={(v) => setForm({ ...form, administratorName: v })} 
+            />
+            <FormField 
+              label="Email administrator" 
+              value={form.administratorEmail} 
+              onChange={(v) => setForm({ ...form, administratorEmail: v })} 
+              type="email" 
+            />
+            <FormField 
+              label="Telefon administrator" 
+              value={form.administratorPhone} 
+              onChange={(v) => setForm({ ...form, administratorPhone: v })} 
+            />
           </div>
-          {formError ? (
-            <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
+          
+          {formError && (
+            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
               {formError}
-            </p>
-          ) : null}
+            </div>
+          )}
+          
           <p className="mt-4 text-xs text-muted-foreground">
-            Asociația este creată în baza de date prin API-ul Espace. Administratorul poate fi adăugat într-un pas separat.
+            Asociatia este creata in baza de date prin API-ul Espace. Administratorul poate fi adaugat intr-un pas separat.
           </p>
         </ModalBody>
         <ModalFooter>
-          <button type="button" onClick={() => setModalOpen(false)} disabled={isCreating} className="rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold disabled:opacity-60">
-            Anulează
+          <button 
+            type="button" 
+            onClick={() => setModalOpen(false)} 
+            disabled={isCreating} 
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-muted disabled:opacity-50"
+          >
+            Anuleaza
           </button>
-          <button type="button" onClick={createAssociation} disabled={isCreating} className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background disabled:opacity-60">
-            {isCreating ? 'Se creează...' : 'Creează asociație'}
+          <button 
+            type="button" 
+            onClick={createAssociation} 
+            disabled={isCreating} 
+            className="rounded-lg bg-foreground px-4 py-2 text-sm font-medium text-white transition hover:bg-foreground/90 disabled:opacity-50"
+          >
+            {isCreating ? 'Se creeaza...' : 'Creeaza asociatie'}
           </button>
         </ModalFooter>
       </Modal>
@@ -258,16 +373,16 @@ export default function SuperadminOrganizationsPage() {
   );
 }
 
-function Mini({ label, value }: { label: string; value: string }) {
+function InfoCell({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl bg-muted/35 px-3 py-2">
+    <div className="rounded-lg bg-muted/50 px-3 py-2">
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-1 truncate font-medium text-foreground">{value}</p>
+      <p className="mt-0.5 truncate text-sm font-medium text-foreground">{value}</p>
     </div>
   );
 }
 
-function Field({
+function FormField({
   label,
   value,
   onChange,
@@ -282,8 +397,15 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="label">{label}{required ? ' *' : ''}</span>
-      <input className="input" type={type} value={value} onChange={(event) => onChange(event.target.value)} />
+      <span className="mb-1.5 block text-sm font-medium text-foreground">
+        {label}{required && <span className="text-red-500"> *</span>}
+      </span>
+      <input 
+        className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-foreground/20 focus:ring-2 focus:ring-foreground/5" 
+        type={type} 
+        value={value} 
+        onChange={(e) => onChange(e.target.value)} 
+      />
     </label>
   );
 }
