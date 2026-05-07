@@ -19,6 +19,7 @@ export const residentProfile = {
   staircase: 'Scara 2',
   role: 'Proprietar',
   building: 'A.P.C. A0123-0940',
+  buildingName: 'Bloc principal',
   currentBalance: 1240,
   status: 'Întârziat',
   nextDueDate: '25 Mai 2026',
@@ -30,6 +31,8 @@ export const residentInvoices = [
     number: 'FAC-2026-05-045',
     month: 'Mai 2026',
     amount: 1240,
+    paidAmount: 0,
+    remainingAmount: 1240,
     dueDate: '25 Mai 2026',
     status: 'Întârziat' as ResidentInvoiceStatus,
     services: ['întreținere', 'fond reparații', 'apă', 'încălzire', 'curățenie', 'lift'],
@@ -40,6 +43,8 @@ export const residentInvoices = [
     number: 'FAC-2026-04-045',
     month: 'Aprilie 2026',
     amount: 1160,
+    paidAmount: 1160,
+    remainingAmount: 0,
     dueDate: '25 Aprilie 2026',
     status: 'Achitat' as ResidentInvoiceStatus,
     services: ['întreținere', 'fond reparații', 'apă', 'curățenie', 'lift'],
@@ -50,6 +55,8 @@ export const residentInvoices = [
     number: 'FAC-2026-03-045',
     month: 'Martie 2026',
     amount: 980,
+    paidAmount: 980,
+    remainingAmount: 0,
     dueDate: '25 Martie 2026',
     status: 'Achitat' as ResidentInvoiceStatus,
     services: ['întreținere', 'apă', 'încălzire', 'curățenie'],
@@ -60,6 +67,8 @@ export const residentInvoices = [
     number: 'FAC-2026-02-045',
     month: 'Februarie 2026',
     amount: 1020,
+    paidAmount: 0,
+    remainingAmount: 1020,
     dueDate: '25 Februarie 2026',
     status: 'Neachitat' as ResidentInvoiceStatus,
     services: ['întreținere', 'fond reparații', 'apă', 'lift'],
@@ -165,6 +174,11 @@ function invoiceStatusFromApi(status?: string): ResidentInvoiceStatus {
   return 'Neachitat';
 }
 
+function invoiceStatusFromAmounts(status: ResidentInvoiceStatus, remainingAmount: number): ResidentInvoiceStatus {
+  if (remainingAmount <= 0) return 'Achitat';
+  return status;
+}
+
 function meterTypeFromApi(type?: string) {
   const normalized = String(type || '').toUpperCase();
   if (normalized === 'HOT_WATER') return 'Apă caldă';
@@ -227,14 +241,27 @@ function paymentMethodFromApi(method?: string | null) {
 }
 
 export function normalizeResidentInvoice(row: any) {
+  const apartmentNumber = row?.apartmentNumber || row?.apartment?.number || '';
+  const amount = Number(row?.amount ?? 0);
+  const paidAmount = Number(row?.paidAmount ?? 0);
+  const remainingAmount = Number(row?.remainingAmount ?? row?.remainingDebt ?? (String(row?.status || '').toUpperCase() === 'PAID' ? 0 : amount));
+  const status = invoiceStatusFromAmounts(invoiceStatusFromApi(row?.status), remainingAmount);
+  const services = Array.isArray(row?.services)
+    ? row.services
+        .map((service: any) => (typeof service === 'string' ? service : service?.tariffName || service?.name))
+        .filter(Boolean)
+    : [];
+
   return {
     id: String(row?.id || 'invoice'),
-    number: String(row?.invoiceNumber || `FAC-${row?.year || '2026'}-${String(row?.month || '').padStart(2, '0')}-${row?.apartmentNumber || '45'}`),
+    number: String(row?.invoiceNumber || `FAC-${row?.year || '----'}-${String(row?.month || '').padStart(2, '0')}${apartmentNumber ? `-${apartmentNumber}` : ''}`),
     month: monthLabel(row?.month, row?.year),
-    amount: Number(row?.amount ?? 0),
+    amount,
+    paidAmount,
+    remainingAmount,
     dueDate: dateLabel(row?.dueDate),
-    status: invoiceStatusFromApi(row?.status),
-    services: Array.isArray(row?.services) && row.services.length ? row.services : ['întreținere', 'fond reparații', 'apă', 'încălzire', 'curățenie', 'lift'],
+    status,
+    services,
     paidDate: row?.paidAt ? dateLabel(row.paidAt) : '',
   };
 }
@@ -291,21 +318,25 @@ export function normalizeResidentContext(row: any) {
   const apartment = row?.primaryApartment || row?.apartment || row?.apartments?.[0];
   const resident = row?.resident;
   const user = row?.user;
+  const organization = row?.organization;
   const status = String(row?.balance?.status || '').toUpperCase();
   const firstName = resident?.firstName || user?.firstName || '';
   const lastName = resident?.lastName || user?.lastName || '';
   const name = String(resident?.name || `${firstName} ${lastName}`.trim() || user?.email || residentProfile.name);
+  const associationName = String(organization?.legalName || organization?.shortName || organization?.name || residentProfile.building);
+  const buildingName = apartment?.building?.name ? String(apartment.building.name) : '';
   return {
     name,
-    phone: String(resident?.phone || user?.phone || residentProfile.phone),
-    email: String(resident?.email || user?.email || residentProfile.email),
+    phone: String(resident?.phone || user?.phone || 'Necompletat'),
+    email: String(resident?.email || user?.email || 'Necompletat'),
     apartment: apartment?.number ? `Apt. ${apartment.number}` : 'Apartament neconectat',
     staircase: apartment?.staircase?.name ? String(apartment.staircase.name) : '',
     role: String(apartment?.relationRole || resident?.role || residentProfile.role),
-    building: String(apartment?.building?.name || row?.organization?.name || residentProfile.building),
-    currentBalance: Number(row?.balance?.current ?? residentProfile.currentBalance),
+    building: associationName,
+    buildingName,
+    currentBalance: Number(row?.balance?.current ?? 0),
     status: status === 'PAID' ? 'Achitat' : status === 'OVERDUE' ? 'Întârziat' : 'Neachitat',
-    nextDueDate: row?.balance?.nextDueDate ? dateLabel(row.balance.nextDueDate) : residentProfile.nextDueDate,
+    nextDueDate: row?.balance?.nextDueDate ? dateLabel(row.balance.nextDueDate) : 'Nu există',
     hasApartment: Boolean(apartment?.id),
     emptyStateMessage: String(row?.emptyStateMessage || 'Contul tău nu este conectat încă la un apartament.'),
   };

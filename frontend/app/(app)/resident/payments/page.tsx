@@ -25,7 +25,7 @@ export default function ResidentPaymentsPage() {
   const visible = useMemo(() => rows.filter((invoice) => filter === 'Toate' || invoice.status === filter), [filter, rows]);
   const paidThisYear = payments.length ? payments.reduce((sum, payment) => sum + payment.amount, 0) : rows.filter((invoice) => invoice.status === 'Achitat').reduce((sum, invoice) => sum + invoice.amount, 0);
   const unpaidCount = rows.filter((invoice) => invoice.status !== 'Achitat').length;
-  const currentBalance = rows.filter((invoice) => invoice.status !== 'Achitat').reduce((sum, invoice) => sum + invoice.amount, 0);
+  const currentBalance = rows.filter((invoice) => invoice.status !== 'Achitat').reduce((sum, invoice) => sum + (invoice.remainingAmount || invoice.amount), 0);
 
   useEffect(() => {
     let active = true;
@@ -96,6 +96,9 @@ export default function ResidentPaymentsPage() {
               <div>
                 <p className="text-xs text-muted-foreground">Suma</p>
                 <p className="mt-1 text-xl font-semibold text-foreground">{formatMdl(invoice.amount)}</p>
+                {invoice.remainingAmount > 0 ? (
+                  <p className="mt-1 text-xs font-semibold text-rose-600">Rest de plată: {formatMdl(invoice.remainingAmount)}</p>
+                ) : null}
               </div>
               <p className="text-right text-xs text-muted-foreground">Scadență: {invoice.dueDate}</p>
             </div>
@@ -128,7 +131,7 @@ export default function ResidentPaymentsPage() {
       <Modal isOpen={paymentModalOpen} onClose={() => setPaymentModalOpen(false)} maxWidth="md">
         <ModalHeader title="Plăți online" onClose={() => setPaymentModalOpen(false)} />
         <ModalBody>
-          <p className="text-sm text-muted-foreground">Integrarea plăților online va fi conectată ulterior.</p>
+          <p className="text-sm text-muted-foreground">Plățile online vor fi conectate ulterior. Pentru moment, plata se înregistrează de administrator.</p>
         </ModalBody>
         <ModalFooter>
           <ModalCloseButton onClick={() => setPaymentModalOpen(false)}>Am înțeles</ModalCloseButton>

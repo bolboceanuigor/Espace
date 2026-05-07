@@ -53,9 +53,11 @@ export default function ResidentInvoicesPage() {
             </div>
             <div className="mt-4 grid gap-2 sm:grid-cols-2">
               <Info label="Suma" value={formatMdl(invoice.amount)} strong />
+              <Info label="Achitat" value={formatMdl(invoice.paidAmount || 0)} />
+              <Info label="Rest de plată" value={formatMdl(invoice.remainingAmount || 0)} strong={invoice.remainingAmount > 0} />
               <Info label="Data scadentă" value={invoice.dueDate} />
             </div>
-            <div className="mt-4">
+            {invoice.services.length ? <div className="mt-4">
               <p className="text-xs font-medium text-muted-foreground">Servicii incluse</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {invoice.services.map((service) => (
@@ -64,7 +66,7 @@ export default function ResidentInvoicesPage() {
                   </span>
                 ))}
               </div>
-            </div>
+            </div> : null}
           </Card>
         ))}
         {!rows.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">{source === 'api' ? 'Nu există facturi pentru apartamentul tău.' : 'Nu există facturi încă.'}</Card> : null}

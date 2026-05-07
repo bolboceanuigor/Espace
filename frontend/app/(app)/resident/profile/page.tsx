@@ -6,7 +6,8 @@ import { useEffect, useState } from 'react';
 import { Bell, Building2, LogOut, Mail, Phone, UserRound } from 'lucide-react';
 import { Button, Card, PageHeader } from '@/components/ui';
 import { residentDemoApi } from '@/lib/api';
-import { normalizeResidentContext, residentProfile } from '@/lib/resident-mvp-data';
+import { getStoredUser } from '@/lib/auth';
+import { normalizeResidentContext } from '@/lib/resident-mvp-data';
 import { demoLogout } from '@/lib/demo-auth';
 import { defaultLocale, isLocale } from '@/i18n';
 import { useLocalizedPath } from '@/lib/use-localized-path';
@@ -17,21 +18,36 @@ export default function ResidentProfilePage() {
   const locale = isLocale(localeParam) ? localeParam : defaultLocale;
   const localizedPath = useLocalizedPath();
   const [profile, setProfile] = useState<ReturnType<typeof normalizeResidentContext> | null>(null);
+  const [source, setSource] = useState<'loading' | 'api' | 'fallback'>('loading');
 
   useEffect(() => {
+    const storedUser = getStoredUser();
     let active = true;
     residentDemoApi
       .context()
       .then((res) => {
-        if (active) setProfile(normalizeResidentContext(res.data));
+        if (!active) return;
+        setProfile(normalizeResidentContext(res.data));
+        setSource('api');
       })
       .catch(() => {
         if (active) {
           setProfile({
-            ...residentProfile,
-            hasApartment: true,
-            emptyStateMessage: '',
+            name: `${storedUser?.firstName || ''} ${storedUser?.lastName || ''}`.trim() || storedUser?.email || 'Locatar',
+            email: storedUser?.email || 'Necompletat',
+            phone: storedUser?.phone || 'Necompletat',
+            apartment: 'Apartament indisponibil',
+            staircase: '',
+            role: 'Locatar',
+            building: 'Espace',
+            buildingName: '',
+            currentBalance: 0,
+            status: 'Neachitat',
+            nextDueDate: 'Nu există',
+            hasApartment: false,
+            emptyStateMessage: 'Nu am putut încărca datele profilului. Încearcă din nou mai târziu.',
           } as ReturnType<typeof normalizeResidentContext>);
+          setSource('fallback');
         }
       });
     return () => {
@@ -41,7 +57,15 @@ export default function ResidentProfilePage() {
 
   return (
     <div className="space-y-5 pb-4">
-      <PageHeader title="Profil" description="Profilul locatarului și setări rapide." />
+      <PageHeader
+        title="Profil"
+        description="Profilul locatarului și setări rapide."
+        rightSlot={
+          <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
+            {source === 'loading' ? 'Se încarcă...' : source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
+          </span>
+        }
+      />
       {!profile ? <Card className="p-5 text-sm font-medium text-muted-foreground">Se încarcă profilul...</Card> : null}
       {profile ? (
       <Card>
@@ -59,7 +83,13 @@ export default function ResidentProfilePage() {
           <Info icon={<Mail className="h-4 w-4" />} label="Email" value={profile.email} />
           <Info icon={<Building2 className="h-4 w-4" />} label="Apartament" value={[profile.apartment, profile.staircase].filter(Boolean).join(', ')} />
           <Info icon={<UserRound className="h-4 w-4" />} label="Asociație" value={profile.building} />
+          {profile.buildingName ? <Info icon={<Building2 className="h-4 w-4" />} label="Bloc" value={profile.buildingName} /> : null}
         </div>
+        {!profile.hasApartment ? (
+          <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50/70 p-3 text-sm font-semibold text-amber-800">
+            {profile.emptyStateMessage}
+          </p>
+        ) : null}
       </Card>
       ) : null}
       <div className="grid gap-3">

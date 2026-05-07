@@ -98,7 +98,7 @@ export default function ResidentDashboardPage() {
         <div className="bg-foreground p-5 text-background">
           <p className="text-sm opacity-75">{profile.building}</p>
           <h1 className="mt-2 text-3xl font-semibold">{profile.apartment}</h1>
-          <p className="mt-1 text-sm opacity-75">{profile.staircase}</p>
+          <p className="mt-1 text-sm opacity-75">{[profile.buildingName, profile.staircase].filter(Boolean).join(' · ') || 'Apartament neconectat'}</p>
         </div>
         <div className="grid gap-3 p-4 sm:grid-cols-3">
           <Info label="Sold curent" value={formatMdl(profile.currentBalance)} danger={profile.currentBalance > 0} />
@@ -150,7 +150,7 @@ export default function ResidentDashboardPage() {
           <h2 className="font-semibold text-foreground">Reminder citiri contoare</h2>
           <p className="mt-4 inline-flex items-start gap-2 rounded-2xl border border-border/70 bg-muted/25 p-3 text-sm text-muted-foreground">
             <Bell className="mt-0.5 h-4 w-4" />
-            Ai {missingMeters.length} citiri lipsă.
+            Ai {missingMeters.length} citiri lipsă din {meters.length} contoare.
           </p>
           <Link href={localizedPath('/resident/meters')} className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-border/70 text-sm font-semibold">
             <Send className="h-4 w-4" />

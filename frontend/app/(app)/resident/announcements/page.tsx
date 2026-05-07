@@ -68,7 +68,7 @@ export default function ResidentAnnouncementsPage() {
             </p>
           </Card>
         ))}
-        {!rows.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există anunțuri încă.</Card> : null}
+        {!rows.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">{source === 'api' ? 'Nu există anunțuri active.' : 'Nu există anunțuri încă.'}</Card> : null}
       </section>
     </div>
   );

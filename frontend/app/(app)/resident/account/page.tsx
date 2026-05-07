@@ -6,7 +6,7 @@ import { useParams } from 'next/navigation';
 import { Button, Card, PageHeader } from '@/components/ui';
 import { residentDemoApi } from '@/lib/api';
 import { getStoredUser } from '@/lib/auth';
-import { normalizeResidentContext, residentProfile } from '@/lib/resident-mvp-data';
+import { normalizeResidentContext } from '@/lib/resident-mvp-data';
 import { demoLogout } from '@/lib/demo-auth';
 import { defaultLocale, isLocale } from '@/i18n';
 
@@ -21,10 +21,17 @@ export default function ResidentAccountPage() {
     const storedUser = getStoredUser();
     if (storedUser) {
       setProfile({
-        ...residentProfile,
-        name: `${storedUser.firstName || ''} ${storedUser.lastName || ''}`.trim() || residentProfile.name,
-        email: storedUser.email || residentProfile.email,
-        phone: storedUser.phone || residentProfile.phone,
+        name: `${storedUser.firstName || ''} ${storedUser.lastName || ''}`.trim() || storedUser.email || 'Locatar',
+        email: storedUser.email || 'Necompletat',
+        phone: storedUser.phone || 'Necompletat',
+        apartment: 'Apartament indisponibil',
+        staircase: '',
+        role: 'Locatar',
+        building: 'Espace',
+        buildingName: '',
+        currentBalance: 0,
+        status: 'Neachitat',
+        nextDueDate: 'Nu există',
         hasApartment: false,
         emptyStateMessage: 'Se verifică apartamentul conectat contului tău.',
       } as ReturnType<typeof normalizeResidentContext>);
@@ -42,9 +49,19 @@ export default function ResidentAccountPage() {
         if (!active) return;
         setSource('fallback');
         setProfile({
-          ...residentProfile,
-          hasApartment: true,
-          emptyStateMessage: '',
+          name: `${storedUser?.firstName || ''} ${storedUser?.lastName || ''}`.trim() || storedUser?.email || 'Locatar',
+          email: storedUser?.email || 'Necompletat',
+          phone: storedUser?.phone || 'Necompletat',
+          apartment: 'Apartament indisponibil',
+          staircase: '',
+          role: 'Locatar',
+          building: 'Espace',
+          buildingName: '',
+          currentBalance: 0,
+          status: 'Neachitat',
+          nextDueDate: 'Nu există',
+          hasApartment: false,
+          emptyStateMessage: 'Nu am putut încărca datele contului. Încearcă din nou mai târziu.',
         } as ReturnType<typeof normalizeResidentContext>);
       });
     return () => {
@@ -78,9 +95,14 @@ export default function ResidentAccountPage() {
         <div className="mt-6 space-y-3 text-sm">
           <Info icon={<Phone className="h-4 w-4" />} label="Telefon" value={profile.phone} />
           <Info icon={<Mail className="h-4 w-4" />} label="Email" value={profile.email} />
-          <Info icon={<UserRound className="h-4 w-4" />} label="Apartament" value={`${profile.apartment}, ${profile.staircase}`} />
+          <Info icon={<UserRound className="h-4 w-4" />} label="Apartament" value={[profile.apartment, profile.staircase].filter(Boolean).join(', ')} />
           <Info icon={<ShieldCheck className="h-4 w-4" />} label="Rol" value={profile.role} />
         </div>
+        {!profile.hasApartment ? (
+          <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50/70 p-3 text-sm font-semibold text-amber-800">
+            {profile.emptyStateMessage}
+          </p>
+        ) : null}
         <Button type="button" variant="danger" className="mt-6 w-full" onClick={() => demoLogout(locale)}>
           <LogOut className="h-4 w-4" />
           Deconectare
