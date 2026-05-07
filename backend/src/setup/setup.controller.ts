@@ -12,12 +12,12 @@ import { SetupService } from './setup.service';
 export class SetupController {
   constructor(private readonly setupService: SetupService) {}
 
-  @Get(['admin/buildings', 'api/admin/buildings'])
+  @Get(['admin/buildings', 'api/admin/buildings', 'buildings', 'api/buildings'])
   listBuildings(@CurrentUser() user: MvpUser, @Headers('x-org-id') activeOrganizationId?: string) {
     return this.setupService.listBuildings(user, activeOrganizationId);
   }
 
-  @Post(['admin/buildings', 'api/admin/buildings'])
+  @Post(['admin/buildings', 'api/admin/buildings', 'buildings', 'api/buildings'])
   createBuilding(
     @CurrentUser() user: MvpUser,
     @Body() body: unknown,
@@ -26,12 +26,12 @@ export class SetupController {
     return this.setupService.createBuilding(user, body, activeOrganizationId);
   }
 
-  @Get(['admin/buildings/:id', 'api/admin/buildings/:id'])
+  @Get(['admin/buildings/:id', 'api/admin/buildings/:id', 'buildings/:id', 'api/buildings/:id'])
   getBuilding(@CurrentUser() user: MvpUser, @Param('id') id: string, @Headers('x-org-id') activeOrganizationId?: string) {
     return this.setupService.getBuilding(user, id, activeOrganizationId);
   }
 
-  @Patch(['admin/buildings/:id', 'api/admin/buildings/:id'])
+  @Patch(['admin/buildings/:id', 'api/admin/buildings/:id', 'buildings/:id', 'api/buildings/:id'])
   updateBuilding(
     @CurrentUser() user: MvpUser,
     @Param('id') id: string,
@@ -41,9 +41,22 @@ export class SetupController {
     return this.setupService.updateBuilding(user, id, body, activeOrganizationId);
   }
 
-  @Get(['admin/staircases', 'api/admin/staircases'])
+  @Get(['admin/staircases', 'api/admin/staircases', 'staircases', 'api/staircases'])
   listAllStaircases(@CurrentUser() user: MvpUser, @Headers('x-org-id') activeOrganizationId?: string) {
     return this.setupService.listAllStaircases(user, activeOrganizationId);
+  }
+
+  @Post(['staircases', 'api/staircases'])
+  createStaircaseFlat(
+    @CurrentUser() user: MvpUser,
+    @Body() body: unknown,
+    @Headers('x-org-id') activeOrganizationId?: string,
+  ) {
+    const buildingId =
+      body && typeof body === 'object' && 'buildingId' in body
+        ? String((body as { buildingId?: unknown }).buildingId || '')
+        : '';
+    return this.setupService.createStaircase(user, buildingId, body, activeOrganizationId);
   }
 
   @Get(['admin/buildings/:buildingId/staircases', 'api/admin/buildings/:buildingId/staircases'])
@@ -76,7 +89,7 @@ export class SetupController {
     return this.setupService.importApartments(user, body, file, activeOrganizationId);
   }
 
-  @Patch(['admin/staircases/:id', 'api/admin/staircases/:id'])
+  @Patch(['admin/staircases/:id', 'api/admin/staircases/:id', 'staircases/:id', 'api/staircases/:id'])
   updateStaircase(
     @CurrentUser() user: MvpUser,
     @Param('id') id: string,

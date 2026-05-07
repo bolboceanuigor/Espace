@@ -219,9 +219,9 @@ export default function AdminTariffsPage() {
       </section>
 
       <Card>
-        <h2 className="text-base font-semibold text-foreground">Limitare schema curentă</h2>
+        <h2 className="text-base font-semibold text-foreground">Tarife disponibile în MVP</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Pentru MVP, schema salvează real cele trei tarife APC de bază în setările asociației. Tarifele extra de tip “alte taxe” necesită un model dedicat de tarif înainte de activare.
+          Aceste trei tarife acoperă calculul lunar de bază pentru A.P.C.: deservire bloc, fond reparație și fond dezvoltare. Alte taxe pot fi adăugate după validarea fluxului financiar inițial.
         </p>
       </Card>
 

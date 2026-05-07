@@ -1,21 +1,17 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Bell, Building2, LogOut, Mail, Phone, UserRound } from 'lucide-react';
 import { Button, Card, PageHeader } from '@/components/ui';
 import { residentDemoApi } from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
 import { getStoredUser } from '@/lib/auth';
 import { normalizeResidentContext } from '@/lib/resident-mvp-data';
-import { demoLogout } from '@/lib/demo-auth';
-import { defaultLocale, isLocale } from '@/i18n';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 export default function ResidentProfilePage() {
-  const params = useParams<{ locale?: string }>();
-  const localeParam = typeof params?.locale === 'string' ? params.locale : defaultLocale;
-  const locale = isLocale(localeParam) ? localeParam : defaultLocale;
+  const { logout } = useAuth();
   const localizedPath = useLocalizedPath();
   const [profile, setProfile] = useState<ReturnType<typeof normalizeResidentContext> | null>(null);
   const [source, setSource] = useState<'loading' | 'api' | 'fallback'>('loading');
@@ -97,7 +93,7 @@ export default function ResidentProfilePage() {
           <Bell className="h-4 w-4" />
           Notificări
         </Link>
-        <Button type="button" variant="danger" className="w-full" onClick={() => demoLogout(locale)}>
+        <Button type="button" variant="danger" className="w-full" onClick={() => logout()}>
           <LogOut className="h-4 w-4" />
           Deconectare
         </Button>

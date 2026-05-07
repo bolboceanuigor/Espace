@@ -1,33 +1,31 @@
 'use client';
 
-import { useParams } from 'next/navigation';
 import { LogOut, Mail, ShieldCheck, UserRound } from 'lucide-react';
 import { Button, Card, PageHeader } from '@/components/ui';
-import { demoLogout } from '@/lib/demo-auth';
-import { defaultLocale, isLocale } from '@/i18n';
+import { useAuth } from '@/context/AuthContext';
 
 export default function AdminProfilePage() {
-  const params = useParams<{ locale?: string }>();
-  const localeParam = typeof params?.locale === 'string' ? params.locale : defaultLocale;
-  const locale = isLocale(localeParam) ? localeParam : defaultLocale;
+  const { user, org, logout } = useAuth();
+  const displayName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.email || 'Administrator';
+  const initial = displayName.slice(0, 1).toUpperCase();
 
   return (
     <div className="space-y-5 pb-4">
       <PageHeader title="Profil administrator" description="Profilul administratorului pentru asociația curentă." />
       <Card>
         <div className="flex items-center gap-4">
-          <div className="flex h-16 w-16 items-center justify-center rounded-[1.35rem] bg-foreground text-xl font-semibold text-background">A</div>
+          <div className="flex h-16 w-16 items-center justify-center rounded-[1.35rem] bg-foreground text-xl font-semibold text-background">{initial}</div>
           <div>
-            <p className="text-lg font-semibold text-foreground">Admin APC</p>
-            <p className="text-sm text-muted-foreground">admin@espace.md</p>
+            <p className="text-lg font-semibold text-foreground">{displayName}</p>
+            <p className="text-sm text-muted-foreground">{user?.email || 'Email indisponibil'}</p>
           </div>
         </div>
         <div className="mt-6 space-y-3 text-sm">
-          <Info icon={<Mail className="h-4 w-4" />} label="Email" value="admin@espace.md" />
+          <Info icon={<Mail className="h-4 w-4" />} label="Email" value={user?.email || 'Email indisponibil'} />
           <Info icon={<ShieldCheck className="h-4 w-4" />} label="Rol" value="Administrator" />
-          <Info icon={<UserRound className="h-4 w-4" />} label="Organizație" value="Asociația curentă" />
+          <Info icon={<UserRound className="h-4 w-4" />} label="A.P.C." value={org?.name || 'Asociația curentă'} />
         </div>
-        <Button type="button" variant="danger" className="mt-6 w-full" onClick={() => demoLogout(locale)}>
+        <Button type="button" variant="danger" className="mt-6 w-full" onClick={() => logout()}>
           <LogOut className="h-4 w-4" />
           Deconectare
         </Button>

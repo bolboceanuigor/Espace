@@ -1210,12 +1210,16 @@ export const organizationSettingsApi = {
       invoicePrefix?: string | null;
       receiptPrefix?: string | null;
       defaultCurrency: 'MDL' | 'EUR' | 'USD';
-    }>('/api/admin/organization/settings'),
-  adminUpdate: (data: Partial<any>) => apiRequest<any>('/api/admin/organization/settings', { method: 'PATCH', body: data }),
+      city?: string | null;
+      country?: string | null;
+    }>('/admin/settings/organization'),
+  adminUpdate: (data: Partial<any>) => apiRequest<any>('/admin/settings/organization', { method: 'PATCH', body: data }),
   residentPublicInfo: () =>
     apiRequest<{
       name: string;
       address?: string | null;
+      city?: string | null;
+      country?: string | null;
       phone?: string | null;
       email?: string | null;
       website?: string | null;

@@ -41,6 +41,8 @@ export class SettingsService {
     legalName: true,
     fiscalCode: true,
     address: true,
+    city: true,
+    country: true,
     phone: true,
     email: true,
     website: true,
@@ -218,7 +220,7 @@ export class SettingsService {
     });
     const updated = await this.prisma.organization.update({
       where: { id: user.organizationId },
-      data: { ...dto },
+      data: { ...dto, ...(dto.defaultCurrency ? { currency: dto.defaultCurrency } : {}) },
       select: this.orgSelect,
     });
     await this.auditService.logUpdate(
@@ -243,6 +245,8 @@ export class SettingsService {
       select: {
         name: true,
         address: true,
+        city: true,
+        country: true,
         phone: true,
         email: true,
         website: true,
@@ -280,7 +284,7 @@ export class SettingsService {
     });
     const updated = await this.prisma.organization.update({
       where: { id: organizationId },
-      data: { ...dto },
+      data: { ...dto, ...(dto.defaultCurrency ? { currency: dto.defaultCurrency } : {}) },
       select: this.orgSelect,
     });
     await this.auditService.logUpdate(

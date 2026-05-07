@@ -6,41 +6,51 @@ import { RolesGuard } from '../auth/roles.guard';
 import { UpdateOrganizationSettingsDto } from './dto/update-organization-settings.dto';
 import { SettingsService } from './settings.service';
 
-@Controller('api')
+@Controller()
 export class OrganizationSettingsController {
   constructor(private readonly settingsService: SettingsService) {}
 
-  @Get('admin/organization/settings')
+  @Get([
+    'admin/organization/settings',
+    'api/admin/organization/settings',
+    'admin/settings/organization',
+    'api/admin/settings/organization',
+  ])
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.SUPERADMIN, Role.SUPERADMIN)
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
   adminGet(@CurrentUser() user: any) {
     return this.settingsService.getOrganizationSettingsForAdmin(user.id ?? user.sub);
   }
 
-  @Patch('admin/organization/settings')
+  @Patch([
+    'admin/organization/settings',
+    'api/admin/organization/settings',
+    'admin/settings/organization',
+    'api/admin/settings/organization',
+  ])
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.SUPERADMIN, Role.SUPERADMIN)
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
   adminPatch(@CurrentUser() user: any, @Body() dto: UpdateOrganizationSettingsDto) {
     return this.settingsService.updateOrganizationSettingsForAdmin(user.id ?? user.sub, dto);
   }
 
-  @Get('resident/organization/public-info')
+  @Get(['resident/organization/public-info', 'api/resident/organization/public-info'])
   @UseGuards(RolesGuard)
   @Roles(Role.RESIDENT)
   residentPublicInfo(@CurrentUser() user: any) {
     return this.settingsService.getOrganizationPublicInfo(user.id ?? user.sub);
   }
 
-  @Get('superadmin/organizations/:id/settings')
+  @Get(['superadmin/organizations/:id/settings', 'api/superadmin/organizations/:id/settings'])
   @UseGuards(RolesGuard)
-  @Roles(Role.SUPERADMIN, Role.SUPERADMIN)
+  @Roles(Role.SUPERADMIN)
   superadminGet(@Param('id') id: string) {
     return this.settingsService.getOrganizationSettingsForSuperadmin(id);
   }
 
-  @Patch('superadmin/organizations/:id/settings')
+  @Patch(['superadmin/organizations/:id/settings', 'api/superadmin/organizations/:id/settings'])
   @UseGuards(RolesGuard)
-  @Roles(Role.SUPERADMIN, Role.SUPERADMIN)
+  @Roles(Role.SUPERADMIN)
   superadminPatch(@CurrentUser() user: any, @Param('id') id: string, @Body() dto: UpdateOrganizationSettingsDto) {
     return this.settingsService.updateOrganizationSettingsForSuperadmin(user.id ?? user.sub, id, dto);
   }

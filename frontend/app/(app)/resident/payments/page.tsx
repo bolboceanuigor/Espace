@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Clock3, CreditCard, ReceiptText } from 'lucide-react';
 import { Badge, Card, PageHeader, StatCard } from '@/components/ui';
-import { residentDemoApi } from '@/lib/api';
+import { organizationSettingsApi, residentDemoApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import {
   normalizeResidentInvoice,
@@ -21,6 +21,7 @@ export default function ResidentPaymentsPage() {
   const [rows, setRows] = useState<typeof residentInvoices>([]);
   const [payments, setPayments] = useState<ResidentPayment[]>([]);
   const [financeSummary, setFinanceSummary] = useState<any>(null);
+  const [organizationPaymentInfo, setOrganizationPaymentInfo] = useState<any>(null);
   const [source, setSource] = useState<'loading' | 'api' | 'mock'>('loading');
   const visible = useMemo(() => rows.filter((invoice) => filter === 'Toate' || invoice.status === filter), [filter, rows]);
   const paidThisYear = payments.length ? payments.reduce((sum, payment) => sum + payment.amount, 0) : rows.filter((invoice) => invoice.status === 'Achitat').reduce((sum, invoice) => sum + invoice.amount, 0);
@@ -29,7 +30,7 @@ export default function ResidentPaymentsPage() {
   const summaryDebt = Number(financeSummary?.totalDebt ?? currentBalance);
   const summaryPaidThisYear = Number(financeSummary?.totalPaidThisYear ?? paidThisYear);
   const summaryUnpaidCount = Number(financeSummary?.unpaidInvoicesCount ?? unpaidCount);
-  const paymentInstructions = financeSummary?.paymentInstructions;
+  const paymentInstructions = financeSummary?.paymentInstructions || organizationPaymentInfo;
 
   useEffect(() => {
     let active = true;
@@ -37,12 +38,14 @@ export default function ResidentPaymentsPage() {
       residentDemoApi.financeSummary().catch(() => ({ data: null })),
       residentDemoApi.invoices(),
       residentDemoApi.payments().catch(() => ({ data: [] })),
+      organizationSettingsApi.residentPublicInfo().catch(() => ({ data: null })),
     ])
-      .then(([summaryRes, invoiceRes, paymentRes]) => {
+      .then(([summaryRes, invoiceRes, paymentRes, paymentInfoRes]) => {
         if (!active) return;
         const apiRows = (invoiceRes.data || []).map(normalizeResidentInvoice);
         const apiPayments = (paymentRes.data || []).map(normalizeResidentPayment);
         setFinanceSummary(summaryRes.data || null);
+        setOrganizationPaymentInfo(toPaymentInfo(paymentInfoRes.data));
         setRows(apiRows);
         setPayments(apiPayments);
         setSource('api');
@@ -52,6 +55,7 @@ export default function ResidentPaymentsPage() {
         setRows(residentInvoices);
         setPayments(residentPayments);
         setFinanceSummary(null);
+        setOrganizationPaymentInfo(null);
         setSource('mock');
       });
     return () => {
@@ -173,6 +177,18 @@ export default function ResidentPaymentsPage() {
       </Card>
     </div>
   );
+}
+
+function toPaymentInfo(row: any) {
+  if (!row) return null;
+  const configured = Boolean(row.bankName || row.bankAccountIban || row.bankSwift || row.paymentInstructions);
+  return {
+    configured,
+    bankName: row.bankName || '',
+    bankAccountIban: row.bankAccountIban || '',
+    bankSwift: row.bankSwift || '',
+    paymentInstructions: row.paymentInstructions || '',
+  };
 }
 
 function formatDate(value: string) {

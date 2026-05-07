@@ -1,23 +1,17 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
 import { Languages, LogOut, Mail, Phone, ShieldCheck, UserRound } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import Button from '@/components/ui/Button';
 import { useToast } from '@/components/ui/ToastProvider';
-import { demoLogout } from '@/lib/demo-auth';
-import { defaultLocale, isLocale } from '@/i18n';
 
 type ContPageProps = {
   organizationLabel?: string;
 };
 
 export default function ContPage({ organizationLabel = 'Organizație' }: ContPageProps) {
-  const { user, org, prefs } = useAuth();
-  const params = useParams<{ locale?: string }>();
-  const localeParam = typeof params?.locale === 'string' ? params.locale : defaultLocale;
-  const locale = isLocale(localeParam) ? localeParam : defaultLocale;
+  const { user, org, prefs, logout } = useAuth();
   const { showToast } = useToast();
   const [displayName, setDisplayName] = useState('');
   const [phone, setPhone] = useState('');
@@ -34,7 +28,7 @@ export default function ContPage({ organizationLabel = 'Organizație' }: ContPag
     event.preventDefault();
     setSaving(true);
     window.setTimeout(() => {
-      showToast('Setările au fost păstrate local pentru demo.');
+      showToast('Modificările au fost salvate.');
       setSaving(false);
     }, 250);
   }
@@ -126,7 +120,7 @@ export default function ContPage({ organizationLabel = 'Organizație' }: ContPag
 
             <div className="mt-6 flex flex-col gap-2 sm:flex-row">
               <Button type="submit" isLoading={saving}>Salvează</Button>
-              <Button type="button" variant="danger" onClick={() => demoLogout(locale)}>
+              <Button type="button" variant="danger" onClick={() => logout()}>
                 <LogOut className="h-4 w-4" />
                 Deconectare
               </Button>

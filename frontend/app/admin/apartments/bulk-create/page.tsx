@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { Layers3, PlusCircle } from 'lucide-react';
+import { Layers3, PlusCircle, Upload } from 'lucide-react';
 import { Card, PageHeader } from '@/components/ui';
 import LoadingState from '@/components/common/LoadingState';
 import { adminStructureApi, apartmentsApi } from '@/lib/api';
@@ -116,9 +116,15 @@ export default function AdminApartmentsBulkCreatePage() {
         title="Adaugă apartamente în masă"
         description="Creează rapid apartamente pentru o scară, cu etaje calculate automat."
         rightSlot={
-          <Link href={localizedPath('/admin/apartments')} className="rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold hover:bg-muted/60">
-            Înapoi la apartamente
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link href={localizedPath('/admin/imports/apartments')} className="inline-flex min-h-10 items-center gap-2 rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold hover:bg-muted/60">
+              <Upload className="h-4 w-4" />
+              Importă din CSV
+            </Link>
+            <Link href={localizedPath('/admin/apartments')} className="rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold hover:bg-muted/60">
+              Înapoi la apartamente
+            </Link>
+          </div>
         }
       />
 

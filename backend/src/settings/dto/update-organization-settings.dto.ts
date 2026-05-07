@@ -24,6 +24,16 @@ export class UpdateOrganizationSettingsDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(120)
+  city?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  country?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(60)
   phone?: string;
 

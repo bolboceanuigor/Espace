@@ -2,7 +2,7 @@
 
 import { ChangeEvent, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Download, FileSpreadsheet, UploadCloud } from 'lucide-react';
+import { Download, FileSpreadsheet, Layers3, UploadCloud } from 'lucide-react';
 import { Card, PageHeader } from '@/components/ui';
 import EmptyState from '@/components/common/EmptyState';
 import LoadingState from '@/components/common/LoadingState';
@@ -70,6 +70,11 @@ export default function AdminApartmentsImportPage() {
     setPreview([]);
 
     if (!selected) return;
+    if (!/\.(csv|xlsx)$/i.test(selected.name)) {
+      setFile(null);
+      setError('Alege un fișier CSV sau XLSX.');
+      return;
+    }
     if (selected.name.toLowerCase().endsWith('.csv')) {
       selected.text().then((text) => {
         const rows = text
@@ -122,9 +127,15 @@ export default function AdminApartmentsImportPage() {
         title="Import apartamente"
         description="Încarcă rapid apartamentele și proprietarii inițiali pentru o A.P.C."
         rightSlot={
-          <Link href={localizedPath('/admin/apartments')} className="rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold hover:bg-muted/60">
-            Înapoi la apartamente
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link href={localizedPath('/admin/apartments/bulk-create')} className="inline-flex min-h-10 items-center gap-2 rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold hover:bg-muted/60">
+              <Layers3 className="h-4 w-4" />
+              Adaugă în masă
+            </Link>
+            <Link href={localizedPath('/admin/apartments')} className="rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold hover:bg-muted/60">
+              Înapoi la apartamente
+            </Link>
+          </div>
         }
       />
 

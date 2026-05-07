@@ -219,6 +219,13 @@ function AppShellContent({ children }: AppShellProps) {
     const allowedDuringOnboarding = [
       '/admin/onboarding',
       '/admin/settings',
+      '/admin/buildings',
+      '/admin/staircases',
+      '/admin/apartments',
+      '/admin/residents',
+      '/admin/meters',
+      '/admin/tariffs',
+      '/admin/invoices',
       '/admin/imports',
       '/admin/subscription',
     ];
