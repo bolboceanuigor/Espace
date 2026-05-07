@@ -1,7 +1,38 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { InvoiceStatus, PaymentMethod, PaymentStatus, Prisma, Role } from '@prisma/client';
+import { ApartmentStatus, InvoiceStatus, PaymentMethod, PaymentStatus, Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { MvpUser } from '../security/mvp-auth.guard';
+
+type SupportedTariffId = 'DESERVIRE_BLOC_PER_M2' | 'FOND_REPARATIE_PER_M2' | 'FOND_DEZVOLTARE_FIXED';
+
+const SUPPORTED_TARIFFS: Record<
+  SupportedTariffId,
+  {
+    name: string;
+    calculationType: 'PER_M2' | 'FIXED';
+    field: 'maintenanceFeePerM2' | 'repairFundPerM2' | 'developmentFundFixed';
+    unit: string;
+  }
+> = {
+  DESERVIRE_BLOC_PER_M2: {
+    name: 'Deservire bloc',
+    calculationType: 'PER_M2',
+    field: 'maintenanceFeePerM2',
+    unit: 'MDL/m²',
+  },
+  FOND_REPARATIE_PER_M2: {
+    name: 'Fond reparație',
+    calculationType: 'PER_M2',
+    field: 'repairFundPerM2',
+    unit: 'MDL/m²',
+  },
+  FOND_DEZVOLTARE_FIXED: {
+    name: 'Fond dezvoltare',
+    calculationType: 'FIXED',
+    field: 'developmentFundFixed',
+    unit: 'MDL/apartament',
+  },
+};
 
 @Injectable()
 export class BillingReadService {
@@ -147,6 +178,242 @@ export class BillingReadService {
         message: 'Nu ai acces la aceste date.',
       });
     }
+  }
+
+  private resolveOrganizationId(user: MvpUser, payload?: Record<string, unknown>) {
+    if (!this.isSuperadmin(user)) return user.organizationId;
+    const requested = typeof payload?.organizationId === 'string' && payload.organizationId.trim() ? payload.organizationId.trim() : user.organizationId;
+    if (!requested) {
+      throw new BadRequestException('Organizația este obligatorie.');
+    }
+    return requested;
+  }
+
+  private async getOrCreateOrganizationSettings(organizationId: string) {
+    return this.prisma.organizationSetting.upsert({
+      where: { organizationId },
+      update: {},
+      create: {
+        organizationId,
+        appName: 'Espace',
+        defaultLocale: 'ro',
+        weekStart: 'MONDAY',
+      },
+    });
+  }
+
+  private toTariffRows(settings: {
+    organizationId: string;
+    maintenanceFeePerM2: number;
+    repairFundPerM2: number;
+    developmentFundFixed: number;
+    updatedAt: Date;
+  }) {
+    return (Object.entries(SUPPORTED_TARIFFS) as Array<[SupportedTariffId, (typeof SUPPORTED_TARIFFS)[SupportedTariffId]]>).map(
+      ([id, config]) => {
+        const amount = Number(settings[config.field] || 0);
+        return {
+          id,
+          code: id,
+          organizationId: settings.organizationId,
+          name: config.name,
+          type: config.calculationType,
+          calculationType: config.calculationType,
+          amount,
+          currency: 'MDL',
+          unit: config.unit,
+          isActive: amount > 0,
+          updatedAt: settings.updatedAt,
+        };
+      },
+    );
+  }
+
+  async listTariffs(user: MvpUser) {
+    const organizationId = this.resolveOrganizationId(user);
+    this.assertOrganizationAccess(user, organizationId);
+    const settings = await this.getOrCreateOrganizationSettings(organizationId);
+    return this.toTariffRows(settings);
+  }
+
+  async saveTariff(user: MvpUser, body: unknown, tariffId?: string) {
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const organizationId = this.resolveOrganizationId(user, payload);
+    this.assertOrganizationAccess(user, organizationId);
+    await this.assertOrganizationExists(organizationId);
+
+    const id = this.resolveTariffId(payload, tariffId);
+    const config = SUPPORTED_TARIFFS[id];
+    const amount = this.requiredNumber(payload.amount, 'Suma este obligatorie.');
+    const isActive = payload.isActive === undefined || payload.isActive === null ? true : Boolean(payload.isActive);
+
+    if (amount < 0) {
+      throw new BadRequestException('Suma nu poate fi negativă.');
+    }
+
+    const settings = await this.prisma.organizationSetting.upsert({
+      where: { organizationId },
+      update: {
+        [config.field]: isActive ? this.money(amount) : 0,
+      },
+      create: {
+        organizationId,
+        [config.field]: isActive ? this.money(amount) : 0,
+        appName: 'Espace',
+        defaultLocale: 'ro',
+        weekStart: 'MONDAY',
+      },
+    });
+
+    return this.toTariffRows(settings).find((tariff) => tariff.id === id);
+  }
+
+  async generateMonthlyInvoices(user: MvpUser, body: unknown) {
+    const input = this.parseGenerateMonthlyBody(body);
+    const organizationId = this.resolveOrganizationId(user, body && typeof body === 'object' ? (body as Record<string, unknown>) : {});
+    this.assertOrganizationAccess(user, organizationId);
+    const organization = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { id: true },
+    });
+    if (!organization) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+
+    const settings = await this.getOrCreateOrganizationSettings(organizationId);
+    const activeTariffs = this.toTariffRows(settings).filter((tariff) => tariff.isActive);
+    if (!activeTariffs.length) {
+      throw new BadRequestException('Nu există tarife active pentru generarea facturilor.');
+    }
+
+    const apartments = await this.prisma.apartment.findMany({
+      where: {
+        organizationId,
+        status: { not: ApartmentStatus.EMPTY },
+      },
+      select: {
+        id: true,
+        number: true,
+        areaM2: true,
+      },
+      orderBy: [{ number: 'asc' }],
+    });
+
+    let createdInvoicesCount = 0;
+    let skippedDuplicatesCount = 0;
+    let totalAmount = 0;
+
+    for (const apartment of apartments) {
+      const existing = await this.prisma.invoice.findFirst({
+        where: {
+          organizationId,
+          apartmentId: apartment.id,
+          month: input.month,
+          year: input.year,
+        },
+        select: { id: true },
+      });
+
+      if (existing) {
+        skippedDuplicatesCount += 1;
+        continue;
+      }
+
+      const areaM2 = Number(apartment.areaM2 || 0);
+      const lineItems = activeTariffs
+        .map((tariff) => {
+          const amount = tariff.calculationType === 'PER_M2' ? this.money(areaM2 * tariff.amount) : this.money(tariff.amount);
+          return {
+            organizationId,
+            apartmentId: apartment.id,
+            month: input.month,
+            year: input.year,
+            tariffName: tariff.name,
+            amount,
+            status: 'PENDING',
+            createdByUserId: user.id || null,
+          };
+        })
+        .filter((line) => line.amount > 0);
+
+      const invoiceAmount = this.money(lineItems.reduce((sum, line) => sum + line.amount, 0));
+      if (invoiceAmount <= 0) {
+        skippedDuplicatesCount += 1;
+        continue;
+      }
+
+      await this.prisma.$transaction(async (tx) => {
+        await tx.monthlyCharge.createMany({
+          data: lineItems,
+          skipDuplicates: true,
+        });
+        await tx.invoice.create({
+          data: {
+            organizationId,
+            apartmentId: apartment.id,
+            month: input.month,
+            year: input.year,
+            amount: invoiceAmount,
+            finalAmount: invoiceAmount,
+            discount: 0,
+            plan: 'APC_MONTHLY_TARIFFS',
+            status: InvoiceStatus.UNPAID,
+            dueDate: input.dueDate,
+          },
+        });
+      });
+
+      createdInvoicesCount += 1;
+      totalAmount = this.money(totalAmount + invoiceAmount);
+    }
+
+    return {
+      createdInvoicesCount,
+      skippedDuplicatesCount,
+      totalAmount,
+      currency: 'MDL',
+      month: input.month,
+      year: input.year,
+      apartmentsProcessed: apartments.length,
+      message:
+        skippedDuplicatesCount > 0
+          ? 'Facturile au fost generate. Unele facturi existau deja și au fost omise.'
+          : 'Facturile au fost generate.',
+    };
+  }
+
+  async getMonthlySummary(user: MvpUser, query: Record<string, unknown>) {
+    const month = this.requiredInt(query.month, 'Luna este obligatorie.');
+    const year = this.requiredInt(query.year, 'Anul este obligatoriu.');
+    const organizationId = this.resolveOrganizationId(user, query);
+    this.assertOrganizationAccess(user, organizationId);
+    if (month < 1 || month > 12) throw new BadRequestException('Luna nu este validă.');
+
+    const monthKey = `${year}-${String(month).padStart(2, '0')}`;
+    const [invoices, payments] = await Promise.all([
+      this.prisma.invoice.findMany({
+        where: { organizationId, month, year },
+        select: { amount: true, finalAmount: true, status: true, dueDate: true },
+      }),
+      this.prisma.payment.findMany({
+        where: { organizationId, month: monthKey, status: PaymentStatus.CONFIRMED },
+        select: { amount: true },
+      }),
+    ]);
+
+    const totalIssued = this.money(invoices.reduce((sum, invoice) => sum + Number(invoice.finalAmount || invoice.amount || 0), 0));
+    const totalPaid = this.money(payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0));
+    const unpaidInvoices = invoices.filter((invoice) => invoice.status === InvoiceStatus.UNPAID || invoice.status === InvoiceStatus.OVERDUE);
+    const now = new Date();
+
+    return {
+      month,
+      year,
+      totalIssued,
+      totalPaid,
+      totalUnpaid: this.money(unpaidInvoices.reduce((sum, invoice) => sum + Number(invoice.finalAmount || invoice.amount || 0), 0)),
+      overdueCount: invoices.filter((invoice) => invoice.status === InvoiceStatus.OVERDUE || (invoice.status !== InvoiceStatus.PAID && invoice.dueDate < now)).length,
+      invoicesCount: invoices.length,
+      currency: 'MDL',
+    };
   }
 
   async listInvoices(user: MvpUser) {
@@ -380,6 +647,60 @@ export class BillingReadService {
     const month = `${paidAt.getFullYear()}-${String(paidAt.getMonth() + 1).padStart(2, '0')}`;
 
     return { organizationId, apartmentId, invoiceId, amount, method, paidAt, month };
+  }
+
+  private async assertOrganizationExists(organizationId: string) {
+    const organization = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { id: true },
+    });
+    if (!organization) {
+      throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    }
+  }
+
+  private resolveTariffId(payload: Record<string, unknown>, explicitId?: string): SupportedTariffId {
+    const raw = String(explicitId || payload.id || payload.code || payload.tariffType || payload.name || '').trim();
+    const normalized = raw
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toUpperCase();
+
+    if (normalized.includes('DESERVIRE') || normalized.includes('INTRETINERE') || normalized.includes('MAINTENANCE')) {
+      return 'DESERVIRE_BLOC_PER_M2';
+    }
+    if (normalized.includes('REPAR')) {
+      return 'FOND_REPARATIE_PER_M2';
+    }
+    if (normalized.includes('DEZVOLT') || normalized.includes('INVEST')) {
+      return 'FOND_DEZVOLTARE_FIXED';
+    }
+    if (normalized in SUPPORTED_TARIFFS) {
+      return normalized as SupportedTariffId;
+    }
+
+    throw new BadRequestException(
+      'Schema curentă permite tarifele Deservire bloc, Fond reparație și Fond dezvoltare. Tarifele extra vor fi adăugate într-o etapă următoare.',
+    );
+  }
+
+  private parseGenerateMonthlyBody(body: unknown) {
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const month = this.requiredInt(payload.month, 'Luna este obligatorie.');
+    const year = this.requiredInt(payload.year, 'Anul este obligatoriu.');
+    const dueDate =
+      typeof payload.dueDate === 'string' && payload.dueDate.trim()
+        ? this.requiredDate(payload.dueDate, 'Data scadentă nu este validă.')
+        : new Date(year, month - 1, 25);
+
+    if (month < 1 || month > 12) throw new BadRequestException('Luna nu este validă.');
+    if (year < 2000 || year > 2100) throw new BadRequestException('Anul nu este valid.');
+
+    return { month, year, dueDate };
+  }
+
+  private money(value: number) {
+    return Math.round((Number(value) + Number.EPSILON) * 100) / 100;
   }
 
   private requiredString(value: unknown, message: string) {

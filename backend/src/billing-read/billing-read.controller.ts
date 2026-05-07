@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -14,6 +14,31 @@ export class BillingReadController {
   @Get(['invoices', 'api/invoices'])
   listInvoices(@CurrentUser() user: MvpUser) {
     return this.billingReadService.listInvoices(user);
+  }
+
+  @Get(['admin/tariffs', 'api/admin/tariffs'])
+  listTariffs(@CurrentUser() user: MvpUser) {
+    return this.billingReadService.listTariffs(user);
+  }
+
+  @Post(['admin/tariffs', 'api/admin/tariffs'])
+  createTariff(@CurrentUser() user: MvpUser, @Body() body: unknown) {
+    return this.billingReadService.saveTariff(user, body);
+  }
+
+  @Patch(['admin/tariffs/:id', 'api/admin/tariffs/:id'])
+  updateTariff(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.billingReadService.saveTariff(user, body, id);
+  }
+
+  @Post(['admin/invoices/generate-monthly', 'api/admin/invoices/generate-monthly'])
+  generateMonthlyInvoices(@CurrentUser() user: MvpUser, @Body() body: unknown) {
+    return this.billingReadService.generateMonthlyInvoices(user, body);
+  }
+
+  @Get(['admin/invoices/monthly-summary', 'api/admin/invoices/monthly-summary'])
+  getMonthlySummary(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.billingReadService.getMonthlySummary(user, query);
   }
 
   @Post(['invoices', 'api/invoices'])

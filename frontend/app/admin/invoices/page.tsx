@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, CheckCircle2, Clock3, FileText, Search, Send } from 'lucide-react';
+import { Calculator, CalendarDays, CheckCircle2, Clock3, FileText, Search, Send } from 'lucide-react';
 import { Badge, Button, ButtonLink, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
 import { apartmentsApi, invoicesApi, paymentsApi } from '@/lib/api';
 import { adminInvoices, invoiceStatusVariant, normalizeApiApartment, normalizeApiInvoice, type AdminApartment, type AdminInvoice, type InvoiceStatus } from '@/lib/admin-mvp-data';
@@ -23,6 +23,11 @@ const emptyInvoiceForm = {
   dueDate: new Date().toISOString().slice(0, 10),
   status: 'UNPAID' as keyof typeof invoiceStatuses,
 };
+const emptyGenerationForm = {
+  month: String(new Date().getMonth() + 1),
+  year: String(new Date().getFullYear()),
+  dueDate: new Date(new Date().getFullYear(), new Date().getMonth(), 25).toISOString().slice(0, 10),
+};
 
 export default function AdminInvoicesPage() {
   const localizedPath = useLocalizedPath();
@@ -37,6 +42,14 @@ export default function AdminInvoicesPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [formError, setFormError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [generationForm, setGenerationForm] = useState(emptyGenerationForm);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationError, setGenerationError] = useState('');
+  const [generationResult, setGenerationResult] = useState<{
+    createdInvoicesCount: number;
+    skippedDuplicatesCount: number;
+    totalAmount: number;
+  } | null>(null);
 
   const loadInvoices = async () => {
     const [invoiceRes, paymentRes, apartmentsRes] = await Promise.all([
@@ -130,6 +143,48 @@ export default function AdminInvoicesPage() {
     }
   };
 
+  const generateMonthlyInvoices = async () => {
+    setGenerationError('');
+    setSuccessMessage('');
+    setGenerationResult(null);
+    const monthNumber = Number(generationForm.month);
+    const yearNumber = Number(generationForm.year);
+    if (!Number.isInteger(monthNumber) || monthNumber < 1 || monthNumber > 12 || !Number.isInteger(yearNumber)) {
+      setGenerationError('Completează luna și anul.');
+      return;
+    }
+    if (!generationForm.dueDate) {
+      setGenerationError('Completează data scadentă.');
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const response = await invoicesApi.generateMonthly({
+        month: monthNumber,
+        year: yearNumber,
+        dueDate: generationForm.dueDate,
+      });
+      const result = response.data || {};
+      const createdInvoicesCount = Number(result.createdInvoicesCount ?? result.createdCount ?? result.count ?? 0);
+      const skippedDuplicatesCount = Number(result.skippedDuplicatesCount ?? result.skippedDuplicates ?? 0);
+      const totalAmount = Number(result.totalAmount ?? 0);
+      setGenerationResult({ createdInvoicesCount, skippedDuplicatesCount, totalAmount });
+      setSuccessMessage(
+        skippedDuplicatesCount > 0
+          ? 'Facturile au fost generate. Unele facturi existau deja și au fost omise.'
+          : 'Facturile au fost generate.',
+      );
+      setSource('api');
+      await loadInvoices().catch(() => undefined);
+    } catch (error: any) {
+      const message = String(error?.message || '');
+      setGenerationError(message || 'Nu am putut genera facturile lunare.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   return (
     <div className="space-y-5 pb-4">
       <PageHeader
@@ -157,6 +212,41 @@ export default function AdminInvoicesPage() {
         <StatCard label="Neachitate" value={String(totals.unpaid.length)} description={formatMdl(totals.unpaid.reduce((sum, invoice) => sum + invoice.amount, 0))} icon={<Clock3 className="h-5 w-5" />} tone="danger" />
         <StatCard label="Următoarea scadență" value={totals.nextDue} description="Termen de plată curent" icon={<CalendarDays className="h-5 w-5" />} tone="warning" />
       </section>
+
+      <Card>
+        <div className="grid gap-4 xl:grid-cols-[0.9fr_1.4fr]">
+          <div>
+            <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border/70 bg-muted/45 text-foreground">
+              <Calculator className="h-5 w-5" />
+            </div>
+            <h2 className="mt-3 text-base font-semibold text-foreground">Generare facturi lunare</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Generează facturi reale pe baza tarifelor APC active: deservire bloc, fond reparație și fond dezvoltare.
+            </p>
+            <ButtonLink href="/admin/tariffs" variant="secondary" className="mt-4">Configurează tarife</ButtonLink>
+          </div>
+          <div className="grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto]">
+            <Field label="Luna" value={generationForm.month} onChange={(value) => setGenerationForm({ ...generationForm, month: value })} type="number" required />
+            <Field label="Anul" value={generationForm.year} onChange={(value) => setGenerationForm({ ...generationForm, year: value })} type="number" required />
+            <Field label="Data scadentă" value={generationForm.dueDate} onChange={(value) => setGenerationForm({ ...generationForm, dueDate: value })} type="date" required />
+            <Button type="button" onClick={generateMonthlyInvoices} isLoading={isGenerating} className="self-end">
+              Generează facturi
+            </Button>
+          </div>
+        </div>
+        {generationResult ? (
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <MiniResult label="Facturi create" value={String(generationResult.createdInvoicesCount)} />
+            <MiniResult label="Omise duplicate" value={String(generationResult.skippedDuplicatesCount)} />
+            <MiniResult label="Total generat" value={formatMdl(generationResult.totalAmount)} />
+          </div>
+        ) : null}
+        {generationError ? (
+          <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
+            {generationError}
+          </p>
+        ) : null}
+      </Card>
 
       <Card>
         <div className="grid gap-3 lg:grid-cols-[1.3fr_1fr_1fr_auto]">
@@ -266,6 +356,15 @@ function InvoiceCard({ invoice, href }: { invoice: AdminInvoice; href: string })
       </div>
       <ButtonLink href={href} className="mt-4 w-full" variant="secondary">Deschide</ButtonLink>
     </Card>
+  );
+}
+
+function MiniResult({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-border/70 bg-muted/25 px-4 py-3">
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      <p className="mt-1 text-sm font-semibold text-foreground">{value}</p>
+    </div>
   );
 }
 

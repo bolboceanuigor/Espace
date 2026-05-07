@@ -1,95 +1,294 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
-import { reportsApi } from '@/lib/api';
-import MobilePageHeader from '@/components/common/MobilePageHeader';
-import LoadingState from '@/components/common/LoadingState';
-import EmptyState from '@/components/common/EmptyState';
-import Button from '@/components/ui/Button';
+import { Calculator, CheckCircle2, Coins, Pencil, Plus, Ruler } from 'lucide-react';
+import { Badge, Button, ButtonLink, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
+import { tariffsApi } from '@/lib/api';
+import { formatMdl } from '@/lib/condo-admin-fallback';
+
+type Tariff = {
+  id: string;
+  code: string;
+  name: string;
+  type: 'PER_M2' | 'FIXED';
+  calculationType?: 'PER_M2' | 'FIXED';
+  amount: number;
+  currency: 'MDL';
+  unit: string;
+  isActive: boolean;
+};
+
+const tariffOptions = [
+  { id: 'DESERVIRE_BLOC_PER_M2', label: 'Deservire bloc', type: 'PER_M2' as const },
+  { id: 'FOND_REPARATIE_PER_M2', label: 'Fond reparație', type: 'PER_M2' as const },
+  { id: 'FOND_DEZVOLTARE_FIXED', label: 'Fond dezvoltare', type: 'FIXED' as const },
+];
+
+const emptyForm = {
+  id: 'DESERVIRE_BLOC_PER_M2',
+  name: 'Deservire bloc',
+  type: 'PER_M2' as 'PER_M2' | 'FIXED',
+  amount: '',
+  isActive: true,
+};
 
 export default function AdminTariffsPage() {
-  const now = new Date();
-  const [month, setMonth] = useState(now.getMonth() + 1);
-  const [year, setYear] = useState(now.getFullYear());
-  const [rows, setRows] = useState<any[]>([]);
+  const [rows, setRows] = useState<Tariff[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
+  const [form, setForm] = useState(emptyForm);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+  const [source, setSource] = useState<'api' | 'offline'>('api');
 
-  const load = useCallback(async () => {
+  const loadTariffs = useCallback(async () => {
     setLoading(true);
-    setError(null);
+    setError('');
     try {
-      const res = await reportsApi.adminCharges({ month, year });
-      setRows(res.data || []);
+      const response = await tariffsApi.list();
+      setRows(response.data || []);
+      setSource('api');
     } catch {
       setRows([]);
-      setError('Nu am putut încărca tarifele.');
+      setSource('offline');
+      setError('Nu am putut încărca tarifele. Verifică conexiunea cu API-ul.');
     } finally {
       setLoading(false);
     }
-  }, [month, year]);
+  }, []);
 
   useEffect(() => {
-    load().catch(() => undefined);
-  }, [load]);
+    loadTariffs().catch(() => undefined);
+  }, [loadTariffs]);
 
-  const tariffs = useMemo(() => {
-    const map = new Map<string, { tariffName: string; apartments: number; totalAmount: number }>();
-    for (const row of rows) {
-      const key = String(row.tariffName || 'UNKNOWN');
-      const existing = map.get(key) || { tariffName: key, apartments: 0, totalAmount: 0 };
-      existing.apartments += 1;
-      existing.totalAmount += Number(row.amount || 0);
-      map.set(key, existing);
+  const activeRows = rows.filter((row) => row.isActive);
+  const inactiveRows = rows.filter((row) => !row.isActive);
+  const perM2Total = useMemo(
+    () => activeRows.filter((row) => row.type === 'PER_M2').reduce((sum, row) => sum + Number(row.amount || 0), 0),
+    [activeRows],
+  );
+  const fixedTotal = useMemo(
+    () => activeRows.filter((row) => row.type === 'FIXED').reduce((sum, row) => sum + Number(row.amount || 0), 0),
+    [activeRows],
+  );
+
+  const openCreate = () => {
+    setForm(emptyForm);
+    setModalMode('create');
+    setError('');
+    setSuccessMessage('');
+    setModalOpen(true);
+  };
+
+  const openEdit = (tariff: Tariff) => {
+    setForm({
+      id: tariff.id,
+      name: tariff.name,
+      type: tariff.type,
+      amount: String(tariff.amount || ''),
+      isActive: tariff.isActive,
+    });
+    setError('');
+    setSuccessMessage('');
+    setModalMode('edit');
+    setModalOpen(true);
+  };
+
+  const selectTariffKind = (id: string) => {
+    const option = tariffOptions.find((item) => item.id === id) || tariffOptions[0];
+    setForm((current) => ({
+      ...current,
+      id: option.id,
+      name: option.label,
+      type: option.type,
+    }));
+  };
+
+  const saveTariff = async () => {
+    setError('');
+    setSuccessMessage('');
+    const amount = Number(form.amount);
+    if (!Number.isFinite(amount) || amount < 0) {
+      setError('Completează o sumă validă.');
+      return;
     }
-    return Array.from(map.values());
-  }, [rows]);
+
+    setIsSaving(true);
+    try {
+      const payload = {
+        name: form.name,
+        type: form.type,
+        amount,
+        currency: 'MDL',
+        isActive: form.isActive,
+        code: form.id,
+      } as const;
+      if (modalMode === 'create') {
+        await tariffsApi.create(payload);
+      } else {
+        await tariffsApi.update(form.id, payload);
+      }
+      setModalOpen(false);
+      setSuccessMessage('Tariful a fost salvat.');
+      await loadTariffs();
+    } catch (err: any) {
+      const message = String(err?.message || '');
+      setError(message || 'Nu am putut salva tariful.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
-    <div className="space-y-4 pb-24 md:pb-4">
-      <MobilePageHeader title="Tariffs" subtitle="Current tariff breakdown from generated monthly charges." />
+    <div className="space-y-5 pb-4">
+      <PageHeader
+        title="Tarife APC"
+        description="Configurează tarifele lunare pentru deservire bloc, fond reparație și fond dezvoltare."
+        rightSlot={
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
+              {source === 'api' ? 'Date reale' : 'API indisponibil'}
+            </span>
+            <Button type="button" onClick={openCreate}>
+              <Plus className="h-4 w-4" />
+              Adaugă tarif
+            </Button>
+          </div>
+        }
+      />
 
-      {loading ? <LoadingState label="Se încarcă tarifele..." /> : null}
-      {error ? (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
-          {error}
-          <Button className="ml-2" size="sm" variant="secondary" onClick={() => load()}>
-            Reîncearcă
-          </Button>
+      {successMessage ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+          {successMessage}
         </div>
       ) : null}
 
-      <div className="flex flex-wrap gap-2 rounded-xl border border-border/70 bg-card p-4">
-        <input className="input w-28" type="number" min={1} max={12} value={month} onChange={(e) => setMonth(Number(e.target.value))} />
-        <input className="input w-32" type="number" min={2000} value={year} onChange={(e) => setYear(Number(e.target.value))} />
-      </div>
+      {error && !modalOpen ? (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+          {error}
+        </div>
+      ) : null}
 
-      <div className="rounded-xl border border-border/70 bg-card p-3 text-sm text-muted-foreground">
-        Tarifele afișate aici sunt calculate din taxele lunare generate. Pentru actualizare, rulează generarea de taxe și facturi pentru perioada dorită.
-      </div>
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Tarife active" value={String(activeRows.length)} description={`${inactiveRows.length} inactive`} icon={<CheckCircle2 className="h-5 w-5" />} tone="success" />
+        <StatCard label="Total per m²" value={`${perM2Total.toLocaleString('ro-RO')} MDL`} description="Aplicat la suprafața apartamentului" icon={<Ruler className="h-5 w-5" />} />
+        <StatCard label="Sume fixe" value={formatMdl(fixedTotal)} description="Aplicate per apartament" icon={<Coins className="h-5 w-5" />} tone="warning" />
+        <StatCard label="Monedă" value="MDL" description="Republica Moldova" icon={<Calculator className="h-5 w-5" />} />
+      </section>
 
-      <div className="space-y-2">
-        {tariffs.map((tariff) => (
-          <div key={tariff.tariffName} className="rounded-xl border border-border/70 bg-card p-3 shadow-sm">
-            <p className="font-medium text-foreground">{tariff.tariffName}</p>
-            <p className="text-xs text-muted-foreground">
-              Apartments: {tariff.apartments} • Total amount: {tariff.totalAmount.toFixed(2)}
+      <Card>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-foreground">Tarife active</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Facturile lunare folosesc aceste valori pentru calculul automat pe apartamente active.
             </p>
           </div>
+          <ButtonLink href="/admin/invoices" variant="secondary">Generează facturi</ButtonLink>
+        </div>
+      </Card>
+
+      <section className="grid gap-3 lg:grid-cols-3">
+        {rows.map((tariff) => (
+          <TariffCard key={tariff.id} tariff={tariff} onEdit={() => openEdit(tariff)} />
         ))}
-        {!loading && !tariffs.length ? (
-          <EmptyState title="Nu există tarife în perioada selectată" description="Generează mai întâi taxele lunare pentru a vedea tarifele." />
+        {!loading && !rows.length ? (
+          <Card className="p-5 text-sm font-medium text-muted-foreground lg:col-span-3">
+            Nu există tarife configurate încă.
+          </Card>
         ) : null}
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <Link href="/admin/charges" className="rounded-lg border border-border/70 px-3 py-2 text-sm font-medium text-foreground">
-          Deschide Charges
-        </Link>
-        <Link href="/admin/invoices" className="rounded-lg border border-border/70 px-3 py-2 text-sm font-medium text-foreground">
-          Deschide Invoices
-        </Link>
-      </div>
+        {loading ? (
+          <Card className="p-5 text-sm font-medium text-muted-foreground lg:col-span-3">
+            Se încarcă tarifele...
+          </Card>
+        ) : null}
+      </section>
+
+      <Card>
+        <h2 className="text-base font-semibold text-foreground">Limitare schema curentă</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Pentru MVP, schema salvează real cele trei tarife APC de bază în setările asociației. Tarifele extra de tip “alte taxe” necesită un model dedicat de tarif înainte de activare.
+        </p>
+      </Card>
+
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} maxWidth="lg">
+        <ModalHeader title={modalMode === 'create' ? 'Adaugă tarif' : 'Editează tarif'} onClose={() => setModalOpen(false)} />
+        <ModalBody>
+          <div className="grid gap-3">
+            <label className="block">
+              <span className="label">Tip tarif</span>
+              <select className="select" value={form.id} onChange={(event) => selectTariffKind(event.target.value)}>
+                {tariffOptions.map((option) => (
+                  <option key={option.id} value={option.id}>{option.label}</option>
+                ))}
+              </select>
+            </label>
+            <Input label="Nume tarif" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} required />
+            <label className="block">
+              <span className="label">Tip calcul</span>
+              <select className="select" value={form.type} onChange={(event) => setForm((current) => ({ ...current, type: event.target.value as typeof form.type }))}>
+                <option value="PER_M2">Per m²</option>
+                <option value="FIXED">Sumă fixă</option>
+              </select>
+            </label>
+            <Input label="Suma" type="number" value={form.amount} onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))} required />
+            <label className="block">
+              <span className="label">Monedă</span>
+              <select className="select" value="MDL" disabled>
+                <option value="MDL">MDL</option>
+              </select>
+            </label>
+            <label className="flex items-center justify-between gap-3 rounded-2xl border border-border/70 bg-muted/25 px-4 py-3">
+              <span className="text-sm font-semibold text-foreground">Activ</span>
+              <input
+                type="checkbox"
+                checked={form.isActive}
+                onChange={(event) => setForm((current) => ({ ...current, isActive: event.target.checked }))}
+                className="h-5 w-5 rounded border-border"
+              />
+            </label>
+          </div>
+          {error ? (
+            <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
+              {error}
+            </p>
+          ) : null}
+        </ModalBody>
+        <ModalFooter>
+          <Button type="button" variant="secondary" onClick={() => setModalOpen(false)} disabled={isSaving}>
+            Anulează
+          </Button>
+          <Button type="button" onClick={saveTariff} isLoading={isSaving}>
+            Salvează tarif
+          </Button>
+        </ModalFooter>
+      </Modal>
     </div>
+  );
+}
+
+function TariffCard({ tariff, onEdit }: { tariff: Tariff; onEdit: () => void }) {
+  return (
+    <Card className="p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-foreground">{tariff.name}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{tariff.type === 'PER_M2' ? 'Per m²' : 'Sumă fixă'} · {tariff.unit}</p>
+        </div>
+        <Badge variant={tariff.isActive ? 'success' : 'neutral'}>{tariff.isActive ? 'Activ' : 'Inactiv'}</Badge>
+      </div>
+      <p className="mt-5 text-2xl font-semibold tracking-tight text-foreground">
+        {formatMdl(tariff.amount)}
+      </p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        {tariff.type === 'PER_M2' ? 'Se înmulțește cu suprafața apartamentului.' : 'Se aplică o dată pentru fiecare apartament.'}
+      </p>
+      <Button type="button" variant="secondary" className="mt-4 w-full" onClick={onEdit}>
+        <Pencil className="h-4 w-4" />
+        Editează
+      </Button>
+    </Card>
   );
 }

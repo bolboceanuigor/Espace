@@ -1020,6 +1020,8 @@ export const invoicesApi = {
   }) => apiRequest<any>('/invoices', { method: 'POST', body: data }),
   generateMonthly: (data: { month: number; year: number; dueDate?: string }) =>
     apiRequest<any>('/api/admin/invoices/generate-monthly', { method: 'POST', body: data }),
+  monthlySummary: (params: { month: number; year: number }) =>
+    apiRequest<any>('/api/admin/invoices/monthly-summary', { params }),
   adminList: (params?: { month?: number; year?: number; buildingId?: string; staircaseId?: string; status?: string; page?: number; limit?: number }) =>
     apiRequest<any>('/api/admin/invoices', { params }),
   adminGetOne: (id: string) => apiRequest<any>(`/api/admin/invoices/${id}`),
@@ -1037,6 +1039,28 @@ export const invoicesApi = {
   residentPdf: (id: string) => apiRequest<Blob>(`/api/resident/invoices/${id}/pdf`, { responseType: 'blob' }),
   residentReceipts: () => apiRequest<any[]>('/api/resident/receipts'),
   residentReceiptPdf: (id: string) => apiRequest<Blob>(`/api/resident/receipts/${id}/pdf`, { responseType: 'blob' }),
+};
+
+export const tariffsApi = {
+  list: () => apiRequest<any[]>('/api/admin/tariffs'),
+  create: (data: {
+    name: string;
+    type: 'PER_M2' | 'FIXED';
+    amount: number;
+    currency?: 'MDL';
+    isActive?: boolean;
+    code?: string;
+  }) => apiRequest<any>('/api/admin/tariffs', { method: 'POST', body: data }),
+  update: (
+    id: string,
+    data: {
+      name?: string;
+      type?: 'PER_M2' | 'FIXED';
+      amount: number;
+      currency?: 'MDL';
+      isActive?: boolean;
+    },
+  ) => apiRequest<any>(`/api/admin/tariffs/${id}`, { method: 'PATCH', body: data }),
 };
 
 export const paymentsApi = {
