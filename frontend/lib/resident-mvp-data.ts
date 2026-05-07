@@ -9,6 +9,8 @@ export type ResidentPayment = {
   method: string;
   paidAt: string;
   status: string;
+  invoiceLabel?: string;
+  invoiceNumber?: string;
 };
 
 export const residentProfile = {
@@ -255,6 +257,7 @@ export function normalizeResidentInvoice(row: any) {
   return {
     id: String(row?.id || 'invoice'),
     number: String(row?.invoiceNumber || `FAC-${row?.year || '----'}-${String(row?.month || '').padStart(2, '0')}${apartmentNumber ? `-${apartmentNumber}` : ''}`),
+    apartmentNumber,
     month: monthLabel(row?.month, row?.year),
     amount,
     paidAmount,
@@ -267,12 +270,19 @@ export function normalizeResidentInvoice(row: any) {
 }
 
 export function normalizeResidentPayment(row: any): ResidentPayment {
+  const invoiceLabel =
+    row?.invoiceLabel ||
+    row?.invoiceNumber ||
+    row?.invoice?.invoiceNumber ||
+    (row?.invoiceMonth && row?.invoiceYear ? monthLabel(row.invoiceMonth, row.invoiceYear) : row?.month);
   return {
     id: String(row?.id || 'payment'),
     amount: Number(row?.amount || 0),
     method: paymentMethodFromApi(row?.method),
     paidAt: dateLabel(row?.paidAt || row?.createdAt),
     status: String(row?.status || 'CONFIRMED'),
+    invoiceLabel: invoiceLabel ? String(invoiceLabel) : undefined,
+    invoiceNumber: row?.invoiceNumber || row?.invoice?.invoiceNumber || undefined,
   };
 }
 

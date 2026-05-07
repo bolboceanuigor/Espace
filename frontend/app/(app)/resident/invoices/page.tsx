@@ -1,12 +1,15 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Badge, Card, PageHeader } from '@/components/ui';
 import { residentDemoApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { normalizeResidentInvoice, residentInvoices, residentInvoiceStatusVariant } from '@/lib/resident-mvp-data';
+import { useLocalizedPath } from '@/lib/use-localized-path';
 
 export default function ResidentInvoicesPage() {
+  const localizedPath = useLocalizedPath();
   const [rows, setRows] = useState<typeof residentInvoices>([]);
   const [source, setSource] = useState<'loading' | 'api' | 'mock'>('loading');
 
@@ -67,6 +70,12 @@ export default function ResidentInvoicesPage() {
                 ))}
               </div>
             </div> : null}
+            <Link
+              href={localizedPath(`/resident/invoices/${invoice.id}`)}
+              className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-border/70 text-sm font-semibold text-foreground transition hover:bg-muted/40"
+            >
+              Detalii
+            </Link>
           </Card>
         ))}
         {!rows.length ? (

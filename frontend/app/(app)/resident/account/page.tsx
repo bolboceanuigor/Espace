@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { LogOut, Mail, Phone, ShieldCheck, UserRound } from 'lucide-react';
+import { LogOut, Mail, Phone, ReceiptText, ShieldCheck, UserRound } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { Button, Card, PageHeader } from '@/components/ui';
 import { residentDemoApi } from '@/lib/api';
 import { getStoredUser } from '@/lib/auth';
+import { formatMdl } from '@/lib/condo-admin-fallback';
 import { normalizeResidentContext } from '@/lib/resident-mvp-data';
 import { demoLogout } from '@/lib/demo-auth';
 import { defaultLocale, isLocale } from '@/i18n';
@@ -15,6 +16,7 @@ export default function ResidentAccountPage() {
   const localeParam = typeof params?.locale === 'string' ? params.locale : defaultLocale;
   const locale = isLocale(localeParam) ? localeParam : defaultLocale;
   const [profile, setProfile] = useState<ReturnType<typeof normalizeResidentContext> | null>(null);
+  const [financeSummary, setFinanceSummary] = useState<any>(null);
   const [source, setSource] = useState<'loading' | 'api' | 'fallback'>('loading');
 
   useEffect(() => {
@@ -38,16 +40,20 @@ export default function ResidentAccountPage() {
     }
 
     let active = true;
-    residentDemoApi
-      .context()
-      .then((res) => {
+    Promise.all([
+      residentDemoApi.context(),
+      residentDemoApi.financeSummary().catch(() => ({ data: null })),
+    ])
+      .then(([res, financeRes]) => {
         if (!active) return;
         setProfile(normalizeResidentContext(res.data));
+        setFinanceSummary(financeRes.data || null);
         setSource('api');
       })
       .catch(() => {
         if (!active) return;
         setSource('fallback');
+        setFinanceSummary(null);
         setProfile({
           name: `${storedUser?.firstName || ''} ${storedUser?.lastName || ''}`.trim() || storedUser?.email || 'Locatar',
           email: storedUser?.email || 'Necompletat',
@@ -109,6 +115,22 @@ export default function ResidentAccountPage() {
         </Button>
       </Card>
       ) : null}
+
+      {profile ? (
+        <Card>
+          <h2 className="flex items-center gap-2 font-semibold text-foreground">
+            <ReceiptText className="h-4 w-4" />
+            Situație financiară
+          </h2>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <Info icon={<ReceiptText className="h-4 w-4" />} label="Apartament" value={[profile.apartment, profile.staircase].filter(Boolean).join(', ')} />
+            <Info icon={<ReceiptText className="h-4 w-4" />} label="Sold curent" value={formatMdl(Number(financeSummary?.totalDebt ?? profile.currentBalance ?? 0))} />
+            <Info icon={<ReceiptText className="h-4 w-4" />} label="Facturi neachitate" value={String(financeSummary?.unpaidInvoicesCount ?? 0)} />
+            <Info icon={<ReceiptText className="h-4 w-4" />} label="Ultima plată" value={financeSummary?.lastPaymentDate ? formatDate(financeSummary.lastPaymentDate) : 'Nu există'} />
+            <Info icon={<ShieldCheck className="h-4 w-4" />} label="Asociație" value={profile.building} />
+          </div>
+        </Card>
+      ) : null}
     </div>
   );
 }
@@ -123,4 +145,8 @@ function Info({ icon, label, value }: { icon: React.ReactNode; label: string; va
       </div>
     </div>
   );
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat('ro-RO', { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(value));
 }

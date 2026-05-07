@@ -963,7 +963,9 @@ export const announcementsApi = {
 
 export const residentDemoApi = {
   context: () => apiRequest<any>('/resident/me'),
+  financeSummary: () => apiRequest<any>('/resident/finance-summary'),
   invoices: () => apiRequest<any[]>('/resident/invoices'),
+  invoice: (id: string) => apiRequest<any>(`/resident/invoices/${id}`),
   payments: () => apiRequest<any[]>('/resident/payments'),
   meters: () => apiRequest<any[]>('/resident/meters'),
   addMeterReading: (meterId: string, data: { value: number; readingDate?: string; source?: 'RESIDENT' }) =>

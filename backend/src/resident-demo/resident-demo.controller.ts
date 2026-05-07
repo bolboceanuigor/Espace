@@ -21,6 +21,16 @@ export class ResidentDemoController {
     return this.residentDemoService.listInvoices(user);
   }
 
+  @Get(['resident/finance-summary', 'api/resident/finance-summary'])
+  getFinanceSummary(@CurrentUser() user: MvpUser) {
+    return this.residentDemoService.getFinanceSummary(user);
+  }
+
+  @Get(['resident/invoices/:id', 'api/resident/invoices/:id'])
+  getInvoice(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.residentDemoService.getInvoice(user, id);
+  }
+
   @Get(['resident/payments', 'api/resident/payments'])
   listPayments(@CurrentUser() user: MvpUser) {
     return this.residentDemoService.listPayments(user);

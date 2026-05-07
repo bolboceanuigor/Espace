@@ -207,6 +207,11 @@ export class ResidentDemoService {
         name: true,
         legalName: true,
         fiscalCode: true,
+        bankName: true,
+        bankAccountIban: true,
+        bankSwift: true,
+        paymentInstructions: true,
+        administratorName: true,
       },
     });
   }
@@ -256,6 +261,17 @@ export class ResidentDemoService {
         select: {
           id: true,
           number: true,
+        },
+      },
+      invoice: {
+        select: {
+          id: true,
+          invoiceNumber: true,
+          month: true,
+          year: true,
+          totalDue: true,
+          status: true,
+          dueDate: true,
         },
       },
     };
@@ -390,11 +406,26 @@ export class ResidentDemoService {
       typeof row.note === 'string' && row.note.startsWith('Invoice ')
         ? row.note.replace('Invoice ', '').trim()
         : null;
+    const linkedInvoice = row.invoice
+      ? {
+          id: row.invoice.id,
+          invoiceNumber: row.invoice.invoiceNumber,
+          month: row.invoice.month,
+          year: row.invoice.year,
+          totalDue: Number(row.invoice.totalDue || 0),
+          status: row.invoice.status,
+          dueDate: row.invoice.dueDate,
+        }
+      : null;
     return {
       id: row.id,
       organizationId: row.organizationId,
       apartmentId: row.apartmentId,
       invoiceId: row.invoiceId ?? noteInvoiceId,
+      invoiceNumber: linkedInvoice?.invoiceNumber ?? null,
+      invoiceMonth: linkedInvoice?.month ?? null,
+      invoiceYear: linkedInvoice?.year ?? null,
+      invoice: linkedInvoice,
       apartmentNumber: row.apartment?.number ?? null,
       amount: Number(row.amount || 0),
       currency: row.currency,
@@ -405,6 +436,22 @@ export class ResidentDemoService {
       note: row.note,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
+    };
+  }
+
+  private toPaymentInstructions(organization: any) {
+    const bankName = organization?.bankName ?? null;
+    const bankAccountIban = organization?.bankAccountIban ?? null;
+    const bankSwift = organization?.bankSwift ?? null;
+    const paymentInstructions = organization?.paymentInstructions ?? null;
+    const administratorName = organization?.administratorName ?? null;
+    return {
+      bankName,
+      bankAccountIban,
+      bankSwift,
+      paymentInstructions,
+      administratorName,
+      configured: Boolean(bankName || bankAccountIban || bankSwift || paymentInstructions),
     };
   }
 
@@ -517,6 +564,53 @@ export class ResidentDemoService {
     });
 
     return payments.map((payment) => this.toPayment(payment));
+  }
+
+  async getInvoice(user: MvpUser, id: string) {
+    const scope = await this.requireResidentScope(user);
+    const invoice = await this.prisma.invoice.findFirst({
+      where: {
+        id,
+        apartmentId: { in: scope.apartmentIds },
+      },
+      select: this.invoiceSelect(),
+    });
+
+    if (!invoice) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+
+    const [payments, services, organization] = await Promise.all([
+      this.prisma.payment.findMany({
+        where: {
+          organizationId: user.organizationId,
+          apartmentId: { in: scope.apartmentIds },
+          status: PaymentStatus.CONFIRMED,
+          OR: [{ note: this.invoicePaymentNote(invoice.id) }, { invoiceId: invoice.id }],
+        },
+        orderBy: [{ paidAt: 'desc' }, { createdAt: 'desc' }],
+        select: this.paymentSelect(),
+      }),
+      invoice.apartmentId && invoice.month && invoice.year
+        ? this.prisma.monthlyCharge.findMany({
+            where: {
+              organizationId: user.organizationId,
+              apartmentId: invoice.apartmentId,
+              month: invoice.month,
+              year: invoice.year,
+            },
+            orderBy: { tariffName: 'asc' },
+          })
+        : Promise.resolve([]),
+      this.organizationFromUser(user),
+    ]);
+
+    const mappedPayments = payments.map((payment) => this.toPayment(payment));
+    const mappedInvoice = this.toInvoice(invoice, mappedPayments, services);
+    return {
+      ...mappedInvoice,
+      lineItemsAvailable: mappedInvoice.services.length > 0,
+      paymentInstructions: this.toPaymentInstructions(organization),
+      organization,
+    };
   }
 
   async listMeters(user: MvpUser) {
@@ -683,6 +777,81 @@ export class ResidentDemoService {
         count: activeIssues.length,
         latest: activeIssues[0] ?? null,
       },
+    };
+  }
+
+  async getFinanceSummary(user: MvpUser) {
+    const scope = await this.getResidentScope(user);
+    const organization = await this.organizationFromUser(user);
+
+    if (!scope.apartmentIds.length) {
+      return {
+        totalDebt: 0,
+        totalUnpaid: 0,
+        totalPaidThisYear: 0,
+        unpaidInvoicesCount: 0,
+        overdueInvoicesCount: 0,
+        nextDueDate: null,
+        lastPaymentDate: null,
+        status: 'NO_APARTMENT',
+        primaryApartment: null,
+        organization,
+        paymentInstructions: this.toPaymentInstructions(organization),
+        emptyStateMessage: this.emptyResidentMessage(),
+      };
+    }
+
+    const [invoices, payments] = await Promise.all([
+      this.listInvoices(user),
+      this.listPayments(user),
+    ]);
+    const openInvoices = invoices.filter((invoice) => Number(invoice.remainingAmount ?? invoice.amount ?? 0) > 0);
+    const overdueInvoices = openInvoices.filter(
+      (invoice) => invoice.status === InvoiceStatus.OVERDUE || (invoice.dueDate && new Date(invoice.dueDate) < new Date()),
+    );
+    const nextDueInvoice = [...openInvoices].sort((a, b) => {
+      const left = a.dueDate ? new Date(a.dueDate).getTime() : Number.MAX_SAFE_INTEGER;
+      const right = b.dueDate ? new Date(b.dueDate).getTime() : Number.MAX_SAFE_INTEGER;
+      return left - right;
+    })[0];
+    const currentYear = new Date().getFullYear();
+    const confirmedPayments = payments.filter(
+      (payment) => payment.status === PaymentStatus.CONFIRMED || String(payment.status).toUpperCase() === 'CONFIRMED',
+    );
+    const totalPaidThisYear = this.money(
+      confirmedPayments.reduce((sum, payment) => {
+        const paidAt = payment.paidAt ?? payment.createdAt;
+        if (!paidAt || new Date(paidAt).getFullYear() !== currentYear) return sum;
+        return sum + Number(payment.amount || 0);
+      }, 0),
+    );
+    const lastPayment = [...confirmedPayments].sort((a, b) => {
+      const left = a.paidAt ? new Date(a.paidAt).getTime() : 0;
+      const right = b.paidAt ? new Date(b.paidAt).getTime() : 0;
+      return right - left;
+    })[0];
+    const totalDebt = this.money(openInvoices.reduce((sum, invoice) => sum + Number(invoice.remainingAmount ?? invoice.amount ?? 0), 0));
+    const primaryApartment = scope.primaryApartment
+      ? {
+          id: scope.primaryApartment.id,
+          number: scope.primaryApartment.number,
+          staircase: scope.primaryApartment.staircase?.name ?? null,
+          building: scope.primaryApartment.building?.name ?? null,
+        }
+      : null;
+
+    return {
+      totalDebt,
+      totalUnpaid: totalDebt,
+      totalPaidThisYear,
+      unpaidInvoicesCount: openInvoices.length,
+      overdueInvoicesCount: overdueInvoices.length,
+      nextDueDate: nextDueInvoice?.dueDate ?? null,
+      lastPaymentDate: lastPayment?.paidAt ?? lastPayment?.createdAt ?? null,
+      status: overdueInvoices.length ? 'OVERDUE' : openInvoices.length ? 'UNPAID' : 'PAID',
+      primaryApartment,
+      organization,
+      paymentInstructions: this.toPaymentInstructions(organization),
     };
   }
 

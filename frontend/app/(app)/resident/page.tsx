@@ -30,6 +30,7 @@ export default function ResidentDashboardPage() {
   const [announcements, setAnnouncements] = useState<typeof residentAnnouncements>([]);
   const [meters, setMeters] = useState<typeof residentMeters>([]);
   const [issues, setIssues] = useState<typeof residentIssues>([]);
+  const [financeSummary, setFinanceSummary] = useState<any>(null);
   const [source, setSource] = useState<'loading' | 'api' | 'mock'>('loading');
   const latestAnnouncement = announcements[0];
   const missingMeters = meters.filter((meter) => meter.status === 'Lipsă citire');
@@ -39,13 +40,15 @@ export default function ResidentDashboardPage() {
     let active = true;
     Promise.all([
       residentDemoApi.context(),
+      residentDemoApi.financeSummary().catch(() => ({ data: null })),
       residentDemoApi.announcements().catch(() => ({ data: [] })),
       residentDemoApi.meters().catch(() => ({ data: [] })),
       residentDemoApi.issues().catch(() => ({ data: [] })),
     ])
-      .then(([contextRes, announcementsRes, metersRes, issuesRes]) => {
+      .then(([contextRes, financeRes, announcementsRes, metersRes, issuesRes]) => {
         if (!active) return;
         setProfile(normalizeResidentContext(contextRes.data));
+        setFinanceSummary(financeRes.data || null);
         const apiAnnouncements = (announcementsRes.data || []).map(normalizeResidentAnnouncement);
         const apiMeters = (metersRes.data || []).map(normalizeResidentMeter);
         const apiIssues = (issuesRes.data || []).map(normalizeResidentIssue);
@@ -64,6 +67,7 @@ export default function ResidentDashboardPage() {
         setAnnouncements(residentAnnouncements);
         setMeters(residentMeters);
         setIssues(residentIssues);
+        setFinanceSummary(null);
         setSource('mock');
       });
     return () => {
@@ -100,9 +104,9 @@ export default function ResidentDashboardPage() {
           <p className="mt-1 text-sm opacity-75">{[profile.buildingName, profile.staircase].filter(Boolean).join(' · ') || 'Apartament neconectat'}</p>
         </div>
         <div className="grid gap-3 p-4 sm:grid-cols-3">
-          <Info label="Sold curent" value={formatMdl(profile.currentBalance)} danger={profile.currentBalance > 0} />
-          <Info label="Status" value={profile.status} danger={profile.status !== 'Achitat'} />
-          <Info label="Următoarea scadență" value={profile.nextDueDate} />
+          <Info label="Sold curent" value={formatMdl(Number(financeSummary?.totalDebt ?? profile.currentBalance))} danger={Number(financeSummary?.totalDebt ?? profile.currentBalance) > 0} />
+          <Info label="Facturi neachitate" value={String(financeSummary?.unpaidInvoicesCount ?? (profile.status === 'Achitat' ? 0 : 1))} danger={Number(financeSummary?.unpaidInvoicesCount ?? 0) > 0 || profile.status !== 'Achitat'} />
+          <Info label="Următoarea scadență" value={financeSummary?.nextDueDate ? formatDate(financeSummary.nextDueDate) : profile.nextDueDate} />
         </div>
       </Card>
       ) : null}
@@ -185,4 +189,8 @@ function Info({ label, value, danger }: { label: string; value: string; danger?:
       <p className={`mt-1 font-semibold ${danger ? 'text-rose-600' : 'text-foreground'}`}>{value}</p>
     </div>
   );
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat('ro-RO', { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(value));
 }

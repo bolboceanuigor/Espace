@@ -20,22 +20,29 @@ export default function ResidentPaymentsPage() {
   const [filter, setFilter] = useState<'Toate' | ResidentInvoiceStatus>('Toate');
   const [rows, setRows] = useState<typeof residentInvoices>([]);
   const [payments, setPayments] = useState<ResidentPayment[]>([]);
+  const [financeSummary, setFinanceSummary] = useState<any>(null);
   const [source, setSource] = useState<'loading' | 'api' | 'mock'>('loading');
   const visible = useMemo(() => rows.filter((invoice) => filter === 'Toate' || invoice.status === filter), [filter, rows]);
   const paidThisYear = payments.length ? payments.reduce((sum, payment) => sum + payment.amount, 0) : rows.filter((invoice) => invoice.status === 'Achitat').reduce((sum, invoice) => sum + invoice.amount, 0);
   const unpaidCount = rows.filter((invoice) => invoice.status !== 'Achitat').length;
   const currentBalance = rows.filter((invoice) => invoice.status !== 'Achitat').reduce((sum, invoice) => sum + (invoice.remainingAmount || invoice.amount), 0);
+  const summaryDebt = Number(financeSummary?.totalDebt ?? currentBalance);
+  const summaryPaidThisYear = Number(financeSummary?.totalPaidThisYear ?? paidThisYear);
+  const summaryUnpaidCount = Number(financeSummary?.unpaidInvoicesCount ?? unpaidCount);
+  const paymentInstructions = financeSummary?.paymentInstructions;
 
   useEffect(() => {
     let active = true;
     Promise.all([
+      residentDemoApi.financeSummary().catch(() => ({ data: null })),
       residentDemoApi.invoices(),
       residentDemoApi.payments().catch(() => ({ data: [] })),
     ])
-      .then(([invoiceRes, paymentRes]) => {
+      .then(([summaryRes, invoiceRes, paymentRes]) => {
         if (!active) return;
         const apiRows = (invoiceRes.data || []).map(normalizeResidentInvoice);
         const apiPayments = (paymentRes.data || []).map(normalizeResidentPayment);
+        setFinanceSummary(summaryRes.data || null);
         setRows(apiRows);
         setPayments(apiPayments);
         setSource('api');
@@ -44,6 +51,7 @@ export default function ResidentPaymentsPage() {
         if (!active) return;
         setRows(residentInvoices);
         setPayments(residentPayments);
+        setFinanceSummary(null);
         setSource('mock');
       });
     return () => {
@@ -62,11 +70,31 @@ export default function ResidentPaymentsPage() {
           </span>
         }
       />
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        <StatCard label="Sold curent" value={formatMdl(currentBalance || (source === 'mock' ? residentProfile.currentBalance : 0))} description={currentBalance > 0 ? 'Neachitat' : source === 'mock' ? residentProfile.status : 'Achitat'} icon={<ReceiptText className="h-5 w-5" />} tone={currentBalance > 0 ? 'danger' : 'success'} />
-        <StatCard label="Total achitat anul acesta" value={formatMdl(paidThisYear)} description="Plăți confirmate" icon={<CheckCircle2 className="h-5 w-5" />} tone="success" />
-        <StatCard label="Facturi neachitate" value={unpaidCount} description="Necesită atenție" icon={<Clock3 className="h-5 w-5" />} tone="warning" />
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Sold curent" value={formatMdl(summaryDebt || (source === 'mock' ? residentProfile.currentBalance : 0))} description={summaryDebt > 0 ? 'Datorie curentă' : source === 'mock' ? residentProfile.status : 'Achitat'} icon={<ReceiptText className="h-5 w-5" />} tone={summaryDebt > 0 ? 'danger' : 'success'} />
+        <StatCard label="Total achitat anul acesta" value={formatMdl(summaryPaidThisYear)} description="Plăți confirmate" icon={<CheckCircle2 className="h-5 w-5" />} tone="success" />
+        <StatCard label="Facturi neachitate" value={summaryUnpaidCount} description="Necesită atenție" icon={<Clock3 className="h-5 w-5" />} tone={summaryUnpaidCount > 0 ? 'warning' : 'success'} />
+        <StatCard label="Următoarea scadență" value={financeSummary?.nextDueDate ? formatDate(financeSummary.nextDueDate) : 'Nu există'} description="Pentru facturi deschise" icon={<CreditCard className="h-5 w-5" />} tone={financeSummary?.overdueInvoicesCount ? 'danger' : 'neutral'} />
       </section>
+
+      <Card>
+        <h2 className="font-semibold text-foreground">Cum poți achita</h2>
+        {paymentInstructions?.configured ? (
+          <div className="mt-4 grid gap-2 text-sm text-muted-foreground">
+            {paymentInstructions.bankName ? <p><span className="font-semibold text-foreground">Bancă:</span> {paymentInstructions.bankName}</p> : null}
+            {paymentInstructions.bankAccountIban ? <p><span className="font-semibold text-foreground">IBAN:</span> {paymentInstructions.bankAccountIban}</p> : null}
+            {paymentInstructions.bankSwift ? <p><span className="font-semibold text-foreground">SWIFT:</span> {paymentInstructions.bankSwift}</p> : null}
+            {paymentInstructions.paymentInstructions ? <p>{paymentInstructions.paymentInstructions}</p> : null}
+          </div>
+        ) : (
+          <p className="mt-4 rounded-2xl bg-muted/35 p-3 text-sm text-muted-foreground">
+            Administratorul nu a configurat încă instrucțiunile de plată.
+          </p>
+        )}
+        <p className="mt-3 rounded-2xl border border-border/70 bg-muted/25 p-3 text-sm font-medium text-muted-foreground">
+          Plățile online vor fi conectate ulterior. Pentru moment, plata se înregistrează de administratorul A.P.C.
+        </p>
+      </Card>
 
       <div className="flex flex-wrap gap-2">
         {(['Toate', 'Achitat', 'Neachitat', 'Întârziat'] as const).map((item) => (
@@ -129,22 +157,24 @@ export default function ResidentPaymentsPage() {
             <div key={payment.id} className="flex items-center justify-between gap-3 rounded-2xl bg-muted/35 px-3 py-3 text-sm">
               <div>
                 <p className="font-semibold text-foreground">{formatMdl(payment.amount)}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{payment.method}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {payment.method}{payment.invoiceLabel ? ` · ${payment.invoiceLabel}` : ''}
+                </p>
               </div>
               <p className="text-right text-xs text-muted-foreground">{payment.paidAt}</p>
             </div>
           ))}
           {!payments.length ? (
             <p className="rounded-2xl bg-muted/35 px-3 py-3 text-sm text-muted-foreground">
-              {source === 'loading' ? 'Se încarcă datele...' : 'Nu există plăți încă.'}
+              {source === 'loading' ? 'Se încarcă datele...' : 'Nu există plăți înregistrate.'}
             </p>
           ) : null}
         </div>
       </Card>
-
-      <Card className="p-4 text-sm text-muted-foreground">
-        Plățile online vor fi conectate ulterior. Pentru moment, plata se înregistrează de administratorul A.P.C.
-      </Card>
     </div>
   );
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat('ro-RO', { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(value));
 }
