@@ -104,7 +104,30 @@ export class BillingReadService {
     };
   }
 
-  private toInvoice(row: any, relatedPayments: any[] = []) {
+  private invoicePaymentNote(invoiceId: string) {
+    return `Invoice ${invoiceId}`;
+  }
+
+  private invoiceAmount(row: { finalAmount?: number | null; amount?: number | null }) {
+    return Number(row.finalAmount || row.amount || 0);
+  }
+
+  private confirmedPaymentTotal(payments: any[]) {
+    return this.money(
+      (payments || [])
+        .filter((payment) => payment.status === PaymentStatus.CONFIRMED || String(payment.status).toUpperCase() === 'CONFIRMED')
+        .reduce((sum, payment) => sum + Number(payment.amount || 0), 0),
+    );
+  }
+
+  private remainingDebtForInvoice(row: { status?: InvoiceStatus; finalAmount?: number | null; amount?: number | null }, payments: any[] = []) {
+    if (row.status === InvoiceStatus.PAID) return 0;
+    return this.money(Math.max(this.invoiceAmount(row) - this.confirmedPaymentTotal(payments), 0));
+  }
+
+  private toInvoice(row: any, relatedPayments: any[] = [], services: any[] = []) {
+    const paidAmount = this.confirmedPaymentTotal(relatedPayments);
+    const remainingDebt = this.remainingDebtForInvoice(row, relatedPayments);
     return {
       id: row.id,
       organizationId: row.organizationId,
@@ -130,7 +153,9 @@ export class BillingReadService {
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
       payments: relatedPayments,
-      services: [],
+      services,
+      paidAmount,
+      remainingDebt,
     };
   }
 
@@ -266,6 +291,10 @@ export class BillingReadService {
     });
 
     return this.toTariffRows(settings).find((tariff) => tariff.id === id);
+  }
+
+  async deactivateTariff(user: MvpUser, tariffId: string) {
+    return this.saveTariff(user, { amount: 0, isActive: false }, tariffId);
   }
 
   async generateMonthlyInvoices(user: MvpUser, body: unknown) {
@@ -423,7 +452,43 @@ export class BillingReadService {
       select: this.invoiceSelect(),
     });
 
-    return invoices.map((invoice) => this.toInvoice(invoice));
+    const notes = invoices.map((invoice) => this.invoicePaymentNote(invoice.id));
+    const payments = notes.length
+      ? await this.prisma.payment.findMany({
+          where: {
+            ...this.organizationWhere(user),
+            note: { in: notes },
+            status: PaymentStatus.CONFIRMED,
+          },
+          orderBy: [{ paidAt: 'desc' }, { createdAt: 'desc' }],
+          select: this.paymentSelect(),
+        })
+      : [];
+
+    const chargeFilters = invoices
+      .filter((invoice) => invoice.apartmentId && invoice.month && invoice.year)
+      .map((invoice) => ({
+        apartmentId: invoice.apartmentId as string,
+        month: invoice.month as number,
+        year: invoice.year as number,
+      }));
+    const charges = chargeFilters.length
+      ? await this.prisma.monthlyCharge.findMany({
+          where: {
+            ...this.organizationWhere(user),
+            OR: chargeFilters,
+          },
+          orderBy: { tariffName: 'asc' },
+        })
+      : [];
+
+    return invoices.map((invoice) =>
+      this.toInvoice(
+        invoice,
+        payments.filter((payment) => payment.note === this.invoicePaymentNote(invoice.id)).map((payment) => this.toPayment(payment)),
+        charges.filter((charge) => charge.apartmentId === invoice.apartmentId && charge.month === invoice.month && charge.year === invoice.year),
+      ),
+    );
   }
 
   async createInvoice(user: MvpUser, body: unknown) {
@@ -489,14 +554,30 @@ export class BillingReadService {
 
     const payments = invoice.apartmentId
       ? await this.prisma.payment.findMany({
-          where: { apartmentId: invoice.apartmentId },
+          where: {
+            ...this.organizationWhere(user),
+            apartmentId: invoice.apartmentId,
+            note: this.invoicePaymentNote(invoice.id),
+          },
           orderBy: { createdAt: 'desc' },
           take: 10,
           select: this.paymentSelect(),
         })
       : [];
+    const services =
+      invoice.apartmentId && invoice.month && invoice.year
+        ? await this.prisma.monthlyCharge.findMany({
+            where: {
+              ...this.organizationWhere(user),
+              apartmentId: invoice.apartmentId,
+              month: invoice.month,
+              year: invoice.year,
+            },
+            orderBy: { tariffName: 'asc' },
+          })
+        : [];
 
-    return this.toInvoice(invoice, payments.map((payment) => this.toPayment(payment)));
+    return this.toInvoice(invoice, payments.map((payment) => this.toPayment(payment)), services);
   }
 
   async listPayments(user: MvpUser) {
@@ -535,6 +616,10 @@ export class BillingReadService {
               id: true,
               amount: true,
               finalAmount: true,
+              status: true,
+              month: true,
+              year: true,
+              dueDate: true,
             },
           })
         : Promise.resolve(null),
@@ -553,23 +638,42 @@ export class BillingReadService {
         status: PaymentStatus.CONFIRMED,
         paidAt: input.paidAt,
         confirmedAt: input.paidAt,
-        month: input.month,
-        note: input.invoiceId ? `Invoice ${input.invoiceId}` : undefined,
+        month: invoice?.month && invoice.year ? `${invoice.year}-${String(invoice.month).padStart(2, '0')}` : input.month,
+        note: invoice ? this.invoicePaymentNote(invoice.id) : undefined,
       },
       select: this.paymentSelect(),
     });
 
-    if (invoice && input.amount >= Number(invoice.finalAmount || invoice.amount || 0)) {
-      await this.prisma.invoice.update({
+    let updatedInvoiceStatus: InvoiceStatus | null = null;
+    if (invoice) {
+      const linkedPayments = await this.prisma.payment.findMany({
+        where: {
+          organizationId: input.organizationId,
+          apartmentId: input.apartmentId,
+          note: this.invoicePaymentNote(invoice.id),
+          status: PaymentStatus.CONFIRMED,
+        },
+        select: { amount: true, status: true },
+      });
+      const paidAmount = this.confirmedPaymentTotal(linkedPayments);
+      const invoiceAmount = this.invoiceAmount(invoice);
+      const nextStatus = paidAmount >= invoiceAmount ? InvoiceStatus.PAID : invoice.dueDate < new Date() ? InvoiceStatus.OVERDUE : InvoiceStatus.UNPAID;
+      const updated = await this.prisma.invoice.update({
         where: { id: invoice.id },
         data: {
-          status: InvoiceStatus.PAID,
-          paidAt: input.paidAt,
+          status: nextStatus,
+          paidAt: nextStatus === InvoiceStatus.PAID ? input.paidAt : null,
         },
+        select: { status: true },
       });
+      updatedInvoiceStatus = updated.status;
     }
 
-    return this.toPayment(payment);
+    return {
+      ...this.toPayment(payment),
+      linkedInvoiceId: invoice?.id ?? null,
+      invoiceStatus: updatedInvoiceStatus,
+    };
   }
 
   async getPayment(user: MvpUser, id: string) {
@@ -585,36 +689,100 @@ export class BillingReadService {
     return this.toPayment(payment);
   }
 
+  async updateInvoiceStatus(user: MvpUser, id: string, body: unknown) {
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const status = this.optionalEnum(payload.status, InvoiceStatus, InvoiceStatus.UNPAID, 'Statusul facturii nu este valid.');
+    const invoice = await this.prisma.invoice.findFirst({
+      where: { id, ...this.organizationWhere(user) },
+      select: { id: true, status: true },
+    });
+    if (!invoice) {
+      throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    }
+
+    const updated = await this.prisma.invoice.update({
+      where: { id },
+      data: {
+        status,
+        paidAt: status === InvoiceStatus.PAID ? new Date() : null,
+      },
+      select: this.invoiceSelect(),
+    });
+
+    return this.toInvoice(updated);
+  }
+
   async getSummary(user: MvpUser) {
+    return this.getFinanceOverview(user);
+  }
+
+  async getFinanceOverview(user: MvpUser) {
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
+    const currentMonthKey = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
     const [invoices, payments] = await Promise.all([
       this.prisma.invoice.findMany({
         where: this.organizationWhere(user),
         select: {
+          id: true,
+          apartmentId: true,
+          month: true,
+          year: true,
           amount: true,
           finalAmount: true,
           status: true,
+          dueDate: true,
         },
       }),
       this.prisma.payment.findMany({
-        where: this.organizationWhere(user),
+        where: {
+          ...this.organizationWhere(user),
+          status: PaymentStatus.CONFIRMED,
+        },
         select: {
           amount: true,
           status: true,
+          month: true,
+          note: true,
         },
       }),
     ]);
 
-    const totalIssued = invoices.reduce((sum, invoice) => sum + Number(invoice.finalAmount || invoice.amount || 0), 0);
-    const totalPaid = payments
-      .filter((payment) => payment.status === PaymentStatus.CONFIRMED)
-      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
-    const openInvoices = invoices.filter((invoice) => invoice.status === InvoiceStatus.UNPAID || invoice.status === InvoiceStatus.OVERDUE);
+    const totalIssued = this.money(invoices.reduce((sum, invoice) => sum + this.invoiceAmount(invoice), 0));
+    const totalPaid = this.confirmedPaymentTotal(payments);
+    const totalDebt = this.money(
+      invoices.reduce((sum, invoice) => {
+        const linkedPayments = payments.filter((payment) => payment.note === this.invoicePaymentNote(invoice.id));
+        return sum + this.remainingDebtForInvoice(invoice, linkedPayments);
+      }, 0),
+    );
+    const overdueInvoices = invoices.filter((invoice) => invoice.status !== InvoiceStatus.PAID && (invoice.status === InvoiceStatus.OVERDUE || invoice.dueDate < now));
+    const apartmentsWithDebt = new Set(
+      invoices
+        .filter((invoice) => {
+          const linkedPayments = payments.filter((payment) => payment.note === this.invoicePaymentNote(invoice.id));
+          return this.remainingDebtForInvoice(invoice, linkedPayments) > 0;
+        })
+        .map((invoice) => invoice.apartmentId)
+        .filter(Boolean),
+    ).size;
+    const currentMonthInvoices = invoices.filter((invoice) => invoice.month === currentMonth && invoice.year === currentYear);
+    const currentMonthIssued = this.money(currentMonthInvoices.reduce((sum, invoice) => sum + this.invoiceAmount(invoice), 0));
+    const currentMonthPaid = this.confirmedPaymentTotal(payments.filter((payment) => payment.month === currentMonthKey));
+    const collectionRate = totalIssued > 0 ? this.money((totalPaid / totalIssued) * 100) : 0;
 
     return {
       totalIssued,
       totalPaid,
-      totalDebt: openInvoices.reduce((sum, invoice) => sum + Number(invoice.finalAmount || invoice.amount || 0), 0),
-      overdueInvoices: invoices.filter((invoice) => invoice.status === InvoiceStatus.OVERDUE).length,
+      totalDebt,
+      overdueInvoices: overdueInvoices.length,
+      apartmentsWithDebt,
+      collectionRate,
+      currentMonthIssued,
+      currentMonthPaid,
+      unpaidInvoices: invoices.filter((invoice) => invoice.status !== InvoiceStatus.PAID).length,
+      currency: 'MDL',
     };
   }
 

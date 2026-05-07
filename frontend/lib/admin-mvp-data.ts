@@ -31,6 +31,16 @@ export type AdminApartment = {
   metersMissing: number;
   status: ApartmentStatus;
   hasAccount: boolean;
+  financialSummary?: {
+    apartmentId: string;
+    totalInvoiced: number;
+    totalPaid: number;
+    totalDebt: number;
+    unpaidInvoicesCount: number;
+    overdueInvoicesCount: number;
+    lastPaymentDate?: string | null;
+    lastInvoiceMonth?: string | null;
+  };
 };
 
 export type AdminResident = {
@@ -74,6 +84,8 @@ export type AdminInvoice = {
   status: InvoiceStatus;
   paymentMethod?: string;
   paidDate?: string;
+  paidAmount?: number;
+  remainingDebt?: number;
 };
 
 export type AdminIssue = {
@@ -625,6 +637,18 @@ export function normalizeApiApartment(row: any): AdminApartment {
     metersMissing: Number(row?.metersMissing ?? 0),
     status: statusFromApi(row?.status),
     hasAccount: Boolean(row?.owner?.email),
+    financialSummary: row?.financialSummary
+      ? {
+          apartmentId: String(row.financialSummary.apartmentId || row?.id || ''),
+          totalInvoiced: Number(row.financialSummary.totalInvoiced || 0),
+          totalPaid: Number(row.financialSummary.totalPaid || 0),
+          totalDebt: Number(row.financialSummary.totalDebt || 0),
+          unpaidInvoicesCount: Number(row.financialSummary.unpaidInvoicesCount || 0),
+          overdueInvoicesCount: Number(row.financialSummary.overdueInvoicesCount || 0),
+          lastPaymentDate: row.financialSummary.lastPaymentDate || null,
+          lastInvoiceMonth: row.financialSummary.lastInvoiceMonth || null,
+        }
+      : undefined,
   };
 }
 
@@ -758,6 +782,8 @@ export function normalizeApiInvoice(row: any, payments: any[] = []): AdminInvoic
     status: invoiceStatusFromApi(row?.status),
     paymentMethod: paymentMethodFromApi(paidPayment?.method) || paymentMethodFromApi(row?.paymentMethod),
     paidDate: dateLabel(paidPayment?.paidAt || row?.paidAt),
+    paidAmount: Number(row?.paidAmount ?? paidPayment?.amount ?? 0),
+    remainingDebt: Number(row?.remainingDebt ?? (String(row?.status || '').toUpperCase() === 'PAID' ? 0 : row?.amount ?? row?.finalAmount ?? 0)),
   };
 }
 

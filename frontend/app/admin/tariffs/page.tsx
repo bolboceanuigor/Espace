@@ -141,6 +141,18 @@ export default function AdminTariffsPage() {
     }
   };
 
+  const deactivateTariff = async (tariff: Tariff) => {
+    setError('');
+    setSuccessMessage('');
+    try {
+      await tariffsApi.deactivate(tariff.id);
+      setSuccessMessage('Tariful a fost dezactivat.');
+      await loadTariffs();
+    } catch {
+      setError('Nu am putut salva tariful.');
+    }
+  };
+
   return (
     <div className="space-y-5 pb-4">
       <PageHeader
@@ -192,7 +204,7 @@ export default function AdminTariffsPage() {
 
       <section className="grid gap-3 lg:grid-cols-3">
         {rows.map((tariff) => (
-          <TariffCard key={tariff.id} tariff={tariff} onEdit={() => openEdit(tariff)} />
+          <TariffCard key={tariff.id} tariff={tariff} onEdit={() => openEdit(tariff)} onDeactivate={() => deactivateTariff(tariff)} />
         ))}
         {!loading && !rows.length ? (
           <Card className="p-5 text-sm font-medium text-muted-foreground lg:col-span-3">
@@ -269,7 +281,7 @@ export default function AdminTariffsPage() {
   );
 }
 
-function TariffCard({ tariff, onEdit }: { tariff: Tariff; onEdit: () => void }) {
+function TariffCard({ tariff, onEdit, onDeactivate }: { tariff: Tariff; onEdit: () => void; onDeactivate: () => void }) {
   return (
     <Card className="p-4">
       <div className="flex items-start justify-between gap-3">
@@ -285,10 +297,15 @@ function TariffCard({ tariff, onEdit }: { tariff: Tariff; onEdit: () => void }) 
       <p className="mt-1 text-sm text-muted-foreground">
         {tariff.type === 'PER_M2' ? 'Se înmulțește cu suprafața apartamentului.' : 'Se aplică o dată pentru fiecare apartament.'}
       </p>
-      <Button type="button" variant="secondary" className="mt-4 w-full" onClick={onEdit}>
-        <Pencil className="h-4 w-4" />
-        Editează
-      </Button>
+      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        <Button type="button" variant="secondary" className="w-full" onClick={onEdit}>
+          <Pencil className="h-4 w-4" />
+          Editează
+        </Button>
+        <Button type="button" variant="outline" className="w-full" onClick={onDeactivate} disabled={!tariff.isActive}>
+          Dezactivează
+        </Button>
+      </div>
     </Card>
   );
 }

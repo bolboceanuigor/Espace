@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { ApartmentResidentRole, ApartmentStatus, InvoiceStatus, MeterStatus, Prisma, Role } from '@prisma/client';
+import { ApartmentResidentRole, ApartmentStatus, InvoiceStatus, MeterStatus, PaymentStatus, Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { MvpUser } from '../security/mvp-auth.guard';
 
@@ -90,7 +90,6 @@ export class ApartmentsService {
       },
       payments: {
         orderBy: { paidAt: 'desc' },
-        take: 5,
         select: {
           id: true,
           amount: true,
@@ -98,6 +97,7 @@ export class ApartmentsService {
           status: true,
           paidAt: true,
           month: true,
+          note: true,
         },
       },
       issues: {
@@ -127,16 +127,52 @@ export class ApartmentsService {
     return name || null;
   }
 
-  private summarizeInvoices(invoices: Array<{ amount: number; finalAmount: number; status: InvoiceStatus }>) {
-    const unpaid = invoices.filter((invoice) => invoice.status === InvoiceStatus.UNPAID || invoice.status === InvoiceStatus.OVERDUE);
+  private invoicePaymentNote(invoiceId: string) {
+    return `Invoice ${invoiceId}`;
+  }
+
+  private money(value: number) {
+    return Math.round((Number(value) + Number.EPSILON) * 100) / 100;
+  }
+
+  private invoiceAmount(invoice: { amount?: number | null; finalAmount?: number | null }) {
+    return Number(invoice.finalAmount || invoice.amount || 0);
+  }
+
+  private summarizeInvoices(
+    invoices: Array<{ id: string; amount: number; finalAmount: number; status: InvoiceStatus; month?: number | null; year?: number | null; dueDate?: Date | null }>,
+    payments: Array<{ amount: number; status: PaymentStatus; paidAt?: Date | null; note?: string | null }>,
+  ) {
+    const confirmedPayments = (payments || []).filter((payment) => payment.status === PaymentStatus.CONFIRMED);
+    const totalInvoiced = this.money((invoices || []).reduce((sum, invoice) => sum + this.invoiceAmount(invoice), 0));
+    const totalPaid = this.money(confirmedPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0));
+    const now = new Date();
+    const invoiceSummaries = (invoices || []).map((invoice) => {
+      const paidForInvoice = confirmedPayments
+        .filter((payment) => payment.note === this.invoicePaymentNote(invoice.id))
+        .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+      const remainingDebt = invoice.status === InvoiceStatus.PAID ? 0 : this.money(Math.max(this.invoiceAmount(invoice) - paidForInvoice, 0));
+      return { ...invoice, paidForInvoice, remainingDebt };
+    });
+    const openInvoices = invoiceSummaries.filter((invoice) => invoice.remainingDebt > 0);
+    const latestInvoice = [...(invoices || [])].sort((a, b) => Number(b.year || 0) - Number(a.year || 0) || Number(b.month || 0) - Number(a.month || 0))[0];
+    const latestPayment = [...confirmedPayments].sort((a, b) => Number(b.paidAt ? new Date(b.paidAt).getTime() : 0) - Number(a.paidAt ? new Date(a.paidAt).getTime() : 0))[0];
+
     return {
-      debt: unpaid.reduce((sum, invoice) => sum + Number(invoice.finalAmount || invoice.amount || 0), 0),
-      unpaidInvoices: unpaid.length,
+      totalInvoiced,
+      totalPaid,
+      debt: this.money(openInvoices.reduce((sum, invoice) => sum + invoice.remainingDebt, 0)),
+      totalDebt: this.money(openInvoices.reduce((sum, invoice) => sum + invoice.remainingDebt, 0)),
+      unpaidInvoices: openInvoices.length,
+      unpaidInvoicesCount: openInvoices.length,
+      overdueInvoicesCount: openInvoices.filter((invoice) => invoice.status === InvoiceStatus.OVERDUE || (invoice.dueDate ? invoice.dueDate < now : false)).length,
+      lastPaymentDate: latestPayment?.paidAt ?? null,
+      lastInvoiceMonth: latestInvoice?.month && latestInvoice?.year ? `${latestInvoice.month}/${latestInvoice.year}` : null,
     };
   }
 
   private toListApartment(apartment: any) {
-    const invoiceSummary = this.summarizeInvoices(apartment.invoices || []);
+    const invoiceSummary = this.summarizeInvoices(apartment.invoices || [], apartment.payments || []);
     const meters = apartment.meters || [];
     const owner = apartment.ownerResident ?? apartment.apartmentResidents?.find((item) => item.isPrimary)?.resident ?? apartment.apartmentResidents?.[0]?.resident;
 
@@ -169,6 +205,16 @@ export class ApartmentsService {
       debt: invoiceSummary.debt,
       unpaidInvoices: invoiceSummary.unpaidInvoices,
       lastPayment: apartment.payments?.[0]?.paidAt ?? null,
+      financialSummary: {
+        apartmentId: apartment.id,
+        totalInvoiced: invoiceSummary.totalInvoiced,
+        totalPaid: invoiceSummary.totalPaid,
+        totalDebt: invoiceSummary.totalDebt,
+        unpaidInvoicesCount: invoiceSummary.unpaidInvoicesCount,
+        overdueInvoicesCount: invoiceSummary.overdueInvoicesCount,
+        lastPaymentDate: invoiceSummary.lastPaymentDate,
+        lastInvoiceMonth: invoiceSummary.lastInvoiceMonth,
+      },
     };
   }
 
@@ -396,6 +442,56 @@ export class ApartmentsService {
     }
 
     return this.toDetailApartment(apartment);
+  }
+
+  async getFinancialSummary(user: MvpUser, id: string) {
+    const apartment = await this.prisma.apartment.findFirst({
+      where: {
+        ...this.organizationWhere(user),
+        OR: [{ id }, { number: id.replace(/^apt-/, '') }],
+      },
+      select: {
+        id: true,
+        invoices: {
+          orderBy: [{ year: 'desc' }, { month: 'desc' }, { createdAt: 'desc' }],
+          select: {
+            id: true,
+            month: true,
+            year: true,
+            amount: true,
+            finalAmount: true,
+            status: true,
+            dueDate: true,
+            paidAt: true,
+          },
+        },
+        payments: {
+          orderBy: { paidAt: 'desc' },
+          select: {
+            amount: true,
+            status: true,
+            paidAt: true,
+            note: true,
+          },
+        },
+      },
+    });
+
+    if (!apartment) {
+      throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    }
+
+    const summary = this.summarizeInvoices(apartment.invoices || [], apartment.payments || []);
+    return {
+      apartmentId: apartment.id,
+      totalInvoiced: summary.totalInvoiced,
+      totalPaid: summary.totalPaid,
+      totalDebt: summary.totalDebt,
+      unpaidInvoicesCount: summary.unpaidInvoicesCount,
+      overdueInvoicesCount: summary.overdueInvoicesCount,
+      lastPaymentDate: summary.lastPaymentDate,
+      lastInvoiceMonth: summary.lastInvoiceMonth,
+    };
   }
 
   private parseCreateApartmentBody(body: unknown) {

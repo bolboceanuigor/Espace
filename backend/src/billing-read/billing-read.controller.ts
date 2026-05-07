@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -31,6 +31,11 @@ export class BillingReadController {
     return this.billingReadService.saveTariff(user, body, id);
   }
 
+  @Delete(['admin/tariffs/:id', 'api/admin/tariffs/:id'])
+  deactivateTariff(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.billingReadService.deactivateTariff(user, id);
+  }
+
   @Post(['admin/invoices/generate-monthly', 'api/admin/invoices/generate-monthly'])
   generateMonthlyInvoices(@CurrentUser() user: MvpUser, @Body() body: unknown) {
     return this.billingReadService.generateMonthlyInvoices(user, body);
@@ -41,9 +46,19 @@ export class BillingReadController {
     return this.billingReadService.getMonthlySummary(user, query);
   }
 
+  @Get(['admin/finance-overview', 'api/admin/finance-overview'])
+  getFinanceOverview(@CurrentUser() user: MvpUser) {
+    return this.billingReadService.getFinanceOverview(user);
+  }
+
   @Post(['invoices', 'api/invoices'])
   createInvoice(@CurrentUser() user: MvpUser, @Body() body: unknown) {
     return this.billingReadService.createInvoice(user, body);
+  }
+
+  @Patch(['invoices/:id/status', 'api/invoices/:id/status'])
+  updateInvoiceStatus(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.billingReadService.updateInvoiceStatus(user, id, body);
   }
 
   @Get(['invoices/:id', 'api/invoices/:id'])

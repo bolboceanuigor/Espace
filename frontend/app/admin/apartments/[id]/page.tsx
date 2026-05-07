@@ -119,6 +119,7 @@ export default function AdminApartmentDetailPage() {
   const meters = source === 'api' ? normalizeApiApartmentMeters(apiDetail) : apartmentMeters;
   const payments = source === 'api' ? normalizeApiApartmentPayments(apiDetail) : apartmentPayments;
   const requests = source === 'api' ? normalizeApiApartmentRequests(apiDetail) : apartmentRequests;
+  const financialSummary = apartment.financialSummary;
 
   const loadApartment = useCallback(async () => {
     if (!id) return;
@@ -292,7 +293,7 @@ export default function AdminApartmentDetailPage() {
       ) : null}
 
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Total datorie" value={formatMdl(apartment.debt)} description={`Facturi neachitate: ${apartment.unpaidInvoices}`} icon={<Banknote className="h-5 w-5" />} tone={apartment.debt > 0 ? 'danger' : 'success'} />
+        <StatCard label="Total datorie" value={formatMdl(financialSummary?.totalDebt ?? apartment.debt)} description={`Facturi neachitate: ${financialSummary?.unpaidInvoicesCount ?? apartment.unpaidInvoices}`} icon={<Banknote className="h-5 w-5" />} tone={apartment.debt > 0 ? 'danger' : 'success'} />
         <StatCard label="Proprietar" value={apartment.owner} description={apartment.phone} icon={<Users className="h-5 w-5" />} tone="success" />
         <StatCard label="Contoare" value={`${apartment.metersUpdated} actualizate`} description={`${apartment.metersMissing} lipsă`} icon={<Gauge className="h-5 w-5" />} tone={apartment.metersMissing ? 'warning' : 'success'} />
         <StatCard label="Locatari" value={`${apartment.residents} persoane`} description="Persoane asociate apartamentului" icon={<Home className="h-5 w-5" />} tone="neutral" />
@@ -372,8 +373,10 @@ export default function AdminApartmentDetailPage() {
         <Card>
           <SectionTitle icon={<Banknote className="h-5 w-5" />} title="Plăți / Datorii" description="Facturi neachitate și istoric plăți." />
           <div className="grid gap-3 sm:grid-cols-2">
-            <InfoTile label="Total datorie" value={formatMdl(apartment.debt)} danger={apartment.debt > 0} />
-            <InfoTile label="Facturi neachitate" value={apartment.unpaidInvoices} danger={apartment.unpaidInvoices > 0} />
+            <InfoTile label="Total facturat" value={formatMdl(financialSummary?.totalInvoiced ?? apartment.debt)} />
+            <InfoTile label="Total achitat" value={formatMdl(financialSummary?.totalPaid ?? 0)} />
+            <InfoTile label="Total datorie" value={formatMdl(financialSummary?.totalDebt ?? apartment.debt)} danger={(financialSummary?.totalDebt ?? apartment.debt) > 0} />
+            <InfoTile label="Facturi întârziate" value={financialSummary?.overdueInvoicesCount ?? 0} danger={(financialSummary?.overdueInvoicesCount ?? 0) > 0} />
           </div>
           <div className="mt-4 space-y-3">
             {payments.map((payment: any) => (

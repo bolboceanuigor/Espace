@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { AlertCircle, Bell, Building2, CreditCard, FileText, Gauge, Megaphone, MessageCircle, PlusCircle, Users } from 'lucide-react';
 import { ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
 import { formatMdl } from '@/lib/condo-admin-fallback';
-import { announcementsApi, apartmentsApi, invoicesApi, issuesApi, metersApi, paymentsApi, residentsApi } from '@/lib/api';
+import { announcementsApi, apartmentsApi, financeApi, invoicesApi, issuesApi, metersApi, paymentsApi, residentsApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 const fallbackRecentActivity = [
@@ -49,6 +49,13 @@ export default function AdminPage() {
     openIssues: 0,
     unpaidInvoices: 0,
     residents: 0,
+    totalIssued: 0,
+    totalPaid: 0,
+    overdueInvoices: 0,
+    apartmentsWithDebt: 0,
+    collectionRate: 0,
+    currentMonthIssued: 0,
+    currentMonthPaid: 0,
   });
   const [recentActivity, setRecentActivity] = useState(fallbackRecentActivity);
   const [urgentRequests, setUrgentRequests] = useState(fallbackUrgentRequests);
@@ -65,8 +72,9 @@ export default function AdminPage() {
       residentsApi.list().catch(() => ({ data: [] })),
       paymentsApi.list().catch(() => ({ data: [] })),
       announcementsApi.list().catch(() => ({ data: [] })),
+      financeApi.overview().catch(() => ({ data: null })),
     ])
-      .then(([apartmentsRes, invoicesRes, metersRes, issuesRes, residentsRes, paymentsRes, announcementsRes]) => {
+      .then(([apartmentsRes, invoicesRes, metersRes, issuesRes, residentsRes, paymentsRes, announcementsRes, financeRes]) => {
         if (!active) return;
         const apartments = apartmentsRes.data || [];
         const invoices = invoicesRes.data || [];
@@ -80,11 +88,18 @@ export default function AdminPage() {
 
         setSummary({
           apartments: apartments.length,
-          totalDebt: unpaidInvoices.reduce((sum: number, invoice: any) => sum + Number(invoice.finalAmount ?? invoice.amount ?? 0), 0),
+          totalDebt: Number(financeRes.data?.totalDebt ?? unpaidInvoices.reduce((sum: number, invoice: any) => sum + Number(invoice.remainingDebt ?? invoice.finalAmount ?? invoice.amount ?? 0), 0)),
           missingReadings: meters.filter((meter: any) => String(meter.status).toUpperCase() === 'MISSING_READING').length,
           openIssues: openIssues.length,
-          unpaidInvoices: unpaidInvoices.length,
+          unpaidInvoices: Number(financeRes.data?.unpaidInvoices ?? unpaidInvoices.length),
           residents: residents.length,
+          totalIssued: Number(financeRes.data?.totalIssued ?? invoices.reduce((sum: number, invoice: any) => sum + Number(invoice.finalAmount ?? invoice.amount ?? 0), 0)),
+          totalPaid: Number(financeRes.data?.totalPaid ?? payments.reduce((sum: number, payment: any) => sum + Number(payment.amount || 0), 0)),
+          overdueInvoices: Number(financeRes.data?.overdueInvoices ?? 0),
+          apartmentsWithDebt: Number(financeRes.data?.apartmentsWithDebt ?? 0),
+          collectionRate: Number(financeRes.data?.collectionRate ?? 0),
+          currentMonthIssued: Number(financeRes.data?.currentMonthIssued ?? 0),
+          currentMonthPaid: Number(financeRes.data?.currentMonthPaid ?? 0),
         });
         setUrgentRequests(
           openIssues.slice(0, 3).map((issue: any) => ({
@@ -126,6 +141,12 @@ export default function AdminPage() {
     { label: 'Facturi neachitate', value: String(summary.unpaidInvoices), description: 'Pentru luna curentă', icon: <FileText className="h-5 w-5" />, tone: 'danger' as const },
     { label: 'Locatari conectați', value: String(summary.residents), description: 'Persoane în evidență', icon: <Users className="h-5 w-5" />, tone: 'success' as const },
   ];
+  const financeCards = [
+    { label: 'Total emis', value: formatMdl(summary.totalIssued), description: 'Facturi create', icon: <FileText className="h-5 w-5" /> },
+    { label: 'Total încasat', value: formatMdl(summary.totalPaid), description: 'Plăți confirmate', icon: <CreditCard className="h-5 w-5" />, tone: 'success' as const },
+    { label: 'Apartamente cu datorii', value: String(summary.apartmentsWithDebt), description: `${summary.overdueInvoices} facturi întârziate`, icon: <AlertCircle className="h-5 w-5" />, tone: 'danger' as const },
+    { label: 'Rată încasare', value: `${summary.collectionRate.toLocaleString('ro-RO')}%`, description: `${formatMdl(summary.currentMonthPaid)} luna curentă`, icon: <Gauge className="h-5 w-5" />, tone: 'warning' as const },
+  ];
 
   return (
     <div className="space-y-5 pb-4">
@@ -158,6 +179,12 @@ export default function AdminPage() {
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {summaryCards.map((card) => (
+          <StatCard key={card.label} {...card} />
+        ))}
+      </section>
+
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {financeCards.map((card) => (
           <StatCard key={card.label} {...card} />
         ))}
       </section>

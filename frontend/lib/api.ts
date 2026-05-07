@@ -675,6 +675,7 @@ export const adminApi = {
 export const apartmentsApi = {
   list: () => apiRequest<any[]>('/apartments'),
   get: (id: string) => apiRequest<any>(`/apartments/${id}`),
+  financialSummary: (id: string) => apiRequest<any>(`/apartments/${id}/financial-summary`),
   create: (data: {
     organizationId: string;
     buildingId: string;
@@ -1018,6 +1019,8 @@ export const invoicesApi = {
     status?: 'PAID' | 'UNPAID' | 'OVERDUE';
     dueDate: string;
   }) => apiRequest<any>('/invoices', { method: 'POST', body: data }),
+  updateStatus: (id: string, data: { status: 'PAID' | 'UNPAID' | 'OVERDUE' }) =>
+    apiRequest<any>(`/invoices/${id}/status`, { method: 'PATCH', body: data }),
   generateMonthly: (data: { month: number; year: number; dueDate?: string }) =>
     apiRequest<any>('/api/admin/invoices/generate-monthly', { method: 'POST', body: data }),
   monthlySummary: (params: { month: number; year: number }) =>
@@ -1061,6 +1064,11 @@ export const tariffsApi = {
       isActive?: boolean;
     },
   ) => apiRequest<any>(`/api/admin/tariffs/${id}`, { method: 'PATCH', body: data }),
+  deactivate: (id: string) => apiRequest<any>(`/api/admin/tariffs/${id}`, { method: 'DELETE' }),
+};
+
+export const financeApi = {
+  overview: () => apiRequest<any>('/api/admin/finance-overview'),
 };
 
 export const paymentsApi = {

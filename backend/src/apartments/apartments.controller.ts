@@ -26,6 +26,11 @@ export class ApartmentsController {
     return this.apartmentsService.linkResident(user, apartmentId, body);
   }
 
+  @Get(':id/financial-summary')
+  getFinancialSummary(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.apartmentsService.getFinancialSummary(user, id);
+  }
+
   @Get(':id')
   getApartment(@CurrentUser() user: MvpUser, @Param('id') id: string) {
     return this.apartmentsService.getApartment(user, id);

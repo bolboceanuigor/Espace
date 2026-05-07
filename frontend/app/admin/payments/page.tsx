@@ -106,7 +106,7 @@ export default function AdminPaymentsPage() {
     setPaymentForm({
       apartmentId: selected?.apartmentId || apartments[0]?.id || '',
       invoiceId: selected?.id || '',
-      amount: selected?.amount ? String(selected.amount) : '',
+      amount: selected?.remainingDebt || selected?.amount ? String(selected.remainingDebt || selected.amount) : '',
       method: 'CASH',
       paidAt: new Date().toISOString().slice(0, 10),
     });

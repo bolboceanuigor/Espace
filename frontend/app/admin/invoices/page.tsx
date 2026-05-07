@@ -185,6 +185,29 @@ export default function AdminInvoicesPage() {
     }
   };
 
+  const exportCsv = () => {
+    const headers = ['Apartament', 'Luna', 'Anul', 'Suma', 'Status', 'Data scadentă', 'Datorie'];
+    const lines = filtered.map((invoice) => [
+      `Apt. ${invoice.apartment}`,
+      String(invoice.monthNumber || ''),
+      String(invoice.yearNumber || ''),
+      invoice.amount.toFixed(2),
+      invoice.status,
+      invoice.dueDate,
+      Number(invoice.remainingDebt ?? (invoice.status === 'Achitat' ? 0 : invoice.amount)).toFixed(2),
+    ]);
+    const csv = [headers, ...lines]
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `facturi-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-5 pb-4">
       <PageHeader
@@ -195,6 +218,7 @@ export default function AdminInvoicesPage() {
             <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
               {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
             </span>
+            <Button type="button" variant="secondary" onClick={exportCsv}>Export CSV</Button>
             <ButtonLink href={localizedPath('/admin/payments')} variant="secondary">Vezi plăți</ButtonLink>
           </div>
         }
