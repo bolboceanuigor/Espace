@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { OnboardingStatus, Prisma, Role } from '@prisma/client';
+import { ApartmentResidentRole, ApartmentStatus, OnboardingStatus, Prisma, ResidentAccountStatus, ResidentType, Role } from '@prisma/client';
+import * as XLSX from 'xlsx';
 import { PrismaService } from '../prisma/prisma.service';
 import type { MvpUser } from '../security/mvp-auth.guard';
 
@@ -286,6 +287,103 @@ export class SetupService {
     return staircase;
   }
 
+  async importApartments(user: MvpUser, body: unknown, file: Express.Multer.File | undefined, activeOrganizationId?: string) {
+    const payload = this.payload(body);
+    const organizationId = this.resolveOrganizationId(user, activeOrganizationId, payload);
+    this.assertOrganizationAccess(user, organizationId);
+    await this.assertOrganizationExists(organizationId);
+
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('Fișierul este obligatoriu.');
+    }
+
+    const rows = this.parseImportFile(file.buffer);
+    if (!rows.length) {
+      throw new BadRequestException('Fișierul nu conține rânduri de import.');
+    }
+
+    const defaultBuilding = await this.resolveImportBuilding(organizationId, this.optionalString(payload.buildingId));
+    const summary = {
+      totalRows: rows.length,
+      createdApartments: 0,
+      skippedApartments: 0,
+      createdResidents: 0,
+      linkedResidents: 0,
+      createdStaircases: 0,
+      errors: [] as Array<{ row: number; messages: string[] }>,
+    };
+
+    for (let index = 0; index < rows.length; index += 1) {
+      const rowNumber = index + 2;
+      const row = rows[index];
+      const parsed = this.parseApartmentImportRow(row);
+      if (parsed.errors.length) {
+        summary.errors.push({ row: rowNumber, messages: parsed.errors });
+        continue;
+      }
+
+      try {
+        const building = parsed.buildingName
+          ? await this.findOrCreateImportBuilding(organizationId, parsed.buildingName, defaultBuilding.address || undefined)
+          : defaultBuilding;
+        const { staircase, created } = await this.findOrCreateImportStaircase(organizationId, building.id, parsed.staircase, parsed.floor);
+        if (created) summary.createdStaircases += 1;
+
+        let apartment = await this.prisma.apartment.findUnique({
+          where: {
+            staircaseId_number: {
+              staircaseId: staircase.id,
+              number: parsed.apartmentNumber,
+            },
+          },
+          select: { id: true, ownerResidentId: true },
+        });
+
+        if (apartment) {
+          summary.skippedApartments += 1;
+        } else {
+          apartment = await this.prisma.apartment.create({
+            data: {
+              organizationId,
+              buildingId: building.id,
+              staircaseId: staircase.id,
+              number: parsed.apartmentNumber,
+              floor: parsed.floor,
+              areaM2: parsed.areaM2,
+              rooms: parsed.rooms,
+              status: ApartmentStatus.ACTIVE,
+            },
+            select: { id: true, ownerResidentId: true },
+          });
+          summary.createdApartments += 1;
+        }
+
+        const hasOwnerData = Boolean(parsed.ownerFirstName || parsed.ownerLastName || parsed.phone || parsed.email);
+        if (hasOwnerData) {
+          const residentResult = await this.findOrCreateImportResident(organizationId, apartment.id, parsed);
+          if (residentResult.created) summary.createdResidents += 1;
+          if (residentResult.linked) summary.linkedResidents += 1;
+          if (!apartment.ownerResidentId) {
+            await this.prisma.apartment.update({
+              where: { id: apartment.id },
+              data: { ownerResidentId: residentResult.residentId },
+            });
+          }
+        }
+      } catch (error) {
+        summary.errors.push({
+          row: rowNumber,
+          messages: [error instanceof Error ? error.message : 'Nu am putut procesa rândul.'],
+        });
+      }
+    }
+
+    return {
+      ...summary,
+      message: 'Importul a fost finalizat.',
+    };
+  }
+
   async getAdminOnboarding(user: MvpUser, activeOrganizationId?: string) {
     const organizationId = this.resolveOrganizationId(user, activeOrganizationId);
     this.assertOrganizationAccess(user, organizationId);
@@ -482,6 +580,209 @@ export class SetupService {
       select: { id: true },
     });
     if (!building) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+  }
+
+  private parseImportFile(fileBuffer: Buffer) {
+    try {
+      const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
+      const firstSheet = workbook.SheetNames[0];
+      if (!firstSheet) return [];
+      const sheet = workbook.Sheets[firstSheet];
+      return XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' });
+    } catch {
+      throw new BadRequestException('Nu am putut procesa fișierul.');
+    }
+  }
+
+  private normalizeColumnName(value: string) {
+    return value
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+  }
+
+  private readImportValue(row: Record<string, unknown>, aliases: string[]) {
+    const normalized = new Map<string, unknown>();
+    Object.entries(row).forEach(([key, value]) => {
+      normalized.set(this.normalizeColumnName(key), value);
+    });
+    for (const alias of aliases) {
+      const value = normalized.get(this.normalizeColumnName(alias));
+      if (value !== undefined && value !== null && String(value).trim() !== '') return String(value).trim();
+    }
+    return '';
+  }
+
+  private parseApartmentImportRow(row: Record<string, unknown>) {
+    const staircase = this.readImportValue(row, ['scara', 'scară', 'staircase', 'staircaseName']);
+    const rawApartment = this.readImportValue(row, ['apartament', 'apartment', 'apartmentNumber', 'numar_apartament']);
+    const apartmentNumber = rawApartment.replace(/^(apt\.?|apartament)\s*/i, '').trim();
+    const rawFloor = this.readImportValue(row, ['etaj', 'floor']);
+    const rawArea = this.readImportValue(row, ['suprafata_m2', 'suprafata', 'suprafață m²', 'areaM2', 'area_m2']);
+    const rawRooms = this.readImportValue(row, ['camere', 'rooms']);
+    const email = this.readImportValue(row, ['email', 'owner_email', 'proprietar_email']).toLowerCase();
+    const parsed = {
+      buildingName: this.readImportValue(row, ['bloc', 'building', 'buildingName']),
+      staircase,
+      apartmentNumber,
+      floor: Number(rawFloor),
+      areaM2: Number(String(rawArea).replace(',', '.')),
+      rooms: rawRooms ? Number(rawRooms) : 1,
+      ownerFirstName: this.readImportValue(row, ['proprietar_prenume', 'prenume', 'owner_first_name']),
+      ownerLastName: this.readImportValue(row, ['proprietar_nume', 'nume', 'owner_last_name']),
+      phone: this.readImportValue(row, ['telefon', 'phone']),
+      email,
+      errors: [] as string[],
+    };
+
+    if (!parsed.staircase) parsed.errors.push('Scara este obligatorie.');
+    if (!parsed.apartmentNumber) parsed.errors.push('Numărul apartamentului este obligatoriu.');
+    if (!rawFloor || !Number.isFinite(parsed.floor)) parsed.errors.push('Etajul trebuie să fie un număr.');
+    if (!rawArea || !Number.isFinite(parsed.areaM2)) parsed.errors.push('Suprafața trebuie să fie un număr.');
+    if (rawRooms && (!Number.isFinite(parsed.rooms) || parsed.rooms < 1)) parsed.errors.push('Numărul de camere trebuie să fie un număr.');
+    if (parsed.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(parsed.email)) parsed.errors.push('Emailul proprietarului nu este valid.');
+
+    return parsed;
+  }
+
+  private async resolveImportBuilding(organizationId: string, buildingId?: string) {
+    if (buildingId) {
+      const building = await this.prisma.building.findFirst({
+        where: { id: buildingId, organizationId },
+        select: { id: true, name: true, address: true },
+      });
+      if (!building) throw new NotFoundException('Blocul nu a fost găsit.');
+      return building;
+    }
+
+    const existing = await this.prisma.building.findFirst({
+      where: { organizationId },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, name: true, address: true },
+    });
+    if (existing) return existing;
+
+    const organization = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { address: true },
+    });
+    return this.prisma.building.create({
+      data: {
+        organizationId,
+        name: 'Bloc principal',
+        address: organization?.address || null,
+      },
+      select: { id: true, name: true, address: true },
+    });
+  }
+
+  private async findOrCreateImportBuilding(organizationId: string, name: string, fallbackAddress?: string) {
+    const existing = await this.prisma.building.findFirst({
+      where: { organizationId, name },
+      select: { id: true, name: true, address: true },
+    });
+    if (existing) return existing;
+    return this.prisma.building.create({
+      data: {
+        organizationId,
+        name,
+        address: fallbackAddress || null,
+      },
+      select: { id: true, name: true, address: true },
+    });
+  }
+
+  private async findOrCreateImportStaircase(organizationId: string, buildingId: string, name: string, floorHint: number) {
+    const existing = await this.prisma.staircase.findFirst({
+      where: { organizationId, buildingId, name },
+      select: { id: true, name: true, floorsCount: true },
+    });
+    if (existing) return { staircase: existing, created: false };
+
+    const staircase = await this.prisma.staircase.create({
+      data: {
+        organizationId,
+        buildingId,
+        name,
+        floorsCount: Math.max(Math.round(floorHint || 0), 0),
+      },
+      select: { id: true, name: true, floorsCount: true },
+    });
+    await this.syncBuildingCounters(buildingId);
+    return { staircase, created: true };
+  }
+
+  private async findOrCreateImportResident(
+    organizationId: string,
+    apartmentId: string,
+    parsed: {
+      ownerFirstName: string;
+      ownerLastName: string;
+      phone: string;
+      email: string;
+    },
+  ) {
+    const firstName = parsed.ownerFirstName || (parsed.ownerLastName ? '' : 'Proprietar');
+    const lastName = parsed.ownerLastName || '';
+    const existing = await this.prisma.residentProfile.findFirst({
+      where: {
+        organizationId,
+        OR: [
+          ...(parsed.email ? [{ email: parsed.email }] : []),
+          ...(parsed.phone ? [{ phone: parsed.phone, firstName, lastName }] : []),
+          { apartmentId, firstName, lastName, type: ResidentType.OWNER },
+        ],
+      },
+      select: { id: true },
+    });
+
+    const resident = existing
+      ? existing
+      : await this.prisma.residentProfile.create({
+          data: {
+            organizationId,
+            apartmentId,
+            firstName,
+            lastName,
+            phone: parsed.phone || null,
+            email: parsed.email || null,
+            accountStatus: ResidentAccountStatus.NO_ACCOUNT,
+            type: ResidentType.OWNER,
+            isPrimary: true,
+          },
+          select: { id: true },
+        });
+
+    const relation = await this.prisma.apartmentResident.findFirst({
+      where: {
+        apartmentId,
+        residentId: resident.id,
+        role: ApartmentResidentRole.OWNER,
+      },
+      select: { apartmentId: true },
+    });
+    if (!relation) {
+      await this.prisma.apartmentResident.updateMany({
+        where: { apartmentId, isPrimary: true },
+        data: { isPrimary: false },
+      });
+      await this.prisma.apartmentResident.create({
+        data: {
+          apartmentId,
+          residentId: resident.id,
+          role: ApartmentResidentRole.OWNER,
+          isPrimary: true,
+        },
+      });
+    }
+
+    return {
+      residentId: resident.id,
+      created: !existing,
+      linked: !relation,
+    };
   }
 
   private async syncBuildingCounters(buildingId: string) {

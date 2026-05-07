@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Headers, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Param, Patch, Post, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Role } from '@prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -62,6 +63,17 @@ export class SetupController {
     @Headers('x-org-id') activeOrganizationId?: string,
   ) {
     return this.setupService.createStaircase(user, buildingId, body, activeOrganizationId);
+  }
+
+  @Post(['admin/imports/apartments', 'api/admin/imports/apartments'])
+  @UseInterceptors(FileInterceptor('file'))
+  importApartments(
+    @CurrentUser() user: MvpUser,
+    @Body() body: unknown,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Headers('x-org-id') activeOrganizationId?: string,
+  ) {
+    return this.setupService.importApartments(user, body, file, activeOrganizationId);
   }
 
   @Patch(['admin/staircases/:id', 'api/admin/staircases/:id'])

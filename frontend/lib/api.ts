@@ -149,18 +149,19 @@ async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<{ 
   let response: Response;
   try {
     const token = getToken();
+    const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
     response = await fetch(requestUrl, {
       method,
       credentials: 'include',
       cache,
       headers: {
-        ...(responseType === 'json' ? { 'Content-Type': 'application/json' } : {}),
+        ...(responseType === 'json' && !isFormData ? { 'Content-Type': 'application/json' } : {}),
         Accept: responseType === 'json' ? 'application/json' : '*/*',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...getOrgScopeHeader(path),
         ...(headers || {}),
       },
-      body: body !== undefined && responseType === 'json' ? JSON.stringify(body) : (body as BodyInit | undefined),
+      body: body !== undefined && responseType === 'json' && !isFormData ? JSON.stringify(body) : (body as BodyInit | undefined),
     });
   } catch {
     if (process.env.NODE_ENV !== 'production' && typeof window !== 'undefined') {
@@ -822,6 +823,10 @@ export const adminStructureApi = {
   updateResidentProfile: (id: string, data: Partial<{ apartmentId: string; type: 'OWNER' | 'TENANT' | 'CONTACT'; phone: string; isPrimary: boolean }>) =>
     apiRequest<any>(`/admin/resident-profiles/${id}`, { method: 'PATCH', body: data }),
   deleteResidentProfile: (id: string) => apiRequest<any>(`/admin/resident-profiles/${id}`, { method: 'DELETE' }),
+};
+
+export const adminImportsApi = {
+  importApartments: (data: FormData) => apiRequest<any>('/api/admin/imports/apartments', { method: 'POST', body: data }),
 };
 
 export const communicationsApi = {
