@@ -27,11 +27,11 @@ const quickActions = [
 
 export default function ResidentDashboardPage() {
   const localizedPath = useLocalizedPath();
-  const [profile, setProfile] = useState(residentProfile);
-  const [announcements, setAnnouncements] = useState(residentAnnouncements);
-  const [meters, setMeters] = useState(residentMeters);
-  const [issues, setIssues] = useState(residentIssues);
-  const [source, setSource] = useState<'api' | 'mock'>('mock');
+  const [profile, setProfile] = useState<ReturnType<typeof normalizeResidentContext> | null>(null);
+  const [announcements, setAnnouncements] = useState<typeof residentAnnouncements>([]);
+  const [meters, setMeters] = useState<typeof residentMeters>([]);
+  const [issues, setIssues] = useState<typeof residentIssues>([]);
+  const [source, setSource] = useState<'loading' | 'api' | 'mock'>('loading');
   const latestAnnouncement = announcements[0];
   const missingMeters = meters.filter((meter) => meter.status === 'Lipsă citire');
   const activeIssues = issues.filter((issue) => issue.status !== 'Rezolvată');
@@ -57,7 +57,11 @@ export default function ResidentDashboardPage() {
       })
       .catch(() => {
         if (!active) return;
-        setProfile(residentProfile);
+        setProfile({
+          ...residentProfile,
+          hasApartment: true,
+          emptyStateMessage: '',
+        });
         setAnnouncements(residentAnnouncements);
         setMeters(residentMeters);
         setIssues(residentIssues);
@@ -75,11 +79,21 @@ export default function ResidentDashboardPage() {
         description="Tot ce contează pentru locuința ta, într-un singur loc."
         rightSlot={
           <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-            {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
+            {source === 'loading' ? 'Se încarcă...' : source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
           </span>
         }
       />
 
+      {source === 'loading' ? (
+        <Card className="p-5 text-sm font-medium text-muted-foreground">Se încarcă datele locatarului...</Card>
+      ) : null}
+      {source === 'api' && profile && !profile.hasApartment ? (
+        <Card className="border-amber-200 bg-amber-50/70 p-5 text-sm font-semibold text-amber-800">
+          {profile.emptyStateMessage}
+        </Card>
+      ) : null}
+
+      {profile ? (
       <Card className="overflow-hidden p-0">
         <div className="bg-foreground p-5 text-background">
           <p className="text-sm opacity-75">{profile.building}</p>
@@ -92,8 +106,9 @@ export default function ResidentDashboardPage() {
           <Info label="Următoarea scadență" value={profile.nextDueDate} />
         </div>
       </Card>
+      ) : null}
 
-      <Card>
+      {profile?.hasApartment ? <Card>
         <h2 className="font-semibold text-foreground">Acțiuni rapide</h2>
         <div className="mt-4 grid gap-2 sm:grid-cols-2">
           {quickActions.map((item) => (
@@ -107,7 +122,7 @@ export default function ResidentDashboardPage() {
             </Link>
           ))}
         </div>
-      </Card>
+      </Card> : null}
 
       <section className="grid gap-4 lg:grid-cols-3">
         <Card>

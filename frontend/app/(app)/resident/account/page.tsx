@@ -14,18 +14,20 @@ export default function ResidentAccountPage() {
   const params = useParams<{ locale?: string }>();
   const localeParam = typeof params?.locale === 'string' ? params.locale : defaultLocale;
   const locale = isLocale(localeParam) ? localeParam : defaultLocale;
-  const [profile, setProfile] = useState(residentProfile);
-  const [source, setSource] = useState<'api' | 'fallback'>('fallback');
+  const [profile, setProfile] = useState<ReturnType<typeof normalizeResidentContext> | null>(null);
+  const [source, setSource] = useState<'loading' | 'api' | 'fallback'>('loading');
 
   useEffect(() => {
     const storedUser = getStoredUser();
     if (storedUser) {
-      setProfile((current) => ({
-        ...current,
-        name: `${storedUser.firstName || ''} ${storedUser.lastName || ''}`.trim() || current.name,
-        email: storedUser.email || current.email,
-        phone: storedUser.phone || current.phone,
-      }));
+      setProfile({
+        ...residentProfile,
+        name: `${storedUser.firstName || ''} ${storedUser.lastName || ''}`.trim() || residentProfile.name,
+        email: storedUser.email || residentProfile.email,
+        phone: storedUser.phone || residentProfile.phone,
+        hasApartment: false,
+        emptyStateMessage: 'Se verifică apartamentul conectat contului tău.',
+      } as ReturnType<typeof normalizeResidentContext>);
     }
 
     let active = true;
@@ -39,6 +41,11 @@ export default function ResidentAccountPage() {
       .catch(() => {
         if (!active) return;
         setSource('fallback');
+        setProfile({
+          ...residentProfile,
+          hasApartment: true,
+          emptyStateMessage: '',
+        } as ReturnType<typeof normalizeResidentContext>);
       });
     return () => {
       active = false;
@@ -52,10 +59,12 @@ export default function ResidentAccountPage() {
         description="Datele tale principale în aplicația Espace."
         rightSlot={
           <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-            {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
+            {source === 'loading' ? 'Se încarcă...' : source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
           </span>
         }
       />
+      {!profile ? <Card className="p-5 text-sm font-medium text-muted-foreground">Se încarcă profilul...</Card> : null}
+      {profile ? (
       <Card>
         <div className="flex items-center gap-4">
           <div className="flex h-16 w-16 items-center justify-center rounded-[1.35rem] bg-foreground text-xl font-semibold text-background">
@@ -77,6 +86,7 @@ export default function ResidentAccountPage() {
           Deconectare
         </Button>
       </Card>
+      ) : null}
     </div>
   );
 }

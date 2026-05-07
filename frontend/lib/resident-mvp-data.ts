@@ -288,20 +288,26 @@ export function normalizeResidentAnnouncement(row: any) {
 }
 
 export function normalizeResidentContext(row: any) {
-  const apartment = row?.apartment;
+  const apartment = row?.primaryApartment || row?.apartment || row?.apartments?.[0];
   const resident = row?.resident;
+  const user = row?.user;
   const status = String(row?.balance?.status || '').toUpperCase();
+  const firstName = resident?.firstName || user?.firstName || '';
+  const lastName = resident?.lastName || user?.lastName || '';
+  const name = String(resident?.name || `${firstName} ${lastName}`.trim() || user?.email || residentProfile.name);
   return {
-    name: String(resident?.name || residentProfile.name),
-    phone: String(resident?.phone || residentProfile.phone),
-    email: String(resident?.email || residentProfile.email),
-    apartment: apartment?.number ? `Apt. ${apartment.number}` : residentProfile.apartment,
-    staircase: String(apartment?.staircase?.name || residentProfile.staircase),
-    role: String(resident?.role || residentProfile.role),
-    building: String(apartment?.building?.name || residentProfile.building),
+    name,
+    phone: String(resident?.phone || user?.phone || residentProfile.phone),
+    email: String(resident?.email || user?.email || residentProfile.email),
+    apartment: apartment?.number ? `Apt. ${apartment.number}` : 'Apartament neconectat',
+    staircase: apartment?.staircase?.name ? String(apartment.staircase.name) : '',
+    role: String(apartment?.relationRole || resident?.role || residentProfile.role),
+    building: String(apartment?.building?.name || row?.organization?.name || residentProfile.building),
     currentBalance: Number(row?.balance?.current ?? residentProfile.currentBalance),
     status: status === 'PAID' ? 'Achitat' : status === 'OVERDUE' ? 'Întârziat' : 'Neachitat',
     nextDueDate: row?.balance?.nextDueDate ? dateLabel(row.balance.nextDueDate) : residentProfile.nextDueDate,
+    hasApartment: Boolean(apartment?.id),
+    emptyStateMessage: String(row?.emptyStateMessage || 'Contul tău nu este conectat încă la un apartament.'),
   };
 }
 

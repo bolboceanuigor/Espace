@@ -7,8 +7,8 @@ import { residentDemoApi } from '@/lib/api';
 import { normalizeResidentAnnouncement, residentAnnouncementVariant, residentAnnouncements } from '@/lib/resident-mvp-data';
 
 export default function ResidentAnnouncementsPage() {
-  const [rows, setRows] = useState(residentAnnouncements);
-  const [source, setSource] = useState<'api' | 'mock'>('mock');
+  const [rows, setRows] = useState<typeof residentAnnouncements>([]);
+  const [source, setSource] = useState<'loading' | 'api' | 'mock'>('loading');
 
   useEffect(() => {
     let active = true;
@@ -37,7 +37,7 @@ export default function ResidentAnnouncementsPage() {
         description="Anunțurile importante ale comunității tale."
         rightSlot={
           <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-            {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
+            {source === 'loading' ? 'Se încarcă...' : source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
           </span>
         }
       />

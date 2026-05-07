@@ -1,12 +1,12 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { Button, Card, Input, PageHeader } from '@/components/ui';
 import { residentDemoApi } from '@/lib/api';
-import { residentProfile, type ResidentIssuePriority } from '@/lib/resident-mvp-data';
+import { normalizeResidentContext, type ResidentIssuePriority } from '@/lib/resident-mvp-data';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 const categoryApiValues = {
@@ -30,16 +30,47 @@ export default function ResidentIssueCreatePage() {
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [hasApartment, setHasApartment] = useState(false);
+  const [isLoadingContext, setIsLoadingContext] = useState(true);
   const [form, setForm] = useState({
     category: 'Apă' as keyof typeof categoryApiValues,
     title: '',
     description: '',
     priority: 'Normal' as ResidentIssuePriority,
-    apartmentInfo: `${residentProfile.apartment}, ${residentProfile.staircase}`,
+    apartmentInfo: '',
   });
+
+  useEffect(() => {
+    let active = true;
+    residentDemoApi
+      .context()
+      .then((res) => {
+        if (!active) return;
+        const context = normalizeResidentContext(res.data);
+        setHasApartment(context.hasApartment);
+        setForm((current) => ({
+          ...current,
+          apartmentInfo: context.hasApartment ? [context.apartment, context.staircase].filter(Boolean).join(', ') : context.emptyStateMessage,
+        }));
+      })
+      .catch(() => {
+        if (!active) return;
+        setError('Nu am putut încărca apartamentul conectat contului tău.');
+      })
+      .finally(() => {
+        if (active) setIsLoadingContext(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!hasApartment) {
+      setError('Contul tău nu este conectat încă la un apartament.');
+      return;
+    }
     if (!form.title.trim() || !form.description.trim()) return;
     setError('');
     setIsSubmitting(true);
@@ -82,6 +113,9 @@ export default function ResidentIssueCreatePage() {
           <p className="font-semibold text-rose-800">{error}</p>
         </Card>
       ) : null}
+      {isLoadingContext ? (
+        <Card className="p-5 text-sm font-medium text-muted-foreground">Se verifică apartamentul conectat contului tău...</Card>
+      ) : null}
 
       <Card>
         <form onSubmit={submit} className="space-y-4">
@@ -108,8 +142,8 @@ export default function ResidentIssueCreatePage() {
               {['Normal', 'Important', 'Urgent'].map((item) => <option key={item} value={item}>{item}</option>)}
             </select>
           </label>
-          <Input label="Apartament" value={form.apartmentInfo} onChange={(event) => setForm((current) => ({ ...current, apartmentInfo: event.target.value }))} />
-          <Button type="submit" disabled={isSubmitting} className="w-full">{isSubmitting ? 'Se trimite...' : 'Trimite cerere'}</Button>
+          <Input label="Apartament" value={form.apartmentInfo} onChange={() => undefined} disabled />
+          <Button type="submit" disabled={isSubmitting || isLoadingContext || !hasApartment} className="w-full">{isSubmitting ? 'Se trimite...' : 'Trimite cerere'}</Button>
         </form>
       </Card>
     </div>

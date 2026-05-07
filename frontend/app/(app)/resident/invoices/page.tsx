@@ -7,8 +7,8 @@ import { formatMdl } from '@/lib/condo-admin-fallback';
 import { normalizeResidentInvoice, residentInvoices, residentInvoiceStatusVariant } from '@/lib/resident-mvp-data';
 
 export default function ResidentInvoicesPage() {
-  const [rows, setRows] = useState(residentInvoices);
-  const [source, setSource] = useState<'api' | 'mock'>('mock');
+  const [rows, setRows] = useState<typeof residentInvoices>([]);
+  const [source, setSource] = useState<'loading' | 'api' | 'mock'>('loading');
 
   useEffect(() => {
     let active = true;
@@ -37,7 +37,7 @@ export default function ResidentInvoicesPage() {
         description="Facturile lunare pentru apartamentul tău."
         rightSlot={
           <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-            {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
+            {source === 'loading' ? 'Se încarcă...' : source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
           </span>
         }
       />
@@ -67,7 +67,7 @@ export default function ResidentInvoicesPage() {
             </div>
           </Card>
         ))}
-        {!rows.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există facturi încă.</Card> : null}
+        {!rows.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">{source === 'api' ? 'Nu există facturi pentru apartamentul tău.' : 'Nu există facturi încă.'}</Card> : null}
       </section>
     </div>
   );

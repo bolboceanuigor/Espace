@@ -7,9 +7,9 @@ import { residentDemoApi } from '@/lib/api';
 import { normalizeResidentMeter, residentMeters, residentMeterStatusVariant, type ResidentMeterStatus } from '@/lib/resident-mvp-data';
 
 export default function ResidentMetersPage() {
-  const [meters, setMeters] = useState(residentMeters);
+  const [meters, setMeters] = useState<typeof residentMeters>([]);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const [source, setSource] = useState<'api' | 'mock'>('mock');
+  const [source, setSource] = useState<'loading' | 'api' | 'mock'>('loading');
   const [isSubmitting, setIsSubmitting] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -83,7 +83,7 @@ export default function ResidentMetersPage() {
         description="Transmite citirile pentru apartamentul tău."
         rightSlot={
           <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-            {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
+            {source === 'loading' ? 'Se încarcă...' : source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
           </span>
         }
       />
@@ -130,7 +130,7 @@ export default function ResidentMetersPage() {
             </div>
           </Card>
         ))}
-        {!meters.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există contoare încă.</Card> : null}
+        {!meters.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">{source === 'api' ? 'Nu există contoare conectate pentru acest apartament.' : 'Nu există contoare încă.'}</Card> : null}
       </section>
     </div>
   );

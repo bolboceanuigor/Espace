@@ -12,8 +12,8 @@ export class ResidentDemoController {
   constructor(private readonly residentDemoService: ResidentDemoService) {}
 
   @Get(['resident/me', 'api/resident/me', 'resident/demo', 'api/resident/demo'])
-  getDemoContext(@CurrentUser() user: MvpUser) {
-    return this.residentDemoService.getDemoContext(user);
+  getResidentContext(@CurrentUser() user: MvpUser) {
+    return this.residentDemoService.getResidentContext(user);
   }
 
   @Get(['resident/invoices', 'api/resident/invoices'])

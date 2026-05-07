@@ -17,59 +17,198 @@ import type { MvpUser } from '../security/mvp-auth.guard';
 export class ResidentDemoService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private async getResidentApartment(user: MvpUser) {
-    return this.prisma.apartment.findFirst({
-      where: {
-        organizationId: user.organizationId,
-        apartmentResidents: {
-          some: {
-            resident: {
-              userId: user.id,
-            },
+  private apartmentSelect(): Prisma.ApartmentSelect {
+    return {
+      id: true,
+      organizationId: true,
+      number: true,
+      floor: true,
+      areaM2: true,
+      rooms: true,
+      status: true,
+      building: { select: { id: true, name: true, address: true } },
+      staircase: { select: { id: true, name: true } },
+    };
+  }
+
+  private residentProfileSelect(): Prisma.ResidentProfileSelect {
+    return {
+      id: true,
+      userId: true,
+      firstName: true,
+      lastName: true,
+      phone: true,
+      email: true,
+      accountStatus: true,
+      type: true,
+      isPrimary: true,
+      apartment: {
+        select: this.apartmentSelect(),
+      },
+      apartmentResidents: {
+        orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+        select: {
+          role: true,
+          isPrimary: true,
+          apartment: {
+            select: this.apartmentSelect(),
           },
         },
       },
-      select: {
-        id: true,
-        organizationId: true,
-        number: true,
-        floor: true,
-        areaM2: true,
-        rooms: true,
-        status: true,
-        building: { select: { id: true, name: true, address: true } },
-        staircase: { select: { id: true, name: true } },
-        apartmentResidents: {
-          orderBy: [{ isPrimary: 'desc' }],
-          select: {
-            role: true,
-            isPrimary: true,
-            resident: {
-              select: {
-                id: true,
-                userId: true,
-                firstName: true,
-                lastName: true,
-                phone: true,
-                email: true,
-                accountStatus: true,
-              },
-            },
-          },
-        },
-      },
+    };
+  }
+
+  private safeUser(user: MvpUser) {
+    return {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+      organizationId: user.organizationId,
+    };
+  }
+
+  private toResident(profile: any) {
+    if (!profile) return null;
+    return {
+      id: profile.id,
+      firstName: profile.firstName,
+      lastName: profile.lastName,
+      name: this.fullName(profile),
+      phone: profile.phone,
+      email: profile.email,
+      accountStatus: profile.accountStatus,
+    };
+  }
+
+  private roleFromResidentType(type?: string | null) {
+    if (type === 'OWNER' || type === 'TENANT' || type === 'RESIDENT') return type;
+    return 'REPRESENTATIVE';
+  }
+
+  private addScopedApartment(
+    map: Map<string, any>,
+    apartment: any,
+    profile: any,
+    relationRole: string,
+    isPrimary: boolean,
+  ) {
+    if (!apartment?.id) return;
+    const existing = map.get(apartment.id);
+    if (existing?.isPrimary && !isPrimary) return;
+    map.set(apartment.id, {
+      ...apartment,
+      relationRole,
+      isPrimary,
+      resident: this.toResident(profile),
     });
   }
 
-  private async requireResidentApartment(user: MvpUser) {
-    const apartment = await this.getResidentApartment(user);
-    if (!apartment) {
+  private async getResidentScope(user: MvpUser) {
+    const profiles = await this.prisma.residentProfile.findMany({
+      where: {
+        organizationId: user.organizationId,
+        userId: user.id,
+      },
+      orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+      select: this.residentProfileSelect(),
+    });
+
+    const apartmentsById = new Map<string, any>();
+    for (const profile of profiles as any[]) {
+      for (const relation of profile.apartmentResidents || []) {
+        this.addScopedApartment(apartmentsById, relation.apartment, profile, String(relation.role), Boolean(relation.isPrimary));
+      }
+      if (profile.apartment) {
+        this.addScopedApartment(
+          apartmentsById,
+          profile.apartment,
+          profile,
+          this.roleFromResidentType(profile.type),
+          Boolean(profile.isPrimary),
+        );
+      }
+    }
+
+    const apartments = Array.from(apartmentsById.values()).sort((a, b) => {
+      if (a.isPrimary !== b.isPrimary) return a.isPrimary ? -1 : 1;
+      return String(a.number).localeCompare(String(b.number), 'ro', { numeric: true });
+    });
+    const primaryApartment = apartments.find((apartment) => apartment.isPrimary) ?? apartments[0] ?? null;
+    const primaryResident =
+      primaryApartment?.resident ??
+      this.toResident(profiles.find((profile) => profile.isPrimary) ?? profiles[0]) ??
+      null;
+
+    return {
+      user: this.safeUser(user),
+      resident: primaryResident,
+      residentProfiles: profiles.map((profile) => this.toResident(profile)).filter(Boolean),
+      apartments,
+      apartmentIds: apartments.map((apartment) => apartment.id),
+      primaryApartment,
+    };
+  }
+
+  private async requireResidentScope(user: MvpUser) {
+    const scope = await this.getResidentScope(user);
+    if (!scope.primaryApartment) {
       throw new ForbiddenException({
-        code: 'FORBIDDEN_RESIDENT_SCOPE',
-        message: 'Nu ai acces la aceste date.',
+        code: 'RESIDENT_APARTMENT_NOT_LINKED',
+        message: 'Contul tău nu este conectat încă la un apartament.',
       });
     }
-    return apartment;
+    return scope;
+  }
+
+  private requireApartmentFromScope(scope: Awaited<ReturnType<ResidentDemoService['requireResidentScope']>>, apartmentId?: unknown) {
+    if (typeof apartmentId === 'string' && apartmentId.trim()) {
+      const requested = scope.apartments.find((apartment) => apartment.id === apartmentId.trim());
+      if (!requested) {
+        throw new ForbiddenException({
+          code: 'FORBIDDEN_RESIDENT_SCOPE',
+          message: 'Nu ai acces la aceste date.',
+        });
+      }
+      return requested;
+    }
+    return scope.primaryApartment;
+  }
+
+  private async getResidentApartment(user: MvpUser) {
+    const scope = await this.requireResidentScope(user);
+    const apartment = this.requireApartmentFromScope(scope);
+    return {
+      ...apartment,
+      apartmentResidents: [
+        {
+          role: apartment.relationRole,
+          isPrimary: apartment.isPrimary,
+          resident: apartment.resident,
+        },
+      ],
+    };
+  }
+
+  private async requireResidentApartment(user: MvpUser) {
+    return this.getResidentApartment(user);
+  }
+
+  private emptyResidentMessage() {
+    return 'Contul tău nu este conectat încă la un apartament.';
+  }
+
+  private async organizationFromUser(user: MvpUser) {
+    return this.prisma.organization.findUnique({
+      where: { id: user.organizationId },
+      select: {
+        id: true,
+        name: true,
+        legalName: true,
+        fiscalCode: true,
+      },
+    });
   }
 
   private invoiceSelect(): Prisma.InvoiceSelect {
@@ -273,10 +412,11 @@ export class ResidentDemoService {
   }
 
   async listInvoices(user: MvpUser) {
-    const apartment = await this.requireResidentApartment(user);
+    const scope = await this.getResidentScope(user);
+    if (!scope.apartmentIds.length) return [];
 
     const invoices = await this.prisma.invoice.findMany({
-      where: { apartmentId: apartment.id },
+      where: { apartmentId: { in: scope.apartmentIds } },
       orderBy: [{ year: 'desc' }, { month: 'desc' }, { createdAt: 'desc' }],
       select: this.invoiceSelect(),
     });
@@ -285,10 +425,11 @@ export class ResidentDemoService {
   }
 
   async listPayments(user: MvpUser) {
-    const apartment = await this.requireResidentApartment(user);
+    const scope = await this.getResidentScope(user);
+    if (!scope.apartmentIds.length) return [];
 
     const payments = await this.prisma.payment.findMany({
-      where: { apartmentId: apartment.id },
+      where: { apartmentId: { in: scope.apartmentIds } },
       orderBy: [{ paidAt: 'desc' }, { createdAt: 'desc' }],
       select: this.paymentSelect(),
     });
@@ -297,11 +438,12 @@ export class ResidentDemoService {
   }
 
   async listMeters(user: MvpUser) {
-    const apartment = await this.requireResidentApartment(user);
+    const scope = await this.getResidentScope(user);
+    if (!scope.apartmentIds.length) return [];
 
     const meters = await this.prisma.meter.findMany({
-      where: { apartmentId: apartment.id },
-      orderBy: { type: 'asc' },
+      where: { apartmentId: { in: scope.apartmentIds } },
+      orderBy: [{ apartment: { number: 'asc' } }, { type: 'asc' }],
       select: this.meterSelect(),
     });
 
@@ -309,13 +451,13 @@ export class ResidentDemoService {
   }
 
   async addMeterReading(user: MvpUser, meterId: string, body: unknown) {
-    const apartment = await this.requireResidentApartment(user);
+    const scope = await this.requireResidentScope(user);
 
     const input = this.parseMeterReadingBody(body);
     const meter = await this.prisma.meter.findFirst({
       where: {
         id: meterId,
-        apartmentId: apartment.id,
+        apartmentId: { in: scope.apartmentIds },
       },
       select: {
         id: true,
@@ -356,10 +498,11 @@ export class ResidentDemoService {
   }
 
   async listIssues(user: MvpUser) {
-    const apartment = await this.requireResidentApartment(user);
+    const scope = await this.getResidentScope(user);
+    if (!scope.apartmentIds.length) return [];
 
     const issues = await this.prisma.issue.findMany({
-      where: { apartmentId: apartment.id },
+      where: { apartmentId: { in: scope.apartmentIds } },
       orderBy: { createdAt: 'desc' },
       select: this.issueSelect(),
     });
@@ -368,20 +511,18 @@ export class ResidentDemoService {
   }
 
   async createIssue(user: MvpUser, body: unknown) {
-    const apartment = await this.requireResidentApartment(user);
-
+    const scope = await this.requireResidentScope(user);
     const input = this.parseCreateIssueBody(body);
-    const residentRelation = apartment.apartmentResidents?.[0] ?? null;
-    const createdByUserId = await this.resolveDemoCreatedByUserId(apartment.organizationId, residentRelation?.resident?.userId);
+    const apartment = this.requireApartmentFromScope(scope, input.apartmentId);
 
     const issue = await this.prisma.issue.create({
       data: {
         organizationId: apartment.organizationId,
         apartmentId: apartment.id,
-        residentId: residentRelation?.resident?.id ?? null,
+        residentId: apartment.resident?.id ?? null,
         buildingId: apartment.building?.id,
         staircaseId: apartment.staircase?.id,
-        createdByUserId,
+        createdByUserId: user.id,
         title: input.title,
         description: input.description,
         category: input.category,
@@ -396,11 +537,9 @@ export class ResidentDemoService {
   }
 
   async listAnnouncements(user: MvpUser) {
-    const apartment = await this.requireResidentApartment(user);
-
     const announcements = await this.prisma.announcement.findMany({
       where: {
-        organizationId: apartment.organizationId,
+        organizationId: user.organizationId,
         status: 'ACTIVE',
       },
       orderBy: [{ createdAt: 'desc' }],
@@ -410,8 +549,9 @@ export class ResidentDemoService {
     return announcements.map((announcement) => this.toAnnouncement(announcement));
   }
 
-  async getDemoContext(user: MvpUser) {
-    const apartment = await this.requireResidentApartment(user);
+  async getResidentContext(user: MvpUser) {
+    const scope = await this.getResidentScope(user);
+    const organization = await this.organizationFromUser(user);
 
     const [invoices, meters, issues, announcements] = await Promise.all([
       this.listInvoices(user),
@@ -419,32 +559,18 @@ export class ResidentDemoService {
       this.listIssues(user),
       this.listAnnouncements(user),
     ]);
-    const residentRelation = apartment.apartmentResidents?.[0];
     const openInvoices = invoices.filter((invoice) => invoice.status === InvoiceStatus.UNPAID || invoice.status === InvoiceStatus.OVERDUE);
     const activeIssues = issues.filter((issue) => issue.status !== IssueStatus.RESOLVED);
     const missingMeters = meters.filter((meter) => meter.status === MeterStatus.MISSING_READING || !meter.lastReading);
 
     return {
-      resident: residentRelation?.resident
-        ? {
-            id: residentRelation.resident.id,
-            name: this.fullName(residentRelation.resident),
-            phone: residentRelation.resident.phone,
-            email: residentRelation.resident.email,
-            role: residentRelation.role,
-            accountStatus: residentRelation.resident.accountStatus,
-          }
-        : null,
-      apartment: {
-        id: apartment.id,
-        number: apartment.number,
-        floor: apartment.floor,
-        areaM2: apartment.areaM2,
-        rooms: apartment.rooms,
-        status: apartment.status,
-        building: apartment.building,
-        staircase: apartment.staircase,
-      },
+      user: scope.user,
+      organization,
+      resident: scope.resident,
+      apartments: scope.apartments,
+      primaryApartment: scope.primaryApartment,
+      apartment: scope.primaryApartment,
+      emptyStateMessage: scope.primaryApartment ? null : this.emptyResidentMessage(),
       balance: {
         current: openInvoices.reduce((sum, invoice) => sum + Number(invoice.amount || 0), 0),
         status: openInvoices.some((invoice) => invoice.status === InvoiceStatus.OVERDUE) ? 'OVERDUE' : openInvoices.length ? 'UNPAID' : 'PAID',
@@ -462,18 +588,8 @@ export class ResidentDemoService {
     };
   }
 
-  private async resolveDemoCreatedByUserId(organizationId: string, residentUserId?: string | null) {
-    if (residentUserId) return residentUserId;
-    const user = await this.prisma.user.findFirst({
-      where: { organizationId },
-      orderBy: [
-        { role: 'desc' },
-        { createdAt: 'asc' },
-      ],
-      select: { id: true },
-    });
-    if (!user) throw new NotFoundException('User not found');
-    return user.id;
+  async getDemoContext(user: MvpUser) {
+    return this.getResidentContext(user);
   }
 
   private parseMeterReadingBody(body: unknown) {
@@ -496,6 +612,7 @@ export class ResidentDemoService {
       description: this.requiredString(payload.description, 'Descrierea este obligatorie.'),
       category: this.optionalEnum(payload.category, IssueCategory, IssueCategory.OTHER, 'Categoria cererii nu este validă.'),
       priority: this.optionalEnum(payload.priority, IssuePriority, IssuePriority.NORMAL, 'Prioritatea cererii nu este validă.'),
+      apartmentId: typeof payload.apartmentId === 'string' ? payload.apartmentId : undefined,
     };
   }
 

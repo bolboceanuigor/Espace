@@ -913,7 +913,7 @@ export const announcementsApi = {
 };
 
 export const residentDemoApi = {
-  context: () => apiRequest<any>('/resident/demo'),
+  context: () => apiRequest<any>('/resident/me'),
   invoices: () => apiRequest<any[]>('/resident/invoices'),
   payments: () => apiRequest<any[]>('/resident/payments'),
   meters: () => apiRequest<any[]>('/resident/meters'),

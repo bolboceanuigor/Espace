@@ -10,8 +10,8 @@ import { useLocalizedPath } from '@/lib/use-localized-path';
 
 export default function ResidentIssuesPage() {
   const localizedPath = useLocalizedPath();
-  const [rows, setRows] = useState(residentIssues);
-  const [source, setSource] = useState<'api' | 'mock'>('mock');
+  const [rows, setRows] = useState<typeof residentIssues>([]);
+  const [source, setSource] = useState<'loading' | 'api' | 'mock'>('loading');
   const active = rows.filter((request) => request.status !== 'Rezolvată');
   const history = rows.filter((request) => request.status === 'Rezolvată');
 
@@ -43,7 +43,7 @@ export default function ResidentIssuesPage() {
         rightSlot={
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-              {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
+              {source === 'loading' ? 'Se încarcă...' : source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
             </span>
             <ButtonLink href={localizedPath('/resident/issues/new')}><PlusCircle className="h-4 w-4" /> Cerere nouă</ButtonLink>
           </div>
@@ -57,10 +57,12 @@ export default function ResidentIssuesPage() {
 
       <Section title="Cereri active">
         {active.map((request) => <IssueCard key={request.id} request={request} />)}
+        {!active.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există cereri active.</Card> : null}
       </Section>
 
       <Section title="Istoric cereri">
         {history.map((request) => <IssueCard key={request.id} request={request} />)}
+        {!history.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există cereri încă.</Card> : null}
       </Section>
     </div>
   );

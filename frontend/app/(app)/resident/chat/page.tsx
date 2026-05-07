@@ -1,13 +1,36 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { MessageCircle, Send } from 'lucide-react';
 import { Button, Card, Input, PageHeader } from '@/components/ui';
-import { residentMessages, residentProfile } from '@/lib/resident-mvp-data';
+import { residentDemoApi } from '@/lib/api';
+import { normalizeResidentContext, residentMessages, residentProfile } from '@/lib/resident-mvp-data';
 
 export default function ResidentChatPage() {
   const [messages, setMessages] = useState(residentMessages);
   const [draft, setDraft] = useState('');
+  const [context, setContext] = useState<ReturnType<typeof normalizeResidentContext> | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    residentDemoApi
+      .context()
+      .then((res) => {
+        if (active) setContext(normalizeResidentContext(res.data));
+      })
+      .catch(() => {
+        if (active) {
+          setContext({
+            ...residentProfile,
+            hasApartment: true,
+            emptyStateMessage: '',
+          } as ReturnType<typeof normalizeResidentContext>);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const send = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -43,7 +66,9 @@ export default function ResidentChatPage() {
             <MessageCircle className="h-4 w-4" />
             Administrație
           </h2>
-          <p className="text-sm text-muted-foreground">{residentProfile.apartment} · {residentProfile.staircase}</p>
+          <p className="text-sm text-muted-foreground">
+            {context ? [context.apartment, context.staircase].filter(Boolean).join(' · ') : 'Se încarcă apartamentul...'}
+          </p>
         </div>
         <div className="min-h-[460px] space-y-3 bg-muted/20 p-4">
           {messages.map((message) => (

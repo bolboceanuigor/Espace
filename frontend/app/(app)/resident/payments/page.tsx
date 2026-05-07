@@ -18,9 +18,9 @@ import {
 
 export default function ResidentPaymentsPage() {
   const [filter, setFilter] = useState<'Toate' | ResidentInvoiceStatus>('Toate');
-  const [rows, setRows] = useState(residentInvoices);
-  const [payments, setPayments] = useState<ResidentPayment[]>(residentPayments);
-  const [source, setSource] = useState<'api' | 'mock'>('mock');
+  const [rows, setRows] = useState<typeof residentInvoices>([]);
+  const [payments, setPayments] = useState<ResidentPayment[]>([]);
+  const [source, setSource] = useState<'loading' | 'api' | 'mock'>('loading');
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const visible = useMemo(() => rows.filter((invoice) => filter === 'Toate' || invoice.status === filter), [filter, rows]);
   const paidThisYear = payments.length ? payments.reduce((sum, payment) => sum + payment.amount, 0) : rows.filter((invoice) => invoice.status === 'Achitat').reduce((sum, invoice) => sum + invoice.amount, 0);
@@ -59,12 +59,12 @@ export default function ResidentPaymentsPage() {
         description="Soldul și istoricul plăților pentru apartamentul tău."
         rightSlot={
           <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-            {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
+            {source === 'loading' ? 'Se încarcă...' : source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
           </span>
         }
       />
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        <StatCard label="Sold curent" value={formatMdl(currentBalance || residentProfile.currentBalance)} description={currentBalance > 0 ? 'Neachitat' : residentProfile.status} icon={<ReceiptText className="h-5 w-5" />} tone={currentBalance > 0 ? 'danger' : 'success'} />
+        <StatCard label="Sold curent" value={formatMdl(currentBalance || (source === 'mock' ? residentProfile.currentBalance : 0))} description={currentBalance > 0 ? 'Neachitat' : source === 'mock' ? residentProfile.status : 'Achitat'} icon={<ReceiptText className="h-5 w-5" />} tone={currentBalance > 0 ? 'danger' : 'success'} />
         <StatCard label="Total achitat anul acesta" value={formatMdl(paidThisYear)} description="Plăți confirmate" icon={<CheckCircle2 className="h-5 w-5" />} tone="success" />
         <StatCard label="Facturi neachitate" value={unpaidCount} description="Necesită atenție" icon={<Clock3 className="h-5 w-5" />} tone="warning" />
       </section>
@@ -106,7 +106,7 @@ export default function ResidentPaymentsPage() {
             )}
           </Card>
         ))}
-        {!visible.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există facturi încă.</Card> : null}
+        {!visible.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">{source === 'api' ? 'Nu există facturi pentru apartamentul tău.' : 'Nu există facturi încă.'}</Card> : null}
       </section>
 
       <Card>
