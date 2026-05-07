@@ -28,14 +28,14 @@ export default function AdminPaymentsPage() {
   const localizedPath = useLocalizedPath();
   const [status, setStatus] = useState<'Toate' | InvoiceStatus>('Toate');
   const [query, setQuery] = useState('');
-  const [rows, setRows] = useState<AdminInvoice[]>(adminInvoices);
+  const [rows, setRows] = useState<AdminInvoice[]>([]);
   const [apartments, setApartments] = useState<AdminApartment[]>([]);
-  const [source, setSource] = useState<'api' | 'mock'>('mock');
+  const [source, setSource] = useState<'loading' | 'api' | 'mock'>('loading');
   const [summary, setSummary] = useState({
-    totalIssued: 218400,
-    totalPaid: 131950,
-    totalDebt: 86450,
-    overdueInvoices: 37,
+    totalIssued: 0,
+    totalPaid: 0,
+    totalDebt: 0,
+    overdueInvoices: 0,
   });
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [paymentForm, setPaymentForm] = useState(emptyPaymentForm);
@@ -84,6 +84,12 @@ export default function AdminPaymentsPage() {
         if (!active) return;
         setRows(adminInvoices);
         setSource('mock');
+        setSummary({
+          totalIssued: 218400,
+          totalPaid: 131950,
+          totalDebt: 86450,
+          overdueInvoices: 37,
+        });
       });
     return () => {
       active = false;
@@ -158,7 +164,7 @@ export default function AdminPaymentsPage() {
         description="Facturi, încasări și restanțe pentru asociația curentă."
         rightSlot={
           <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-            {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
+            {source === 'loading' ? 'Se încarcă...' : source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
           </span>
         }
       />
@@ -226,14 +232,16 @@ export default function AdminPaymentsPage() {
             </div>
           </div>
         ))}
-        {!visible.length ? <div className="px-4 py-8 text-sm font-medium text-muted-foreground">Nu există plăți sau facturi încă.</div> : null}
+        {source === 'loading' ? <div className="px-4 py-8 text-sm font-medium text-muted-foreground">Se încarcă datele...</div> : null}
+        {source !== 'loading' && !visible.length ? <div className="px-4 py-8 text-sm font-medium text-muted-foreground">Nu există plăți sau facturi încă.</div> : null}
       </section>
 
       <section className="grid gap-3 md:hidden">
         {visible.map((invoice) => (
           <PaymentCard key={invoice.id} invoice={invoice} href={localizedPath(`/admin/invoices/${invoice.id}`)} />
         ))}
-        {!visible.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există plăți sau facturi încă.</Card> : null}
+        {source === 'loading' ? <Card className="p-5 text-sm font-medium text-muted-foreground">Se încarcă datele...</Card> : null}
+        {source !== 'loading' && !visible.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există plăți sau facturi încă.</Card> : null}
       </section>
 
       <Card>

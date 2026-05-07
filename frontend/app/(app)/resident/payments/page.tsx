@@ -109,7 +109,11 @@ export default function ResidentPaymentsPage() {
             )}
           </Card>
         ))}
-        {!visible.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">{source === 'api' ? 'Nu există facturi pentru apartamentul tău.' : 'Nu există facturi încă.'}</Card> : null}
+        {!visible.length ? (
+          <Card className="p-5 text-sm font-medium text-muted-foreground">
+            {source === 'loading' ? 'Se încarcă datele...' : source === 'api' ? 'Nu există facturi pentru apartamentul tău.' : 'Nu există facturi încă.'}
+          </Card>
+        ) : null}
       </section>
 
       <Card>
@@ -124,7 +128,11 @@ export default function ResidentPaymentsPage() {
               <p className="text-right text-xs text-muted-foreground">{payment.paidAt}</p>
             </div>
           ))}
-          {!payments.length ? <p className="rounded-2xl bg-muted/35 px-3 py-3 text-sm text-muted-foreground">Nu există plăți încă.</p> : null}
+          {!payments.length ? (
+            <p className="rounded-2xl bg-muted/35 px-3 py-3 text-sm text-muted-foreground">
+              {source === 'loading' ? 'Se încarcă datele...' : 'Nu există plăți încă.'}
+            </p>
+          ) : null}
         </div>
       </Card>
 

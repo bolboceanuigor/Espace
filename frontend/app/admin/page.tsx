@@ -41,7 +41,7 @@ const currentAssociationIdentity = {
 
 export default function AdminPage() {
   const localizedPath = useLocalizedPath();
-  const [source, setSource] = useState<'api' | 'fallback'>('fallback');
+  const [source, setSource] = useState<'loading' | 'api' | 'fallback'>('loading');
   const [summary, setSummary] = useState({
     apartments: 0,
     totalDebt: 0,
@@ -57,10 +57,10 @@ export default function AdminPage() {
     currentMonthIssued: 0,
     currentMonthPaid: 0,
   });
-  const [recentActivity, setRecentActivity] = useState(fallbackRecentActivity);
-  const [urgentRequests, setUrgentRequests] = useState(fallbackUrgentRequests);
-  const [latestPayments, setLatestPayments] = useState(fallbackLatestPayments);
-  const [announcements, setAnnouncements] = useState(fallbackAnnouncements);
+  const [recentActivity, setRecentActivity] = useState<string[]>([]);
+  const [urgentRequests, setUrgentRequests] = useState<typeof fallbackUrgentRequests>([]);
+  const [latestPayments, setLatestPayments] = useState<typeof fallbackLatestPayments>([]);
+  const [announcements, setAnnouncements] = useState<string[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -126,6 +126,25 @@ export default function AdminPage() {
       })
       .catch(() => {
         if (!active) return;
+        setSummary({
+          apartments: 142,
+          totalDebt: 86450,
+          missingReadings: 23,
+          openIssues: 12,
+          unpaidInvoices: 37,
+          residents: 98,
+          totalIssued: 218400,
+          totalPaid: 131950,
+          overdueInvoices: 37,
+          apartmentsWithDebt: 37,
+          collectionRate: 60,
+          currentMonthIssued: 0,
+          currentMonthPaid: 0,
+        });
+        setRecentActivity(fallbackRecentActivity);
+        setUrgentRequests(fallbackUrgentRequests);
+        setLatestPayments(fallbackLatestPayments);
+        setAnnouncements(fallbackAnnouncements);
         setSource('fallback');
       });
     return () => {
@@ -156,7 +175,7 @@ export default function AdminPage() {
         rightSlot={
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-              {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
+              {source === 'loading' ? 'Se încarcă...' : source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
             </span>
             <ButtonLink href={localizedPath('/admin/announcements')} variant="secondary">Publică anunț</ButtonLink>
           </div>

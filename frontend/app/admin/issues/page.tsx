@@ -27,8 +27,8 @@ export default function AdminIssuesPage() {
   const [category, setCategory] = useState<'Toate' | IssueCategory>('Toate');
   const [priority, setPriority] = useState<'Toate' | IssuePriority>('Toate');
   const [status, setStatus] = useState<'Toate' | IssueStatus>('Toate');
-  const [rows, setRows] = useState<AdminIssue[]>(adminIssues);
-  const [source, setSource] = useState<'api' | 'mock'>('mock');
+  const [rows, setRows] = useState<AdminIssue[]>([]);
+  const [source, setSource] = useState<'loading' | 'api' | 'mock'>('loading');
   const [actionMessage, setActionMessage] = useState('');
   const [actionError, setActionError] = useState('');
   const [updatingId, setUpdatingId] = useState('');
@@ -88,7 +88,7 @@ export default function AdminIssuesPage() {
         description="Solicitări și intervenții pentru apartamente și spații comune."
         rightSlot={
           <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-            {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
+            {source === 'loading' ? 'Se încarcă...' : source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
           </span>
         }
       />
@@ -153,7 +153,8 @@ export default function AdminIssuesPage() {
             </div>
           </Card>
         ))}
-        {!filtered.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există cereri încă.</Card> : null}
+        {source === 'loading' ? <Card className="p-5 text-sm font-medium text-muted-foreground">Se încarcă datele...</Card> : null}
+        {source !== 'loading' && !filtered.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există cereri încă.</Card> : null}
       </section>
     </div>
   );

@@ -35,8 +35,8 @@ export default function AdminApartmentsPage() {
   const [status, setStatus] = useState('Toate');
   const [onlyDebt, setOnlyDebt] = useState(false);
   const [withoutAccount, setWithoutAccount] = useState(false);
-  const [rows, setRows] = useState<AdminApartment[]>(adminApartments);
-  const [source, setSource] = useState<'api' | 'mock'>('mock');
+  const [rows, setRows] = useState<AdminApartment[]>([]);
+  const [source, setSource] = useState<'loading' | 'api' | 'mock'>('loading');
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [isCreating, setIsCreating] = useState(false);
@@ -170,7 +170,7 @@ export default function AdminApartmentsPage() {
         rightSlot={
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-              {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
+              {source === 'loading' ? 'Se încarcă...' : source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
             </span>
             <button type="button" onClick={() => setModalOpen(true)} className="inline-flex min-h-10 items-center gap-2 rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background">
               <Plus className="h-4 w-4" />
@@ -206,7 +206,8 @@ export default function AdminApartmentsPage() {
 
       <section className="grid gap-3 md:hidden">
         {filtered.map((item) => <ApartmentMobileCard key={item.id} apartment={item} />)}
-        {!filtered.length ? <EmptyState text="Nu există apartamente încă." /> : null}
+        {source === 'loading' ? <EmptyState text="Se încarcă datele..." /> : null}
+        {source !== 'loading' && !filtered.length ? <EmptyState text="Nu există apartamente încă." /> : null}
       </section>
 
       <section className="hidden overflow-hidden rounded-[1.35rem] border border-border/70 bg-white/92 shadow-[0_14px_40px_rgba(15,23,42,0.045)] md:block">
@@ -241,7 +242,8 @@ export default function AdminApartmentsPage() {
             <Link href={localizedPath(`/admin/apartments/${item.id}`)} className="rounded-xl border border-border/70 px-3 py-2 text-xs font-semibold text-foreground hover:bg-muted/60">Deschide</Link>
           </div>
         ))}
-        {!filtered.length ? <div className="px-4 py-8 text-sm font-medium text-muted-foreground">Nu există apartamente încă.</div> : null}
+        {source === 'loading' ? <div className="px-4 py-8 text-sm font-medium text-muted-foreground">Se încarcă datele...</div> : null}
+        {source !== 'loading' && !filtered.length ? <div className="px-4 py-8 text-sm font-medium text-muted-foreground">Nu există apartamente încă.</div> : null}
       </section>
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} maxWidth="2xl">

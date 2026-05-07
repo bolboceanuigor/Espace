@@ -48,10 +48,10 @@ function associationNumberFromCode(code: string) {
 
 export default function SuperadminOrganizationsPage() {
   const localizedPath = useLocalizedPath();
-  const [rows, setRows] = useState<MvpAssociation[]>(mockAssociations);
+  const [rows, setRows] = useState<MvpAssociation[]>([]);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<'ALL' | AssociationStatus>('ALL');
-  const [source, setSource] = useState<'mock' | 'api'>('mock');
+  const [source, setSource] = useState<'loading' | 'mock' | 'api'>('loading');
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [isCreating, setIsCreating] = useState(false);
@@ -217,7 +217,7 @@ export default function SuperadminOrganizationsPage() {
             <option value="INACTIVE">Inactive</option>
           </select>
           <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-            {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
+            {source === 'loading' ? 'Se încarcă...' : source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
           </span>
         </div>
       </Card>
@@ -255,7 +255,8 @@ export default function SuperadminOrganizationsPage() {
             </div>
           </Card>
         ))}
-        {!filteredRows.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există asociații încă.</Card> : null}
+        {source === 'loading' ? <Card className="p-5 text-sm font-medium text-muted-foreground">Se încarcă datele...</Card> : null}
+        {source !== 'loading' && !filteredRows.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există asociații încă.</Card> : null}
       </section>
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} maxWidth="2xl">

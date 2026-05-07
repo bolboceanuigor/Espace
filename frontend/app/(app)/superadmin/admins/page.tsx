@@ -20,19 +20,19 @@ const emptyForm = {
   lastName: '',
   email: '',
   phone: '',
-  organizationId: mockAssociations[0]?.id || '',
+  organizationId: '',
   password: '',
 };
 
 export default function SuperadminAdminsPage() {
   const localizedPath = useLocalizedPath();
-  const [admins, setAdmins] = useState<MvpAdministrator[]>(mockAdministrators);
-  const [associations, setAssociations] = useState<MvpAssociation[]>(mockAssociations);
+  const [admins, setAdmins] = useState<MvpAdministrator[]>([]);
+  const [associations, setAssociations] = useState<MvpAssociation[]>([]);
   const [query, setQuery] = useState('');
   const [organizationId, setOrganizationId] = useState('ALL');
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
-  const [source, setSource] = useState<'api' | 'mock'>('mock');
+  const [source, setSource] = useState<'loading' | 'api' | 'mock'>('loading');
   const [isCreating, setIsCreating] = useState(false);
   const [updatingAdminId, setUpdatingAdminId] = useState('');
   const [formError, setFormError] = useState('');
@@ -164,7 +164,13 @@ export default function SuperadminAdminsPage() {
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <StatCard label="Administratori" value={admins.length} description="Rol ADMIN" icon={<ShieldCheck className="h-5 w-5" />} />
         <StatCard label="Asociații acoperite" value={new Set(admins.map((admin) => admin.organizationId)).size} description="Au administrator" icon={<UserPlus className="h-5 w-5" />} tone="success" />
-        <StatCard label="Sursă date" value={source === 'api' ? 'reale' : 'temporare'} description={source === 'api' ? 'API conectat' : 'API indisponibil'} icon={<Mail className="h-5 w-5" />} tone={source === 'api' ? 'success' : 'warning'} />
+        <StatCard
+          label="Sursă date"
+          value={source === 'loading' ? 'se încarcă' : source === 'api' ? 'reale' : 'temporare'}
+          description={source === 'loading' ? 'Se încarcă datele' : source === 'api' ? 'API conectat' : 'API indisponibil'}
+          icon={<Mail className="h-5 w-5" />}
+          tone={source === 'api' ? 'success' : 'warning'}
+        />
       </section>
 
       <Card>
@@ -217,7 +223,8 @@ export default function SuperadminAdminsPage() {
             </Card>
           );
         })}
-        {!filtered.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există administratori încă.</Card> : null}
+        {source === 'loading' ? <Card className="p-5 text-sm font-medium text-muted-foreground">Se încarcă datele...</Card> : null}
+        {source !== 'loading' && !filtered.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există administratori încă.</Card> : null}
       </section>
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} maxWidth="xl">

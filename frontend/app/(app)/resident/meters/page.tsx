@@ -130,7 +130,11 @@ export default function ResidentMetersPage() {
             </div>
           </Card>
         ))}
-        {!meters.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">{source === 'api' ? 'Nu există contoare conectate pentru acest apartament.' : 'Nu există contoare încă.'}</Card> : null}
+        {!meters.length ? (
+          <Card className="p-5 text-sm font-medium text-muted-foreground">
+            {source === 'loading' ? 'Se încarcă datele...' : source === 'api' ? 'Nu există contoare conectate pentru acest apartament.' : 'Nu există contoare încă.'}
+          </Card>
+        ) : null}
       </section>
     </div>
   );

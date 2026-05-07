@@ -48,9 +48,9 @@ export default function AdminMetersPage() {
   const [type, setType] = useState<'Toate' | MeterType>('Toate');
   const [status, setStatus] = useState<'Toate' | MeterStatus>('Toate');
   const [query, setQuery] = useState('');
-  const [rows, setRows] = useState<AdminMeter[]>(adminMeters);
+  const [rows, setRows] = useState<AdminMeter[]>([]);
   const [apartmentRows, setApartmentRows] = useState<AdminApartment[]>([]);
-  const [source, setSource] = useState<'api' | 'mock'>('mock');
+  const [source, setSource] = useState<'loading' | 'api' | 'mock'>('loading');
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [isCreating, setIsCreating] = useState(false);
@@ -199,7 +199,7 @@ export default function AdminMetersPage() {
         rightSlot={
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-              {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
+              {source === 'loading' ? 'Se încarcă...' : source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
             </span>
             <button type="button" onClick={() => setModalOpen(true)} className="inline-flex min-h-10 items-center gap-2 rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background">
               <Plus className="h-4 w-4" />
@@ -238,7 +238,8 @@ export default function AdminMetersPage() {
         {filtered.map((meter) => (
           <MeterCard key={meter.id} meter={meter} onAddReading={openReadingModal} />
         ))}
-        {!filtered.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există contoare încă.</Card> : null}
+        {source === 'loading' ? <Card className="p-5 text-sm font-medium text-muted-foreground">Se încarcă datele...</Card> : null}
+        {source !== 'loading' && !filtered.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există contoare încă.</Card> : null}
       </section>
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} maxWidth="2xl">

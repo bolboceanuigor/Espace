@@ -1,4 +1,4 @@
-import { getToken, getUser, removeToken, removeUser } from './auth';
+import { clearAuth, getToken, getUser } from './auth';
 import type { ApiEnvelope, ApiErrorPayload } from '@/types/api';
 import { getApiBaseUrl } from './runtime-config';
 
@@ -80,14 +80,47 @@ function redirectToExpiredLogin() {
 }
 
 async function parseErrorPayload(response: Response): Promise<ApiErrorPayload> {
+  if (response.status === 401) {
+    return {
+      code: 'UNAUTHORIZED',
+      message: 'Sesiunea a expirat. Te rugăm să te autentifici din nou.',
+    };
+  }
+  if (response.status === 403) {
+    return {
+      code: 'FORBIDDEN',
+      message: 'Nu ai acces la această zonă.',
+    };
+  }
   try {
     const body = await response.json();
-    if (body?.error?.code) return body.error as ApiErrorPayload;
-    if (body?.code) return body as ApiErrorPayload;
-    return { code: 'REQUEST_ERROR', message: body?.message || `Request failed with ${response.status}` };
+    if (body?.error?.code) return normalizeErrorMessage(response.status, body.error as ApiErrorPayload);
+    if (body?.code) return normalizeErrorMessage(response.status, body as ApiErrorPayload);
+    return normalizeErrorMessage(response.status, {
+      code: 'REQUEST_ERROR',
+      message: body?.message || 'Nu am putut procesa cererea.',
+    });
   } catch {
-    return { code: 'REQUEST_ERROR', message: `Request failed with ${response.status}` };
+    return normalizeErrorMessage(response.status, {
+      code: 'REQUEST_ERROR',
+      message: 'Nu am putut procesa cererea.',
+    });
   }
+}
+
+function normalizeErrorMessage(status: number, payload: ApiErrorPayload): ApiErrorPayload {
+  if (status >= 500) {
+    return {
+      ...payload,
+      code: payload.code || 'INTERNAL_ERROR',
+      message: 'A apărut o eroare. Încearcă din nou.',
+      details: undefined,
+    };
+  }
+  if (status === 400 && payload.message === 'Validation failed') {
+    return { ...payload, message: 'Datele trimise nu sunt valide.' };
+  }
+  return payload;
 }
 
 async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<{ data: T }> {
@@ -152,8 +185,7 @@ async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<{ 
       });
     }
     if (response.status === 401 && typeof window !== 'undefined') {
-      removeToken();
-      removeUser();
+      clearAuth();
       redirectToExpiredLogin();
     }
     throw new ApiClientError(response.status, payload);

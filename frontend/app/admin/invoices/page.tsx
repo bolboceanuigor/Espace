@@ -34,9 +34,9 @@ export default function AdminInvoicesPage() {
   const [month, setMonth] = useState('Toate');
   const [status, setStatus] = useState<'Toate' | InvoiceStatus>('Toate');
   const [query, setQuery] = useState('');
-  const [rows, setRows] = useState<AdminInvoice[]>(adminInvoices);
+  const [rows, setRows] = useState<AdminInvoice[]>([]);
   const [apartmentRows, setApartmentRows] = useState<AdminApartment[]>([]);
-  const [source, setSource] = useState<'api' | 'mock'>('mock');
+  const [source, setSource] = useState<'loading' | 'api' | 'mock'>('loading');
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState(emptyInvoiceForm);
   const [isCreating, setIsCreating] = useState(false);
@@ -216,7 +216,7 @@ export default function AdminInvoicesPage() {
         rightSlot={
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-              {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
+              {source === 'loading' ? 'Se încarcă...' : source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
             </span>
             <Button type="button" variant="secondary" onClick={exportCsv}>Export CSV</Button>
             <ButtonLink href={localizedPath('/admin/payments')} variant="secondary">Vezi plăți</ButtonLink>
@@ -308,14 +308,16 @@ export default function AdminInvoicesPage() {
             <ButtonLink href={localizedPath(`/admin/invoices/${invoice.id}`)} size="sm" variant="secondary">Deschide</ButtonLink>
           </div>
         ))}
-        {!filtered.length ? <div className="px-4 py-8 text-sm font-medium text-muted-foreground">Nu există facturi încă.</div> : null}
+        {source === 'loading' ? <div className="px-4 py-8 text-sm font-medium text-muted-foreground">Se încarcă datele...</div> : null}
+        {source !== 'loading' && !filtered.length ? <div className="px-4 py-8 text-sm font-medium text-muted-foreground">Nu există facturi încă.</div> : null}
       </section>
 
       <section className="grid gap-3 md:hidden">
         {filtered.map((invoice) => (
           <InvoiceCard key={invoice.id} invoice={invoice} href={localizedPath(`/admin/invoices/${invoice.id}`)} />
         ))}
-        {!filtered.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există facturi încă.</Card> : null}
+        {source === 'loading' ? <Card className="p-5 text-sm font-medium text-muted-foreground">Se încarcă datele...</Card> : null}
+        {source !== 'loading' && !filtered.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există facturi încă.</Card> : null}
       </section>
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} maxWidth="2xl">

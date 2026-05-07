@@ -69,7 +69,11 @@ export default function ResidentInvoicesPage() {
             </div> : null}
           </Card>
         ))}
-        {!rows.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">{source === 'api' ? 'Nu există facturi pentru apartamentul tău.' : 'Nu există facturi încă.'}</Card> : null}
+        {!rows.length ? (
+          <Card className="p-5 text-sm font-medium text-muted-foreground">
+            {source === 'loading' ? 'Se încarcă datele...' : source === 'api' ? 'Nu există facturi pentru apartamentul tău.' : 'Nu există facturi încă.'}
+          </Card>
+        ) : null}
       </section>
     </div>
   );

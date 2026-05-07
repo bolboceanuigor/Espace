@@ -33,7 +33,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const request = ctx.getRequest<Request>();
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
-    let message: string | string[] = 'Internal server error';
+    let message: string | string[] = 'A apărut o eroare. Încearcă din nou.';
     let details: unknown = null;
     let explicitCode: string | undefined;
 
@@ -66,13 +66,13 @@ export class HttpExceptionFilter implements ExceptionFilter {
         exception instanceof Error ? exception.stack : String(exception),
       );
       if (isProduction) {
-        message = 'Internal server error';
+        message = 'A apărut o eroare. Încearcă din nou.';
         details = null;
       }
     }
 
     if (status === HttpStatus.TOO_MANY_REQUESTS) {
-      message = 'Too many requests. Please try again later.';
+      message = 'Prea multe cereri. Încearcă din nou mai târziu.';
     }
 
     response.status(status).json({

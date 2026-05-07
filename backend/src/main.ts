@@ -62,7 +62,7 @@ async function bootstrap() {
         });
         return new BadRequestException({
           code: 'VALIDATION_ERROR',
-          message: 'Validation failed',
+          message: 'Datele trimise nu sunt valide.',
           details,
         });
       },

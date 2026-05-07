@@ -17,8 +17,8 @@ import {
 
 export default function SuperadminPage() {
   const localizedPath = useLocalizedPath();
-  const [associations, setAssociations] = useState<MvpAssociation[]>(mockAssociations);
-  const [source, setSource] = useState<'api' | 'mock'>('mock');
+  const [associations, setAssociations] = useState<MvpAssociation[]>([]);
+  const [source, setSource] = useState<'loading' | 'api' | 'mock'>('loading');
   const [overview, setOverview] = useState<any | null>(null);
   const [recentAdmins, setRecentAdmins] = useState<MvpAdministrator[]>([]);
 
@@ -64,11 +64,11 @@ export default function SuperadminPage() {
       inactive: Number(overview?.organizationsInactive ?? associations.filter((item) => item.status === 'INACTIVE').length),
       admins: associations.filter((item) => item.administratorEmail).length,
       adminsReal: Number(overview?.adminsCount ?? associations.filter((item) => item.administratorEmail).length),
-      residents: Number(overview?.residentsCount ?? Math.max(totalApartments * 2, source === 'api' ? totalApartments : 4820)),
+      residents: Number(overview?.residentsCount ?? (source === 'mock' ? Math.max(totalApartments * 2, 4820) : totalApartments)),
       apartments: Number(overview?.apartmentsCount ?? totalApartments),
       meters: Number(overview?.totalMeters ?? 0),
       invoices: Number(overview?.totalInvoices ?? 0),
-      mrr: `${Number(overview?.estimatedMonthlyRevenue ?? Math.max(totalApartments * 24, source === 'api' ? 0 : 42900)).toLocaleString('ro-RO')} MDL`,
+      mrr: `${Number(overview?.estimatedMonthlyRevenue ?? (source === 'mock' ? Math.max(totalApartments * 24, 42900) : 0)).toLocaleString('ro-RO')} MDL`,
     };
   }, [associations, overview, source]);
 
@@ -116,7 +116,7 @@ export default function SuperadminPage() {
               <p className="mt-1 text-sm text-muted-foreground">Asociații conectate în platformă.</p>
             </div>
             <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-              {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
+              {source === 'loading' ? 'Se încarcă...' : source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
             </span>
           </div>
           <div className="mt-5 space-y-3">
@@ -140,7 +140,12 @@ export default function SuperadminPage() {
                 </div>
               </div>
             ))}
-            {!associations.length ? (
+            {source === 'loading' ? (
+              <div className="rounded-[1.1rem] border border-border/70 bg-muted/25 p-4 text-sm font-medium text-muted-foreground">
+                Se încarcă datele...
+              </div>
+            ) : null}
+            {source !== 'loading' && !associations.length ? (
               <div className="rounded-[1.1rem] border border-border/70 bg-muted/25 p-4 text-sm font-medium text-muted-foreground">
                 Nu există asociații încă.
               </div>
@@ -177,7 +182,12 @@ export default function SuperadminPage() {
               <p className="mt-1 text-xs text-muted-foreground">{admin.organization?.shortName || admin.organization?.name || 'Asociație neatribuită'}</p>
             </div>
           ))}
-          {!recentAdmins.length ? (
+          {source === 'loading' ? (
+            <div className="rounded-2xl border border-border/70 bg-muted/25 p-4 text-sm font-medium text-muted-foreground">
+              Se încarcă datele...
+            </div>
+          ) : null}
+          {source !== 'loading' && !recentAdmins.length ? (
             <div className="rounded-2xl border border-border/70 bg-muted/25 p-4 text-sm font-medium text-muted-foreground">
               Nu există administratori recenți.
             </div>
