@@ -49,13 +49,13 @@ const contexts: Record<DemoRole, DemoContext> = {
     ],
   },
   RESIDENT: {
-    eyebrow: 'Apt. 45, Scara 2',
+    eyebrow: 'Apartament conectat, Scara 2',
     title: 'Ai ales demo-ul pentru Locatar',
     description: 'Intră într-o experiență simplă pentru facturi, citiri, anunțuri, cereri și mesaje.',
     button: 'Intră ca locatar',
     icon: <UserRound className="h-5 w-5" />,
     stats: [
-      { label: 'Apartament', value: 'Apt. 45' },
+      { label: 'Apartament', value: 'Conectat prin cont' },
       { label: 'Scara', value: 'Scara 2' },
       { label: 'Sold curent', value: '1,240 MDL' },
       { label: 'Ultimul anunț', value: 'Lucrări programate la lift' },

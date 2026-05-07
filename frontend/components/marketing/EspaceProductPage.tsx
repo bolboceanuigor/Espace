@@ -69,7 +69,7 @@ const roleCards = [
     title: 'Locatar',
     text: 'Vede soldul, transmite citiri, urmărește anunțurile și trimite cereri către administrație.',
     href: '/ro/resident',
-    metric: 'Apt. 45',
+    metric: 'Cont locatar',
   },
   {
     title: 'Superadmin',
@@ -137,7 +137,7 @@ function DashboardMockup() {
           <div className="rounded-md border border-slate-200 bg-white p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="font-semibold">Apt. 45</p>
+                <p className="font-semibold">Apartament conectat</p>
                 <p className="mt-1 text-sm text-slate-500">Scara 2 · Etaj 6 · 72.4 m²</p>
               </div>
               <span className="rounded-full bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700">1,240 MDL</span>
@@ -145,11 +145,11 @@ function DashboardMockup() {
             <div className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
               <div className="rounded-md bg-slate-50 p-3">
                 <p className="text-slate-500">Proprietar</p>
-                <p className="font-medium">Popescu Ion</p>
+                <p className="font-medium">Locatar conectat</p>
               </div>
               <div className="rounded-md bg-slate-50 p-3">
                 <p className="text-slate-500">Contoare</p>
-                <p className="font-medium">2 actualizate, 1 lipsa</p>
+                <p className="font-medium">2 actualizate, 1 lipsă</p>
               </div>
             </div>
           </div>
