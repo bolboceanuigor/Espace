@@ -35,6 +35,7 @@ export type AdminApartment = {
 
 export type AdminResident = {
   id: string;
+  userId?: string;
   name: string;
   phone: string;
   email: string;
@@ -811,6 +812,7 @@ export function normalizeApiResident(row: any): AdminResident {
   const apartments = Array.isArray(row?.apartments) ? row.apartments.map((apartment: any) => String(apartment.number || '')) : [];
   return {
     id: String(row?.id || 'resident'),
+    userId: row?.userId ? String(row.userId) : undefined,
     name: String(row?.name || `${row?.firstName || ''} ${row?.lastName || ''}`.trim() || 'Locatar'),
     phone: String(row?.phone || '-'),
     email: String(row?.email || '-'),

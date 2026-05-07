@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { InvoiceStatus, Prisma, ResidentAccountStatus, Role } from '@prisma/client';
+import { InvoiceStatus, PlatformRole, Prisma, ResidentAccountStatus, Role } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import type { MvpUser } from '../security/mvp-auth.guard';
 
@@ -16,6 +17,7 @@ export class ResidentsService {
       phone: true,
       email: true,
       accountStatus: true,
+      userId: true,
       type: true,
       isPrimary: true,
       createdAt: true,
@@ -132,6 +134,7 @@ export class ResidentsService {
       phone: row.phone,
       email: row.email,
       accountStatus: row.accountStatus,
+      userId: row.userId,
       type: row.type,
       role: primaryRelation?.role ?? row.type,
       createdAt: row.createdAt,
@@ -219,6 +222,94 @@ export class ResidentsService {
     return this.toResident(resident);
   }
 
+  async createResidentAccount(user: MvpUser, residentId: string, body: unknown) {
+    const input = this.parseCreateAccountBody(body);
+    const resident = await this.prisma.residentProfile.findFirst({
+      where: { id: residentId, ...this.organizationWhere(user) },
+      select: {
+        id: true,
+        organizationId: true,
+        userId: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+        email: true,
+        accountStatus: true,
+      },
+    });
+
+    if (!resident) {
+      throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    }
+    this.assertOrganizationAccess(user, resident.organizationId);
+    if (resident.userId) {
+      throw new ConflictException('Acest locatar are deja cont.');
+    }
+
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: input.email },
+      select: { id: true },
+    });
+    if (existingUser) {
+      throw new ConflictException('Există deja un utilizator cu acest email.');
+    }
+
+    const passwordHash = await bcrypt.hash(input.password, 10);
+    const phone = input.phone || resident.phone || null;
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const createdUser = await tx.user.create({
+        data: {
+          email: input.email,
+          passwordHash,
+          firstName: resident.firstName || null,
+          lastName: resident.lastName || null,
+          fullName: `${resident.firstName || ''} ${resident.lastName || ''}`.trim() || null,
+          phone,
+          role: Role.RESIDENT,
+          platformRole: PlatformRole.RESIDENT,
+          organizationId: resident.organizationId,
+        },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          phone: true,
+          role: true,
+          organizationId: true,
+          createdAt: true,
+        },
+      });
+
+      const updatedResident = await tx.residentProfile.update({
+        where: { id: resident.id },
+        data: {
+          userId: createdUser.id,
+          email: input.email,
+          phone,
+          accountStatus: ResidentAccountStatus.CREATED,
+        },
+        select: {
+          id: true,
+          accountStatus: true,
+          userId: true,
+        },
+      });
+
+      return { createdUser, updatedResident };
+    });
+
+    return {
+      user: result.createdUser,
+      resident: {
+        id: result.updatedResident.id,
+        userId: result.updatedResident.userId,
+        accountStatus: result.updatedResident.accountStatus,
+      },
+    };
+  }
+
   private async parseCreateResidentBody(body: unknown) {
     const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
     const organizationId = this.requiredString(payload.organizationId, 'Organizația este obligatorie.');
@@ -247,6 +338,22 @@ export class ResidentsService {
       throw new BadRequestException(message);
     }
     return value.trim();
+  }
+
+  private parseCreateAccountBody(body: unknown) {
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const email = this.requiredString(payload.email, 'Emailul este obligatoriu.').toLowerCase();
+    const password = this.requiredString(payload.password, 'Parola temporară este obligatorie.');
+    const phone = typeof payload.phone === 'string' && payload.phone.trim() ? payload.phone.trim() : null;
+
+    if (!email.includes('@')) {
+      throw new BadRequestException('Emailul nu este valid.');
+    }
+    if (password.length < 8) {
+      throw new BadRequestException('Parola temporară trebuie să aibă cel puțin 8 caractere.');
+    }
+
+    return { email, password, phone };
   }
 
   private optionalEnum<T extends Record<string, string>>(value: unknown, enumValues: T, fallback: T[keyof T], message: string) {

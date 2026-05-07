@@ -21,6 +21,11 @@ export class ResidentsController {
     return this.residentsService.createResident(user, body);
   }
 
+  @Post(':id/create-account')
+  createResidentAccount(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.residentsService.createResidentAccount(user, id, body);
+  }
+
   @Get(':id')
   getResident(@CurrentUser() user: MvpUser, @Param('id') id: string) {
     return this.residentsService.getResident(user, id);

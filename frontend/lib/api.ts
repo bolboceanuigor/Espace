@@ -703,6 +703,8 @@ export const residentsApi = {
     email?: string;
     accountStatus?: 'CREATED' | 'INVITED' | 'NO_ACCOUNT';
   }) => apiRequest<any>('/residents', { method: 'POST', body: data }),
+  createAccount: (residentId: string, data: { email: string; phone?: string; password: string }) =>
+    apiRequest<any>(`/residents/${residentId}/create-account`, { method: 'POST', body: data }),
 };
 
 export const metersApi = {

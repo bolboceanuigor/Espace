@@ -2,9 +2,9 @@
 
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Banknote, Building2, FileText, MessageCircle, Phone, UserRound } from 'lucide-react';
-import { Badge, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ArrowLeft, Banknote, Building2, FileText, KeyRound, MessageCircle, Phone, UserRound } from 'lucide-react';
+import { Badge, Button, ButtonLink, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
 import { defaultLocale, isLocale } from '@/i18n';
 import { residentsApi } from '@/lib/api';
 import {
@@ -28,6 +28,11 @@ export default function AdminResidentDetailPage() {
   const [resident, setResident] = useState<AdminResident>(fallbackResident);
   const [apiDetail, setApiDetail] = useState<any>(null);
   const [source, setSource] = useState<'api' | 'mock'>('mock');
+  const [accountModalOpen, setAccountModalOpen] = useState(false);
+  const [accountForm, setAccountForm] = useState({ email: '', phone: '', password: '' });
+  const [isCreatingAccount, setIsCreatingAccount] = useState(false);
+  const [accountError, setAccountError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const apartments =
     source === 'api'
       ? normalizeApiResidentApartments(apiDetail)
@@ -35,28 +40,74 @@ export default function AdminResidentDetailPage() {
   const issues = source === 'api' ? normalizeApiResidentIssues(apiDetail) : [];
   const messages = source === 'api' ? normalizeApiResidentMessages(apiDetail) : [];
   const firstApartmentId = apartments[0]?.id || '';
+  const hasUserAccount = Boolean(resident.userId) || resident.accountStatus === 'cont creat';
 
-  useEffect(() => {
+  const loadResident = useCallback(async (shouldApply: () => boolean = () => true) => {
     if (!id) return;
-    let active = true;
-    residentsApi
+    await residentsApi
       .get(id)
       .then((res) => {
-        if (!active) return;
+        if (!shouldApply()) return;
         setApiDetail(res.data);
         setResident(normalizeApiResident(res.data));
         setSource('api');
       })
       .catch(() => {
-        if (!active) return;
+        if (!shouldApply()) return;
         setApiDetail(null);
         setResident(fallbackResident);
         setSource('mock');
       });
+  }, [fallbackResident, id]);
+
+  useEffect(() => {
+    let active = true;
+    loadResident(() => active);
     return () => {
       active = false;
     };
-  }, [fallbackResident, id]);
+  }, [loadResident]);
+
+  useEffect(() => {
+    if (!accountModalOpen) return;
+    setAccountForm({
+      email: resident.email && resident.email !== '-' ? resident.email : '',
+      phone: resident.phone && resident.phone !== '-' ? resident.phone : '',
+      password: '',
+    });
+    setAccountError('');
+  }, [accountModalOpen, resident.email, resident.phone]);
+
+  const createResidentAccount = async () => {
+    setAccountError('');
+    setSuccessMessage('');
+    if (!accountForm.email.trim() || !accountForm.password) {
+      setAccountError('Completează emailul și parola temporară.');
+      return;
+    }
+    setIsCreatingAccount(true);
+    try {
+      await residentsApi.createAccount(id, {
+        email: accountForm.email.trim(),
+        phone: accountForm.phone.trim() || undefined,
+        password: accountForm.password,
+      });
+      setAccountModalOpen(false);
+      setSuccessMessage(`Contul locatarului a fost creat pentru ${accountForm.email.trim()}. Trimite parola temporară locatarului printr-un canal sigur.`);
+      await loadResident();
+    } catch (error: any) {
+      const message = String(error?.message || '');
+      if (message.includes('Există deja un utilizator cu acest email')) {
+        setAccountError('Există deja un utilizator cu acest email.');
+      } else if (message.includes('Acest locatar are deja cont')) {
+        setAccountError('Acest locatar are deja cont.');
+      } else {
+        setAccountError('Nu am putut crea contul locatarului.');
+      }
+    } finally {
+      setIsCreatingAccount(false);
+    }
+  };
 
   return (
     <div className="space-y-5 pb-4">
@@ -74,9 +125,16 @@ export default function AdminResidentDetailPage() {
               {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
             </span>
             <Badge variant={accountStatusVariant[resident.accountStatus]}>{resident.accountStatus}</Badge>
+            {!hasUserAccount && source === 'api' ? <Badge variant="neutral">Fără cont</Badge> : null}
           </div>
         }
       />
+
+      {successMessage ? (
+        <Card className="border-emerald-200 bg-emerald-50/70">
+          <p className="text-sm font-semibold text-emerald-800">{successMessage}</p>
+        </Card>
+      ) : null}
 
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Telefon" value={resident.phone} description={resident.email} icon={<Phone className="h-5 w-5" />} tone="neutral" />
@@ -90,7 +148,14 @@ export default function AdminResidentDetailPage() {
           <ButtonLink href={`/${locale}/admin/chat`} variant="primary"><MessageCircle className="h-4 w-4" /> Trimite mesaj</ButtonLink>
           <ButtonLink href={firstApartmentId ? `/${locale}/admin/apartments/${firstApartmentId}` : `/${locale}/admin/apartments`} variant="secondary"><Building2 className="h-4 w-4" /> Vezi apartamentul</ButtonLink>
           <ButtonLink href={`/${locale}/admin/issues`} variant="secondary"><FileText className="h-4 w-4" /> Creează cerere</ButtonLink>
-          <ButtonLink href={`/${locale}/admin/residents`} variant="secondary"><UserRound className="h-4 w-4" /> Lista locatari</ButtonLink>
+          {!hasUserAccount && source === 'api' ? (
+            <Button type="button" variant="secondary" onClick={() => setAccountModalOpen(true)}>
+              <KeyRound className="h-4 w-4" />
+              Creează cont locatar
+            </Button>
+          ) : (
+            <ButtonLink href={`/${locale}/admin/residents`} variant="secondary"><UserRound className="h-4 w-4" /> Lista locatari</ButtonLink>
+          )}
         </div>
       </Card>
 
@@ -163,6 +228,33 @@ export default function AdminResidentDetailPage() {
           </div>
         </Card>
       </section>
+
+      <Modal isOpen={accountModalOpen} onClose={() => setAccountModalOpen(false)} maxWidth="lg">
+        <ModalHeader title="Creează cont locatar" onClose={() => setAccountModalOpen(false)} />
+        <ModalBody>
+          <div className="grid gap-3">
+            <Input label="Email" type="email" value={accountForm.email} onChange={(event) => setAccountForm((current) => ({ ...current, email: event.target.value }))} required />
+            <Input label="Telefon" value={accountForm.phone} onChange={(event) => setAccountForm((current) => ({ ...current, phone: event.target.value }))} />
+            <Input label="Parolă temporară" type="password" value={accountForm.password} onChange={(event) => setAccountForm((current) => ({ ...current, password: event.target.value }))} required />
+          </div>
+          {accountError ? (
+            <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
+              {accountError}
+            </p>
+          ) : null}
+          <p className="mt-4 text-xs text-muted-foreground">
+            Nu trimitem email automat încă. Comunică parola temporară locatarului printr-un canal sigur.
+          </p>
+        </ModalBody>
+        <ModalFooter>
+          <Button type="button" variant="secondary" onClick={() => setAccountModalOpen(false)} disabled={isCreatingAccount}>
+            Anulează
+          </Button>
+          <Button type="button" onClick={createResidentAccount} disabled={isCreatingAccount}>
+            {isCreatingAccount ? 'Se creează...' : 'Creează cont'}
+          </Button>
+        </ModalFooter>
+      </Modal>
     </div>
   );
 }
