@@ -246,7 +246,10 @@ export class CommunityReadService {
   private parseCreateAnnouncementBody(body: unknown) {
     const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
     return {
-      organizationId: this.requiredString(payload.organizationId, 'Organizația este obligatorie.'),
+      organizationId:
+        typeof payload.organizationId === 'string' && payload.organizationId.trim()
+          ? payload.organizationId.trim()
+          : '',
       title: this.requiredString(payload.title, 'Titlul este obligatoriu.'),
       content: this.requiredString(payload.content, 'Conținutul este obligatoriu.'),
       category: this.optionalEnum(payload.category, AnnouncementCategory, AnnouncementCategory.GENERAL, 'Categoria anunțului nu este validă.'),

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { CalendarDays, Megaphone, PlusCircle, Tag } from 'lucide-react';
 import { Badge, Card, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader } from '@/components/ui';
-import { announcementsApi, apartmentsApi } from '@/lib/api';
+import { announcementsApi } from '@/lib/api';
 import { adminAnnouncements, announcementCategoryVariant, normalizeApiAnnouncement, type AdminAnnouncement } from '@/lib/admin-mvp-data';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
@@ -37,12 +37,9 @@ export default function AdminAnnouncementsPage() {
   const [successMessage, setSuccessMessage] = useState('');
 
   const loadAnnouncements = async () => {
-    const [announcementRes, apartmentRes] = await Promise.all([
-      announcementsApi.list(),
-      apartmentsApi.list().catch(() => ({ data: [] })),
-    ]);
+    const announcementRes = await announcementsApi.list();
     const apiRows = (announcementRes.data || []).map(normalizeApiAnnouncement);
-    const fallbackOrganizationId = announcementRes.data?.[0]?.organizationId || apartmentRes.data?.[0]?.organizationId || '';
+    const fallbackOrganizationId = announcementRes.data?.[0]?.organizationId || '';
     setRows(apiRows);
     setSource('api');
     setOrganizationId(String(fallbackOrganizationId || ''));
@@ -63,10 +60,6 @@ export default function AdminAnnouncementsPage() {
   const createAnnouncement = async () => {
     setFormError('');
     setSuccessMessage('');
-    if (!organizationId) {
-      setFormError('Nu am găsit organizația reală pentru publicare.');
-      return;
-    }
     if (!form.title.trim() || !form.content.trim()) {
       setFormError('Completează titlul și conținutul.');
       return;
@@ -75,7 +68,7 @@ export default function AdminAnnouncementsPage() {
     setIsCreating(true);
     try {
       await announcementsApi.create({
-        organizationId,
+        ...(organizationId ? { organizationId } : {}),
         title: form.title.trim(),
         content: form.content.trim(),
         category: form.category,

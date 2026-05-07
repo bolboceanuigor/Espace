@@ -1,56 +1,100 @@
 'use client';
 
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { MessageCircle, Search, Send } from 'lucide-react';
 import { Badge, Button, Card, Input, PageHeader } from '@/components/ui';
-import { adminConversations, type AdminConversation } from '@/lib/admin-mvp-data';
+import { getStoredUser } from '@/lib/auth';
+import { messagesMvpApi } from '@/lib/api';
 
-type MessageMap = Record<string, AdminConversation['messages']>;
+type Thread = {
+  id: string;
+  subject: string;
+  apartmentNumber?: string | null;
+  residentName?: string | null;
+  preview?: string | null;
+  lastMessageAt?: string | null;
+  messages: Array<{
+    id: string;
+    senderId?: string;
+    senderName?: string | null;
+    senderRole?: string | null;
+    content: string;
+    createdAt: string;
+  }>;
+};
 
 export default function AdminChatPage() {
-  const [conversations, setConversations] = useState(adminConversations);
-  const [messages, setMessages] = useState<MessageMap>(() =>
-    Object.fromEntries(adminConversations.map((conversation) => [conversation.id, conversation.messages])),
-  );
-  const [selectedId, setSelectedId] = useState(adminConversations[0]?.id ?? '');
+  const storedUser = getStoredUser();
+  const [threads, setThreads] = useState<Thread[]>([]);
+  const [selectedId, setSelectedId] = useState('');
   const [query, setQuery] = useState('');
   const [draft, setDraft] = useState('');
+  const [source, setSource] = useState<'loading' | 'api' | 'unavailable'>('loading');
+  const [error, setError] = useState('');
+  const [isSending, setIsSending] = useState(false);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return conversations.filter((item) => !needle || `${item.resident} ${item.apartment} ${item.preview}`.toLowerCase().includes(needle));
-  }, [conversations, query]);
+    return threads.filter((item) => !needle || `${item.residentName || ''} ${item.apartmentNumber || ''} ${item.preview || ''}`.toLowerCase().includes(needle));
+  }, [query, threads]);
 
-  const selected = conversations.find((item) => item.id === selectedId) ?? conversations[0];
+  const selected = threads.find((item) => item.id === selectedId) ?? threads[0] ?? null;
 
-  const selectConversation = (id: string) => {
-    setSelectedId(id);
-    setConversations((current) => current.map((item) => (item.id === id ? { ...item, unread: false } : item)));
+  const loadThreads = async () => {
+    const res = await messagesMvpApi.adminList();
+    const nextThreads = res.data || [];
+    setThreads(nextThreads);
+    setSelectedId((current) => current || nextThreads[0]?.id || '');
+    setSource('api');
   };
 
-  const send = (event: FormEvent<HTMLFormElement>) => {
+  useEffect(() => {
+    let active = true;
+    loadThreads().catch(() => {
+      if (!active) return;
+      setThreads([]);
+      setSource('unavailable');
+      setError('Mesageria este indisponibilă temporar.');
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const send = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const content = draft.trim();
-    if (!content || !selected) return;
-    setMessages((current) => ({
-      ...current,
-      [selected.id]: [
-        ...(current[selected.id] || []),
-        {
-          id: `local-${Date.now()}`,
-          sender: 'Admin',
-          content,
-          mine: true,
-          time: new Date().toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' }),
-        },
-      ],
-    }));
-    setDraft('');
+    if (!content || !selected || source !== 'api') return;
+    setError('');
+    setIsSending(true);
+    try {
+      const res = await messagesMvpApi.adminSend({ threadId: selected.id, content });
+      setThreads((current) => current.map((thread) => (thread.id === res.data.id ? res.data : thread)));
+      setDraft('');
+    } catch {
+      setError('Nu am putut trimite mesajul.');
+    } finally {
+      setIsSending(false);
+    }
   };
 
   return (
     <div className="space-y-5 pb-4">
-      <PageHeader title="Mesaje" description="Conversații cu locatarii și discuții comunitare." />
+      <PageHeader
+        title="Mesaje"
+        description="Conversații directe cu locatarii."
+        rightSlot={
+          <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
+            {source === 'loading' ? 'Se încarcă...' : source === 'api' ? 'Date reale' : 'API indisponibil temporar'}
+          </span>
+        }
+      />
+
+      {error ? (
+        <Card className="border-rose-200 bg-rose-50/70 p-4 text-sm font-semibold text-rose-700">
+          {error}
+        </Card>
+      ) : null}
 
       <div className="grid gap-4 lg:grid-cols-[360px_1fr]">
         <Card className="p-3">
@@ -59,24 +103,26 @@ export default function AdminChatPage() {
             <Input className="pl-9" placeholder="Caută conversații" value={query} onChange={(event) => setQuery(event.target.value)} />
           </label>
           <div className="mt-3 grid gap-2">
-            {filtered.map((conversation) => (
+            {filtered.map((thread) => (
               <button
-                key={conversation.id}
+                key={thread.id}
                 type="button"
-                onClick={() => selectConversation(conversation.id)}
+                onClick={() => setSelectedId(thread.id)}
                 className={`w-full rounded-2xl border p-3 text-left transition ${
-                  selected?.id === conversation.id ? 'border-foreground/20 bg-muted/70' : 'border-border/60 bg-white hover:bg-muted/50'
+                  selected?.id === thread.id ? 'border-foreground/20 bg-muted/70' : 'border-border/60 bg-white hover:bg-muted/50'
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <p className="font-semibold text-foreground">{conversation.resident}</p>
-                  <span className="text-[11px] text-muted-foreground">{conversation.time}</span>
+                  <p className="font-semibold text-foreground">{thread.residentName || 'Locatar'}</p>
+                  <span className="text-[11px] text-muted-foreground">{thread.lastMessageAt ? formatTime(thread.lastMessageAt) : ''}</span>
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">{conversation.apartment}</p>
-                <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{conversation.preview}</p>
-                {conversation.unread ? <Badge className="mt-2" variant="default">necitit</Badge> : null}
+                <p className="mt-1 text-xs text-muted-foreground">{thread.apartmentNumber ? `Apt. ${thread.apartmentNumber}` : 'Apartament'}</p>
+                <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{thread.preview || 'Fără mesaje încă.'}</p>
               </button>
             ))}
+            {source === 'loading' ? <p className="rounded-2xl bg-muted/35 p-3 text-sm text-muted-foreground">Se încarcă datele...</p> : null}
+            {source === 'api' && !filtered.length ? <p className="rounded-2xl bg-muted/35 p-3 text-sm text-muted-foreground">Nu există conversații încă.</p> : null}
+            {source === 'unavailable' ? <p className="rounded-2xl bg-muted/35 p-3 text-sm text-muted-foreground">Mesageria este în lucru sau API-ul nu este disponibil temporar.</p> : null}
           </div>
         </Card>
 
@@ -84,28 +130,37 @@ export default function AdminChatPage() {
           <div className="border-b border-border/70 p-4">
             <h2 className="flex items-center gap-2 font-semibold text-foreground">
               <MessageCircle className="h-4 w-4" />
-              {selected?.resident}
+              {selected?.residentName || 'Conversație'}
             </h2>
-            <p className="text-sm text-muted-foreground">{selected?.apartment}</p>
+            <p className="text-sm text-muted-foreground">{selected?.apartmentNumber ? `Apt. ${selected.apartmentNumber}` : 'Selectează o conversație'}</p>
           </div>
 
           <div className="min-h-[420px] space-y-3 bg-muted/20 p-4">
-            {(messages[selected?.id ?? ''] || []).map((message) => (
-              <div key={message.id} className={`flex ${message.mine ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[86%] rounded-2xl px-4 py-3 text-sm shadow-sm ${message.mine ? 'bg-foreground text-background' : 'bg-white text-foreground'}`}>
-                  <p className="mb-1 text-[11px] opacity-70">{message.sender} · {message.time}</p>
-                  <p className="leading-6">{message.content}</p>
+            {selected?.messages?.map((message) => {
+              const mine = message.senderId === storedUser?.id || String(message.senderRole || '').toUpperCase() === 'ADMIN';
+              return (
+                <div key={message.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[86%] rounded-2xl px-4 py-3 text-sm shadow-sm ${mine ? 'bg-foreground text-background' : 'bg-white text-foreground'}`}>
+                    <p className="mb-1 text-[11px] opacity-70">{mine ? 'Administrație' : message.senderName || 'Locatar'} · {formatTime(message.createdAt)}</p>
+                    <p className="leading-6">{message.content}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
+            {source === 'api' && selected && !selected.messages?.length ? <p className="rounded-2xl bg-white p-4 text-sm text-muted-foreground">Nu există mesaje în conversație.</p> : null}
+            {source === 'api' && !selected ? <p className="rounded-2xl bg-white p-4 text-sm text-muted-foreground">Nu există conversații încă.</p> : null}
           </div>
 
           <form onSubmit={send} className="flex gap-2 border-t border-border/70 p-3">
-            <Input className="min-w-0 flex-1" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Scrie un mesaj..." />
-            <Button type="submit" disabled={!draft.trim()}><Send className="h-4 w-4" /> Trimite</Button>
+            <Input className="min-w-0 flex-1" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Scrie un mesaj..." disabled={!selected || source !== 'api'} />
+            <Button type="submit" disabled={!draft.trim() || !selected || isSending || source !== 'api'}><Send className="h-4 w-4" /> {isSending ? 'Se trimite...' : 'Trimite'}</Button>
           </form>
         </section>
       </div>
     </div>
   );
+}
+
+function formatTime(value: string) {
+  return new Intl.DateTimeFormat('ro-RO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(value));
 }

@@ -953,12 +953,21 @@ export const announcementsApi = {
   list: () => apiRequest<any[]>('/announcements'),
   get: (id: string) => apiRequest<any>(`/announcements/${id}`),
   create: (data: {
-    organizationId: string;
+    organizationId?: string;
     title: string;
     content: string;
     category?: 'GENERAL' | 'REPAIR' | 'URGENT' | 'ADMINISTRATION';
     status?: 'ACTIVE' | 'ARCHIVED';
   }) => apiRequest<any>('/announcements', { method: 'POST', body: data }),
+};
+
+export const messagesMvpApi = {
+  residentList: () => apiRequest<any[]>('/resident/messages'),
+  residentSend: (data: { content: string; subject?: string }) =>
+    apiRequest<any>('/resident/messages', { method: 'POST', body: data }),
+  adminList: () => apiRequest<any[]>('/admin/messages'),
+  adminSend: (data: { threadId: string; content: string }) =>
+    apiRequest<any>('/admin/messages', { method: 'POST', body: data }),
 };
 
 export const residentDemoApi = {
