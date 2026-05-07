@@ -39,6 +39,16 @@ export default function AdminResidentDetailPage() {
       : adminApartments.filter((apartment) => resident.apartments.includes(apartment.number));
   const issues = source === 'api' ? normalizeApiResidentIssues(apiDetail) : [];
   const messages = source === 'api' ? normalizeApiResidentMessages(apiDetail) : [];
+  const visibleMessages = messages.length
+    ? messages
+    : source === 'mock'
+      ? [{ id: 'mock-message', subject: 'Mesaj trimis administratorului despre citirea contorului.', apartment: `Apt. ${resident.apartments[0] || '-'}` }]
+      : [];
+  const visibleIssues = issues.length
+    ? issues
+    : source === 'mock'
+      ? [{ id: 'mock-issue', title: 'Verificare presiune apă caldă', status: 'În lucru', apartment: `Apt. ${resident.apartments[0] || '-'}` }]
+      : [];
   const firstApartmentId = apartments[0]?.id || '';
   const hasUserAccount = Boolean(resident.userId) || resident.accountStatus === 'cont creat';
 
@@ -205,11 +215,16 @@ export default function AdminResidentDetailPage() {
         <Card>
           <SectionTitle icon={<MessageCircle className="h-5 w-5" />} title="Mesaje" description="Comunicare rapidă cu administratorul." />
           <div className="space-y-3">
-            {(messages.length ? messages : [{ id: 'mock-message', subject: 'Mesaj trimis administratorului despre citirea contorului.', apartment: `Apt. ${resident.apartments[0] || '-'}` }]).map((message: any) => (
+            {visibleMessages.map((message: any) => (
               <p key={message.id} className="rounded-2xl border border-border/70 bg-muted/25 p-4 text-sm text-muted-foreground">
                 {message.subject} · {message.apartment}
               </p>
             ))}
+            {!visibleMessages.length ? (
+              <p className="rounded-2xl border border-border/70 bg-muted/25 p-4 text-sm text-muted-foreground">
+                Nu există mesaje încă.
+              </p>
+            ) : null}
             <ButtonLink href={`/${locale}/admin/chat`} variant="secondary" className="w-full justify-center">
               Deschide mesaje
             </ButtonLink>
@@ -219,12 +234,17 @@ export default function AdminResidentDetailPage() {
         <Card>
           <SectionTitle icon={<FileText className="h-5 w-5" />} title="Cereri" description="Solicitări conectate acestui locatar." />
           <div className="space-y-3">
-            {(issues.length ? issues : [{ id: 'mock-issue', title: 'Verificare presiune apă caldă', status: 'În lucru', apartment: `Apt. ${resident.apartments[0] || '-'}` }]).map((issue: any) => (
+            {visibleIssues.map((issue: any) => (
               <div key={issue.id} className="rounded-2xl border border-border/70 bg-muted/25 p-4">
                 <p className="text-sm font-medium text-foreground">{issue.title}</p>
                 <p className="mt-1 text-sm text-muted-foreground">Status: {issue.status} · {issue.apartment}</p>
               </div>
             ))}
+            {!visibleIssues.length ? (
+              <p className="rounded-2xl border border-border/70 bg-muted/25 p-4 text-sm text-muted-foreground">
+                Nu există cereri încă.
+              </p>
+            ) : null}
           </div>
         </Card>
       </section>
