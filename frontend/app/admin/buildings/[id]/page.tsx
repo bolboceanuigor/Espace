@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { adminStructureApi, billingSaasApi } from '@/lib/api';
+import { adminStructureApi, apartmentsApi, billingSaasApi } from '@/lib/api';
 import { isWriteBlockedBySubscription } from '@/lib/subscription-access';
 import MobilePageHeader from '@/components/common/MobilePageHeader';
 import LoadingState from '@/components/common/LoadingState';
@@ -19,7 +19,6 @@ export default function AdminBuildingDetailsPage() {
   const [subscriptionStatus, setSubscriptionStatus] = useState<string>('');
   const [savingStaircase, setSavingStaircase] = useState(false);
   const [savingApartment, setSavingApartment] = useState(false);
-  const [deletingStaircaseId, setDeletingStaircaseId] = useState<string | null>(null);
   const [editingStaircaseId, setEditingStaircaseId] = useState<string | null>(null);
   const [editStaircaseForm, setEditStaircaseForm] = useState({ name: '', floorsCount: 1 });
   const [staircaseForm, setStaircaseForm] = useState({ name: '', floorsCount: 1 });
@@ -29,7 +28,7 @@ export default function AdminBuildingDetailsPage() {
     floor: 1,
     areaM2: 40,
     rooms: 1,
-    status: 'EMPTY' as 'OCCUPIED' | 'EMPTY' | 'RENTED',
+    status: 'ACTIVE' as 'ACTIVE' | 'EMPTY' | 'DEBTOR' | 'PROBLEM',
   });
 
   const load = useCallback(async () => {
@@ -63,7 +62,7 @@ export default function AdminBuildingDetailsPage() {
   if (error) {
     return (
       <div className="space-y-4">
-        <MobilePageHeader title="Building details" subtitle="Manage staircases and apartments for this building." />
+        <MobilePageHeader title="Detalii bloc" subtitle="Administrează scările și apartamentele acestui bloc." />
         <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
           {error}{' '}
           <button className="underline" onClick={() => load().catch(() => undefined)}>
@@ -76,7 +75,7 @@ export default function AdminBuildingDetailsPage() {
   if (!building) {
     return (
       <div className="space-y-4">
-        <MobilePageHeader title="Building details" subtitle="Manage staircases and apartments for this building." />
+        <MobilePageHeader title="Detalii bloc" subtitle="Administrează scările și apartamentele acestui bloc." />
         <EmptyState title="Blocul nu a fost găsit" description="Revino la lista de blocuri și încearcă din nou." />
       </div>
     );
@@ -84,13 +83,13 @@ export default function AdminBuildingDetailsPage() {
 
   return (
     <div className="space-y-4">
-      <MobilePageHeader title={building.name} subtitle={building.address || 'Manage staircases and apartments for this building.'} />
+      <MobilePageHeader title={building.name} subtitle={building.address || 'Administrează scările și apartamentele acestui bloc.'} />
 
       <div className="rounded-xl border border-border/70 bg-card p-4">
-        <p className="mb-2 text-sm font-medium text-foreground">Add staircase</p>
+        <p className="mb-2 text-sm font-medium text-foreground">Adaugă scară</p>
         <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-          <input className="input" placeholder="Name" value={staircaseForm.name} onChange={(e) => setStaircaseForm((p) => ({ ...p, name: e.target.value }))} />
-          <input className="input" type="number" min={1} value={staircaseForm.floorsCount} onChange={(e) => setStaircaseForm((p) => ({ ...p, floorsCount: Number(e.target.value) }))} />
+          <input className="input" placeholder="Scara 1" value={staircaseForm.name} onChange={(e) => setStaircaseForm((p) => ({ ...p, name: e.target.value }))} />
+          <input className="input" type="number" min={1} aria-label="Număr etaje" value={staircaseForm.floorsCount} onChange={(e) => setStaircaseForm((p) => ({ ...p, floorsCount: Number(e.target.value) }))} />
           <button
             className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
             disabled={writeBlocked || savingStaircase}
@@ -108,7 +107,7 @@ export default function AdminBuildingDetailsPage() {
                 });
                 setStaircaseForm({ name: '', floorsCount: 1 });
                 await load();
-                showToast('Scara a fost adăugată.');
+                showToast('Scara a fost creată.');
               } catch {
                 showToast('Nu am putut adăuga scara.', 'error');
               } finally {
@@ -116,28 +115,29 @@ export default function AdminBuildingDetailsPage() {
               }
             }}
           >
-            {savingStaircase ? 'Adding...' : 'Add'}
+            {savingStaircase ? 'Se creează...' : 'Adaugă scară'}
           </button>
         </div>
       </div>
 
       <div className="rounded-xl border border-border/70 bg-card p-4">
-        <p className="mb-2 text-sm font-medium text-foreground">Add apartment</p>
+        <p className="mb-2 text-sm font-medium text-foreground">Adaugă apartament</p>
         <div className="grid grid-cols-1 gap-2 md:grid-cols-6">
           <select className="select" value={apartmentForm.staircaseId} onChange={(e) => setApartmentForm((p) => ({ ...p, staircaseId: e.target.value }))}>
-            <option value="">Select staircase</option>
+            <option value="">Selectează scara</option>
             {staircases.map((s: any) => (
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}
           </select>
-          <input className="input" placeholder="Number" value={apartmentForm.number} onChange={(e) => setApartmentForm((p) => ({ ...p, number: e.target.value }))} />
-          <input className="input" type="number" placeholder="Floor" value={apartmentForm.floor} onChange={(e) => setApartmentForm((p) => ({ ...p, floor: Number(e.target.value) }))} />
-          <input className="input" type="number" placeholder="Area m2" value={apartmentForm.areaM2} onChange={(e) => setApartmentForm((p) => ({ ...p, areaM2: Number(e.target.value) }))} />
-          <input className="input" type="number" placeholder="Rooms" value={apartmentForm.rooms} onChange={(e) => setApartmentForm((p) => ({ ...p, rooms: Number(e.target.value) }))} />
+          <input className="input" placeholder="Număr" value={apartmentForm.number} onChange={(e) => setApartmentForm((p) => ({ ...p, number: e.target.value }))} />
+          <input className="input" type="number" placeholder="Etaj" value={apartmentForm.floor} onChange={(e) => setApartmentForm((p) => ({ ...p, floor: Number(e.target.value) }))} />
+          <input className="input" type="number" placeholder="Suprafață m²" value={apartmentForm.areaM2} onChange={(e) => setApartmentForm((p) => ({ ...p, areaM2: Number(e.target.value) }))} />
+          <input className="input" type="number" placeholder="Camere" value={apartmentForm.rooms} onChange={(e) => setApartmentForm((p) => ({ ...p, rooms: Number(e.target.value) }))} />
           <select className="select" value={apartmentForm.status} onChange={(e) => setApartmentForm((p) => ({ ...p, status: e.target.value as any }))}>
-            <option value="EMPTY">EMPTY</option>
-            <option value="OCCUPIED">OCCUPIED</option>
-            <option value="RENTED">RENTED</option>
+            <option value="ACTIVE">Activ</option>
+            <option value="EMPTY">Gol</option>
+            <option value="DEBTOR">Cu datorii</option>
+            <option value="PROBLEM">Problemă</option>
           </select>
         </div>
         <button
@@ -151,7 +151,8 @@ export default function AdminBuildingDetailsPage() {
             }
             setSavingApartment(true);
             try {
-              await adminStructureApi.createApartment({
+              await apartmentsApi.create({
+                organizationId: building.organizationId,
                 buildingId: building.id,
                 staircaseId: apartmentForm.staircaseId,
                 number: apartmentForm.number.trim(),
@@ -160,9 +161,9 @@ export default function AdminBuildingDetailsPage() {
                 rooms: apartmentForm.rooms,
                 status: apartmentForm.status,
               });
-              setApartmentForm({ staircaseId: '', number: '', floor: 1, areaM2: 40, rooms: 1, status: 'EMPTY' });
+              setApartmentForm({ staircaseId: '', number: '', floor: 1, areaM2: 40, rooms: 1, status: 'ACTIVE' });
               await load();
-              showToast('Apartamentul a fost adăugat.');
+              showToast('Apartamentul a fost creat.');
             } catch {
               showToast('Nu am putut adăuga apartamentul.', 'error');
             } finally {
@@ -170,12 +171,12 @@ export default function AdminBuildingDetailsPage() {
             }
           }}
         >
-          {savingApartment ? 'Adding...' : 'Add apartment'}
+          {savingApartment ? 'Se creează...' : 'Adaugă apartament'}
         </button>
       </div>
 
       <div className="rounded-xl border border-border/70 bg-card p-4">
-        <p className="mb-2 text-sm font-medium text-foreground">Staircases</p>
+        <p className="mb-2 text-sm font-medium text-foreground">Scări</p>
         {!staircases.length ? (
           <p className="text-sm text-muted-foreground">Nu există scări încă.</p>
         ) : (
@@ -212,15 +213,15 @@ export default function AdminBuildingDetailsPage() {
                       showToast('Scara a fost actualizată.');
                     }}
                   >
-                    Save
+                    Salvează
                   </button>
                   <button className="rounded border border-border/70 px-2 py-1 text-xs" onClick={() => setEditingStaircaseId(null)}>
-                    Cancel
+                    Anulează
                   </button>
                 </div>
               ) : (
                 <>
-                  <span className="text-sm text-foreground">{staircase.name} ({staircase.floorsCount} floors)</span>
+                  <span className="text-sm text-foreground">{staircase.name} ({staircase.floorsCount} etaje)</span>
                   <div className="flex items-center gap-3">
                     <button
                       className="text-sm text-primary disabled:cursor-not-allowed disabled:opacity-50"
@@ -230,27 +231,7 @@ export default function AdminBuildingDetailsPage() {
                         setEditStaircaseForm({ name: staircase.name, floorsCount: staircase.floorsCount });
                       }}
                     >
-                      Edit
-                    </button>
-                    <button
-                      className="text-sm text-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
-                      disabled={writeBlocked || deletingStaircaseId === staircase.id}
-                      onClick={async () => {
-                        if (writeBlocked) return;
-                        if (!window.confirm('Ești sigur că vrei să ștergi această scară?')) return;
-                        setDeletingStaircaseId(staircase.id);
-                        try {
-                          await adminStructureApi.deleteStaircase(staircase.id);
-                          await load();
-                          showToast('Scara a fost ștearsă.');
-                        } catch {
-                          showToast('Nu am putut șterge scara.', 'error');
-                        } finally {
-                          setDeletingStaircaseId(null);
-                        }
-                      }}
-                    >
-                      {deletingStaircaseId === staircase.id ? 'Deleting...' : 'Delete'}
+                      Editează
                     </button>
                   </div>
                 </>
@@ -262,7 +243,7 @@ export default function AdminBuildingDetailsPage() {
       </div>
 
       <div className="rounded-xl border border-border/70 bg-card p-4">
-        <p className="mb-2 text-sm font-medium text-foreground">Apartments</p>
+        <p className="mb-2 text-sm font-medium text-foreground">Apartamente</p>
         {!apartments.length ? (
           <p className="text-sm text-muted-foreground">Nu există apartamente încă.</p>
         ) : (
@@ -270,10 +251,10 @@ export default function AdminBuildingDetailsPage() {
             {apartments.map((apartment: any) => (
             <div key={apartment.id} className="rounded-lg border border-border/60 px-3 py-2">
               <p className="text-sm font-medium text-foreground">
-                #{apartment.number} - {apartment.staircase?.name} - Floor {apartment.floor}
+                Apt. {apartment.number} · {apartment.staircase?.name} · Etaj {apartment.floor}
               </p>
               <p className="text-xs text-muted-foreground">
-                {apartment.areaM2} m2 - {apartment.status} - Residents: {apartment.residents?.length || 0}
+                {apartment.areaM2} m² · {apartment.status} · Locatari: {apartment.apartmentResidents?.length || apartment.residents?.length || 0}
               </p>
             </div>
             ))}

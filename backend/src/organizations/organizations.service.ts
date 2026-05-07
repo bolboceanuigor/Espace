@@ -254,7 +254,7 @@ export class OrganizationsService {
     });
 
     if (!organization) {
-      throw new NotFoundException('Organization not found');
+      throw new NotFoundException('Înregistrarea nu a fost găsită.');
     }
 
     return this.toPublicOrganization(organization);
@@ -269,7 +269,7 @@ export class OrganizationsService {
       data: { status },
       select: this.publicSelect,
     }).catch(() => {
-      throw new NotFoundException('Organization not found');
+      throw new NotFoundException('Înregistrarea nu a fost găsită.');
     });
 
     return this.toPublicOrganization(organization);
@@ -411,7 +411,7 @@ export class OrganizationsService {
       select: { id: true },
     });
     if (!organization) {
-      throw new NotFoundException('Organization not found');
+      throw new NotFoundException('Înregistrarea nu a fost găsită.');
     }
   }
 

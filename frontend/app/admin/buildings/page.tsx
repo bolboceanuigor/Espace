@@ -22,8 +22,7 @@ export default function AdminBuildingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [subscriptionStatus, setSubscriptionStatus] = useState<string>('');
   const [creating, setCreating] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: '', address: '', cadastralNumber: '', totalFloors: 1 });
+  const [form, setForm] = useState({ name: '', address: '', staircasesCount: 1, apartmentsCount: 0 });
 
   const load = async () => {
     setLoading(true);
@@ -49,15 +48,30 @@ export default function AdminBuildingsPage() {
 
   return (
     <div className="space-y-4">
-      <MobilePageHeader title="Buildings" subtitle="Manage buildings and access structure details." />
+      <MobilePageHeader title="Blocuri" subtitle="Configurează primul bloc al asociației și structura lui." />
 
       <div className="rounded-xl border border-border/70 bg-card p-4">
-        <p className="mb-3 text-sm font-medium text-foreground">Add Building</p>
+        <div className="mb-3">
+          <p className="text-sm font-medium text-foreground">Adaugă bloc</p>
+          <p className="text-xs text-muted-foreground">Blocul este conectat automat la A.P.C. administratorului autentificat.</p>
+        </div>
         <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
-          <input className="input" placeholder="Name" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
-          <input className="input" placeholder="Address" value={form.address} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} />
-          <input className="input" placeholder="Cadastral number" value={form.cadastralNumber} onChange={(e) => setForm((p) => ({ ...p, cadastralNumber: e.target.value }))} />
-          <input className="input" type="number" min={1} placeholder="Total floors" value={form.totalFloors} onChange={(e) => setForm((p) => ({ ...p, totalFloors: Number(e.target.value) }))} />
+          <label className="space-y-1 text-xs font-medium text-muted-foreground">
+            <span>Nume bloc</span>
+            <input className="input" placeholder="Bloc principal" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
+          </label>
+          <label className="space-y-1 text-xs font-medium text-muted-foreground">
+            <span>Adresă</span>
+            <input className="input" placeholder="str. Alba Iulia 75" value={form.address} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} />
+          </label>
+          <label className="space-y-1 text-xs font-medium text-muted-foreground">
+            <span>Număr scări</span>
+            <input className="input" type="number" min={0} value={form.staircasesCount} onChange={(e) => setForm((p) => ({ ...p, staircasesCount: Number(e.target.value) }))} />
+          </label>
+          <label className="space-y-1 text-xs font-medium text-muted-foreground">
+            <span>Număr apartamente estimat</span>
+            <input className="input" type="number" min={0} value={form.apartmentsCount} onChange={(e) => setForm((p) => ({ ...p, apartmentsCount: Number(e.target.value) }))} />
+          </label>
         </div>
         <button
           className="mt-3 inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
@@ -73,12 +87,12 @@ export default function AdminBuildingsPage() {
               await adminStructureApi.createBuilding({
                 name: form.name.trim(),
                 address: form.address.trim(),
-                cadastralNumber: form.cadastralNumber || undefined,
-                totalFloors: form.totalFloors,
+                staircasesCount: form.staircasesCount,
+                apartmentsCount: form.apartmentsCount,
               });
-              setForm({ name: '', address: '', cadastralNumber: '', totalFloors: 1 });
+              setForm({ name: '', address: '', staircasesCount: 1, apartmentsCount: 0 });
               await load();
-              showToast('Blocul a fost creat cu succes.');
+              showToast('Blocul a fost creat.');
             } catch {
               showToast('Nu am putut crea blocul.', 'error');
             } finally {
@@ -86,7 +100,7 @@ export default function AdminBuildingsPage() {
             }
           }}
         >
-          <Plus className="h-4 w-4" /> {creating ? 'Creating...' : 'Create'}
+          <Plus className="h-4 w-4" /> {creating ? 'Se creează...' : 'Adaugă bloc'}
         </button>
       </div>
       {error ? (
@@ -99,7 +113,7 @@ export default function AdminBuildingsPage() {
       ) : null}
       {loading ? <LoadingState label="Se încarcă blocurile..." rows={4} /> : null}
       {!loading && !error && !items.length ? (
-        <EmptyState title="Nu ai blocuri încă" description="Adaugă primul bloc pentru a continua configurarea structurii." />
+        <EmptyState title="Nu există blocuri încă" description="Adaugă primul bloc pentru a continua configurarea asociației." />
       ) : null}
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -113,32 +127,12 @@ export default function AdminBuildingsPage() {
               <Building2 className="h-5 w-5 text-muted-foreground" />
             </div>
             <p className="mt-3 text-sm text-muted-foreground">
-              Staircases: {building._count?.staircases || 0} - Apartments: {building._count?.apartments || 0}
+              Scări: {building._count?.staircases ?? building.staircasesCount ?? 0} · Apartamente: {building._count?.apartments ?? building.apartmentsCount ?? 0}
             </p>
             <div className="mt-3 flex items-center gap-3">
               <Link className="text-sm text-primary" href={`/${locale}/admin/buildings/${building.id}`}>
-                Open details
+                Detalii
               </Link>
-              <button
-                className="text-sm text-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={writeBlocked || deletingId === building.id}
-                onClick={async () => {
-                  if (writeBlocked) return;
-                  if (!window.confirm('Ești sigur că vrei să ștergi acest bloc?')) return;
-                  setDeletingId(building.id);
-                  try {
-                    await adminStructureApi.deleteBuilding(building.id);
-                    await load();
-                    showToast('Blocul a fost șters.');
-                  } catch {
-                    showToast('Nu am putut șterge blocul.', 'error');
-                  } finally {
-                    setDeletingId(null);
-                  }
-                }}
-              >
-                {deletingId === building.id ? 'Deleting...' : 'Delete'}
-              </button>
             </div>
           </div>
         ))}

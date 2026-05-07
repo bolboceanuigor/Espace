@@ -2,10 +2,10 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { AlertCircle, Bell, Building2, CreditCard, FileText, Gauge, Megaphone, MessageCircle, PlusCircle, Users } from 'lucide-react';
+import { AlertCircle, Bell, Building2, CheckCircle2, CreditCard, FileText, Gauge, Megaphone, MessageCircle, PlusCircle, Users } from 'lucide-react';
 import { ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
 import { formatMdl } from '@/lib/condo-admin-fallback';
-import { announcementsApi, apartmentsApi, financeApi, invoicesApi, issuesApi, metersApi, paymentsApi, residentsApi } from '@/lib/api';
+import { announcementsApi, apartmentsApi, financeApi, invoicesApi, issuesApi, metersApi, onboardingApi, paymentsApi, residentsApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 const fallbackRecentActivity = [
@@ -39,6 +39,14 @@ const currentAssociationIdentity = {
   internalNumber: '0940',
 };
 
+type SetupStep = {
+  key: string;
+  title: string;
+  completed: boolean;
+  href: string;
+  actionLabel: string;
+};
+
 export default function AdminPage() {
   const localizedPath = useLocalizedPath();
   const [source, setSource] = useState<'loading' | 'api' | 'fallback'>('loading');
@@ -61,6 +69,11 @@ export default function AdminPage() {
   const [urgentRequests, setUrgentRequests] = useState<typeof fallbackUrgentRequests>([]);
   const [latestPayments, setLatestPayments] = useState<typeof fallbackLatestPayments>([]);
   const [announcements, setAnnouncements] = useState<string[]>([]);
+  const [setup, setSetup] = useState<{
+    steps: SetupStep[];
+    progressDetails: { completed: number; total: number; percent: number; label: string };
+    nextStep?: SetupStep;
+  } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -73,8 +86,9 @@ export default function AdminPage() {
       paymentsApi.list().catch(() => ({ data: [] })),
       announcementsApi.list().catch(() => ({ data: [] })),
       financeApi.overview().catch(() => ({ data: null })),
+      onboardingApi.adminGet().catch(() => ({ data: null })),
     ])
-      .then(([apartmentsRes, invoicesRes, metersRes, issuesRes, residentsRes, paymentsRes, announcementsRes, financeRes]) => {
+      .then(([apartmentsRes, invoicesRes, metersRes, issuesRes, residentsRes, paymentsRes, announcementsRes, financeRes, onboardingRes]) => {
         if (!active) return;
         const apartments = apartmentsRes.data || [];
         const invoices = invoicesRes.data || [];
@@ -117,6 +131,13 @@ export default function AdminPage() {
           })),
         );
         setAnnouncements(apiAnnouncements.slice(0, 3).map((item: any) => String(item.title || 'Anunț')));
+        if (onboardingRes.data?.steps?.length) {
+          setSetup({
+            steps: onboardingRes.data.steps,
+            progressDetails: onboardingRes.data.progressDetails,
+            nextStep: onboardingRes.data.nextStep,
+          });
+        }
         setRecentActivity([
           `${apartments.length} apartamente în evidență`,
           `${unpaidInvoices.length} facturi neachitate`,
@@ -145,6 +166,7 @@ export default function AdminPage() {
         setUrgentRequests(fallbackUrgentRequests);
         setLatestPayments(fallbackLatestPayments);
         setAnnouncements(fallbackAnnouncements);
+        setSetup(null);
         setSource('fallback');
       });
     return () => {
@@ -195,6 +217,37 @@ export default function AdminPage() {
           </div>
         </div>
       </Card>
+
+      {setup ? (
+        <Card className="p-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Configurare inițială</p>
+              <p className="mt-1 text-sm text-muted-foreground">{setup.progressDetails.label}</p>
+            </div>
+            {setup.nextStep && !setup.nextStep.completed ? (
+              <ButtonLink href={localizedPath(setup.nextStep.href)} variant="primary">
+                {setup.nextStep.actionLabel}
+              </ButtonLink>
+            ) : null}
+          </div>
+          <div className="mt-4 h-2 rounded-full bg-muted">
+            <div className="h-2 rounded-full bg-primary transition-all" style={{ width: `${setup.progressDetails.percent}%` }} />
+          </div>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            {setup.steps.map((step) => (
+              <Link
+                key={step.key}
+                href={localizedPath(step.href)}
+                className="flex items-center gap-2 rounded-2xl border border-border/60 bg-muted/25 px-3 py-2 text-sm hover:bg-muted/40"
+              >
+                <CheckCircle2 className={`h-4 w-4 ${step.completed ? 'text-emerald-600' : 'text-muted-foreground'}`} />
+                <span className={step.completed ? 'text-foreground' : 'text-muted-foreground'}>{step.title}</span>
+              </Link>
+            ))}
+          </div>
+        </Card>
+      ) : null}
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {summaryCards.map((card) => (

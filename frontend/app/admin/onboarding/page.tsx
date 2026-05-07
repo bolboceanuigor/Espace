@@ -3,21 +3,22 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { onboardingApi } from '@/lib/api';
+import { useLocalizedPath } from '@/lib/use-localized-path';
 
 const STEPS = [
-  { key: 'ORGANIZATION_DETAILS', title: 'Organization details', optional: false, href: '/admin/settings/organization' },
-  { key: 'ADD_FIRST_BUILDING', title: 'Add first building', optional: false, href: '/admin/buildings' },
-  { key: 'ADD_STAIRCASES', title: 'Add staircases', optional: false, href: '/admin/buildings' },
-  { key: 'IMPORT_APARTMENTS', title: 'Import apartments', optional: false, href: '/admin/imports/new' },
-  { key: 'IMPORT_RESIDENTS', title: 'Import residents', optional: false, href: '/admin/imports/new' },
-  { key: 'CONFIGURE_TARIFFS', title: 'Configure tariffs', optional: true, href: '/admin/reports' },
-  { key: 'CONFIGURE_PAYMENT_METHODS', title: 'Configure payment methods', optional: true, href: '/admin/settings/payment-providers' },
-  { key: 'GENERATE_FIRST_INVOICES', title: 'Generate first invoices', optional: false, href: '/admin/invoices' },
-  { key: 'INVITE_RESIDENTS', title: 'Invite residents', optional: true, href: '/admin/invitations' },
-  { key: 'FINISH_SETUP', title: 'Finish setup', optional: false, href: '/admin' },
+  { key: 'ORGANIZATION_DETAILS', title: 'Date asociație', optional: false, href: '/admin/settings/organization' },
+  { key: 'ADD_FIRST_BUILDING', title: 'Clădire / bloc', optional: false, href: '/admin/buildings' },
+  { key: 'ADD_STAIRCASES', title: 'Scări', optional: false, href: '/admin/staircases' },
+  { key: 'ADD_APARTMENTS', title: 'Apartamente', optional: false, href: '/admin/apartments' },
+  { key: 'ADD_RESIDENTS', title: 'Locatari', optional: false, href: '/admin/residents' },
+  { key: 'ADD_METERS', title: 'Contoare', optional: false, href: '/admin/meters' },
+  { key: 'CONFIGURE_TARIFFS', title: 'Tarife', optional: false, href: '/admin/tariffs' },
+  { key: 'GENERATE_FIRST_INVOICES', title: 'Facturi', optional: false, href: '/admin/invoices' },
+  { key: 'FINISH_SETUP', title: 'Finalizare', optional: false, href: '/admin' },
 ] as const;
 
 export default function AdminOnboardingPage() {
+  const localizedPath = useLocalizedPath();
   const [state, setState] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -36,39 +37,41 @@ export default function AdminOnboardingPage() {
     return index >= 0 ? index : 0;
   }, [state?.organization?.onboardingStep]);
 
-  if (loading) return <p className="text-sm text-muted-foreground">Loading onboarding...</p>;
+  if (loading) return <p className="text-sm text-muted-foreground">Se încarcă datele...</p>;
 
   const checklist = state?.checklist || {};
-  const progress = Number(state?.progress || 0);
+  const progress = Number(state?.progressDetails?.percent ?? state?.progress ?? 0);
+  const steps = state?.steps?.length ? state.steps : STEPS;
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold text-foreground">Organization Onboarding</h1>
+      <h1 className="text-xl font-semibold text-foreground">Configurare inițială</h1>
 
       <div className="rounded-xl border border-border/70 bg-card p-4">
         <div className="h-2 rounded-full bg-muted">
           <div className="h-2 rounded-full bg-primary transition-all" style={{ width: `${progress}%` }} />
         </div>
-        <p className="mt-2 text-xs text-muted-foreground">{progress}% completed</p>
+        <p className="mt-2 text-xs text-muted-foreground">{state?.progressDetails?.label || `${progress}% completat`}</p>
       </div>
 
       <div className="space-y-2 rounded-xl border border-border/70 bg-card p-4">
-        {STEPS.map((step, index) => {
+        {steps.map((step: any, index: number) => {
           const doneByIndex = index < currentIndex;
           const doneByChecklist =
             (step.key === 'ADD_FIRST_BUILDING' && checklist.buildingsCreated) ||
-            (step.key === 'IMPORT_APARTMENTS' && checklist.apartmentsImported) ||
-            (step.key === 'IMPORT_RESIDENTS' && checklist.residentsImported) ||
+            (step.key === 'ADD_STAIRCASES' && checklist.staircasesCreated) ||
+            (step.key === 'ADD_APARTMENTS' && (checklist.apartmentsCreated || checklist.apartmentsImported)) ||
+            (step.key === 'ADD_RESIDENTS' && checklist.residentsImported) ||
+            (step.key === 'ADD_METERS' && checklist.metersCreated) ||
             (step.key === 'CONFIGURE_TARIFFS' && checklist.tariffsConfigured) ||
-            (step.key === 'CONFIGURE_PAYMENT_METHODS' && checklist.paymentProviderConfigured) ||
-            (step.key === 'GENERATE_FIRST_INVOICES' && checklist.firstInvoicesGenerated);
-          const done = doneByIndex || doneByChecklist;
+            (step.key === 'GENERATE_FIRST_INVOICES' && (checklist.invoicesGenerated || checklist.firstInvoicesGenerated));
+          const done = Boolean(step.completed ?? (doneByIndex || doneByChecklist));
           const active = index === currentIndex;
           return (
             <div key={step.key} className={`rounded-lg border px-3 py-2 text-sm ${active ? 'border-primary/40 bg-primary/5' : 'border-border/60'}`}>
               <div className="flex items-center justify-between gap-2">
                 <p className="font-medium text-foreground">{index + 1}. {step.title}</p>
-                <span className={`text-xs ${done ? 'text-emerald-600' : 'text-muted-foreground'}`}>{done ? 'Done' : step.optional ? 'Optional' : 'Required'}</span>
+                <span className={`text-xs ${done ? 'text-emerald-600' : 'text-muted-foreground'}`}>{done ? 'Completat' : step.optional ? 'Opțional' : 'Necesar'}</span>
               </div>
             </div>
           );
@@ -76,8 +79,8 @@ export default function AdminOnboardingPage() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <Link href={STEPS[currentIndex]?.href || '/admin'} className="rounded-md border border-border/70 px-3 py-2 text-sm">
-          Open current step
+        <Link href={localizedPath(steps[currentIndex]?.href || '/admin')} className="rounded-md border border-border/70 px-3 py-2 text-sm">
+          Deschide pasul curent
         </Link>
         {STEPS[currentIndex]?.optional ? (
           <button
@@ -91,7 +94,7 @@ export default function AdminOnboardingPage() {
               await load();
             }}
           >
-            Skip optional step
+            Omite pasul opțional
           </button>
         ) : null}
         <button
@@ -105,10 +108,10 @@ export default function AdminOnboardingPage() {
             await load();
           }}
         >
-          Continue
+          Continuă
         </button>
-        <Link href="/admin/settings/organization" className="rounded-md border border-border/70 px-3 py-2 text-sm">
-          Continue later
+        <Link href={localizedPath('/admin/settings/organization')} className="rounded-md border border-border/70 px-3 py-2 text-sm">
+          Continuă mai târziu
         </Link>
         <button
           className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-white"
@@ -117,10 +120,9 @@ export default function AdminOnboardingPage() {
             await load();
           }}
         >
-          Finish setup
+          Finalizează configurarea
         </button>
       </div>
     </div>
   );
 }
-

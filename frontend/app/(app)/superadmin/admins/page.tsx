@@ -137,7 +137,7 @@ export default function SuperadminAdminsPage() {
     <div className="space-y-5 pb-4">
       <PageHeader
         title="Administratori"
-        description="Administratori creați sau invitați pentru asociațiile din platformă."
+        description="Administratori creați pentru asociațiile din platformă."
         rightSlot={
           <button
             type="button"
@@ -145,7 +145,7 @@ export default function SuperadminAdminsPage() {
             className="inline-flex min-h-10 items-center gap-2 rounded-2xl bg-foreground px-4 text-sm font-semibold text-background"
           >
             <Plus className="h-4 w-4" />
-            Invită administrator
+            Adaugă administrator
           </button>
         }
       />
@@ -228,7 +228,7 @@ export default function SuperadminAdminsPage() {
       </section>
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} maxWidth="xl">
-        <ModalHeader title="Invită administrator" onClose={() => setModalOpen(false)} />
+        <ModalHeader title="Creează administrator" onClose={() => setModalOpen(false)} />
         <ModalBody>
           <div className="grid gap-3 md:grid-cols-2">
             <Field label="Prenume" value={form.firstName} onChange={(value) => setForm({ ...form, firstName: value })} required />

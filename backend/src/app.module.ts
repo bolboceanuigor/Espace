@@ -11,6 +11,7 @@ import { ResidentDemoModule } from './resident-demo/resident-demo.module';
 import { DemoAuthReadModule } from './demo-auth-read/demo-auth-read.module';
 import { MinimalAuthModule } from './minimal-auth/minimal-auth.module';
 import { SaasManagementModule } from './saas-management/saas-management.module';
+import { SetupModule } from './setup/setup.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -29,6 +30,7 @@ import { AppController } from './app.controller';
     DemoAuthReadModule,
     MinimalAuthModule,
     SaasManagementModule,
+    SetupModule,
   ],
   controllers: [AppController],
   providers: [],

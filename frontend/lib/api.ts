@@ -757,13 +757,21 @@ export const metersApi = {
 
 export const adminStructureApi = {
   listBuildings: () => apiRequest<any[]>('/admin/buildings'),
-  createBuilding: (data: { name: string; address: string; cadastralNumber?: string; totalFloors: number }) =>
+  createBuilding: (data: {
+    name: string;
+    address: string;
+    cadastralNumber?: string;
+    totalFloors?: number;
+    staircasesCount?: number;
+    apartmentsCount?: number;
+  }) =>
     apiRequest<any>('/admin/buildings', { method: 'POST', body: data }),
   getBuilding: (id: string) => apiRequest<any>(`/admin/buildings/${id}`),
-  updateBuilding: (id: string, data: Partial<{ name: string; address: string; cadastralNumber: string; totalFloors: number }>) =>
+  updateBuilding: (id: string, data: Partial<{ name: string; address: string; cadastralNumber: string; totalFloors: number; staircasesCount: number; apartmentsCount: number }>) =>
     apiRequest<any>(`/admin/buildings/${id}`, { method: 'PATCH', body: data }),
   deleteBuilding: (id: string) => apiRequest<any>(`/admin/buildings/${id}`, { method: 'DELETE' }),
 
+  listAllStaircases: () => apiRequest<any[]>('/admin/staircases'),
   listStaircases: (buildingId: string) => apiRequest<any[]>(`/admin/buildings/${buildingId}/staircases`),
   createStaircase: (buildingId: string, data: { name: string; floorsCount: number }) =>
     apiRequest<any>(`/admin/buildings/${buildingId}/staircases`, { method: 'POST', body: data }),
