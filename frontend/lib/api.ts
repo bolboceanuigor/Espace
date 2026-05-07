@@ -720,6 +720,17 @@ export const apartmentsApi = {
     rooms?: number;
     status?: 'ACTIVE' | 'EMPTY' | 'DEBTOR' | 'PROBLEM';
   }) => apiRequest<any>('/apartments', { method: 'POST', body: data }),
+  bulkCreate: (data: {
+    buildingId: string;
+    staircaseId: string;
+    fromNumber: number;
+    toNumber: number;
+    floorStart: number;
+    apartmentsPerFloor: number;
+    defaultAreaM2: number;
+    defaultRooms?: number;
+    status?: 'ACTIVE' | 'EMPTY' | 'DEBTOR' | 'PROBLEM';
+  }) => apiRequest<any>('/apartments/bulk-create', { method: 'POST', body: data }),
   linkResident: (apartmentId: string, data: {
     residentId: string;
     role: 'OWNER' | 'RESIDENT' | 'TENANT' | 'FAMILY_MEMBER' | 'REPRESENTATIVE';

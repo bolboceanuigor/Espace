@@ -323,6 +323,90 @@ export class ApartmentsService {
     return this.toDetailApartment(apartment);
   }
 
+  async bulkCreateApartments(user: MvpUser, body: unknown) {
+    const input = this.parseBulkCreateApartmentBody(body);
+
+    const building = await this.prisma.building.findFirst({
+      where: {
+        id: input.buildingId,
+        ...(this.isSuperadmin(user) ? {} : { organizationId: user.organizationId }),
+      },
+      select: { id: true, organizationId: true },
+    });
+    if (!building) {
+      throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    }
+
+    this.assertOrganizationAccess(user, building.organizationId);
+
+    const staircase = await this.prisma.staircase.findFirst({
+      where: {
+        id: input.staircaseId,
+        buildingId: building.id,
+        organizationId: building.organizationId,
+      },
+      select: { id: true },
+    });
+    if (!staircase) {
+      throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    }
+
+    const summary = {
+      createdCount: 0,
+      skippedCount: 0,
+      errors: [] as Array<{ number: string; message: string }>,
+      message: 'Apartamentele au fost create.',
+    };
+
+    for (let current = input.fromNumber; current <= input.toNumber; current += 1) {
+      const apartmentNumber = String(current);
+      const floor = input.floorStart + Math.floor((current - input.fromNumber) / input.apartmentsPerFloor);
+
+      try {
+        const duplicate = await this.prisma.apartment.findUnique({
+          where: {
+            staircaseId_number: {
+              staircaseId: input.staircaseId,
+              number: apartmentNumber,
+            },
+          },
+          select: { id: true },
+        });
+
+        if (duplicate) {
+          summary.skippedCount += 1;
+          continue;
+        }
+
+        await this.prisma.apartment.create({
+          data: {
+            organizationId: building.organizationId,
+            buildingId: input.buildingId,
+            staircaseId: input.staircaseId,
+            number: apartmentNumber,
+            floor,
+            areaM2: input.defaultAreaM2,
+            rooms: input.defaultRooms,
+            status: input.status,
+          },
+          select: { id: true },
+        });
+        summary.createdCount += 1;
+      } catch (error) {
+        summary.errors.push({
+          number: apartmentNumber,
+          message: error instanceof Error ? error.message : 'Nu am putut crea apartamentul.',
+        });
+      }
+    }
+
+    if (summary.createdCount > 0) {
+      await this.syncBuildingCounters(input.buildingId);
+    }
+
+    return summary;
+  }
+
   async linkResident(user: MvpUser, apartmentId: string, body: unknown) {
     const input = this.parseLinkResidentBody(body);
 
@@ -528,6 +612,61 @@ export class ApartmentsService {
       role,
       isPrimary,
     };
+  }
+
+  private parseBulkCreateApartmentBody(body: unknown) {
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const buildingId = this.requiredString(payload.buildingId, 'Blocul este obligatoriu.');
+    const staircaseId = this.requiredString(payload.staircaseId, 'Scara este obligatorie.');
+    const fromNumber = Math.trunc(this.requiredNumber(payload.fromNumber, 'Numărul de început este obligatoriu.'));
+    const toNumber = Math.trunc(this.requiredNumber(payload.toNumber, 'Numărul de final este obligatoriu.'));
+    const floorStart = Math.trunc(this.requiredNumber(payload.floorStart, 'Etajul de start este obligatoriu.'));
+    const apartmentsPerFloor = Math.trunc(this.requiredNumber(payload.apartmentsPerFloor, 'Numărul de apartamente pe etaj este obligatoriu.'));
+    const defaultAreaM2 = this.requiredNumber(payload.defaultAreaM2, 'Suprafața implicită este obligatorie.');
+    const defaultRooms = Math.trunc(this.optionalNumber(payload.defaultRooms) ?? 1);
+    const status = this.optionalEnum(payload.status, ApartmentStatus, ApartmentStatus.ACTIVE, 'Statusul nu este valid.');
+
+    if (fromNumber < 1 || toNumber < 1) {
+      throw new BadRequestException('Numerele apartamentelor nu sunt valide.');
+    }
+    if (fromNumber > toNumber) {
+      throw new BadRequestException('Numărul de început trebuie să fie mai mic sau egal cu numărul de final.');
+    }
+    if (toNumber - fromNumber + 1 > 300) {
+      throw new BadRequestException('Poți crea maximum 300 de apartamente într-o operațiune.');
+    }
+    if (apartmentsPerFloor < 1) {
+      throw new BadRequestException('Numărul de apartamente pe etaj trebuie să fie cel puțin 1.');
+    }
+    if (defaultAreaM2 <= 0) {
+      throw new BadRequestException('Suprafața trebuie să fie un număr pozitiv.');
+    }
+    if (defaultRooms < 1) {
+      throw new BadRequestException('Numărul de camere trebuie să fie cel puțin 1.');
+    }
+
+    return {
+      buildingId,
+      staircaseId,
+      fromNumber,
+      toNumber,
+      floorStart,
+      apartmentsPerFloor,
+      defaultAreaM2,
+      defaultRooms,
+      status,
+    };
+  }
+
+  private async syncBuildingCounters(buildingId: string) {
+    const [staircasesCount, apartmentsCount] = await Promise.all([
+      this.prisma.staircase.count({ where: { buildingId } }),
+      this.prisma.apartment.count({ where: { buildingId } }),
+    ]);
+    await this.prisma.building.update({
+      where: { id: buildingId },
+      data: { staircasesCount, apartmentsCount },
+    });
   }
 
   private requiredString(value: unknown, message: string) {

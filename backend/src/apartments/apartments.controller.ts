@@ -21,6 +21,11 @@ export class ApartmentsController {
     return this.apartmentsService.createApartment(user, body);
   }
 
+  @Post('bulk-create')
+  bulkCreateApartments(@CurrentUser() user: MvpUser, @Body() body: unknown) {
+    return this.apartmentsService.bulkCreateApartments(user, body);
+  }
+
   @Post(':apartmentId/residents')
   linkResident(@CurrentUser() user: MvpUser, @Param('apartmentId') apartmentId: string, @Body() body: unknown) {
     return this.apartmentsService.linkResident(user, apartmentId, body);

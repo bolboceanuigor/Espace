@@ -301,6 +301,9 @@ export class SetupService {
     if (!rows.length) {
       throw new BadRequestException('Fișierul nu conține rânduri de import.');
     }
+    if (!this.hasRequiredApartmentImportColumns(rows[0])) {
+      throw new BadRequestException('Fișierul nu conține coloanele necesare.');
+    }
 
     const defaultBuilding = await this.resolveImportBuilding(organizationId, this.optionalString(payload.buildingId));
     const summary = {
@@ -310,7 +313,7 @@ export class SetupService {
       createdResidents: 0,
       linkedResidents: 0,
       createdStaircases: 0,
-      errors: [] as Array<{ row: number; messages: string[] }>,
+      errors: [] as Array<{ row: number; message: string; messages: string[] }>,
     };
 
     for (let index = 0; index < rows.length; index += 1) {
@@ -318,7 +321,7 @@ export class SetupService {
       const row = rows[index];
       const parsed = this.parseApartmentImportRow(row);
       if (parsed.errors.length) {
-        summary.errors.push({ row: rowNumber, messages: parsed.errors });
+        summary.errors.push({ row: rowNumber, message: parsed.errors.join(' '), messages: parsed.errors });
         continue;
       }
 
@@ -373,6 +376,7 @@ export class SetupService {
       } catch (error) {
         summary.errors.push({
           row: rowNumber,
+          message: error instanceof Error ? error.message : 'Nu am putut procesa rândul.',
           messages: [error instanceof Error ? error.message : 'Nu am putut procesa rândul.'],
         });
       }
@@ -613,6 +617,20 @@ export class SetupService {
       if (value !== undefined && value !== null && String(value).trim() !== '') return String(value).trim();
     }
     return '';
+  }
+
+  private hasImportColumn(row: Record<string, unknown>, aliases: string[]) {
+    const columns = new Set(Object.keys(row).map((key) => this.normalizeColumnName(key)));
+    return aliases.some((alias) => columns.has(this.normalizeColumnName(alias)));
+  }
+
+  private hasRequiredApartmentImportColumns(row: Record<string, unknown>) {
+    return (
+      this.hasImportColumn(row, ['scara', 'scară', 'staircase', 'staircaseName']) &&
+      this.hasImportColumn(row, ['apartament', 'apartment', 'apartmentNumber', 'numar_apartament']) &&
+      this.hasImportColumn(row, ['etaj', 'floor']) &&
+      this.hasImportColumn(row, ['suprafata_m2', 'suprafata', 'suprafață m²', 'areaM2', 'area_m2'])
+    );
   }
 
   private parseApartmentImportRow(row: Record<string, unknown>) {

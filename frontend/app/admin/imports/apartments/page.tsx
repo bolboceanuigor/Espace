@@ -23,7 +23,7 @@ type ImportSummary = {
   createdResidents: number;
   linkedResidents: number;
   createdStaircases: number;
-  errors: Array<{ row: number; messages: string[] }>;
+  errors: Array<{ row: number; message?: string; messages?: string[] }>;
   message?: string;
 };
 
@@ -228,7 +228,7 @@ export default function AdminApartmentsImportPage() {
               <p className="text-sm font-semibold text-amber-800">Rânduri cu erori</p>
               <div className="mt-2 space-y-1 text-sm text-amber-800">
                 {summary.errors.slice(0, 8).map((item) => (
-                  <p key={item.row}>Rând {item.row}: {item.messages.join(' ')}</p>
+                  <p key={item.row}>Rând {item.row}: {item.message || item.messages?.join(' ') || 'Nu am putut procesa rândul.'}</p>
                 ))}
               </div>
             </div>
