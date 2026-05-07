@@ -52,6 +52,19 @@ const emptyAdminForm = {
   password: '',
 };
 
+function editFormFromAssociation(association: MvpAssociation) {
+  return {
+    associationCode: association.associationCode || '',
+    legalName: association.legalName || '',
+    shortName: association.shortName || '',
+    address: association.address || '',
+    city: association.city || 'Chișinău',
+    country: association.country || 'Republica Moldova',
+    currency: association.currency,
+    status: association.status,
+  };
+}
+
 export default function SuperadminOrganizationDetailsPage() {
   const localizedPath = useLocalizedPath();
   const params = useParams<{ id?: string }>();
@@ -72,6 +85,10 @@ export default function SuperadminOrganizationDetailsPage() {
   const [successMessage, setSuccessMessage] = useState('');
   const [usage, setUsage] = useState<MvpUsage>(mockUsage);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editForm, setEditForm] = useState(() => editFormFromAssociation(fallbackAssociation));
+  const [isUpdatingAssociation, setIsUpdatingAssociation] = useState(false);
+  const [editError, setEditError] = useState('');
 
   const loadAdmins = async (organizationId: string) => {
     const res = await superadminApi.listPublicOrganizationAdmins(organizationId);
@@ -86,7 +103,9 @@ export default function SuperadminOrganizationDetailsPage() {
       .getPublicOrganization(id)
       .then((res) => {
         if (!active) return;
-        setAssociation(normalizeApiAssociation(res.data));
+        const nextAssociation = normalizeApiAssociation(res.data);
+        setAssociation(nextAssociation);
+        setEditForm(editFormFromAssociation(nextAssociation));
         setSource('api');
         loadAdmins(id).catch(() => {
           setAdministrators(mockAdministrators.filter((admin) => admin.organizationId === id));
@@ -145,11 +164,51 @@ export default function SuperadminOrganizationDetailsPage() {
     setUpdatingStatus(true);
     try {
       const updated = await superadminApi.updatePublicOrganizationStatus(id, status);
-      setAssociation(normalizeApiAssociation(updated.data));
+      const nextAssociation = normalizeApiAssociation(updated.data);
+      setAssociation(nextAssociation);
+      setEditForm(editFormFromAssociation(nextAssociation));
       setSource('api');
       setSuccessMessage('Statusul asociației a fost actualizat.');
     } finally {
       setUpdatingStatus(false);
+    }
+  };
+
+  const updateAssociation = async () => {
+    if (!id) return;
+    setEditError('');
+    setSuccessMessage('');
+    if (!editForm.associationCode || !editForm.legalName || !editForm.shortName || !editForm.address || !editForm.city) {
+      setEditError('Completează codul APC, denumirile, adresa și orașul.');
+      return;
+    }
+    if (!/^A\d{4}-\d{4}$/.test(editForm.associationCode.trim().toUpperCase())) {
+      setEditError('Format recomandat: A0123-0940');
+      return;
+    }
+
+    setIsUpdatingAssociation(true);
+    try {
+      const updated = await superadminApi.updatePublicOrganization(id, {
+        associationCode: editForm.associationCode.trim().toUpperCase(),
+        legalName: editForm.legalName.trim(),
+        shortName: editForm.shortName.trim(),
+        address: editForm.address.trim(),
+        city: editForm.city.trim(),
+        country: editForm.country.trim(),
+        currency: editForm.currency,
+        status: editForm.status,
+      });
+      const nextAssociation = normalizeApiAssociation(updated.data);
+      setAssociation(nextAssociation);
+      setEditForm(editFormFromAssociation(nextAssociation));
+      setSource('api');
+      setEditModalOpen(false);
+      setSuccessMessage('Asociația a fost actualizată.');
+    } catch {
+      setEditError('Nu am putut actualiza asociația.');
+    } finally {
+      setIsUpdatingAssociation(false);
     }
   };
 
@@ -169,6 +228,9 @@ export default function SuperadminOrganizationDetailsPage() {
             <Link href={localizedPath(`/superadmin/organizations/${id}/subscription`)} className="rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted/60">
               Abonament
             </Link>
+            <button type="button" onClick={() => setEditModalOpen(true)} className="rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted/60">
+              Editează
+            </button>
             <button
               type="button"
               onClick={() => setAdminModalOpen(true)}
@@ -259,7 +321,10 @@ export default function SuperadminOrganizationDetailsPage() {
                 <p className="font-semibold text-foreground">{`${admin.firstName} ${admin.lastName}`.trim() || 'Administrator neatribuit'}</p>
                 <p className="mt-1 text-sm text-muted-foreground">{admin.email || 'Email necompletat'}</p>
                 <p className="text-sm text-muted-foreground">{admin.phone || 'Telefon necompletat'}</p>
-                <Badge className="mt-3" variant="success">ADMIN</Badge>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Badge variant="success">ADMIN</Badge>
+                  <Badge variant={admin.isActive === false ? 'neutral' : 'success'}>{admin.isActive === false ? 'Inactiv' : 'Activ'}</Badge>
+                </div>
               </div>
             ))}
           </div>
@@ -305,6 +370,47 @@ export default function SuperadminOrganizationDetailsPage() {
           </button>
           <button type="button" onClick={createAdmin} disabled={isCreatingAdmin} className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background disabled:opacity-60">
             {isCreatingAdmin ? 'Se creează...' : 'Creează administrator'}
+          </button>
+        </ModalFooter>
+      </Modal>
+
+      <Modal isOpen={editModalOpen} onClose={() => setEditModalOpen(false)} maxWidth="2xl">
+        <ModalHeader title="Editează asociația" onClose={() => setEditModalOpen(false)} />
+        <ModalBody>
+          <div className="grid gap-3 md:grid-cols-2">
+            <Field label="Cod APC" value={editForm.associationCode} onChange={(value) => setEditForm({ ...editForm, associationCode: value.trim().toUpperCase() })} required />
+            <Field label="Denumire lungă" value={editForm.legalName} onChange={(value) => setEditForm({ ...editForm, legalName: value })} required />
+            <Field label="Denumire scurtă" value={editForm.shortName} onChange={(value) => setEditForm({ ...editForm, shortName: value })} required />
+            <Field label="Adresă" value={editForm.address} onChange={(value) => setEditForm({ ...editForm, address: value })} required />
+            <Field label="Oraș" value={editForm.city} onChange={(value) => setEditForm({ ...editForm, city: value })} required />
+            <Field label="Țară" value={editForm.country} onChange={(value) => setEditForm({ ...editForm, country: value })} />
+            <label className="block">
+              <span className="label">Monedă</span>
+              <select className="select" value={editForm.currency} onChange={(event) => setEditForm({ ...editForm, currency: event.target.value as MvpAssociation['currency'] })}>
+                <option value="MDL">MDL</option>
+              </select>
+            </label>
+            <label className="block">
+              <span className="label">Status</span>
+              <select className="select" value={editForm.status} onChange={(event) => setEditForm({ ...editForm, status: event.target.value as AssociationStatus })}>
+                <option value="ACTIVE">Activă</option>
+                <option value="TRIAL">Trial</option>
+                <option value="INACTIVE">Inactivă</option>
+              </select>
+            </label>
+          </div>
+          {editError ? (
+            <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
+              {editError}
+            </p>
+          ) : null}
+        </ModalBody>
+        <ModalFooter>
+          <button type="button" onClick={() => setEditModalOpen(false)} disabled={isUpdatingAssociation} className="rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold disabled:opacity-60">
+            Anulează
+          </button>
+          <button type="button" onClick={updateAssociation} disabled={isUpdatingAssociation} className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background disabled:opacity-60">
+            {isUpdatingAssociation ? 'Se salvează...' : 'Salvează'}
           </button>
         </ModalFooter>
       </Modal>

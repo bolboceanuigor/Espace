@@ -2,13 +2,16 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { Building2, CreditCard, ShieldCheck, Timer, UserCog, Users } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { Activity, Building2, CreditCard, Gauge, Plus, ShieldCheck, Timer, UserCog, Users } from 'lucide-react';
 import { Card, PageHeader, StatCard } from '@/components/ui';
 import { superadminApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 import {
   mockAssociations,
+  normalizeApiAdministrator,
   normalizeApiAssociation,
+  type MvpAdministrator,
   type MvpAssociation,
 } from '@/lib/superadmin-mvp-data';
 
@@ -17,6 +20,7 @@ export default function SuperadminPage() {
   const [associations, setAssociations] = useState<MvpAssociation[]>(mockAssociations);
   const [source, setSource] = useState<'api' | 'mock'>('mock');
   const [overview, setOverview] = useState<any | null>(null);
+  const [recentAdmins, setRecentAdmins] = useState<MvpAdministrator[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -29,7 +33,14 @@ export default function SuperadminPage() {
           setSource('api');
         }
         if (overviewResult.status === 'fulfilled' && overviewResult.value.data) {
-          setOverview(overviewResult.value.data);
+          const data = overviewResult.value.data;
+          setOverview(data);
+          if (Array.isArray(data.recentOrganizations) && organizationsResult.status !== 'fulfilled') {
+            setAssociations(data.recentOrganizations.map(normalizeApiAssociation));
+          }
+          if (Array.isArray(data.recentAdmins)) {
+            setRecentAdmins(data.recentAdmins.map(normalizeApiAdministrator));
+          }
           setSource('api');
         }
       })
@@ -55,6 +66,8 @@ export default function SuperadminPage() {
       adminsReal: Number(overview?.adminsCount ?? associations.filter((item) => item.administratorEmail).length),
       residents: Number(overview?.residentsCount ?? Math.max(totalApartments * 2, source === 'api' ? totalApartments : 4820)),
       apartments: Number(overview?.apartmentsCount ?? totalApartments),
+      meters: Number(overview?.totalMeters ?? 0),
+      invoices: Number(overview?.totalInvoices ?? 0),
       mrr: `${Number(overview?.estimatedMonthlyRevenue ?? Math.max(totalApartments * 24, source === 'api' ? 0 : 42900)).toLocaleString('ro-RO')} MDL`,
     };
   }, [associations, overview, source]);
@@ -67,6 +80,8 @@ export default function SuperadminPage() {
     { label: 'Administratori', value: String(totals.adminsReal), description: 'Utilizatori cu acces administrativ', icon: <UserCog className="h-5 w-5" /> },
     { label: 'Locatari conectați', value: totals.residents.toLocaleString('ro-RO'), description: 'Conturi rezident active', icon: <Users className="h-5 w-5" />, tone: 'success' as const },
     { label: 'Apartamente', value: totals.apartments.toLocaleString('ro-RO'), description: 'Unități administrate', icon: <Building2 className="h-5 w-5" /> },
+    { label: 'Contoare', value: totals.meters.toLocaleString('ro-RO'), description: 'Înregistrate pe platformă', icon: <Gauge className="h-5 w-5" /> },
+    { label: 'Facturi', value: totals.invoices.toLocaleString('ro-RO'), description: 'Emise pentru A.P.C.', icon: <CreditCard className="h-5 w-5" /> },
     { label: 'Venit lunar estimat', value: totals.mrr, description: 'Abonamente manuale', icon: <CreditCard className="h-5 w-5" />, tone: 'warning' as const },
   ];
 
@@ -76,9 +91,14 @@ export default function SuperadminPage() {
         title="Platformă"
         description="Vedere de ansamblu pentru Espace: asociații, administratori, locatari conectați și venit lunar."
         rightSlot={
-          <Link href={localizedPath('/superadmin/organizations')} className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background">
-            Vezi asociații
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link href={localizedPath('/superadmin/organizations')} className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background">
+              Vezi asociații
+            </Link>
+            <Link href={localizedPath('/superadmin/system/status')} className="rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold text-foreground">
+              Status sistem
+            </Link>
+          </div>
         }
       />
 
@@ -129,23 +149,54 @@ export default function SuperadminPage() {
         </Card>
 
         <Card>
-          <h2 className="text-base font-semibold text-foreground">Semnale platformă</h2>
+          <h2 className="text-base font-semibold text-foreground">Acțiuni rapide</h2>
           <div className="mt-5 space-y-3">
-            {[
-              ['Trial-uri active', '7 asociații în perioada de test'],
-              ['Necesită follow-up', '3 administratori trebuie contactați'],
-              ['Creștere lunară', '+12% locatari conectați'],
-              ['Stocare', '36% din limita planificată'],
-            ].map(([title, detail]) => (
-              <div key={title} className="rounded-2xl border border-border/70 bg-white px-4 py-3">
-                <p className="text-sm font-semibold text-foreground">{title}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
-              </div>
-            ))}
+            <QuickAction href={localizedPath('/superadmin/organizations')} icon={<Plus className="h-4 w-4" />} title="Adaugă asociație" detail="Creează o A.P.C. nouă" />
+            <QuickAction href={localizedPath('/superadmin/admins')} icon={<UserCog className="h-4 w-4" />} title="Adaugă administrator" detail="Creează cont ADMIN pentru o asociație" />
+            <QuickAction href={localizedPath('/superadmin/subscriptions')} icon={<CreditCard className="h-4 w-4" />} title="Vezi abonamente" detail="Planuri și limite manuale" />
+            <QuickAction href={localizedPath('/superadmin/system/status')} icon={<Activity className="h-4 w-4" />} title="Verifică status sistem" detail="API și baza de date" />
           </div>
         </Card>
       </section>
+
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-foreground">Administratori recenți</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Ultimele conturi ADMIN create pe platformă.</p>
+          </div>
+          <Link href={localizedPath('/superadmin/admins')} className="text-sm font-semibold text-primary">
+            Vezi toți
+          </Link>
+        </div>
+        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {recentAdmins.map((admin) => (
+            <div key={admin.id} className="rounded-2xl border border-border/70 bg-muted/25 p-4">
+              <p className="font-semibold text-foreground">{`${admin.firstName} ${admin.lastName}`.trim() || admin.email}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{admin.email}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{admin.organization?.shortName || admin.organization?.name || 'Asociație neatribuită'}</p>
+            </div>
+          ))}
+          {!recentAdmins.length ? (
+            <div className="rounded-2xl border border-border/70 bg-muted/25 p-4 text-sm font-medium text-muted-foreground">
+              Nu există administratori recenți.
+            </div>
+          ) : null}
+          </div>
+        </Card>
     </div>
+  );
+}
+
+function QuickAction({ href, icon, title, detail }: { href: string; icon: ReactNode; title: string; detail: string }) {
+  return (
+    <Link href={href} className="flex items-center gap-3 rounded-2xl border border-border/70 bg-white px-4 py-3 hover:bg-muted/40">
+      <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-foreground text-background">{icon}</span>
+      <span>
+        <span className="block text-sm font-semibold text-foreground">{title}</span>
+        <span className="mt-0.5 block text-xs text-muted-foreground">{detail}</span>
+      </span>
+    </Link>
   );
 }
 

@@ -34,8 +34,10 @@ export default function SuperadminAdminsPage() {
   const [form, setForm] = useState(emptyForm);
   const [source, setSource] = useState<'api' | 'mock'>('mock');
   const [isCreating, setIsCreating] = useState(false);
+  const [updatingAdminId, setUpdatingAdminId] = useState('');
   const [formError, setFormError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [listError, setListError] = useState('');
 
   const loadAdmins = async () => {
     const [adminsRes, orgsRes] = await Promise.all([
@@ -47,6 +49,7 @@ export default function SuperadminAdminsPage() {
     setAdmins(apiAdmins);
     setAssociations(apiAssociations);
     setSource('api');
+    setListError('');
     setForm((current) => ({
       ...current,
       organizationId: current.organizationId || apiAssociations[0]?.id || mockAssociations[0]?.id || '',
@@ -60,6 +63,7 @@ export default function SuperadminAdminsPage() {
       setAdmins(mockAdministrators);
       setAssociations(mockAssociations);
       setSource('mock');
+      setListError('API indisponibil temporar. Sunt afișate date temporare.');
     });
     return () => {
       active = false;
@@ -112,6 +116,23 @@ export default function SuperadminAdminsPage() {
     }
   };
 
+  const updateAdminStatus = async (id: string, isActive: boolean) => {
+    setUpdatingAdminId(id);
+    setSuccessMessage('');
+    setListError('');
+    try {
+      const updated = await superadminApi.updatePublicAdmin(id, { isActive });
+      const next = normalizeApiAdministrator(updated.data);
+      setAdmins((current) => current.map((admin) => (admin.id === id ? { ...admin, ...next } : admin)));
+      setSource('api');
+      setSuccessMessage('Administratorul a fost actualizat.');
+    } catch {
+      setListError('Nu am putut actualiza administratorul.');
+    } finally {
+      setUpdatingAdminId('');
+    }
+  };
+
   return (
     <div className="space-y-5 pb-4">
       <PageHeader
@@ -132,6 +153,11 @@ export default function SuperadminAdminsPage() {
       {successMessage ? (
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
           {successMessage}
+        </div>
+      ) : null}
+      {listError ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+          {listError}
         </div>
       ) : null}
 
@@ -164,17 +190,30 @@ export default function SuperadminAdminsPage() {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h2 className="font-semibold text-foreground">{admin.firstName} {admin.lastName}</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">{association?.name || 'Asociație necunoscută'}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{admin.organization?.shortName || association?.name || 'Asociație necunoscută'}</p>
                 </div>
-                <Badge variant="success">ADMIN</Badge>
+                <div className="flex flex-wrap justify-end gap-2">
+                  <Badge variant="success">ADMIN</Badge>
+                  <Badge variant={admin.isActive === false ? 'neutral' : 'success'}>{admin.isActive === false ? 'Inactiv' : 'Activ'}</Badge>
+                </div>
               </div>
               <div className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
                 <span className="inline-flex items-center gap-2 text-muted-foreground"><Mail className="h-4 w-4" />{admin.email}</span>
                 <span className="inline-flex items-center gap-2 text-muted-foreground"><Phone className="h-4 w-4" />{admin.phone || '-'}</span>
               </div>
-              <Link href={localizedPath(`/superadmin/organizations/${admin.organizationId}`)} className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-2xl border border-border/70 text-sm font-semibold hover:bg-muted/60">
-                Deschide asociația
-              </Link>
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                <Link href={localizedPath(`/superadmin/organizations/${admin.organizationId}`)} className="inline-flex min-h-10 flex-1 items-center justify-center rounded-2xl border border-border/70 text-sm font-semibold hover:bg-muted/60">
+                  Deschide asociația
+                </Link>
+                <button
+                  type="button"
+                  disabled={updatingAdminId === admin.id}
+                  onClick={() => updateAdminStatus(admin.id, admin.isActive === false)}
+                  className="min-h-10 rounded-2xl border border-border/70 px-4 text-sm font-semibold hover:bg-muted/60 disabled:opacity-50"
+                >
+                  {admin.isActive === false ? 'Activează' : 'Dezactivează'}
+                </button>
+              </div>
             </Card>
           );
         })}

@@ -13,6 +13,8 @@ export type MvpAssociation = {
   currency: 'MDL' | 'EUR' | 'USD';
   status: AssociationStatus;
   apartmentsCount: number;
+  adminsCount?: number;
+  usersCount?: number;
   administratorName: string;
   administratorEmail: string;
   administratorPhone: string;
@@ -26,6 +28,16 @@ export type MvpAdministrator = {
   phone: string;
   organizationId: string;
   role: 'ADMIN';
+  isActive?: boolean;
+  status?: 'ACTIVE' | 'INACTIVE';
+  createdAt?: string;
+  organization?: {
+    id: string;
+    name: string;
+    shortName?: string;
+    legalName?: string;
+    associationCode?: string;
+  } | null;
 };
 
 export type MvpPlan = {
@@ -80,6 +92,7 @@ export const mockAssociations: MvpAssociation[] = [
     currency: 'MDL',
     status: 'ACTIVE',
     apartmentsCount: 142,
+    adminsCount: 1,
     administratorName: 'Marin Rusu',
     administratorEmail: 'marin.rusu@apc.md',
     administratorPhone: '+373 69 220 175',
@@ -97,6 +110,7 @@ export const mockAssociations: MvpAssociation[] = [
     currency: 'MDL',
     status: 'TRIAL',
     apartmentsCount: 96,
+    adminsCount: 1,
     administratorName: 'Elena Munteanu',
     administratorEmail: 'elena.munteanu@apc.md',
     administratorPhone: '+373 69 300 018',
@@ -114,6 +128,7 @@ export const mockAssociations: MvpAssociation[] = [
     currency: 'MDL',
     status: 'ACTIVE',
     apartmentsCount: 64,
+    adminsCount: 1,
     administratorName: 'Sergiu Ceban',
     administratorEmail: 'sergiu.ceban@apc.md',
     administratorPhone: '+373 78 440 018',
@@ -131,6 +146,7 @@ export const mockAssociations: MvpAssociation[] = [
     currency: 'MDL',
     status: 'INACTIVE',
     apartmentsCount: 214,
+    adminsCount: 1,
     administratorName: 'Ana Lungu',
     administratorEmail: 'ana.lungu@apc.md',
     administratorPhone: '+373 68 110 214',
@@ -147,6 +163,15 @@ export const mockAdministrators: MvpAdministrator[] = mockAssociations.map((asso
     phone: association.administratorPhone,
     organizationId: association.id,
     role: 'ADMIN',
+    isActive: true,
+    status: 'ACTIVE',
+    organization: {
+      id: association.id,
+      name: association.shortName,
+      shortName: association.shortName,
+      legalName: association.legalName,
+      associationCode: association.associationCode,
+    },
   };
 });
 
@@ -229,6 +254,8 @@ export function normalizeApiAssociation(row: any): MvpAssociation {
     currency: (row?.currency || 'MDL') as MvpAssociation['currency'],
     status: status.includes('TRIAL') ? 'TRIAL' : status.includes('INACTIVE') || status.includes('DISABLED') ? 'INACTIVE' : 'ACTIVE',
     apartmentsCount: Number(row?.apartmentsCount ?? row?.activeApartments ?? 0),
+    adminsCount: Number(row?.adminsCount ?? 0),
+    usersCount: Number(row?.usersCount ?? 0),
     administratorName: String(row?.administratorName || row?.adminName || 'Administrator neatribuit'),
     administratorEmail: String(row?.administratorEmail || row?.adminEmail || ''),
     administratorPhone: String(row?.administratorPhone || row?.adminPhone || ''),
@@ -246,6 +273,18 @@ export function normalizeApiAdministrator(row: any): MvpAdministrator {
     phone: String(row?.phone || ''),
     organizationId: String(row?.organizationId || row?.organization?.id || ''),
     role: 'ADMIN',
+    isActive: row?.isActive !== false && String(row?.status || 'ACTIVE').toUpperCase() !== 'INACTIVE',
+    status: row?.isActive === false || String(row?.status || '').toUpperCase() === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',
+    createdAt: row?.createdAt ? String(row.createdAt) : undefined,
+    organization: row?.organization
+      ? {
+          id: String(row.organization.id || ''),
+          name: String(row.organization.name || ''),
+          shortName: String(row.organization.shortName || row.organization.name || ''),
+          legalName: String(row.organization.legalName || ''),
+          associationCode: String(row.organization.associationCode || row.organization.fiscalCode || ''),
+        }
+      : null,
   };
 }
 

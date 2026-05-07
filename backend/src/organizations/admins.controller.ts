@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, UseGuards } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { MvpAuthGuard, MvpRolesGuard } from '../security/mvp-auth.guard';
@@ -13,5 +13,10 @@ export class AdminsController {
   @Get()
   listPublicAdmins() {
     return this.organizationsService.listPublicAdmins();
+  }
+
+  @Patch(':id')
+  updatePublicAdmin(@Param('id') id: string, @Body() body: unknown) {
+    return this.organizationsService.updatePublicAdmin(id, body);
   }
 }

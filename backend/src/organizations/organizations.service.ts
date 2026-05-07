@@ -19,6 +19,20 @@ export class OrganizationsService {
     status: true,
     createdAt: true,
     updatedAt: true,
+    users: {
+      where: {
+        role: Role.ADMIN,
+        deletedAt: null,
+      },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        phone: true,
+      },
+    },
     _count: {
       select: {
         apartments: true,
@@ -40,8 +54,12 @@ export class OrganizationsService {
       select: {
         id: true,
         name: true,
+        legalName: true,
+        fiscalCode: true,
       },
     },
+    isActive: true,
+    updatedAt: true,
   } as const;
 
   private toPublicOrganization(organization: {
@@ -60,8 +78,15 @@ export class OrganizationsService {
       apartments?: number;
       users?: number;
     };
+    users?: Array<{
+      firstName: string | null;
+      lastName: string | null;
+      email: string;
+      phone: string | null;
+    }>;
   }) {
     const associationCode = organization.fiscalCode || this.extractAssociationCode(organization.name, organization.legalName);
+    const primaryAdmin = organization.users?.[0] ?? null;
     return {
       id: organization.id,
       name: organization.name,
@@ -78,6 +103,10 @@ export class OrganizationsService {
       updatedAt: organization.updatedAt,
       apartmentsCount: organization._count?.apartments ?? 0,
       usersCount: organization._count?.users ?? 0,
+      adminsCount: organization.users?.length ?? 0,
+      administratorName: this.fullName(primaryAdmin) || 'Administrator neatribuit',
+      administratorEmail: primaryAdmin?.email ?? '',
+      administratorPhone: primaryAdmin?.phone ?? '',
     };
   }
 
@@ -94,6 +123,19 @@ export class OrganizationsService {
     const input = this.parseCreateOrganizationBody(body);
 
     const organization = await this.prisma.organization.create({
+      data: input,
+      select: this.publicSelect,
+    });
+
+    return this.toPublicOrganization(organization);
+  }
+
+  async updatePublicOrganization(id: string, body: unknown) {
+    await this.ensureOrganizationExists(id);
+    const input = this.parseUpdateOrganizationBody(body);
+
+    const organization = await this.prisma.organization.update({
+      where: { id },
       data: input,
       select: this.publicSelect,
     });
@@ -160,6 +202,51 @@ export class OrganizationsService {
     return this.toPublicAdmin(admin);
   }
 
+  async updatePublicAdmin(id: string, body: unknown) {
+    const input = this.parseUpdateAdminBody(body);
+
+    const existing = await this.prisma.user.findFirst({
+      where: {
+        id,
+        role: Role.ADMIN,
+        deletedAt: null,
+      },
+      select: { id: true, firstName: true, lastName: true },
+    });
+    if (!existing) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+
+    if (input.email) {
+      const duplicate = await this.prisma.user.findFirst({
+        where: {
+          email: input.email,
+          id: { not: id },
+        },
+        select: { id: true },
+      });
+      if (duplicate) throw new ConflictException('Există deja un utilizator cu acest email.');
+    }
+
+    const admin = await this.prisma.user.update({
+      where: { id },
+      data: {
+        ...(input.firstName !== undefined ? { firstName: input.firstName } : {}),
+        ...(input.lastName !== undefined ? { lastName: input.lastName } : {}),
+        ...(input.firstName !== undefined || input.lastName !== undefined
+          ? {
+              fullName: `${input.firstName ?? existing.firstName ?? ''} ${input.lastName ?? existing.lastName ?? ''}`.trim() || undefined,
+            }
+          : {}),
+        ...(input.email ? { email: input.email } : {}),
+        ...(input.phone !== undefined ? { phone: input.phone } : {}),
+        ...(input.organizationId ? { organizationId: input.organizationId } : {}),
+        ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
+      },
+      select: this.adminSelect,
+    });
+
+    return this.toPublicAdmin(admin);
+  }
+
   async findPublicOrganization(id: string) {
     const organization = await this.prisma.organization.findUnique({
       where: { id },
@@ -217,6 +304,55 @@ export class OrganizationsService {
     };
   }
 
+  private parseUpdateOrganizationBody(body: unknown) {
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const data: {
+      name?: string;
+      legalName?: string;
+      fiscalCode?: string;
+      address?: string;
+      city?: string;
+      country?: string;
+      currency?: BillingCurrency;
+      defaultCurrency?: BillingCurrency;
+      status?: OrganizationStatus;
+    } = {};
+
+    const associationCodeSource = payload.associationCode ?? payload.code ?? payload.fiscalCode;
+    if (associationCodeSource !== undefined && associationCodeSource !== null && associationCodeSource !== '') {
+      const associationCode = this.requiredString(associationCodeSource, 'Codul APC este obligatoriu.').toUpperCase();
+      if (!/^A\d{4}-\d{4}$/.test(associationCode)) {
+        throw new BadRequestException('Format recomandat: A0123-0940');
+      }
+      data.fiscalCode = associationCode;
+      data.legalName = this.optionalString(payload.legalName) || this.legalNameForCode(associationCode);
+      data.name = this.optionalString(payload.shortName) || this.optionalString(payload.name) || `A.P.C. ${associationCode}`;
+    } else {
+      const legalName = this.optionalString(payload.legalName);
+      const shortName = this.optionalString(payload.shortName) || this.optionalString(payload.name);
+      if (legalName) data.legalName = legalName;
+      if (shortName) data.name = shortName;
+    }
+
+    const address = this.optionalString(payload.address);
+    const city = this.optionalString(payload.city);
+    const country = this.optionalString(payload.country);
+    if (address) data.address = address;
+    if (city) data.city = city;
+    if (country) data.country = this.normalizeCountryLabel(country);
+    if (payload.currency !== undefined && payload.currency !== null && payload.currency !== '') {
+      const currency = this.optionalEnum(payload.currency, BillingCurrency, BillingCurrency.MDL, 'Moneda nu este validă.');
+      data.currency = currency;
+      data.defaultCurrency = currency;
+    }
+    if (payload.status !== undefined && payload.status !== null && payload.status !== '') {
+      data.status = this.optionalEnum(payload.status, OrganizationStatus, OrganizationStatus.ACTIVE, 'Statusul nu este valid.');
+    }
+
+    if (!Object.keys(data).length) throw new BadRequestException('Nu există date de actualizat.');
+    return data;
+  }
+
   private parseCreateAdminBody(body: unknown) {
     const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
     const firstName = this.requiredString(payload.firstName, 'Prenumele este obligatoriu.');
@@ -241,6 +377,34 @@ export class OrganizationsService {
     };
   }
 
+  private parseUpdateAdminBody(body: unknown) {
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const input: {
+      firstName?: string;
+      lastName?: string;
+      email?: string;
+      phone?: string | null;
+      organizationId?: string;
+      isActive?: boolean;
+    } = {};
+
+    if (payload.firstName !== undefined) input.firstName = this.requiredString(payload.firstName, 'Prenumele este obligatoriu.');
+    if (payload.lastName !== undefined) input.lastName = this.requiredString(payload.lastName, 'Numele este obligatoriu.');
+    if (payload.email !== undefined) {
+      const email = this.requiredString(payload.email, 'Emailul este obligatoriu.').toLowerCase();
+      if (!email.includes('@')) throw new BadRequestException('Emailul nu este valid.');
+      input.email = email;
+    }
+    if (payload.phone !== undefined) input.phone = typeof payload.phone === 'string' && payload.phone.trim() ? payload.phone.trim() : null;
+    if (payload.organizationId !== undefined) {
+      input.organizationId = this.requiredString(payload.organizationId, 'Asociația este obligatorie.');
+    }
+    if (payload.isActive !== undefined) input.isActive = Boolean(payload.isActive);
+
+    if (!Object.keys(input).length) throw new BadRequestException('Nu există date de actualizat.');
+    return input;
+  }
+
   private async ensureOrganizationExists(id: string) {
     const organization = await this.prisma.organization.findUnique({
       where: { id },
@@ -258,13 +422,18 @@ export class OrganizationsService {
     lastName: string | null;
     phone: string | null;
     role: string;
-    organizationId: string;
+    organizationId: string | null;
     createdAt: Date;
+    updatedAt?: Date;
+    isActive?: boolean;
     organization?: {
       id: string;
       name: string;
+      legalName?: string | null;
+      fiscalCode?: string | null;
     } | null;
   }) {
+    const associationCode = admin.organization?.fiscalCode || this.extractAssociationCode(admin.organization?.name, admin.organization?.legalName);
     return {
       id: admin.id,
       email: admin.email,
@@ -272,15 +441,25 @@ export class OrganizationsService {
       lastName: admin.lastName,
       phone: admin.phone,
       role: admin.role,
-      organizationId: admin.organizationId,
+      organizationId: admin.organizationId || '',
+      isActive: admin.isActive ?? true,
+      status: admin.isActive === false ? 'INACTIVE' : 'ACTIVE',
       organization: admin.organization
         ? {
             id: admin.organization.id,
             name: admin.organization.name,
+            shortName: admin.organization.name,
+            legalName: admin.organization.legalName,
+            associationCode,
           }
         : null,
       createdAt: admin.createdAt,
+      updatedAt: admin.updatedAt,
     };
+  }
+
+  private fullName(person?: { firstName?: string | null; lastName?: string | null; email?: string | null } | null) {
+    return `${person?.firstName || ''} ${person?.lastName || ''}`.trim() || person?.email || '';
   }
 
   private requiredString(value: unknown, message: string) {

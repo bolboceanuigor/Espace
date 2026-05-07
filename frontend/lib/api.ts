@@ -54,6 +54,7 @@ function toQueryString(params?: ApiOptions['params']): string {
 
 function normalizeApiPath(path: string): string {
   const normalized = path.startsWith('/') ? path : `/${path}`;
+  if (normalized === '/health' || normalized.startsWith('/health/')) return normalized;
   return normalized.startsWith('/api/') ? normalized : `/api${normalized}`;
 }
 
@@ -1323,12 +1324,25 @@ export const systemMonitoringApi = {
     apiRequest<any>('/api/system/errors/client', { method: 'POST', body: data }),
   health: () =>
     apiRequest<{
-      status: string;
-      timestamp: string;
-      database: 'UP' | 'DOWN';
-      version: string;
-      environment: string;
+      status?: string;
+      service?: string;
+      ok?: boolean;
+      time?: string;
+      timestamp?: string;
+      database?: 'UP' | 'DOWN' | string;
+      version?: string;
+      environment?: string;
     }>('/health'),
+  healthDb: () =>
+    apiRequest<{
+      status: string;
+      database: string;
+      counts: {
+        organizations: number;
+        users: number;
+        apartments: number;
+      };
+    }>('/health/db'),
   superadminListErrors: (params?: {
     source?: 'BACKEND' | 'FRONTEND' | 'JOB' | 'WEBHOOK' | 'PAYMENT_PROVIDER';
     level?: 'INFO' | 'WARNING' | 'ERROR' | 'CRITICAL';
@@ -1546,6 +1560,24 @@ export const superadminApi = {
       method: 'POST',
       body: data,
     }),
+  updatePublicOrganization: (
+    id: string,
+    data: Partial<{
+      associationCode: string;
+      legalName: string;
+      shortName: string;
+      name: string;
+      address: string;
+      city: string;
+      country: string;
+      currency: 'MDL' | 'EUR' | 'USD';
+      status: 'ACTIVE' | 'TRIAL' | 'INACTIVE';
+    }>,
+  ) =>
+    apiRequest<any>(`/organizations/${id}`, {
+      method: 'PATCH',
+      body: data,
+    }),
   updatePublicOrganizationStatus: (id: string, status: 'ACTIVE' | 'TRIAL' | 'INACTIVE') =>
     apiRequest<any>(`/organizations/${id}/status`, {
       method: 'PATCH',
@@ -1619,6 +1651,21 @@ export const superadminApi = {
   ) =>
     apiRequest<any>(`/organizations/${organizationId}/admins`, {
       method: 'POST',
+      body: data,
+    }),
+  updatePublicAdmin: (
+    id: string,
+    data: Partial<{
+      firstName: string;
+      lastName: string;
+      email: string;
+      phone: string | null;
+      organizationId: string;
+      isActive: boolean;
+    }>,
+  ) =>
+    apiRequest<any>(`/admins/${id}`, {
+      method: 'PATCH',
       body: data,
     }),
   listOrgs: () =>

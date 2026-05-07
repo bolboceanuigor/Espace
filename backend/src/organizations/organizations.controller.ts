@@ -20,6 +20,16 @@ export class OrganizationsController {
     return this.organizationsService.createPublicOrganization(body);
   }
 
+  @Patch(':id/status')
+  updatePublicOrganizationStatus(@Param('id') id: string, @Body() body: unknown) {
+    return this.organizationsService.updatePublicOrganizationStatus(id, body);
+  }
+
+  @Patch(':id')
+  updatePublicOrganization(@Param('id') id: string, @Body() body: unknown) {
+    return this.organizationsService.updatePublicOrganization(id, body);
+  }
+
   @Get(':organizationId/admins')
   listPublicOrganizationAdmins(@Param('organizationId') organizationId: string) {
     return this.organizationsService.listPublicOrganizationAdmins(organizationId);
@@ -28,11 +38,6 @@ export class OrganizationsController {
   @Post(':organizationId/admins')
   createPublicOrganizationAdmin(@Param('organizationId') organizationId: string, @Body() body: unknown) {
     return this.organizationsService.createPublicOrganizationAdmin(organizationId, body);
-  }
-
-  @Patch(':id/status')
-  updatePublicOrganizationStatus(@Param('id') id: string, @Body() body: unknown) {
-    return this.organizationsService.updatePublicOrganizationStatus(id, body);
   }
 
   @Get(':id')

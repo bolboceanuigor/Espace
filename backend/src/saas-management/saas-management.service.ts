@@ -27,6 +27,10 @@ export class SaasManagementService {
       adminsCount,
       residentsCount,
       apartmentsCount,
+      metersCount,
+      invoicesCount,
+      recentOrganizations,
+      recentAdmins,
       subscriptions,
     ] = await Promise.all([
       this.prisma.organization.count(),
@@ -36,6 +40,43 @@ export class SaasManagementService {
       this.prisma.user.count({ where: { role: 'ADMIN', deletedAt: null } }),
       this.prisma.residentProfile.count(),
       this.prisma.apartment.count(),
+      this.prisma.meter.count(),
+      this.prisma.invoice.count(),
+      this.prisma.organization.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+        select: {
+          id: true,
+          name: true,
+          legalName: true,
+          fiscalCode: true,
+          address: true,
+          city: true,
+          country: true,
+          currency: true,
+          status: true,
+          createdAt: true,
+          updatedAt: true,
+          _count: { select: { apartments: true, users: true } },
+        },
+      }),
+      this.prisma.user.findMany({
+        where: { role: 'ADMIN', deletedAt: null },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          phone: true,
+          role: true,
+          organizationId: true,
+          isActive: true,
+          createdAt: true,
+          organization: { select: { id: true, name: true, legalName: true, fiscalCode: true } },
+        },
+      }),
       this.prisma.subscription.findMany({
         where: { status: { in: ['TRIAL', 'ACTIVE'] }, isActive: true },
         select: { price: true, customPrice: true },
@@ -55,7 +96,18 @@ export class SaasManagementService {
       adminsCount,
       residentsCount,
       apartmentsCount,
+      totalOrganizations: organizationsTotal,
+      activeOrganizations: organizationsActive,
+      trialOrganizations: organizationsTrial,
+      inactiveOrganizations: organizationsInactive,
+      totalAdmins: adminsCount,
+      totalResidents: residentsCount,
+      totalApartments: apartmentsCount,
+      totalMeters: metersCount,
+      totalInvoices: invoicesCount,
       estimatedMonthlyRevenue,
+      recentOrganizations: recentOrganizations.map((organization) => this.toOverviewOrganization(organization)),
+      recentAdmins: recentAdmins.map((admin) => this.toOverviewAdmin(admin)),
       currency: 'MDL',
     };
   }
@@ -107,9 +159,10 @@ export class SaasManagementService {
 
   async getOrganizationUsage(id: string) {
     await this.ensureOrganizationExists(id);
-    const [apartmentsCount, usersCount, residentsCount, metersCount, invoicesCount, subscription] = await Promise.all([
+    const [apartmentsCount, usersCount, adminsCount, residentsCount, metersCount, invoicesCount, subscription] = await Promise.all([
       this.prisma.apartment.count({ where: { organizationId: id } }),
       this.prisma.user.count({ where: { organizationId: id, deletedAt: null } }),
+      this.prisma.user.count({ where: { organizationId: id, role: 'ADMIN', deletedAt: null } }),
       this.prisma.residentProfile.count({ where: { organizationId: id } }),
       this.prisma.meter.count({ where: { organizationId: id } }),
       this.prisma.invoice.count({ where: { organizationId: id } }),
@@ -126,11 +179,14 @@ export class SaasManagementService {
       organizationId: id,
       apartmentsCount,
       usersCount,
+      adminsCount,
       residentsCount,
       metersCount,
       invoicesCount,
       apartmentLimit,
+      planApartmentLimit: apartmentLimit,
       usagePercentage: apartmentLimit > 0 ? Math.round((apartmentsCount / apartmentLimit) * 100) : 0,
+      usagePercent: apartmentLimit > 0 ? Math.round((apartmentsCount / apartmentLimit) * 100) : 0,
     };
   }
 
@@ -228,6 +284,76 @@ export class SaasManagementService {
       features: this.defaultFeatures(plan.code),
       status: 'ACTIVE',
       createdAt: plan.createdAt,
+    };
+  }
+
+  private toOverviewOrganization(organization: {
+    id: string;
+    name: string;
+    legalName: string | null;
+    fiscalCode: string | null;
+    address: string | null;
+    city: string | null;
+    country: string;
+    currency: string;
+    status: string;
+    createdAt: Date;
+    updatedAt: Date;
+    _count?: { apartments?: number; users?: number };
+  }) {
+    const associationCode = this.extractAssociationCode(organization.fiscalCode, organization.name, organization.legalName);
+    return {
+      id: organization.id,
+      name: organization.name,
+      shortName: organization.name,
+      legalName: organization.legalName || (associationCode ? `Asociația de Proprietari din Condominiu ${associationCode}` : organization.name),
+      associationCode,
+      associationNumber: associationCode.match(/-(\d{4})$/)?.[1] || '',
+      address: organization.address,
+      city: organization.city,
+      country: organization.country === 'MD' || organization.country.toLowerCase() === 'moldova' ? 'Republica Moldova' : organization.country,
+      currency: organization.currency,
+      status: organization.status,
+      apartmentsCount: organization._count?.apartments ?? 0,
+      usersCount: organization._count?.users ?? 0,
+      createdAt: organization.createdAt,
+      updatedAt: organization.updatedAt,
+    };
+  }
+
+  private toOverviewAdmin(admin: {
+    id: string;
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+    phone: string | null;
+    role: string;
+    organizationId: string;
+    isActive: boolean;
+    createdAt: Date;
+    organization?: { id: string; name: string; legalName: string | null; fiscalCode: string | null } | null;
+  }) {
+    const associationCode = this.extractAssociationCode(admin.organization?.fiscalCode, admin.organization?.name, admin.organization?.legalName);
+    return {
+      id: admin.id,
+      email: admin.email,
+      firstName: admin.firstName,
+      lastName: admin.lastName,
+      phone: admin.phone,
+      role: admin.role,
+      organizationId: admin.organizationId,
+      isActive: admin.isActive,
+      status: admin.isActive ? 'ACTIVE' : 'INACTIVE',
+      organization: admin.organization
+        ? {
+            id: admin.organization.id,
+            name: admin.organization.name,
+            shortName: admin.organization.name,
+            legalName: admin.organization.legalName,
+            associationCode,
+          }
+        : null,
+      createdAt: admin.createdAt,
     };
   }
 
@@ -329,6 +455,14 @@ export class SaasManagementService {
       if (Object.values(PlanCode).includes(normalized as PlanCode)) return normalized as PlanCode;
     }
     return PlanCode.STARTER;
+  }
+
+  private extractAssociationCode(...values: Array<string | null | undefined>) {
+    for (const value of values) {
+      const match = String(value || '').match(/A\d{4}-\d{4}/i);
+      if (match) return match[0].toUpperCase();
+    }
+    return '';
   }
 
   private optionalPlanCode(value: unknown, fallback: PlanCode) {
