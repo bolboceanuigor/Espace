@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { Bell, CreditCard, Gauge, MessageCircle, Send, Wrench } from 'lucide-react';
+import { Bell, CreditCard, Gauge, Send, Wrench } from 'lucide-react';
 import { Badge, Card, PageHeader } from '@/components/ui';
 import { residentDemoApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
@@ -20,9 +20,8 @@ import { useLocalizedPath } from '@/lib/use-localized-path';
 
 const quickActions = [
   { label: 'Transmite citiri', icon: <Gauge className="h-5 w-5" />, href: '/resident/meters' },
-  { label: 'Achită factura', icon: <CreditCard className="h-5 w-5" />, href: '/resident/payments' },
+  { label: 'Vezi facturi', icon: <CreditCard className="h-5 w-5" />, href: '/resident/invoices' },
   { label: 'Trimite cerere', icon: <Wrench className="h-5 w-5" />, href: '/resident/issues/new' },
-  { label: 'Scrie administratorului', icon: <MessageCircle className="h-5 w-5" />, href: '/resident/chat' },
 ];
 
 export default function ResidentDashboardPage() {

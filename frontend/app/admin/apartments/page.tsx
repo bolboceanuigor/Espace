@@ -207,7 +207,7 @@ export default function AdminApartmentsPage() {
       <section className="grid gap-3 md:hidden">
         {filtered.map((item) => <ApartmentMobileCard key={item.id} apartment={item} />)}
         {source === 'loading' ? <EmptyState text="Se încarcă datele..." /> : null}
-        {source !== 'loading' && !filtered.length ? <EmptyState text="Nu există apartamente încă." /> : null}
+        {source !== 'loading' && !filtered.length ? <EmptyState text="Nu există apartamente încă. Adaugă primul apartament." /> : null}
       </section>
 
       <section className="hidden overflow-hidden rounded-[1.35rem] border border-border/70 bg-white/92 shadow-[0_14px_40px_rgba(15,23,42,0.045)] md:block">
@@ -243,7 +243,7 @@ export default function AdminApartmentsPage() {
           </div>
         ))}
         {source === 'loading' ? <div className="px-4 py-8 text-sm font-medium text-muted-foreground">Se încarcă datele...</div> : null}
-        {source !== 'loading' && !filtered.length ? <div className="px-4 py-8 text-sm font-medium text-muted-foreground">Nu există apartamente încă.</div> : null}
+        {source !== 'loading' && !filtered.length ? <div className="px-4 py-8 text-sm font-medium text-muted-foreground">Nu există apartamente încă. Adaugă primul apartament.</div> : null}
       </section>
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} maxWidth="2xl">

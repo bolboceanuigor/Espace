@@ -19,13 +19,13 @@ const onest = localFont({
 
 export const metadata: Metadata = {
   title: 'Espace',
-  description: 'Platformă pentru administrarea asociațiilor, apartamentelor, plăților și comunicării cu locatarii.',
+  description: 'Platformă pentru administrarea A.P.C. și condominiilor din Republica Moldova.',
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://espace.md'),
   manifest: '/manifest.webmanifest',
   applicationName: 'Espace',
   openGraph: {
     title: 'Espace',
-    description: 'Platformă pentru administrarea asociațiilor, apartamentelor, plăților și comunicării cu locatarii.',
+    description: 'Platformă pentru administrarea A.P.C. și condominiilor din Republica Moldova.',
     type: 'website',
   },
   appleWebApp: {
@@ -50,7 +50,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={onest.variable}>
+    <html lang="ro" className={onest.variable}>
       <body className="font-sans bg-background text-foreground antialiased">
         <AuthProvider>
           <BrandingProvider>

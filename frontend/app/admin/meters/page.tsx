@@ -239,7 +239,7 @@ export default function AdminMetersPage() {
           <MeterCard key={meter.id} meter={meter} onAddReading={openReadingModal} />
         ))}
         {source === 'loading' ? <Card className="p-5 text-sm font-medium text-muted-foreground">Se încarcă datele...</Card> : null}
-        {source !== 'loading' && !filtered.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există contoare încă.</Card> : null}
+        {source !== 'loading' && !filtered.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există contoare încă. Adaugă primul contor pentru un apartament.</Card> : null}
       </section>
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} maxWidth="2xl">

@@ -188,14 +188,13 @@ export default function AdminResidentsPage() {
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-3">
               <p className={person.debt > 0 ? 'font-semibold text-rose-600' : 'font-semibold text-emerald-700'}>{formatMdl(person.debt)}</p>
               <div className="flex gap-2">
-                <Link href={localizedPath(`/admin/residents/${person.id}`)} className="rounded-xl border border-border/70 px-3 py-2 text-xs font-semibold hover:bg-muted/60">Deschide</Link>
-                <Link href={localizedPath('/admin/chat')} className="rounded-xl border border-border/70 px-3 py-2 text-xs font-semibold hover:bg-muted/60">Mesaj</Link>
+                <Link href={localizedPath(`/admin/residents/${person.id}`)} className="rounded-xl border border-border/70 px-3 py-2 text-xs font-semibold hover:bg-muted/60">Profil</Link>
               </div>
             </div>
           </Card>
         ))}
         {source === 'loading' ? <Card className="p-5 text-sm font-medium text-muted-foreground">Se încarcă datele...</Card> : null}
-        {source !== 'loading' && !filtered.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există locatari încă.</Card> : null}
+        {source !== 'loading' && !filtered.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există locatari încă. Adaugă primul locatar.</Card> : null}
       </section>
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} maxWidth="2xl">

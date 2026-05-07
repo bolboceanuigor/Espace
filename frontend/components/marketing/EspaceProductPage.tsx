@@ -9,9 +9,7 @@ import {
   ClipboardList,
   Gauge,
   Home,
-  MessageSquareText,
   ReceiptText,
-  Settings,
   ShieldCheck,
   Users,
 } from 'lucide-react';
@@ -38,8 +36,8 @@ const featureCards = [
   },
   {
     icon: ReceiptText,
-    title: 'Plăți și datorii',
-    text: 'Solduri lunare, încasări, restanțe și rapoarte pregătite pentru administratori.',
+    title: 'Facturi și datorii',
+    text: 'Facturi lunare, restanțe și solduri pregătite pentru administratorii de A.P.C.',
   },
   {
     icon: ClipboardList,
@@ -50,16 +48,6 @@ const featureCards = [
     icon: Bell,
     title: 'Avizier digital',
     text: 'Anunțuri pentru asociație, scară sau apartament, cu istoric și comunicare consistentă.',
-  },
-  {
-    icon: MessageSquareText,
-    title: 'Mesaje',
-    text: 'Conversații organizate între administrație și locatari, fără zgomotul grupurilor informale.',
-  },
-  {
-    icon: Settings,
-    title: 'Setări APC',
-    text: 'Date fiscale, conturi bancare, configurări de facturare și control pentru echipă.',
   },
 ];
 
@@ -73,7 +61,7 @@ const dashboardStats = [
 const roleCards = [
   {
     title: 'Administrator',
-    text: 'Controlează apartamente, locatari, contoare, plăți, cereri și avizier dintr-un singur spațiu calm.',
+    text: 'Controlează apartamente, locatari, contoare, facturi, cereri și avizier dintr-un singur spațiu calm.',
     href: '/ro/admin',
     metric: '142 apartamente',
   },
@@ -85,7 +73,7 @@ const roleCards = [
   },
   {
     title: 'Superadmin',
-    text: 'Monitorizează asociațiile, activarea administratorilor, utilizarea platformei și venitul lunar.',
+    text: 'Monitorizează asociațiile A.P.C., activarea administratorilor, planurile și utilizarea platformei.',
     href: '/ro/superadmin',
     metric: '38 asociații',
   },
@@ -132,7 +120,7 @@ function DashboardMockup() {
       <div className="overflow-hidden rounded-md border border-white/10 bg-[#f7f5f0] text-slate-950">
         <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
           <div>
-            <p className="text-xs text-slate-500">Asociatia Demo · Chisinau</p>
+            <p className="text-xs text-slate-500">A.P.C. A0123-0940 · Chișinău</p>
             <p className="text-sm font-semibold">Panou administrator</p>
           </div>
           <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-medium text-teal-800">Mai 2026</span>
@@ -190,13 +178,13 @@ function Hero({ active }: { active: ProductPageProps['active'] }) {
         <div className="flex flex-col justify-center">
           <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/12 bg-white/[0.06] px-3 py-1 text-sm text-white/78">
             <ShieldCheck className="h-4 w-4 text-teal-300" />
-            Espace · SaaS pentru asociații de proprietari
+            Platformă pentru administrarea A.P.C. și condominiilor din Republica Moldova
           </div>
           <h1 className="mt-6 max-w-3xl text-4xl font-semibold leading-[1.04] text-white sm:text-5xl lg:text-6xl">
             Administrare A.P.C. mai clară pentru Republica Moldova.
           </h1>
           <p className="mt-5 max-w-2xl text-base leading-7 text-white/72 sm:text-lg">
-            Espace centralizează apartamente, locatari, contoare, plăți, cereri, avizier și mesaje într-un produs calm,
+            Espace centralizează apartamente, locatari, contoare, facturi și datorii, cereri și avizier într-un produs calm,
             modern și ușor de folosit de către administratori.
           </p>
           <div className="mt-7 flex flex-col gap-3 sm:flex-row">
@@ -264,7 +252,7 @@ function FeatureGrid() {
             Tot fluxul unei asociații, fără improvizații.
           </h2>
           <p className="mt-4 text-base leading-7 text-slate-600">
-            Pagini rapide, date mock pentru preview și o structură pregătită pentru conectarea ulterioară la API.
+            Funcționalități de bază pentru administratori: apartamente, locatari, contoare, facturi și datorii, cereri și avizier.
           </p>
         </div>
         <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -322,9 +310,9 @@ function CtaSection() {
     <section className="bg-[#0d1211] px-4 py-14 text-white sm:px-6 lg:px-8">
       <div className="mx-auto flex max-w-7xl flex-col gap-6 rounded-lg border border-white/10 bg-white/[0.06] p-6 md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 className="text-2xl font-semibold">Pregătit pentru o previzualizare publică.</h2>
+          <h2 className="text-2xl font-semibold">Pregătit pentru primele asociații din Republica Moldova.</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-white/68">
-            Pagina funcționează cu date mock, fără API și fără dependențe externe.
+            Platformă pentru administrarea A.P.C. și condominiilor: apartamente, locatari, contoare, facturi, datorii, cereri și avizier.
           </p>
         </div>
         <Link

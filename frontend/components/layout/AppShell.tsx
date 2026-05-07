@@ -4,20 +4,19 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
-import { Bell, X } from 'lucide-react';
+import { Bell } from 'lucide-react';
 import MainNavigation from './MainNavigation';
 import OrgSwitcher from './OrgSwitcher';
 import { useAuth } from '@/context/AuthContext';
 import { ManagerUiProvider } from '@/context/ManagerUiContext';
 import { defaultLocale, isLocale } from '@/i18n';
 import { featureFlags } from '@/lib/featureFlags';
-import { authApi, billingSaasApi, notificationsApi, onboardingApi, releaseNotesApi, subscriptionApi, superadminApi, usageApi } from '@/lib/api';
+import { authApi, billingSaasApi, notificationsApi, onboardingApi, subscriptionApi, superadminApi, usageApi } from '@/lib/api';
 import { normalizeRole, roleHomePath } from '@/lib/role-routing';
 import { isAdminHardBlocked } from '@/lib/subscription-access';
 import { NAVIGATION_CONFIG, type NavigationItem } from '@/lib/navigation-config';
 import SubscriptionStatusBanner from '@/components/subscription/SubscriptionStatusBanner';
 import FeedbackModal from '@/components/feedback/FeedbackModal';
-import { DEMO_PRESENTATION_MODE_KEY } from '@/lib/demo-presentation';
 
 type AppShellProps = { children: React.ReactNode };
 
@@ -45,10 +44,7 @@ function AppShellContent({ children }: AppShellProps) {
   const [supportSession, setSupportSession] = useState<any | null>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [navigationItems, setNavigationItems] = useState<NavigationItem[]>([]);
-  const [unreadReleaseNotes, setUnreadReleaseNotes] = useState<any[]>([]);
-  const [releaseNotesPromptOpen, setReleaseNotesPromptOpen] = useState(false);
   const [showOnboardingTips, setShowOnboardingTips] = useState(false);
-  const [demoPresentationMode, setDemoPresentationMode] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const localeParam = typeof params?.locale === 'string' ? params.locale : defaultLocale;
   const locale = isLocale(localeParam) ? localeParam : defaultLocale;
@@ -268,11 +264,6 @@ function AppShellContent({ children }: AppShellProps) {
   }, [isPreviewSession, normalizedRole, pathname]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    setDemoPresentationMode(localStorage.getItem(DEMO_PRESENTATION_MODE_KEY) === 'true');
-  }, []);
-
-  useEffect(() => {
     if (isPreviewSession || normalizedRole !== 'SUPER_ADMIN') {
       setSupportSession(null);
       return;
@@ -292,31 +283,6 @@ function AppShellContent({ children }: AppShellProps) {
       active = false;
     };
   }, [isPreviewSession, normalizedRole, pathname]);
-
-  useEffect(() => {
-    if (!isAuthenticated || !user?.id) {
-      setUnreadReleaseNotes([]);
-      setReleaseNotesPromptOpen(false);
-      return;
-    }
-    let active = true;
-    releaseNotesApi
-      .unread()
-      .then((res) => {
-        if (!active) return;
-        const rows = res.data || [];
-        setUnreadReleaseNotes(rows);
-        setReleaseNotesPromptOpen(rows.length > 0);
-      })
-      .catch(() => {
-        if (!active) return;
-        setUnreadReleaseNotes([]);
-        setReleaseNotesPromptOpen(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [isAuthenticated, user?.id]);
 
   useEffect(() => {
     if (!isAuthenticated || !user?.id) {
@@ -364,8 +330,6 @@ function AppShellContent({ children }: AppShellProps) {
     };
   }, [isPreviewSession, normalizedRole, pathname]);
 
-  const canUseDemoPresentation = normalizedRole === 'SUPER_ADMIN' && !!supportSession?.organization?.isDemo;
-  const effectiveDemoPresentationMode = canUseDemoPresentation && demoPresentationMode;
   const searchPlaceholder =
     normalizedRole === 'SUPER_ADMIN'
       ? 'Caută asociații, administratori, abonamente...'
@@ -623,62 +587,15 @@ function AppShellContent({ children }: AppShellProps) {
             <div className="mt-3 flex items-center justify-between gap-2 rounded-2xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
               <span>Mod suport activ: {supportSession.organization?.name || 'Asociație'}</span>
               <div className="flex items-center gap-2">
-                {canUseDemoPresentation ? (
-                  <>
-                    <label className="inline-flex items-center gap-2 rounded-md border border-amber-400 bg-white px-2 py-1 text-xs">
-                      <input
-                        type="checkbox"
-                        checked={demoPresentationMode}
-                        onChange={(event) => {
-                          const next = event.target.checked;
-                          setDemoPresentationMode(next);
-                          localStorage.setItem(DEMO_PRESENTATION_MODE_KEY, next ? 'true' : 'false');
-                        }}
-                      />
-                      Mod prezentare
-                    </label>
-                    <button
-                      className="rounded-md border border-amber-400 bg-white px-2 py-1 text-xs"
-                      onClick={() => router.push(`/${locale}/admin`)}
-                    >
-                      Pornește demo
-                    </button>
-                  </>
-                ) : null}
                 <button
                   className="rounded-md border border-amber-400 bg-white px-2 py-1 text-xs"
                   onClick={async () => {
                     await superadminApi.endSupportSession(supportSession.id);
                     setSupportSession(null);
-                    setDemoPresentationMode(false);
-                    localStorage.setItem(DEMO_PRESENTATION_MODE_KEY, 'false');
                   }}
                 >
                   Ieși din suport
                 </button>
-              </div>
-            </div>
-          ) : null}
-          {effectiveDemoPresentationMode ? (
-            <div className="mt-3 rounded-2xl border border-sky-300 bg-sky-50 px-3 py-2 text-sm text-sky-900">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span>Mod prezentare activ</span>
-                <div className="flex flex-wrap gap-2 text-xs">
-                  <button
-                    className="rounded-md border border-sky-400 bg-white px-2 py-1"
-                    onClick={() => router.push(`/${locale}/admin`)}
-                  >
-                    Pornește demo
-                  </button>
-                  <Link href={`/${locale}/superadmin/demo`} className="rounded-md border border-sky-400 bg-white px-2 py-1">
-                    Resetează datele demo
-                  </Link>
-                </div>
-              </div>
-              <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                <span className="rounded-md border border-sky-300 bg-white px-2 py-1">
-                  Navigația principală rămâne bara de jos, adaptată rolului.
-                </span>
               </div>
             </div>
           ) : null}
@@ -696,11 +613,11 @@ function AppShellContent({ children }: AppShellProps) {
             <div className="mt-3 rounded-2xl border border-border/60 bg-card px-3 py-2 text-sm text-foreground">
               <p className="font-medium">Pași recomandați pentru lansare</p>
               <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                <Link href={`/${locale}/admin/buildings`} className="rounded-xl border border-border/60 px-2 py-1 hover:bg-background">
-                  Adaugă primul bloc
+                <Link href={`/${locale}/admin/apartments`} className="rounded-xl border border-border/60 px-2 py-1 hover:bg-background">
+                  Adaugă apartamente
                 </Link>
-                <Link href={`/${locale}/admin/imports/new`} className="rounded-xl border border-border/60 px-2 py-1 hover:bg-background">
-                  Importă apartamente
+                <Link href={`/${locale}/admin/residents`} className="rounded-xl border border-border/60 px-2 py-1 hover:bg-background">
+                  Adaugă locatari
                 </Link>
                 <Link href={`/${locale}/admin/invoices`} className="rounded-xl border border-border/60 px-2 py-1 hover:bg-background">
                   Generează primele facturi
@@ -710,44 +627,6 @@ function AppShellContent({ children }: AppShellProps) {
           ) : null}
           </div>
         </header>
-
-        {releaseNotesPromptOpen ? (
-          <div className="fixed right-4 top-24 z-50 w-full max-w-sm rounded-xl border border-border/70 bg-card p-4 shadow-lg">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <p className="text-sm font-semibold text-foreground">Noutăți</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Ai {unreadReleaseNotes.length} actualizări necitite.
-                </p>
-              </div>
-              <button className="rounded-md border border-border/70 p-1" onClick={() => setReleaseNotesPromptOpen(false)}>
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-            <div className="mt-3 space-y-2">
-              {unreadReleaseNotes.slice(0, 2).map((note) => (
-                <div key={note.id} className="rounded-lg border border-border/60 bg-background p-2">
-                  <p className="text-xs font-medium text-foreground">{note.title}</p>
-                  <p className="line-clamp-2 text-[11px] text-muted-foreground">{note.content}</p>
-                </div>
-              ))}
-            </div>
-            <div className="mt-3 flex gap-2">
-              <button
-                className="rounded-md border border-border/70 px-3 py-1.5 text-xs"
-                onClick={() => {
-                  router.push(`/${locale}/release-notes`);
-                  setReleaseNotesPromptOpen(false);
-                }}
-              >
-                Vezi noutățile
-              </button>
-              <button className="rounded-md border border-border/70 px-3 py-1.5 text-xs" onClick={() => setReleaseNotesPromptOpen(false)}>
-                Mai târziu
-              </button>
-            </div>
-          </div>
-        ) : null}
 
         <main className="mx-auto w-full max-w-6xl px-4 py-5 pb-[calc(env(safe-area-inset-bottom)+8.75rem)] md:py-8 md:pb-[calc(env(safe-area-inset-bottom)+8.75rem)]">{children}</main>
         <footer className="mx-auto flex w-full max-w-6xl items-center justify-end gap-3 px-5 pb-5 text-xs text-muted-foreground">

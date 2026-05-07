@@ -49,11 +49,9 @@ const tabs = [
 export default function AdminOrganizationSettingsPage() {
   const [form, setForm] = useState(initialForm);
   const [activeTab, setActiveTab] = useState('general');
-  const [saved, setSaved] = useState(false);
 
   const update = <K extends keyof SettingsForm>(key: K, value: SettingsForm[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
-    setSaved(false);
   };
 
   return (
@@ -61,9 +59,11 @@ export default function AdminOrganizationSettingsPage() {
       <PageHeader
         title="Setări bloc"
         description="Date administrative pentru asociație, facturare și documente."
-        rightSlot={<Button onClick={() => setSaved(true)}><Save className="h-4 w-4" /> Salvează local</Button>}
+        rightSlot={<Button type="button" disabled variant="secondary"><Save className="h-4 w-4" /> Funcție în lucru</Button>}
       />
-      {saved ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">Setările au fost actualizate local. Salvarea în backend se conectează ulterior.</div> : null}
+      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-medium text-amber-800">
+        Editarea setărilor A.P.C. va fi conectată după validarea fluxurilor principale.
+      </div>
       <section className="grid gap-3 md:grid-cols-3">
         <Card className="p-4"><IconTitle icon={<Building2 className="h-5 w-5" />} title={form.name} subtitle={form.address} /></Card>
         <Card className="p-4"><IconTitle icon={<ShieldCheck className="h-5 w-5" />} title="Organizație activă" subtitle="Configurare administrativă locală" badge="activ" /></Card>

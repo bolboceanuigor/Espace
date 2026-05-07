@@ -62,7 +62,7 @@ export default function ResidentIssuesPage() {
 
       <Section title="Istoric cereri">
         {history.map((request) => <IssueCard key={request.id} request={request} />)}
-        {!history.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">{source === 'loading' ? 'Se încarcă datele...' : 'Nu există cereri încă.'}</Card> : null}
+        {!history.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">{source === 'loading' ? 'Se încarcă datele...' : 'Nu există cereri încă. Trimite prima cerere către administrator.'}</Card> : null}
       </Section>
     </div>
   );

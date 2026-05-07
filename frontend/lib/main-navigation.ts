@@ -5,10 +5,10 @@ export type MainNavigationKey =
   | 'organizations'
   | 'administrators'
   | 'subscriptions'
-  | 'support'
   | 'globalSettings'
   | 'adminHome'
   | 'apartments'
+  | 'invoices'
   | 'announcements'
   | 'residents'
   | 'meters'
@@ -42,8 +42,6 @@ export const SUPERADMIN_NAVIGATION_ITEMS: MainNavigationItem[] = [
   { key: 'organizations', label: 'Asociații', href: '/superadmin/organizations' },
   { key: 'administrators', label: 'Administratori', href: '/superadmin/admins' },
   { key: 'subscriptions', label: 'Abonamente', href: '/superadmin/subscriptions' },
-  { key: 'support', label: 'Suport', href: '/superadmin/support-mode' },
-  { key: 'globalSettings', label: 'Setări', href: '/superadmin/settings' },
 ];
 
 export const ADMIN_NAVIGATION_ITEMS: MainNavigationItem[] = [
@@ -51,20 +49,18 @@ export const ADMIN_NAVIGATION_ITEMS: MainNavigationItem[] = [
   { key: 'apartments', label: 'Apartamente', href: '/admin/apartments' },
   { key: 'residents', label: 'Locatari', href: '/admin/residents' },
   { key: 'meters', label: 'Contoare', href: '/admin/meters' },
+  { key: 'invoices', label: 'Facturi', href: '/admin/invoices' },
   { key: 'payments', label: 'Plăți', href: '/admin/payments' },
   { key: 'issues', label: 'Cereri', href: '/admin/issues' },
   { key: 'announcements', label: 'Avizier', href: '/admin/announcements' },
-  { key: 'chat', label: 'Mesaje', href: '/admin/chat' },
-  { key: 'buildingSettings', label: 'Setări', href: '/admin/settings/organization' },
 ];
 
 export const RESIDENT_NAVIGATION_ITEMS: MainNavigationItem[] = [
   { key: 'home', label: 'Acasă', href: '/resident' },
   { key: 'announcements', label: 'Avizier', href: '/resident/announcements' },
-  { key: 'payments', label: 'Plăți', href: '/resident/payments' },
+  { key: 'payments', label: 'Facturi', href: '/resident/invoices' },
   { key: 'meters', label: 'Contoare', href: '/resident/meters' },
   { key: 'issues', label: 'Cereri', href: '/resident/issues' },
-  { key: 'chat', label: 'Mesaje', href: '/resident/chat' },
   { key: 'account', label: 'Cont', href: '/resident/account' },
 ];
 

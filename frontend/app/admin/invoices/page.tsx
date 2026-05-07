@@ -309,7 +309,7 @@ export default function AdminInvoicesPage() {
           </div>
         ))}
         {source === 'loading' ? <div className="px-4 py-8 text-sm font-medium text-muted-foreground">Se încarcă datele...</div> : null}
-        {source !== 'loading' && !filtered.length ? <div className="px-4 py-8 text-sm font-medium text-muted-foreground">Nu există facturi încă.</div> : null}
+        {source !== 'loading' && !filtered.length ? <div className="px-4 py-8 text-sm font-medium text-muted-foreground">Nu există facturi încă. Emite prima factură sau generează facturile lunare.</div> : null}
       </section>
 
       <section className="grid gap-3 md:hidden">
@@ -317,7 +317,7 @@ export default function AdminInvoicesPage() {
           <InvoiceCard key={invoice.id} invoice={invoice} href={localizedPath(`/admin/invoices/${invoice.id}`)} />
         ))}
         {source === 'loading' ? <Card className="p-5 text-sm font-medium text-muted-foreground">Se încarcă datele...</Card> : null}
-        {source !== 'loading' && !filtered.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există facturi încă.</Card> : null}
+        {source !== 'loading' && !filtered.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există facturi încă. Emite prima factură sau generează facturile lunare.</Card> : null}
       </section>
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} maxWidth="2xl">

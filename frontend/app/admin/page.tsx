@@ -277,7 +277,7 @@ export default function AdminPage() {
                 {title}
               </div>
             ))}
-            {!announcements.length ? <p className="text-sm text-muted-foreground">Nu există anunțuri încă.</p> : null}
+            {!announcements.length ? <p className="text-sm text-muted-foreground">Nu există anunțuri încă. Publică primul anunț pe avizier.</p> : null}
           </div>
         </Card>
       </section>

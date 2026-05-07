@@ -156,7 +156,7 @@ export default function AdminAnnouncementsPage() {
           </Card>
         ))}
         {source === 'loading' ? <Card className="p-5 text-sm font-medium text-muted-foreground">Se încarcă datele...</Card> : null}
-        {source !== 'loading' && !rows.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există anunțuri încă.</Card> : null}
+        {source !== 'loading' && !rows.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există anunțuri încă. Publică primul anunț pe avizier.</Card> : null}
       </section>
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} maxWidth="2xl">

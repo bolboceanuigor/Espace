@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
 import { useMemo, useState } from 'react';
-import { Building2, ChevronRight, CircleAlert, CreditCard, Gauge, Headphones, Home, Megaphone, Menu, MessageCircle, Settings, Shield, UserRound, Users } from 'lucide-react';
+import { Building2, ChevronRight, CircleAlert, CreditCard, FileText, Gauge, Home, Megaphone, Menu, MessageCircle, Settings, Shield, UserRound, Users } from 'lucide-react';
 import { defaultLocale, isLocale } from '@/i18n';
 import {
   getMainNavigationItems,
@@ -21,10 +21,10 @@ const ICONS: Record<MainNavigationKey, React.ComponentType<{ className?: string 
   organizations: Building2,
   administrators: Users,
   subscriptions: CreditCard,
-  support: Headphones,
   globalSettings: Settings,
   adminHome: Home,
   apartments: Building2,
+  invoices: FileText,
   announcements: Megaphone,
   residents: Users,
   meters: Gauge,

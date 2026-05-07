@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Clock3, CreditCard, ReceiptText } from 'lucide-react';
-import { Badge, Button, Card, Modal, ModalBody, ModalCloseButton, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
+import { Badge, Card, PageHeader, StatCard } from '@/components/ui';
 import { residentDemoApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import {
@@ -21,7 +21,6 @@ export default function ResidentPaymentsPage() {
   const [rows, setRows] = useState<typeof residentInvoices>([]);
   const [payments, setPayments] = useState<ResidentPayment[]>([]);
   const [source, setSource] = useState<'loading' | 'api' | 'mock'>('loading');
-  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const visible = useMemo(() => rows.filter((invoice) => filter === 'Toate' || invoice.status === filter), [filter, rows]);
   const paidThisYear = payments.length ? payments.reduce((sum, payment) => sum + payment.amount, 0) : rows.filter((invoice) => invoice.status === 'Achitat').reduce((sum, invoice) => sum + invoice.amount, 0);
   const unpaidCount = rows.filter((invoice) => invoice.status !== 'Achitat').length;
@@ -103,7 +102,14 @@ export default function ResidentPaymentsPage() {
               <p className="text-right text-xs text-muted-foreground">Scadență: {invoice.dueDate}</p>
             </div>
             {invoice.status !== 'Achitat' ? (
-              <Button className="mt-4 w-full" onClick={() => setPaymentModalOpen(true)}><CreditCard className="h-4 w-4" /> Achită factura</Button>
+              <button
+                type="button"
+                disabled
+                className="mt-4 inline-flex min-h-11 w-full cursor-not-allowed items-center justify-center gap-2 rounded-2xl border border-border/70 bg-muted/35 px-4 text-sm font-semibold text-muted-foreground"
+              >
+                <CreditCard className="h-4 w-4" />
+                Plăți online în lucru
+              </button>
             ) : (
               <p className="mt-4 rounded-2xl bg-emerald-50 p-3 text-sm font-medium text-emerald-700">Achitat pe {invoice.paidDate}</p>
             )}
@@ -136,15 +142,9 @@ export default function ResidentPaymentsPage() {
         </div>
       </Card>
 
-      <Modal isOpen={paymentModalOpen} onClose={() => setPaymentModalOpen(false)} maxWidth="md">
-        <ModalHeader title="Plăți online" onClose={() => setPaymentModalOpen(false)} />
-        <ModalBody>
-          <p className="text-sm text-muted-foreground">Plățile online vor fi conectate ulterior. Pentru moment, plata se înregistrează de administrator.</p>
-        </ModalBody>
-        <ModalFooter>
-          <ModalCloseButton onClick={() => setPaymentModalOpen(false)}>Am înțeles</ModalCloseButton>
-        </ModalFooter>
-      </Modal>
+      <Card className="p-4 text-sm text-muted-foreground">
+        Plățile online vor fi conectate ulterior. Pentru moment, plata se înregistrează de administratorul A.P.C.
+      </Card>
     </div>
   );
 }
