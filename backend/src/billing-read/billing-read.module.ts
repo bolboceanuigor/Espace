@@ -2,9 +2,10 @@ import { Module } from '@nestjs/common';
 import { BillingReadController } from './billing-read.controller';
 import { BillingReadService } from './billing-read.service';
 import { MvpSecurityModule } from '../security/mvp-security.module';
+import { ActivityMvpModule } from '../activity-mvp/activity-mvp.module';
 
 @Module({
-  imports: [MvpSecurityModule],
+  imports: [MvpSecurityModule, ActivityMvpModule],
   controllers: [BillingReadController],
   providers: [BillingReadService],
 })

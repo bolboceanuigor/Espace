@@ -1,11 +1,15 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { MeterReadingSource, MeterStatus, MeterType, Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { ActivityMvpService } from '../activity-mvp/activity-mvp.service';
 import type { MvpUser } from '../security/mvp-auth.guard';
 
 @Injectable()
 export class MetersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly activity: ActivityMvpService,
+  ) {}
 
   private meterSelect(): Prisma.MeterSelect {
     return {
@@ -162,6 +166,17 @@ export class MetersService {
       select: this.meterSelect(),
     });
 
+    await this.activity.createActivity({
+      organizationId: meter.organizationId,
+      actorUserId: user.id,
+      type: 'METER_CREATED',
+      title: 'Contor creat',
+      message: `Contorul ${meter.serialNumber || meter.type} a fost creat pentru apartamentul ${meter.apartment?.number || ''}.`,
+      targetType: 'METER',
+      targetId: meter.id,
+      link: '/admin/meters',
+    });
+
     return this.toMeter(meter);
   }
 
@@ -205,6 +220,17 @@ export class MetersService {
     await this.prisma.meter.update({
       where: { id: meter.id },
       data: { status: MeterStatus.ACTIVE },
+    });
+
+    await this.activity.createActivity({
+      organizationId: meter.organizationId,
+      actorUserId: user.id,
+      type: 'METER_READING_ADDED',
+      title: 'Citire contor adăugată',
+      message: `A fost adăugată citirea ${input.value}.`,
+      targetType: 'METER_READING',
+      targetId: reading.id,
+      link: '/admin/meters',
     });
 
     return reading;

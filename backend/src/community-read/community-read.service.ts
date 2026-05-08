@@ -1,11 +1,15 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { AnnouncementCategory, AnnouncementStatus, IssueStatus, Prisma, Role } from '@prisma/client';
+import { AnnouncementCategory, AnnouncementStatus, IssueStatus, NotificationType, Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { ActivityMvpService } from '../activity-mvp/activity-mvp.service';
 import type { MvpUser } from '../security/mvp-auth.guard';
 
 @Injectable()
 export class CommunityReadService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly activity: ActivityMvpService,
+  ) {}
 
   private issueSelect(): Prisma.IssueSelect {
     return {
@@ -32,6 +36,7 @@ export class CommunityReadService {
       resident: {
         select: {
           id: true,
+          userId: true,
           firstName: true,
           lastName: true,
           phone: true,
@@ -184,6 +189,26 @@ export class CommunityReadService {
       select: this.issueSelect(),
     });
 
+    await this.activity.createActivity({
+      organizationId: issue.organizationId,
+      actorUserId: user.id,
+      type: 'ISSUE_STATUS_UPDATED',
+      title: 'Status cerere actualizat',
+      message: `Cererea „${issue.title}” a fost actualizată la statusul ${status}.`,
+      targetType: 'ISSUE',
+      targetId: issue.id,
+      link: `/admin/issues/${issue.id}`,
+    });
+
+    await this.activity.notifyResidentProfile({
+      organizationId: issue.organizationId,
+      residentId: issue.residentId,
+      type: NotificationType.ISSUE,
+      title: 'Status cerere actualizat',
+      message: `Cererea „${issue.title}” are acum statusul ${status}.`,
+      link: `/resident/issues/${issue.id}`,
+    });
+
     return this.toIssue(issue);
   }
 
@@ -216,6 +241,27 @@ export class CommunityReadService {
       data: input,
       select: this.announcementSelect(),
     });
+
+    await this.activity.createActivity({
+      organizationId: announcement.organizationId,
+      actorUserId: user.id,
+      type: 'ANNOUNCEMENT_CREATED',
+      title: 'Anunț publicat',
+      message: `Anunțul „${announcement.title}” a fost publicat pe avizier.`,
+      targetType: 'ANNOUNCEMENT',
+      targetId: announcement.id,
+      link: `/admin/announcements/${announcement.id}`,
+    });
+
+    if (announcement.status === AnnouncementStatus.ACTIVE) {
+      await this.activity.notifyOrganizationResidents({
+        organizationId: announcement.organizationId,
+        type: NotificationType.ANNOUNCEMENT,
+        title: announcement.title,
+        message: `Un anunț nou a fost publicat pe avizier: ${announcement.title}.`,
+        link: `/resident/announcements/${announcement.id}`,
+      });
+    }
 
     return this.toAnnouncement(announcement);
   }

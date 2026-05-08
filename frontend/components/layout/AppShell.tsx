@@ -28,6 +28,80 @@ export default function AppShell({ children }: AppShellProps) {
   );
 }
 
+function ResidentNotificationButton({
+  notifications,
+  open,
+  setOpen,
+  setNotifications,
+  router,
+  locale,
+}: {
+  notifications: any[];
+  open: boolean;
+  setOpen: (value: boolean | ((current: boolean) => boolean)) => void;
+  setNotifications: (value: any[] | ((current: any[]) => any[])) => void;
+  router: { push: (href: string) => void };
+  locale: string;
+}) {
+  const unreadCount = notifications.filter((item) => !item.isRead).length;
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        className="relative rounded-2xl border border-border/60 bg-white/90 p-2 text-muted-foreground shadow-sm hover:bg-white"
+        onClick={() => setOpen((value) => !value)}
+        aria-label="Notificări"
+      >
+        <Bell className="h-4 w-4" />
+        {unreadCount > 0 ? (
+          <span className="absolute -right-1 -top-1 inline-flex min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold text-white">
+            {unreadCount}
+          </span>
+        ) : null}
+      </button>
+      {open ? (
+        <div className="absolute right-0 z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-border/70 bg-card p-2 shadow-lg">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <p className="text-xs font-semibold text-foreground">Notificări</p>
+            <button
+              className="text-[11px] font-semibold text-primary"
+              onClick={async () => {
+                await notificationsApi.residentReadAll();
+                setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
+              }}
+            >
+              Marchează tot ca citit
+            </button>
+          </div>
+          <div className="max-h-72 space-y-1 overflow-y-auto">
+            {notifications.map((item) => (
+              <button
+                key={item.id}
+                className={`w-full rounded-lg border px-2 py-1 text-left text-xs ${
+                  item.isRead ? 'border-border/60 text-muted-foreground' : 'border-primary/30 bg-primary/5 text-foreground'
+                }`}
+                onClick={async () => {
+                  if (!item.isRead) {
+                    await notificationsApi.residentRead(item.id);
+                    setNotifications((prev) => prev.map((entry) => (entry.id === item.id ? { ...entry, isRead: true } : entry)));
+                  }
+                  if (item.link) router.push(`/${locale}${item.link}`);
+                  setOpen(false);
+                }}
+              >
+                <p className="font-medium">{item.title}</p>
+                <p className="line-clamp-2">{item.message}</p>
+              </button>
+            ))}
+            {!notifications.length ? <p className="p-2 text-xs text-muted-foreground">Nu ai notificări noi.</p> : null}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function AppShellContent({ children }: AppShellProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -392,10 +466,28 @@ function AppShellContent({ children }: AppShellProps) {
     return (
       <div className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,hsl(var(--muted))_0,transparent_34rem),linear-gradient(180deg,#fbfaf7_0%,hsl(var(--background))_48rem)] text-foreground md:pl-0">
         <header className="sticky top-0 z-30 hidden border-b border-border/60 bg-background/82 px-4 py-3 backdrop-blur-xl md:block">
-          <div className="mx-auto max-w-5xl">
+          <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
             <MainNavigation role={normalizedRole} variant="desktop" />
+            <ResidentNotificationButton
+              notifications={notifications}
+              open={notificationsOpen}
+              setOpen={setNotificationsOpen}
+              setNotifications={setNotifications}
+              router={router}
+              locale={locale}
+            />
           </div>
         </header>
+        <div className="fixed right-4 top-4 z-40 md:hidden">
+          <ResidentNotificationButton
+            notifications={notifications}
+            open={notificationsOpen}
+            setOpen={setNotificationsOpen}
+            setNotifications={setNotifications}
+            router={router}
+            locale={locale}
+          />
+        </div>
         <main className="mx-auto w-full max-w-5xl px-4 py-5 pb-[calc(env(safe-area-inset-bottom)+8.75rem)] md:py-8 md:pb-[calc(env(safe-area-inset-bottom)+8.75rem)]">{children}</main>
         <button
           type="button"
@@ -517,7 +609,7 @@ function AppShellContent({ children }: AppShellProps) {
                             <p className="line-clamp-2">{item.message}</p>
                           </button>
                         ))}
-                        {!notifications.length ? <p className="text-xs text-muted-foreground">Nu ai notificări.</p> : null}
+                        {!notifications.length ? <p className="text-xs text-muted-foreground">Nu ai notificări noi.</p> : null}
                       </div>
                     </div>
                   ) : null}

@@ -2,10 +2,15 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { BillingCurrency, OrganizationStatus, Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
+import { ActivityMvpService } from '../activity-mvp/activity-mvp.service';
+import type { MvpUser } from '../security/mvp-auth.guard';
 
 @Injectable()
 export class OrganizationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly activity: ActivityMvpService,
+  ) {}
 
   private readonly publicSelect = {
     id: true,
@@ -119,7 +124,7 @@ export class OrganizationsService {
     return organizations.map((organization) => this.toPublicOrganization(organization));
   }
 
-  async createPublicOrganization(body: unknown) {
+  async createPublicOrganization(body: unknown, actor?: MvpUser) {
     const input = this.parseCreateOrganizationBody(body);
 
     const duplicate = await this.prisma.organization.findFirst({
@@ -133,6 +138,17 @@ export class OrganizationsService {
     const organization = await this.prisma.organization.create({
       data: input,
       select: this.publicSelect,
+    });
+
+    await this.activity.createActivity({
+      organizationId: organization.id,
+      actorUserId: actor?.id,
+      type: 'ORGANIZATION_CREATED',
+      title: 'A.P.C. creată',
+      message: `Asociația ${organization.name} a fost creată.`,
+      targetType: 'ORGANIZATION',
+      targetId: organization.id,
+      link: `/superadmin/organizations/${organization.id}`,
     });
 
     return this.toPublicOrganization(organization);
@@ -180,7 +196,7 @@ export class OrganizationsService {
     return admins.map((admin) => this.toPublicAdmin(admin));
   }
 
-  async createPublicOrganizationAdmin(organizationId: string, body: unknown) {
+  async createPublicOrganizationAdmin(organizationId: string, body: unknown, actor?: MvpUser) {
     await this.ensureOrganizationExists(organizationId);
     const input = this.parseCreateAdminBody(body);
 
@@ -205,6 +221,17 @@ export class OrganizationsService {
         organizationId,
       },
       select: this.adminSelect,
+    });
+
+    await this.activity.createActivity({
+      organizationId,
+      actorUserId: actor?.id,
+      type: 'ADMIN_CREATED',
+      title: 'Administrator creat',
+      message: `Administratorul ${this.fullName(admin)} a fost creat.`,
+      targetType: 'USER',
+      targetId: admin.id,
+      link: '/superadmin/admins',
     });
 
     return this.toPublicAdmin(admin);
@@ -268,7 +295,7 @@ export class OrganizationsService {
     return this.toPublicOrganization(organization);
   }
 
-  async updatePublicOrganizationStatus(id: string, body: unknown) {
+  async updatePublicOrganizationStatus(id: string, body: unknown, actor?: MvpUser) {
     const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
     const status = this.optionalEnum(payload.status, OrganizationStatus, OrganizationStatus.ACTIVE, 'Statusul nu este valid.');
 
@@ -278,6 +305,17 @@ export class OrganizationsService {
       select: this.publicSelect,
     }).catch(() => {
       throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    });
+
+    await this.activity.createActivity({
+      organizationId: organization.id,
+      actorUserId: actor?.id,
+      type: 'ORGANIZATION_STATUS_UPDATED',
+      title: 'Status A.P.C. actualizat',
+      message: `Statusul asociației ${organization.name} a fost schimbat la ${organization.status}.`,
+      targetType: 'ORGANIZATION',
+      targetId: organization.id,
+      link: `/superadmin/organizations/${organization.id}`,
     });
 
     return this.toPublicOrganization(organization);

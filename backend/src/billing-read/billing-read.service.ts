@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { ApartmentStatus, InvoiceStatus, PaymentMethod, PaymentStatus, Prisma, Role } from '@prisma/client';
+import { ApartmentStatus, InvoiceStatus, NotificationType, PaymentMethod, PaymentStatus, Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { ActivityMvpService } from '../activity-mvp/activity-mvp.service';
 import type { MvpUser } from '../security/mvp-auth.guard';
 
 type SupportedTariffId = 'DESERVIRE_BLOC_PER_M2' | 'FOND_REPARATIE_PER_M2' | 'FOND_DEZVOLTARE_FIXED';
@@ -36,7 +37,10 @@ const SUPPORTED_TARIFFS: Record<
 
 @Injectable()
 export class BillingReadService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly activity: ActivityMvpService,
+  ) {}
 
   private invoiceSelect(): Prisma.InvoiceSelect {
     return {
@@ -106,6 +110,11 @@ export class BillingReadService {
 
   private invoicePaymentNote(invoiceId: string) {
     return `Invoice ${invoiceId}`;
+  }
+
+  private monthLabel(month?: number | null, year?: number | null) {
+    if (!month || !year) return 'perioada selectată';
+    return `${String(month).padStart(2, '0')}.${year}`;
   }
 
   private invoiceAmount(row: { finalAmount?: number | null; amount?: number | null }) {
@@ -396,12 +405,12 @@ export class BillingReadService {
         continue;
       }
 
-      await this.prisma.$transaction(async (tx) => {
+      const createdInvoice = await this.prisma.$transaction(async (tx) => {
         await tx.monthlyCharge.createMany({
           data: lineItems,
           skipDuplicates: true,
         });
-        await tx.invoice.create({
+        return tx.invoice.create({
           data: {
             organizationId,
             apartmentId: apartment.id,
@@ -414,11 +423,33 @@ export class BillingReadService {
             status: InvoiceStatus.UNPAID,
             dueDate: input.dueDate,
           },
+          select: { id: true },
         });
+      });
+
+      await this.activity.notifyApartmentResidents({
+        organizationId,
+        apartmentId: apartment.id,
+        type: NotificationType.INVOICE,
+        title: 'Factură emisă',
+        message: `Factura pentru ${this.monthLabel(input.month, input.year)} a fost emisă pentru apartamentul ${apartment.number}.`,
+        link: `/resident/invoices/${createdInvoice.id}`,
       });
 
       createdInvoicesCount += 1;
       totalAmount = this.money(totalAmount + invoiceAmount);
+    }
+
+    if (createdInvoicesCount > 0) {
+      await this.activity.createActivity({
+        organizationId,
+        actorUserId: user.id,
+        type: 'INVOICE_CREATED',
+        title: `Facturi generate pentru ${this.monthLabel(input.month, input.year)}`,
+        message: `Facturile pentru ${this.monthLabel(input.month, input.year)} au fost generate: ${createdInvoicesCount} create, ${skippedDuplicatesCount} omise.`,
+        targetType: 'INVOICE',
+        link: '/admin/invoices',
+      });
     }
 
     return {
@@ -697,6 +728,26 @@ export class BillingReadService {
       });
       updatedInvoiceStatus = updated.status;
     }
+
+    await this.activity.createActivity({
+      organizationId: input.organizationId,
+      actorUserId: user.id,
+      type: 'PAYMENT_REGISTERED',
+      title: 'Plată înregistrată',
+      message: `Plata de ${this.money(input.amount).toLocaleString('ro-RO')} MDL a fost înregistrată.`,
+      targetType: 'PAYMENT',
+      targetId: payment.id,
+      link: '/admin/payments',
+    });
+
+    await this.activity.notifyApartmentResidents({
+      organizationId: input.organizationId,
+      apartmentId: input.apartmentId,
+      type: NotificationType.PAYMENT,
+      title: 'Plată înregistrată',
+      message: `A fost înregistrată o plată de ${this.money(input.amount).toLocaleString('ro-RO')} MDL pentru apartamentul tău.`,
+      link: '/resident/payments',
+    });
 
     return {
       ...this.toPayment(payment),

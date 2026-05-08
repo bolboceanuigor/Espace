@@ -13,6 +13,7 @@ import { MinimalAuthModule } from './minimal-auth/minimal-auth.module';
 import { SaasManagementModule } from './saas-management/saas-management.module';
 import { SetupModule } from './setup/setup.module';
 import { MessagesMvpModule } from './messages-mvp/messages-mvp.module';
+import { ActivityMvpModule } from './activity-mvp/activity-mvp.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -33,6 +34,7 @@ import { AppController } from './app.controller';
     SaasManagementModule,
     SetupModule,
     MessagesMvpModule,
+    ActivityMvpModule,
   ],
   controllers: [AppController],
   providers: [],

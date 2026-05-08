@@ -505,6 +505,10 @@ export const exportsApi = {
 export const activityApi = {
   getAll: (params?: { limit?: number; entityType?: string; userId?: string }) =>
     apiRequest<any[]>('/api/activity', { params }),
+  adminList: (params?: { limit?: number }) =>
+    apiRequest<any[]>('/api/admin/activity', { params }),
+  superadminList: (params?: { limit?: number }) =>
+    apiRequest<any[]>('/api/superadmin/activity', { params }),
 };
 
 export const channelsApi = {

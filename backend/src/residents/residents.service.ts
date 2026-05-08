@@ -2,11 +2,15 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { InvoiceStatus, PlatformRole, Prisma, ResidentAccountStatus, Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
+import { ActivityMvpService } from '../activity-mvp/activity-mvp.service';
 import type { MvpUser } from '../security/mvp-auth.guard';
 
 @Injectable()
 export class ResidentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly activity: ActivityMvpService,
+  ) {}
 
   private residentSelect(): Prisma.ResidentProfileSelect {
     return {
@@ -206,6 +210,17 @@ export class ResidentsService {
       select: this.residentSelect(),
     });
 
+    await this.activity.createActivity({
+      organizationId: resident.organizationId,
+      actorUserId: user.id,
+      type: 'RESIDENT_CREATED',
+      title: 'Locatar creat',
+      message: `Locatarul ${this.fullName(resident)} a fost creat.`,
+      targetType: 'RESIDENT',
+      targetId: resident.id,
+      link: `/admin/residents/${resident.id}`,
+    });
+
     return this.toResident(resident);
   }
 
@@ -298,6 +313,17 @@ export class ResidentsService {
       });
 
       return { createdUser, updatedResident };
+    });
+
+    await this.activity.createActivity({
+      organizationId: resident.organizationId,
+      actorUserId: user.id,
+      type: 'RESIDENT_CREATED',
+      title: 'Cont locatar creat',
+      message: `Contul locatarului ${this.fullName(resident)} a fost creat.`,
+      targetType: 'RESIDENT',
+      targetId: resident.id,
+      link: `/admin/residents/${resident.id}`,
     });
 
     return {

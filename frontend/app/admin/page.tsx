@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { AlertCircle, Bell, Building2, CheckCircle2, CreditCard, FileText, Gauge, Megaphone, MessageCircle, PlusCircle, Users } from 'lucide-react';
 import { ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
 import { formatMdl } from '@/lib/condo-admin-fallback';
-import { announcementsApi, apartmentsApi, financeApi, invoicesApi, issuesApi, metersApi, onboardingApi, paymentsApi, residentsApi } from '@/lib/api';
+import { activityApi, announcementsApi, apartmentsApi, financeApi, invoicesApi, issuesApi, metersApi, onboardingApi, paymentsApi, residentsApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 const fallbackRecentActivity = [
@@ -107,8 +107,9 @@ export default function AdminPage() {
       announcementsApi.list().catch(() => ({ data: [] })),
       financeApi.overview().catch(() => ({ data: null })),
       onboardingApi.adminGet().catch(() => ({ data: null })),
+      activityApi.adminList({ limit: 20 }).catch(() => ({ data: [] })),
     ])
-      .then(([apartmentsRes, invoicesRes, metersRes, issuesRes, residentsRes, paymentsRes, announcementsRes, financeRes, onboardingRes]) => {
+      .then(([apartmentsRes, invoicesRes, metersRes, issuesRes, residentsRes, paymentsRes, announcementsRes, financeRes, onboardingRes, activityRes]) => {
         if (!active) return;
         const apartments = apartmentsRes.data || [];
         const invoices = invoicesRes.data || [];
@@ -161,11 +162,11 @@ export default function AdminPage() {
             nextStep: onboardingRes.data.nextStep,
           });
         }
-        setRecentActivity([
-          `${apartments.length} apartamente în evidență`,
-          `${unpaidInvoices.length} facturi neachitate`,
-          `${openIssues.length} cereri deschise`,
-        ]);
+        setRecentActivity(
+          (activityRes.data || [])
+            .slice(0, 20)
+            .map((item: any) => String(item.title || item.message || 'Activitate')),
+        );
         setSource('api');
       })
       .catch(() => {
@@ -305,6 +306,7 @@ export default function AdminPage() {
                 {item}
               </div>
             ))}
+            {!recentActivity.length ? <p className="text-sm text-muted-foreground">Nu există activitate recentă.</p> : null}
           </div>
         </Card>
 

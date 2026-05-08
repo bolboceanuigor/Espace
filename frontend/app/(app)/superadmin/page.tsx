@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Activity, Building2, CreditCard, Gauge, Plus, ShieldCheck, Timer, UserCog, Users } from 'lucide-react';
 import { Card, PageHeader, StatCard } from '@/components/ui';
-import { superadminApi } from '@/lib/api';
+import { activityApi, superadminApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 import {
   mockAssociations,
@@ -21,11 +21,12 @@ export default function SuperadminPage() {
   const [source, setSource] = useState<'loading' | 'api' | 'mock'>('loading');
   const [overview, setOverview] = useState<any | null>(null);
   const [recentAdmins, setRecentAdmins] = useState<MvpAdministrator[]>([]);
+  const [platformActivity, setPlatformActivity] = useState<any[]>([]);
 
   useEffect(() => {
     let active = true;
-    Promise.allSettled([superadminApi.listPublicOrganizations(), superadminApi.overview()])
-      .then(([organizationsResult, overviewResult]) => {
+    Promise.allSettled([superadminApi.listPublicOrganizations(), superadminApi.overview(), activityApi.superadminList({ limit: 20 })])
+      .then(([organizationsResult, overviewResult, activityResult]) => {
         if (!active) return;
         if (organizationsResult.status === 'fulfilled') {
           const apiRows = (organizationsResult.value.data || []).map(normalizeApiAssociation);
@@ -42,6 +43,9 @@ export default function SuperadminPage() {
             setRecentAdmins(data.recentAdmins.map(normalizeApiAdministrator));
           }
           setSource('api');
+        }
+        if (activityResult.status === 'fulfilled') {
+          setPlatformActivity(activityResult.value.data || []);
         }
       })
       .catch(() => {
@@ -194,6 +198,39 @@ export default function SuperadminPage() {
           ) : null}
           </div>
         </Card>
+
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-foreground">Activitate platformă</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Ultimele schimbări reale din asociații și administratori.</p>
+          </div>
+          <Link href={localizedPath('/superadmin/audit-logs')} className="text-sm font-semibold text-primary">
+            Vezi jurnal
+          </Link>
+        </div>
+        <div className="mt-5 space-y-2">
+          {platformActivity.slice(0, 10).map((item) => (
+            <div key={item.id} className="rounded-2xl border border-border/70 bg-muted/25 px-4 py-3">
+              <p className="text-sm font-semibold text-foreground">{item.title || item.type}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{item.message || 'Activitate înregistrată.'}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {item.organization?.name || 'Platformă'} · {item.createdAt ? new Date(item.createdAt).toLocaleDateString('ro-RO') : '-'}
+              </p>
+            </div>
+          ))}
+          {source === 'loading' ? (
+            <div className="rounded-2xl border border-border/70 bg-muted/25 p-4 text-sm font-medium text-muted-foreground">
+              Se încarcă activitatea...
+            </div>
+          ) : null}
+          {source !== 'loading' && !platformActivity.length ? (
+            <div className="rounded-2xl border border-border/70 bg-muted/25 p-4 text-sm font-medium text-muted-foreground">
+              Nu există activitate recentă în platformă.
+            </div>
+          ) : null}
+        </div>
+      </Card>
     </div>
   );
 }

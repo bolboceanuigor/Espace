@@ -7,15 +7,20 @@ import {
   IssueStatus,
   MeterReadingSource,
   MeterStatus,
+  NotificationType,
   PaymentStatus,
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { ActivityMvpService } from '../activity-mvp/activity-mvp.service';
 import type { MvpUser } from '../security/mvp-auth.guard';
 
 @Injectable()
 export class ResidentDemoService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly activity: ActivityMvpService,
+  ) {}
 
   private apartmentSelect(): Prisma.ApartmentSelect {
     return {
@@ -670,6 +675,17 @@ export class ResidentDemoService {
       data: { status: MeterStatus.ACTIVE },
     });
 
+    await this.activity.createActivity({
+      organizationId: meter.organizationId,
+      actorUserId: user.id,
+      type: 'METER_READING_ADDED',
+      title: 'Citire transmisă de locatar',
+      message: `Locatarul a transmis o citire de ${input.value}.`,
+      targetType: 'METER_READING',
+      targetId: reading.id,
+      link: '/admin/meters',
+    });
+
     return reading;
   }
 
@@ -707,6 +723,26 @@ export class ResidentDemoService {
         locationType: IssueLocationType.APARTMENT,
       },
       select: this.issueSelect(),
+    });
+
+    await this.activity.createActivity({
+      organizationId: issue.organizationId,
+      actorUserId: user.id,
+      type: 'ISSUE_CREATED',
+      title: 'Cerere nouă',
+      message: `Locatarul a trimis cererea „${issue.title}”.`,
+      targetType: 'ISSUE',
+      targetId: issue.id,
+      link: `/admin/issues/${issue.id}`,
+    });
+
+    await this.activity.createNotification({
+      organizationId: issue.organizationId,
+      userId: user.id,
+      type: NotificationType.ISSUE,
+      title: 'Cererea a fost trimisă',
+      message: `Cererea „${issue.title}” a fost înregistrată.`,
+      link: `/resident/issues/${issue.id}`,
     });
 
     return this.toIssue(issue);

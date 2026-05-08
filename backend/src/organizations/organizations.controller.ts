@@ -1,8 +1,9 @@
 import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { OrganizationsService } from './organizations.service';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { MvpAuthGuard, MvpRolesGuard } from '../security/mvp-auth.guard';
+import { MvpAuthGuard, MvpRolesGuard, MvpUser } from '../security/mvp-auth.guard';
 
 @Controller(['organizations', 'api/organizations'])
 @UseGuards(MvpAuthGuard, MvpRolesGuard)
@@ -16,13 +17,13 @@ export class OrganizationsController {
   }
 
   @Post()
-  createPublicOrganization(@Body() body: unknown) {
-    return this.organizationsService.createPublicOrganization(body);
+  createPublicOrganization(@CurrentUser() user: MvpUser, @Body() body: unknown) {
+    return this.organizationsService.createPublicOrganization(body, user);
   }
 
   @Patch(':id/status')
-  updatePublicOrganizationStatus(@Param('id') id: string, @Body() body: unknown) {
-    return this.organizationsService.updatePublicOrganizationStatus(id, body);
+  updatePublicOrganizationStatus(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.organizationsService.updatePublicOrganizationStatus(id, body, user);
   }
 
   @Patch(':id')
@@ -36,8 +37,8 @@ export class OrganizationsController {
   }
 
   @Post(':organizationId/admins')
-  createPublicOrganizationAdmin(@Param('organizationId') organizationId: string, @Body() body: unknown) {
-    return this.organizationsService.createPublicOrganizationAdmin(organizationId, body);
+  createPublicOrganizationAdmin(@CurrentUser() user: MvpUser, @Param('organizationId') organizationId: string, @Body() body: unknown) {
+    return this.organizationsService.createPublicOrganizationAdmin(organizationId, body, user);
   }
 
   @Get(':id')

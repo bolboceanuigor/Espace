@@ -1,11 +1,15 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { ApartmentResidentRole, ApartmentStatus, InvoiceStatus, MeterStatus, PaymentStatus, Prisma, Role } from '@prisma/client';
+import { ApartmentResidentRole, ApartmentStatus, InvoiceStatus, MeterStatus, NotificationType, PaymentStatus, Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { ActivityMvpService } from '../activity-mvp/activity-mvp.service';
 import type { MvpUser } from '../security/mvp-auth.guard';
 
 @Injectable()
 export class ApartmentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly activity: ActivityMvpService,
+  ) {}
 
   private apartmentSelect(): Prisma.ApartmentSelect {
     return {
@@ -321,6 +325,17 @@ export class ApartmentsService {
       select: this.apartmentSelect(),
     });
 
+    await this.activity.createActivity({
+      organizationId: apartment.organizationId,
+      actorUserId: user.id,
+      type: 'APARTMENT_CREATED',
+      title: 'Apartament creat',
+      message: `Apartamentul ${apartment.number} a fost creat.`,
+      targetType: 'APARTMENT',
+      targetId: apartment.id,
+      link: `/admin/apartments/${apartment.id}`,
+    });
+
     return this.toDetailApartment(apartment);
   }
 
@@ -403,6 +418,15 @@ export class ApartmentsService {
 
     if (summary.createdCount > 0) {
       await this.syncBuildingCounters(input.buildingId);
+      await this.activity.createActivity({
+        organizationId: building.organizationId,
+        actorUserId: user.id,
+        type: 'APARTMENT_CREATED',
+        title: 'Apartamente create în masă',
+        message: `${summary.createdCount} apartamente au fost create în masă. ${summary.skippedCount} au fost omise.`,
+        targetType: 'APARTMENT',
+        link: '/admin/apartments',
+      });
     }
 
     return summary;
@@ -470,6 +494,7 @@ export class ApartmentsService {
         resident: {
           select: {
             id: true,
+            userId: true,
             firstName: true,
             lastName: true,
             phone: true,
@@ -491,6 +516,28 @@ export class ApartmentsService {
       await this.prisma.apartment.update({
         where: { id: apartmentId },
         data: { ownerResidentId: input.residentId },
+      });
+    }
+
+    await this.activity.createActivity({
+      organizationId: relation.apartment.organizationId,
+      actorUserId: user.id,
+      type: 'RESIDENT_LINKED',
+      title: 'Locatar conectat',
+      message: `${this.formatResidentName(relation.resident)} a fost conectat la apartamentul ${relation.apartment.number}.`,
+      targetType: 'APARTMENT',
+      targetId: apartmentId,
+      link: `/admin/apartments/${apartmentId}`,
+    });
+
+    if (relation.resident.userId) {
+      await this.activity.createNotification({
+        organizationId: relation.apartment.organizationId,
+        userId: relation.resident.userId,
+        type: NotificationType.SYSTEM,
+        title: 'Apartament conectat',
+        message: `Contul tău a fost conectat la apartamentul ${relation.apartment.number}.`,
+        link: '/resident/account',
       });
     }
 
