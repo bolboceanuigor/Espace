@@ -1116,7 +1116,7 @@ export const tariffsApi = {
   list: () => apiRequest<any[]>('/api/admin/tariffs'),
   create: (data: {
     name: string;
-    type: 'PER_M2' | 'FIXED';
+    type: 'PER_M2' | 'FIXED_PER_APARTMENT' | 'FIXED';
     amount: number;
     currency?: 'MDL';
     isActive?: boolean;
@@ -1126,7 +1126,7 @@ export const tariffsApi = {
     id: string,
     data: {
       name?: string;
-      type?: 'PER_M2' | 'FIXED';
+      type?: 'PER_M2' | 'FIXED_PER_APARTMENT' | 'FIXED';
       amount: number;
       currency?: 'MDL';
       isActive?: boolean;
@@ -1148,7 +1148,7 @@ export const paymentsApi = {
     apartmentId: string;
     invoiceId?: string;
     amount: number;
-    method: 'CASH' | 'BANK' | 'BANK_TRANSFER' | 'CARD' | 'ONLINE';
+    method: 'CASH' | 'BANK' | 'BANK_TRANSFER' | 'CARD';
     paidAt?: string;
   }) => apiRequest<any>('/payments', { method: 'POST', body: data }),
   adminList: (params?: {
@@ -1166,7 +1166,7 @@ export const paymentsApi = {
     apartmentId: string;
     invoiceId?: string;
     amount: number;
-    method: 'CASH' | 'BANK_TRANSFER' | 'CARD' | 'ONLINE';
+    method: 'CASH' | 'BANK' | 'BANK_TRANSFER' | 'CARD';
     note?: string;
   }) => apiRequest<any>('/api/admin/payments/manual', { method: 'POST', body: data }),
   adminConfirm: (id: string) => apiRequest<any>(`/api/admin/payments/${id}/confirm`, { method: 'PATCH' }),

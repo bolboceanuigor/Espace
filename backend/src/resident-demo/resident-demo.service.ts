@@ -747,7 +747,7 @@ export class ResidentDemoService {
     })[0];
     const totalInvoiced = this.money(invoices.reduce((sum, invoice) => sum + Number(invoice.amount || 0), 0));
     const totalPaid = this.confirmedPaymentTotal(payments);
-    const totalDebt = this.money(invoices.reduce((sum, invoice) => sum + Number(invoice.remainingAmount ?? invoice.amount ?? 0), 0));
+    const totalDebt = this.money(Math.max(totalInvoiced - totalPaid, 0));
 
     return {
       user: scope.user,
@@ -825,12 +825,14 @@ export class ResidentDemoService {
         return sum + Number(payment.amount || 0);
       }, 0),
     );
+    const totalInvoiced = this.money(invoices.reduce((sum, invoice) => sum + Number(invoice.amount || 0), 0));
+    const totalPaid = this.confirmedPaymentTotal(payments);
     const lastPayment = [...confirmedPayments].sort((a, b) => {
       const left = a.paidAt ? new Date(a.paidAt).getTime() : 0;
       const right = b.paidAt ? new Date(b.paidAt).getTime() : 0;
       return right - left;
     })[0];
-    const totalDebt = this.money(openInvoices.reduce((sum, invoice) => sum + Number(invoice.remainingAmount ?? invoice.amount ?? 0), 0));
+    const totalDebt = this.money(Math.max(totalInvoiced - totalPaid, 0));
     const primaryApartment = scope.primaryApartment
       ? {
           id: scope.primaryApartment.id,

@@ -146,6 +146,7 @@ export class ApartmentsService {
     const confirmedPayments = (payments || []).filter((payment) => payment.status === PaymentStatus.CONFIRMED);
     const totalInvoiced = this.money((invoices || []).reduce((sum, invoice) => sum + this.invoiceAmount(invoice), 0));
     const totalPaid = this.money(confirmedPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0));
+    const totalDebt = this.money(Math.max(totalInvoiced - totalPaid, 0));
     const now = new Date();
     const invoiceSummaries = (invoices || []).map((invoice) => {
       const paidForInvoice = confirmedPayments
@@ -161,8 +162,8 @@ export class ApartmentsService {
     return {
       totalInvoiced,
       totalPaid,
-      debt: this.money(openInvoices.reduce((sum, invoice) => sum + invoice.remainingDebt, 0)),
-      totalDebt: this.money(openInvoices.reduce((sum, invoice) => sum + invoice.remainingDebt, 0)),
+      debt: totalDebt,
+      totalDebt,
       unpaidInvoices: openInvoices.length,
       unpaidInvoicesCount: openInvoices.length,
       overdueInvoicesCount: openInvoices.filter((invoice) => invoice.status === InvoiceStatus.OVERDUE || (invoice.dueDate ? invoice.dueDate < now : false)).length,

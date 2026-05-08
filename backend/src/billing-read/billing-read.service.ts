@@ -9,7 +9,7 @@ const SUPPORTED_TARIFFS: Record<
   SupportedTariffId,
   {
     name: string;
-    calculationType: 'PER_M2' | 'FIXED';
+    calculationType: 'PER_M2' | 'FIXED_PER_APARTMENT';
     field: 'maintenanceFeePerM2' | 'repairFundPerM2' | 'developmentFundFixed';
     unit: string;
   }
@@ -28,7 +28,7 @@ const SUPPORTED_TARIFFS: Record<
   },
   FOND_DEZVOLTARE_FIXED: {
     name: 'Fond dezvoltare',
-    calculationType: 'FIXED',
+    calculationType: 'FIXED_PER_APARTMENT',
     field: 'developmentFundFixed',
     unit: 'MDL/apartament',
   },
@@ -125,9 +125,24 @@ export class BillingReadService {
     return this.money(Math.max(this.invoiceAmount(row) - this.confirmedPaymentTotal(payments), 0));
   }
 
+  private calculateInvoiceStatus(
+    row: { status?: InvoiceStatus; finalAmount?: number | null; amount?: number | null; dueDate?: Date | string | null },
+    payments: any[] = [],
+  ) {
+    const amount = this.invoiceAmount(row);
+    const paidAmount = this.confirmedPaymentTotal(payments);
+    if (row.status === InvoiceStatus.PAID || paidAmount >= amount) return InvoiceStatus.PAID;
+    if (row.dueDate && new Date(row.dueDate) < new Date()) return InvoiceStatus.OVERDUE;
+    return InvoiceStatus.UNPAID;
+  }
+
   private toInvoice(row: any, relatedPayments: any[] = [], services: any[] = []) {
     const paidAmount = this.confirmedPaymentTotal(relatedPayments);
-    const remainingDebt = this.remainingDebtForInvoice(row, relatedPayments);
+    const calculatedStatus = this.calculateInvoiceStatus(row, relatedPayments);
+    const remainingDebt =
+      calculatedStatus === InvoiceStatus.PAID
+        ? 0
+        : this.money(Math.max(this.invoiceAmount(row) - paidAmount, 0));
     return {
       id: row.id,
       organizationId: row.organizationId,
@@ -146,7 +161,7 @@ export class BillingReadService {
       year: row.year,
       amount: Number(row.finalAmount || row.amount || 0),
       originalAmount: Number(row.amount || 0),
-      status: row.status,
+      status: calculatedStatus,
       issuedAt: row.issuedAt,
       paidAt: row.paidAt,
       dueDate: row.dueDate,
@@ -244,6 +259,7 @@ export class BillingReadService {
           name: config.name,
           type: config.calculationType,
           calculationType: config.calculationType,
+          legacyType: config.calculationType === 'PER_M2' ? 'PER_M2' : 'FIXED',
           amount,
           currency: 'MDL',
           unit: config.unit,
@@ -295,6 +311,17 @@ export class BillingReadService {
 
   async deactivateTariff(user: MvpUser, tariffId: string) {
     return this.saveTariff(user, { amount: 0, isActive: false }, tariffId);
+  }
+
+  async updateTariffStatus(user: MvpUser, tariffId: string, body: unknown) {
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const isActive = Boolean(payload.isActive ?? payload.active ?? payload.status === 'ACTIVE');
+    const organizationId = this.resolveOrganizationId(user, payload);
+    this.assertOrganizationAccess(user, organizationId);
+    const settings = await this.getOrCreateOrganizationSettings(organizationId);
+    const existing = this.toTariffRows(settings).find((tariff) => tariff.id === this.resolveTariffId({}, tariffId));
+    const requestedAmount = payload.amount === undefined || payload.amount === null || payload.amount === '' ? existing?.amount : payload.amount;
+    return this.saveTariff(user, { ...payload, amount: isActive ? Number(requestedAmount || 0) : 0, isActive }, tariffId);
   }
 
   async generateMonthlyInvoices(user: MvpUser, body: unknown) {
@@ -395,6 +422,8 @@ export class BillingReadService {
     }
 
     return {
+      createdCount: createdInvoicesCount,
+      skippedCount: skippedDuplicatesCount,
       createdInvoicesCount,
       skippedDuplicatesCount,
       totalAmount,
@@ -430,7 +459,7 @@ export class BillingReadService {
 
     const totalIssued = this.money(invoices.reduce((sum, invoice) => sum + Number(invoice.finalAmount || invoice.amount || 0), 0));
     const totalPaid = this.money(payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0));
-    const unpaidInvoices = invoices.filter((invoice) => invoice.status === InvoiceStatus.UNPAID || invoice.status === InvoiceStatus.OVERDUE);
+    const unpaidInvoices = invoices.filter((invoice) => this.calculateInvoiceStatus(invoice) !== InvoiceStatus.PAID);
     const now = new Date();
 
     return {
@@ -439,7 +468,7 @@ export class BillingReadService {
       totalIssued,
       totalPaid,
       totalUnpaid: this.money(unpaidInvoices.reduce((sum, invoice) => sum + Number(invoice.finalAmount || invoice.amount || 0), 0)),
-      overdueCount: invoices.filter((invoice) => invoice.status === InvoiceStatus.OVERDUE || (invoice.status !== InvoiceStatus.PAID && invoice.dueDate < now)).length,
+      overdueCount: invoices.filter((invoice) => this.calculateInvoiceStatus(invoice) === InvoiceStatus.OVERDUE).length,
       invoicesCount: invoices.length,
       currency: 'MDL',
     };
@@ -657,7 +686,7 @@ export class BillingReadService {
       });
       const paidAmount = this.confirmedPaymentTotal(linkedPayments);
       const invoiceAmount = this.invoiceAmount(invoice);
-      const nextStatus = paidAmount >= invoiceAmount ? InvoiceStatus.PAID : invoice.dueDate < new Date() ? InvoiceStatus.OVERDUE : InvoiceStatus.UNPAID;
+      const nextStatus = this.calculateInvoiceStatus(invoice, linkedPayments);
       const updated = await this.prisma.invoice.update({
         where: { id: invoice.id },
         data: {
@@ -751,18 +780,16 @@ export class BillingReadService {
 
     const totalIssued = this.money(invoices.reduce((sum, invoice) => sum + this.invoiceAmount(invoice), 0));
     const totalPaid = this.confirmedPaymentTotal(payments);
-    const totalDebt = this.money(
-      invoices.reduce((sum, invoice) => {
-        const linkedPayments = payments.filter((payment) => payment.note === this.invoicePaymentNote(invoice.id));
-        return sum + this.remainingDebtForInvoice(invoice, linkedPayments);
-      }, 0),
-    );
-    const overdueInvoices = invoices.filter((invoice) => invoice.status !== InvoiceStatus.PAID && (invoice.status === InvoiceStatus.OVERDUE || invoice.dueDate < now));
+    const totalDebt = this.money(Math.max(totalIssued - totalPaid, 0));
+    const overdueInvoices = invoices.filter((invoice) => {
+      const linkedPayments = payments.filter((payment) => payment.note === this.invoicePaymentNote(invoice.id));
+      return this.calculateInvoiceStatus(invoice, linkedPayments) === InvoiceStatus.OVERDUE;
+    });
     const apartmentsWithDebt = new Set(
       invoices
         .filter((invoice) => {
           const linkedPayments = payments.filter((payment) => payment.note === this.invoicePaymentNote(invoice.id));
-          return this.remainingDebtForInvoice(invoice, linkedPayments) > 0;
+          return this.calculateInvoiceStatus(invoice, linkedPayments) !== InvoiceStatus.PAID;
         })
         .map((invoice) => invoice.apartmentId)
         .filter(Boolean),
@@ -781,7 +808,10 @@ export class BillingReadService {
       collectionRate,
       currentMonthIssued,
       currentMonthPaid,
-      unpaidInvoices: invoices.filter((invoice) => invoice.status !== InvoiceStatus.PAID).length,
+      unpaidInvoices: invoices.filter((invoice) => {
+        const linkedPayments = payments.filter((payment) => payment.note === this.invoicePaymentNote(invoice.id));
+        return this.calculateInvoiceStatus(invoice, linkedPayments) !== InvoiceStatus.PAID;
+      }).length,
       currency: 'MDL',
     };
   }

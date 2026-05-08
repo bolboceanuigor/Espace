@@ -238,7 +238,7 @@ function paymentMethodFromApi(method?: string | null) {
   if (normalized === 'CASH') return 'Numerar';
   if (normalized === 'BANK' || normalized === 'BANK_TRANSFER') return 'Transfer bancar';
   if (normalized === 'CARD') return 'Card bancar';
-  if (normalized === 'ONLINE') return 'Online';
+  if (normalized === 'ONLINE') return 'Altă metodă';
   return '-';
 }
 

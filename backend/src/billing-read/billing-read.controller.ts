@@ -31,6 +31,11 @@ export class BillingReadController {
     return this.billingReadService.saveTariff(user, body, id);
   }
 
+  @Patch(['admin/tariffs/:id/status', 'api/admin/tariffs/:id/status'])
+  updateTariffStatus(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.billingReadService.updateTariffStatus(user, id, body);
+  }
+
   @Delete(['admin/tariffs/:id', 'api/admin/tariffs/:id'])
   deactivateTariff(@CurrentUser() user: MvpUser, @Param('id') id: string) {
     return this.billingReadService.deactivateTariff(user, id);

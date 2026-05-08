@@ -14,7 +14,7 @@ const paymentMethods = {
   CASH: 'Numerar',
   BANK_TRANSFER: 'Transfer bancar',
   CARD: 'Card bancar',
-  ONLINE: 'Online',
+  BANK: 'Altă metodă',
 } as const;
 const emptyPaymentForm = {
   apartmentId: '',

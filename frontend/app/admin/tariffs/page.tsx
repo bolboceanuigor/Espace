@@ -10,8 +10,8 @@ type Tariff = {
   id: string;
   code: string;
   name: string;
-  type: 'PER_M2' | 'FIXED';
-  calculationType?: 'PER_M2' | 'FIXED';
+  type: 'PER_M2' | 'FIXED_PER_APARTMENT' | 'FIXED';
+  calculationType?: 'PER_M2' | 'FIXED_PER_APARTMENT' | 'FIXED';
   amount: number;
   currency: 'MDL';
   unit: string;
@@ -21,13 +21,13 @@ type Tariff = {
 const tariffOptions = [
   { id: 'DESERVIRE_BLOC_PER_M2', label: 'Deservire bloc', type: 'PER_M2' as const },
   { id: 'FOND_REPARATIE_PER_M2', label: 'Fond reparație', type: 'PER_M2' as const },
-  { id: 'FOND_DEZVOLTARE_FIXED', label: 'Fond dezvoltare', type: 'FIXED' as const },
+  { id: 'FOND_DEZVOLTARE_FIXED', label: 'Fond dezvoltare', type: 'FIXED_PER_APARTMENT' as const },
 ];
 
 const emptyForm = {
   id: 'DESERVIRE_BLOC_PER_M2',
   name: 'Deservire bloc',
-  type: 'PER_M2' as 'PER_M2' | 'FIXED',
+  type: 'PER_M2' as 'PER_M2' | 'FIXED_PER_APARTMENT' | 'FIXED',
   amount: '',
   isActive: true,
 };
@@ -70,7 +70,7 @@ export default function AdminTariffsPage() {
     [activeRows],
   );
   const fixedTotal = useMemo(
-    () => activeRows.filter((row) => row.type === 'FIXED').reduce((sum, row) => sum + Number(row.amount || 0), 0),
+    () => activeRows.filter((row) => row.type === 'FIXED' || row.type === 'FIXED_PER_APARTMENT').reduce((sum, row) => sum + Number(row.amount || 0), 0),
     [activeRows],
   );
 
@@ -242,7 +242,7 @@ export default function AdminTariffsPage() {
               <span className="label">Tip calcul</span>
               <select className="select" value={form.type} onChange={(event) => setForm((current) => ({ ...current, type: event.target.value as typeof form.type }))}>
                 <option value="PER_M2">Per m²</option>
-                <option value="FIXED">Sumă fixă</option>
+                <option value="FIXED_PER_APARTMENT">Sumă fixă per apartament</option>
               </select>
             </label>
             <Input label="Suma" type="number" value={form.amount} onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))} required />
@@ -287,7 +287,7 @@ function TariffCard({ tariff, onEdit, onDeactivate }: { tariff: Tariff; onEdit: 
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold text-foreground">{tariff.name}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{tariff.type === 'PER_M2' ? 'Per m²' : 'Sumă fixă'} · {tariff.unit}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{tariff.type === 'PER_M2' ? 'Per m²' : 'Sumă fixă per apartament'} · {tariff.unit}</p>
         </div>
         <Badge variant={tariff.isActive ? 'success' : 'neutral'}>{tariff.isActive ? 'Activ' : 'Inactiv'}</Badge>
       </div>
