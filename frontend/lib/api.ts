@@ -921,6 +921,36 @@ export const communicationsApi = {
     apiRequest<any>(`/api/admin/announcement-comments/${id}`, { method: 'DELETE' }),
 };
 
+export const documentsApi = {
+  adminList: (params?: { category?: string; visibility?: string; search?: string }) =>
+    apiRequest<any[]>('/api/documents', { params }),
+  adminGet: (id: string) => apiRequest<any>(`/api/documents/${id}`),
+  adminCreate: (data: {
+    title: string;
+    description?: string;
+    category: 'STATUT' | 'PROCES_VERBAL' | 'HOTARARE' | 'CONTRACT' | 'FINANCIAR' | 'TEHNIC' | 'ANUNT' | 'ALTUL';
+    visibility: 'ADMIN_ONLY' | 'RESIDENT_VISIBLE';
+    fileUrl: string;
+    fileName?: string;
+    mimeType?: string;
+  }) => apiRequest<any>('/api/documents', { method: 'POST', body: data }),
+  adminUpdate: (
+    id: string,
+    data: Partial<{
+      title: string;
+      description: string;
+      category: 'STATUT' | 'PROCES_VERBAL' | 'HOTARARE' | 'CONTRACT' | 'FINANCIAR' | 'TEHNIC' | 'ANUNT' | 'ALTUL';
+      visibility: 'ADMIN_ONLY' | 'RESIDENT_VISIBLE';
+      fileUrl: string;
+      fileName: string;
+      mimeType: string;
+    }>,
+  ) => apiRequest<any>(`/api/documents/${id}`, { method: 'PATCH', body: data }),
+  residentList: (params?: { category?: string; search?: string }) =>
+    apiRequest<any[]>('/api/resident/documents', { params }),
+  residentGet: (id: string) => apiRequest<any>(`/api/resident/documents/${id}`),
+};
+
 export const issuesApi = {
   list: () => apiRequest<any[]>('/issues'),
   get: (id: string) => apiRequest<any>(`/issues/${id}`),

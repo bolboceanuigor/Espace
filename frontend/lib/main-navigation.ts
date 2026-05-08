@@ -14,6 +14,7 @@ export type MainNavigationKey =
   | 'meters'
   | 'payments'
   | 'issues'
+  | 'documents'
   | 'chat'
   | 'imports'
   | 'buildingSettings'
@@ -54,6 +55,7 @@ export const ADMIN_NAVIGATION_ITEMS: MainNavigationItem[] = [
   { key: 'payments', label: 'Plăți', href: '/admin/payments' },
   { key: 'issues', label: 'Cereri', href: '/admin/issues' },
   { key: 'announcements', label: 'Avizier', href: '/admin/announcements' },
+  { key: 'documents', label: 'Documente', href: '/admin/documents' },
   { key: 'imports', label: 'Import date', href: '/admin/imports' },
   { key: 'buildingSettings', label: 'Setări', href: '/admin/settings/organization' },
 ];
@@ -64,6 +66,7 @@ export const RESIDENT_NAVIGATION_ITEMS: MainNavigationItem[] = [
   { key: 'payments', label: 'Facturi', href: '/resident/invoices' },
   { key: 'meters', label: 'Contoare', href: '/resident/meters' },
   { key: 'issues', label: 'Cereri', href: '/resident/issues' },
+  { key: 'documents', label: 'Documente', href: '/resident/documents' },
   { key: 'account', label: 'Cont', href: '/resident/account' },
 ];
 

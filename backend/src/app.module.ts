@@ -14,6 +14,7 @@ import { SaasManagementModule } from './saas-management/saas-management.module';
 import { SetupModule } from './setup/setup.module';
 import { MessagesMvpModule } from './messages-mvp/messages-mvp.module';
 import { ActivityMvpModule } from './activity-mvp/activity-mvp.module';
+import { DocumentsMvpModule } from './documents-mvp/documents-mvp.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -35,6 +36,7 @@ import { AppController } from './app.controller';
     SetupModule,
     MessagesMvpModule,
     ActivityMvpModule,
+    DocumentsMvpModule,
   ],
   controllers: [AppController],
   providers: [],

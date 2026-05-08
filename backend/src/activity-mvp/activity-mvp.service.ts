@@ -16,7 +16,9 @@ export type MvpActivityType =
   | 'PAYMENT_REGISTERED'
   | 'ISSUE_CREATED'
   | 'ISSUE_STATUS_UPDATED'
-  | 'ANNOUNCEMENT_CREATED';
+  | 'ANNOUNCEMENT_CREATED'
+  | 'DOCUMENT_CREATED'
+  | 'DOCUMENT_UPDATED';
 
 type ActivityInput = {
   organizationId?: string | null;

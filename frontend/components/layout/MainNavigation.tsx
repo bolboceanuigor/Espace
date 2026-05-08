@@ -30,6 +30,7 @@ const ICONS: Record<MainNavigationKey, React.ComponentType<{ className?: string 
   meters: Gauge,
   payments: CreditCard,
   issues: CircleAlert,
+  documents: FileText,
   home: Home,
   chat: MessageCircle,
   imports: FileText,
