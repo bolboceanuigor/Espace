@@ -15,6 +15,7 @@ export type MainNavigationKey =
   | 'payments'
   | 'issues'
   | 'chat'
+  | 'imports'
   | 'buildingSettings'
   | 'home'
   | 'account';
@@ -53,6 +54,7 @@ export const ADMIN_NAVIGATION_ITEMS: MainNavigationItem[] = [
   { key: 'payments', label: 'Plăți', href: '/admin/payments' },
   { key: 'issues', label: 'Cereri', href: '/admin/issues' },
   { key: 'announcements', label: 'Avizier', href: '/admin/announcements' },
+  { key: 'imports', label: 'Import date', href: '/admin/imports' },
   { key: 'buildingSettings', label: 'Setări', href: '/admin/settings/organization' },
 ];
 

@@ -1,70 +1,75 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import { importsApi } from '@/lib/api';
-import LoadingState from '@/components/common/LoadingState';
+import { Building2, FileSpreadsheet, Layers3, Upload } from 'lucide-react';
+import { Card, PageHeader } from '@/components/ui';
 import EmptyState from '@/components/common/EmptyState';
-import Button from '@/components/ui/Button';
+import { useLocalizedPath } from '@/lib/use-localized-path';
+
+const importOptions = [
+  {
+    title: 'Import apartamente și locatari',
+    description: 'Încarcă un CSV cu scări, apartamente, suprafețe și proprietari/locatari.',
+    href: '/admin/imports/apartments',
+    icon: Upload,
+    action: 'Importă apartamente',
+  },
+  {
+    title: 'Adăugare apartamente în masă',
+    description: 'Creează rapid un interval de apartamente pentru o scară existentă.',
+    href: '/admin/apartments/bulk-create',
+    icon: Layers3,
+    action: 'Adaugă în masă',
+  },
+  {
+    title: 'Pregătește blocul',
+    description: 'Importul are nevoie de un bloc real al A.P.C. înainte de încărcarea fișierului.',
+    href: '/admin/buildings',
+    icon: Building2,
+    action: 'Gestionează blocuri',
+  },
+];
 
 export default function AdminImportsPage() {
-  const [rows, setRows] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await importsApi.list();
-      setRows(res.data || []);
-    } catch {
-      setError('Nu am putut încărca importurile.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    load().catch(() => undefined);
-  }, []);
+  const localizedPath = useLocalizedPath();
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-foreground">Bulk Imports</h1>
-        <Link href="/admin/imports/new" className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-white">
-          New Import
-        </Link>
-      </div>
-      <div className="rounded-xl border border-border/70 bg-card p-4">
-        {loading ? <LoadingState label="Se încarcă importurile..." rows={4} /> : null}
-        {!loading && error ? (
-          <div className="space-y-2">
-            <p className="text-sm text-destructive">{error}</p>
-            <Button size="sm" variant="outline" onClick={() => load().catch(() => undefined)}>
-              Reîncearcă
-            </Button>
-          </div>
-        ) : null}
-        {!loading && !error && !rows.length ? (
-          <EmptyState title="Nu există date încă" description="Încarcă primul fișier pentru a începe importul." />
-        ) : null}
-        {!loading && !error && rows.length ? (
-          <div className="space-y-2">
-            {rows.map((row) => (
-              <Link key={row.id} href={`/admin/imports/${row.id}/preview`} className="block rounded-lg border border-border/60 p-3">
-                <p className="text-sm font-medium text-foreground">
-                  {row.type} • {row.fileName}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  status: {row.status} • rows: {row.totalRows} • valid: {row.validRows} • invalid: {row.invalidRows}
-                </p>
+    <div className="space-y-5 pb-6">
+      <PageHeader
+        title="Import date"
+        description="Onboarding rapid pentru apartamente, locatari și relația proprietar-apartament într-o A.P.C."
+        rightSlot={
+          <Link href={localizedPath('/admin/imports/apartments')} className="inline-flex min-h-10 items-center gap-2 rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background">
+            <FileSpreadsheet className="h-4 w-4" />
+            Importă din CSV
+          </Link>
+        }
+      />
+
+      <section className="grid gap-3 lg:grid-cols-3">
+        {importOptions.map((option) => {
+          const Icon = option.icon;
+          return (
+            <Card key={option.href} className="flex h-full flex-col justify-between p-4">
+              <div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-muted/50 text-foreground">
+                  <Icon className="h-5 w-5" />
+                </div>
+                <h2 className="mt-4 text-base font-semibold text-foreground">{option.title}</h2>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">{option.description}</p>
+              </div>
+              <Link href={localizedPath(option.href)} className="mt-5 inline-flex min-h-10 items-center justify-center rounded-2xl border border-border/70 px-4 text-sm font-semibold hover:bg-muted/60">
+                {option.action}
               </Link>
-            ))}
-          </div>
-        ) : null}
-      </div>
+            </Card>
+          );
+        })}
+      </section>
+
+      <EmptyState
+        title="Nu ai încă importuri efectuate."
+        description="Pentru MVP, rezultatul importului este afișat imediat după încărcarea fișierului CSV."
+      />
     </div>
   );
 }

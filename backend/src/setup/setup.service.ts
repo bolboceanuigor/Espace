@@ -306,6 +306,7 @@ export class SetupService {
     }
 
     const defaultBuilding = await this.resolveImportBuilding(organizationId, this.optionalString(payload.buildingId));
+    const touchedBuildingIds = new Set<string>();
     const summary = {
       totalRows: rows.length,
       createdApartments: 0,
@@ -326,10 +327,9 @@ export class SetupService {
       }
 
       try {
-        const building = parsed.buildingName
-          ? await this.findOrCreateImportBuilding(organizationId, parsed.buildingName, defaultBuilding.address || undefined)
-          : defaultBuilding;
+        const building = defaultBuilding;
         const { staircase, created } = await this.findOrCreateImportStaircase(organizationId, building.id, parsed.staircase, parsed.floor);
+        touchedBuildingIds.add(building.id);
         if (created) summary.createdStaircases += 1;
 
         let apartment = await this.prisma.apartment.findUnique({
@@ -359,6 +359,7 @@ export class SetupService {
             select: { id: true, ownerResidentId: true },
           });
           summary.createdApartments += 1;
+          touchedBuildingIds.add(building.id);
         }
 
         const hasOwnerData = Boolean(parsed.ownerFirstName || parsed.ownerLastName || parsed.phone || parsed.email);
@@ -366,7 +367,7 @@ export class SetupService {
           const residentResult = await this.findOrCreateImportResident(organizationId, apartment.id, parsed);
           if (residentResult.created) summary.createdResidents += 1;
           if (residentResult.linked) summary.linkedResidents += 1;
-          if (!apartment.ownerResidentId) {
+          if (parsed.role === ApartmentResidentRole.OWNER && !apartment.ownerResidentId) {
             await this.prisma.apartment.update({
               where: { id: apartment.id },
               data: { ownerResidentId: residentResult.residentId },
@@ -381,6 +382,8 @@ export class SetupService {
         });
       }
     }
+
+    await Promise.all(Array.from(touchedBuildingIds).map((buildingId) => this.syncBuildingCounters(buildingId)));
 
     return {
       ...summary,
@@ -640,6 +643,7 @@ export class SetupService {
     const rawFloor = this.readImportValue(row, ['etaj', 'floor']);
     const rawArea = this.readImportValue(row, ['suprafata_m2', 'suprafata', 'suprafață m²', 'areaM2', 'area_m2']);
     const rawRooms = this.readImportValue(row, ['camere', 'rooms']);
+    const rawRole = this.readImportValue(row, ['rol', 'role']);
     const email = this.readImportValue(row, ['email', 'owner_email', 'proprietar_email']).toLowerCase();
     const parsed = {
       buildingName: this.readImportValue(row, ['bloc', 'building', 'buildingName']),
@@ -652,17 +656,42 @@ export class SetupService {
       ownerLastName: this.readImportValue(row, ['proprietar_nume', 'nume', 'owner_last_name']),
       phone: this.readImportValue(row, ['telefon', 'phone']),
       email,
+      role: this.parseApartmentResidentRole(rawRole),
       errors: [] as string[],
     };
 
     if (!parsed.staircase) parsed.errors.push('Scara este obligatorie.');
     if (!parsed.apartmentNumber) parsed.errors.push('Numărul apartamentului este obligatoriu.');
-    if (!rawFloor || !Number.isFinite(parsed.floor)) parsed.errors.push('Etajul trebuie să fie un număr.');
+    if (!rawFloor) parsed.errors.push('Etajul este obligatoriu.');
+    else if (!Number.isFinite(parsed.floor)) parsed.errors.push('Etajul trebuie să fie un număr.');
     if (!rawArea || !Number.isFinite(parsed.areaM2)) parsed.errors.push('Suprafața trebuie să fie un număr.');
     if (rawRooms && (!Number.isFinite(parsed.rooms) || parsed.rooms < 1)) parsed.errors.push('Numărul de camere trebuie să fie un număr.');
     if (parsed.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(parsed.email)) parsed.errors.push('Emailul proprietarului nu este valid.');
+    if (rawRole && !this.isSupportedApartmentResidentRole(rawRole)) parsed.errors.push('Rolul locatarului nu este valid.');
 
     return parsed;
+  }
+
+  private isSupportedApartmentResidentRole(value: string) {
+    return Boolean(this.parseApartmentResidentRole(value, false));
+  }
+
+  private parseApartmentResidentRole(value: string, fallbackToOwner = true) {
+    const normalized = this.normalizeColumnName(value || '').toUpperCase();
+    const byAlias: Record<string, ApartmentResidentRole> = {
+      OWNER: ApartmentResidentRole.OWNER,
+      PROPRIETAR: ApartmentResidentRole.OWNER,
+      RESIDENT: ApartmentResidentRole.RESIDENT,
+      LOCATAR: ApartmentResidentRole.RESIDENT,
+      TENANT: ApartmentResidentRole.TENANT,
+      CHIRIAS: ApartmentResidentRole.TENANT,
+      CHIRIASA: ApartmentResidentRole.TENANT,
+      FAMILY_MEMBER: ApartmentResidentRole.FAMILY_MEMBER,
+      MEMBRU_FAMILIE: ApartmentResidentRole.FAMILY_MEMBER,
+      REPRESENTATIVE: ApartmentResidentRole.REPRESENTATIVE,
+      REPREZENTANT: ApartmentResidentRole.REPRESENTATIVE,
+    };
+    return byAlias[normalized] || (fallbackToOwner ? ApartmentResidentRole.OWNER : null);
   }
 
   private async resolveImportBuilding(organizationId: string, buildingId?: string) {
@@ -675,25 +704,15 @@ export class SetupService {
       return building;
     }
 
-    const existing = await this.prisma.building.findFirst({
+    const existing = await this.prisma.building.findMany({
       where: { organizationId },
       orderBy: { createdAt: 'asc' },
       select: { id: true, name: true, address: true },
+      take: 2,
     });
-    if (existing) return existing;
-
-    const organization = await this.prisma.organization.findUnique({
-      where: { id: organizationId },
-      select: { address: true },
-    });
-    return this.prisma.building.create({
-      data: {
-        organizationId,
-        name: 'Bloc principal',
-        address: organization?.address || null,
-      },
-      select: { id: true, name: true, address: true },
-    });
+    if (existing.length === 1) return existing[0];
+    if (existing.length === 0) throw new BadRequestException('Mai întâi creează un bloc.');
+    throw new BadRequestException('Alege blocul pentru import.');
   }
 
   private async findOrCreateImportBuilding(organizationId: string, name: string, fallbackAddress?: string) {
@@ -740,17 +759,24 @@ export class SetupService {
       ownerLastName: string;
       phone: string;
       email: string;
+      role: ApartmentResidentRole;
     },
   ) {
     const firstName = parsed.ownerFirstName || (parsed.ownerLastName ? '' : 'Proprietar');
     const lastName = parsed.ownerLastName || '';
+    const residentType =
+      parsed.role === ApartmentResidentRole.TENANT
+        ? ResidentType.TENANT
+        : parsed.role === ApartmentResidentRole.OWNER
+          ? ResidentType.OWNER
+          : ResidentType.RESIDENT;
     const existing = await this.prisma.residentProfile.findFirst({
       where: {
         organizationId,
         OR: [
           ...(parsed.email ? [{ email: parsed.email }] : []),
           ...(parsed.phone ? [{ phone: parsed.phone, firstName, lastName }] : []),
-          { apartmentId, firstName, lastName, type: ResidentType.OWNER },
+          { apartmentId, firstName, lastName, type: residentType },
         ],
       },
       select: { id: true },
@@ -767,8 +793,8 @@ export class SetupService {
             phone: parsed.phone || null,
             email: parsed.email || null,
             accountStatus: ResidentAccountStatus.NO_ACCOUNT,
-            type: ResidentType.OWNER,
-            isPrimary: true,
+            type: residentType,
+            isPrimary: parsed.role === ApartmentResidentRole.OWNER,
           },
           select: { id: true },
         });
@@ -777,21 +803,23 @@ export class SetupService {
       where: {
         apartmentId,
         residentId: resident.id,
-        role: ApartmentResidentRole.OWNER,
+        role: parsed.role,
       },
       select: { apartmentId: true },
     });
     if (!relation) {
-      await this.prisma.apartmentResident.updateMany({
-        where: { apartmentId, isPrimary: true },
-        data: { isPrimary: false },
-      });
+      if (parsed.role === ApartmentResidentRole.OWNER) {
+        await this.prisma.apartmentResident.updateMany({
+          where: { apartmentId, isPrimary: true },
+          data: { isPrimary: false },
+        });
+      }
       await this.prisma.apartmentResident.create({
         data: {
           apartmentId,
           residentId: resident.id,
-          role: ApartmentResidentRole.OWNER,
-          isPrimary: true,
+          role: parsed.role,
+          isPrimary: parsed.role === ApartmentResidentRole.OWNER,
         },
       });
     }

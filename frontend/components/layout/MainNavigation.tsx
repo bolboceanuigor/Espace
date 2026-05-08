@@ -32,6 +32,7 @@ const ICONS: Record<MainNavigationKey, React.ComponentType<{ className?: string 
   issues: CircleAlert,
   home: Home,
   chat: MessageCircle,
+  imports: FileText,
   buildingSettings: Settings,
   account: UserRound,
 };
