@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Building2, Mail, MapPin, Phone, UserPlus } from 'lucide-react';
 import { Badge, Card, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
-import { superadminApi } from '@/lib/api';
+import { invitationsApi, superadminApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 import {
   mockAdministrators,
@@ -48,7 +48,6 @@ const emptyAdminForm = {
   lastName: '',
   email: '',
   phone: '',
-  password: '',
 };
 
 function editFormFromAssociation(association: MvpAssociation) {
@@ -81,6 +80,7 @@ export default function SuperadminOrganizationDetailsPage() {
   const [adminForm, setAdminForm] = useState(emptyAdminForm);
   const [isCreatingAdmin, setIsCreatingAdmin] = useState(false);
   const [adminError, setAdminError] = useState('');
+  const [adminInvitationLink, setAdminInvitationLink] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [usage, setUsage] = useState<MvpUsage>(mockUsage);
   const [updatingStatus, setUpdatingStatus] = useState(false);
@@ -124,34 +124,32 @@ export default function SuperadminOrganizationDetailsPage() {
     };
   }, [fallbackAssociation, id]);
 
-  const createAdmin = async () => {
+  const createAdminInvitation = async () => {
     setAdminError('');
     setSuccessMessage('');
+    setAdminInvitationLink('');
     if (!id) return;
     const payload = {
       firstName: adminForm.firstName.trim(),
       lastName: adminForm.lastName.trim(),
       email: adminForm.email.trim(),
       phone: adminForm.phone.trim(),
-      password: adminForm.password,
     };
-    if (!payload.firstName || !payload.lastName || !payload.email || !payload.password) {
-      setAdminError('Completează prenumele, numele, emailul și parola temporară.');
+    if (!payload.firstName || !payload.lastName || !payload.email) {
+      setAdminError('Completează prenumele, numele și emailul.');
       return;
     }
 
     setIsCreatingAdmin(true);
     try {
-      const created = await superadminApi.createPublicOrganizationAdmin(id, payload);
-      const next = normalizeApiAdministrator(created.data);
-      setAdministrators((current) => [next, ...current.filter((admin) => admin.id !== next.id)]);
+      const created = await invitationsApi.createAdmin(id, payload);
+      setAdminInvitationLink(created.data?.activationLink || created.data?.inviteLink || '');
       setAdminForm(emptyAdminForm);
-      setAdminModalOpen(false);
-      setSuccessMessage('Administratorul a fost creat.');
+      setSuccessMessage('Invitația a fost creată.');
       await loadAdmins(id).catch(() => undefined);
     } catch (error: any) {
       const message = String(error?.message || '');
-      setAdminError(message.includes('Există deja un utilizator cu acest email') ? 'Există deja un utilizator cu acest email.' : 'Nu am putut crea administratorul.');
+      setAdminError(message.includes('Există deja un utilizator cu acest email') ? 'Există deja un utilizator cu acest email.' : 'Nu am putut crea invitația.');
     } finally {
       setIsCreatingAdmin(false);
     }
@@ -232,11 +230,14 @@ export default function SuperadminOrganizationDetailsPage() {
             </button>
             <button
               type="button"
-              onClick={() => setAdminModalOpen(true)}
+              onClick={() => {
+                setAdminInvitationLink('');
+                setAdminModalOpen(true);
+              }}
               className="inline-flex min-h-10 items-center gap-2 rounded-2xl bg-foreground px-4 text-sm font-semibold text-background"
             >
               <UserPlus className="h-4 w-4" />
-              Adaugă administrator
+              Invită administrator
             </button>
           </div>
         }
@@ -327,8 +328,15 @@ export default function SuperadminOrganizationDetailsPage() {
               </div>
             ))}
           </div>
-          <button type="button" onClick={() => setAdminModalOpen(true)} className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-2xl bg-foreground px-4 text-sm font-semibold text-background">
-            Adaugă administrator
+          <button
+            type="button"
+            onClick={() => {
+              setAdminInvitationLink('');
+              setAdminModalOpen(true);
+            }}
+            className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-2xl bg-foreground px-4 text-sm font-semibold text-background"
+          >
+            Invită administrator
           </button>
         </Card>
       </section>
@@ -345,30 +353,42 @@ export default function SuperadminOrganizationDetailsPage() {
       </Card>
 
       <Modal isOpen={adminModalOpen} onClose={() => setAdminModalOpen(false)} maxWidth="xl">
-        <ModalHeader title="Adaugă administrator" onClose={() => setAdminModalOpen(false)} />
+        <ModalHeader title="Invită administrator" onClose={() => setAdminModalOpen(false)} />
         <ModalBody>
           <div className="grid gap-3 md:grid-cols-2">
             <Field label="Prenume" value={adminForm.firstName} onChange={(value) => setAdminForm({ ...adminForm, firstName: value })} required />
             <Field label="Nume" value={adminForm.lastName} onChange={(value) => setAdminForm({ ...adminForm, lastName: value })} required />
             <Field label="Email" value={adminForm.email} onChange={(value) => setAdminForm({ ...adminForm, email: value })} type="email" required />
             <Field label="Telefon" value={adminForm.phone} onChange={(value) => setAdminForm({ ...adminForm, phone: value })} />
-            <Field label="Parolă temporară" value={adminForm.password} onChange={(value) => setAdminForm({ ...adminForm, password: value })} type="password" required />
           </div>
           {adminError ? (
             <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
               {adminError}
             </p>
           ) : null}
+          {adminInvitationLink ? (
+            <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-3">
+              <p className="text-sm font-semibold text-emerald-900">Invitația a fost creată.</p>
+              <input className="input mt-2 bg-white" readOnly value={adminInvitationLink} />
+              <button
+                type="button"
+                onClick={() => navigator.clipboard?.writeText(adminInvitationLink).catch(() => undefined)}
+                className="mt-2 rounded-2xl border border-emerald-300 bg-white px-3 py-2 text-sm font-semibold text-emerald-900"
+              >
+                Copiază linkul
+              </button>
+            </div>
+          ) : null}
           <p className="mt-4 text-xs text-muted-foreground">
-            Parola temporară este salvată doar ca hash. Trimite parola administratorului printr-un canal sigur.
+            Trimiterea automată pe email va fi conectată ulterior. Trimite linkul administratorului printr-un canal sigur.
           </p>
         </ModalBody>
         <ModalFooter>
           <button type="button" onClick={() => setAdminModalOpen(false)} disabled={isCreatingAdmin} className="rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold disabled:opacity-60">
             Anulează
           </button>
-          <button type="button" onClick={createAdmin} disabled={isCreatingAdmin} className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background disabled:opacity-60">
-            {isCreatingAdmin ? 'Se creează...' : 'Creează administrator'}
+          <button type="button" onClick={createAdminInvitation} disabled={isCreatingAdmin} className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background disabled:opacity-60">
+            {isCreatingAdmin ? 'Se creează...' : 'Creează invitația'}
           </button>
         </ModalFooter>
       </Modal>

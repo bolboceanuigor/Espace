@@ -668,6 +668,22 @@ export const demoRequestsApi = {
 };
 
 export const invitationsApi = {
+  createAdmin: (
+    organizationId: string,
+    data: {
+      firstName: string;
+      lastName: string;
+      email: string;
+      phone?: string;
+    },
+  ) => apiRequest<any>(`/organizations/${organizationId}/admin-invitations`, { method: 'POST', body: data }),
+  createResident: (
+    residentId: string,
+    data: {
+      email: string;
+      phone?: string;
+    },
+  ) => apiRequest<any>(`/residents/${residentId}/invitations`, { method: 'POST', body: data }),
   create: (data: {
     email: string;
     phone?: string;
@@ -681,9 +697,9 @@ export const invitationsApi = {
   revoke: (id: string) => apiRequest<any>(`/api/admin/invitations/${id}/cancel`, { method: 'PATCH' }),
   resend: (id: string) => apiRequest<any>(`/api/admin/invitations/${id}/resend`, { method: 'POST' }),
   getByToken: (token: string) => apiRequest<any>(`/api/auth/invitations/${token}`),
-  acceptByToken: (token: string, password: string) =>
-    apiRequest<any>(`/api/auth/invitations/${token}/accept`, { method: 'POST', body: { password } }),
-  accept: (data: { token: string; password: string }) => apiRequest<any>('/api/invitations/accept', { method: 'POST', body: data }),
+  acceptByToken: (token: string, password: string, confirmPassword?: string) =>
+    apiRequest<any>(`/api/auth/invitations/${token}/accept`, { method: 'POST', body: { password, confirmPassword } }),
+  accept: (data: { token: string; password: string; confirmPassword?: string }) => apiRequest<any>('/api/invitations/accept', { method: 'POST', body: data }),
 };
 
 export const adminApi = {

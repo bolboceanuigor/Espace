@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Banknote, Building2, FileText, KeyRound, MessageCircle, Phone, UserRound } from 'lucide-react';
 import { Badge, Button, ButtonLink, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
 import { defaultLocale, isLocale } from '@/i18n';
-import { residentsApi } from '@/lib/api';
+import { invitationsApi, residentsApi } from '@/lib/api';
 import {
   accountStatusVariant,
   adminApartments,
@@ -29,9 +29,10 @@ export default function AdminResidentDetailPage() {
   const [apiDetail, setApiDetail] = useState<any>(null);
   const [source, setSource] = useState<'api' | 'mock'>('mock');
   const [accountModalOpen, setAccountModalOpen] = useState(false);
-  const [accountForm, setAccountForm] = useState({ email: '', phone: '', password: '' });
+  const [accountForm, setAccountForm] = useState({ email: '', phone: '' });
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
   const [accountError, setAccountError] = useState('');
+  const [invitationLink, setInvitationLink] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const apartments =
     source === 'api'
@@ -83,27 +84,28 @@ export default function AdminResidentDetailPage() {
     setAccountForm({
       email: resident.email && resident.email !== '-' ? resident.email : '',
       phone: resident.phone && resident.phone !== '-' ? resident.phone : '',
-      password: '',
     });
     setAccountError('');
+    setInvitationLink('');
   }, [accountModalOpen, resident.email, resident.phone]);
 
-  const createResidentAccount = async () => {
+  const createResidentInvitation = async () => {
     setAccountError('');
     setSuccessMessage('');
-    if (!accountForm.email.trim() || !accountForm.password) {
-      setAccountError('Completează emailul și parola temporară.');
+    setInvitationLink('');
+    if (!accountForm.email.trim()) {
+      setAccountError('Completează emailul.');
       return;
     }
     setIsCreatingAccount(true);
     try {
-      await residentsApi.createAccount(id, {
+      const created = await invitationsApi.createResident(id, {
         email: accountForm.email.trim(),
         phone: accountForm.phone.trim() || undefined,
-        password: accountForm.password,
       });
-      setAccountModalOpen(false);
-      setSuccessMessage(`Contul locatarului a fost creat pentru ${accountForm.email.trim()}. Trimite parola temporară locatarului printr-un canal sigur.`);
+      const link = created.data?.activationLink || created.data?.inviteLink || '';
+      setInvitationLink(link);
+      setSuccessMessage('Invitația locatarului a fost creată.');
       await loadResident();
     } catch (error: any) {
       const message = String(error?.message || '');
@@ -112,7 +114,7 @@ export default function AdminResidentDetailPage() {
       } else if (message.includes('Acest locatar are deja cont')) {
         setAccountError('Acest locatar are deja cont.');
       } else {
-        setAccountError('Nu am putut crea contul locatarului.');
+        setAccountError('Nu am putut crea invitația locatarului.');
       }
     } finally {
       setIsCreatingAccount(false);
@@ -161,7 +163,7 @@ export default function AdminResidentDetailPage() {
           {!hasUserAccount && source === 'api' ? (
             <Button type="button" variant="secondary" onClick={() => setAccountModalOpen(true)}>
               <KeyRound className="h-4 w-4" />
-              Creează cont locatar
+              {resident.accountStatus === 'invitat' ? 'Retrimite invitația' : 'Invită locatar'}
             </Button>
           ) : (
             <ButtonLink href={`/${locale}/admin/residents`} variant="secondary"><UserRound className="h-4 w-4" /> Lista locatari</ButtonLink>
@@ -250,28 +252,43 @@ export default function AdminResidentDetailPage() {
       </section>
 
       <Modal isOpen={accountModalOpen} onClose={() => setAccountModalOpen(false)} maxWidth="lg">
-        <ModalHeader title="Creează cont locatar" onClose={() => setAccountModalOpen(false)} />
+        <ModalHeader title="Invită locatar" onClose={() => setAccountModalOpen(false)} />
         <ModalBody>
           <div className="grid gap-3">
             <Input label="Email" type="email" value={accountForm.email} onChange={(event) => setAccountForm((current) => ({ ...current, email: event.target.value }))} required />
             <Input label="Telefon" value={accountForm.phone} onChange={(event) => setAccountForm((current) => ({ ...current, phone: event.target.value }))} />
-            <Input label="Parolă temporară" type="password" value={accountForm.password} onChange={(event) => setAccountForm((current) => ({ ...current, password: event.target.value }))} required />
           </div>
+          {invitationLink ? (
+            <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-3">
+              <p className="text-sm font-semibold text-emerald-800">Invitația locatarului a fost creată.</p>
+              <div className="mt-3 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-xs font-medium text-emerald-900 break-all">
+                {invitationLink}
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                className="mt-3"
+                onClick={() => navigator.clipboard?.writeText(invitationLink)}
+              >
+                Copiază linkul
+              </Button>
+            </div>
+          ) : null}
           {accountError ? (
             <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
               {accountError}
             </p>
           ) : null}
           <p className="mt-4 text-xs text-muted-foreground">
-            Nu trimitem email automat încă. Comunică parola temporară locatarului printr-un canal sigur.
+            Trimiterea automată pe email va fi conectată ulterior. Trimite linkul locatarului printr-un canal sigur.
           </p>
         </ModalBody>
         <ModalFooter>
           <Button type="button" variant="secondary" onClick={() => setAccountModalOpen(false)} disabled={isCreatingAccount}>
             Anulează
           </Button>
-          <Button type="button" onClick={createResidentAccount} disabled={isCreatingAccount}>
-            {isCreatingAccount ? 'Se creează...' : 'Creează cont'}
+          <Button type="button" onClick={createResidentInvitation} disabled={isCreatingAccount}>
+            {isCreatingAccount ? 'Se creează...' : 'Creează invitația'}
           </Button>
         </ModalFooter>
       </Modal>
