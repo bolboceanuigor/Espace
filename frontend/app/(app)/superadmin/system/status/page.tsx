@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Activity, Database, RefreshCw, Server, ShieldCheck } from 'lucide-react';
+import { Activity, Database, Mail, RefreshCw, Server, ShieldCheck } from 'lucide-react';
 import { Card, PageHeader, StatCard } from '@/components/ui';
 import { systemMonitoringApi } from '@/lib/api';
 
@@ -15,6 +15,11 @@ type SystemStatus = {
     users: number;
     apartments: number;
   };
+  email: {
+    configured: boolean;
+    provider: 'resend' | 'smtp' | null;
+    from?: string;
+  };
 };
 
 export default function SuperadminSystemStatusPage() {
@@ -26,12 +31,14 @@ export default function SuperadminSystemStatusPage() {
     setLoading(true);
     setError(null);
     try {
-      const [health, database] = await Promise.all([
+      const [health, database, email] = await Promise.all([
         systemMonitoringApi.health(),
         systemMonitoringApi.healthDb(),
+        systemMonitoringApi.emailStatus().catch(() => ({ data: { configured: false, provider: null, from: undefined } })),
       ]);
       const healthData = health.data || {};
       const dbData = database.data || {};
+      const emailData = email.data || {};
       setData({
         checkedAt: new Date().toISOString(),
         apiStatus: healthData.status === 'ok' || healthData.ok === true ? 'online' : 'offline',
@@ -41,6 +48,11 @@ export default function SuperadminSystemStatusPage() {
           organizations: Number(dbData.counts?.organizations ?? 0),
           users: Number(dbData.counts?.users ?? 0),
           apartments: Number(dbData.counts?.apartments ?? 0),
+        },
+        email: {
+          configured: Boolean(emailData.configured),
+          provider: emailData.provider || null,
+          from: emailData.from,
         },
       });
     } catch {
@@ -69,6 +81,13 @@ export default function SuperadminSystemStatusPage() {
       description: 'Supabase PostgreSQL',
       icon: <Database className="h-5 w-5" />,
       tone: data?.databaseStatus === 'connected' ? 'success' as const : 'warning' as const,
+    },
+    {
+      label: 'Email',
+      value: data?.email.configured ? 'Configurat' : loading ? '...' : 'Neconfigurat',
+      description: data?.email.provider ? `${data.email.provider}${data.email.from ? ` · ${data.email.from}` : ''}` : 'Invitațiile se trimit manual',
+      icon: <Mail className="h-5 w-5" />,
+      tone: data?.email.configured ? 'success' as const : 'warning' as const,
     },
     {
       label: 'Asociații',
@@ -114,7 +133,7 @@ export default function SuperadminSystemStatusPage() {
         </div>
       ) : null}
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
         {stats.map((item) => (
           <StatCard key={item.label} {...item} />
         ))}
@@ -135,6 +154,7 @@ export default function SuperadminSystemStatusPage() {
         <div className="mt-5 grid gap-3 md:grid-cols-3">
           <Mini label="API" value={data?.apiStatus === 'online' ? 'Răspunde corect' : 'Necesită verificare'} />
           <Mini label="Baza de date" value={data?.databaseStatus === 'connected' ? 'Conexiune activă' : 'Conexiune indisponibilă'} />
+          <Mini label="Email" value={data?.email.configured ? `Configurat${data.email.provider ? ` (${data.email.provider})` : ''}` : 'Neconfigurat pentru trimitere automată'} />
           <Mini label="Securitate" value="Fără secrete expuse în răspuns" />
         </div>
       </Card>

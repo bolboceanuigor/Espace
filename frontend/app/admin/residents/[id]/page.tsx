@@ -29,10 +29,11 @@ export default function AdminResidentDetailPage() {
   const [apiDetail, setApiDetail] = useState<any>(null);
   const [source, setSource] = useState<'api' | 'mock'>('mock');
   const [accountModalOpen, setAccountModalOpen] = useState(false);
-  const [accountForm, setAccountForm] = useState({ email: '', phone: '' });
+  const [accountForm, setAccountForm] = useState({ email: '', phone: '', sendEmail: false });
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
   const [accountError, setAccountError] = useState('');
   const [invitationLink, setInvitationLink] = useState('');
+  const [inviteWarning, setInviteWarning] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const apartments =
     source === 'api'
@@ -84,15 +85,18 @@ export default function AdminResidentDetailPage() {
     setAccountForm({
       email: resident.email && resident.email !== '-' ? resident.email : '',
       phone: resident.phone && resident.phone !== '-' ? resident.phone : '',
+      sendEmail: false,
     });
     setAccountError('');
     setInvitationLink('');
+    setInviteWarning('');
   }, [accountModalOpen, resident.email, resident.phone]);
 
   const createResidentInvitation = async () => {
     setAccountError('');
     setSuccessMessage('');
     setInvitationLink('');
+    setInviteWarning('');
     if (!accountForm.email.trim()) {
       setAccountError('Completează emailul.');
       return;
@@ -102,10 +106,16 @@ export default function AdminResidentDetailPage() {
       const created = await invitationsApi.createResident(id, {
         email: accountForm.email.trim(),
         phone: accountForm.phone.trim() || undefined,
+        sendEmail: accountForm.sendEmail,
       });
       const link = created.data?.activationLink || created.data?.inviteLink || '';
       setInvitationLink(link);
-      setSuccessMessage('Invitația locatarului a fost creată.');
+      setInviteWarning(created.data?.warning || '');
+      setSuccessMessage(
+        created.data?.emailSent
+          ? 'Invitația a fost trimisă pe email.'
+          : 'Invitația a fost creată. Copiază linkul și trimite-l manual.',
+      );
       await loadResident();
     } catch (error: any) {
       const message = String(error?.message || '');
@@ -257,10 +267,17 @@ export default function AdminResidentDetailPage() {
           <div className="grid gap-3">
             <Input label="Email" type="email" value={accountForm.email} onChange={(event) => setAccountForm((current) => ({ ...current, email: event.target.value }))} required />
             <Input label="Telefon" value={accountForm.phone} onChange={(event) => setAccountForm((current) => ({ ...current, phone: event.target.value }))} />
+            <label className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-border/70 bg-white px-3 text-sm font-medium text-foreground">
+              <input type="checkbox" checked={accountForm.sendEmail} onChange={(event) => setAccountForm((current) => ({ ...current, sendEmail: event.target.checked }))} />
+              Trimite invitația pe email
+            </label>
           </div>
           {invitationLink ? (
             <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-3">
-              <p className="text-sm font-semibold text-emerald-800">Invitația locatarului a fost creată.</p>
+              <p className="text-sm font-semibold text-emerald-800">
+                {inviteWarning ? 'Invitația a fost creată. Copiază linkul și trimite-l manual.' : 'Invitația locatarului a fost creată.'}
+              </p>
+              {inviteWarning ? <p className="mt-1 text-xs font-semibold text-amber-700">{inviteWarning}</p> : null}
               <div className="mt-3 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-xs font-medium text-emerald-900 break-all">
                 {invitationLink}
               </div>
@@ -280,7 +297,7 @@ export default function AdminResidentDetailPage() {
             </p>
           ) : null}
           <p className="mt-4 text-xs text-muted-foreground">
-            Trimiterea automată pe email va fi conectată ulterior. Trimite linkul locatarului printr-un canal sigur.
+            Dacă emailul nu este configurat, linkul rămâne disponibil pentru trimitere manuală printr-un canal sigur.
           </p>
         </ModalBody>
         <ModalFooter>

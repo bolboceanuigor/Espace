@@ -2,6 +2,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import { Resend } from 'resend';
 
+type EmailDeliveryResult = {
+  sent: boolean;
+  provider: 'resend' | 'smtp' | null;
+  warning?: string;
+};
+
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
@@ -10,8 +16,8 @@ export class EmailService {
 
   constructor() {
     const configuredProvider = (process.env.EMAIL_PROVIDER || '').toLowerCase();
-    this.provider = configuredProvider === 'resend' ? 'resend' : 'console';
     const resendApiKey = process.env.RESEND_API_KEY || process.env.EMAIL_API_KEY;
+    this.provider = configuredProvider === 'resend' || (!configuredProvider && resendApiKey) ? 'resend' : 'console';
     if (this.provider === 'resend' && resendApiKey) {
       this.resend = new Resend(resendApiKey);
     }
@@ -84,8 +90,8 @@ export class EmailService {
     subject: string;
     text: string;
     html?: string;
-  }) {
-    await this.sendEmail({
+  }): Promise<EmailDeliveryResult> {
+    return this.sendEmail({
       to: params.to,
       subject: params.subject,
       text: params.text,
@@ -93,30 +99,121 @@ export class EmailService {
     });
   }
 
+  async sendInvitationEmail(params: {
+    to: string;
+    role: 'ADMIN' | 'RESIDENT' | string;
+    activationLink: string;
+    organizationName: string;
+    invitedName?: string | null;
+    expiresAt?: Date | string | null;
+    apartmentNumber?: string | null;
+  }): Promise<EmailDeliveryResult> {
+    if (!this.isDeliveryConfigured()) {
+      return {
+        sent: false,
+        provider: null,
+        warning: 'Trimiterea emailului nu este configurată.',
+      };
+    }
+
+    const isResident = String(params.role).toUpperCase() === 'RESIDENT';
+    const invitedName = params.invitedName?.trim() || (isResident ? 'locatar' : 'administrator');
+    const expiresAt = params.expiresAt
+      ? new Intl.DateTimeFormat('ro-MD', { dateStyle: 'medium' }).format(new Date(params.expiresAt))
+      : null;
+    const subject = isResident ? 'Invitație locatar Espace' : 'Invitație administrator Espace';
+    const safeName = this.escapeHtml(invitedName);
+    const safeOrganization = this.escapeHtml(params.organizationName || 'A.P.C.');
+    const safeLink = this.escapeHtml(params.activationLink);
+    const safeApartment = this.escapeHtml(params.apartmentNumber || '');
+    const safeExpiresAt = this.escapeHtml(expiresAt || '');
+
+    const text = isResident
+      ? [
+          `Bună, ${invitedName},`,
+          `Ai fost invitat să folosești aplicația Espace pentru ${params.organizationName}.`,
+          params.apartmentNumber ? `Apartament: ${params.apartmentNumber}.` : '',
+          'Vei putea vedea facturile, contoarele, cererile și avizierul.',
+          `Activează contul aici: ${params.activationLink}`,
+          expiresAt ? `Linkul expiră la ${expiresAt}.` : '',
+          'Dacă nu ai solicitat această invitație, ignoră acest email.',
+        ]
+          .filter(Boolean)
+          .join('\n')
+      : [
+          `Bună, ${invitedName},`,
+          `Ai fost invitat să administrezi ${params.organizationName} în Espace.`,
+          `Apasă pe link pentru a activa contul: ${params.activationLink}`,
+          expiresAt ? `Linkul expiră la ${expiresAt}.` : '',
+          'Dacă nu ai solicitat această invitație, ignoră acest email.',
+        ]
+          .filter(Boolean)
+          .join('\n');
+
+    const html = isResident
+      ? `
+        <div style="font-family:Inter,Arial,sans-serif;line-height:1.6;color:#172033;">
+          <p>Bună, ${safeName},</p>
+          <p>Ai fost invitat să folosești aplicația <strong>Espace</strong> pentru ${safeOrganization}.</p>
+          ${safeApartment ? `<p>Apartament: <strong>${safeApartment}</strong>.</p>` : ''}
+          <p>Vei putea vedea facturile, contoarele, cererile și avizierul.</p>
+          <p><a href="${safeLink}" style="display:inline-block;background:#172033;color:#ffffff;text-decoration:none;border-radius:12px;padding:12px 18px;font-weight:700;">Activează contul</a></p>
+          <p style="font-size:13px;color:#64748b;">${safeExpiresAt ? `Linkul expiră la ${safeExpiresAt}. ` : ''}Dacă nu ai solicitat această invitație, ignoră acest email.</p>
+        </div>
+      `
+      : `
+        <div style="font-family:Inter,Arial,sans-serif;line-height:1.6;color:#172033;">
+          <p>Bună, ${safeName},</p>
+          <p>Ai fost invitat să administrezi <strong>${safeOrganization}</strong> în Espace.</p>
+          <p><a href="${safeLink}" style="display:inline-block;background:#172033;color:#ffffff;text-decoration:none;border-radius:12px;padding:12px 18px;font-weight:700;">Activează contul</a></p>
+          <p style="font-size:13px;color:#64748b;">${safeExpiresAt ? `Linkul expiră la ${safeExpiresAt}. ` : ''}Dacă nu ai solicitat această invitație, ignoră acest email.</p>
+        </div>
+      `;
+
+    return this.sendEmail({ to: params.to, subject, text, html });
+  }
+
   isDeliveryConfigured() {
     if (this.provider === 'resend' && this.resend) return true;
     return !!this.getTransporter();
   }
 
-  private async sendEmail(params: {
+  getDeliveryStatus() {
+    const smtpConfigured = !!this.getTransporter();
+    const resendConfigured = this.provider === 'resend' && !!this.resend;
+    return {
+      configured: resendConfigured || smtpConfigured,
+      provider: resendConfigured ? 'resend' : smtpConfigured ? 'smtp' : null,
+      from: process.env.EMAIL_FROM || process.env.MAIL_FROM || undefined,
+    };
+  }
+
+  async sendEmail(params: {
     to: string;
     subject: string;
     text: string;
-    html: string;
+    html?: string;
     link?: string;
-  }) {
+  }): Promise<EmailDeliveryResult> {
     const from = process.env.EMAIL_FROM || process.env.MAIL_FROM || 'Espace <no-reply@espace.local>';
     const replyTo = process.env.SUPPORT_EMAIL || undefined;
+    const html = params.html || `<p>${this.escapeHtml(params.text)}</p>`;
 
     if (this.provider === 'console') {
       this.logger.log(
         `[EMAIL] ${JSON.stringify({
           to: params.to,
           subject: params.subject,
-          link: params.link || null,
+          configured: this.isDeliveryConfigured(),
         })}`,
       );
-      return;
+      if (!this.isDeliveryConfigured()) {
+        return {
+          sent: false,
+          provider: null,
+          warning: 'Trimiterea emailului nu este configurată.',
+        };
+      }
     }
 
     if (this.provider === 'resend' && this.resend) {
@@ -126,19 +223,24 @@ export class EmailService {
           to: params.to,
           replyTo,
           subject: params.subject,
-          html: params.html,
+          html,
           text: params.text,
         });
-        return;
+        this.logger.log(`[EMAIL_SENT] ${JSON.stringify({ to: params.to, subject: params.subject, provider: 'resend' })}`);
+        return { sent: true, provider: 'resend' };
       } catch (error) {
-        this.logger.warn(`Resend failed, falling back to SMTP/log mode: ${(error as Error).message}`);
+        this.logger.warn(`Resend failed for ${params.to} (${params.subject}): ${(error as Error).message}`);
       }
     }
 
     const transporter = this.getTransporter();
     if (!transporter) {
-      this.logger.log(`[EMAIL_FALLBACK] ${params.subject} -> ${params.to}: ${params.text}`);
-      return;
+      this.logger.warn(`[EMAIL_NOT_CONFIGURED] ${JSON.stringify({ to: params.to, subject: params.subject })}`);
+      return {
+        sent: false,
+        provider: null,
+        warning: 'Trimiterea emailului nu este configurată.',
+      };
     }
 
     await transporter.sendMail({
@@ -147,7 +249,18 @@ export class EmailService {
       ...(replyTo ? { replyTo } : {}),
       subject: params.subject,
       text: params.text,
-      html: params.html,
+      html,
     });
+    this.logger.log(`[EMAIL_SENT] ${JSON.stringify({ to: params.to, subject: params.subject, provider: 'smtp' })}`);
+    return { sent: true, provider: 'smtp' };
+  }
+
+  private escapeHtml(value: string) {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 }

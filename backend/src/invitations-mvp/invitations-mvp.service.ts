@@ -18,6 +18,7 @@ import {
 } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
+import { EmailService } from '../email/email.service';
 import { PrismaService } from '../prisma/prisma.service';
 import type { MvpUser } from '../security/mvp-auth.guard';
 
@@ -26,6 +27,7 @@ export class InvitationsMvpService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
+    private readonly emailService: EmailService,
   ) {}
 
   private isSuperadmin(user: MvpUser) {
@@ -111,6 +113,42 @@ export class InvitationsMvpService {
     };
   }
 
+  private invitationResponse(invitation: any, delivery?: { sent: boolean; warning?: string }) {
+    const safe = this.safeInvitation(invitation);
+    return {
+      ...safe,
+      invitation: safe,
+      emailSent: delivery?.sent ?? false,
+      emailSending: delivery?.sent ? 'SENT' : 'MANUAL_LINK',
+      ...(delivery?.warning ? { warning: delivery.warning } : {}),
+    };
+  }
+
+  private shouldSendEmail(value: unknown) {
+    return value === true || value === 'true' || value === '1';
+  }
+
+  private async maybeSendInvitationEmail(
+    invitation: any,
+    sendEmail: boolean,
+    invitedName?: string | null,
+  ): Promise<{ sent: boolean; warning?: string }> {
+    if (!sendEmail) return { sent: false };
+    const result = await this.emailService.sendInvitationEmail({
+      to: invitation.email,
+      role: invitation.role,
+      activationLink: this.activationLink(invitation.token),
+      organizationName: invitation.organization?.name || 'A.P.C.',
+      invitedName,
+      expiresAt: invitation.expiresAt,
+      apartmentNumber: invitation.apartment?.number || null,
+    });
+    return {
+      sent: result.sent,
+      ...(result.warning ? { warning: result.warning } : {}),
+    };
+  }
+
   private async cancelPendingInvitations(tx: any, organizationId: string, email: string, role: Role) {
     await tx.invitation.updateMany({
       where: {
@@ -135,6 +173,7 @@ export class InvitationsMvpService {
     const firstName = this.string(payload.firstName);
     const lastName = this.string(payload.lastName);
     const phone = this.string(payload.phone) || null;
+    const sendEmail = this.shouldSendEmail(payload.sendEmail);
     if (!firstName || !lastName) {
       throw new BadRequestException({
         code: 'FIELDS_REQUIRED',
@@ -211,13 +250,15 @@ export class InvitationsMvpService {
       return invitation;
     });
 
-    return this.safeInvitation(result);
+    const delivery = await this.maybeSendInvitationEmail(result, sendEmail, `${firstName} ${lastName}`.trim());
+    return this.invitationResponse(result, delivery);
   }
 
   async createResidentInvitation(user: MvpUser, residentId: string, body: unknown) {
     const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
     const email = this.email(payload.email);
     const requestedPhone = this.string(payload.phone);
+    const sendEmail = this.shouldSendEmail(payload.sendEmail);
 
     const resident = await this.prisma.residentProfile.findFirst({
       where: {
@@ -290,7 +331,12 @@ export class InvitationsMvpService {
       return created;
     });
 
-    return this.safeInvitation(invitation);
+    const delivery = await this.maybeSendInvitationEmail(
+      invitation,
+      sendEmail,
+      `${resident.firstName || ''} ${resident.lastName || ''}`.trim() || null,
+    );
+    return this.invitationResponse(invitation, delivery);
   }
 
   async getInvitationByToken(token: string) {

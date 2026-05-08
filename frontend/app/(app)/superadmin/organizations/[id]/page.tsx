@@ -48,6 +48,7 @@ const emptyAdminForm = {
   lastName: '',
   email: '',
   phone: '',
+  sendEmail: false,
 };
 
 function editFormFromAssociation(association: MvpAssociation) {
@@ -81,6 +82,7 @@ export default function SuperadminOrganizationDetailsPage() {
   const [isCreatingAdmin, setIsCreatingAdmin] = useState(false);
   const [adminError, setAdminError] = useState('');
   const [adminInvitationLink, setAdminInvitationLink] = useState('');
+  const [adminInviteWarning, setAdminInviteWarning] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [usage, setUsage] = useState<MvpUsage>(mockUsage);
   const [updatingStatus, setUpdatingStatus] = useState(false);
@@ -128,12 +130,14 @@ export default function SuperadminOrganizationDetailsPage() {
     setAdminError('');
     setSuccessMessage('');
     setAdminInvitationLink('');
+    setAdminInviteWarning('');
     if (!id) return;
     const payload = {
       firstName: adminForm.firstName.trim(),
       lastName: adminForm.lastName.trim(),
       email: adminForm.email.trim(),
       phone: adminForm.phone.trim(),
+      sendEmail: adminForm.sendEmail,
     };
     if (!payload.firstName || !payload.lastName || !payload.email) {
       setAdminError('Completează prenumele, numele și emailul.');
@@ -144,8 +148,13 @@ export default function SuperadminOrganizationDetailsPage() {
     try {
       const created = await invitationsApi.createAdmin(id, payload);
       setAdminInvitationLink(created.data?.activationLink || created.data?.inviteLink || '');
+      setAdminInviteWarning(created.data?.warning || '');
       setAdminForm(emptyAdminForm);
-      setSuccessMessage('Invitația a fost creată.');
+      setSuccessMessage(
+        created.data?.emailSent
+          ? 'Invitația a fost trimisă pe email.'
+          : 'Invitația a fost creată. Copiază linkul și trimite-l manual.',
+      );
       await loadAdmins(id).catch(() => undefined);
     } catch (error: any) {
       const message = String(error?.message || '');
@@ -232,6 +241,7 @@ export default function SuperadminOrganizationDetailsPage() {
               type="button"
               onClick={() => {
                 setAdminInvitationLink('');
+                setAdminInviteWarning('');
                 setAdminModalOpen(true);
               }}
               className="inline-flex min-h-10 items-center gap-2 rounded-2xl bg-foreground px-4 text-sm font-semibold text-background"
@@ -332,6 +342,7 @@ export default function SuperadminOrganizationDetailsPage() {
             type="button"
             onClick={() => {
               setAdminInvitationLink('');
+              setAdminInviteWarning('');
               setAdminModalOpen(true);
             }}
             className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-2xl bg-foreground px-4 text-sm font-semibold text-background"
@@ -360,6 +371,10 @@ export default function SuperadminOrganizationDetailsPage() {
             <Field label="Nume" value={adminForm.lastName} onChange={(value) => setAdminForm({ ...adminForm, lastName: value })} required />
             <Field label="Email" value={adminForm.email} onChange={(value) => setAdminForm({ ...adminForm, email: value })} type="email" required />
             <Field label="Telefon" value={adminForm.phone} onChange={(value) => setAdminForm({ ...adminForm, phone: value })} />
+            <label className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-border/70 bg-white px-3 text-sm font-medium text-foreground md:col-span-2">
+              <input type="checkbox" checked={adminForm.sendEmail} onChange={(event) => setAdminForm({ ...adminForm, sendEmail: event.target.checked })} />
+              Trimite invitația pe email
+            </label>
           </div>
           {adminError ? (
             <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
@@ -368,7 +383,10 @@ export default function SuperadminOrganizationDetailsPage() {
           ) : null}
           {adminInvitationLink ? (
             <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-3">
-              <p className="text-sm font-semibold text-emerald-900">Invitația a fost creată.</p>
+              <p className="text-sm font-semibold text-emerald-900">
+                {adminInviteWarning ? 'Invitația a fost creată. Copiază linkul și trimite-l manual.' : 'Invitația a fost creată.'}
+              </p>
+              {adminInviteWarning ? <p className="mt-1 text-xs font-semibold text-amber-700">{adminInviteWarning}</p> : null}
               <input className="input mt-2 bg-white" readOnly value={adminInvitationLink} />
               <button
                 type="button"
@@ -380,7 +398,7 @@ export default function SuperadminOrganizationDetailsPage() {
             </div>
           ) : null}
           <p className="mt-4 text-xs text-muted-foreground">
-            Trimiterea automată pe email va fi conectată ulterior. Trimite linkul administratorului printr-un canal sigur.
+            Dacă emailul nu este configurat, linkul rămâne disponibil pentru trimitere manuală printr-un canal sigur.
           </p>
         </ModalBody>
         <ModalFooter>

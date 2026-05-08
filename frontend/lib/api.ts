@@ -675,6 +675,7 @@ export const invitationsApi = {
       lastName: string;
       email: string;
       phone?: string;
+      sendEmail?: boolean;
     },
   ) => apiRequest<any>(`/organizations/${organizationId}/admin-invitations`, { method: 'POST', body: data }),
   createResident: (
@@ -682,6 +683,7 @@ export const invitationsApi = {
     data: {
       email: string;
       phone?: string;
+      sendEmail?: boolean;
     },
   ) => apiRequest<any>(`/residents/${residentId}/invitations`, { method: 'POST', body: data }),
   create: (data: {
@@ -1469,6 +1471,12 @@ export const systemMonitoringApi = {
         apartments: number;
       };
     }>('/health/db'),
+  emailStatus: () =>
+    apiRequest<{
+      configured: boolean;
+      provider: 'resend' | 'smtp' | null;
+      from?: string;
+    }>('/api/system/email-status'),
   superadminListErrors: (params?: {
     source?: 'BACKEND' | 'FRONTEND' | 'JOB' | 'WEBHOOK' | 'PAYMENT_PROVIDER';
     level?: 'INFO' | 'WARNING' | 'ERROR' | 'CRITICAL';

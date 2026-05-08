@@ -21,6 +21,7 @@ const emptyForm = {
   email: '',
   phone: '',
   organizationId: '',
+  sendEmail: false,
 };
 
 export default function SuperadminAdminsPage() {
@@ -38,6 +39,7 @@ export default function SuperadminAdminsPage() {
   const [successMessage, setSuccessMessage] = useState('');
   const [listError, setListError] = useState('');
   const [invitationLink, setInvitationLink] = useState('');
+  const [inviteWarning, setInviteWarning] = useState('');
 
   const loadAdmins = async () => {
     const [adminsRes, orgsRes] = await Promise.all([
@@ -89,6 +91,7 @@ export default function SuperadminAdminsPage() {
     setFormError('');
     setSuccessMessage('');
     setInvitationLink('');
+    setInviteWarning('');
     if (!form.firstName.trim() || !form.lastName.trim() || !form.email.trim() || !form.organizationId) {
       setFormError('Completează prenumele, numele, emailul și asociația.');
       return;
@@ -101,10 +104,16 @@ export default function SuperadminAdminsPage() {
         lastName: form.lastName.trim(),
         email: form.email.trim(),
         phone: form.phone.trim(),
+        sendEmail: form.sendEmail,
       });
       setInvitationLink(created.data?.activationLink || created.data?.inviteLink || '');
+      setInviteWarning(created.data?.warning || '');
       setForm({ ...emptyForm, organizationId: form.organizationId });
-      setSuccessMessage('Invitația a fost creată.');
+      setSuccessMessage(
+        created.data?.emailSent
+          ? 'Invitația a fost trimisă pe email.'
+          : 'Invitația a fost creată. Copiază linkul și trimite-l manual.',
+      );
       await loadAdmins().catch(() => undefined);
     } catch (error: any) {
       const message = String(error?.message || '');
@@ -141,6 +150,7 @@ export default function SuperadminAdminsPage() {
             type="button"
             onClick={() => {
               setInvitationLink('');
+              setInviteWarning('');
               setModalOpen(true);
             }}
             className="inline-flex min-h-10 items-center gap-2 rounded-2xl bg-foreground px-4 text-sm font-semibold text-background"
@@ -236,6 +246,10 @@ export default function SuperadminAdminsPage() {
             <Field label="Nume" value={form.lastName} onChange={(value) => setForm({ ...form, lastName: value })} required />
             <Field label="Email" value={form.email} onChange={(value) => setForm({ ...form, email: value })} type="email" required />
             <Field label="Telefon" value={form.phone} onChange={(value) => setForm({ ...form, phone: value })} />
+            <label className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-border/70 bg-white px-3 text-sm font-medium text-foreground md:col-span-2">
+              <input type="checkbox" checked={form.sendEmail} onChange={(event) => setForm({ ...form, sendEmail: event.target.checked })} />
+              Trimite invitația pe email
+            </label>
             <label className="block md:col-span-2">
               <span className="label">Asociație</span>
               <select className="select" value={form.organizationId} onChange={(event) => setForm({ ...form, organizationId: event.target.value })}>
@@ -252,7 +266,10 @@ export default function SuperadminAdminsPage() {
           ) : null}
           {invitationLink ? (
             <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-3">
-              <p className="text-sm font-semibold text-emerald-900">Invitația a fost creată.</p>
+              <p className="text-sm font-semibold text-emerald-900">
+                {inviteWarning ? 'Invitația a fost creată. Copiază linkul și trimite-l manual.' : 'Invitația a fost creată.'}
+              </p>
+              {inviteWarning ? <p className="mt-1 text-xs font-semibold text-amber-700">{inviteWarning}</p> : null}
               <input className="input mt-2 bg-white" readOnly value={invitationLink} />
               <button
                 type="button"
@@ -264,7 +281,7 @@ export default function SuperadminAdminsPage() {
             </div>
           ) : null}
           <p className="mt-4 text-xs text-muted-foreground">
-            Trimiterea automată pe email va fi conectată ulterior. Trimite linkul administratorului printr-un canal sigur.
+            Dacă emailul nu este configurat, linkul rămâne disponibil pentru trimitere manuală printr-un canal sigur.
           </p>
         </ModalBody>
         <ModalFooter>
