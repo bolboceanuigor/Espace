@@ -1,42 +1,102 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Download } from 'lucide-react';
+import { Badge, Button, Card, PageHeader } from '@/components/ui';
 import { reportsApi } from '@/lib/api';
 import { downloadBlob } from '@/lib/download';
 
+const mdl = new Intl.NumberFormat('ro-MD', { style: 'currency', currency: 'MDL', maximumFractionDigits: 2 });
+
+const methods = [
+  { value: '', label: 'Toate metodele' },
+  { value: 'CASH', label: 'Numerar' },
+  { value: 'BANK_TRANSFER', label: 'Transfer bancar' },
+  { value: 'BANK', label: 'Transfer bancar' },
+  { value: 'CARD', label: 'Card' },
+  { value: 'ONLINE', label: 'Online' },
+];
+
 export default function AdminPaymentsReportPage() {
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
-  const [rows, setRows] = useState<any[]>([]);
+  const [filters, setFilters] = useState({ from: '', to: '', method: '' });
+  const [report, setReport] = useState<any>({ summary: {}, rows: [] });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const params = useMemo(() => ({
+    from: filters.from || undefined,
+    to: filters.to || undefined,
+    method: filters.method || undefined,
+  }), [filters.from, filters.method, filters.to]);
 
   const load = useCallback(async () => {
-    const res = await reportsApi.adminPayments({ from: from || undefined, to: to || undefined });
-    setRows(res.data || []);
-  }, [from, to]);
+    setLoading(true);
+    setError('');
+    try {
+      const res = await reportsApi.adminPayments(params);
+      setReport(res.data || { summary: {}, rows: [] });
+    } catch {
+      setReport({ summary: {}, rows: [] });
+      setError('Nu am putut încărca raportul de plăți.');
+    } finally {
+      setLoading(false);
+    }
+  }, [params]);
 
   useEffect(() => {
-    void load();
+    load().catch(() => undefined);
   }, [load]);
 
+  const rows = report.rows || [];
+  const summary = report.summary || {};
+
   return (
-    <div className="space-y-4">
-      <h1 className="text-xl font-semibold text-foreground">Payment Register</h1>
-      <div className="flex flex-wrap gap-2 rounded-xl border border-border/70 bg-card p-4">
-        <input className="input" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-        <input className="input" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-        <button className="rounded-md border border-border/70 px-3 py-2 text-sm" onClick={async () => downloadBlob((await reportsApi.adminPaymentsXlsx({ from: from || undefined, to: to || undefined })).data, 'payments-register.xlsx')}>
-          Export Excel
-        </button>
-      </div>
-      <div className="rounded-xl border border-border/70 bg-card p-4">
-        <div className="space-y-1">
-          {rows.map((row) => (
-            <div key={row.id} className="text-sm text-foreground">
-              {new Date(row.createdAt).toLocaleString()} • #{row.apartment.number} • {row.amount} • {row.method} • {row.note || '-'}
-            </div>
-          ))}
+    <div className="space-y-5 pb-4">
+      <PageHeader
+        title="Raport plăți"
+        description="Registru plăți înregistrate de administrator, cu export CSV."
+        rightSlot={
+          <Button variant="secondary" onClick={async () => downloadBlob((await reportsApi.adminPaymentsCsv(params)).data, 'raport-plati.csv')}>
+            <Download className="h-4 w-4" /> Export CSV
+          </Button>
+        }
+      />
+
+      {error ? <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</p> : null}
+
+      <section className="grid gap-3 md:grid-cols-2">
+        <Card><p className="text-sm text-muted-foreground">Total achitat</p><p className="mt-2 text-xl font-semibold text-foreground">{mdl.format(summary.totalPaid || 0)}</p></Card>
+        <Card><p className="text-sm text-muted-foreground">Plăți în listă</p><p className="mt-2 text-xl font-semibold text-foreground">{summary.paymentsCount || 0}</p></Card>
+      </section>
+
+      <Card>
+        <div className="grid gap-3 md:grid-cols-[180px_180px_220px]">
+          <input className="input" type="date" value={filters.from} onChange={(event) => setFilters((current) => ({ ...current, from: event.target.value }))} />
+          <input className="input" type="date" value={filters.to} onChange={(event) => setFilters((current) => ({ ...current, to: event.target.value }))} />
+          <select className="select" value={filters.method} onChange={(event) => setFilters((current) => ({ ...current, method: event.target.value }))}>
+            {methods.map((method) => <option key={method.value || 'all'} value={method.value}>{method.label}</option>)}
+          </select>
         </div>
-      </div>
+      </Card>
+
+      <section className="grid gap-3">
+        {loading ? <Card><p className="text-sm text-muted-foreground">Se încarcă datele...</p></Card> : null}
+        {!loading && !rows.length ? <Card><p className="font-semibold text-foreground">Nu există plăți în perioada selectată.</p></Card> : null}
+        {rows.map((row: any) => (
+          <Card key={row.id}>
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-base font-semibold text-foreground">{mdl.format(row.amount || 0)} · Apt. {row.apartmentNumber}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{row.residentName || '-'} · {row.paidAt ? new Date(row.paidAt).toLocaleDateString('ro-RO') : '-'}</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="neutral">{row.methodLabel}</Badge>
+                {row.invoiceMonth ? <Badge variant="success">Factura {String(row.invoiceMonth).padStart(2, '0')}.{row.invoiceYear}</Badge> : null}
+              </div>
+            </div>
+          </Card>
+        ))}
+      </section>
     </div>
   );
 }

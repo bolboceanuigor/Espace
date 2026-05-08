@@ -15,6 +15,7 @@ import { SetupModule } from './setup/setup.module';
 import { MessagesMvpModule } from './messages-mvp/messages-mvp.module';
 import { ActivityMvpModule } from './activity-mvp/activity-mvp.module';
 import { DocumentsMvpModule } from './documents-mvp/documents-mvp.module';
+import { ReportsModule } from './reports/reports.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -37,6 +38,7 @@ import { AppController } from './app.controller';
     MessagesMvpModule,
     ActivityMvpModule,
     DocumentsMvpModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [],

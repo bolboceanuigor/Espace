@@ -1066,21 +1066,26 @@ export const votesApi = {
 
 export const reportsApi = {
   adminMonthly: (params?: { month?: number; year?: number }) => apiRequest<any>('/api/admin/reports/monthly', { params }),
-  adminDebts: (params?: { buildingId?: string; staircaseId?: string; floor?: number; minDebt?: number; maxDebt?: number }) =>
-    apiRequest<any[]>('/api/admin/reports/debts', { params }),
-  adminPayments: (params?: { from?: string; to?: string }) => apiRequest<any[]>('/api/admin/reports/payments', { params }),
+  adminDebts: (params?: { buildingId?: string; staircaseId?: string; floor?: number; minDebt?: number; onlyOverdue?: boolean; search?: string }) =>
+    apiRequest<any>('/api/admin/reports/debts', { params }),
+  adminPayments: (params?: { from?: string; to?: string; method?: string; apartmentId?: string; staircaseId?: string }) =>
+    apiRequest<any>('/api/admin/reports/payments', { params }),
+  adminApartments: (params?: { buildingId?: string; staircaseId?: string; floor?: number; search?: string }) =>
+    apiRequest<any>('/api/admin/reports/apartments', { params }),
+  adminResidents: (params?: { search?: string }) => apiRequest<any>('/api/admin/reports/residents', { params }),
   adminCharges: (params?: { month?: number; year?: number }) => apiRequest<any[]>('/api/admin/reports/charges', { params }),
   residentStatement: (params?: { apartmentId?: string }) => apiRequest<any>('/api/resident/reports/statement', { params }),
   superadminPlatform: () => apiRequest<any>('/api/superadmin/reports/platform'),
 
-  adminMonthlyPdf: (params?: { month?: number; year?: number }) =>
-    apiRequest<Blob>('/api/admin/reports/monthly/export/pdf', { params, responseType: 'blob' }),
-  adminMonthlyXlsx: (params?: { month?: number; year?: number }) =>
-    apiRequest<Blob>('/api/admin/reports/monthly/export/xlsx', { params, responseType: 'blob' }),
-  adminDebtsPdf: (params?: any) => apiRequest<Blob>('/api/admin/reports/debts/export/pdf', { params, responseType: 'blob' }),
-  adminDebtsXlsx: (params?: any) => apiRequest<Blob>('/api/admin/reports/debts/export/xlsx', { params, responseType: 'blob' }),
-  adminPaymentsXlsx: (params?: { from?: string; to?: string }) =>
-    apiRequest<Blob>('/api/admin/reports/payments/export/xlsx', { params, responseType: 'blob' }),
+  adminMonthlyCsv: (params?: { month?: number; year?: number }) =>
+    apiRequest<Blob>('/api/admin/reports/monthly.csv', { params, responseType: 'blob' }),
+  adminDebtsCsv: (params?: any) => apiRequest<Blob>('/api/admin/reports/debts.csv', { params, responseType: 'blob' }),
+  adminPaymentsCsv: (params?: { from?: string; to?: string; method?: string; apartmentId?: string; staircaseId?: string }) =>
+    apiRequest<Blob>('/api/admin/reports/payments.csv', { params, responseType: 'blob' }),
+  adminApartmentsCsv: (params?: { buildingId?: string; staircaseId?: string; floor?: number; search?: string }) =>
+    apiRequest<Blob>('/api/admin/reports/apartments.csv', { params, responseType: 'blob' }),
+  adminResidentsCsv: (params?: { search?: string }) =>
+    apiRequest<Blob>('/api/admin/reports/residents.csv', { params, responseType: 'blob' }),
   residentStatementPdf: (params?: { apartmentId?: string }) =>
     apiRequest<Blob>('/api/resident/reports/statement/export/pdf', { params, responseType: 'blob' }),
   superadminPlatformXlsx: () => apiRequest<Blob>('/api/superadmin/reports/platform/export/xlsx', { responseType: 'blob' }),

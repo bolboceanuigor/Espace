@@ -31,7 +31,7 @@ export default function AdminBalancesPage() {
         adminStructureApi.listBuildings(),
         adminStructureApi.listApartments(),
       ]);
-      setRows(debtsRes.data || []);
+      setRows(debtsRes.data?.rows || debtsRes.data || []);
       setBuildings(buildingsRes.data || []);
       const map = new Map<string, any>();
       for (const apartment of apartmentsRes.data || []) {
@@ -94,19 +94,19 @@ export default function AdminBalancesPage() {
             onClick={async () => {
               try {
                 await downloadBlob(
-                  (await reportsApi.adminDebtsXlsx({
+                  (await reportsApi.adminDebtsCsv({
                     buildingId: filters.buildingId || undefined,
                     staircaseId: filters.staircaseId || undefined,
                     floor: filters.floor || undefined,
                   })).data,
-                  'balances.xlsx',
+                  'solduri-apartamente.csv',
                 );
               } catch {
                 showToast('Exportul soldurilor a eșuat.', 'error');
               }
             }}
           >
-            Export Excel
+            Export CSV
           </Button>
         </div>
       </div>
