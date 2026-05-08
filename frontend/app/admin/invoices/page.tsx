@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Calculator, CalendarDays, CheckCircle2, Clock3, FileText, Search, Send } from 'lucide-react';
+import { Calculator, CalendarDays, CheckCircle2, Clock3, FileText, Printer, Search, Send } from 'lucide-react';
 import { Badge, Button, ButtonLink, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
 import { apartmentsApi, invoicesApi, paymentsApi } from '@/lib/api';
 import { adminInvoices, invoiceStatusVariant, normalizeApiApartment, normalizeApiInvoice, type AdminApartment, type AdminInvoice, type InvoiceStatus } from '@/lib/admin-mvp-data';
@@ -305,7 +305,15 @@ export default function AdminInvoicesPage() {
             <span className="font-semibold text-foreground">{formatMdl(invoice.amount)}</span>
             <span className="text-muted-foreground">{invoice.dueDate}</span>
             <Badge variant={invoiceStatusVariant[invoice.status]}>{invoice.status}</Badge>
-            <ButtonLink href={localizedPath(`/admin/invoices/${invoice.id}`)} size="sm" variant="secondary">Deschide</ButtonLink>
+            <div className="flex items-center gap-2">
+              <ButtonLink href={localizedPath(`/admin/invoices/${invoice.id}`)} size="sm" variant="secondary">Deschide</ButtonLink>
+              {source === 'api' ? (
+                <ButtonLink href={localizedPath(`/admin/invoices/${invoice.id}/print`)} size="sm" variant="secondary">
+                  <Printer className="h-3.5 w-3.5" />
+                  Printează
+                </ButtonLink>
+              ) : null}
+            </div>
           </div>
         ))}
         {source === 'loading' ? <div className="px-4 py-8 text-sm font-medium text-muted-foreground">Se încarcă datele...</div> : null}
@@ -314,7 +322,13 @@ export default function AdminInvoicesPage() {
 
       <section className="grid gap-3 md:hidden">
         {filtered.map((invoice) => (
-          <InvoiceCard key={invoice.id} invoice={invoice} href={localizedPath(`/admin/invoices/${invoice.id}`)} />
+          <InvoiceCard
+            key={invoice.id}
+            invoice={invoice}
+            href={localizedPath(`/admin/invoices/${invoice.id}`)}
+            printHref={localizedPath(`/admin/invoices/${invoice.id}/print`)}
+            canPrint={source === 'api'}
+          />
         ))}
         {source === 'loading' ? <Card className="p-5 text-sm font-medium text-muted-foreground">Se încarcă datele...</Card> : null}
         {source !== 'loading' && !filtered.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există facturi încă. Emite prima factură sau generează facturile lunare.</Card> : null}
@@ -365,7 +379,7 @@ export default function AdminInvoicesPage() {
   );
 }
 
-function InvoiceCard({ invoice, href }: { invoice: AdminInvoice; href: string }) {
+function InvoiceCard({ invoice, href, printHref, canPrint }: { invoice: AdminInvoice; href: string; printHref: string; canPrint: boolean }) {
   return (
     <Card className="p-4">
       <div className="flex items-start justify-between gap-3">
@@ -380,7 +394,15 @@ function InvoiceCard({ invoice, href }: { invoice: AdminInvoice; href: string })
         <Info label="Data scadentă" value={invoice.dueDate} />
         <Info label="Metodă plată" value={invoice.paymentMethod ?? '-'} />
       </div>
-      <ButtonLink href={href} className="mt-4 w-full" variant="secondary">Deschide</ButtonLink>
+      <div className={`mt-4 grid gap-2 ${canPrint ? 'sm:grid-cols-2' : ''}`}>
+        <ButtonLink href={href} className="w-full" variant="secondary">Deschide</ButtonLink>
+        {canPrint ? (
+          <ButtonLink href={printHref} className="w-full" variant="secondary">
+            <Printer className="h-4 w-4" />
+            Printează
+          </ButtonLink>
+        ) : null}
+      </div>
     </Card>
   );
 }

@@ -63,9 +63,19 @@ export default function ResidentInvoiceDetailsPage() {
         title="Detalii factură"
         description="Suma, scadența, plățile asociate și instrucțiunile de plată."
         rightSlot={
-          <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-            {source === 'loading' ? 'Se încarcă...' : source === 'api' ? 'Date reale' : source === 'mock' ? 'Date temporare — API indisponibil' : 'Nu am putut încărca factura'}
-          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
+              {source === 'loading' ? 'Se încarcă...' : source === 'api' ? 'Date reale' : source === 'mock' ? 'Date temporare — API indisponibil' : 'Nu am putut încărca factura'}
+            </span>
+            {invoice && source === 'api' ? (
+              <Link
+                href={localizedPath(`/resident/invoices/${params.id}/print`)}
+                className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-border/70 bg-white px-4 text-sm font-semibold text-foreground shadow-sm hover:bg-muted/70"
+              >
+                Printează factura
+              </Link>
+            ) : null}
+          </div>
         }
       />
 

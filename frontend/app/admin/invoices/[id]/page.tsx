@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, CreditCard, FileText, Home, ReceiptText } from 'lucide-react';
+import { ArrowLeft, CreditCard, FileText, Home, Printer, ReceiptText } from 'lucide-react';
 import { Badge, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
 import { invoicesApi } from '@/lib/api';
 import { adminInvoices, invoiceStatusVariant, normalizeApiInvoice, type AdminInvoice } from '@/lib/admin-mvp-data';
@@ -50,6 +50,12 @@ export default function AdminInvoiceDetailsPage() {
             <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
               {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
             </span>
+            {source === 'api' ? (
+              <ButtonLink href={localizedPath(`/admin/invoices/${params.id}/print`)} variant="secondary">
+                <Printer className="h-4 w-4" />
+                Printează factura
+              </ButtonLink>
+            ) : null}
             <ButtonLink href={localizedPath('/admin/invoices')} variant="secondary">
               <ArrowLeft className="h-4 w-4" />
               Înapoi
@@ -109,10 +115,13 @@ export default function AdminInvoiceDetailsPage() {
         <div className="mt-4 grid gap-2">
           {payments.length ? (
             payments.map((payment: any) => (
-              <div key={payment.id} className="grid gap-2 rounded-2xl border border-border/70 bg-white px-3 py-3 text-sm sm:grid-cols-[1fr_1fr_1fr]">
+              <div key={payment.id} className="grid gap-2 rounded-2xl border border-border/70 bg-white px-3 py-3 text-sm sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-center">
                 <span className="font-semibold text-foreground">{formatMdl(Number(payment.amount || 0))}</span>
                 <span className="text-muted-foreground">{payment.method || '-'}</span>
                 <span className="text-muted-foreground">{payment.paidAt ? new Intl.DateTimeFormat('ro-RO').format(new Date(payment.paidAt)) : 'Neconfirmată'}</span>
+                <ButtonLink href={localizedPath(`/admin/payments/${payment.id}/print`)} size="sm" variant="secondary">
+                  Confirmare
+                </ButtonLink>
               </div>
             ))
           ) : (

@@ -42,6 +42,7 @@ export default function AdminPaymentsPage() {
   const [isRegisteringPayment, setIsRegisteringPayment] = useState(false);
   const [paymentError, setPaymentError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [lastPaymentId, setLastPaymentId] = useState('');
 
   const loadBilling = async () => {
     const [invoiceRes, paymentRes, summaryRes] = await Promise.all([
@@ -108,6 +109,7 @@ export default function AdminPaymentsPage() {
   const openPaymentModal = (invoice?: AdminInvoice) => {
     setPaymentError('');
     setSuccessMessage('');
+    setLastPaymentId('');
     const selected = invoice || rows.find((item) => item.status !== 'Achitat') || rows[0];
     setPaymentForm({
       apartmentId: selected?.apartmentId || apartments[0]?.id || '',
@@ -122,6 +124,7 @@ export default function AdminPaymentsPage() {
   const registerPayment = async () => {
     setPaymentError('');
     setSuccessMessage('');
+    setLastPaymentId('');
     const selectedInvoice = rows.find((item) => item.id === paymentForm.invoiceId);
     const selectedApartment = apartments.find((item) => item.id === paymentForm.apartmentId) || apartments.find((item) => item.id === selectedInvoice?.apartmentId);
     const amount = Number(paymentForm.amount);
@@ -138,7 +141,7 @@ export default function AdminPaymentsPage() {
 
     setIsRegisteringPayment(true);
     try {
-      await paymentsApi.create({
+      const response = await paymentsApi.create({
         organizationId,
         apartmentId,
         invoiceId: selectedInvoice?.id || undefined,
@@ -146,7 +149,9 @@ export default function AdminPaymentsPage() {
         method: paymentForm.method,
         paidAt: paymentForm.paidAt,
       });
+      const createdPaymentId = response.data?.id ? String(response.data.id) : '';
       setPaymentModalOpen(false);
+      setLastPaymentId(createdPaymentId);
       setSuccessMessage('Plata a fost înregistrată.');
       setSource('api');
       await loadBilling().catch(() => undefined);
@@ -170,8 +175,13 @@ export default function AdminPaymentsPage() {
       />
 
       {successMessage ? (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
-          {successMessage}
+        <div className="flex flex-col gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800 sm:flex-row sm:items-center sm:justify-between">
+          <span>{successMessage}</span>
+          {lastPaymentId ? (
+            <ButtonLink href={localizedPath(`/admin/payments/${lastPaymentId}/print`)} size="sm" variant="secondary">
+              Confirmare plată
+            </ButtonLink>
+          ) : null}
         </div>
       ) : null}
 

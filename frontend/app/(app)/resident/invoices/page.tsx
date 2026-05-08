@@ -70,12 +70,22 @@ export default function ResidentInvoicesPage() {
                 ))}
               </div>
             </div> : null}
-            <Link
-              href={localizedPath(`/resident/invoices/${invoice.id}`)}
-              className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-border/70 text-sm font-semibold text-foreground transition hover:bg-muted/40"
-            >
-              Detalii
-            </Link>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              <Link
+                href={localizedPath(`/resident/invoices/${invoice.id}`)}
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-border/70 text-sm font-semibold text-foreground transition hover:bg-muted/40"
+              >
+                Detalii
+              </Link>
+              {source === 'api' ? (
+                <Link
+                  href={localizedPath(`/resident/invoices/${invoice.id}/print`)}
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-foreground px-4 text-sm font-semibold text-background transition hover:opacity-90"
+                >
+                  Vezi factura
+                </Link>
+              ) : null}
+            </div>
           </Card>
         ))}
         {!rows.length ? (

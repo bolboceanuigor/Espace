@@ -1,8 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Download, Search } from 'lucide-react';
-import { Badge, Button, Card, PageHeader } from '@/components/ui';
+import { Download, Printer, Search } from 'lucide-react';
+import { Badge, Button, ButtonLink, Card, PageHeader } from '@/components/ui';
 import { adminStructureApi, reportsApi } from '@/lib/api';
 import { downloadBlob } from '@/lib/download';
 
@@ -60,6 +60,15 @@ export default function AdminDebtsReportPage() {
 
   const rows = report.rows || [];
   const summary = report.summary || {};
+  const printHref = useMemo(() => {
+    const search = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value === undefined || value === null || value === '') return;
+      search.set(key, String(value));
+    });
+    const query = search.toString();
+    return query ? `/admin/reports/debts/print?${query}` : '/admin/reports/debts/print';
+  }, [params]);
 
   return (
     <div className="space-y-5 pb-4">
@@ -67,12 +76,17 @@ export default function AdminDebtsReportPage() {
         title="Raport datorii"
         description="Apartamente cu sold restant, facturi neachitate și întârzieri."
         rightSlot={
-          <Button
-            variant="secondary"
-            onClick={async () => downloadBlob((await reportsApi.adminDebtsCsv(params)).data, 'raport-datorii.csv')}
-          >
-            <Download className="h-4 w-4" /> Export CSV
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="secondary"
+              onClick={async () => downloadBlob((await reportsApi.adminDebtsCsv(params)).data, 'raport-datorii.csv')}
+            >
+              <Download className="h-4 w-4" /> Export CSV
+            </Button>
+            <ButtonLink href={printHref} variant="secondary">
+              <Printer className="h-4 w-4" /> Printează raport
+            </ButtonLink>
+          </div>
         }
       />
 
