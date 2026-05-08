@@ -120,7 +120,7 @@ function DashboardMockup() {
       <div className="overflow-hidden rounded-md border border-white/10 bg-[#f7f5f0] text-slate-950">
         <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
           <div>
-            <p className="text-xs text-slate-500">A.P.C. A0123-0940 · Chișinău</p>
+            <p className="text-xs text-slate-500">A.P.C. configurată · Chișinău</p>
             <p className="text-sm font-semibold">Panou administrator</p>
           </div>
           <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-medium text-teal-800">Mai 2026</span>

@@ -32,12 +32,31 @@ const fallbackAnnouncements = [
   'Ședință APC - aprobarea bugetului lunar',
 ];
 
-const currentAssociationIdentity = {
-  shortName: 'A.P.C. A0123-0940',
-  legalName: 'Asociația de Proprietari din Condominiu A0123-0940',
-  code: 'A0123-0940',
-  internalNumber: '0940',
+const defaultAssociationIdentity = {
+  shortName: 'A.P.C.',
+  legalName: 'Asociația de Proprietari din Condominiu',
+  code: '-',
+  internalNumber: '-',
 };
+
+function associationNumberFromCode(code: string) {
+  return code.match(/-(\d{4})$/)?.[1] || '-';
+}
+
+function associationIdentityFromOrganization(organization: any) {
+  const code = String(organization?.associationCode || organization?.fiscalCode || '').toUpperCase();
+  const shortName = String(organization?.shortName || organization?.name || (code ? `A.P.C. ${code}` : defaultAssociationIdentity.shortName));
+  const legalName = String(
+    organization?.legalName ||
+      (code ? `Asociația de Proprietari din Condominiu ${code}` : defaultAssociationIdentity.legalName),
+  );
+  return {
+    shortName,
+    legalName,
+    code: code || '-',
+    internalNumber: associationNumberFromCode(code),
+  };
+}
 
 type SetupStep = {
   key: string;
@@ -74,6 +93,7 @@ export default function AdminPage() {
     progressDetails: { completed: number; total: number; percent: number; label: string };
     nextStep?: SetupStep;
   } | null>(null);
+  const [associationIdentity, setAssociationIdentity] = useState(defaultAssociationIdentity);
 
   useEffect(() => {
     let active = true;
@@ -131,6 +151,9 @@ export default function AdminPage() {
           })),
         );
         setAnnouncements(apiAnnouncements.slice(0, 3).map((item: any) => String(item.title || 'Anunț')));
+        if (onboardingRes.data?.organization) {
+          setAssociationIdentity(associationIdentityFromOrganization(onboardingRes.data.organization));
+        }
         if (onboardingRes.data?.steps?.length) {
           setSetup({
             steps: onboardingRes.data.steps,
@@ -166,6 +189,12 @@ export default function AdminPage() {
         setUrgentRequests(fallbackUrgentRequests);
         setLatestPayments(fallbackLatestPayments);
         setAnnouncements(fallbackAnnouncements);
+        setAssociationIdentity({
+          shortName: 'A.P.C. temporară',
+          legalName: 'Date temporare — API indisponibil',
+          code: '-',
+          internalNumber: '-',
+        });
         setSetup(null);
         setSource('fallback');
       });
@@ -208,12 +237,12 @@ export default function AdminPage() {
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Asociația curentă</p>
-            <h2 className="mt-1 text-xl font-semibold text-foreground">{currentAssociationIdentity.shortName}</h2>
-            <p className="mt-1 text-sm text-muted-foreground">{currentAssociationIdentity.legalName}</p>
+            <h2 className="mt-1 text-xl font-semibold text-foreground">{associationIdentity.shortName}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{associationIdentity.legalName}</p>
           </div>
           <div className="grid gap-2 text-sm sm:grid-cols-2">
-            <span className="rounded-2xl border border-border/70 bg-muted/25 px-3 py-2 font-medium text-foreground">Cod APC: {currentAssociationIdentity.code}</span>
-            <span className="rounded-2xl border border-border/70 bg-muted/25 px-3 py-2 font-medium text-foreground">Nr. intern: {currentAssociationIdentity.internalNumber}</span>
+            <span className="rounded-2xl border border-border/70 bg-muted/25 px-3 py-2 font-medium text-foreground">Cod APC: {associationIdentity.code}</span>
+            <span className="rounded-2xl border border-border/70 bg-muted/25 px-3 py-2 font-medium text-foreground">Nr. intern: {associationIdentity.internalNumber}</span>
           </div>
         </div>
       </Card>

@@ -24,14 +24,13 @@ import {
 } from '@/lib/superadmin-mvp-data';
 
 function associationFromId(id: string): MvpAssociation {
-  const associationCode = 'A0123-0940';
   return {
     id,
-    name: `A.P.C. ${associationCode}`,
-    legalName: `Asociația de Proprietari din Condominiu ${associationCode}`,
-    shortName: `A.P.C. ${associationCode}`,
-    associationCode,
-    associationNumber: '0940',
+    name: 'A.P.C.',
+    legalName: 'Asociația de Proprietari din Condominiu',
+    shortName: 'A.P.C.',
+    associationCode: '',
+    associationNumber: '',
     address: 'Adresă necompletată',
     city: 'Chișinău',
     country: 'Republica Moldova',

@@ -6,7 +6,7 @@ import { onboardingApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 const STEPS = [
-  { key: 'ORGANIZATION_DETAILS', title: 'Date asociație', optional: false, href: '/admin/settings/organization' },
+  { key: 'ORGANIZATION_DETAILS', title: 'Date A.P.C.', optional: false, href: '/admin/settings/organization' },
   { key: 'ADD_FIRST_BUILDING', title: 'Clădire / bloc', optional: false, href: '/admin/buildings' },
   { key: 'ADD_STAIRCASES', title: 'Scări', optional: false, href: '/admin/staircases' },
   { key: 'ADD_APARTMENTS', title: 'Apartamente', optional: false, href: '/admin/apartments' },
@@ -56,8 +56,8 @@ export default function AdminOnboardingPage() {
 
       <div className="space-y-2 rounded-xl border border-border/70 bg-card p-4">
         {steps.map((step: any, index: number) => {
-          const doneByIndex = index < currentIndex;
           const doneByChecklist =
+            (step.key === 'ORGANIZATION_DETAILS' && checklist.organizationDetails) ||
             (step.key === 'ADD_FIRST_BUILDING' && checklist.buildingsCreated) ||
             (step.key === 'ADD_STAIRCASES' && checklist.staircasesCreated) ||
             (step.key === 'ADD_APARTMENTS' && (checklist.apartmentsCreated || checklist.apartmentsImported)) ||
@@ -65,7 +65,7 @@ export default function AdminOnboardingPage() {
             (step.key === 'ADD_METERS' && checklist.metersCreated) ||
             (step.key === 'CONFIGURE_TARIFFS' && checklist.tariffsConfigured) ||
             (step.key === 'GENERATE_FIRST_INVOICES' && (checklist.invoicesGenerated || checklist.firstInvoicesGenerated));
-          const done = Boolean(step.completed ?? (doneByIndex || doneByChecklist));
+          const done = Boolean(step.completed ?? doneByChecklist);
           const active = index === currentIndex;
           return (
             <div key={step.key} className={`rounded-lg border px-3 py-2 text-sm ${active ? 'border-primary/40 bg-primary/5' : 'border-border/60'}`}>

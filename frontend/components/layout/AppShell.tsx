@@ -71,7 +71,7 @@ function AppShellContent({ children }: AppShellProps) {
   const activeUser = user ?? previewUser;
   const activeOrg = org ?? {
     id: 'preview-org',
-    name: 'A.P.C. A0123-0940',
+    name: 'A.P.C. temporară',
     weekStart: 'MONDAY' as const,
     defaultLocale: 'ro' as const,
     betaAccessEnabled: true,

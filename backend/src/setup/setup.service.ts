@@ -449,10 +449,10 @@ export class SetupService {
     const steps = [
       {
         key: 'ORGANIZATION_DETAILS',
-        title: 'Date asociație',
+        title: 'Date A.P.C.',
         completed: checklist.organizationDetails,
         href: '/admin/settings/organization',
-        actionLabel: 'Verifică datele asociației',
+        actionLabel: 'Completează datele A.P.C.',
       },
       {
         key: 'ADD_FIRST_BUILDING',

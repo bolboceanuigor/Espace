@@ -122,6 +122,14 @@ export class OrganizationsService {
   async createPublicOrganization(body: unknown) {
     const input = this.parseCreateOrganizationBody(body);
 
+    const duplicate = await this.prisma.organization.findFirst({
+      where: { fiscalCode: input.fiscalCode },
+      select: { id: true },
+    });
+    if (duplicate) {
+      throw new ConflictException('Există deja o asociație cu acest Cod APC.');
+    }
+
     const organization = await this.prisma.organization.create({
       data: input,
       select: this.publicSelect,

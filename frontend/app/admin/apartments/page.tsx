@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, Gauge, Home, Layers3, Plus, Search, Upload, UserX } from 'lucide-react';
 import { Badge, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
 import { formatMdl } from '@/lib/condo-admin-fallback';
-import { apartmentsApi } from '@/lib/api';
+import { adminStructureApi, apartmentsApi } from '@/lib/api';
 import { adminApartments, apartmentStatusVariant, normalizeApiApartment, type AdminApartment } from '@/lib/admin-mvp-data';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
@@ -36,6 +36,8 @@ export default function AdminApartmentsPage() {
   const [onlyDebt, setOnlyDebt] = useState(false);
   const [withoutAccount, setWithoutAccount] = useState(false);
   const [rows, setRows] = useState<AdminApartment[]>([]);
+  const [buildingRows, setBuildingRows] = useState<any[]>([]);
+  const [staircaseRows, setStaircaseRows] = useState<any[]>([]);
   const [source, setSource] = useState<'loading' | 'api' | 'mock'>('loading');
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -44,14 +46,25 @@ export default function AdminApartmentsPage() {
   const [successMessage, setSuccessMessage] = useState('');
 
   const loadApartments = async () => {
-    const res = await apartmentsApi.list();
-    const apiRows = (res.data || []).map(normalizeApiApartment);
+    const [apartmentsRes, buildingsRes, staircasesRes] = await Promise.all([
+      apartmentsApi.list(),
+      adminStructureApi.listBuildings().catch(() => ({ data: [] })),
+      adminStructureApi.listAllStaircases().catch(() => ({ data: [] })),
+    ]);
+    const apiRows = (apartmentsRes.data || []).map(normalizeApiApartment);
+    const apiBuildings = buildingsRes.data || [];
+    const apiStaircases = staircasesRes.data || [];
     setRows(apiRows);
+    setBuildingRows(apiBuildings);
+    setStaircaseRows(apiStaircases);
     setSource('api');
     setForm((current) => {
-      const first = apiRows.find((item) => item.buildingId && item.staircaseId);
-      if (!first || current.buildingId || current.staircaseId) return current;
-      return { ...current, buildingId: first.buildingId || '', staircaseId: first.staircaseId || '' };
+      if (current.buildingId || current.staircaseId) return current;
+      const firstStructureStaircase = apiStaircases.find((item: any) => item.id && item.buildingId);
+      const firstApartmentStructure = apiRows.find((item) => item.buildingId && item.staircaseId);
+      const buildingId = firstStructureStaircase?.buildingId || firstApartmentStructure?.buildingId || apiBuildings[0]?.id || '';
+      const staircaseId = firstStructureStaircase?.id || firstApartmentStructure?.staircaseId || '';
+      return { ...current, buildingId, staircaseId };
     });
   };
 
@@ -60,6 +73,8 @@ export default function AdminApartmentsPage() {
     loadApartments().catch(() => {
       if (!active) return;
       setRows(adminApartments);
+      setBuildingRows([]);
+      setStaircaseRows([]);
       setSource('mock');
     });
     return () => {
@@ -100,13 +115,26 @@ export default function AdminApartmentsPage() {
   ];
   const buildingOptions = useMemo(() => {
     const map = new Map<string, string>();
+    buildingRows.forEach((item) => {
+      if (item.id) map.set(String(item.id), String(item.name || 'Bloc principal'));
+    });
     rows.forEach((item) => {
       if (item.buildingId) map.set(item.buildingId, item.buildingName || 'Bloc principal');
     });
     return Array.from(map, ([id, name]) => ({ id, name }));
-  }, [rows]);
+  }, [buildingRows, rows]);
   const staircaseOptions = useMemo(() => {
     const map = new Map<string, { id: string; name: string; buildingId?: string; organizationId?: string }>();
+    staircaseRows.forEach((item) => {
+      if (!item.id) return;
+      if (form.buildingId && item.buildingId !== form.buildingId) return;
+      map.set(String(item.id), {
+        id: String(item.id),
+        name: String(item.name || 'Scara'),
+        buildingId: item.buildingId ? String(item.buildingId) : undefined,
+        organizationId: item.organizationId ? String(item.organizationId) : undefined,
+      });
+    });
     rows.forEach((item) => {
       if (!item.staircaseId) return;
       if (form.buildingId && item.buildingId !== form.buildingId) return;
@@ -118,7 +146,7 @@ export default function AdminApartmentsPage() {
       });
     });
     return Array.from(map.values());
-  }, [form.buildingId, rows]);
+  }, [form.buildingId, rows, staircaseRows]);
 
   const createApartment = async () => {
     setFormError('');

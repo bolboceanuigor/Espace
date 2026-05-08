@@ -25,9 +25,6 @@ const emptyForm = {
   country: 'Republica Moldova',
   currency: 'MDL' as const,
   status: 'ACTIVE' as AssociationStatus,
-  administratorName: '',
-  administratorEmail: '',
-  administratorPhone: '',
 };
 
 function normalizeAssociationCode(value: string) {
@@ -121,6 +118,7 @@ export default function SuperadminOrganizationsPage() {
       country: form.country.trim(),
       currency: form.currency,
       status: form.status,
+      associationNumber: associationNumberFromCode(associationCode),
     };
     if (!payload.associationCode || !payload.legalName || !payload.shortName || !payload.address || !payload.city) {
       setFormError('Completează codul APC, denumirile, adresa și orașul.');
@@ -299,9 +297,6 @@ export default function SuperadminOrganizationsPage() {
                 <option value="INACTIVE">Inactivă</option>
               </select>
             </label>
-            <Field label="Administrator" value={form.administratorName} onChange={(value) => setForm({ ...form, administratorName: value })} />
-            <Field label="Email administrator" value={form.administratorEmail} onChange={(value) => setForm({ ...form, administratorEmail: value })} type="email" />
-            <Field label="Telefon administrator" value={form.administratorPhone} onChange={(value) => setForm({ ...form, administratorPhone: value })} />
           </div>
           {formError ? (
             <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">

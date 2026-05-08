@@ -1618,6 +1618,7 @@ export const superadminApi = {
     apiRequest<any>(`/organizations/${id}`),
   createPublicOrganization: (data: {
     associationCode: string;
+    associationNumber?: string;
     legalName: string;
     shortName: string;
     name?: string;
