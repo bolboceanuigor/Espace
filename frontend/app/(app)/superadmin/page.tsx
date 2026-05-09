@@ -15,6 +15,13 @@ import {
   type MvpAssociation,
 } from '@/lib/superadmin-mvp-data';
 
+function nextStepForAssociation(association: MvpAssociation) {
+  if (!association.administratorEmail) return 'Invită administrator';
+  if (association.status === 'TRIAL') return 'Finalizează onboarding';
+  if (association.status === 'INACTIVE') return 'Verifică suportul';
+  return association.apartmentsCount > 0 ? 'Monitorizează activitatea' : 'Importă apartamente';
+}
+
 export default function SuperadminPage() {
   const localizedPath = useLocalizedPath();
   const [associations, setAssociations] = useState<MvpAssociation[]>([]);
@@ -93,7 +100,7 @@ export default function SuperadminPage() {
     <div className="space-y-5 pb-4">
       <PageHeader
         title="Platformă"
-        description="Vedere de ansamblu pentru Espace: asociații, administratori, locatari conectați și venit lunar."
+        description="CRM pentru clienții A.P.C.: asociații, contacte, onboarding, abonamente, activitate și follow-up."
         rightSlot={
           <div className="flex flex-wrap gap-2">
             <Link href={localizedPath('/superadmin/organizations')} className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background">
@@ -116,8 +123,8 @@ export default function SuperadminPage() {
         <Card>
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-base font-semibold text-foreground">Asociații</h2>
-              <p className="mt-1 text-sm text-muted-foreground">Asociații conectate în platformă.</p>
+              <h2 className="text-base font-semibold text-foreground">Clienți A.P.C.</h2>
+              <p className="mt-1 text-sm text-muted-foreground">Asociații urmărite ca profiluri CRM.</p>
             </div>
             <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
               {source === 'loading' ? 'Se încarcă...' : source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
@@ -128,7 +135,8 @@ export default function SuperadminPage() {
               <div key={association.name} className="rounded-[1.1rem] border border-border/70 bg-muted/25 p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p className="font-semibold text-foreground">{association.name}</p>
+                    <p className="font-semibold text-foreground">{association.shortName || association.name}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{association.legalName}</p>
                     <p className="mt-1 text-sm text-muted-foreground">{association.city} · {association.apartmentsCount} apartamente</p>
                   </div>
                   <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
@@ -138,8 +146,8 @@ export default function SuperadminPage() {
                   </span>
                 </div>
                 <div className="mt-4 grid gap-2 text-sm sm:grid-cols-3">
-                  <Mini label="Administrator" value={association.administratorName} />
-                  <Mini label="Email" value={association.administratorEmail || '-'} />
+                  <Mini label="Contact responsabil" value={association.administratorName || 'Neatribuit'} />
+                  <Mini label="Următorul pas" value={nextStepForAssociation(association)} />
                   <Mini label="MRR estimat" value={`${(association.apartmentsCount * 24).toLocaleString('ro-RO')} MDL`} />
                 </div>
               </div>
@@ -160,9 +168,10 @@ export default function SuperadminPage() {
         <Card>
           <h2 className="text-base font-semibold text-foreground">Acțiuni rapide</h2>
           <div className="mt-5 space-y-3">
-            <QuickAction href={localizedPath('/superadmin/organizations')} icon={<Plus className="h-4 w-4" />} title="Adaugă asociație" detail="Creează o A.P.C. nouă" />
-            <QuickAction href={localizedPath('/superadmin/admins')} icon={<UserCog className="h-4 w-4" />} title="Adaugă administrator" detail="Creează cont ADMIN pentru o asociație" />
-            <QuickAction href={localizedPath('/superadmin/subscriptions')} icon={<CreditCard className="h-4 w-4" />} title="Vezi abonamente" detail="Planuri și limite manuale" />
+            <QuickAction href={localizedPath('/superadmin/organizations')} icon={<Plus className="h-4 w-4" />} title="Adaugă A.P.C." detail="Creează un client nou" />
+            <QuickAction href={localizedPath('/superadmin/admins')} icon={<UserCog className="h-4 w-4" />} title="Invită administrator" detail="Contact responsabil pentru A.P.C." />
+            <QuickAction href={localizedPath('/superadmin/tasks')} icon={<Timer className="h-4 w-4" />} title="Sarcini / follow-up" detail="Pași următori și suport" />
+            <QuickAction href={localizedPath('/superadmin/subscriptions')} icon={<CreditCard className="h-4 w-4" />} title="Planuri" detail="Abonamente și limite manuale" />
             <QuickAction href={localizedPath('/superadmin/system/status')} icon={<Activity className="h-4 w-4" />} title="Verifică status sistem" detail="API și baza de date" />
           </div>
         </Card>

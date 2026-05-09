@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { AlertCircle, Bell, Building2, CheckCircle2, CreditCard, FileText, Gauge, Megaphone, MessageCircle, PlusCircle, Users } from 'lucide-react';
+import { AlertCircle, Bell, Building2, CheckCircle2, CreditCard, FileText, Gauge, Megaphone, MessageCircle, PlusCircle, UserX, Users } from 'lucide-react';
 import { ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { activityApi, announcementsApi, apartmentsApi, financeApi, invoicesApi, issuesApi, metersApi, onboardingApi, paymentsApi, residentsApi } from '@/lib/api';
@@ -58,6 +58,11 @@ function associationIdentityFromOrganization(organization: any) {
   };
 }
 
+function residentHasAccount(row: any) {
+  const status = String(row?.accountStatus || row?.account_status || '').toUpperCase();
+  return Boolean(row?.userId || row?.user?.id) || status.includes('CREATED') || status.includes('ACTIVE') || status.includes('CONT CREAT');
+}
+
 type SetupStep = {
   key: string;
   title: string;
@@ -83,6 +88,7 @@ export default function AdminPage() {
     collectionRate: 0,
     currentMonthIssued: 0,
     currentMonthPaid: 0,
+    residentsWithoutAccount: 0,
   });
   const [recentActivity, setRecentActivity] = useState<string[]>([]);
   const [urgentRequests, setUrgentRequests] = useState<typeof fallbackUrgentRequests>([]);
@@ -135,6 +141,7 @@ export default function AdminPage() {
           collectionRate: Number(financeRes.data?.collectionRate ?? 0),
           currentMonthIssued: Number(financeRes.data?.currentMonthIssued ?? 0),
           currentMonthPaid: Number(financeRes.data?.currentMonthPaid ?? 0),
+          residentsWithoutAccount: residents.filter((resident: any) => !residentHasAccount(resident)).length,
         });
         setUrgentRequests(
           openIssues.slice(0, 3).map((issue: any) => ({
@@ -185,6 +192,7 @@ export default function AdminPage() {
           collectionRate: 60,
           currentMonthIssued: 0,
           currentMonthPaid: 0,
+          residentsWithoutAccount: 18,
         });
         setRecentActivity(fallbackRecentActivity);
         setUrgentRequests(fallbackUrgentRequests);
@@ -211,6 +219,7 @@ export default function AdminPage() {
     { label: 'Cereri deschise', value: String(summary.openIssues), description: 'În lucru sau noi', icon: <MessageCircle className="h-5 w-5" />, tone: 'warning' as const },
     { label: 'Facturi neachitate', value: String(summary.unpaidInvoices), description: 'Pentru luna curentă', icon: <FileText className="h-5 w-5" />, tone: 'danger' as const },
     { label: 'Locatari conectați', value: String(summary.residents), description: 'Persoane în evidență', icon: <Users className="h-5 w-5" />, tone: 'success' as const },
+    { label: 'Locatari fără cont', value: String(summary.residentsWithoutAccount), description: 'Necesită invitație', icon: <UserX className="h-5 w-5" />, tone: 'warning' as const },
   ];
   const financeCards = [
     { label: 'Total emis', value: formatMdl(summary.totalIssued), description: 'Facturi create', icon: <FileText className="h-5 w-5" /> },
@@ -223,7 +232,7 @@ export default function AdminPage() {
     <div className="space-y-5 pb-4">
       <PageHeader
         title="Acasă"
-        description="Vedere de ansamblu pentru administrarea A.P.C. curente."
+        description="CRM operațional pentru locatari, apartamente, datorii, cereri și activitatea A.P.C."
         rightSlot={
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">

@@ -6,7 +6,6 @@ import { superadminApi } from '@/lib/api';
 import MobilePageHeader from '@/components/common/MobilePageHeader';
 import LoadingState from '@/components/common/LoadingState';
 import EmptyState from '@/components/common/EmptyState';
-import StatusBadge from '@/components/ui/StatusBadge';
 import Button from '@/components/ui/Button';
 import { useToast } from '@/components/ui/ToastProvider';
 
@@ -17,6 +16,35 @@ type RelatedType = 'ORGANIZATION' | 'LEAD' | 'DEMO_REQUEST' | 'FEATURE_REQUEST' 
 const STATUSES: TaskStatus[] = ['TODO', 'IN_PROGRESS', 'DONE', 'CANCELLED'];
 const PRIORITIES: TaskPriority[] = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
 const RELATED_TYPES: RelatedType[] = ['ORGANIZATION', 'LEAD', 'DEMO_REQUEST', 'FEATURE_REQUEST', 'SUPPORT'];
+
+const statusLabels: Record<TaskStatus, string> = {
+  TODO: 'De făcut',
+  IN_PROGRESS: 'În lucru',
+  DONE: 'Finalizate',
+  CANCELLED: 'Anulate',
+};
+
+const priorityLabels: Record<TaskPriority, string> = {
+  LOW: 'Scăzută',
+  MEDIUM: 'Medie',
+  HIGH: 'Ridicată',
+  URGENT: 'Urgentă',
+};
+
+const relatedTypeLabels: Record<RelatedType, string> = {
+  ORGANIZATION: 'A.P.C.',
+  LEAD: 'Lead A.P.C.',
+  DEMO_REQUEST: 'Cerere prezentare',
+  FEATURE_REQUEST: 'Cerere funcționalitate',
+  SUPPORT: 'Suport',
+};
+
+const priorityTone: Record<TaskPriority, string> = {
+  LOW: 'border-slate-200 bg-slate-50 text-slate-700',
+  MEDIUM: 'border-amber-200 bg-amber-50 text-amber-800',
+  HIGH: 'border-orange-200 bg-orange-50 text-orange-800',
+  URGENT: 'border-rose-200 bg-rose-50 text-rose-800',
+};
 
 export default function SuperadminTasksPage() {
   const { showToast } = useToast();
@@ -80,36 +108,36 @@ export default function SuperadminTasksPage() {
 
   return (
     <div className="space-y-4">
-      <MobilePageHeader title="Superadmin Task Board" subtitle="Track sales, support and product tasks with consistent workflow." />
+      <MobilePageHeader title="Sarcini / follow-up" subtitle="Urmărește onboardingul, suportul și pașii următori pentru clienții A.P.C." />
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/70 bg-card p-4">
         <div className="flex items-center gap-2">
           <select className="input h-9 w-40" value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)}>
-            <option value="">All priorities</option>
+            <option value="">Toate prioritățile</option>
             {PRIORITIES.map((value) => (
               <option key={value} value={value}>
-                {value}
+                {priorityLabels[value]}
               </option>
             ))}
           </select>
           <select className="input h-9 w-40" value={dueFilter} onChange={(e) => setDueFilter(e.target.value)}>
-            <option value="">All due dates</option>
-            <option value="OVERDUE">Overdue</option>
-            <option value="TODAY">Due today</option>
-            <option value="UPCOMING">Upcoming</option>
+            <option value="">Toate scadențele</option>
+            <option value="OVERDUE">Întârziate</option>
+            <option value="TODAY">Azi</option>
+            <option value="UPCOMING">Următoare</option>
           </select>
           <Button size="sm" onClick={() => setShowCreate(true)}>
-            Create task
+            Creează sarcină
           </Button>
         </div>
       </div>
 
-      {loading ? <LoadingState label="Loading tasks..." rows={4} /> : null}
+      {loading ? <LoadingState label="Se încarcă sarcinile..." rows={4} /> : null}
 
       {!loading ? <div className="grid grid-cols-1 gap-3 xl:grid-cols-4">
         {STATUSES.map((status) => (
           <div key={status} className="rounded-xl border border-border/70 bg-card p-3">
             <p className="text-xs font-semibold uppercase text-muted-foreground">
-              {status} ({grouped[status].length})
+              {statusLabels[status]} ({grouped[status].length})
             </p>
             <div className="mt-2 space-y-2">
               {grouped[status].map((item) => {
@@ -124,26 +152,26 @@ export default function SuperadminTasksPage() {
                           <select className="input h-8" value={draft.status} onChange={(e) => setDraft((prev) => ({ ...prev, status: e.target.value as TaskStatus }))}>
                             {STATUSES.map((value) => (
                               <option key={value} value={value}>
-                                {value}
+                                {statusLabels[value]}
                               </option>
                             ))}
                           </select>
                           <select className="input h-8" value={draft.priority} onChange={(e) => setDraft((prev) => ({ ...prev, priority: e.target.value as TaskPriority }))}>
                             {PRIORITIES.map((value) => (
                               <option key={value} value={value}>
-                                {value}
+                                {priorityLabels[value]}
                               </option>
                             ))}
                           </select>
                           <select className="input h-8" value={draft.relatedType} onChange={(e) => setDraft((prev) => ({ ...prev, relatedType: e.target.value as any }))}>
-                            <option value="">No related type</option>
+                            <option value="">Fără legătură</option>
                             {RELATED_TYPES.map((value) => (
                               <option key={value} value={value}>
-                                {value}
+                                {relatedTypeLabels[value]}
                               </option>
                             ))}
                           </select>
-                          <input className="input h-8" placeholder="Related ID" value={draft.relatedId} onChange={(e) => setDraft((prev) => ({ ...prev, relatedId: e.target.value }))} />
+                          <input className="input h-8" placeholder="ID legătură" value={draft.relatedId} onChange={(e) => setDraft((prev) => ({ ...prev, relatedId: e.target.value }))} />
                           <input type="datetime-local" className="input h-8 col-span-2" value={draft.dueDate} onChange={(e) => setDraft((prev) => ({ ...prev, dueDate: e.target.value }))} />
                         </div>
                         <div className="flex gap-2">
@@ -165,10 +193,10 @@ export default function SuperadminTasksPage() {
                               await load();
                             }}
                           >
-                            Save
+                            Salvează
                           </button>
                           <button className="rounded-md border border-border/70 px-2 py-1 text-xs" onClick={() => { setEditingId(null); resetDraft(); }}>
-                            Cancel
+                            Anulează
                           </button>
                         </div>
                       </div>
@@ -176,17 +204,19 @@ export default function SuperadminTasksPage() {
                       <>
                         <div className="flex items-center justify-between gap-2">
                           <p className="text-sm font-medium text-foreground">{item.title}</p>
-                          <StatusBadge status={item.priority} />
+                          <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${priorityTone[item.priority as TaskPriority] || priorityTone.MEDIUM}`}>
+                            {priorityLabels[item.priority as TaskPriority] || item.priority}
+                          </span>
                         </div>
                         {item.description ? <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">{item.description}</p> : null}
                         <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-                          {item.dueDate ? <span>Due: {new Date(item.dueDate).toLocaleString()}</span> : null}
-                          {item.relatedType ? <span>{item.relatedType}</span> : null}
+                          {item.dueDate ? <span>Scadență: {new Date(item.dueDate).toLocaleString('ro-RO')}</span> : null}
+                          {item.relatedType ? <span>{relatedTypeLabels[item.relatedType as RelatedType] || item.relatedType}</span> : null}
                         </div>
                         <div className="mt-2 flex flex-wrap gap-2">
                           {item.status !== 'DONE' ? (
-                            <Button size="sm" variant="secondary" onClick={async () => { await superadminApi.updateTask(item.id, { status: 'DONE' }); await load(); showToast('Salvat cu succes'); }}>
-                              Mark done
+                            <Button size="sm" variant="secondary" onClick={async () => { await superadminApi.updateTask(item.id, { status: 'DONE' }); await load(); showToast('Statusul a fost actualizat.'); }}>
+                              Finalizează
                             </Button>
                           ) : null}
                           <Button
@@ -205,10 +235,10 @@ export default function SuperadminTasksPage() {
                               });
                             }}
                           >
-                            Edit
+                            Editează
                           </Button>
-                          <Button size="sm" variant="danger" onClick={async () => { if (!window.confirm('Sigur ștergi task-ul?')) return; await superadminApi.deleteTask(item.id); await load(); showToast('Salvat cu succes'); }}>
-                            Delete
+                          <Button size="sm" variant="danger" onClick={async () => { if (!window.confirm('Sigur ștergi sarcina?')) return; await superadminApi.deleteTask(item.id); await load(); showToast('Modificările au fost salvate.'); }}>
+                            Șterge
                           </Button>
                         </div>
                       </>
@@ -216,7 +246,7 @@ export default function SuperadminTasksPage() {
                   </div>
                 );
               })}
-              {!grouped[status].length ? <EmptyState title="Nu există date încă" description="Adaugă primul task în această coloană." /> : null}
+              {!grouped[status].length ? <EmptyState title="Nu există sarcini încă" description="Adaugă primul follow-up pentru clienții A.P.C." /> : null}
             </div>
           </div>
         ))}
@@ -225,40 +255,40 @@ export default function SuperadminTasksPage() {
       {showCreate ? (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-3">
           <div className="w-full max-w-xl rounded-xl border border-border/70 bg-card p-4">
-            <p className="text-sm font-medium text-foreground">Create task</p>
+            <p className="text-sm font-medium text-foreground">Creează sarcină</p>
             <div className="mt-3 space-y-2">
-              <input className="input w-full" placeholder="Title" value={draft.title} onChange={(e) => setDraft((prev) => ({ ...prev, title: e.target.value }))} />
-              <textarea className="min-h-[100px] w-full rounded-md border border-border bg-background p-3 text-sm" placeholder="Description" value={draft.description} onChange={(e) => setDraft((prev) => ({ ...prev, description: e.target.value }))} />
+              <input className="input w-full" placeholder="Titlu" value={draft.title} onChange={(e) => setDraft((prev) => ({ ...prev, title: e.target.value }))} />
+              <textarea className="min-h-[100px] w-full rounded-md border border-border bg-background p-3 text-sm" placeholder="Descriere" value={draft.description} onChange={(e) => setDraft((prev) => ({ ...prev, description: e.target.value }))} />
               <div className="grid grid-cols-2 gap-2">
                 <select className="input h-9" value={draft.status} onChange={(e) => setDraft((prev) => ({ ...prev, status: e.target.value as TaskStatus }))}>
                   {STATUSES.map((value) => (
                     <option key={value} value={value}>
-                      {value}
+                      {statusLabels[value]}
                     </option>
                   ))}
                 </select>
                 <select className="input h-9" value={draft.priority} onChange={(e) => setDraft((prev) => ({ ...prev, priority: e.target.value as TaskPriority }))}>
                   {PRIORITIES.map((value) => (
                     <option key={value} value={value}>
-                      {value}
+                      {priorityLabels[value]}
                     </option>
                   ))}
                 </select>
                 <select className="input h-9" value={draft.relatedType} onChange={(e) => setDraft((prev) => ({ ...prev, relatedType: e.target.value as any }))}>
-                  <option value="">No related type</option>
+                  <option value="">Fără legătură</option>
                   {RELATED_TYPES.map((value) => (
                     <option key={value} value={value}>
-                      {value}
+                      {relatedTypeLabels[value]}
                     </option>
                   ))}
                 </select>
-                <input className="input h-9" placeholder="Related ID" value={draft.relatedId} onChange={(e) => setDraft((prev) => ({ ...prev, relatedId: e.target.value }))} />
+                <input className="input h-9" placeholder="ID legătură" value={draft.relatedId} onChange={(e) => setDraft((prev) => ({ ...prev, relatedId: e.target.value }))} />
                 <input type="datetime-local" className="input h-9 col-span-2" value={draft.dueDate} onChange={(e) => setDraft((prev) => ({ ...prev, dueDate: e.target.value }))} />
               </div>
             </div>
             <div className="mt-3 flex justify-end gap-2">
               <Button variant="outline" size="sm" onClick={() => { setShowCreate(false); resetDraft(); }}>
-                Cancel
+                Anulează
               </Button>
               <Button
                 size="sm"
@@ -280,13 +310,13 @@ export default function SuperadminTasksPage() {
                     setShowCreate(false);
                     resetDraft();
                     await load();
-                    showToast('Salvat cu succes');
+                    showToast('Înregistrarea a fost creată.');
                   } catch {
-                    showToast('Eroare la salvare', 'error');
+                    showToast('Nu am putut salva modificările.', 'error');
                   }
                 }}
               >
-                Save task
+                Salvează sarcina
               </Button>
             </div>
           </div>

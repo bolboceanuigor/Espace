@@ -4,6 +4,7 @@ export type MainNavigationKey =
   | 'platform'
   | 'organizations'
   | 'administrators'
+  | 'tasks'
   | 'subscriptions'
   | 'globalSettings'
   | 'adminHome'
@@ -44,7 +45,9 @@ export const SUPERADMIN_NAVIGATION_ITEMS: MainNavigationItem[] = [
   { key: 'platform', label: 'Platformă', href: '/superadmin' },
   { key: 'organizations', label: 'Asociații', href: '/superadmin/organizations' },
   { key: 'administrators', label: 'Administratori', href: '/superadmin/admins' },
-  { key: 'subscriptions', label: 'Abonamente', href: '/superadmin/subscriptions' },
+  { key: 'tasks', label: 'Sarcini', href: '/superadmin/tasks' },
+  { key: 'subscriptions', label: 'Planuri', href: '/superadmin/subscriptions' },
+  { key: 'globalSettings', label: 'Setări', href: '/superadmin/system/status' },
 ];
 
 export const ADMIN_NAVIGATION_ITEMS: MainNavigationItem[] = [
@@ -54,11 +57,9 @@ export const ADMIN_NAVIGATION_ITEMS: MainNavigationItem[] = [
   { key: 'meters', label: 'Contoare', href: '/admin/meters' },
   { key: 'invoices', label: 'Facturi', href: '/admin/invoices' },
   { key: 'payments', label: 'Plăți', href: '/admin/payments' },
-  { key: 'reports', label: 'Rapoarte', href: '/admin/reports' },
   { key: 'issues', label: 'Cereri', href: '/admin/issues' },
   { key: 'announcements', label: 'Avizier', href: '/admin/announcements' },
   { key: 'documents', label: 'Documente', href: '/admin/documents' },
-  { key: 'imports', label: 'Import date', href: '/admin/imports' },
   { key: 'buildingSettings', label: 'Setări', href: '/admin/settings/organization' },
 ];
 

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Building2, Mail, MapPin, Phone, UserPlus } from 'lucide-react';
+import { Building2, CheckSquare, Mail, MapPin, Phone, StickyNote, UserPlus } from 'lucide-react';
 import { Badge, Card, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
 import { invitationsApi, superadminApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
@@ -51,6 +51,25 @@ const emptyAdminForm = {
   sendEmail: false,
 };
 
+type ClientNoteType = 'CALL' | 'MEETING' | 'SUPPORT' | 'SALES' | 'BILLING' | 'OTHER';
+
+const emptyNoteForm = {
+  type: 'OTHER' as ClientNoteType,
+  title: '',
+  content: '',
+  followUpAt: '',
+  isImportant: false,
+};
+
+const noteTypeLabels: Record<ClientNoteType, string> = {
+  CALL: 'Apel',
+  MEETING: 'Întâlnire',
+  SUPPORT: 'Suport',
+  SALES: 'Vânzări',
+  BILLING: 'Abonament',
+  OTHER: 'Altă notă',
+};
+
 function editFormFromAssociation(association: MvpAssociation) {
   return {
     associationCode: association.associationCode || '',
@@ -90,11 +109,21 @@ export default function SuperadminOrganizationDetailsPage() {
   const [editForm, setEditForm] = useState(() => editFormFromAssociation(fallbackAssociation));
   const [isUpdatingAssociation, setIsUpdatingAssociation] = useState(false);
   const [editError, setEditError] = useState('');
+  const [notes, setNotes] = useState<any[]>([]);
+  const [notesError, setNotesError] = useState('');
+  const [noteForm, setNoteForm] = useState(emptyNoteForm);
+  const [isCreatingNote, setIsCreatingNote] = useState(false);
 
   const loadAdmins = async (organizationId: string) => {
     const res = await superadminApi.listPublicOrganizationAdmins(organizationId);
     const apiAdmins = (res.data || []).map(normalizeApiAdministrator);
     setAdministrators(apiAdmins);
+  };
+
+  const loadNotes = async (organizationId: string) => {
+    const res = await superadminApi.listOrganizationNotes(organizationId);
+    setNotes(res.data || []);
+    setNotesError('');
   };
 
   useEffect(() => {
@@ -114,12 +143,16 @@ export default function SuperadminOrganizationDetailsPage() {
         superadminApi.getOrganizationUsage(id).then((usageRes) => {
           if (active) setUsage(normalizeApiUsage(usageRes.data));
         }).catch(() => undefined);
+        loadNotes(id).catch(() => {
+          if (active) setNotesError('Notele interne nu sunt disponibile temporar.');
+        });
       })
       .catch(() => {
         if (!active) return;
         setAssociation(fallbackAssociation);
         setSource('mock');
         setAdministrators(mockAdministrators.filter((admin) => admin.organizationId === id));
+        setNotes([]);
       });
     return () => {
       active = false;
@@ -215,6 +248,33 @@ export default function SuperadminOrganizationDetailsPage() {
       setEditError('Nu am putut actualiza asociația.');
     } finally {
       setIsUpdatingAssociation(false);
+    }
+  };
+
+  const createNote = async () => {
+    if (!id) return;
+    setNotesError('');
+    setSuccessMessage('');
+    if (!noteForm.title.trim() || !noteForm.content.trim()) {
+      setNotesError('Completează titlul și conținutul notei.');
+      return;
+    }
+    setIsCreatingNote(true);
+    try {
+      await superadminApi.createOrganizationNote(id, {
+        type: noteForm.type,
+        title: noteForm.title.trim(),
+        content: noteForm.content.trim(),
+        followUpAt: noteForm.followUpAt ? new Date(noteForm.followUpAt).toISOString() : undefined,
+        isImportant: noteForm.isImportant,
+      });
+      setNoteForm(emptyNoteForm);
+      setSuccessMessage('Nota internă a fost salvată.');
+      await loadNotes(id);
+    } catch {
+      setNotesError('Nu am putut salva nota internă.');
+    } finally {
+      setIsCreatingNote(false);
     }
   };
 
@@ -353,15 +413,80 @@ export default function SuperadminOrganizationDetailsPage() {
       </section>
 
       <Card>
-        <h2 className="text-base font-semibold text-foreground">Pași MVP</h2>
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
-          {['Asociație creată', 'Administrator atribuit', 'Pregătită pentru import apartamente'].map((step) => (
-            <div key={step} className="rounded-2xl border border-border/70 bg-muted/25 px-4 py-3 text-sm font-medium text-foreground">
-              {step}
-            </div>
-          ))}
+        <h2 className="text-base font-semibold text-foreground">Fișă CRM A.P.C.</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Structura de lucru pentru client: profil, contacte, onboarding, abonament, activitate și follow-up.</p>
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <CrmTile title="Profil A.P.C." description="Date legale, cod APC și adresă." status="Activ" />
+          <CrmTile title="Administrator / contacte" description={administrators.length ? `${administrators.length} contact(e)` : 'Administrator neatribuit'} status={administrators.length ? 'Activ' : 'Necesită acțiune'} />
+          <CrmTile title="Onboarding" description={association.apartmentsCount > 0 ? 'Apartamente în evidență' : 'Urmează importul apartamentelor'} status={association.apartmentsCount > 0 ? 'În lucru' : 'Următorul pas'} />
+          <CrmTile title="Plan / abonament" description="Gestionare manuală prin pagina de abonament." status="Activ" />
+          <CrmTile title="Activitate" description="Evenimentele platformei sunt disponibile în dashboard." status="Activ" />
+          <CrmTile title="Note interne" description={notes.length ? `${notes.length} notă(e)` : 'Fără note încă'} status="Activ" />
+          <CrmTile title="Sarcini / follow-up" description="Sarcinile sunt gestionate în board-ul Superadmin." status="Activ" />
+          <CrmTile title="Suport" description="Sesiunile de suport rămân controlate de Superadmin." status="Activ" />
         </div>
       </Card>
+
+      <section className="grid gap-4 lg:grid-cols-[1fr_0.9fr]">
+        <Card>
+          <SectionTitle icon={<StickyNote className="h-5 w-5" />} title="Note interne" description="Istoric CRM vizibil doar pentru Superadmin." />
+          <div className="space-y-3">
+            {notes.slice(0, 6).map((note) => (
+              <div key={note.id} className="rounded-2xl border border-border/70 bg-muted/25 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-semibold text-foreground">{note.title || 'Notă internă'}</p>
+                  <Badge variant={note.isImportant ? 'warning' : 'neutral'}>{noteTypeLabels[note.type as ClientNoteType] || 'Notă'}</Badge>
+                </div>
+                <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{note.content}</p>
+                <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                  {note.followUpAt ? <span>Follow-up: {formatDateTime(note.followUpAt)}</span> : null}
+                  {note.createdAt ? <span>Creată: {formatDateTime(note.createdAt)}</span> : null}
+                </div>
+              </div>
+            ))}
+            {!notes.length ? (
+              <p className="rounded-2xl border border-border/70 bg-muted/25 p-4 text-sm text-muted-foreground">
+                Nu există note interne încă.
+              </p>
+            ) : null}
+            {notesError ? (
+              <p className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
+                {notesError}
+              </p>
+            ) : null}
+          </div>
+        </Card>
+
+        <Card>
+          <SectionTitle icon={<CheckSquare className="h-5 w-5" />} title="Adaugă notă / follow-up" description="Note rapide pentru relația cu această A.P.C." />
+          <div className="grid gap-3">
+            <label className="block">
+              <span className="label">Tip notă</span>
+              <select className="select" value={noteForm.type} onChange={(event) => setNoteForm({ ...noteForm, type: event.target.value as ClientNoteType })}>
+                {Object.entries(noteTypeLabels).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </label>
+            <Field label="Titlu" value={noteForm.title} onChange={(value) => setNoteForm({ ...noteForm, title: value })} />
+            <label className="block">
+              <span className="label">Conținut</span>
+              <textarea className="min-h-[110px] w-full rounded-2xl border border-border bg-white px-3 py-2 text-sm outline-none focus:border-foreground" value={noteForm.content} onChange={(event) => setNoteForm({ ...noteForm, content: event.target.value })} />
+            </label>
+            <label className="block">
+              <span className="label">Următorul follow-up</span>
+              <input className="input" type="datetime-local" value={noteForm.followUpAt} onChange={(event) => setNoteForm({ ...noteForm, followUpAt: event.target.value })} />
+            </label>
+            <label className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-border/70 bg-white px-3 text-sm font-medium text-foreground">
+              <input type="checkbox" checked={noteForm.isImportant} onChange={(event) => setNoteForm({ ...noteForm, isImportant: event.target.checked })} />
+              Notă importantă
+            </label>
+            <button type="button" onClick={createNote} disabled={isCreatingNote} className="min-h-10 rounded-2xl bg-foreground px-4 text-sm font-semibold text-background disabled:opacity-60">
+              {isCreatingNote ? 'Se salvează...' : 'Salvează nota'}
+            </button>
+          </div>
+        </Card>
+      </section>
 
       <Modal isOpen={adminModalOpen} onClose={() => setAdminModalOpen(false)} maxWidth="xl">
         <ModalHeader title="Invită administrator" onClose={() => setAdminModalOpen(false)} />
@@ -462,6 +587,44 @@ function Info({ icon, label, value }: { icon: ReactNode; label: string; value: s
       <p className="mt-2 font-medium text-foreground">{value}</p>
     </div>
   );
+}
+
+function SectionTitle({ icon, title, description }: { icon: ReactNode; title: string; description: string }) {
+  return (
+    <div className="mb-4 flex items-start gap-3">
+      <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-border/70 bg-muted/45 text-foreground">
+        {icon}
+      </div>
+      <div>
+        <h2 className="font-semibold text-foreground">{title}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+      </div>
+    </div>
+  );
+}
+
+function CrmTile({ title, description, status }: { title: string; description: string; status: string }) {
+  return (
+    <div className="rounded-2xl border border-border/70 bg-muted/25 p-4">
+      <p className="text-sm font-semibold text-foreground">{title}</p>
+      <p className="mt-2 min-h-10 text-sm leading-5 text-muted-foreground">{description}</p>
+      <span className="mt-3 inline-flex rounded-full border border-border/70 bg-white px-2 py-1 text-[11px] font-semibold text-muted-foreground">
+        {status}
+      </span>
+    </div>
+  );
+}
+
+function formatDateTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return new Intl.DateTimeFormat('ro-RO', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
 }
 
 function Field({

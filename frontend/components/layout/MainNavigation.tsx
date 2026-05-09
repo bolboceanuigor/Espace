@@ -20,6 +20,7 @@ const ICONS: Record<MainNavigationKey, React.ComponentType<{ className?: string 
   platform: Shield,
   organizations: Building2,
   administrators: Users,
+  tasks: CircleAlert,
   subscriptions: CreditCard,
   globalSettings: Settings,
   adminHome: Home,

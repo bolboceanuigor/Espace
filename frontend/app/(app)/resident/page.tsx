@@ -19,9 +19,10 @@ import {
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 const quickActions = [
-  { label: 'Transmite citiri', icon: <Gauge className="h-5 w-5" />, href: '/resident/meters' },
-  { label: 'Vezi facturi', icon: <CreditCard className="h-5 w-5" />, href: '/resident/invoices' },
+  { label: 'Transmite citire', icon: <Gauge className="h-5 w-5" />, href: '/resident/meters' },
+  { label: 'Facturile mele', icon: <CreditCard className="h-5 w-5" />, href: '/resident/invoices' },
   { label: 'Trimite cerere', icon: <Wrench className="h-5 w-5" />, href: '/resident/issues/new' },
+  { label: 'Vezi avizier', icon: <Bell className="h-5 w-5" />, href: '/resident/announcements' },
 ];
 
 export default function ResidentDashboardPage() {

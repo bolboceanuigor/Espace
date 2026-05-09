@@ -413,15 +413,15 @@ function AppShellContent({ children }: AppShellProps) {
 
   const searchPlaceholder =
     normalizedRole === 'SUPER_ADMIN'
-      ? 'Caută asociații, administratori, abonamente...'
+      ? 'Caută asociații, contacte, follow-up...'
       : normalizedRole === 'ADMIN'
-        ? 'Caută apartamente, locatari, plăți...'
-        : 'Caută anunțuri, plăți, cereri...';
+        ? 'Caută locatari, apartamente, datorii...'
+        : 'Caută facturi, avizier, cereri...';
   const searchTarget =
     normalizedRole === 'SUPER_ADMIN'
       ? '/superadmin/organizations'
       : normalizedRole === 'ADMIN'
-        ? '/admin/apartments'
+        ? '/admin/residents'
         : '/resident/announcements';
 
   if (loading || !activeUser) {

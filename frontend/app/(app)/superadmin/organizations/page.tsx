@@ -43,6 +43,19 @@ function associationNumberFromCode(code: string) {
   return code.match(/-(\d{4})$/)?.[1] || '';
 }
 
+function crmStageLabel(status: AssociationStatus) {
+  if (status === 'ACTIVE') return 'Client activ';
+  if (status === 'TRIAL') return 'Onboarding / trial';
+  return 'Inactiv';
+}
+
+function nextStepForAssociation(row: MvpAssociation) {
+  if (!row.administratorEmail) return 'Invită administrator';
+  if (row.status === 'TRIAL') return 'Finalizează onboarding';
+  if (row.status === 'INACTIVE') return 'Verifică suportul';
+  return row.apartmentsCount > 0 ? 'Monitorizează activitatea' : 'Importă apartamente';
+}
+
 export default function SuperadminOrganizationsPage() {
   const localizedPath = useLocalizedPath();
   const [rows, setRows] = useState<MvpAssociation[]>([]);
@@ -166,8 +179,8 @@ export default function SuperadminOrganizationsPage() {
   return (
     <div className="space-y-5 pb-4">
       <PageHeader
-        title="Asociații"
-        description="Organizațiile din platformă, administratorii lor și starea de activare."
+        title="Clienți A.P.C."
+        description="CRM pentru asociațiile din platformă: profil, status, contact responsabil, onboarding și următorul pas."
         rightSlot={
           <button
             type="button"
@@ -192,9 +205,9 @@ export default function SuperadminOrganizationsPage() {
       ) : null}
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Total asociații" value={totals.total} description="În platformă" icon={<Building2 className="h-5 w-5" />} />
+        <StatCard label="Clienți A.P.C." value={totals.total} description="Asociații în CRM" icon={<Building2 className="h-5 w-5" />} />
         <StatCard label="Active" value={totals.active} description="Cu acces operațional" icon={<Building2 className="h-5 w-5" />} tone="success" />
-        <StatCard label="Trial" value={totals.trial} description="În evaluare" icon={<UserPlus className="h-5 w-5" />} tone="warning" />
+        <StatCard label="Onboarding" value={totals.trial} description="Trial sau configurare" icon={<UserPlus className="h-5 w-5" />} tone="warning" />
         <StatCard label="Apartamente" value={totals.apartments} description="Administrate total" icon={<Building2 className="h-5 w-5" />} />
       </section>
 
@@ -237,10 +250,13 @@ export default function SuperadminOrganizationsPage() {
                   {row.address}, {row.city}, {row.country} · {row.apartmentsCount} apartamente · {row.currency}
                 </p>
               </div>
-              <div className="grid gap-2 text-sm sm:grid-cols-3 lg:min-w-[520px]">
-                <Mini label="Administrator" value={row.administratorName} />
-                <Mini label="Email" value={row.administratorEmail || '-'} />
-                <Mini label="Telefon" value={row.administratorPhone || '-'} />
+              <div className="grid gap-2 text-sm sm:grid-cols-2 lg:min-w-[560px]">
+                <Mini label="Status CRM" value={crmStageLabel(row.status)} />
+                <Mini label="Contact responsabil" value={row.administratorName || 'Neatribuit'} />
+                <Mini label="Email / telefon" value={[row.administratorEmail, row.administratorPhone].filter(Boolean).join(' · ') || '-'} />
+                <Mini label="Plan / abonament" value="Gestionare manuală" />
+                <Mini label="Următorul pas" value={nextStepForAssociation(row)} />
+                <Mini label="Activitate" value={row.apartmentsCount > 0 ? `${row.apartmentsCount} apartamente în evidență` : 'Fără apartamente încă'} />
               </div>
               <div className="flex flex-wrap gap-2 lg:max-w-[220px]">
                 <StatusButton disabled={updatingStatusId === row.id || row.status === 'ACTIVE'} onClick={() => updateAssociationStatus(row.id, 'ACTIVE')}>Activează</StatusButton>

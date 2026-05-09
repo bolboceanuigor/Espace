@@ -419,7 +419,7 @@ export default function AdminApartmentDetailPage() {
               Aceste note sunt interne și nu sunt vizibile pentru locatari.
             </p>
             <p className="rounded-2xl border border-border/70 bg-muted/25 p-4 text-sm text-muted-foreground">
-              Contact preferat prin telefon după ora 18:00. De verificat citirea la contorul de gaz la următoarea rundă lunară.
+              Funcție în lucru. Modelul dedicat pentru note interne pe apartament nu este conectat încă.
             </p>
           </div>
         </Card>

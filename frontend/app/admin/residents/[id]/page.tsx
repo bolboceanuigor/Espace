@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Banknote, Building2, FileText, KeyRound, MessageCircle, Phone, UserRound } from 'lucide-react';
+import { ArrowLeft, Banknote, Building2, FileText, KeyRound, MessageCircle, Phone, StickyNote, UserRound } from 'lucide-react';
 import { Badge, Button, ButtonLink, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
 import { defaultLocale, isLocale } from '@/i18n';
 import { invitationsApi, residentsApi } from '@/lib/api';
@@ -166,6 +166,20 @@ export default function AdminResidentDetailPage() {
       </section>
 
       <Card>
+        <SectionTitle icon={<UserRound className="h-5 w-5" />} title="Fișă CRM locatar" description="Privire rapidă asupra relației cu acest locatar." />
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <CrmPill title="Profil" detail="Date de contact și status cont" />
+          <CrmPill title="Apartamente" detail={`${apartments.length} apartament(e) conectate`} />
+          <CrmPill title="Facturi / datorii" detail={resident.debt > 0 ? formatMdl(resident.debt) : 'Fără datorii'} />
+          <CrmPill title="Cereri" detail={`${visibleIssues.length} în evidență`} />
+          <CrmPill title="Mesaje" detail={visibleMessages.length ? 'Istoric disponibil' : 'Fără mesaje'} />
+          <CrmPill title="Plăți" detail="Vizibile în fișa apartamentului" />
+          <CrmPill title="Note interne" detail="Funcție în lucru" muted />
+          <CrmPill title="Ultima activitate" detail={visibleIssues[0]?.status ? `Cerere: ${visibleIssues[0].status}` : 'Nu există activitate recentă'} />
+        </div>
+      </Card>
+
+      <Card>
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
           <ButtonLink href={`/${locale}/admin/chat`} variant="primary"><MessageCircle className="h-4 w-4" /> Trimite mesaj</ButtonLink>
           <ButtonLink href={firstApartmentId ? `/${locale}/admin/apartments/${firstApartmentId}` : `/${locale}/admin/apartments`} variant="secondary"><Building2 className="h-4 w-4" /> Vezi apartamentul</ButtonLink>
@@ -214,7 +228,7 @@ export default function AdminResidentDetailPage() {
         </Card>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-3">
+      <section className="grid gap-4 xl:grid-cols-4">
         <Card>
           <SectionTitle icon={<Banknote className="h-5 w-5" />} title="Plăți / Datorii" description="Sumar financiar pentru profil." />
           <div className="space-y-3">
@@ -258,6 +272,13 @@ export default function AdminResidentDetailPage() {
               </p>
             ) : null}
           </div>
+        </Card>
+
+        <Card>
+          <SectionTitle icon={<StickyNote className="h-5 w-5" />} title="Note interne" description="Vizibile doar administratorilor." />
+          <p className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-medium text-amber-900">
+            Funcție în lucru. Modelul dedicat pentru note interne pe locatar nu este conectat încă.
+          </p>
         </Card>
       </section>
 
@@ -323,6 +344,15 @@ function SectionTitle({ icon, title, description }: { icon: React.ReactNode; tit
         <h2 className="text-base font-semibold text-foreground">{title}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{description}</p>
       </div>
+    </div>
+  );
+}
+
+function CrmPill({ title, detail, muted }: { title: string; detail: string; muted?: boolean }) {
+  return (
+    <div className={`rounded-2xl border px-3 py-3 ${muted ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-border/70 bg-muted/25 text-foreground'}`}>
+      <p className="text-sm font-semibold">{title}</p>
+      <p className={`mt-1 text-xs ${muted ? 'text-amber-800' : 'text-muted-foreground'}`}>{detail}</p>
     </div>
   );
 }

@@ -2,10 +2,10 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { Mail, MessageCircle, Phone, Plus, Search, Upload, UserRound, Users, UserX } from 'lucide-react';
+import { Clock3, Mail, MessageCircle, Phone, Plus, Search, StickyNote, Upload, UserRound, Users, UserX, Wrench } from 'lucide-react';
 import { Badge, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
 import { formatMdl } from '@/lib/condo-admin-fallback';
-import { apartmentsApi, residentsApi } from '@/lib/api';
+import { apartmentsApi, issuesApi, residentsApi } from '@/lib/api';
 import { accountStatusVariant, adminResidents, normalizeApiApartment, normalizeApiResident, type AdminApartment } from '@/lib/admin-mvp-data';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
@@ -27,6 +27,41 @@ const roleLabels = {
   REPRESENTATIVE: 'Reprezentant',
 } as const;
 
+type ResidentCrmStat = {
+  openIssues: number;
+  lastActivity: string;
+};
+
+function normalizedText(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function issueBelongsToResident(issue: any, resident: { id: string; name: string }) {
+  const issueResidentId = String(issue?.residentId || issue?.residentProfileId || issue?.resident?.id || issue?.residentProfile?.id || '');
+  if (issueResidentId && issueResidentId === resident.id) return true;
+  const issueResidentName = normalizedText(
+    String(
+      issue?.residentName ||
+        issue?.resident?.name ||
+        issue?.resident?.fullName ||
+        [issue?.resident?.firstName, issue?.resident?.lastName].filter(Boolean).join(' '),
+    ),
+  );
+  return Boolean(issueResidentName && issueResidentName === normalizedText(resident.name));
+}
+
+function isIssueOpen(issue: any) {
+  const status = String(issue?.status || '').toUpperCase();
+  return !['RESOLVED', 'CLOSED', 'REZOLVATĂ', 'REZOLVATA'].includes(status);
+}
+
+function formatActivityDate(value?: string) {
+  if (!value) return 'Nu există activitate recentă';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Nu există activitate recentă';
+  return date.toLocaleDateString('ro-RO');
+}
+
 export default function AdminResidentsPage() {
   const localizedPath = useLocalizedPath();
   const [query, setQuery] = useState('');
@@ -35,6 +70,7 @@ export default function AdminResidentsPage() {
   const [withDebt, setWithDebt] = useState(false);
   const [rows, setRows] = useState<typeof adminResidents>([]);
   const [apartments, setApartments] = useState<AdminApartment[]>([]);
+  const [crmStats, setCrmStats] = useState<Record<string, ResidentCrmStat>>({});
   const [source, setSource] = useState<'loading' | 'api' | 'mock'>('loading');
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -47,11 +83,22 @@ export default function AdminResidentsPage() {
       residentsApi.list(),
       apartmentsApi.list(),
     ]);
+    const issuesRes = await issuesApi.list().catch(() => ({ data: [] }));
     const apiRows = (residentsRes.data || []).map(normalizeApiResident);
     const apiApartments = (apartmentsRes.data || []).map(normalizeApiApartment);
+    const issues = issuesRes.data || [];
     setRows(apiRows);
     setSource('api');
     setApartments(apiApartments);
+    setCrmStats(Object.fromEntries(apiRows.map((resident) => {
+      const residentIssues = issues.filter((issue: any) => issueBelongsToResident(issue, resident));
+      const openIssues = residentIssues.filter(isIssueOpen).length;
+      const lastDate = residentIssues
+        .map((issue: any) => String(issue.updatedAt || issue.createdAt || ''))
+        .filter(Boolean)
+        .sort((a: string, b: string) => new Date(b).getTime() - new Date(a).getTime())[0];
+      return [resident.id, { openIssues, lastActivity: formatActivityDate(lastDate) }];
+    })));
     setForm((current) => {
       if (current.apartmentId || !apiApartments[0]?.id) return current;
       return { ...current, apartmentId: apiApartments[0].id };
@@ -64,6 +111,7 @@ export default function AdminResidentsPage() {
       if (!active) return;
       setRows(adminResidents);
       setApartments([]);
+      setCrmStats({});
       setSource('mock');
     });
     return () => {
@@ -133,7 +181,7 @@ export default function AdminResidentsPage() {
     <div className="space-y-5 pb-4">
       <PageHeader
         title="Locatari"
-        description="Persoane conectate la apartamente: proprietari, chiriași, membri de familie și reprezentanți."
+        description="CRM pentru locatari: profil, apartamente, datorii, cereri, cont și ultimul contact."
         rightSlot={
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
@@ -194,6 +242,20 @@ export default function AdminResidentsPage() {
               <div className="flex gap-2">
                 <Link href={localizedPath(`/admin/residents/${person.id}`)} className="rounded-xl border border-border/70 px-3 py-2 text-xs font-semibold hover:bg-muted/60">Profil</Link>
               </div>
+            </div>
+            <div className="mt-4 grid gap-2 border-t border-border/60 pt-3 text-sm text-muted-foreground sm:grid-cols-3">
+              <span className="inline-flex items-center gap-2 rounded-2xl bg-muted/35 px-3 py-2">
+                <Wrench className="h-4 w-4" />
+                {crmStats[person.id]?.openIssues ?? 0} cereri deschise
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-2xl bg-muted/35 px-3 py-2">
+                <Clock3 className="h-4 w-4" />
+                {crmStats[person.id]?.lastActivity || 'Nu există activitate recentă'}
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-2xl bg-muted/35 px-3 py-2">
+                <StickyNote className="h-4 w-4" />
+                Note interne: în lucru
+              </span>
             </div>
           </Card>
         ))}
