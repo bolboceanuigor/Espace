@@ -1,0 +1,11 @@
+scara,apartament,etaj,suprafata_m2,camere,proprietar_prenume,proprietar_nume,telefon,email,rol,observatii
+1,1,1,48.2,2,Ion,Popescu,+37360000001,ion.popescu@example.com,OWNER,
+1,2,1,52.5,2,Maria,Rusu,+37360000002,maria.rusu@example.com,OWNER,
+1,3,1,72.4,3,Andrei,Ceban,+37360000003,andrei.ceban@example.com,OWNER,
+2,45,6,72.4,3,Elena,Rotaru,+37360000004,elena.rotaru@example.com,OWNER,
+2,46,6,64.0,3,Sergiu,Munteanu,+37360000005,sergiu.munteanu@example.com,OWNER,
+3,87,8,55.3,2,Irina,Balan,+37360000006,irina.balan@example.com,OWNER,
+3,88,8,39.7,1,Vasile,Marin,+37360000007,vasile.marin@example.com,OWNER,
+4,103,5,80.0,3,Natalia,Țurcan,+37360000008,natalia.turcan@example.com,OWNER,
+4,104,5,46.8,2,Victor,Lupu,+37360000009,victor.lupu@example.com,OWNER,
+4,105,6,68.5,3,Ana,Moraru,+37360000010,ana.moraru@example.com,OWNER,

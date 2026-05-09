@@ -1,0 +1,4 @@
+nume,tip_calcul,suma,moneda,activ
+Deservire bloc,PER_M2,2.85,MDL,true
+Fond reparație,PER_M2,0.50,MDL,true
+Fond dezvoltare,FIXED_PER_APARTMENT,60,MDL,true
