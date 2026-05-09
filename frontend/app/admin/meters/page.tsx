@@ -182,7 +182,7 @@ export default function AdminMetersPage() {
       setReadingModalOpen(false);
       setReadingForm(emptyReadingForm);
       setSource('api');
-      setSuccessMessage('Citirea a fost adăugată.');
+      setSuccessMessage('Citirea a fost transmisă.');
       await loadMeters().catch(() => undefined);
     } catch {
       setReadingError('Nu am putut adăuga citirea.');

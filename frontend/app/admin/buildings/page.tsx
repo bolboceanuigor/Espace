@@ -113,7 +113,7 @@ export default function AdminBuildingsPage() {
       ) : null}
       {loading ? <LoadingState label="Se încarcă blocurile..." rows={4} /> : null}
       {!loading && !error && !items.length ? (
-        <EmptyState title="Nu există blocuri încă" description="Adaugă primul bloc pentru a continua configurarea asociației." />
+        <EmptyState title="Nu există blocuri încă. Adaugă primul bloc." description="Blocul va fi conectat automat la A.P.C. administratorului autentificat." />
       ) : null}
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">

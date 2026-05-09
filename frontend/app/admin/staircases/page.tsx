@@ -80,7 +80,7 @@ export default function AdminStaircasesPage() {
             </select>
           </label>
           <label className="space-y-1 text-xs font-medium text-muted-foreground">
-            <span>Scara / număr</span>
+            <span>Scara / denumire</span>
             <input className="input" placeholder="Scara 1" value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} />
           </label>
           <label className="space-y-1 text-xs font-medium text-muted-foreground">
@@ -120,7 +120,7 @@ export default function AdminStaircasesPage() {
       {error ? <EmptyState title="Eroare la încărcare" description={error} /> : null}
       {!loading && !error && !rows.length ? (
         <EmptyState
-          title="Nu există scări încă"
+          title="Nu există scări încă."
           description="Creează prima scară pentru blocul asociației."
           actionLabel="Adaugă bloc"
           onAction={() => {

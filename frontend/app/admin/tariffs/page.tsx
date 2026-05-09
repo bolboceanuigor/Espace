@@ -208,7 +208,7 @@ export default function AdminTariffsPage() {
         ))}
         {!loading && !rows.length ? (
           <Card className="p-5 text-sm font-medium text-muted-foreground lg:col-span-3">
-            Nu există tarife configurate încă.
+            Nu există tarife încă.
           </Card>
         ) : null}
         {loading ? (

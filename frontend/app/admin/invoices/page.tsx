@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Calculator, CalendarDays, CheckCircle2, Clock3, FileText, Printer, Search, Send } from 'lucide-react';
 import { Badge, Button, ButtonLink, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
-import { apartmentsApi, invoicesApi, paymentsApi } from '@/lib/api';
+import { apartmentsApi, invoicesApi, paymentsApi, tariffsApi } from '@/lib/api';
 import { adminInvoices, invoiceStatusVariant, normalizeApiApartment, normalizeApiInvoice, type AdminApartment, type AdminInvoice, type InvoiceStatus } from '@/lib/admin-mvp-data';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { useLocalizedPath } from '@/lib/use-localized-path';
@@ -50,18 +50,22 @@ export default function AdminInvoicesPage() {
     skippedDuplicatesCount: number;
     totalAmount: number;
   } | null>(null);
+  const [activeTariffsCount, setActiveTariffsCount] = useState(0);
 
   const loadInvoices = async () => {
-    const [invoiceRes, paymentRes, apartmentsRes] = await Promise.all([
+    const [invoiceRes, paymentRes, apartmentsRes, tariffsRes] = await Promise.all([
       invoicesApi.list(),
       paymentsApi.list().catch(() => ({ data: [] })),
       apartmentsApi.list().catch(() => ({ data: [] })),
+      tariffsApi.list().catch(() => ({ data: [] })),
     ]);
     const apiRows = (invoiceRes.data || []).map((invoice) => normalizeApiInvoice(invoice, paymentRes.data || []));
     const apiApartments = (apartmentsRes.data || []).map(normalizeApiApartment);
+    const activeTariffs = (tariffsRes.data || []).filter((tariff: any) => tariff?.isActive !== false);
     setRows(apiRows);
     setSource('api');
     setApartmentRows(apiApartments);
+    setActiveTariffsCount(activeTariffs.length);
     setForm((current) => {
       if (current.apartmentId || !apiApartments[0]?.id) return current;
       return { ...current, apartmentId: apiApartments[0].id };
@@ -92,6 +96,7 @@ export default function AdminInvoicesPage() {
   }, [month, query, rows, status]);
 
   const currentMonths = ['Toate', ...Array.from(new Set(rows.map((invoice) => invoice.month)))];
+  const invoiceGenerationReady = source === 'api' && apartmentRows.length > 0 && activeTariffsCount > 0;
   const totals = useMemo(() => ({
     issued: rows.length,
     paid: rows.filter((invoice) => invoice.status === 'Achitat'),
@@ -155,6 +160,10 @@ export default function AdminInvoicesPage() {
     }
     if (!generationForm.dueDate) {
       setGenerationError('Completează data scadentă.');
+      return;
+    }
+    if (!invoiceGenerationReady) {
+      setGenerationError('Pentru a genera facturi, adaugă apartamente și configurează tarifele.');
       return;
     }
 
@@ -247,14 +256,19 @@ export default function AdminInvoicesPage() {
             <p className="mt-1 text-sm text-muted-foreground">
               Generează facturi reale pe baza tarifelor APC active: deservire bloc, fond reparație și fond dezvoltare.
             </p>
+            {!invoiceGenerationReady && source !== 'loading' ? (
+              <p className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
+                Pentru a genera facturi, adaugă apartamente și configurează tarifele.
+              </p>
+            ) : null}
             <ButtonLink href="/admin/tariffs" variant="secondary" className="mt-4">Configurează tarife</ButtonLink>
           </div>
           <div className="grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto]">
             <Field label="Luna" value={generationForm.month} onChange={(value) => setGenerationForm({ ...generationForm, month: value })} type="number" required />
             <Field label="Anul" value={generationForm.year} onChange={(value) => setGenerationForm({ ...generationForm, year: value })} type="number" required />
             <Field label="Data scadentă" value={generationForm.dueDate} onChange={(value) => setGenerationForm({ ...generationForm, dueDate: value })} type="date" required />
-            <Button type="button" onClick={generateMonthlyInvoices} isLoading={isGenerating} className="self-end">
-              Generează facturi
+            <Button type="button" onClick={generateMonthlyInvoices} isLoading={isGenerating} disabled={!invoiceGenerationReady || isGenerating} className="self-end">
+              Generează facturi lunare
             </Button>
           </div>
         </div>

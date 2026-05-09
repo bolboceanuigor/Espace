@@ -11,6 +11,7 @@ import {
   CreditCard,
   FileText,
   Gauge,
+  ListChecks,
   Megaphone,
   MessageCircle,
   PlusCircle,
@@ -20,7 +21,7 @@ import {
 } from 'lucide-react';
 import { ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
 import { formatMdl } from '@/lib/condo-admin-fallback';
-import { workbenchApi } from '@/lib/api';
+import { onboardingApi, workbenchApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 type CrmOrganization = {
@@ -110,6 +111,25 @@ type CrmActivity = {
   message?: string;
   createdAt?: string | null;
   link?: string | null;
+};
+
+type SetupStep = {
+  key: string;
+  title: string;
+  completed?: boolean;
+  href?: string;
+  actionLabel?: string;
+};
+
+type SetupChecklist = {
+  steps: SetupStep[];
+  progressDetails?: {
+    completed?: number;
+    total?: number;
+    percent?: number;
+    label?: string;
+  };
+  nextStep?: SetupStep;
 };
 
 type ResidentCrmData = {
@@ -244,6 +264,8 @@ export default function AdminPage() {
   const [source, setSource] = useState<'loading' | 'api' | 'error'>('loading');
   const [error, setError] = useState('');
   const [crm, setCrm] = useState<ResidentCrmData>(emptyCrm);
+  const [setup, setSetup] = useState<SetupChecklist | null>(null);
+  const [setupError, setSetupError] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -262,6 +284,23 @@ export default function AdminPage() {
         setCrm(emptyCrm);
         setError('Nu am putut încărca datele CRM.');
         setSource('error');
+      });
+
+    onboardingApi
+      .adminGet()
+      .then((response) => {
+        if (!active) return;
+        setSetup({
+          steps: response.data?.steps || [],
+          progressDetails: response.data?.progressDetails,
+          nextStep: response.data?.nextStep,
+        });
+        setSetupError('');
+      })
+      .catch(() => {
+        if (!active) return;
+        setSetup(null);
+        setSetupError('Nu am putut încărca checklistul de configurare inițială.');
       });
 
     return () => {
@@ -389,6 +428,8 @@ export default function AdminPage() {
           </div>
         </div>
       </Card>
+
+      <SetupChecklistCard setup={setup} setupError={setupError} localizedPath={localizedPath} />
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {kpiCards.map((card) => (
@@ -575,6 +616,85 @@ export default function AdminPage() {
         </div>
       </Card>
     </div>
+  );
+}
+
+function SetupChecklistCard({
+  setup,
+  setupError,
+  localizedPath,
+}: {
+  setup: SetupChecklist | null;
+  setupError: string;
+  localizedPath: (href: string) => string;
+}) {
+  const steps = setup?.steps || [];
+  const completed = Number(setup?.progressDetails?.completed ?? steps.filter((step) => step.completed).length);
+  const total = Number(setup?.progressDetails?.total ?? steps.length);
+  const percent = total ? Math.round((completed / total) * 100) : 0;
+  const nextStep = setup?.nextStep || steps.find((step) => !step.completed);
+
+  return (
+    <Card>
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-muted/35 px-3 py-1 text-xs font-semibold text-muted-foreground">
+            <ListChecks className="h-3.5 w-3.5" />
+            Configurare inițială
+          </div>
+          <h2 className="mt-3 text-base font-semibold text-foreground">
+            {!setup && !setupError
+              ? 'Se încarcă checklistul de configurare...'
+              : setup?.progressDetails?.label || `Configurare inițială: ${completed}/${total || 8} pași completați`}
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Checklist bazat pe date reale: profil A.P.C., bloc, scări, apartamente, locatari, contoare, tarife și facturi.
+          </p>
+        </div>
+        {nextStep ? (
+          <ButtonLink href={localizedPath(nextStep.href || '/admin/onboarding')} variant="primary">
+            {nextStep.actionLabel || 'Continuă configurarea'}
+            <ArrowRight className="h-4 w-4" />
+          </ButtonLink>
+        ) : (
+          <ButtonLink href={localizedPath('/admin/onboarding')} variant="secondary">
+            Vezi checklist
+          </ButtonLink>
+        )}
+      </div>
+
+      <div className="mt-4 h-2 rounded-full bg-muted">
+        <div className="h-2 rounded-full bg-primary transition-all" style={{ width: `${Math.min(100, Math.max(0, percent))}%` }} />
+      </div>
+
+      {setupError ? <p className="mt-4 text-sm font-medium text-amber-700">{setupError}</p> : null}
+      {!setup && !setupError ? <p className="mt-4 text-sm font-medium text-muted-foreground">Se încarcă checklistul de configurare...</p> : null}
+
+      {steps.length ? (
+        <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+          {steps.map((step) => (
+            <div key={step.key} className="rounded-2xl border border-border/70 bg-white p-3">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-sm font-semibold text-foreground">{step.title}</p>
+                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${step.completed ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                  {step.completed ? 'Completat' : 'Incomplet'}
+                </span>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Link href={localizedPath(step.href || '/admin/onboarding')} className="rounded-xl border border-border/70 px-3 py-2 text-xs font-semibold hover:bg-muted/60">
+                  {step.actionLabel || 'Deschide'}
+                </Link>
+                {step.key === 'ADD_APARTMENTS' ? (
+                  <Link href={localizedPath('/admin/imports/apartments')} className="rounded-xl border border-border/70 px-3 py-2 text-xs font-semibold hover:bg-muted/60">
+                    Importă apartamente
+                  </Link>
+                ) : null}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </Card>
   );
 }
 
