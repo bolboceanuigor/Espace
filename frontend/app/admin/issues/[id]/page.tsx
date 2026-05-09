@@ -107,6 +107,9 @@ export default function AdminIssueDetailsPage() {
             Redeschide
           </button>
           <ButtonLink href={`/${locale}/admin/chat`} variant="primary"><MessageCircle className="h-4 w-4" /> Scrie locatarului</ButtonLink>
+          <button type="button" disabled title="Funcție în lucru" className="inline-flex min-h-11 cursor-not-allowed items-center justify-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 text-sm font-semibold text-amber-800 opacity-80">
+            <StickyNote className="h-4 w-4" /> Adaugă sarcină
+          </button>
         </div>
       </Card>
 
@@ -127,6 +130,11 @@ export default function AdminIssueDetailsPage() {
             {issue.internalNotes.map((note) => (
               <p key={note} className="rounded-2xl border border-border/70 bg-muted/25 p-4 text-sm text-muted-foreground">{note}</p>
             ))}
+            {source === 'api' && !issue.internalNotes.length ? (
+              <p className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-medium text-amber-900">
+                Funcție în lucru. Modelul dedicat pentru note interne pe cerere nu este conectat încă.
+              </p>
+            ) : null}
           </div>
         </Card>
       </section>

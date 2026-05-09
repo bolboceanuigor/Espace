@@ -301,7 +301,7 @@ export default function AdminApartmentDetailPage() {
       </section>
 
       <Card>
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-7">
           <button type="button" onClick={() => openReadingModal()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-foreground px-4 text-sm font-semibold text-background hover:opacity-90">
             <Plus className="h-4 w-4" /> Adaugă citire
           </button>
@@ -315,6 +315,9 @@ export default function AdminApartmentDetailPage() {
           <ButtonLink href={`/${locale}/admin/chat`} variant="secondary"><MessageCircle className="h-4 w-4" /> Trimite mesaj</ButtonLink>
           <button type="button" onClick={() => setResidentModalOpen(true)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-border/70 bg-white px-4 text-sm font-semibold text-foreground shadow-[0_10px_30px_rgba(15,23,42,0.035)] hover:bg-muted/60">
             <Users className="h-4 w-4" /> Adaugă locatar
+          </button>
+          <button type="button" disabled title="Funcție în lucru" className="inline-flex min-h-11 cursor-not-allowed items-center justify-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 text-sm font-semibold text-amber-800 opacity-80">
+            <StickyNote className="h-4 w-4" /> Adaugă sarcină
           </button>
         </div>
       </Card>

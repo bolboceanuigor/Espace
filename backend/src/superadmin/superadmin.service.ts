@@ -388,10 +388,10 @@ export class SuperadminService {
   async createClientNote(organizationId: string, createdByUserId: string, dto: CreateClientNoteDto) {
     const org = await this.prisma.organization.findUnique({
       where: { id: organizationId },
-      select: { id: true },
+      select: { id: true, name: true },
     });
     if (!org) throw new NotFoundException('Organization not found');
-    return (this.prisma as any).clientNote.create({
+    const note = await (this.prisma as any).clientNote.create({
       data: {
         organizationId,
         createdByUserId,
@@ -407,6 +407,16 @@ export class SuperadminService {
         },
       },
     });
+    await this.createCrmAudit({
+      organizationId,
+      userId: createdByUserId,
+      action: 'CRM_NOTE_ADDED',
+      entityType: 'CLIENT_NOTE',
+      entityId: note.id,
+      description: `Notă internă adăugată pentru ${org.name}.`,
+      payload: { title: note.title, type: note.type, followUpAt: note.followUpAt },
+    });
+    return note;
   }
 
   async updateClientNote(id: string, dto: UpdateClientNoteDto) {
@@ -489,6 +499,8 @@ export class SuperadminService {
       where: {
         ...(query.status ? { status: query.status as any } : {}),
         ...(query.priority ? { priority: query.priority as any } : {}),
+        ...(query.relatedType ? { relatedType: query.relatedType as any } : {}),
+        ...(query.relatedId ? { relatedId: query.relatedId } : {}),
         ...(query.dueFilter === 'OVERDUE'
           ? { dueDate: { lt: startOfDay }, status: { not: 'DONE' } }
           : query.dueFilter === 'TODAY'
@@ -506,8 +518,43 @@ export class SuperadminService {
     });
   }
 
+  async listOrganizationTasks(organizationId: string) {
+    const org = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { id: true },
+    });
+    if (!org) throw new NotFoundException('Organization not found');
+    return this.listTasks({ relatedType: 'ORGANIZATION', relatedId: organizationId });
+  }
+
+  async createOrganizationTask(organizationId: string, createdByUserId: string, dto: CreateSuperadminTaskDto) {
+    const org = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { id: true },
+    });
+    if (!org) throw new NotFoundException('Organization not found');
+    return this.createTask(createdByUserId, {
+      ...dto,
+      relatedType: 'ORGANIZATION',
+      relatedId: organizationId,
+    });
+  }
+
+  async updateOrganizationTask(organizationId: string, taskId: string, userId: string, dto: UpdateSuperadminTaskDto) {
+    const task = await (this.prisma as any).superAdminTask.findFirst({
+      where: { id: taskId, relatedType: 'ORGANIZATION', relatedId: organizationId },
+      select: { id: true },
+    });
+    if (!task) throw new NotFoundException('Task not found');
+    return this.updateTask(taskId, userId, {
+      ...dto,
+      relatedType: 'ORGANIZATION',
+      relatedId: organizationId,
+    });
+  }
+
   async createTask(createdByUserId: string, dto: CreateSuperadminTaskDto) {
-    return (this.prisma as any).superAdminTask.create({
+    const task = await (this.prisma as any).superAdminTask.create({
       data: {
         title: dto.title.trim(),
         description: dto.description?.trim() || null,
@@ -524,15 +571,25 @@ export class SuperadminService {
         assignedToUser: { select: { id: true, email: true, firstName: true, lastName: true } },
       },
     });
+    await this.createCrmAudit({
+      organizationId: dto.relatedType === 'ORGANIZATION' ? dto.relatedId?.trim() || null : null,
+      userId: createdByUserId,
+      action: 'CRM_TASK_CREATED',
+      entityType: 'SUPERADMIN_TASK',
+      entityId: task.id,
+      description: `Sarcină creată: ${task.title}.`,
+      payload: { title: task.title, priority: task.priority, dueDate: task.dueDate },
+    });
+    return task;
   }
 
-  async updateTask(id: string, dto: UpdateSuperadminTaskDto) {
+  async updateTask(id: string, userId: string | null, dto: UpdateSuperadminTaskDto) {
     const existing = await (this.prisma as any).superAdminTask.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, title: true, status: true, relatedType: true, relatedId: true },
     });
     if (!existing) throw new NotFoundException('Task not found');
-    return (this.prisma as any).superAdminTask.update({
+    const updated = await (this.prisma as any).superAdminTask.update({
       where: { id },
       data: {
         ...(dto.title !== undefined ? { title: dto.title.trim() } : {}),
@@ -549,6 +606,18 @@ export class SuperadminService {
         assignedToUser: { select: { id: true, email: true, firstName: true, lastName: true } },
       },
     });
+    if (userId && dto.status === 'DONE' && existing.status !== 'DONE') {
+      await this.createCrmAudit({
+        organizationId: existing.relatedType === 'ORGANIZATION' ? existing.relatedId : null,
+        userId,
+        action: 'CRM_TASK_COMPLETED',
+        entityType: 'SUPERADMIN_TASK',
+        entityId: updated.id,
+        description: `Sarcină finalizată: ${updated.title}.`,
+        payload: { title: updated.title, previousStatus: existing.status, status: updated.status },
+      });
+    }
+    return updated;
   }
 
   async deleteTask(id: string) {
@@ -559,6 +628,33 @@ export class SuperadminService {
     if (!existing) throw new NotFoundException('Task not found');
     await (this.prisma as any).superAdminTask.delete({ where: { id } });
     return { ok: true };
+  }
+
+  private async createCrmAudit(input: {
+    organizationId?: string | null;
+    userId?: string | null;
+    action: string;
+    entityType: string;
+    entityId?: string | null;
+    description: string;
+    payload?: Record<string, unknown>;
+  }) {
+    if (!input.userId) return null;
+    try {
+      return await this.prisma.auditLog.create({
+        data: {
+          organizationId: input.organizationId || null,
+          userId: input.userId,
+          action: input.action,
+          entityType: input.entityType,
+          entityId: input.entityId || null,
+          description: input.description,
+          newValuesJson: (input.payload || {}) as any,
+        },
+      });
+    } catch {
+      return null;
+    }
   }
 
   async getDemoStatus() {

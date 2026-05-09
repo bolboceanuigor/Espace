@@ -98,6 +98,36 @@ export class SuperadminController {
     return this.superadminService.deleteClientNote(id);
   }
 
+  @Get('organizations/:id/tasks')
+  listOrganizationTasks(@Param('id') id: string) {
+    return this.superadminService.listOrganizationTasks(id);
+  }
+
+  @Post('organizations/:id/tasks')
+  createOrganizationTask(@Param('id') id: string, @CurrentUser() user: any, @Body() body: CreateSuperadminTaskDto) {
+    return this.superadminService.createOrganizationTask(id, user.sub || user.id, body);
+  }
+
+  @Patch('organizations/:organizationId/tasks/:taskId')
+  updateOrganizationTask(
+    @Param('organizationId') organizationId: string,
+    @Param('taskId') taskId: string,
+    @CurrentUser() user: any,
+    @Body() body: UpdateSuperadminTaskDto,
+  ) {
+    return this.superadminService.updateOrganizationTask(organizationId, taskId, user.sub || user.id, body);
+  }
+
+  @Patch('organizations/:organizationId/tasks/:taskId/status')
+  updateOrganizationTaskStatus(
+    @Param('organizationId') organizationId: string,
+    @Param('taskId') taskId: string,
+    @CurrentUser() user: any,
+    @Body() body: Pick<UpdateSuperadminTaskDto, 'status'>,
+  ) {
+    return this.superadminService.updateOrganizationTask(organizationId, taskId, user.sub || user.id, { status: body.status });
+  }
+
   @Get('tasks')
   listTasks(@Query() query: ListSuperadminTasksDto) {
     return this.superadminService.listTasks(query);
@@ -109,8 +139,8 @@ export class SuperadminController {
   }
 
   @Patch('tasks/:id')
-  updateTask(@Param('id') id: string, @Body() body: UpdateSuperadminTaskDto) {
-    return this.superadminService.updateTask(id, body);
+  updateTask(@Param('id') id: string, @CurrentUser() user: any, @Body() body: UpdateSuperadminTaskDto) {
+    return this.superadminService.updateTask(id, user.sub || user.id, body);
   }
 
   @Delete('tasks/:id')
@@ -158,4 +188,3 @@ export class SuperadminController {
     return this.superadminService.updateMaintenanceMode(user.sub || user.id, !!body?.maintenanceMode);
   }
 }
-

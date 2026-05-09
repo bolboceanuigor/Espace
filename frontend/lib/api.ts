@@ -1903,7 +1903,39 @@ export const superadminApi = {
     status?: 'TODO' | 'IN_PROGRESS' | 'DONE' | 'CANCELLED';
     priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
     dueFilter?: 'OVERDUE' | 'TODAY' | 'UPCOMING';
+    relatedType?: 'ORGANIZATION' | 'LEAD' | 'DEMO_REQUEST' | 'FEATURE_REQUEST' | 'SUPPORT';
+    relatedId?: string;
   }) => apiRequest<any[]>('/api/superadmin/tasks', { params }),
+  listOrganizationTasks: (organizationId: string) =>
+    apiRequest<any[]>(`/api/superadmin/organizations/${organizationId}/tasks`),
+  createOrganizationTask: (
+    organizationId: string,
+    data: {
+      title: string;
+      description?: string;
+      status?: 'TODO' | 'IN_PROGRESS' | 'DONE' | 'CANCELLED';
+      priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+      dueDate?: string;
+      assignedToUserId?: string;
+    },
+  ) => apiRequest<any>(`/api/superadmin/organizations/${organizationId}/tasks`, { method: 'POST', body: data }),
+  updateOrganizationTask: (
+    organizationId: string,
+    taskId: string,
+    data: Partial<{
+      title: string;
+      description: string;
+      status: 'TODO' | 'IN_PROGRESS' | 'DONE' | 'CANCELLED';
+      priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+      dueDate: string;
+      assignedToUserId: string;
+    }>,
+  ) => apiRequest<any>(`/api/superadmin/organizations/${organizationId}/tasks/${taskId}`, { method: 'PATCH', body: data }),
+  updateOrganizationTaskStatus: (
+    organizationId: string,
+    taskId: string,
+    status: 'TODO' | 'IN_PROGRESS' | 'DONE' | 'CANCELLED',
+  ) => apiRequest<any>(`/api/superadmin/organizations/${organizationId}/tasks/${taskId}/status`, { method: 'PATCH', body: { status } }),
   createTask: (data: {
     title: string;
     description?: string;

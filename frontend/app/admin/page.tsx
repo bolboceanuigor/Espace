@@ -339,6 +339,21 @@ export default function AdminPage() {
         </Card>
       </section>
 
+      <Card>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-foreground">Sarcini importante</p>
+            <p className="text-sm text-muted-foreground">Follow-up-uri interne pentru locatari, apartamente și cereri.</p>
+          </div>
+          <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">
+            Funcție în lucru
+          </span>
+        </div>
+        <p className="mt-4 rounded-2xl border border-border/70 bg-muted/25 p-4 text-sm text-muted-foreground">
+          Modulul de sarcini interne pentru Admin necesită un model dedicat în backend. Locatarii nu vor vedea aceste sarcini.
+        </p>
+      </Card>
+
       <section className="grid gap-4 xl:grid-cols-2">
         <Card>
           <div className="flex items-center justify-between">

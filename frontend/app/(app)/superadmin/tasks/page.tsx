@@ -26,7 +26,7 @@ const statusLabels: Record<TaskStatus, string> = {
 
 const priorityLabels: Record<TaskPriority, string> = {
   LOW: 'Scăzută',
-  MEDIUM: 'Medie',
+  MEDIUM: 'Normală',
   HIGH: 'Ridicată',
   URGENT: 'Urgentă',
 };

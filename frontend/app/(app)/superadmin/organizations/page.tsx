@@ -56,6 +56,13 @@ function nextStepForAssociation(row: MvpAssociation) {
   return row.apartmentsCount > 0 ? 'Monitorizează activitatea' : 'Importă apartamente';
 }
 
+function formatFollowUpDate(value?: string) {
+  if (!value) return 'Nu există';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Nu există';
+  return date.toLocaleDateString('ro-RO');
+}
+
 export default function SuperadminOrganizationsPage() {
   const localizedPath = useLocalizedPath();
   const [rows, setRows] = useState<MvpAssociation[]>([]);
@@ -69,10 +76,34 @@ export default function SuperadminOrganizationsPage() {
   const [formError, setFormError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [listError, setListError] = useState('');
+  const [nextFollowUps, setNextFollowUps] = useState<Record<string, string>>({});
 
   const loadOrganizations = async () => {
     const res = await superadminApi.listPublicOrganizations();
     const apiRows = (res.data || []).map(normalizeApiAssociation);
+    const [notesResult, tasksResult] = await Promise.allSettled([
+      superadminApi.listPendingFollowUps(),
+      superadminApi.listTasks({ relatedType: 'ORGANIZATION' }),
+    ]);
+    const datesByOrg: Record<string, string[]> = {};
+    if (notesResult.status === 'fulfilled') {
+      for (const note of notesResult.value.data || []) {
+        const organizationId = String(note.organizationId || note.organization?.id || '');
+        if (!organizationId || !note.followUpAt) continue;
+        datesByOrg[organizationId] = [...(datesByOrg[organizationId] || []), String(note.followUpAt)];
+      }
+    }
+    if (tasksResult.status === 'fulfilled') {
+      for (const task of tasksResult.value.data || []) {
+        const organizationId = String(task.relatedId || '');
+        if (!organizationId || !task.dueDate || ['DONE', 'CANCELLED'].includes(String(task.status))) continue;
+        datesByOrg[organizationId] = [...(datesByOrg[organizationId] || []), String(task.dueDate)];
+      }
+    }
+    setNextFollowUps(Object.fromEntries(Object.entries(datesByOrg).map(([organizationId, dates]) => [
+      organizationId,
+      dates.sort((a, b) => new Date(a).getTime() - new Date(b).getTime())[0],
+    ])));
     setRows(apiRows);
     setSource('api');
     setListError('');
@@ -256,7 +287,7 @@ export default function SuperadminOrganizationsPage() {
                 <Mini label="Email / telefon" value={[row.administratorEmail, row.administratorPhone].filter(Boolean).join(' · ') || '-'} />
                 <Mini label="Plan / abonament" value="Gestionare manuală" />
                 <Mini label="Următorul pas" value={nextStepForAssociation(row)} />
-                <Mini label="Activitate" value={row.apartmentsCount > 0 ? `${row.apartmentsCount} apartamente în evidență` : 'Fără apartamente încă'} />
+                <Mini label="Următorul follow-up" value={formatFollowUpDate(nextFollowUps[row.id])} />
               </div>
               <div className="flex flex-wrap gap-2 lg:max-w-[220px]">
                 <StatusButton disabled={updatingStatusId === row.id || row.status === 'ACTIVE'} onClick={() => updateAssociationStatus(row.id, 'ACTIVE')}>Activează</StatusButton>

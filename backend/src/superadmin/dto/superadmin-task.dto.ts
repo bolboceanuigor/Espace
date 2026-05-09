@@ -12,6 +12,15 @@ export class ListSuperadminTasksDto {
   @IsOptional()
   @IsIn(['OVERDUE', 'TODAY', 'UPCOMING'])
   dueFilter?: 'OVERDUE' | 'TODAY' | 'UPCOMING';
+
+  @IsOptional()
+  @IsIn(['ORGANIZATION', 'LEAD', 'DEMO_REQUEST', 'FEATURE_REQUEST', 'SUPPORT'])
+  relatedType?: 'ORGANIZATION' | 'LEAD' | 'DEMO_REQUEST' | 'FEATURE_REQUEST' | 'SUPPORT';
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  relatedId?: string;
 }
 
 export class CreateSuperadminTaskDto {

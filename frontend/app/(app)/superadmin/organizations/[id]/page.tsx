@@ -52,6 +52,8 @@ const emptyAdminForm = {
 };
 
 type ClientNoteType = 'CALL' | 'MEETING' | 'SUPPORT' | 'SALES' | 'BILLING' | 'OTHER';
+type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'DONE' | 'CANCELLED';
+type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 
 const emptyNoteForm = {
   type: 'OTHER' as ClientNoteType,
@@ -65,9 +67,37 @@ const noteTypeLabels: Record<ClientNoteType, string> = {
   CALL: 'Apel',
   MEETING: 'Întâlnire',
   SUPPORT: 'Suport',
-  SALES: 'Vânzări',
+  SALES: 'Relație client',
   BILLING: 'Abonament',
   OTHER: 'Altă notă',
+};
+
+const emptyTaskForm = {
+  title: '',
+  description: '',
+  dueDate: '',
+  priority: 'MEDIUM' as TaskPriority,
+};
+
+const taskStatusLabels: Record<TaskStatus, string> = {
+  TODO: 'De făcut',
+  IN_PROGRESS: 'În lucru',
+  DONE: 'Finalizat',
+  CANCELLED: 'Anulat',
+};
+
+const taskPriorityLabels: Record<TaskPriority, string> = {
+  LOW: 'Scăzută',
+  MEDIUM: 'Normală',
+  HIGH: 'Înaltă',
+  URGENT: 'Urgentă',
+};
+
+const taskPriorityTone: Record<TaskPriority, 'neutral' | 'warning' | 'error'> = {
+  LOW: 'neutral',
+  MEDIUM: 'neutral',
+  HIGH: 'warning',
+  URGENT: 'error',
 };
 
 function editFormFromAssociation(association: MvpAssociation) {
@@ -113,6 +143,10 @@ export default function SuperadminOrganizationDetailsPage() {
   const [notesError, setNotesError] = useState('');
   const [noteForm, setNoteForm] = useState(emptyNoteForm);
   const [isCreatingNote, setIsCreatingNote] = useState(false);
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [tasksError, setTasksError] = useState('');
+  const [taskForm, setTaskForm] = useState(emptyTaskForm);
+  const [isCreatingTask, setIsCreatingTask] = useState(false);
 
   const loadAdmins = async (organizationId: string) => {
     const res = await superadminApi.listPublicOrganizationAdmins(organizationId);
@@ -124,6 +158,12 @@ export default function SuperadminOrganizationDetailsPage() {
     const res = await superadminApi.listOrganizationNotes(organizationId);
     setNotes(res.data || []);
     setNotesError('');
+  };
+
+  const loadTasks = async (organizationId: string) => {
+    const res = await superadminApi.listOrganizationTasks(organizationId);
+    setTasks(res.data || []);
+    setTasksError('');
   };
 
   useEffect(() => {
@@ -146,6 +186,9 @@ export default function SuperadminOrganizationDetailsPage() {
         loadNotes(id).catch(() => {
           if (active) setNotesError('Notele interne nu sunt disponibile temporar.');
         });
+        loadTasks(id).catch(() => {
+          if (active) setTasksError('Sarcinile nu sunt disponibile temporar.');
+        });
       })
       .catch(() => {
         if (!active) return;
@@ -153,6 +196,7 @@ export default function SuperadminOrganizationDetailsPage() {
         setSource('mock');
         setAdministrators(mockAdministrators.filter((admin) => admin.organizationId === id));
         setNotes([]);
+        setTasks([]);
       });
     return () => {
       active = false;
@@ -275,6 +319,97 @@ export default function SuperadminOrganizationDetailsPage() {
       setNotesError('Nu am putut salva nota internă.');
     } finally {
       setIsCreatingNote(false);
+    }
+  };
+
+  const editNote = async (note: any) => {
+    if (!id) return;
+    const nextContent = window.prompt('Actualizează conținutul notei interne:', note.content || '');
+    if (nextContent === null) return;
+    if (!nextContent.trim()) {
+      setNotesError('Conținutul notei este obligatoriu.');
+      return;
+    }
+    setNotesError('');
+    setSuccessMessage('');
+    try {
+      await superadminApi.updateClientNote(note.id, {
+        content: nextContent.trim(),
+        title: note.title || 'Notă internă',
+        type: note.type || 'OTHER',
+        isImportant: !!note.isImportant,
+        followUpAt: note.followUpAt || undefined,
+      });
+      setSuccessMessage('Nota a fost salvată.');
+      await loadNotes(id);
+    } catch {
+      setNotesError('Nu am putut salva nota.');
+    }
+  };
+
+  const deleteNote = async (noteId: string) => {
+    if (!id) return;
+    if (!window.confirm('Ștergi această notă internă?')) return;
+    setNotesError('');
+    setSuccessMessage('');
+    try {
+      await superadminApi.deleteClientNote(noteId);
+      setSuccessMessage('Nota internă a fost ștearsă.');
+      await loadNotes(id);
+    } catch {
+      setNotesError('Nu am putut șterge nota.');
+    }
+  };
+
+  const markFollowUpDone = async (noteId: string) => {
+    if (!id) return;
+    setNotesError('');
+    setSuccessMessage('');
+    try {
+      await superadminApi.markClientNoteFollowUpDone(noteId);
+      setSuccessMessage('Follow-up-ul a fost finalizat.');
+      await loadNotes(id);
+    } catch {
+      setNotesError('Nu am putut actualiza follow-up-ul.');
+    }
+  };
+
+  const createTask = async () => {
+    if (!id) return;
+    setTasksError('');
+    setSuccessMessage('');
+    if (!taskForm.title.trim()) {
+      setTasksError('Titlul sarcinii este obligatoriu.');
+      return;
+    }
+    setIsCreatingTask(true);
+    try {
+      await superadminApi.createOrganizationTask(id, {
+        title: taskForm.title.trim(),
+        description: taskForm.description.trim() || undefined,
+        priority: taskForm.priority,
+        dueDate: taskForm.dueDate ? new Date(taskForm.dueDate).toISOString() : undefined,
+      });
+      setTaskForm(emptyTaskForm);
+      setSuccessMessage('Sarcina a fost salvată.');
+      await loadTasks(id);
+    } catch {
+      setTasksError('Nu am putut salva sarcina.');
+    } finally {
+      setIsCreatingTask(false);
+    }
+  };
+
+  const updateTaskStatus = async (taskId: string, status: TaskStatus) => {
+    if (!id) return;
+    setTasksError('');
+    setSuccessMessage('');
+    try {
+      await superadminApi.updateOrganizationTaskStatus(id, taskId, status);
+      setSuccessMessage('Statusul sarcinii a fost actualizat.');
+      await loadTasks(id);
+    } catch {
+      setTasksError('Nu am putut actualiza sarcina.');
     }
   };
 
@@ -435,12 +570,30 @@ export default function SuperadminOrganizationDetailsPage() {
               <div key={note.id} className="rounded-2xl border border-border/70 bg-muted/25 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="font-semibold text-foreground">{note.title || 'Notă internă'}</p>
-                  <Badge variant={note.isImportant ? 'warning' : 'neutral'}>{noteTypeLabels[note.type as ClientNoteType] || 'Notă'}</Badge>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant={note.isImportant ? 'warning' : 'neutral'}>{noteTypeLabels[note.type as ClientNoteType] || 'Notă'}</Badge>
+                    {note.followUpAt && !note.followUpDone ? <Badge variant="warning">Follow-up</Badge> : null}
+                  </div>
                 </div>
                 <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{note.content}</p>
                 <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                  {note.createdByUser ? <span>Autor: {formatUserName(note.createdByUser)}</span> : null}
                   {note.followUpAt ? <span>Follow-up: {formatDateTime(note.followUpAt)}</span> : null}
+                  {note.followUpDoneAt ? <span>Finalizat: {formatDateTime(note.followUpDoneAt)}</span> : null}
                   {note.createdAt ? <span>Creată: {formatDateTime(note.createdAt)}</span> : null}
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button type="button" onClick={() => editNote(note)} className="rounded-xl border border-border/70 bg-white px-3 py-2 text-xs font-semibold text-foreground hover:bg-muted/60">
+                    Editează
+                  </button>
+                  {note.followUpAt && !note.followUpDone ? (
+                    <button type="button" onClick={() => markFollowUpDone(note.id)} className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-100">
+                      Marchează follow-up finalizat
+                    </button>
+                  ) : null}
+                  <button type="button" onClick={() => deleteNote(note.id)} className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-800 hover:bg-rose-100">
+                    Șterge
+                  </button>
                 </div>
               </div>
             ))}
@@ -483,6 +636,89 @@ export default function SuperadminOrganizationDetailsPage() {
             </label>
             <button type="button" onClick={createNote} disabled={isCreatingNote} className="min-h-10 rounded-2xl bg-foreground px-4 text-sm font-semibold text-background disabled:opacity-60">
               {isCreatingNote ? 'Se salvează...' : 'Salvează nota'}
+            </button>
+          </div>
+        </Card>
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-[1fr_0.9fr]">
+        <Card>
+          <SectionTitle icon={<CheckSquare className="h-5 w-5" />} title="Sarcini / follow-up" description="Sarcini reale legate de această A.P.C." />
+          <div className="space-y-3">
+            {tasks.map((task) => {
+              const status = String(task.status || 'TODO') as TaskStatus;
+              const priority = String(task.priority || 'MEDIUM') as TaskPriority;
+              return (
+                <div key={task.id} className="rounded-2xl border border-border/70 bg-muted/25 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-foreground">{task.title}</p>
+                      {task.description ? <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{task.description}</p> : null}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant={status === 'DONE' ? 'success' : status === 'CANCELLED' ? 'neutral' : 'warning'}>{taskStatusLabels[status] || status}</Badge>
+                      <Badge variant={taskPriorityTone[priority] || 'neutral'}>{taskPriorityLabels[priority] || priority}</Badge>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                    {task.dueDate ? <span>Scadență: {formatDateTime(task.dueDate)}</span> : <span>Fără scadență</span>}
+                    {task.createdByUser ? <span>Creată de: {formatUserName(task.createdByUser)}</span> : null}
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {status !== 'IN_PROGRESS' && status !== 'DONE' ? (
+                      <button type="button" onClick={() => updateTaskStatus(task.id, 'IN_PROGRESS')} className="rounded-xl border border-border/70 bg-white px-3 py-2 text-xs font-semibold text-foreground hover:bg-muted/60">
+                        Marchează în lucru
+                      </button>
+                    ) : null}
+                    {status !== 'DONE' ? (
+                      <button type="button" onClick={() => updateTaskStatus(task.id, 'DONE')} className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-100">
+                        Finalizează
+                      </button>
+                    ) : null}
+                    {status === 'DONE' || status === 'CANCELLED' ? (
+                      <button type="button" onClick={() => updateTaskStatus(task.id, 'TODO')} className="rounded-xl border border-border/70 bg-white px-3 py-2 text-xs font-semibold text-foreground hover:bg-muted/60">
+                        Redeschide
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+            {!tasks.length ? (
+              <p className="rounded-2xl border border-border/70 bg-muted/25 p-4 text-sm text-muted-foreground">
+                Nu există sarcini pentru această A.P.C.
+              </p>
+            ) : null}
+            {tasksError ? (
+              <p className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
+                {tasksError}
+              </p>
+            ) : null}
+          </div>
+        </Card>
+
+        <Card>
+          <SectionTitle icon={<CheckSquare className="h-5 w-5" />} title="Adaugă sarcină" description="Creează un follow-up legat direct de această A.P.C." />
+          <div className="grid gap-3">
+            <Field label="Titlu" value={taskForm.title} onChange={(value) => setTaskForm({ ...taskForm, title: value })} />
+            <label className="block">
+              <span className="label">Descriere</span>
+              <textarea className="min-h-[100px] w-full rounded-2xl border border-border bg-white px-3 py-2 text-sm outline-none focus:border-foreground" value={taskForm.description} onChange={(event) => setTaskForm({ ...taskForm, description: event.target.value })} />
+            </label>
+            <label className="block">
+              <span className="label">Prioritate</span>
+              <select className="select" value={taskForm.priority} onChange={(event) => setTaskForm({ ...taskForm, priority: event.target.value as TaskPriority })}>
+                {Object.entries(taskPriorityLabels).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="label">Scadență</span>
+              <input className="input" type="datetime-local" value={taskForm.dueDate} onChange={(event) => setTaskForm({ ...taskForm, dueDate: event.target.value })} />
+            </label>
+            <button type="button" onClick={createTask} disabled={isCreatingTask} className="min-h-10 rounded-2xl bg-foreground px-4 text-sm font-semibold text-background disabled:opacity-60">
+              {isCreatingTask ? 'Se salvează...' : 'Salvează sarcina'}
             </button>
           </div>
         </Card>
@@ -625,6 +861,11 @@ function formatDateTime(value: string) {
     hour: '2-digit',
     minute: '2-digit',
   }).format(date);
+}
+
+function formatUserName(user: any) {
+  const name = [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim();
+  return name || user?.email || 'Utilizator';
 }
 
 function Field({
