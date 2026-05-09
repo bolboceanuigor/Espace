@@ -10,7 +10,7 @@ Practical post-launch process for stable weekly delivery without scope creep.
 ## Error Budget Rules
 
 - **Critical (fix immediately):**
-  - bugs affecting reservations, calendar integrity, tenant isolation, exports, or auth/RBAC
+  - bugs affecting auth/RBAC, A.P.C. organization scope, resident apartment scope, invoices, payments, imports, or health checks
 - **Minor UI issues (batch weekly):**
   - cosmetic spacing/copy/hover glitches that do not risk data or access
 
@@ -29,15 +29,15 @@ Do not merge new features until all are green:
 
 1. `npm run check` passes
 2. Security tests pass (`docs/SECURITY_TESTS.md`)
-3. Demo flow works end-to-end
-4. Calendar stability is acceptable (no blocking regressions)
+3. Real A.P.C. beta flow works end-to-end
+4. Legacy PMS routes remain hidden or safely redirected
 
 ## Release Checklist
 
 1. Confirm migrations tested locally
 2. Run backup before deploy
 3. Deploy + migrate in prod (`prisma migrate deploy`)
-4. Run smoke tests (see `docs/DEPLOY.md`)
+4. Run beta smoke tests (see `docs/BETA-RELEASE-CHECKLIST.md`)
 5. Update `whats-new` JSON and changelog notes
 
 ## Deferred / Optional (not now)
@@ -50,6 +50,6 @@ Do not merge new features until all are green:
 
 Planned org setting (not active yet):
 
-- `keepCancelledReservationsDays` (default `365`)
+- `documentRetentionDays`
 
 No automatic deletion job is enabled in MVP.
