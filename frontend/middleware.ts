@@ -75,6 +75,15 @@ function requiredRoleForPath(pathWithoutLocale: string): 'SUPERADMIN' | 'ADMIN' 
   return null;
 }
 
+function legacyApcRedirect(pathWithoutLocale: string): string | null {
+  if (pathWithoutLocale === '/reservations' || pathWithoutLocale.startsWith('/reservations/')) return '/admin';
+  if (pathWithoutLocale === '/properties' || pathWithoutLocale.startsWith('/properties/')) return '/admin/apartments';
+  if (pathWithoutLocale === '/clients' || pathWithoutLocale.startsWith('/clients/')) return '/admin/residents';
+  if (pathWithoutLocale === '/cleaning' || pathWithoutLocale === '/cleanings' || pathWithoutLocale.startsWith('/cleaning/') || pathWithoutLocale.startsWith('/cleanings/')) return '/admin';
+  if (pathWithoutLocale === '/calendar' || pathWithoutLocale === '/calendar-horizontal' || pathWithoutLocale.startsWith('/calendar/') || pathWithoutLocale.startsWith('/calendar-horizontal/')) return '/admin';
+  return null;
+}
+
 export function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const segments = pathname.split('/').filter(Boolean);
@@ -128,6 +137,13 @@ export function middleware(request: NextRequest) {
     (route) => pathWithoutLocale === route || pathWithoutLocale.startsWith(`${route}/`),
   );
   const requiredRole = requiredRoleForPath(pathWithoutLocale);
+  const legacyRedirect = legacyApcRedirect(pathWithoutLocale);
+
+  if (legacyRedirect) {
+    const response = NextResponse.redirect(new URL(`/${locale}${legacyRedirect}`, request.url));
+    response.cookies.set(LOCALE_COOKIE, locale, { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax' });
+    return response;
+  }
 
   if (token && (!tokenPayload || tokenExpired)) {
     const loginUrl = new URL(localizedLoginPath(locale), request.url);

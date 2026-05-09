@@ -189,10 +189,10 @@ function Hero({ active }: { active: ProductPageProps['active'] }) {
           </p>
           <div className="mt-7 flex flex-col gap-3 sm:flex-row">
             <Link
-              href="/ro/demo-request"
+              href="/ro/contact"
               className="inline-flex items-center justify-center gap-2 rounded-md bg-white px-4 py-3 text-sm font-semibold text-[#0d1211] shadow-lg shadow-black/20 transition hover:bg-teal-50"
             >
-              Vezi demo
+              Contact
               <ArrowRight className="h-4 w-4" />
             </Link>
             <Link

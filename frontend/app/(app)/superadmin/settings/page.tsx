@@ -16,20 +16,17 @@ export default function SuperadminSettingsPage() {
 
   return (
     <div className="space-y-4 pb-24 md:pb-4">
-      <MobilePageHeader title="Settings" subtitle="Superadmin settings and administrative tools." />
+      <MobilePageHeader title="Setări" subtitle="Configurări utile pentru platforma Espace." />
       <EmptyState
         title="Setări superadmin"
-        description="Folosește linkurile de mai jos pentru modulele de configurare existente."
+        description="Folosește doar modulele stabile pentru administrarea platformei."
       />
       <div className="flex flex-wrap gap-2">
         <Link href="/superadmin/help" className="rounded-md border border-border/70 px-3 py-2 text-sm hover:bg-muted/50">
-          Help Articles
-        </Link>
-        <Link href="/superadmin/email-templates" className="rounded-md border border-border/70 px-3 py-2 text-sm hover:bg-muted/50">
-          Email Templates
+          Ajutor
         </Link>
         <Link href="/superadmin/system/status" className="rounded-md border border-border/70 px-3 py-2 text-sm hover:bg-muted/50">
-          System Status
+          Status sistem
         </Link>
       </div>
       <Button type="button" variant="danger" onClick={() => demoLogout(locale)}>

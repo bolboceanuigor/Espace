@@ -5,22 +5,22 @@ import {
   Building,
   CreditCard,
   FileText,
-  BarChart3,
   AlertCircle,
-  Wrench,
   Bell,
+  Gauge,
   Settings,
+  Users,
 } from 'lucide-react';
 
 const menu = [
-  { name: 'Dashboard', icon: Home },
+  { name: 'Acasă', icon: Home },
   { name: 'Apartamente', icon: Building },
-  { name: 'Plăți', icon: CreditCard },
+  { name: 'Locatari', icon: Users },
+  { name: 'Contoare', icon: Gauge },
   { name: 'Facturi', icon: FileText },
-  { name: 'Rapoarte', icon: BarChart3 },
-  { name: 'Sesizări', icon: AlertCircle },
-  { name: 'Mentenanță', icon: Wrench },
-  { name: 'Notificări', icon: Bell },
+  { name: 'Plăți', icon: CreditCard },
+  { name: 'Cereri', icon: AlertCircle },
+  { name: 'Avizier', icon: Bell },
   { name: 'Setări', icon: Settings },
 ];
 
@@ -32,7 +32,7 @@ export function Sidebar({ collapsed: _collapsed, onToggle: _onToggle }: { collap
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 font-bold text-white">
             C
           </div>
-          <span className="text-lg font-semibold text-gray-900">CondoFlow</span>
+          <span className="text-lg font-semibold text-gray-900">Espace</span>
         </div>
 
         <div className="space-y-1">

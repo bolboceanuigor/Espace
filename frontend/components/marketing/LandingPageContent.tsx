@@ -26,11 +26,11 @@ export default function LandingPageContent() {
             {t('hero.subtitle')}
           </p>
           <div className="mt-6 flex flex-wrap items-center gap-3">
-            <Link href="/demo-request" className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white">
-              {t('hero.ctaDemo')}
+            <Link href="/contact" className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white">
+              Contact
             </Link>
-            <Link href="/demo" className="rounded-xl border border-border/70 px-4 py-2.5 text-sm font-semibold text-foreground">
-              {t('hero.ctaTryDemo')}
+            <Link href="/login" className="rounded-xl border border-border/70 px-4 py-2.5 text-sm font-semibold text-foreground">
+              Intră în platformă
             </Link>
             <Link href="/features" className="rounded-xl border border-border/70 px-4 py-2.5 text-sm font-semibold text-foreground">
               {t('hero.ctaFeatures')}
@@ -102,4 +102,3 @@ export default function LandingPageContent() {
     </MarketingLayout>
   );
 }
-

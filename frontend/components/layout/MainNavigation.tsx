@@ -10,6 +10,7 @@ import {
   type MainNavigationKey,
   type MainNavigationRole,
 } from '@/lib/main-navigation';
+import { normalizeRole } from '@/lib/role-routing';
 
 type MainNavigationProps = {
   role: MainNavigationRole;
@@ -46,6 +47,7 @@ export default function MainNavigation({ role, variant = 'responsive' }: MainNav
   const params = useParams<{ locale?: string }>();
   const localeParam = typeof params?.locale === 'string' ? params.locale : defaultLocale;
   const locale = isLocale(localeParam) ? localeParam : defaultLocale;
+  const normalizedRole = normalizeRole(role);
   const items = getMainNavigationItems(role).map((item) => ({
     ...item,
     icon: ICONS[item.key],
@@ -54,8 +56,19 @@ export default function MainNavigation({ role, variant = 'responsive' }: MainNav
   const showMobile = variant !== 'desktop';
   const isWideMenu = items.length > 5;
   const gridTemplateColumns = `repeat(${items.length}, minmax(0, 1fr))`;
-  const mobilePrimaryItems = useMemo(() => items.slice(0, 4), [items]);
-  const mobileMoreItems = useMemo(() => items.slice(4), [items]);
+  const mobilePrimaryItems = useMemo(() => {
+    const primaryKeys: Partial<Record<ReturnType<typeof normalizeRole>, MainNavigationKey[]>> = {
+      SUPER_ADMIN: ['platform', 'organizations', 'administrators'],
+      ADMIN: ['adminHome', 'apartments', 'residents', 'invoices'],
+      RESIDENT: ['home', 'payments', 'meters', 'issues'],
+    };
+    const keys = primaryKeys[normalizedRole] || items.slice(0, 4).map((item) => item.key);
+    return keys.map((key) => items.find((item) => item.key === key)).filter(Boolean) as typeof items;
+  }, [items, normalizedRole]);
+  const mobileMoreItems = useMemo(
+    () => items.filter((item) => !mobilePrimaryItems.some((primary) => primary.href === item.href)),
+    [items, mobilePrimaryItems],
+  );
 
   return (
     <>
@@ -112,7 +125,10 @@ export default function MainNavigation({ role, variant = 'responsive' }: MainNav
             aria-label="Navigare principală mobilă"
             className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-40 rounded-[1.65rem] border border-border/70 bg-white/92 shadow-[0_24px_70px_rgba(15,23,42,0.18)] backdrop-blur-2xl supports-[backdrop-filter]:bg-white/82 md:hidden"
           >
-            <div className="mx-auto grid max-w-md grid-cols-5 items-end gap-1 px-2.5 py-2">
+            <div
+              className="mx-auto grid max-w-md items-end gap-1 px-2.5 py-2"
+              style={{ gridTemplateColumns: `repeat(${mobilePrimaryItems.length + 1}, minmax(0, 1fr))` }}
+            >
               {mobilePrimaryItems.map((item) => {
                 const target = `/${locale}${item.href}`;
                 const active = item.center

@@ -7,11 +7,11 @@ const links = [
   { href: '/admin', label: 'Acasă' },
   { href: '/admin/apartments', label: 'Apartamente' },
   { href: '/admin/residents', label: 'Locatari' },
-  { href: '/admin/meters', label: 'Contoare' },
+  { href: '/admin/invoices', label: 'Facturi' },
   { href: '/admin/payments', label: 'Plăți' },
   { href: '/admin/issues', label: 'Cereri' },
   { href: '/admin/announcements', label: 'Avizier' },
-  { href: '/admin/chat', label: 'Mesaje' },
+  { href: '/admin/documents', label: 'Documente' },
   { href: '/admin/settings/organization', label: 'Setări' },
 ];
 

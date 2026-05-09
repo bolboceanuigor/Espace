@@ -17,6 +17,9 @@ export default function MarketingLayout({ children }: MarketingLayoutProps) {
             {t('brand')}
           </Link>
           <nav className="flex items-center gap-3 text-sm text-muted-foreground">
+            <Link href="/" className="hover:text-foreground">
+              Acasă
+            </Link>
             <Link href="/features" className="hover:text-foreground">
               {t('features')}
             </Link>
@@ -26,11 +29,8 @@ export default function MarketingLayout({ children }: MarketingLayoutProps) {
             <Link href="/contact" className="hover:text-foreground">
               {t('contact')}
             </Link>
-            <Link href="/demo-request" className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white">
-              {t('requestDemo')}
-            </Link>
-            <Link href="/demo" className="rounded-lg border border-border/70 px-3 py-1.5 text-xs font-semibold text-foreground">
-              {t('tryDemo')}
+            <Link href="/login" className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white">
+              Intră în platformă
             </Link>
           </nav>
         </div>
@@ -45,4 +45,3 @@ export default function MarketingLayout({ children }: MarketingLayoutProps) {
     </div>
   );
 }
-

@@ -31,12 +31,11 @@ export default function PricingPage() {
           </article>
         </div>
         <div className="mt-8">
-          <Link href="/demo-request" className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white">
-            {t('cta')}
+          <Link href="/contact" className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white">
+            Contact
           </Link>
         </div>
       </section>
     </MarketingLayout>
   );
 }
-
