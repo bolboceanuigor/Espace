@@ -1199,6 +1199,7 @@ export const financeApi = {
 
 export const workbenchApi = {
   admin: () => apiRequest<any>('/api/admin/workbench'),
+  residentCrm: () => apiRequest<any>('/api/admin/resident-crm'),
 };
 
 export const paymentsApi = {

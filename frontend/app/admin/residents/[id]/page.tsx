@@ -183,10 +183,15 @@ export default function AdminResidentDetailPage() {
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
           <ButtonLink href={`/${locale}/admin/chat`} variant="primary"><MessageCircle className="h-4 w-4" /> Trimite mesaj</ButtonLink>
           <ButtonLink href={firstApartmentId ? `/${locale}/admin/apartments/${firstApartmentId}` : `/${locale}/admin/apartments`} variant="secondary"><Building2 className="h-4 w-4" /> Vezi apartamentul</ButtonLink>
+          <ButtonLink href={`/${locale}/admin/payments`} variant="secondary"><Banknote className="h-4 w-4" /> Înregistrează plată</ButtonLink>
           <ButtonLink href={`/${locale}/admin/issues`} variant="secondary"><FileText className="h-4 w-4" /> Creează cerere</ButtonLink>
           <Button type="button" variant="secondary" disabled title="Funcție în lucru">
             <StickyNote className="h-4 w-4" />
             Adaugă sarcină
+          </Button>
+          <Button type="button" variant="secondary" disabled title="Funcție în lucru">
+            <StickyNote className="h-4 w-4" />
+            Adaugă notă
           </Button>
           {!hasUserAccount && source === 'api' ? (
             <Button type="button" variant="secondary" onClick={() => setAccountModalOpen(true)}>

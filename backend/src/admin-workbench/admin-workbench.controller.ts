@@ -15,4 +15,9 @@ export class AdminWorkbenchController {
   getWorkbench(@CurrentUser() user: MvpUser, @Headers('x-org-id') scopedOrganizationId?: string) {
     return this.adminWorkbenchService.getWorkbench(user, scopedOrganizationId);
   }
+
+  @Get(['admin/resident-crm', 'api/admin/resident-crm'])
+  getResidentCrm(@CurrentUser() user: MvpUser, @Headers('x-org-id') scopedOrganizationId?: string) {
+    return this.adminWorkbenchService.getResidentCrm(user, scopedOrganizationId);
+  }
 }

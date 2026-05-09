@@ -68,6 +68,8 @@ export default function AdminResidentsPage() {
   const [role, setRole] = useState('toate');
   const [account, setAccount] = useState('toate');
   const [withDebt, setWithDebt] = useState(false);
+  const [withOpenIssues, setWithOpenIssues] = useState(false);
+  const [staircase, setStaircase] = useState('toate');
   const [rows, setRows] = useState<typeof adminResidents>([]);
   const [apartments, setApartments] = useState<AdminApartment[]>([]);
   const [crmStats, setCrmStats] = useState<Record<string, ResidentCrmStat>>({});
@@ -119,6 +121,15 @@ export default function AdminResidentsPage() {
     };
   }, []);
 
+  const apartmentStaircaseByNumber = useMemo(() => {
+    return new Map(apartments.map((apartment) => [String(apartment.number), String(apartment.staircase || '')]));
+  }, [apartments]);
+
+  const staircaseOptions = useMemo(() => {
+    const values = Array.from(new Set(apartments.map((apartment) => String(apartment.staircase || '')).filter(Boolean)));
+    return ['toate', ...values];
+  }, [apartments]);
+
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return rows.filter((person) => {
@@ -126,9 +137,13 @@ export default function AdminResidentsPage() {
       const matchesRole = role === 'toate' || person.role === role;
       const matchesAccount = account === 'toate' || person.accountStatus === account;
       const matchesDebt = !withDebt || person.debt > 0;
-      return matchesQuery && matchesRole && matchesAccount && matchesDebt;
+      const matchesOpenIssues = !withOpenIssues || (crmStats[person.id]?.openIssues ?? 0) > 0;
+      const matchesStaircase =
+        staircase === 'toate' ||
+        person.apartments.some((number) => apartmentStaircaseByNumber.get(String(number)) === staircase);
+      return matchesQuery && matchesRole && matchesAccount && matchesDebt && matchesOpenIssues && matchesStaircase;
     });
-  }, [account, query, role, rows, withDebt]);
+  }, [account, apartmentStaircaseByNumber, crmStats, query, role, rows, staircase, withDebt, withOpenIssues]);
 
   const totals = useMemo(() => ({
     total: rows.length,
@@ -210,16 +225,21 @@ export default function AdminResidentsPage() {
         <StatCard label="Cu datorii" value={totals.withDebt} description="Datorie pe apartament" icon={<MessageCircle className="h-5 w-5" />} tone="danger" />
       </section>
       <Card>
-        <div className="grid gap-3 lg:grid-cols-[1.5fr_1fr_1fr_auto]">
+        <div className="grid gap-3 lg:grid-cols-[1.5fr_1fr_1fr_1fr_auto_auto]">
           <label className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input className="pl-9" placeholder="Caută nume, telefon, email sau apartament" value={query} onChange={(event) => setQuery(event.target.value)} />
           </label>
           <Select value={role} onChange={setRole} options={['toate', 'proprietar', 'locatar', 'chiriaș', 'membru familie', 'reprezentant']} />
           <Select value={account} onChange={setAccount} options={['toate', 'cont creat', 'invitat', 'fără cont']} />
+          <Select value={staircase} onChange={setStaircase} options={staircaseOptions} />
           <label className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-border/70 bg-white px-3 text-sm font-medium text-foreground">
             <input type="checkbox" checked={withDebt} onChange={(event) => setWithDebt(event.target.checked)} />
             Cu datorii
+          </label>
+          <label className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-border/70 bg-white px-3 text-sm font-medium text-foreground">
+            <input type="checkbox" checked={withOpenIssues} onChange={(event) => setWithOpenIssues(event.target.checked)} />
+            Cu cereri
           </label>
         </div>
       </Card>
@@ -239,8 +259,13 @@ export default function AdminResidentsPage() {
             </div>
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-3">
               <p className={person.debt > 0 ? 'font-semibold text-rose-600' : 'font-semibold text-emerald-700'}>{formatMdl(person.debt)}</p>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Link href={localizedPath(`/admin/residents/${person.id}`)} className="rounded-xl border border-border/70 px-3 py-2 text-xs font-semibold hover:bg-muted/60">Profil</Link>
+                {person.accountStatus !== 'cont creat' ? (
+                  <Link href={localizedPath(`/admin/residents/${person.id}`)} className="rounded-xl border border-border/70 px-3 py-2 text-xs font-semibold hover:bg-muted/60">Invită</Link>
+                ) : null}
+                <Link href={localizedPath('/admin/payments')} className="rounded-xl border border-border/70 px-3 py-2 text-xs font-semibold hover:bg-muted/60">Plată</Link>
+                <Link href={localizedPath('/admin/issues')} className="rounded-xl border border-border/70 px-3 py-2 text-xs font-semibold hover:bg-muted/60">Cerere</Link>
               </div>
             </div>
             <div className="mt-4 grid gap-2 border-t border-border/60 pt-3 text-sm text-muted-foreground sm:grid-cols-3">

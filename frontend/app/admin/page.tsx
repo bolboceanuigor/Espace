@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
   ArrowRight,
-  Bell,
+  Banknote,
   Building2,
   CheckCircle2,
   CreditCard,
@@ -14,6 +14,7 @@ import {
   Megaphone,
   MessageCircle,
   PlusCircle,
+  UserPlus,
   UserX,
   Users,
 } from 'lucide-react';
@@ -22,72 +23,117 @@ import { formatMdl } from '@/lib/condo-admin-fallback';
 import { workbenchApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
-type WorkbenchItem = {
-  id?: string;
-  title?: string;
-  message?: string;
+type CrmOrganization = {
+  id: string;
+  shortName: string;
+  legalName: string;
+  associationCode?: string | null;
+  associationNumber?: string | null;
+};
+
+type PriorityResident = {
+  id: string;
+  name: string;
+  phone?: string | null;
+  email?: string | null;
+  role?: string | null;
+  accountStatus?: string | null;
+  apartmentNumber?: string | null;
+  staircaseName?: string | null;
+  totalDebt: number;
+  openIssuesCount: number;
+  missingContact?: boolean;
   link?: string | null;
-  createdAt?: string;
+  inviteLink?: string | null;
+  paymentLink?: string | null;
+  issueLink?: string | null;
+};
+
+type PriorityApartment = {
+  id: string;
   apartmentNumber?: string | null;
   staircaseName?: string | null;
   residentName?: string | null;
-  priority?: string;
-  status?: string;
-  type?: string;
-  amount?: number;
-  method?: string;
-  paidAt?: string;
-  totalDebt?: number;
-  accountStatus?: string | null;
+  totalDebt: number;
+  unpaidInvoicesCount: number;
+  overdueInvoicesCount: number;
+  lastPaymentDate?: string | null;
+  link?: string | null;
+};
+
+type CrmIssue = {
+  id: string;
+  title?: string;
+  apartmentNumber?: string | null;
+  staircaseName?: string | null;
+  residentName?: string | null;
+  priority?: string | null;
+  status?: string | null;
+  createdAt?: string | null;
+  link?: string | null;
+};
+
+type CrmMeter = {
+  id: string;
+  type?: string | null;
+  serialNumber?: string | null;
+  apartmentNumber?: string | null;
+  staircaseName?: string | null;
   lastReadingDate?: string | null;
+  link?: string | null;
 };
 
-type WorkbenchData = {
-  organization: {
-    id: string;
-    shortName: string;
-    legalName: string;
-    associationCode?: string | null;
-    associationNumber?: string | null;
-  };
-  finance: {
-    totalDebt: number;
-    totalIssued: number;
-    totalPaid: number;
-    overdueInvoices: number;
+type CrmPayment = {
+  id: string;
+  amount: number;
+  method?: string | null;
+  paidAt?: string | null;
+  apartmentNumber?: string | null;
+  staircaseName?: string | null;
+  invoice?: { invoiceNumber?: string | null; month?: number | null; year?: number | null } | null;
+  link?: string | null;
+};
+
+type CrmTask = {
+  id: string;
+  title?: string;
+  message?: string | null;
+  priority?: string | null;
+  status?: string | null;
+  dueDate?: string | null;
+  link?: string | null;
+};
+
+type CrmActivity = {
+  id: string;
+  title?: string;
+  message?: string;
+  createdAt?: string | null;
+  link?: string | null;
+};
+
+type ResidentCrmData = {
+  organization: CrmOrganization;
+  kpis: {
+    totalApartments: number;
+    totalResidents: number;
+    residentsWithoutAccount: number;
     apartmentsWithDebt: number;
-    collectionRate: number;
+    totalDebt: number;
+    openIssues: number;
+    urgentIssues: number;
+    missingMeterReadings: number;
   };
-  issues: {
-    newCount: number;
-    urgentCount: number;
-    inProgressCount: number;
-    latest: WorkbenchItem[];
-  };
-  meters: {
-    missingReadings: number;
-    suspiciousReadings: number;
-    latestMissing: WorkbenchItem[];
-  };
-  residents: {
-    withoutAccount: number;
-    withDebt: number;
-    latestWithDebt: WorkbenchItem[];
-  };
-  payments: {
-    recent: WorkbenchItem[];
-  };
-  tasks: {
-    dueToday: number;
-    overdue: number;
-    items: WorkbenchItem[];
-  };
-  activity: {
-    recent: WorkbenchItem[];
-  };
+  priorityResidents: PriorityResident[];
+  priorityApartments: PriorityApartment[];
+  urgentIssues: CrmIssue[];
+  missingReadings: CrmMeter[];
+  recentPayments: CrmPayment[];
+  tasks: CrmTask[];
+  activity: CrmActivity[];
 };
 
-const emptyWorkbench: WorkbenchData = {
+const emptyCrm: ResidentCrmData = {
   organization: {
     id: '',
     shortName: 'A.P.C.',
@@ -95,41 +141,37 @@ const emptyWorkbench: WorkbenchData = {
     associationCode: null,
     associationNumber: null,
   },
-  finance: {
-    totalDebt: 0,
-    totalIssued: 0,
-    totalPaid: 0,
-    overdueInvoices: 0,
+  kpis: {
+    totalApartments: 0,
+    totalResidents: 0,
+    residentsWithoutAccount: 0,
     apartmentsWithDebt: 0,
-    collectionRate: 0,
+    totalDebt: 0,
+    openIssues: 0,
+    urgentIssues: 0,
+    missingMeterReadings: 0,
   },
-  issues: {
-    newCount: 0,
-    urgentCount: 0,
-    inProgressCount: 0,
-    latest: [],
-  },
-  meters: {
-    missingReadings: 0,
-    suspiciousReadings: 0,
-    latestMissing: [],
-  },
-  residents: {
-    withoutAccount: 0,
-    withDebt: 0,
-    latestWithDebt: [],
-  },
-  payments: {
-    recent: [],
-  },
-  tasks: {
-    dueToday: 0,
-    overdue: 0,
-    items: [],
-  },
-  activity: {
-    recent: [],
-  },
+  priorityResidents: [],
+  priorityApartments: [],
+  urgentIssues: [],
+  missingReadings: [],
+  recentPayments: [],
+  tasks: [],
+  activity: [],
+};
+
+const roleLabels: Record<string, string> = {
+  OWNER: 'Proprietar',
+  RESIDENT: 'Locatar',
+  TENANT: 'Chiriaș',
+  FAMILY_MEMBER: 'Membru familie',
+  REPRESENTATIVE: 'Reprezentant',
+};
+
+const accountStatusLabels: Record<string, string> = {
+  CREATED: 'Cont creat',
+  INVITED: 'Invitat',
+  NO_ACCOUNT: 'Fără cont',
 };
 
 const issuePriorityLabels: Record<string, string> = {
@@ -162,8 +204,24 @@ const paymentMethodLabels: Record<string, string> = {
   BANK: 'Transfer bancar',
   BANK_TRANSFER: 'Transfer bancar',
   CARD: 'Card',
-  ONLINE: 'Online',
+  OTHER: 'Altă metodă',
 };
+
+function normalizeCrm(data?: Partial<ResidentCrmData>): ResidentCrmData {
+  return {
+    ...emptyCrm,
+    ...(data || {}),
+    organization: { ...emptyCrm.organization, ...(data?.organization || {}) },
+    kpis: { ...emptyCrm.kpis, ...(data?.kpis || {}) },
+    priorityResidents: data?.priorityResidents || [],
+    priorityApartments: data?.priorityApartments || [],
+    urgentIssues: data?.urgentIssues || [],
+    missingReadings: data?.missingReadings || [],
+    recentPayments: data?.recentPayments || [],
+    tasks: data?.tasks || [],
+    activity: data?.activity || [],
+  };
+}
 
 function formatDate(value?: string | null) {
   if (!value) return '-';
@@ -172,24 +230,9 @@ function formatDate(value?: string | null) {
   return date.toLocaleDateString('ro-RO', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function statusLabel(value?: string | null) {
-  if (!value) return 'Status necunoscut';
-  return issueStatusLabels[String(value).toUpperCase()] || value;
-}
-
-function priorityLabel(value?: string | null) {
-  if (!value) return 'Normal';
-  return issuePriorityLabels[String(value).toUpperCase()] || value;
-}
-
-function meterLabel(value?: string | null) {
-  if (!value) return 'Contor';
-  return meterTypeLabels[String(value).toUpperCase()] || value;
-}
-
-function paymentMethodLabel(value?: string | null) {
-  if (!value) return 'Plată';
-  return paymentMethodLabels[String(value).toUpperCase()] || value;
+function label(map: Record<string, string>, value?: string | null, fallback = '-') {
+  if (!value) return fallback;
+  return map[String(value).toUpperCase()] || value;
 }
 
 function safeLocalizedLink(localizedPath: (href: string) => string, href?: string | null, fallback = '/admin') {
@@ -200,7 +243,7 @@ export default function AdminPage() {
   const localizedPath = useLocalizedPath();
   const [source, setSource] = useState<'loading' | 'api' | 'error'>('loading');
   const [error, setError] = useState('');
-  const [workbench, setWorkbench] = useState<WorkbenchData>(emptyWorkbench);
+  const [crm, setCrm] = useState<ResidentCrmData>(emptyCrm);
 
   useEffect(() => {
     let active = true;
@@ -208,16 +251,16 @@ export default function AdminPage() {
     setError('');
 
     workbenchApi
-      .admin()
+      .residentCrm()
       .then((response) => {
         if (!active) return;
-        setWorkbench({ ...emptyWorkbench, ...(response.data || {}) });
+        setCrm(normalizeCrm(response.data));
         setSource('api');
       })
       .catch(() => {
         if (!active) return;
-        setWorkbench(emptyWorkbench);
-        setError('Nu am putut încărca panoul administratorului.');
+        setCrm(emptyCrm);
+        setError('Nu am putut încărca datele CRM.');
         setSource('error');
       });
 
@@ -226,103 +269,95 @@ export default function AdminPage() {
     };
   }, []);
 
-  const priorityItems = useMemo(() => {
-    const items = [];
-    if (workbench.issues.urgentCount > 0) {
-      items.push({
+  const priorityCards = useMemo(
+    () => [
+      {
+        title: 'Datorii mari',
+        value: formatMdl(crm.kpis.totalDebt),
+        description: `${crm.kpis.apartmentsWithDebt} apartamente cu datorii`,
+        href: '/admin/payments',
+        active: crm.kpis.totalDebt > 0,
+      },
+      {
         title: 'Cereri urgente',
-        value: String(workbench.issues.urgentCount),
+        value: String(crm.kpis.urgentIssues),
         description: 'Necesită răspuns rapid',
         href: '/admin/issues',
-        tone: 'danger' as const,
-      });
-    }
-    if (workbench.finance.overdueInvoices > 0) {
-      items.push({
-        title: 'Facturi întârziate',
-        value: String(workbench.finance.overdueInvoices),
-        description: 'De urmărit cu locatarii',
-        href: '/admin/invoices',
-        tone: 'danger' as const,
-      });
-    }
-    if (workbench.meters.missingReadings > 0) {
-      items.push({
+        active: crm.kpis.urgentIssues > 0,
+      },
+      {
         title: 'Citiri lipsă',
-        value: String(workbench.meters.missingReadings),
+        value: String(crm.kpis.missingMeterReadings),
         description: 'Contoare fără citire curentă',
         href: '/admin/meters',
-        tone: 'warning' as const,
-      });
-    }
-    if (workbench.tasks.dueToday + workbench.tasks.overdue > 0) {
-      items.push({
-        title: 'Sarcini scadente',
-        value: String(workbench.tasks.dueToday + workbench.tasks.overdue),
-        description: `${workbench.tasks.overdue} întârziate`,
-        href: '/admin',
-        tone: 'warning' as const,
-      });
-    }
-    return items;
-  }, [workbench]);
+        active: crm.kpis.missingMeterReadings > 0,
+      },
+      {
+        title: 'Locatari fără cont',
+        value: String(crm.kpis.residentsWithoutAccount),
+        description: 'Trimite invitații de activare',
+        href: '/admin/residents',
+        active: crm.kpis.residentsWithoutAccount > 0,
+      },
+    ],
+    [crm],
+  );
 
   const kpiCards = [
     {
-      label: 'Restanțe totale',
-      value: formatMdl(workbench.finance.totalDebt),
-      description: `${workbench.finance.apartmentsWithDebt} apartamente cu datorii`,
-      icon: <CreditCard className="h-5 w-5" />,
-      tone: workbench.finance.totalDebt > 0 ? ('danger' as const) : ('success' as const),
+      label: 'Apartamente',
+      value: String(crm.kpis.totalApartments),
+      description: 'Unități în asociație',
+      icon: <Building2 className="h-5 w-5" />,
     },
     {
-      label: 'Facturi întârziate',
-      value: String(workbench.finance.overdueInvoices),
-      description: 'Facturi trecute de scadență',
-      icon: <FileText className="h-5 w-5" />,
-      tone: workbench.finance.overdueInvoices > 0 ? ('danger' as const) : ('success' as const),
+      label: 'Locatari',
+      value: String(crm.kpis.totalResidents),
+      description: 'Profiluri conectate',
+      icon: <Users className="h-5 w-5" />,
+    },
+    {
+      label: 'Fără cont',
+      value: String(crm.kpis.residentsWithoutAccount),
+      description: 'Necesită invitație',
+      icon: <UserX className="h-5 w-5" />,
+      tone: crm.kpis.residentsWithoutAccount > 0 ? ('warning' as const) : ('success' as const),
+    },
+    {
+      label: 'Apartamente cu datorii',
+      value: String(crm.kpis.apartmentsWithDebt),
+      description: formatMdl(crm.kpis.totalDebt),
+      icon: <CreditCard className="h-5 w-5" />,
+      tone: crm.kpis.apartmentsWithDebt > 0 ? ('danger' as const) : ('success' as const),
     },
     {
       label: 'Cereri urgente',
-      value: String(workbench.issues.urgentCount),
-      description: `${workbench.issues.newCount} cereri noi`,
+      value: String(crm.kpis.urgentIssues),
+      description: `${crm.kpis.openIssues} cereri active`,
       icon: <MessageCircle className="h-5 w-5" />,
-      tone: workbench.issues.urgentCount > 0 ? ('warning' as const) : ('success' as const),
+      tone: crm.kpis.urgentIssues > 0 ? ('warning' as const) : ('success' as const),
     },
     {
       label: 'Citiri lipsă',
-      value: String(workbench.meters.missingReadings),
-      description: `${workbench.meters.suspiciousReadings} citiri suspecte`,
+      value: String(crm.kpis.missingMeterReadings),
+      description: 'De colectat luna curentă',
       icon: <Gauge className="h-5 w-5" />,
-      tone: workbench.meters.missingReadings > 0 ? ('warning' as const) : ('success' as const),
-    },
-    {
-      label: 'Locatari fără cont',
-      value: String(workbench.residents.withoutAccount),
-      description: 'Necesită invitație',
-      icon: <UserX className="h-5 w-5" />,
-      tone: workbench.residents.withoutAccount > 0 ? ('warning' as const) : ('success' as const),
-    },
-    {
-      label: 'Plăți recente',
-      value: String(workbench.payments.recent.length),
-      description: 'Ultimele înregistrări',
-      icon: <Bell className="h-5 w-5" />,
+      tone: crm.kpis.missingMeterReadings > 0 ? ('warning' as const) : ('success' as const),
     },
   ];
 
   return (
     <div className="space-y-5 pb-4">
       <PageHeader
-        title="Panou administrator"
-        description={`Lucru zilnic pentru ${workbench.organization.shortName || 'A.P.C.'}`}
+        title="CRM locatari"
+        description={`Gestionarea locatarilor, apartamentelor și acțiunilor zilnice pentru ${crm.organization.shortName || 'A.P.C.'}`}
         rightSlot={
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
               {source === 'loading' ? 'Se încarcă datele...' : source === 'api' ? 'Date reale' : 'API-ul nu este disponibil temporar'}
             </span>
-            <ButtonLink href={localizedPath('/admin/announcements')} variant="secondary">
-              <Megaphone className="h-4 w-4" /> Publică anunț
+            <ButtonLink href={localizedPath('/admin/residents')} variant="secondary">
+              <UserPlus className="h-4 w-4" /> Adaugă locatar
             </ButtonLink>
           </div>
         }
@@ -330,30 +365,26 @@ export default function AdminPage() {
 
       {source === 'loading' ? (
         <Card className="p-5">
-          <p className="text-sm font-medium text-foreground">Se încarcă panoul administratorului...</p>
-          <p className="mt-1 text-sm text-muted-foreground">Pregătim datele operaționale ale asociației.</p>
+          <p className="text-sm font-medium text-foreground">Se încarcă datele...</p>
+          <p className="mt-1 text-sm text-muted-foreground">Pregătim prioritățile pentru locatari și apartamente.</p>
         </Card>
       ) : null}
 
-      {error ? (
-        <Card className="border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          {error} Datele reale vor apărea imediat ce API-ul răspunde.
-        </Card>
-      ) : null}
+      {error ? <Card className="border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{error}</Card> : null}
 
       <Card className="p-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Asociația curentă</p>
-            <h2 className="mt-1 text-xl font-semibold text-foreground">{workbench.organization.shortName}</h2>
-            <p className="mt-1 text-sm text-muted-foreground">{workbench.organization.legalName}</p>
+            <h2 className="mt-1 text-xl font-semibold text-foreground">{crm.organization.shortName}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{crm.organization.legalName}</p>
           </div>
           <div className="grid gap-2 text-sm sm:grid-cols-2">
             <span className="rounded-2xl border border-border/70 bg-muted/25 px-3 py-2 font-medium text-foreground">
-              Cod APC: {workbench.organization.associationCode || '-'}
+              Cod APC: {crm.organization.associationCode || '-'}
             </span>
             <span className="rounded-2xl border border-border/70 bg-muted/25 px-3 py-2 font-medium text-foreground">
-              Nr. intern: {workbench.organization.associationNumber || '-'}
+              Nr. intern: {crm.organization.associationNumber || '-'}
             </span>
           </div>
         </div>
@@ -365,233 +396,132 @@ export default function AdminPage() {
         ))}
       </section>
 
+      <Card>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-foreground">Priorități</p>
+            <p className="text-sm text-muted-foreground">Datorii, cereri, citiri și conturi care cer acțiune.</p>
+          </div>
+          <AlertCircle className="h-5 w-5 text-amber-600" />
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {priorityCards.map((item) => (
+            <Link
+              key={item.title}
+              href={localizedPath(item.href)}
+              className={`rounded-2xl border p-4 transition hover:bg-muted/40 ${
+                item.active ? 'border-amber-200 bg-amber-50 text-amber-950' : 'border-emerald-200 bg-emerald-50 text-emerald-950'
+              }`}
+            >
+              <span className="text-xs font-semibold uppercase">{item.title}</span>
+              <span className="mt-2 block text-xl font-semibold">{item.value}</span>
+              <span className="mt-1 block text-xs opacity-80">{item.description}</span>
+            </Link>
+          ))}
+        </div>
+      </Card>
+
       <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
         <Card>
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold text-foreground">Priorități azi</p>
-              <p className="text-sm text-muted-foreground">Elemente care cer atenția administratorului.</p>
-            </div>
-            <AlertCircle className="h-5 w-5 text-amber-600" />
-          </div>
-          <div className="mt-4 grid gap-2 sm:grid-cols-2">
-            {priorityItems.map((item) => (
-              <Link
-                key={item.title}
-                href={localizedPath(item.href)}
-                className="rounded-2xl border border-border/60 bg-white p-3 transition hover:bg-muted/40"
-              >
-                <span className="text-xs font-semibold uppercase text-muted-foreground">{item.title}</span>
-                <span className={`mt-2 block text-2xl font-semibold ${item.tone === 'danger' ? 'text-red-700' : 'text-amber-700'}`}>
-                  {item.value}
-                </span>
-                <span className="mt-1 block text-xs text-muted-foreground">{item.description}</span>
-              </Link>
+          <SectionHeader title="Locatari de urmărit" description="Datorii, conturi lipsă, cereri active sau contacte incomplete." href={localizedPath('/admin/residents')} />
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {crm.priorityResidents.map((resident) => (
+              <ResidentCard key={resident.id} resident={resident} localizedPath={localizedPath} />
             ))}
-            {!priorityItems.length ? (
-              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 sm:col-span-2">
-                Nu există priorități urgente azi.
-              </div>
-            ) : null}
+            {!crm.priorityResidents.length ? <p className="text-sm text-muted-foreground">Nu există locatari de urmărit.</p> : null}
           </div>
         </Card>
 
         <Card>
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold text-foreground">Datorii și plăți</p>
-              <p className="text-sm text-muted-foreground">Situația financiară curentă.</p>
-            </div>
-            <CreditCard className="h-5 w-5 text-muted-foreground" />
-          </div>
-          <div className="mt-4 grid gap-2">
-            <div className="rounded-2xl border border-border/60 bg-muted/30 p-3">
-              <p className="text-xs font-semibold uppercase text-muted-foreground">Total emis</p>
-              <p className="mt-1 text-lg font-semibold text-foreground">{formatMdl(workbench.finance.totalIssued)}</p>
-            </div>
-            <div className="rounded-2xl border border-border/60 bg-muted/30 p-3">
-              <p className="text-xs font-semibold uppercase text-muted-foreground">Total achitat</p>
-              <p className="mt-1 text-lg font-semibold text-foreground">{formatMdl(workbench.finance.totalPaid)}</p>
-            </div>
-            <div className="rounded-2xl border border-border/60 bg-muted/30 p-3">
-              <p className="text-xs font-semibold uppercase text-muted-foreground">Rată de colectare</p>
-              <p className="mt-1 text-lg font-semibold text-foreground">{workbench.finance.collectionRate.toLocaleString('ro-RO')}%</p>
-            </div>
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <ButtonLink href={localizedPath('/admin/payments')} variant="secondary">Vezi plăți</ButtonLink>
-            <ButtonLink href={localizedPath('/admin/invoices')} variant="secondary">Vezi facturi</ButtonLink>
+          <SectionHeader title="Apartamente cu datorii" description="Apartamente ordonate după sold restant." href={localizedPath('/admin/apartments')} />
+          <div className="mt-4 space-y-2">
+            {crm.priorityApartments.map((apartment) => (
+              <Link
+                key={apartment.id}
+                href={safeLocalizedLink(localizedPath, apartment.link, '/admin/apartments')}
+                className="block rounded-2xl border border-border/70 bg-white px-4 py-3 hover:bg-muted/40"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-foreground">Apt. {apartment.apartmentNumber || '-'}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{apartment.staircaseName || 'scară neindicată'} · {apartment.residentName || 'locatar neindicat'}</p>
+                  </div>
+                  <span className="text-sm font-semibold text-rose-700">{formatMdl(apartment.totalDebt)}</span>
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {apartment.unpaidInvoicesCount} facturi neachitate · {apartment.overdueInvoicesCount} întârziate · ultima plată {formatDate(apartment.lastPaymentDate)}
+                </p>
+              </Link>
+            ))}
+            {!crm.priorityApartments.length ? <p className="text-sm text-muted-foreground">Nu există apartamente cu datorii.</p> : null}
           </div>
         </Card>
       </section>
 
       <section className="grid gap-4 xl:grid-cols-2">
         <Card>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-semibold text-foreground">Cereri urgente</p>
-              <p className="text-sm text-muted-foreground">Cereri noi sau importante de la locatari.</p>
-            </div>
-            <Link href={localizedPath('/admin/issues')} className="text-xs font-semibold text-primary">
-              Vezi cereri
-            </Link>
-          </div>
+          <SectionHeader title="Cereri urgente" description="Solicitări care au prioritate mare sau urgentă." href={localizedPath('/admin/issues')} />
           <div className="mt-4 space-y-2">
-            {workbench.issues.latest.map((issue, index) => (
-              <Link
-                key={issue.id || `${issue.title}-${index}`}
-                href={safeLocalizedLink(localizedPath, issue.link, '/admin/issues')}
-                className="block rounded-2xl border border-border/60 bg-white px-3 py-2 text-sm hover:bg-muted/40"
-              >
-                <span className="font-medium text-foreground">{issue.title || 'Cerere'}</span>
-                <span className="mt-1 block text-xs text-muted-foreground">
-                  {issue.apartmentNumber ? `Apt. ${issue.apartmentNumber}` : 'Spațiu comun'}
-                  {issue.staircaseName ? ` · ${issue.staircaseName}` : ''} · {priorityLabel(issue.priority)} · {statusLabel(issue.status)}
-                </span>
+            {crm.urgentIssues.map((issue) => (
+              <Link key={issue.id} href={safeLocalizedLink(localizedPath, issue.link, '/admin/issues')} className="block rounded-2xl border border-border/70 bg-white px-4 py-3 hover:bg-muted/40">
+                <p className="font-semibold text-foreground">{issue.title || 'Cerere'}</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Apt. {issue.apartmentNumber || '-'} · {issue.residentName || 'locatar neindicat'} · {label(issuePriorityLabels, issue.priority, 'Normal')} · {label(issueStatusLabels, issue.status, 'Status')}
+                </p>
               </Link>
             ))}
-            {!workbench.issues.latest.length ? <p className="text-sm text-muted-foreground">Nu există cereri urgente.</p> : null}
+            {!crm.urgentIssues.length ? <p className="text-sm text-muted-foreground">Nu există cereri urgente.</p> : null}
           </div>
         </Card>
 
         <Card>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-semibold text-foreground">Citiri contoare</p>
-              <p className="text-sm text-muted-foreground">Apartamente cu citiri lipsă sau vechi.</p>
-            </div>
-            <Link href={localizedPath('/admin/meters')} className="text-xs font-semibold text-primary">
-              Vezi contoare
-            </Link>
-          </div>
+          <SectionHeader title="Citiri lipsă" description="Contoare fără citire în luna curentă." href={localizedPath('/admin/meters')} />
           <div className="mt-4 space-y-2">
-            {workbench.meters.latestMissing.map((meter, index) => (
-              <Link
-                key={meter.id || `${meter.type}-${index}`}
-                href={localizedPath('/admin/meters')}
-                className="block rounded-2xl border border-border/60 bg-white px-3 py-2 text-sm hover:bg-muted/40"
-              >
-                <span className="font-medium text-foreground">{meterLabel(meter.type)}</span>
-                <span className="mt-1 block text-xs text-muted-foreground">
-                  {meter.apartmentNumber ? `Apt. ${meter.apartmentNumber}` : 'Apartament'} · {meter.staircaseName || 'scară neindicată'} · ultima citire:{' '}
-                  {formatDate(meter.lastReadingDate)}
-                </span>
+            {crm.missingReadings.map((meter) => (
+              <Link key={meter.id} href={safeLocalizedLink(localizedPath, meter.link, '/admin/meters')} className="block rounded-2xl border border-border/70 bg-white px-4 py-3 hover:bg-muted/40">
+                <p className="font-semibold text-foreground">{label(meterTypeLabels, meter.type, 'Contor')}</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Apt. {meter.apartmentNumber || '-'} · {meter.staircaseName || 'scară neindicată'} · seria {meter.serialNumber || '-'}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">Ultima citire: {formatDate(meter.lastReadingDate)}</p>
               </Link>
             ))}
-            {!workbench.meters.latestMissing.length ? <p className="text-sm text-muted-foreground">Nu există citiri lipsă.</p> : null}
+            {!crm.missingReadings.length ? <p className="text-sm text-muted-foreground">Nu există citiri lipsă.</p> : null}
           </div>
         </Card>
       </section>
 
       <section className="grid gap-4 xl:grid-cols-2">
         <Card>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-semibold text-foreground">Locatari de urmărit</p>
-              <p className="text-sm text-muted-foreground">Datorii și conturi care necesită acțiune.</p>
-            </div>
-            <Link href={localizedPath('/admin/residents')} className="text-xs font-semibold text-primary">
-              Locatari
-            </Link>
-          </div>
-          {workbench.residents.withoutAccount > 0 ? (
-            <Link
-              href={localizedPath('/admin/residents')}
-              className="mt-4 flex items-center justify-between rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 hover:bg-amber-100"
-            >
-              <span>{workbench.residents.withoutAccount} locatari nu au cont creat.</span>
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          ) : null}
+          <SectionHeader title="Plăți recente" description="Ultimele plăți înregistrate de administrator." href={localizedPath('/admin/payments')} />
           <div className="mt-4 space-y-2">
-            {workbench.residents.latestWithDebt.map((resident, index) => (
-              <Link
-                key={resident.id || `${resident.apartmentNumber}-${index}`}
-                href={safeLocalizedLink(localizedPath, resident.link, '/admin/apartments')}
-                className="flex items-center justify-between gap-3 rounded-2xl border border-border/60 bg-white px-3 py-2 text-sm hover:bg-muted/40"
-              >
+            {crm.recentPayments.map((payment) => (
+              <Link key={payment.id} href={safeLocalizedLink(localizedPath, payment.link, '/admin/payments')} className="flex items-center justify-between gap-3 rounded-2xl border border-border/70 bg-white px-4 py-3 hover:bg-muted/40">
                 <div>
-                  <p className="font-medium text-foreground">{resident.residentName || 'Locatar neindicat'}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Apt. {resident.apartmentNumber || '-'} {resident.staircaseName ? `· ${resident.staircaseName}` : ''}
+                  <p className="font-semibold text-foreground">Apt. {payment.apartmentNumber || '-'}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {label(paymentMethodLabels, payment.method, 'Plată')} · {formatDate(payment.paidAt)}
+                    {payment.invoice?.month && payment.invoice?.year ? ` · factura ${payment.invoice.month}/${payment.invoice.year}` : ''}
                   </p>
                 </div>
-                <span className="text-sm font-semibold text-red-700">{formatMdl(resident.totalDebt || 0)}</span>
+                <span className="font-semibold text-foreground">{formatMdl(payment.amount || 0)}</span>
               </Link>
             ))}
-            {!workbench.residents.latestWithDebt.length ? <p className="text-sm text-muted-foreground">Nu există datorii înregistrate.</p> : null}
+            {!crm.recentPayments.length ? <p className="text-sm text-muted-foreground">Nu există plăți recente.</p> : null}
           </div>
         </Card>
 
         <Card>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-semibold text-foreground">Plăți recente</p>
-              <p className="text-sm text-muted-foreground">Ultimele plăți înregistrate în sistem.</p>
-            </div>
-            <Link href={localizedPath('/admin/payments')} className="text-xs font-semibold text-primary">
-              Vezi toate
-            </Link>
-          </div>
+          <SectionHeader title="Sarcini / follow-up" description="Sarcini operaționale legate de locatari, apartamente sau cereri." href={localizedPath('/admin/issues')} />
           <div className="mt-4 space-y-2">
-            {workbench.payments.recent.map((payment, index) => (
-              <Link
-                key={payment.id || `${payment.amount}-${index}`}
-                href={localizedPath('/admin/payments')}
-                className="flex items-center justify-between gap-3 rounded-2xl border border-border/60 bg-white px-3 py-2 hover:bg-muted/40"
-              >
-                <div>
-                  <p className="text-sm font-medium text-foreground">
-                    {payment.apartmentNumber ? `Apt. ${payment.apartmentNumber}` : 'Apartament'}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {paymentMethodLabel(payment.method)} · {formatDate(payment.paidAt)}
-                  </p>
-                </div>
-                <p className="text-sm font-semibold text-foreground">{formatMdl(payment.amount || 0)}</p>
+            {crm.tasks.map((task) => (
+              <Link key={task.id} href={safeLocalizedLink(localizedPath, task.link, '/admin/issues')} className="block rounded-2xl border border-border/70 bg-white px-4 py-3 hover:bg-muted/40">
+                <p className="font-semibold text-foreground">{task.title || 'Sarcină'}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{task.message || label(issueStatusLabels, task.status, 'În lucru')}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{label(issuePriorityLabels, task.priority, 'Normal')} · scadență {formatDate(task.dueDate)}</p>
               </Link>
             ))}
-            {!workbench.payments.recent.length ? <p className="text-sm text-muted-foreground">Nu există plăți încă.</p> : null}
-          </div>
-        </Card>
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-2">
-        <Card>
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold text-foreground">Activitate recentă</p>
-              <p className="text-sm text-muted-foreground">Evenimente administrative din asociație.</p>
-            </div>
-            <Bell className="h-5 w-5 text-muted-foreground" />
-          </div>
-          <div className="mt-4 space-y-2">
-            {workbench.activity.recent.map((activity, index) => (
-              <div key={activity.id || `${activity.title}-${index}`} className="rounded-2xl border border-border/60 bg-muted/35 px-3 py-2">
-                <p className="text-sm font-medium text-foreground">{activity.title || 'Activitate'}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{activity.message || formatDate(activity.createdAt)}</p>
-              </div>
-            ))}
-            {!workbench.activity.recent.length ? <p className="text-sm text-muted-foreground">Nu există activitate recentă.</p> : null}
-          </div>
-        </Card>
-
-        <Card>
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold text-foreground">Sarcini / follow-up</p>
-              <p className="text-sm text-muted-foreground">Sarcini operaționale ale administratorului.</p>
-            </div>
-            <CheckCircle2 className="h-5 w-5 text-muted-foreground" />
-          </div>
-          <div className="mt-4 space-y-2">
-            {workbench.tasks.items.map((task, index) => (
-              <div key={task.id || `${task.title}-${index}`} className="rounded-2xl border border-border/60 bg-white px-3 py-2 text-sm">
-                <p className="font-medium text-foreground">{task.title || 'Sarcină'}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{task.message || statusLabel(task.status)}</p>
-              </div>
-            ))}
-            {!workbench.tasks.items.length ? <p className="text-sm text-muted-foreground">Nu există sarcini active.</p> : null}
+            {!crm.tasks.length ? <p className="text-sm text-muted-foreground">Nu există sarcini active.</p> : null}
           </div>
         </Card>
       </section>
@@ -605,26 +535,99 @@ export default function AdminPage() {
           <ButtonLink href={localizedPath('/admin/residents')} variant="secondary">
             <Users className="h-4 w-4" /> Adaugă locatar
           </ButtonLink>
+          <ButtonLink href={localizedPath('/admin/payments')} variant="secondary">
+            <Banknote className="h-4 w-4" /> Înregistrează plată
+          </ButtonLink>
+          <ButtonLink href={localizedPath('/admin/issues')} variant="secondary">
+            <MessageCircle className="h-4 w-4" /> Creează cerere
+          </ButtonLink>
           <ButtonLink href={localizedPath('/admin/meters')} variant="secondary">
             <Gauge className="h-4 w-4" /> Adaugă contor
           </ButtonLink>
           <ButtonLink href={localizedPath('/admin/invoices')} variant="secondary">
             <FileText className="h-4 w-4" /> Emite facturi
           </ButtonLink>
-          <ButtonLink href={localizedPath('/admin/payments')} variant="secondary">
-            <CreditCard className="h-4 w-4" /> Înregistrează plată
-          </ButtonLink>
           <ButtonLink href={localizedPath('/admin/announcements')} variant="secondary">
             <Megaphone className="h-4 w-4" /> Publică anunț
-          </ButtonLink>
-          <ButtonLink href={localizedPath('/admin/issues')} variant="secondary">
-            <MessageCircle className="h-4 w-4" /> Vezi cereri
           </ButtonLink>
           <ButtonLink href={localizedPath('/admin/imports/apartments')} variant="secondary">
             <Building2 className="h-4 w-4" /> Importă apartamente
           </ButtonLink>
         </div>
       </Card>
+
+      <Card>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-foreground">Activitate recentă</p>
+            <p className="text-sm text-muted-foreground">Evenimente administrative din această asociație.</p>
+          </div>
+          <CheckCircle2 className="h-5 w-5 text-muted-foreground" />
+        </div>
+        <div className="mt-4 grid gap-2 md:grid-cols-2">
+          {crm.activity.slice(0, 6).map((activity) => (
+            <div key={activity.id} className="rounded-2xl border border-border/70 bg-muted/35 px-4 py-3">
+              <p className="text-sm font-medium text-foreground">{activity.title || 'Activitate'}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{activity.message || formatDate(activity.createdAt)}</p>
+            </div>
+          ))}
+          {!crm.activity.length ? <p className="text-sm text-muted-foreground">Nu există activitate recentă.</p> : null}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function SectionHeader({ title, description, href }: { title: string; description: string; href: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <div>
+        <p className="text-sm font-semibold text-foreground">{title}</p>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </div>
+      <Link href={href} className="shrink-0 text-xs font-semibold text-primary">
+        Deschide
+      </Link>
+    </div>
+  );
+}
+
+function ResidentCard({ resident, localizedPath }: { resident: PriorityResident; localizedPath: (href: string) => string }) {
+  return (
+    <div className="rounded-2xl border border-border/70 bg-white p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-semibold text-foreground">{resident.name}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Apt. {resident.apartmentNumber || '-'} {resident.staircaseName ? `· ${resident.staircaseName}` : ''} · {label(roleLabels, resident.role, 'Locatar')}
+          </p>
+        </div>
+        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${resident.totalDebt > 0 ? 'bg-rose-50 text-rose-700' : 'bg-muted text-muted-foreground'}`}>
+          {formatMdl(resident.totalDebt)}
+        </span>
+      </div>
+      <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+        <span>{resident.phone || 'Telefon lipsă'}</span>
+        <span>{resident.email || 'Email lipsă'}</span>
+        <span>{label(accountStatusLabels, resident.accountStatus, 'Fără cont')}</span>
+        <span>{resident.openIssuesCount} cereri active</span>
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Link href={safeLocalizedLink(localizedPath, resident.link, '/admin/residents')} className="rounded-xl border border-border/70 px-3 py-2 text-xs font-semibold hover:bg-muted/60">
+          Deschide profil
+        </Link>
+        {resident.accountStatus !== 'CREATED' ? (
+          <Link href={safeLocalizedLink(localizedPath, resident.inviteLink, '/admin/residents')} className="rounded-xl border border-border/70 px-3 py-2 text-xs font-semibold hover:bg-muted/60">
+            Invită locatar
+          </Link>
+        ) : null}
+        <Link href={safeLocalizedLink(localizedPath, resident.paymentLink, '/admin/payments')} className="rounded-xl border border-border/70 px-3 py-2 text-xs font-semibold hover:bg-muted/60">
+          Înregistrează plată
+        </Link>
+        <Link href={safeLocalizedLink(localizedPath, resident.issueLink, '/admin/issues')} className="rounded-xl border border-border/70 px-3 py-2 text-xs font-semibold hover:bg-muted/60">
+          Creează cerere
+        </Link>
+      </div>
     </div>
   );
 }
