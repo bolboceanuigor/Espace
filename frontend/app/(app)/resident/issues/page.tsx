@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { PlusCircle, Wrench } from 'lucide-react';
 import { Badge, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
@@ -57,7 +56,7 @@ export default function ResidentIssuesPage() {
 
       <Section title="Cereri active">
         {active.map((request) => <IssueCard key={request.id} request={request} />)}
-        {!active.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">{source === 'loading' ? 'Se încarcă datele...' : 'Nu există cereri active.'}</Card> : null}
+        {!active.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">{source === 'loading' ? 'Se încarcă datele...' : 'Nu ai cereri active.'}</Card> : null}
       </Section>
 
       <Section title="Istoric cereri">
@@ -78,8 +77,6 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function IssueCard({ request }: { request: (typeof residentIssues)[number] }) {
-  const localizedPath = useLocalizedPath();
-
   return (
     <Card className="p-4">
       <div className="flex items-start justify-between gap-3">
@@ -92,9 +89,6 @@ function IssueCard({ request }: { request: (typeof residentIssues)[number] }) {
       <p className="mt-3 text-sm leading-6 text-muted-foreground">{request.message}</p>
       <div className="mt-3 flex flex-wrap gap-2">
         <Badge variant={residentIssuePriorityVariant[request.priority]}>{request.priority}</Badge>
-        <Link href={localizedPath('/resident/chat')} className="inline-flex min-h-9 items-center rounded-xl border border-border/70 px-3 text-xs font-semibold hover:bg-muted/60">
-          Mesaj
-        </Link>
       </div>
     </Card>
   );

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { Bell, CreditCard, FileText, Gauge, Send, UserCircle, Wrench } from 'lucide-react';
+import { Bell, FileText, Gauge, Wrench } from 'lucide-react';
 import { Badge, Card, PageHeader, StatCard } from '@/components/ui';
 import { residentDemoApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
@@ -165,6 +165,20 @@ function residentName(home: ResidentHome) {
   return direct || composed || 'Locatar';
 }
 
+function residentFirstName(home: ResidentHome) {
+  return home.resident?.firstName || residentName(home).split(' ')[0] || 'Locatar';
+}
+
+function financeStatus(home: ResidentHome) {
+  if (home.finance.overdueInvoicesCount > 0 || home.finance.status === 'OVERDUE') {
+    return { label: 'Întârziat', variant: 'error' as const };
+  }
+  if (home.finance.totalDebt > 0 || home.finance.unpaidInvoicesCount > 0 || home.finance.status === 'UNPAID') {
+    return { label: 'Datornic', variant: 'warning' as const };
+  }
+  return { label: 'Achitat', variant: 'success' as const };
+}
+
 export default function ResidentDashboardPage() {
   const localizedPath = useLocalizedPath();
   const [home, setHome] = useState<ResidentHome>(emptyHome);
@@ -207,20 +221,12 @@ export default function ResidentDashboardPage() {
   const quickActions = [
     { label: 'Transmite citire', icon: <Gauge className="h-5 w-5" />, href: '/resident/meters' },
     { label: 'Trimite cerere', icon: <Wrench className="h-5 w-5" />, href: '/resident/issues/new' },
-    { label: 'Vezi facturi', icon: <CreditCard className="h-5 w-5" />, href: '/resident/invoices' },
     { label: 'Vezi avizier', icon: <Bell className="h-5 w-5" />, href: '/resident/announcements' },
     { label: 'Vezi documente', icon: <FileText className="h-5 w-5" />, href: '/resident/documents' },
-    { label: 'Contul meu', icon: <UserCircle className="h-5 w-5" />, href: '/resident/account' },
   ];
+  const currentFinanceStatus = financeStatus(home);
 
   const topCards = [
-    {
-      label: 'Sold curent',
-      value: formatMdl(home.finance.totalDebt),
-      description: home.finance.totalDebt > 0 ? 'Datorie curentă' : 'Nu ai datorii restante',
-      icon: <CreditCard className="h-5 w-5" />,
-      tone: home.finance.totalDebt > 0 ? ('danger' as const) : ('success' as const),
-    },
     {
       label: 'Facturi neachitate',
       value: String(home.finance.unpaidInvoicesCount),
@@ -247,7 +253,7 @@ export default function ResidentDashboardPage() {
   return (
     <div className="space-y-5 pb-24 md:pb-4">
       <PageHeader
-        title="Acasă"
+        title={`Bună, ${residentFirstName(home)}`}
         description={apartmentSubtitle}
         rightSlot={
           <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
@@ -273,24 +279,34 @@ export default function ResidentDashboardPage() {
 
       {home.primaryApartment ? (
         <Card className="overflow-hidden p-0">
-          <div className="bg-foreground p-5 text-background">
-            <p className="text-sm opacity-75">{home.organization.shortName}</p>
-            <h1 className="mt-2 text-3xl font-semibold">Apartament {home.primaryApartment.number}</h1>
-            <p className="mt-1 text-sm opacity-75">
-              {[home.primaryApartment.building, home.primaryApartment.staircase, home.primaryApartment.floor != null ? `Etaj ${home.primaryApartment.floor}` : null]
-                .filter(Boolean)
-                .join(' · ')}
-            </p>
+          <div className="grid gap-4 bg-foreground p-5 text-background md:grid-cols-[1fr_auto] md:items-center">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm opacity-75">{home.organization.shortName}</p>
+                <Badge variant={currentFinanceStatus.variant}>{currentFinanceStatus.label}</Badge>
+              </div>
+              <h1 className="mt-3 text-3xl font-semibold">{formatMdl(home.finance.totalDebt)}</h1>
+              <p className="mt-1 text-sm opacity-75">
+                {home.finance.totalDebt > 0 ? 'Sold curent pentru apartamentul tău' : 'Nu ai datorii restante'}
+              </p>
+            </div>
+            <Link
+              href={localizedPath('/resident/invoices')}
+              className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-white px-4 text-sm font-semibold text-foreground transition hover:bg-white/90"
+            >
+              Vezi facturile
+            </Link>
           </div>
-          <div className="grid gap-3 p-4 md:grid-cols-3">
-            <Info label="Locatar" value={residentName(home)} />
+          <div className="grid gap-3 p-4 md:grid-cols-4">
+            <Info label="Apartament" value={`Apt. ${home.primaryApartment.number}`} />
+            <Info label="Scara" value={home.primaryApartment.staircase || '-'} />
+            <Info label="Următoarea scadență" value={formatDate(home.finance.nextDueDate)} />
             <Info label="Rol" value={labelFromMap(roleLabels, home.resident?.role, 'Locatar')} />
-            <Info label="Suprafață" value={home.primaryApartment.areaM2 ? `${home.primaryApartment.areaM2} m²` : '-'} />
           </div>
         </Card>
       ) : null}
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {topCards.map((card) => (
           <StatCard key={card.label} {...card} />
         ))}
@@ -316,8 +332,8 @@ export default function ResidentDashboardPage() {
         <Card>
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h2 className="font-semibold text-foreground">Facturi și plăți</h2>
-              <p className="text-sm text-muted-foreground">Soldul și scadențele apartamentului.</p>
+              <h2 className="font-semibold text-foreground">Facturi recente</h2>
+              <p className="text-sm text-muted-foreground">Scadența și ultima plată pentru apartamentul tău.</p>
             </div>
             <Link href={localizedPath('/resident/invoices')} className="text-xs font-semibold text-primary">Vezi facturile</Link>
           </div>

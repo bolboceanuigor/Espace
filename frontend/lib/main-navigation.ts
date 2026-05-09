@@ -65,10 +65,10 @@ export const ADMIN_NAVIGATION_ITEMS: MainNavigationItem[] = [
 
 export const RESIDENT_NAVIGATION_ITEMS: MainNavigationItem[] = [
   { key: 'home', label: 'Acasă', href: '/resident' },
-  { key: 'announcements', label: 'Avizier', href: '/resident/announcements' },
   { key: 'payments', label: 'Facturi', href: '/resident/invoices' },
   { key: 'meters', label: 'Contoare', href: '/resident/meters' },
   { key: 'issues', label: 'Cereri', href: '/resident/issues' },
+  { key: 'announcements', label: 'Avizier', href: '/resident/announcements' },
   { key: 'documents', label: 'Documente', href: '/resident/documents' },
   { key: 'account', label: 'Cont', href: '/resident/account' },
 ];

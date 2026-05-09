@@ -140,7 +140,7 @@ export default function ResidentPaymentsPage() {
                 className="mt-4 inline-flex min-h-11 w-full cursor-not-allowed items-center justify-center gap-2 rounded-2xl border border-border/70 bg-muted/35 px-4 text-sm font-semibold text-muted-foreground"
               >
                 <CreditCard className="h-4 w-4" />
-                Plăți online în lucru
+                Plățile online vor fi conectate ulterior
               </button>
             ) : (
               <p className="mt-4 rounded-2xl bg-emerald-50 p-3 text-sm font-medium text-emerald-700">Achitat pe {invoice.paidDate}</p>

@@ -9,10 +9,12 @@ import { normalizeResidentMeter, residentMeters, residentMeterStatusVariant, typ
 export default function ResidentMetersPage() {
   const [meters, setMeters] = useState<typeof residentMeters>([]);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [dateDrafts, setDateDrafts] = useState<Record<string, string>>({});
   const [source, setSource] = useState<'loading' | 'api' | 'mock'>('loading');
   const [isSubmitting, setIsSubmitting] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const today = new Date().toISOString().slice(0, 10);
 
   useEffect(() => {
     let active = true;
@@ -49,13 +51,18 @@ export default function ResidentMetersPage() {
       setError('Completează o valoare numerică.');
       return;
     }
+    const readingDate = dateDrafts[id] || today;
+    if (Number.isNaN(new Date(readingDate).getTime())) {
+      setError('Data citirii nu este validă.');
+      return;
+    }
     setMessage('');
     setError('');
     setIsSubmitting(id);
     try {
       await residentDemoApi.addMeterReading(id, {
         value: numericValue,
-        readingDate: new Date().toISOString().slice(0, 10),
+        readingDate,
         source: 'RESIDENT',
       });
       setMeters((current) =>
@@ -66,6 +73,7 @@ export default function ResidentMetersPage() {
         ),
       );
       setDrafts((current) => ({ ...current, [id]: '' }));
+      setDateDrafts((current) => ({ ...current, [id]: today }));
       setSource('api');
       setMessage('Citirea a fost transmisă.');
       await loadMeters().catch(() => undefined);
@@ -116,14 +124,21 @@ export default function ResidentMetersPage() {
               <Info label="Ultima citire" value={meter.reading} />
               <Info label="Data ultimei citiri" value={meter.date} />
             </div>
-            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <div className="mt-4 grid gap-2 md:grid-cols-[minmax(0,1fr)_190px_auto]">
               <Input
+                label="Valoare nouă"
                 value={drafts[meter.id] ?? ''}
                 onChange={(event) => setDrafts((current) => ({ ...current, [meter.id]: event.target.value }))}
                 placeholder={`Citire nouă (${meter.unit})`}
                 inputMode="decimal"
               />
-              <Button onClick={() => submitReading(meter.id, meter.unit)} disabled={!drafts[meter.id]?.trim() || isSubmitting === meter.id}>
+              <Input
+                label="Data citirii"
+                type="date"
+                value={dateDrafts[meter.id] ?? today}
+                onChange={(event) => setDateDrafts((current) => ({ ...current, [meter.id]: event.target.value }))}
+              />
+              <Button className="min-h-11 md:self-end" onClick={() => submitReading(meter.id, meter.unit)} disabled={!drafts[meter.id]?.trim() || isSubmitting === meter.id}>
                 <CheckCircle2 className="h-4 w-4" />
                 {isSubmitting === meter.id ? 'Se transmite...' : 'Transmite citire'}
               </Button>

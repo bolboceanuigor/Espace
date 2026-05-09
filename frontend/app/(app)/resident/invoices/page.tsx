@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { Badge, Card, PageHeader } from '@/components/ui';
+import { CheckCircle2, Clock3, CreditCard, ReceiptText } from 'lucide-react';
+import { Badge, Card, PageHeader, StatCard } from '@/components/ui';
 import { residentDemoApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { normalizeResidentInvoice, residentInvoices, residentInvoiceStatusVariant } from '@/lib/resident-mvp-data';
@@ -11,20 +12,32 @@ import { useLocalizedPath } from '@/lib/use-localized-path';
 export default function ResidentInvoicesPage() {
   const localizedPath = useLocalizedPath();
   const [rows, setRows] = useState<typeof residentInvoices>([]);
+  const [financeSummary, setFinanceSummary] = useState<any>(null);
   const [source, setSource] = useState<'loading' | 'api' | 'mock'>('loading');
+  const unpaidRows = rows.filter((invoice) => invoice.status !== 'Achitat');
+  const paidRows = rows.filter((invoice) => invoice.status === 'Achitat');
+  const currentDebt = Number(
+    financeSummary?.totalDebt ??
+      unpaidRows.reduce((sum, invoice) => sum + Number(invoice.remainingAmount || invoice.amount || 0), 0),
+  );
+  const paymentInstructions = financeSummary?.paymentInstructions;
 
   useEffect(() => {
     let active = true;
-    residentDemoApi
-      .invoices()
-      .then((res) => {
+    Promise.all([
+      residentDemoApi.financeSummary().catch(() => ({ data: null })),
+      residentDemoApi.invoices(),
+    ])
+      .then(([summaryRes, invoiceRes]) => {
         if (!active) return;
-        const apiRows = (res.data || []).map(normalizeResidentInvoice);
+        const apiRows = (invoiceRes.data || []).map(normalizeResidentInvoice);
+        setFinanceSummary(summaryRes.data || null);
         setRows(apiRows);
         setSource('api');
       })
       .catch(() => {
         if (!active) return;
+        setFinanceSummary(null);
         setRows(residentInvoices);
         setSource('mock');
       });
@@ -37,13 +50,63 @@ export default function ResidentInvoicesPage() {
     <div className="space-y-5 pb-4">
       <PageHeader
         title="Facturi"
-        description="Facturile lunare pentru apartamentul tău."
+        description="Facturile, soldul curent și instrucțiunile de plată pentru apartamentul tău."
         rightSlot={
           <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
             {source === 'loading' ? 'Se încarcă...' : source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
           </span>
         }
       />
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Sold curent"
+          value={formatMdl(currentDebt)}
+          description={currentDebt > 0 ? 'Rest de plată' : 'Achitat'}
+          icon={<ReceiptText className="h-5 w-5" />}
+          tone={currentDebt > 0 ? 'danger' : 'success'}
+        />
+        <StatCard
+          label="Facturi neachitate"
+          value={financeSummary?.unpaidInvoicesCount ?? unpaidRows.length}
+          description="Necesită atenție"
+          icon={<Clock3 className="h-5 w-5" />}
+          tone={(financeSummary?.unpaidInvoicesCount ?? unpaidRows.length) > 0 ? 'warning' : 'success'}
+        />
+        <StatCard
+          label="Facturi achitate"
+          value={paidRows.length}
+          description="Înregistrate ca achitate"
+          icon={<CheckCircle2 className="h-5 w-5" />}
+          tone="success"
+        />
+        <StatCard
+          label="Următoarea scadență"
+          value={financeSummary?.nextDueDate ? formatDate(financeSummary.nextDueDate) : 'Nu există'}
+          description="Pentru facturi deschise"
+          icon={<CreditCard className="h-5 w-5" />}
+          tone={financeSummary?.overdueInvoicesCount ? 'danger' : 'neutral'}
+        />
+      </section>
+
+      <Card>
+        <h2 className="font-semibold text-foreground">Instrucțiuni de plată</h2>
+        {paymentInstructions?.configured ? (
+          <div className="mt-4 grid gap-2 text-sm text-muted-foreground">
+            {paymentInstructions.bankName ? <p><span className="font-semibold text-foreground">Bancă:</span> {paymentInstructions.bankName}</p> : null}
+            {paymentInstructions.bankAccountIban ? <p><span className="font-semibold text-foreground">IBAN:</span> {paymentInstructions.bankAccountIban}</p> : null}
+            {paymentInstructions.bankSwift ? <p><span className="font-semibold text-foreground">SWIFT:</span> {paymentInstructions.bankSwift}</p> : null}
+            {paymentInstructions.paymentInstructions ? <p>{paymentInstructions.paymentInstructions}</p> : null}
+          </div>
+        ) : (
+          <p className="mt-4 rounded-2xl bg-muted/35 p-3 text-sm text-muted-foreground">
+            Administratorul nu a configurat încă instrucțiunile de plată.
+          </p>
+        )}
+        <p className="mt-3 rounded-2xl border border-border/70 bg-muted/25 p-3 text-sm font-medium text-muted-foreground">
+          Plățile online vor fi conectate ulterior.
+        </p>
+      </Card>
+
       <section className="grid gap-3">
         {rows.map((invoice) => (
           <Card key={invoice.id} className="p-4">
@@ -96,6 +159,12 @@ export default function ResidentInvoicesPage() {
       </section>
     </div>
   );
+}
+
+function formatDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Nu există';
+  return new Intl.DateTimeFormat('ro-RO', { day: '2-digit', month: 'long', year: 'numeric' }).format(date);
 }
 
 function Info({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
