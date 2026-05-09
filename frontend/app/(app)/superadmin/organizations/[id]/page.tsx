@@ -51,6 +51,15 @@ const emptyAdminForm = {
   sendEmail: false,
 };
 
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function isValidMoldovaPhone(value: string) {
+  const normalized = value.replace(/[\s().-]/g, '');
+  return /^\+373\d{8}$/.test(normalized) || /^0\d{8}$/.test(normalized);
+}
+
 type ClientNoteType = 'CALL' | 'MEETING' | 'SUPPORT' | 'SALES' | 'BILLING' | 'OTHER';
 type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'DONE' | 'CANCELLED';
 type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
@@ -216,8 +225,24 @@ export default function SuperadminOrganizationDetailsPage() {
       phone: adminForm.phone.trim(),
       sendEmail: adminForm.sendEmail,
     };
-    if (!payload.firstName || !payload.lastName || !payload.email) {
-      setAdminError('Completează prenumele, numele și emailul.');
+    if (!payload.firstName) {
+      setAdminError('Prenumele este obligatoriu.');
+      return;
+    }
+    if (!payload.lastName) {
+      setAdminError('Numele este obligatoriu.');
+      return;
+    }
+    if (!payload.email) {
+      setAdminError('Emailul este obligatoriu.');
+      return;
+    }
+    if (!isValidEmail(payload.email)) {
+      setAdminError('Emailul nu este valid.');
+      return;
+    }
+    if (payload.phone && !isValidMoldovaPhone(payload.phone)) {
+      setAdminError('Telefonul nu este valid. Format recomandat: +373 6X XXX XXX');
       return;
     }
 
@@ -234,8 +259,7 @@ export default function SuperadminOrganizationDetailsPage() {
       );
       await loadAdmins(id).catch(() => undefined);
     } catch (error: any) {
-      const message = String(error?.message || '');
-      setAdminError(message.includes('Există deja un utilizator cu acest email') ? 'Există deja un utilizator cu acest email.' : 'Nu am putut crea invitația.');
+      setAdminError(String(error?.message || 'Nu am putut crea invitația.'));
     } finally {
       setIsCreatingAdmin(false);
     }
@@ -262,11 +286,11 @@ export default function SuperadminOrganizationDetailsPage() {
     setEditError('');
     setSuccessMessage('');
     if (!editForm.associationCode || !editForm.legalName || !editForm.shortName || !editForm.address || !editForm.city) {
-      setEditError('Completează codul APC, denumirile, adresa și orașul.');
+      setEditError(!editForm.associationCode ? 'Codul A.P.C. este obligatoriu.' : 'Denumirea asociației este obligatorie.');
       return;
     }
     if (!/^A\d{4}-\d{4}$/.test(editForm.associationCode.trim().toUpperCase())) {
-      setEditError('Format recomandat: A0123-0940');
+      setEditError('Format recomandat: A0123-0940.');
       return;
     }
 
@@ -288,8 +312,8 @@ export default function SuperadminOrganizationDetailsPage() {
       setSource('api');
       setEditModalOpen(false);
       setSuccessMessage('Asociația a fost actualizată.');
-    } catch {
-      setEditError('Nu am putut actualiza asociația.');
+    } catch (error: any) {
+      setEditError(String(error?.message || 'Nu am putut actualiza asociația.'));
     } finally {
       setIsUpdatingAssociation(false);
     }

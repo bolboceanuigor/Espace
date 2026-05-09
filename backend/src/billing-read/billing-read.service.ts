@@ -294,11 +294,11 @@ export class BillingReadService {
 
     const id = this.resolveTariffId(payload, tariffId);
     const config = SUPPORTED_TARIFFS[id];
-    const amount = this.requiredNumber(payload.amount, 'Suma este obligatorie.');
+    const amount = this.requiredNumber(payload.amount, 'Suma trebuie să fie un număr pozitiv.');
     const isActive = payload.isActive === undefined || payload.isActive === null ? true : Boolean(payload.isActive);
 
     if (amount < 0) {
-      throw new BadRequestException('Suma nu poate fi negativă.');
+      throw new BadRequestException('Suma trebuie să fie un număr pozitiv.');
     }
 
     const settings = await this.prisma.organizationSetting.upsert({
@@ -581,7 +581,7 @@ export class BillingReadService {
       select: { id: true },
     });
     if (duplicate) {
-      throw new ConflictException('Factura pentru acest apartament și această lună există deja.');
+      throw new ConflictException('Factura pentru această lună există deja.');
     }
 
     const invoice = await this.prisma.invoice.create({
@@ -687,7 +687,7 @@ export class BillingReadService {
 
     if (!organization) throw new NotFoundException('Înregistrarea nu a fost găsită.');
     if (!apartment) throw new NotFoundException('Înregistrarea nu a fost găsită.');
-    if (input.invoiceId && !invoice) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    if (input.invoiceId && !invoice) throw new NotFoundException('Factura selectată nu există.');
 
     const payment = await this.prisma.payment.create({
       data: {
@@ -873,11 +873,13 @@ export class BillingReadService {
     const apartmentId = this.requiredString(payload.apartmentId, 'Apartamentul este obligatoriu.');
     const month = this.requiredInt(payload.month, 'Luna este obligatorie.');
     const year = this.requiredInt(payload.year, 'Anul este obligatoriu.');
-    const amount = this.requiredNumber(payload.amount, 'Suma este obligatorie.');
+    const amount = this.requiredNumber(payload.amount, 'Suma facturii trebuie să fie pozitivă.');
     const status = this.optionalEnum(payload.status, InvoiceStatus, InvoiceStatus.UNPAID, 'Statusul facturii nu este valid.');
     const dueDate = this.requiredDate(payload.dueDate, 'Data scadentă este obligatorie.');
 
     if (month < 1 || month > 12) throw new BadRequestException('Luna nu este validă.');
+    if (year < 2000 || year > 2100) throw new BadRequestException('Anul nu este valid.');
+    if (amount <= 0) throw new BadRequestException('Suma facturii trebuie să fie pozitivă.');
 
     return { organizationId, apartmentId, month, year, amount, status, dueDate };
   }
@@ -887,13 +889,15 @@ export class BillingReadService {
     const organizationId = this.requiredString(payload.organizationId, 'Organizația este obligatorie.');
     const apartmentId = this.requiredString(payload.apartmentId, 'Apartamentul este obligatoriu.');
     const invoiceId = typeof payload.invoiceId === 'string' && payload.invoiceId.trim() ? payload.invoiceId.trim() : null;
-    const amount = this.requiredNumber(payload.amount, 'Suma este obligatorie.');
+    const amount = this.requiredNumber(payload.amount, 'Suma plății trebuie să fie mai mare decât 0.');
     const method = this.optionalEnum(payload.method, PaymentMethod, PaymentMethod.CASH, 'Metoda de plată nu este validă.');
     const paidAt =
       typeof payload.paidAt === 'string' && payload.paidAt.trim()
         ? this.requiredDate(payload.paidAt, 'Data plății nu este validă.')
         : new Date();
     const month = `${paidAt.getFullYear()}-${String(paidAt.getMonth() + 1).padStart(2, '0')}`;
+
+    if (amount <= 0) throw new BadRequestException('Suma plății trebuie să fie mai mare decât 0.');
 
     return { organizationId, apartmentId, invoiceId, amount, method, paidAt, month };
   }

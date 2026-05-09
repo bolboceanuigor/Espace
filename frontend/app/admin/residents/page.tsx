@@ -62,6 +62,15 @@ function formatActivityDate(value?: string) {
   return date.toLocaleDateString('ro-RO');
 }
 
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function isValidMoldovaPhone(value: string) {
+  const normalized = value.replace(/[\s().-]/g, '');
+  return /^\+373\d{8}$/.test(normalized) || /^0\d{8}$/.test(normalized);
+}
+
 export default function AdminResidentsPage() {
   const localizedPath = useLocalizedPath();
   const [query, setQuery] = useState('');
@@ -160,8 +169,20 @@ export default function AdminResidentsPage() {
       setFormError('Alege un apartament real din lista API.');
       return;
     }
-    if (!form.firstName.trim() || !form.lastName.trim()) {
-      setFormError('Completează prenumele și numele.');
+    if (!form.firstName.trim()) {
+      setFormError('Prenumele este obligatoriu.');
+      return;
+    }
+    if (!form.lastName.trim()) {
+      setFormError('Numele este obligatoriu.');
+      return;
+    }
+    if (form.phone.trim() && !isValidMoldovaPhone(form.phone.trim())) {
+      setFormError('Telefonul nu este valid. Format recomandat: +373 6X XXX XXX');
+      return;
+    }
+    if (form.email.trim() && !isValidEmail(form.email.trim())) {
+      setFormError('Emailul nu este valid.');
       return;
     }
 
@@ -186,7 +207,7 @@ export default function AdminResidentsPage() {
       await loadResidents();
     } catch (error: any) {
       const message = String(error?.message || '');
-      setFormError(message.includes('deja conectată') ? 'Această persoană este deja conectată la apartament.' : 'Nu am putut crea locatarul.');
+      setFormError(message || 'Nu am putut crea locatarul.');
     } finally {
       setIsCreating(false);
     }

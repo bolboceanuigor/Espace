@@ -110,15 +110,23 @@ export default function AdminTariffsPage() {
     setError('');
     setSuccessMessage('');
     const amount = Number(form.amount);
-    if (!Number.isFinite(amount) || amount < 0) {
-      setError('Completează o sumă validă.');
+    if (!form.name.trim()) {
+      setError('Numele tarifului este obligatoriu.');
+      return;
+    }
+    if (!form.type) {
+      setError('Tipul calculului este obligatoriu.');
+      return;
+    }
+    if (!Number.isFinite(amount) || amount < 0 || (form.isActive && amount <= 0)) {
+      setError('Suma trebuie să fie un număr pozitiv.');
       return;
     }
 
     setIsSaving(true);
     try {
       const payload = {
-        name: form.name,
+        name: form.name.trim(),
         type: form.type,
         amount,
         currency: 'MDL',

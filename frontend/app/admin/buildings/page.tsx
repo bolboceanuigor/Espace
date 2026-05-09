@@ -22,7 +22,7 @@ export default function AdminBuildingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [subscriptionStatus, setSubscriptionStatus] = useState<string>('');
   const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState({ name: '', address: '', staircasesCount: 1, apartmentsCount: 0 });
+  const [form, setForm] = useState({ name: '', address: '', staircasesCount: 1, apartmentsCount: 1 });
 
   const load = async () => {
     setLoading(true);
@@ -66,11 +66,11 @@ export default function AdminBuildingsPage() {
           </label>
           <label className="space-y-1 text-xs font-medium text-muted-foreground">
             <span>Număr scări</span>
-            <input className="input" type="number" min={0} value={form.staircasesCount} onChange={(e) => setForm((p) => ({ ...p, staircasesCount: Number(e.target.value) }))} />
+            <input className="input" type="number" min={1} value={form.staircasesCount} onChange={(e) => setForm((p) => ({ ...p, staircasesCount: Number(e.target.value) }))} />
           </label>
           <label className="space-y-1 text-xs font-medium text-muted-foreground">
             <span>Număr apartamente estimat</span>
-            <input className="input" type="number" min={0} value={form.apartmentsCount} onChange={(e) => setForm((p) => ({ ...p, apartmentsCount: Number(e.target.value) }))} />
+            <input className="input" type="number" min={1} value={form.apartmentsCount} onChange={(e) => setForm((p) => ({ ...p, apartmentsCount: Number(e.target.value) }))} />
           </label>
         </div>
         <button
@@ -78,8 +78,20 @@ export default function AdminBuildingsPage() {
           disabled={writeBlocked || creating}
           onClick={async () => {
             if (writeBlocked) return;
-            if (!form.name.trim() || !form.address.trim()) {
-              showToast('Numele și adresa sunt obligatorii.', 'error');
+            if (!form.name.trim()) {
+              showToast('Numele blocului este obligatoriu.', 'error');
+              return;
+            }
+            if (!form.address.trim()) {
+              showToast('Adresa blocului este obligatorie.', 'error');
+              return;
+            }
+            if (!Number.isFinite(form.staircasesCount) || form.staircasesCount <= 0) {
+              showToast('Numărul de scări trebuie să fie pozitiv.', 'error');
+              return;
+            }
+            if (!Number.isFinite(form.apartmentsCount) || form.apartmentsCount <= 0) {
+              showToast('Numărul de apartamente trebuie să fie pozitiv.', 'error');
               return;
             }
             setCreating(true);
@@ -90,11 +102,11 @@ export default function AdminBuildingsPage() {
                 staircasesCount: form.staircasesCount,
                 apartmentsCount: form.apartmentsCount,
               });
-              setForm({ name: '', address: '', staircasesCount: 1, apartmentsCount: 0 });
+              setForm({ name: '', address: '', staircasesCount: 1, apartmentsCount: 1 });
               await load();
               showToast('Blocul a fost creat.');
-            } catch {
-              showToast('Nu am putut crea blocul.', 'error');
+            } catch (error: any) {
+              showToast(String(error?.message || 'Nu am putut crea blocul.'), 'error');
             } finally {
               setCreating(false);
             }

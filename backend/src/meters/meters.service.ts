@@ -196,6 +196,37 @@ export class MetersService {
     }
     this.assertOrganizationAccess(user, meter.organizationId);
 
+    const dayStart = new Date(input.readingDate);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(dayStart);
+    dayEnd.setDate(dayEnd.getDate() + 1);
+    const [duplicateReading, previousReading] = await Promise.all([
+      this.prisma.meterReading.findFirst({
+        where: {
+          meterId: meter.id,
+          readingDate: {
+            gte: dayStart,
+            lt: dayEnd,
+          },
+        },
+        select: { id: true },
+      }),
+      this.prisma.meterReading.findFirst({
+        where: {
+          meterId: meter.id,
+          readingDate: { lt: input.readingDate },
+        },
+        orderBy: [{ readingDate: 'desc' }, { createdAt: 'desc' }],
+        select: { value: true },
+      }),
+    ]);
+    if (duplicateReading) {
+      throw new ConflictException('Există deja o citire pentru această dată.');
+    }
+    if (previousReading && input.value < Number(previousReading.value)) {
+      throw new BadRequestException('Citirea nouă este mai mică decât citirea anterioară.');
+    }
+
     const reading = await this.prisma.meterReading.create({
       data: {
         meterId: meter.id,
@@ -275,7 +306,10 @@ export class MetersService {
 
   private parseAddReadingBody(body: unknown) {
     const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
-    const value = this.requiredNumber(payload.value, 'Valoarea citirii este obligatorie.');
+    if (payload.value === undefined || payload.value === null || payload.value === '') {
+      throw new BadRequestException('Valoarea citirii este obligatorie.');
+    }
+    const value = this.requiredNumber(payload.value, 'Valoarea citirii trebuie să fie un număr.');
     const readingDate =
       typeof payload.readingDate === 'string' && payload.readingDate.trim()
         ? new Date(payload.readingDate)
@@ -284,6 +318,9 @@ export class MetersService {
 
     if (Number.isNaN(readingDate.getTime())) {
       throw new BadRequestException('Data citirii nu este validă.');
+    }
+    if (value < 0) {
+      throw new BadRequestException('Valoarea citirii trebuie să fie un număr.');
     }
 
     return {

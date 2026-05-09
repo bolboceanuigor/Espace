@@ -165,11 +165,11 @@ export default function SuperadminOrganizationsPage() {
       associationNumber: associationNumberFromCode(associationCode),
     };
     if (!payload.associationCode || !payload.legalName || !payload.shortName || !payload.address || !payload.city) {
-      setFormError('Completează codul APC, denumirile, adresa și orașul.');
+      setFormError(!payload.associationCode ? 'Codul A.P.C. este obligatoriu.' : 'Denumirea asociației este obligatorie.');
       return;
     }
     if (!/^A\d{4}-\d{4}$/.test(payload.associationCode)) {
-      setFormError('Format recomandat: A0123-0940');
+      setFormError('Format recomandat: A0123-0940.');
       return;
     }
 
@@ -183,8 +183,8 @@ export default function SuperadminOrganizationsPage() {
       setModalOpen(false);
       setSuccessMessage('Asociația a fost creată.');
       await loadOrganizations().catch(() => undefined);
-    } catch {
-      setFormError('Nu am putut crea asociația. Încearcă din nou.');
+    } catch (error: any) {
+      setFormError(String(error?.message || 'Nu am putut crea asociația.'));
     } finally {
       setIsCreating(false);
     }

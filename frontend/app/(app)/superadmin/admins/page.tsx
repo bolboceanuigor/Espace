@@ -24,6 +24,15 @@ const emptyForm = {
   sendEmail: false,
 };
 
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function isValidMoldovaPhone(value: string) {
+  const normalized = value.replace(/[\s().-]/g, '');
+  return /^\+373\d{8}$/.test(normalized) || /^0\d{8}$/.test(normalized);
+}
+
 export default function SuperadminAdminsPage() {
   const localizedPath = useLocalizedPath();
   const [admins, setAdmins] = useState<MvpAdministrator[]>([]);
@@ -92,8 +101,28 @@ export default function SuperadminAdminsPage() {
     setSuccessMessage('');
     setInvitationLink('');
     setInviteWarning('');
-    if (!form.firstName.trim() || !form.lastName.trim() || !form.email.trim() || !form.organizationId) {
-      setFormError('Completează prenumele, numele, emailul și asociația.');
+    if (!form.firstName.trim()) {
+      setFormError('Prenumele este obligatoriu.');
+      return;
+    }
+    if (!form.lastName.trim()) {
+      setFormError('Numele este obligatoriu.');
+      return;
+    }
+    if (!form.email.trim()) {
+      setFormError('Emailul este obligatoriu.');
+      return;
+    }
+    if (!isValidEmail(form.email.trim())) {
+      setFormError('Emailul nu este valid.');
+      return;
+    }
+    if (form.phone.trim() && !isValidMoldovaPhone(form.phone.trim())) {
+      setFormError('Telefonul nu este valid. Format recomandat: +373 6X XXX XXX');
+      return;
+    }
+    if (!form.organizationId) {
+      setFormError('Asociația este obligatorie.');
       return;
     }
 
@@ -116,8 +145,7 @@ export default function SuperadminAdminsPage() {
       );
       await loadAdmins().catch(() => undefined);
     } catch (error: any) {
-      const message = String(error?.message || '');
-      setFormError(message.includes('Există deja un utilizator cu acest email') ? 'Există deja un utilizator cu acest email.' : 'Nu am putut crea invitația.');
+      setFormError(String(error?.message || 'Nu am putut crea invitația.'));
     } finally {
       setIsCreating(false);
     }

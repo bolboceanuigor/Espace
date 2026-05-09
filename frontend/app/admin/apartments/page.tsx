@@ -155,11 +155,26 @@ export default function AdminApartmentsPage() {
     const selectedBuildingId = form.buildingId || selectedStaircase?.buildingId || '';
     const organizationId = selectedStaircase?.organizationId || rows.find((item) => item.buildingId === selectedBuildingId)?.organizationId || '';
     if (!organizationId || !selectedBuildingId || !form.staircaseId) {
-      setFormError('Nu am găsit clădirea și scara reale. Reîncarcă pagina după conectarea API-ului.');
+      setFormError(!selectedBuildingId ? 'Blocul este obligatoriu.' : 'Scara este obligatorie.');
       return;
     }
-    if (!form.number.trim() || form.floor === '' || form.areaM2 === '') {
-      setFormError('Completează numărul apartamentului, etajul și suprafața.');
+    if (!form.number.trim()) {
+      setFormError('Numărul apartamentului este obligatoriu.');
+      return;
+    }
+    const floorNumber = Number(form.floor);
+    const areaNumber = Number(form.areaM2);
+    const roomsNumber = Number(form.rooms || 1);
+    if (form.floor === '' || !Number.isFinite(floorNumber)) {
+      setFormError('Etajul trebuie să fie un număr.');
+      return;
+    }
+    if (form.areaM2 === '' || !Number.isFinite(areaNumber) || areaNumber <= 0) {
+      setFormError('Suprafața trebuie să fie mai mare decât 0.');
+      return;
+    }
+    if (!Number.isFinite(roomsNumber) || roomsNumber <= 0) {
+      setFormError('Numărul de camere trebuie să fie pozitiv.');
       return;
     }
 
@@ -170,9 +185,9 @@ export default function AdminApartmentsPage() {
         buildingId: selectedBuildingId,
         staircaseId: form.staircaseId,
         number: form.number.trim(),
-        floor: Number(form.floor),
-        areaM2: Number(form.areaM2),
-        rooms: Number(form.rooms || 1),
+        floor: floorNumber,
+        areaM2: areaNumber,
+        rooms: roomsNumber,
         status: form.status,
       });
       const next = normalizeApiApartment(created.data);
@@ -184,7 +199,7 @@ export default function AdminApartmentsPage() {
       await loadApartments().catch(() => undefined);
     } catch (error: any) {
       const message = String(error?.message || '');
-      setFormError(message.includes('Acest apartament există deja') ? 'Acest apartament există deja.' : 'Nu am putut crea apartamentul.');
+      setFormError(message || 'Nu am putut crea apartamentul.');
     } finally {
       setIsCreating(false);
     }
@@ -288,7 +303,7 @@ export default function AdminApartmentsPage() {
           <div className="grid gap-3 md:grid-cols-2">
             <Field label="Număr apartament" value={form.number} onChange={(value) => setForm({ ...form, number: value })} required />
             <label className="block">
-              <span className="label">Bloc / clădire</span>
+              <span className="label">Bloc</span>
               <select className="select" value={form.buildingId} onChange={(event) => setForm({ ...form, buildingId: event.target.value, staircaseId: '' })}>
                 <option value="">Alege clădirea</option>
                 {buildingOptions.map((item) => (

@@ -296,9 +296,9 @@ export class CommunityReadService {
         typeof payload.organizationId === 'string' && payload.organizationId.trim()
           ? payload.organizationId.trim()
           : '',
-      title: this.requiredString(payload.title, 'Titlul este obligatoriu.'),
-      content: this.requiredString(payload.content, 'Conținutul este obligatoriu.'),
-      category: this.optionalEnum(payload.category, AnnouncementCategory, AnnouncementCategory.GENERAL, 'Categoria anunțului nu este validă.'),
+      title: this.requiredString(payload.title, 'Titlul anunțului este obligatoriu.'),
+      content: this.requiredString(payload.content, 'Conținutul anunțului este obligatoriu.'),
+      category: this.optionalEnum(payload.category, AnnouncementCategory, AnnouncementCategory.GENERAL, 'Categoria nu este validă.'),
       status: this.optionalEnum(payload.status, AnnouncementStatus, AnnouncementStatus.ACTIVE, 'Statusul anunțului nu este valid.'),
     };
   }

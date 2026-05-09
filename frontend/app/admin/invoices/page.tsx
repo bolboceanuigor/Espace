@@ -112,15 +112,23 @@ export default function AdminInvoicesPage() {
     const monthNumber = Number(form.month);
     const yearNumber = Number(form.year);
     if (!selectedApartment?.organizationId) {
-      setFormError('Alege un apartament real din lista API.');
+      setFormError('Apartamentul este obligatoriu.');
       return;
     }
-    if (!Number.isInteger(monthNumber) || monthNumber < 1 || monthNumber > 12 || !Number.isInteger(yearNumber)) {
-      setFormError('Completează luna și anul.');
+    if (!Number.isInteger(monthNumber) || monthNumber < 1 || monthNumber > 12) {
+      setFormError('Luna nu este validă.');
+      return;
+    }
+    if (!Number.isInteger(yearNumber) || yearNumber < 2000 || yearNumber > 2100) {
+      setFormError('Anul nu este valid.');
       return;
     }
     if (!Number.isFinite(amount) || amount <= 0) {
-      setFormError('Completează suma facturii.');
+      setFormError('Suma facturii trebuie să fie pozitivă.');
+      return;
+    }
+    if (!form.dueDate || Number.isNaN(new Date(form.dueDate).getTime())) {
+      setFormError('Data scadentă nu este validă.');
       return;
     }
 
@@ -142,7 +150,7 @@ export default function AdminInvoicesPage() {
       await loadInvoices().catch(() => undefined);
     } catch (error: any) {
       const message = String(error?.message || '');
-      setFormError(message.includes('există deja') ? 'Factura pentru acest apartament și această lună există deja.' : 'Nu am putut emite factura.');
+      setFormError(message || 'Nu am putut emite factura.');
     } finally {
       setIsCreating(false);
     }
@@ -154,12 +162,16 @@ export default function AdminInvoicesPage() {
     setGenerationResult(null);
     const monthNumber = Number(generationForm.month);
     const yearNumber = Number(generationForm.year);
-    if (!Number.isInteger(monthNumber) || monthNumber < 1 || monthNumber > 12 || !Number.isInteger(yearNumber)) {
-      setGenerationError('Completează luna și anul.');
+    if (!Number.isInteger(monthNumber) || monthNumber < 1 || monthNumber > 12) {
+      setGenerationError('Luna nu este validă.');
       return;
     }
-    if (!generationForm.dueDate) {
-      setGenerationError('Completează data scadentă.');
+    if (!Number.isInteger(yearNumber) || yearNumber < 2000 || yearNumber > 2100) {
+      setGenerationError('Anul nu este valid.');
+      return;
+    }
+    if (!generationForm.dueDate || Number.isNaN(new Date(generationForm.dueDate).getTime())) {
+      setGenerationError('Data scadentă nu este validă.');
       return;
     }
     if (!invoiceGenerationReady) {

@@ -128,11 +128,16 @@ export class OrganizationsService {
     const input = this.parseCreateOrganizationBody(body);
 
     const duplicate = await this.prisma.organization.findFirst({
-      where: { fiscalCode: input.fiscalCode },
+      where: {
+        OR: [
+          { fiscalCode: input.fiscalCode },
+          { legalName: { equals: input.legalName, mode: 'insensitive' as const } },
+        ],
+      },
       select: { id: true },
     });
     if (duplicate) {
-      throw new ConflictException('Există deja o asociație cu acest Cod APC.');
+      throw new ConflictException('Există deja o asociație cu acest cod A.P.C.');
     }
 
     const organization = await this.prisma.organization.create({
@@ -157,6 +162,21 @@ export class OrganizationsService {
   async updatePublicOrganization(id: string, body: unknown) {
     await this.ensureOrganizationExists(id);
     const input = this.parseUpdateOrganizationBody(body);
+    if (input.fiscalCode || input.legalName) {
+      const duplicate = await this.prisma.organization.findFirst({
+        where: {
+          id: { not: id },
+          OR: [
+            ...(input.fiscalCode ? [{ fiscalCode: input.fiscalCode }] : []),
+            ...(input.legalName ? [{ legalName: { equals: input.legalName, mode: 'insensitive' as const } }] : []),
+          ],
+        },
+        select: { id: true },
+      });
+      if (duplicate) {
+        throw new ConflictException('Există deja o asociație cu acest cod A.P.C.');
+      }
+    }
 
     const organization = await this.prisma.organization.update({
       where: { id },
@@ -323,9 +343,9 @@ export class OrganizationsService {
 
   private parseCreateOrganizationBody(body: unknown) {
     const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
-    const associationCode = this.requiredString(payload.associationCode ?? payload.code ?? payload.fiscalCode, 'Codul APC este obligatoriu.').toUpperCase();
+    const associationCode = this.requiredString(payload.associationCode ?? payload.code ?? payload.fiscalCode, 'Codul A.P.C. este obligatoriu.').toUpperCase();
     if (!/^A\d{4}-\d{4}$/.test(associationCode)) {
-      throw new BadRequestException('Format recomandat: A0123-0940');
+      throw new BadRequestException('Format recomandat: A0123-0940.');
     }
     const shortName = this.optionalString(payload.shortName) || this.optionalString(payload.name) || `A.P.C. ${associationCode}`;
     const legalName =
@@ -366,9 +386,9 @@ export class OrganizationsService {
 
     const associationCodeSource = payload.associationCode ?? payload.code ?? payload.fiscalCode;
     if (associationCodeSource !== undefined && associationCodeSource !== null && associationCodeSource !== '') {
-      const associationCode = this.requiredString(associationCodeSource, 'Codul APC este obligatoriu.').toUpperCase();
+      const associationCode = this.requiredString(associationCodeSource, 'Codul A.P.C. este obligatoriu.').toUpperCase();
       if (!/^A\d{4}-\d{4}$/.test(associationCode)) {
-        throw new BadRequestException('Format recomandat: A0123-0940');
+        throw new BadRequestException('Format recomandat: A0123-0940.');
       }
       data.fiscalCode = associationCode;
       data.legalName = this.optionalString(payload.legalName) || this.legalNameForCode(associationCode);
@@ -411,7 +431,10 @@ export class OrganizationsService {
       throw new BadRequestException('Emailul nu este valid.');
     }
     if (password.length < 8) {
-      throw new BadRequestException('Parola temporară trebuie să aibă cel puțin 8 caractere.');
+      throw new BadRequestException('Parola trebuie să aibă cel puțin 8 caractere.');
+    }
+    if (phone && !this.isValidMoldovaPhone(phone)) {
+      throw new BadRequestException('Telefonul nu este valid.');
     }
 
     return {
@@ -441,7 +464,11 @@ export class OrganizationsService {
       if (!email.includes('@')) throw new BadRequestException('Emailul nu este valid.');
       input.email = email;
     }
-    if (payload.phone !== undefined) input.phone = typeof payload.phone === 'string' && payload.phone.trim() ? payload.phone.trim() : null;
+    if (payload.phone !== undefined) {
+      const phone = typeof payload.phone === 'string' && payload.phone.trim() ? payload.phone.trim() : null;
+      if (phone && !this.isValidMoldovaPhone(phone)) throw new BadRequestException('Telefonul nu este valid.');
+      input.phone = phone;
+    }
     if (payload.organizationId !== undefined) {
       input.organizationId = this.requiredString(payload.organizationId, 'Asociația este obligatorie.');
     }
@@ -539,6 +566,11 @@ export class OrganizationsService {
   private normalizeCountryLabel(value: string) {
     const normalized = value.trim();
     return normalized === 'MD' || normalized.toLowerCase() === 'moldova' ? 'Republica Moldova' : normalized;
+  }
+
+  private isValidMoldovaPhone(value: string) {
+    const normalized = value.replace(/[\s().-]/g, '');
+    return /^\+373\d{8}$/.test(normalized) || /^0\d{8}$/.test(normalized);
   }
 
   private optionalEnum<T extends Record<string, string>>(value: unknown, enumValues: T, fallback: T[keyof T], message: string) {

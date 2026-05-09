@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   InvoiceStatus,
   IssueCategory,
@@ -699,6 +699,35 @@ export class ResidentDemoService {
 
     if (!meter) throw new NotFoundException('Înregistrarea nu a fost găsită.');
 
+    const dayStart = new Date(input.readingDate);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(dayStart);
+    dayEnd.setDate(dayEnd.getDate() + 1);
+    const [duplicateReading, previousReading] = await Promise.all([
+      this.prisma.meterReading.findFirst({
+        where: {
+          meterId: meter.id,
+          readingDate: {
+            gte: dayStart,
+            lt: dayEnd,
+          },
+        },
+        select: { id: true },
+      }),
+      this.prisma.meterReading.findFirst({
+        where: {
+          meterId: meter.id,
+          readingDate: { lt: input.readingDate },
+        },
+        orderBy: [{ readingDate: 'desc' }, { createdAt: 'desc' }],
+        select: { value: true },
+      }),
+    ]);
+    if (duplicateReading) throw new ConflictException('Există deja o citire pentru această dată.');
+    if (previousReading && input.value < Number(previousReading.value)) {
+      throw new BadRequestException('Citirea nouă este mai mică decât citirea anterioară.');
+    }
+
     const reading = await this.prisma.meterReading.create({
       data: {
         meterId: meter.id,
@@ -1066,11 +1095,17 @@ export class ResidentDemoService {
 
   private parseMeterReadingBody(body: unknown) {
     const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
-    const value = this.requiredNumber(payload.value, 'Valoarea citirii este obligatorie.');
+    if (payload.value === undefined || payload.value === null || payload.value === '') {
+      throw new BadRequestException('Valoarea citirii este obligatorie.');
+    }
+    const value = this.requiredNumber(payload.value, 'Valoarea citirii trebuie să fie un număr.');
     const readingDate =
       typeof payload.readingDate === 'string' && payload.readingDate.trim()
         ? this.requiredDate(payload.readingDate, 'Data citirii nu este validă.')
         : new Date();
+    if (value < 0) {
+      throw new BadRequestException('Valoarea citirii trebuie să fie un număr.');
+    }
     if (payload.source && String(payload.source).toUpperCase() !== MeterReadingSource.RESIDENT) {
       throw new BadRequestException('Sursa citirii trebuie să fie RESIDENT.');
     }
@@ -1082,7 +1117,7 @@ export class ResidentDemoService {
     return {
       title: this.requiredString(payload.title, 'Titlul este obligatoriu.'),
       description: this.requiredString(payload.description, 'Descrierea este obligatorie.'),
-      category: this.optionalEnum(payload.category, IssueCategory, IssueCategory.OTHER, 'Categoria cererii nu este validă.'),
+      category: this.optionalEnum(payload.category, IssueCategory, IssueCategory.OTHER, 'Categoria nu este validă.'),
       priority: this.optionalEnum(payload.priority, IssuePriority, IssuePriority.NORMAL, 'Prioritatea cererii nu este validă.'),
       apartmentId: typeof payload.apartmentId === 'string' ? payload.apartmentId : undefined,
     };

@@ -85,14 +85,22 @@ export default function AdminStaircasesPage() {
           </label>
           <label className="space-y-1 text-xs font-medium text-muted-foreground">
             <span>Număr etaje</span>
-            <input className="input" type="number" min={0} value={form.floorsCount} onChange={(e) => setForm((prev) => ({ ...prev, floorsCount: Number(e.target.value) }))} />
+            <input className="input" type="number" min={1} value={form.floorsCount} onChange={(e) => setForm((prev) => ({ ...prev, floorsCount: Number(e.target.value) }))} />
           </label>
           <button
             className="self-end rounded-lg bg-primary px-3 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
             disabled={creating || !buildings.length}
             onClick={async () => {
-              if (!form.buildingId || !form.name.trim()) {
-                showToast('Blocul și numele scării sunt obligatorii.', 'error');
+              if (!form.buildingId) {
+                showToast('Blocul este obligatoriu.', 'error');
+                return;
+              }
+              if (!form.name.trim()) {
+                showToast('Scara este obligatorie.', 'error');
+                return;
+              }
+              if (!Number.isFinite(form.floorsCount) || form.floorsCount <= 0) {
+                showToast('Numărul de etaje trebuie să fie pozitiv.', 'error');
                 return;
               }
               setCreating(true);
@@ -104,8 +112,8 @@ export default function AdminStaircasesPage() {
                 setForm((prev) => ({ ...prev, name: '', floorsCount: 1 }));
                 await load();
                 showToast('Scara a fost creată.');
-              } catch {
-                showToast('Nu am putut crea scara.', 'error');
+              } catch (error: any) {
+                showToast(String(error?.message || 'Nu am putut crea scara.'), 'error');
               } finally {
                 setCreating(false);
               }

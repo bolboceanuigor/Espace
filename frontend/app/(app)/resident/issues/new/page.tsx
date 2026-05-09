@@ -71,7 +71,14 @@ export default function ResidentIssueCreatePage() {
       setError('Contul tău nu este conectat încă la un apartament.');
       return;
     }
-    if (!form.title.trim() || !form.description.trim()) return;
+    if (!form.title.trim()) {
+      setError('Titlul este obligatoriu.');
+      return;
+    }
+    if (!form.description.trim()) {
+      setError('Descrierea este obligatorie.');
+      return;
+    }
     setError('');
     setIsSubmitting(true);
     try {
@@ -84,8 +91,8 @@ export default function ResidentIssueCreatePage() {
       setSubmitted(true);
       setForm((current) => ({ ...current, title: '', description: '' }));
       window.setTimeout(() => router.push(localizedPath('/resident/issues')), 650);
-    } catch {
-      setError('Nu am putut trimite cererea.');
+    } catch (error: any) {
+      setError(String(error?.message || 'Nu am putut trimite cererea.'));
     } finally {
       setIsSubmitting(false);
     }

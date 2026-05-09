@@ -131,11 +131,19 @@ export default function AdminPaymentsPage() {
     const organizationId = selectedInvoice?.organizationId || selectedApartment?.organizationId;
     const apartmentId = selectedInvoice?.apartmentId || selectedApartment?.id;
     if (!organizationId || !apartmentId) {
-      setPaymentError('Alege un apartament real din lista API.');
+      setPaymentError('Apartamentul este obligatoriu.');
       return;
     }
     if (!Number.isFinite(amount) || amount <= 0) {
-      setPaymentError('Completează suma plății.');
+      setPaymentError('Suma plății trebuie să fie mai mare decât 0.');
+      return;
+    }
+    if (!paymentForm.paidAt || Number.isNaN(new Date(paymentForm.paidAt).getTime())) {
+      setPaymentError('Data plății nu este validă.');
+      return;
+    }
+    if (!paymentForm.method) {
+      setPaymentError('Metoda de plată nu este validă.');
       return;
     }
 
@@ -155,8 +163,8 @@ export default function AdminPaymentsPage() {
       setSuccessMessage('Plata a fost înregistrată.');
       setSource('api');
       await loadBilling().catch(() => undefined);
-    } catch {
-      setPaymentError('Nu am putut înregistra plata.');
+    } catch (error: any) {
+      setPaymentError(String(error?.message || 'Nu am putut înregistra plata.'));
     } finally {
       setIsRegisteringPayment(false);
     }

@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { ApartmentResidentRole, ApartmentStatus, OnboardingStatus, Prisma, ResidentAccountStatus, ResidentType, Role } from '@prisma/client';
 import * as XLSX from 'xlsx';
 import { PrismaService } from '../prisma/prisma.service';
@@ -152,9 +152,11 @@ export class SetupService {
 
     const name = this.requiredString(payload.name, 'Numele blocului este obligatoriu.');
     const address = this.requiredString(payload.address, 'Adresa blocului este obligatorie.');
-    const staircasesCount = this.optionalInt(payload.staircasesCount, 0);
-    const apartmentsCount = this.optionalInt(payload.apartmentsCount, 0);
+    const staircasesCount = this.optionalPositiveInt(payload.staircasesCount, 0, 'Numărul de scări trebuie să fie pozitiv.');
+    const apartmentsCount = this.optionalPositiveInt(payload.apartmentsCount, 0, 'Numărul de apartamente trebuie să fie pozitiv.');
     const totalFloors = this.optionalInt(payload.totalFloors, 0);
+
+    await this.assertUniqueBuilding(organizationId, name, address);
 
     return this.prisma.building.create({
       data: {
@@ -205,9 +207,11 @@ export class SetupService {
     if (payload.address !== undefined) data.address = this.requiredString(payload.address, 'Adresa blocului este obligatorie.');
     if (payload.cadastralNumber !== undefined) data.cadastralNumber = this.optionalString(payload.cadastralNumber) || null;
     if (payload.totalFloors !== undefined) data.totalFloors = this.optionalInt(payload.totalFloors, 0);
-    if (payload.staircasesCount !== undefined) data.staircasesCount = this.optionalInt(payload.staircasesCount, 0);
-    if (payload.apartmentsCount !== undefined) data.apartmentsCount = this.optionalInt(payload.apartmentsCount, 0);
+    if (payload.staircasesCount !== undefined) data.staircasesCount = this.optionalPositiveInt(payload.staircasesCount, 0, 'Numărul de scări trebuie să fie pozitiv.');
+    if (payload.apartmentsCount !== undefined) data.apartmentsCount = this.optionalPositiveInt(payload.apartmentsCount, 0, 'Numărul de apartamente trebuie să fie pozitiv.');
     if (!Object.keys(data).length) throw new BadRequestException('Nu există date de actualizat.');
+
+    await this.assertUniqueBuilding(organizationId, data.name, data.address, id);
 
     return this.prisma.building.update({
       where: { id },
@@ -244,10 +248,12 @@ export class SetupService {
     const payload = this.payload(body);
     const organizationId = this.resolveOrganizationId(user, activeOrganizationId, payload);
     this.assertOrganizationAccess(user, organizationId);
+    if (!buildingId) throw new BadRequestException('Blocul este obligatoriu.');
     await this.assertBuildingInOrganization(buildingId, organizationId);
 
-    const name = this.requiredString(payload.name, 'Numele scării este obligatoriu.');
-    const floorsCount = this.optionalInt(payload.floorsCount, 0);
+    const name = this.requiredString(payload.name, 'Scara este obligatorie.');
+    const floorsCount = this.optionalPositiveInt(payload.floorsCount, 0, 'Numărul de etaje trebuie să fie pozitiv.');
+    await this.assertUniqueStaircase(organizationId, buildingId, name);
 
     const staircase = await this.prisma.staircase.create({
       data: {
@@ -274,9 +280,10 @@ export class SetupService {
     if (!existing) throw new NotFoundException('Înregistrarea nu a fost găsită.');
 
     const data: { name?: string; floorsCount?: number } = {};
-    if (payload.name !== undefined) data.name = this.requiredString(payload.name, 'Numele scării este obligatoriu.');
-    if (payload.floorsCount !== undefined) data.floorsCount = this.optionalInt(payload.floorsCount, 0);
+    if (payload.name !== undefined) data.name = this.requiredString(payload.name, 'Scara este obligatorie.');
+    if (payload.floorsCount !== undefined) data.floorsCount = this.optionalPositiveInt(payload.floorsCount, 0, 'Numărul de etaje trebuie să fie pozitiv.');
     if (!Object.keys(data).length) throw new BadRequestException('Nu există date de actualizat.');
+    if (data.name) await this.assertUniqueStaircase(organizationId, existing.buildingId, data.name, id);
 
     const staircase = await this.prisma.staircase.update({
       where: { id },
@@ -665,7 +672,8 @@ export class SetupService {
     if (!rawFloor) parsed.errors.push('Etajul este obligatoriu.');
     else if (!Number.isFinite(parsed.floor)) parsed.errors.push('Etajul trebuie să fie un număr.');
     if (!rawArea || !Number.isFinite(parsed.areaM2)) parsed.errors.push('Suprafața trebuie să fie un număr.');
-    if (rawRooms && (!Number.isFinite(parsed.rooms) || parsed.rooms < 1)) parsed.errors.push('Numărul de camere trebuie să fie un număr.');
+    else if (parsed.areaM2 <= 0) parsed.errors.push('Suprafața trebuie să fie mai mare decât 0.');
+    if (rawRooms && (!Number.isFinite(parsed.rooms) || parsed.rooms < 1)) parsed.errors.push('Numărul de camere trebuie să fie pozitiv.');
     if (parsed.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(parsed.email)) parsed.errors.push('Emailul proprietarului nu este valid.');
     if (rawRole && !this.isSupportedApartmentResidentRole(rawRole)) parsed.errors.push('Rolul locatarului nu este valid.');
 
@@ -743,7 +751,7 @@ export class SetupService {
         organizationId,
         buildingId,
         name,
-        floorsCount: Math.max(Math.round(floorHint || 0), 0),
+        floorsCount: Math.max(Math.round(floorHint || 1), 1),
       },
       select: { id: true, name: true, floorsCount: true },
     });
@@ -860,5 +868,41 @@ export class SetupService {
     const parsed = Number(value);
     if (!Number.isFinite(parsed) || parsed < 0) throw new BadRequestException('Valoarea numerică nu este validă.');
     return Math.round(parsed);
+  }
+
+  private optionalPositiveInt(value: unknown, fallback: number, message: string) {
+    if (value === undefined || value === null || value === '') return fallback;
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) throw new BadRequestException(message);
+    return Math.round(parsed);
+  }
+
+  private async assertUniqueBuilding(organizationId: string, name?: string, address?: string, excludeId?: string) {
+    if (!name && !address) return;
+    const duplicate = await this.prisma.building.findFirst({
+      where: {
+        organizationId,
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+        OR: [
+          ...(name ? [{ name: { equals: name, mode: 'insensitive' as const } }] : []),
+          ...(address ? [{ address: { equals: address, mode: 'insensitive' as const } }] : []),
+        ],
+      },
+      select: { id: true },
+    });
+    if (duplicate) throw new ConflictException('Există deja un bloc cu acest nume sau această adresă.');
+  }
+
+  private async assertUniqueStaircase(organizationId: string, buildingId: string, name: string, excludeId?: string) {
+    const duplicate = await this.prisma.staircase.findFirst({
+      where: {
+        organizationId,
+        buildingId,
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+        name: { equals: name, mode: 'insensitive' as const },
+      },
+      select: { id: true },
+    });
+    if (duplicate) throw new ConflictException('Această scară există deja în blocul selectat.');
   }
 }

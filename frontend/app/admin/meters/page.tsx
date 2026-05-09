@@ -116,11 +116,15 @@ export default function AdminMetersPage() {
     setSuccessMessage('');
     const selectedApartment = apartmentRows.find((item) => item.id === form.apartmentId);
     if (!selectedApartment?.organizationId) {
-      setFormError('Alege un apartament real din lista API.');
+      setFormError('Apartamentul este obligatoriu.');
+      return;
+    }
+    if (!form.type) {
+      setFormError('Tipul contorului este obligatoriu.');
       return;
     }
     if (!form.serialNumber.trim()) {
-      setFormError('Completează seria contorului.');
+      setFormError('Seria contorului este obligatorie.');
       return;
     }
 
@@ -142,7 +146,7 @@ export default function AdminMetersPage() {
       await loadMeters().catch(() => undefined);
     } catch (error: any) {
       const message = String(error?.message || '');
-      setFormError(message.includes('Acest contor există deja') ? 'Acest contor există deja.' : 'Nu am putut crea contorul.');
+      setFormError(message || 'Nu am putut crea contorul.');
     } finally {
       setIsCreating(false);
     }
@@ -167,8 +171,20 @@ export default function AdminMetersPage() {
       setReadingError('Alege contorul.');
       return;
     }
+    if (readingForm.value === '') {
+      setReadingError('Valoarea citirii este obligatorie.');
+      return;
+    }
     if (!Number.isFinite(value)) {
-      setReadingError('Completează o valoare numerică.');
+      setReadingError('Valoarea citirii trebuie să fie un număr.');
+      return;
+    }
+    if (value < 0) {
+      setReadingError('Valoarea citirii trebuie să fie un număr.');
+      return;
+    }
+    if (!readingForm.readingDate || Number.isNaN(new Date(readingForm.readingDate).getTime())) {
+      setReadingError('Data citirii nu este validă.');
       return;
     }
 
@@ -184,8 +200,8 @@ export default function AdminMetersPage() {
       setSource('api');
       setSuccessMessage('Citirea a fost transmisă.');
       await loadMeters().catch(() => undefined);
-    } catch {
-      setReadingError('Nu am putut adăuga citirea.');
+    } catch (error: any) {
+      setReadingError(String(error?.message || 'Nu am putut adăuga citirea.'));
     } finally {
       setIsAddingReading(false);
     }

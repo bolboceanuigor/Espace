@@ -473,7 +473,7 @@ export class ApartmentsService {
       select: { apartmentId: true },
     });
     if (duplicate) {
-      throw new ConflictException('Această persoană este deja conectată la apartament.');
+      throw new ConflictException('Acest locatar este deja conectat la apartament.');
     }
 
     if (input.isPrimary) {
@@ -629,13 +629,16 @@ export class ApartmentsService {
   private parseCreateApartmentBody(body: unknown) {
     const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
     const organizationId = this.requiredString(payload.organizationId, 'Organizația este obligatorie.');
-    const buildingId = this.requiredString(payload.buildingId, 'Clădirea este obligatorie.');
+    const buildingId = this.requiredString(payload.buildingId, 'Blocul este obligatoriu.');
     const staircaseId = this.requiredString(payload.staircaseId, 'Scara este obligatorie.');
     const number = this.requiredString(payload.number, 'Numărul apartamentului este obligatoriu.');
-    const floor = this.requiredNumber(payload.floor, 'Etajul este obligatoriu.');
-    const areaM2 = this.requiredNumber(payload.areaM2, 'Suprafața este obligatorie.');
+    const floor = this.requiredNumber(payload.floor, 'Etajul trebuie să fie un număr.');
+    const areaM2 = this.requiredNumber(payload.areaM2, 'Suprafața trebuie să fie mai mare decât 0.');
     const rooms = this.optionalNumber(payload.rooms);
     const status = this.optionalEnum(payload.status, ApartmentStatus, ApartmentStatus.ACTIVE, 'Statusul nu este valid.');
+
+    if (areaM2 <= 0) throw new BadRequestException('Suprafața trebuie să fie mai mare decât 0.');
+    if (rooms !== null && rooms !== undefined && rooms <= 0) throw new BadRequestException('Numărul de camere trebuie să fie pozitiv.');
 
     return {
       organizationId,
@@ -687,7 +690,7 @@ export class ApartmentsService {
       throw new BadRequestException('Numărul de apartamente pe etaj trebuie să fie cel puțin 1.');
     }
     if (defaultAreaM2 <= 0) {
-      throw new BadRequestException('Suprafața trebuie să fie un număr pozitiv.');
+      throw new BadRequestException('Suprafața trebuie să fie mai mare decât 0.');
     }
     if (defaultRooms < 1) {
       throw new BadRequestException('Numărul de camere trebuie să fie cel puțin 1.');

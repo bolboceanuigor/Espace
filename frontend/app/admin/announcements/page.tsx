@@ -60,8 +60,12 @@ export default function AdminAnnouncementsPage() {
   const createAnnouncement = async () => {
     setFormError('');
     setSuccessMessage('');
-    if (!form.title.trim() || !form.content.trim()) {
-      setFormError('Completează titlul și conținutul.');
+    if (!form.title.trim()) {
+      setFormError('Titlul anunțului este obligatoriu.');
+      return;
+    }
+    if (!form.content.trim()) {
+      setFormError('Conținutul anunțului este obligatoriu.');
       return;
     }
 
@@ -79,8 +83,8 @@ export default function AdminAnnouncementsPage() {
       setSuccessMessage('Anunțul a fost publicat.');
       setSource('api');
       await loadAnnouncements().catch(() => undefined);
-    } catch {
-      setFormError('Nu am putut publica anunțul.');
+    } catch (error: any) {
+      setFormError(String(error?.message || 'Nu am putut publica anunțul.'));
     } finally {
       setIsCreating(false);
     }

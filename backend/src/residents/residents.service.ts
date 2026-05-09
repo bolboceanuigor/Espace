@@ -345,8 +345,11 @@ export class ResidentsService {
     const email = typeof payload.email === 'string' && payload.email.trim() ? payload.email.trim().toLowerCase() : null;
     const accountStatus = this.optionalEnum(payload.accountStatus, ResidentAccountStatus, ResidentAccountStatus.NO_ACCOUNT, 'Statusul contului nu este valid.');
 
-    if (email && !email.includes('@')) {
+    if (email && !this.isValidEmail(email)) {
       throw new BadRequestException('Emailul nu este valid.');
+    }
+    if (phone && !this.isValidMoldovaPhone(phone)) {
+      throw new BadRequestException('Telefonul nu este valid.');
     }
 
     return {
@@ -372,7 +375,7 @@ export class ResidentsService {
     const password = this.requiredString(payload.password, 'Parola temporară este obligatorie.');
     const phone = typeof payload.phone === 'string' && payload.phone.trim() ? payload.phone.trim() : null;
 
-    if (!email.includes('@')) {
+    if (!this.isValidEmail(email)) {
       throw new BadRequestException('Emailul nu este valid.');
     }
     if (password.length < 8) {
@@ -389,5 +392,14 @@ export class ResidentsService {
     const allowed = Object.values(enumValues) as string[];
     if (!allowed.includes(normalized)) throw new BadRequestException(message);
     return normalized as T[keyof T];
+  }
+
+  private isValidEmail(value: string) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  }
+
+  private isValidMoldovaPhone(value: string) {
+    const normalized = value.replace(/[\s().-]/g, '');
+    return /^\+373\d{8}$/.test(normalized) || /^0\d{8}$/.test(normalized);
   }
 }
