@@ -1684,6 +1684,88 @@ export const onboardingApi = {
   superadminOverview: () => apiRequest<any[]>('/api/superadmin/onboarding-overview'),
 };
 
+export type AssociationOnboardingStepOne = {
+  legalName: string;
+  shortName: string;
+  associationCode: string;
+  internalNumber?: string;
+  fiscalCode?: string;
+  address: string;
+  city: string;
+  country: string;
+  status?: 'DRAFT' | 'ACTIVE';
+};
+
+export type AssociationOnboardingApartment = {
+  id?: string;
+  apartmentNumber: string;
+  building: string;
+  entrance: string;
+  floor?: number | null;
+  areaM2?: number | null;
+  rooms?: number | null;
+  cadastralNumber?: string;
+  status: 'VACANT' | 'OCCUPIED' | 'UNKNOWN';
+};
+
+export type AssociationOnboardingResident = {
+  residentId?: string;
+  apartmentId?: string;
+  apartmentNumber: string;
+  building: string;
+  entrance: string;
+  fullName: string;
+  phone?: string;
+  email?: string;
+  role: 'OWNER' | 'TENANT' | 'REPRESENTATIVE';
+  isPrimaryContact: boolean;
+  preferredContactMethod: 'PHONE' | 'EMAIL' | 'APP' | 'WHATSAPP' | 'TELEGRAM';
+  status: 'INVITED' | 'ACTIVE' | 'NOT_INVITED';
+};
+
+export const associationOnboardingApi = {
+  start: (data: AssociationOnboardingStepOne) =>
+    apiRequest<any>('/api/superadmin/associations/onboarding/start', { method: 'POST', body: data }),
+  get: (id: string) =>
+    apiRequest<any>(`/api/superadmin/associations/onboarding/${id}`),
+  updateStepOne: (id: string, data: AssociationOnboardingStepOne) =>
+    apiRequest<any>(`/api/superadmin/associations/onboarding/${id}/step-1`, { method: 'PATCH', body: data }),
+  updateStepTwo: (
+    id: string,
+    data: {
+      buildingsCount: number;
+      staircasesCount: number;
+      floorsCount: number;
+      apartmentsCount: number;
+      constructionYear?: number | null;
+      internalNotes?: string;
+    },
+  ) =>
+    apiRequest<any>(`/api/superadmin/associations/onboarding/${id}/step-2`, { method: 'PATCH', body: data }),
+  updateApartments: (id: string, apartments: AssociationOnboardingApartment[]) =>
+    apiRequest<any>(`/api/superadmin/associations/onboarding/${id}/apartments`, {
+      method: 'PATCH',
+      body: { apartments },
+    }),
+  updateResidents: (id: string, residents: AssociationOnboardingResident[]) =>
+    apiRequest<any>(`/api/superadmin/associations/onboarding/${id}/residents`, {
+      method: 'PATCH',
+      body: { residents },
+    }),
+  updateTariffs: (
+    id: string,
+    data: {
+      deservireBlocPerM2: number;
+      fondReparatiePerM2: number;
+      fondInvestitiiPerApartment: number;
+      otherFixedServices?: Array<{ name: string; amount: number }>;
+    },
+  ) =>
+    apiRequest<any>(`/api/superadmin/associations/onboarding/${id}/tariffs`, { method: 'PATCH', body: data }),
+  activate: (id: string) =>
+    apiRequest<any>(`/api/superadmin/associations/onboarding/${id}/activate`, { method: 'POST' }),
+};
+
 export const superadminApi = {
   workbench: () =>
     apiRequest<any>('/api/superadmin/workbench'),

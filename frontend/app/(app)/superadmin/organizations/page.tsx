@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { Building2, Plus, Search, UserPlus } from 'lucide-react';
+import { Building2, Plus, Search, Sparkles, UserPlus } from 'lucide-react';
 import { Badge, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
 import { superadminApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
@@ -229,14 +229,23 @@ export default function SuperadminOrganizationsPage() {
         title="Clienți A.P.C."
         description="CRM pentru asociațiile din platformă: profil, status, contact responsabil, onboarding și următorul pas."
         rightSlot={
-          <button
-            type="button"
-            onClick={() => setModalOpen(true)}
-            className="inline-flex min-h-10 items-center gap-2 rounded-2xl bg-foreground px-4 text-sm font-semibold text-background"
-          >
-            <Plus className="h-4 w-4" />
-            Adaugă A.P.C.
-          </button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Link
+              href={localizedPath('/superadmin/associations/new')}
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl border border-border/70 bg-white px-4 text-sm font-semibold text-foreground shadow-sm hover:bg-muted/70"
+            >
+              <Sparkles className="h-4 w-4" />
+              Wizard onboarding
+            </Link>
+            <button
+              type="button"
+              onClick={() => setModalOpen(true)}
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl bg-foreground px-4 text-sm font-semibold text-background"
+            >
+              <Plus className="h-4 w-4" />
+              Adaugă A.P.C.
+            </button>
+          </div>
         }
       />
 
