@@ -1,402 +1,628 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import { AlertCircle, Bell, Building2, CheckCircle2, CreditCard, FileText, Gauge, Megaphone, MessageCircle, PlusCircle, UserX, Users } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  AlertCircle,
+  ArrowRight,
+  Bell,
+  Building2,
+  CheckCircle2,
+  CreditCard,
+  FileText,
+  Gauge,
+  Megaphone,
+  MessageCircle,
+  PlusCircle,
+  UserX,
+  Users,
+} from 'lucide-react';
 import { ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
 import { formatMdl } from '@/lib/condo-admin-fallback';
-import { activityApi, announcementsApi, apartmentsApi, financeApi, invoicesApi, issuesApi, metersApi, onboardingApi, paymentsApi, residentsApi } from '@/lib/api';
+import { workbenchApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
-const fallbackRecentActivity = [
-  'Citire apă rece adăugată pentru un apartament',
-  'Factura lunii curente a fost marcată neachitată',
-  'Un locatar a confirmat primirea notificării',
-];
-
-const fallbackUrgentRequests = [
-  { title: 'Infiltrație la etaj superior', apartment: 'Apartament', status: 'Urgent' },
-  { title: 'Lipsă apă caldă pe Scara 2', apartment: 'Scara 2', status: 'Nouă' },
-  { title: 'Ușă intrare defectă', apartment: 'Bloc principal', status: 'În lucru' },
-];
-
-const fallbackLatestPayments = [
-  { apartment: 'Apt. 18', payer: 'Ionescu Maria', amount: 1860, date: '29 Apr 2026' },
-  { apartment: 'Apt. 72', payer: 'Ceban Andrei', amount: 920, date: '28 Apr 2026' },
-  { apartment: 'Apt. 11', payer: 'Rusu Elena', amount: 1240, date: '27 Apr 2026' },
-];
-
-const fallbackAnnouncements = [
-  'Lucrări de întreținere la lift pe 3 mai',
-  'Program colectare deșeuri voluminoase',
-  'Ședință APC - aprobarea bugetului lunar',
-];
-
-const defaultAssociationIdentity = {
-  shortName: 'A.P.C.',
-  legalName: 'Asociația de Proprietari din Condominiu',
-  code: '-',
-  internalNumber: '-',
+type WorkbenchItem = {
+  id?: string;
+  title?: string;
+  message?: string;
+  link?: string | null;
+  createdAt?: string;
+  apartmentNumber?: string | null;
+  staircaseName?: string | null;
+  residentName?: string | null;
+  priority?: string;
+  status?: string;
+  type?: string;
+  amount?: number;
+  method?: string;
+  paidAt?: string;
+  totalDebt?: number;
+  accountStatus?: string | null;
+  lastReadingDate?: string | null;
 };
 
-function associationNumberFromCode(code: string) {
-  return code.match(/-(\d{4})$/)?.[1] || '-';
-}
-
-function associationIdentityFromOrganization(organization: any) {
-  const code = String(organization?.associationCode || organization?.fiscalCode || '').toUpperCase();
-  const shortName = String(organization?.shortName || organization?.name || (code ? `A.P.C. ${code}` : defaultAssociationIdentity.shortName));
-  const legalName = String(
-    organization?.legalName ||
-      (code ? `Asociația de Proprietari din Condominiu ${code}` : defaultAssociationIdentity.legalName),
-  );
-  return {
-    shortName,
-    legalName,
-    code: code || '-',
-    internalNumber: associationNumberFromCode(code),
+type WorkbenchData = {
+  organization: {
+    id: string;
+    shortName: string;
+    legalName: string;
+    associationCode?: string | null;
+    associationNumber?: string | null;
   };
-}
-
-function residentHasAccount(row: any) {
-  const status = String(row?.accountStatus || row?.account_status || '').toUpperCase();
-  return Boolean(row?.userId || row?.user?.id) || status.includes('CREATED') || status.includes('ACTIVE') || status.includes('CONT CREAT');
-}
-
-type SetupStep = {
-  key: string;
-  title: string;
-  completed: boolean;
-  href: string;
-  actionLabel: string;
+  finance: {
+    totalDebt: number;
+    totalIssued: number;
+    totalPaid: number;
+    overdueInvoices: number;
+    apartmentsWithDebt: number;
+    collectionRate: number;
+  };
+  issues: {
+    newCount: number;
+    urgentCount: number;
+    inProgressCount: number;
+    latest: WorkbenchItem[];
+  };
+  meters: {
+    missingReadings: number;
+    suspiciousReadings: number;
+    latestMissing: WorkbenchItem[];
+  };
+  residents: {
+    withoutAccount: number;
+    withDebt: number;
+    latestWithDebt: WorkbenchItem[];
+  };
+  payments: {
+    recent: WorkbenchItem[];
+  };
+  tasks: {
+    dueToday: number;
+    overdue: number;
+    items: WorkbenchItem[];
+  };
+  activity: {
+    recent: WorkbenchItem[];
+  };
 };
 
-export default function AdminPage() {
-  const localizedPath = useLocalizedPath();
-  const [source, setSource] = useState<'loading' | 'api' | 'fallback'>('loading');
-  const [summary, setSummary] = useState({
-    apartments: 0,
+const emptyWorkbench: WorkbenchData = {
+  organization: {
+    id: '',
+    shortName: 'A.P.C.',
+    legalName: 'Asociația de Proprietari din Condominiu',
+    associationCode: null,
+    associationNumber: null,
+  },
+  finance: {
     totalDebt: 0,
-    missingReadings: 0,
-    openIssues: 0,
-    unpaidInvoices: 0,
-    residents: 0,
     totalIssued: 0,
     totalPaid: 0,
     overdueInvoices: 0,
     apartmentsWithDebt: 0,
     collectionRate: 0,
-    currentMonthIssued: 0,
-    currentMonthPaid: 0,
-    residentsWithoutAccount: 0,
-  });
-  const [recentActivity, setRecentActivity] = useState<string[]>([]);
-  const [urgentRequests, setUrgentRequests] = useState<typeof fallbackUrgentRequests>([]);
-  const [latestPayments, setLatestPayments] = useState<typeof fallbackLatestPayments>([]);
-  const [announcements, setAnnouncements] = useState<string[]>([]);
-  const [setup, setSetup] = useState<{
-    steps: SetupStep[];
-    progressDetails: { completed: number; total: number; percent: number; label: string };
-    nextStep?: SetupStep;
-  } | null>(null);
-  const [associationIdentity, setAssociationIdentity] = useState(defaultAssociationIdentity);
+  },
+  issues: {
+    newCount: 0,
+    urgentCount: 0,
+    inProgressCount: 0,
+    latest: [],
+  },
+  meters: {
+    missingReadings: 0,
+    suspiciousReadings: 0,
+    latestMissing: [],
+  },
+  residents: {
+    withoutAccount: 0,
+    withDebt: 0,
+    latestWithDebt: [],
+  },
+  payments: {
+    recent: [],
+  },
+  tasks: {
+    dueToday: 0,
+    overdue: 0,
+    items: [],
+  },
+  activity: {
+    recent: [],
+  },
+};
+
+const issuePriorityLabels: Record<string, string> = {
+  NORMAL: 'Normal',
+  IMPORTANT: 'Important',
+  LOW: 'Scăzută',
+  MEDIUM: 'Normală',
+  HIGH: 'Înaltă',
+  URGENT: 'Urgentă',
+};
+
+const issueStatusLabels: Record<string, string> = {
+  NEW: 'Nouă',
+  IN_PROGRESS: 'În lucru',
+  RESOLVED: 'Rezolvată',
+  WAITING: 'În așteptare',
+  CLOSED: 'Închisă',
+};
+
+const meterTypeLabels: Record<string, string> = {
+  COLD_WATER: 'Apă rece',
+  HOT_WATER: 'Apă caldă',
+  GAS: 'Gaz',
+  ELECTRICITY: 'Electricitate',
+  HEATING: 'Încălzire',
+};
+
+const paymentMethodLabels: Record<string, string> = {
+  CASH: 'Numerar',
+  BANK: 'Transfer bancar',
+  BANK_TRANSFER: 'Transfer bancar',
+  CARD: 'Card',
+  ONLINE: 'Online',
+};
+
+function formatDate(value?: string | null) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return date.toLocaleDateString('ro-RO', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function statusLabel(value?: string | null) {
+  if (!value) return 'Status necunoscut';
+  return issueStatusLabels[String(value).toUpperCase()] || value;
+}
+
+function priorityLabel(value?: string | null) {
+  if (!value) return 'Normal';
+  return issuePriorityLabels[String(value).toUpperCase()] || value;
+}
+
+function meterLabel(value?: string | null) {
+  if (!value) return 'Contor';
+  return meterTypeLabels[String(value).toUpperCase()] || value;
+}
+
+function paymentMethodLabel(value?: string | null) {
+  if (!value) return 'Plată';
+  return paymentMethodLabels[String(value).toUpperCase()] || value;
+}
+
+function safeLocalizedLink(localizedPath: (href: string) => string, href?: string | null, fallback = '/admin') {
+  return localizedPath(href || fallback);
+}
+
+export default function AdminPage() {
+  const localizedPath = useLocalizedPath();
+  const [source, setSource] = useState<'loading' | 'api' | 'error'>('loading');
+  const [error, setError] = useState('');
+  const [workbench, setWorkbench] = useState<WorkbenchData>(emptyWorkbench);
 
   useEffect(() => {
     let active = true;
-    Promise.all([
-      apartmentsApi.list(),
-      invoicesApi.list().catch(() => ({ data: [] })),
-      metersApi.list().catch(() => ({ data: [] })),
-      issuesApi.list().catch(() => ({ data: [] })),
-      residentsApi.list().catch(() => ({ data: [] })),
-      paymentsApi.list().catch(() => ({ data: [] })),
-      announcementsApi.list().catch(() => ({ data: [] })),
-      financeApi.overview().catch(() => ({ data: null })),
-      onboardingApi.adminGet().catch(() => ({ data: null })),
-      activityApi.adminList({ limit: 20 }).catch(() => ({ data: [] })),
-    ])
-      .then(([apartmentsRes, invoicesRes, metersRes, issuesRes, residentsRes, paymentsRes, announcementsRes, financeRes, onboardingRes, activityRes]) => {
-        if (!active) return;
-        const apartments = apartmentsRes.data || [];
-        const invoices = invoicesRes.data || [];
-        const meters = metersRes.data || [];
-        const issues = issuesRes.data || [];
-        const residents = residentsRes.data || [];
-        const payments = paymentsRes.data || [];
-        const apiAnnouncements = announcementsRes.data || [];
-        const unpaidInvoices = invoices.filter((invoice: any) => ['UNPAID', 'OVERDUE', 'Neachitat', 'Întârziat'].includes(String(invoice.status)));
-        const openIssues = issues.filter((issue: any) => !['RESOLVED', 'Rezolvată'].includes(String(issue.status)));
+    setSource('loading');
+    setError('');
 
-        setSummary({
-          apartments: apartments.length,
-          totalDebt: Number(financeRes.data?.totalDebt ?? unpaidInvoices.reduce((sum: number, invoice: any) => sum + Number(invoice.remainingDebt ?? invoice.finalAmount ?? invoice.amount ?? 0), 0)),
-          missingReadings: meters.filter((meter: any) => String(meter.status).toUpperCase() === 'MISSING_READING').length,
-          openIssues: openIssues.length,
-          unpaidInvoices: Number(financeRes.data?.unpaidInvoices ?? unpaidInvoices.length),
-          residents: residents.length,
-          totalIssued: Number(financeRes.data?.totalIssued ?? invoices.reduce((sum: number, invoice: any) => sum + Number(invoice.finalAmount ?? invoice.amount ?? 0), 0)),
-          totalPaid: Number(financeRes.data?.totalPaid ?? payments.reduce((sum: number, payment: any) => sum + Number(payment.amount || 0), 0)),
-          overdueInvoices: Number(financeRes.data?.overdueInvoices ?? 0),
-          apartmentsWithDebt: Number(financeRes.data?.apartmentsWithDebt ?? 0),
-          collectionRate: Number(financeRes.data?.collectionRate ?? 0),
-          currentMonthIssued: Number(financeRes.data?.currentMonthIssued ?? 0),
-          currentMonthPaid: Number(financeRes.data?.currentMonthPaid ?? 0),
-          residentsWithoutAccount: residents.filter((resident: any) => !residentHasAccount(resident)).length,
-        });
-        setUrgentRequests(
-          openIssues.slice(0, 3).map((issue: any) => ({
-            title: String(issue.title || 'Cerere'),
-            apartment: issue.apartmentNumber ? `Apt. ${issue.apartmentNumber}` : 'Spațiu comun',
-            status: String(issue.priority || issue.status || 'Nouă'),
-          })),
-        );
-        setLatestPayments(
-          payments.slice(0, 3).map((payment: any) => ({
-            apartment: payment.apartmentNumber ? `Apt. ${payment.apartmentNumber}` : 'Apartament',
-            payer: String(payment.method || 'Plată înregistrată'),
-            amount: Number(payment.amount || 0),
-            date: payment.paidAt ? new Date(payment.paidAt).toLocaleDateString('ro-RO') : '-',
-          })),
-        );
-        setAnnouncements(apiAnnouncements.slice(0, 3).map((item: any) => String(item.title || 'Anunț')));
-        if (onboardingRes.data?.organization) {
-          setAssociationIdentity(associationIdentityFromOrganization(onboardingRes.data.organization));
-        }
-        if (onboardingRes.data?.steps?.length) {
-          setSetup({
-            steps: onboardingRes.data.steps,
-            progressDetails: onboardingRes.data.progressDetails,
-            nextStep: onboardingRes.data.nextStep,
-          });
-        }
-        setRecentActivity(
-          (activityRes.data || [])
-            .slice(0, 20)
-            .map((item: any) => String(item.title || item.message || 'Activitate')),
-        );
+    workbenchApi
+      .admin()
+      .then((response) => {
+        if (!active) return;
+        setWorkbench({ ...emptyWorkbench, ...(response.data || {}) });
         setSource('api');
       })
       .catch(() => {
         if (!active) return;
-        setSummary({
-          apartments: 142,
-          totalDebt: 86450,
-          missingReadings: 23,
-          openIssues: 12,
-          unpaidInvoices: 37,
-          residents: 98,
-          totalIssued: 218400,
-          totalPaid: 131950,
-          overdueInvoices: 37,
-          apartmentsWithDebt: 37,
-          collectionRate: 60,
-          currentMonthIssued: 0,
-          currentMonthPaid: 0,
-          residentsWithoutAccount: 18,
-        });
-        setRecentActivity(fallbackRecentActivity);
-        setUrgentRequests(fallbackUrgentRequests);
-        setLatestPayments(fallbackLatestPayments);
-        setAnnouncements(fallbackAnnouncements);
-        setAssociationIdentity({
-          shortName: 'A.P.C. temporară',
-          legalName: 'Date temporare — API indisponibil',
-          code: '-',
-          internalNumber: '-',
-        });
-        setSetup(null);
-        setSource('fallback');
+        setWorkbench(emptyWorkbench);
+        setError('Nu am putut încărca panoul administratorului.');
+        setSource('error');
       });
+
     return () => {
       active = false;
     };
   }, []);
 
-  const summaryCards = [
-    { label: 'Total apartamente', value: String(summary.apartments), description: 'Unități locative administrate', icon: <Building2 className="h-5 w-5" /> },
-    { label: 'Datorii totale', value: formatMdl(summary.totalDebt), description: 'Sold total curent', icon: <CreditCard className="h-5 w-5" />, tone: 'danger' as const },
-    { label: 'Citiri lipsă', value: String(summary.missingReadings), description: 'Contoare de verificat', icon: <Gauge className="h-5 w-5" />, tone: 'warning' as const },
-    { label: 'Cereri deschise', value: String(summary.openIssues), description: 'În lucru sau noi', icon: <MessageCircle className="h-5 w-5" />, tone: 'warning' as const },
-    { label: 'Facturi neachitate', value: String(summary.unpaidInvoices), description: 'Pentru luna curentă', icon: <FileText className="h-5 w-5" />, tone: 'danger' as const },
-    { label: 'Locatari conectați', value: String(summary.residents), description: 'Persoane în evidență', icon: <Users className="h-5 w-5" />, tone: 'success' as const },
-    { label: 'Locatari fără cont', value: String(summary.residentsWithoutAccount), description: 'Necesită invitație', icon: <UserX className="h-5 w-5" />, tone: 'warning' as const },
-  ];
-  const financeCards = [
-    { label: 'Total emis', value: formatMdl(summary.totalIssued), description: 'Facturi create', icon: <FileText className="h-5 w-5" /> },
-    { label: 'Total încasat', value: formatMdl(summary.totalPaid), description: 'Plăți confirmate', icon: <CreditCard className="h-5 w-5" />, tone: 'success' as const },
-    { label: 'Apartamente cu datorii', value: String(summary.apartmentsWithDebt), description: `${summary.overdueInvoices} facturi întârziate`, icon: <AlertCircle className="h-5 w-5" />, tone: 'danger' as const },
-    { label: 'Rată încasare', value: `${summary.collectionRate.toLocaleString('ro-RO')}%`, description: `${formatMdl(summary.currentMonthPaid)} luna curentă`, icon: <Gauge className="h-5 w-5" />, tone: 'warning' as const },
+  const priorityItems = useMemo(() => {
+    const items = [];
+    if (workbench.issues.urgentCount > 0) {
+      items.push({
+        title: 'Cereri urgente',
+        value: String(workbench.issues.urgentCount),
+        description: 'Necesită răspuns rapid',
+        href: '/admin/issues',
+        tone: 'danger' as const,
+      });
+    }
+    if (workbench.finance.overdueInvoices > 0) {
+      items.push({
+        title: 'Facturi întârziate',
+        value: String(workbench.finance.overdueInvoices),
+        description: 'De urmărit cu locatarii',
+        href: '/admin/invoices',
+        tone: 'danger' as const,
+      });
+    }
+    if (workbench.meters.missingReadings > 0) {
+      items.push({
+        title: 'Citiri lipsă',
+        value: String(workbench.meters.missingReadings),
+        description: 'Contoare fără citire curentă',
+        href: '/admin/meters',
+        tone: 'warning' as const,
+      });
+    }
+    if (workbench.tasks.dueToday + workbench.tasks.overdue > 0) {
+      items.push({
+        title: 'Sarcini scadente',
+        value: String(workbench.tasks.dueToday + workbench.tasks.overdue),
+        description: `${workbench.tasks.overdue} întârziate`,
+        href: '/admin',
+        tone: 'warning' as const,
+      });
+    }
+    return items;
+  }, [workbench]);
+
+  const kpiCards = [
+    {
+      label: 'Restanțe totale',
+      value: formatMdl(workbench.finance.totalDebt),
+      description: `${workbench.finance.apartmentsWithDebt} apartamente cu datorii`,
+      icon: <CreditCard className="h-5 w-5" />,
+      tone: workbench.finance.totalDebt > 0 ? ('danger' as const) : ('success' as const),
+    },
+    {
+      label: 'Facturi întârziate',
+      value: String(workbench.finance.overdueInvoices),
+      description: 'Facturi trecute de scadență',
+      icon: <FileText className="h-5 w-5" />,
+      tone: workbench.finance.overdueInvoices > 0 ? ('danger' as const) : ('success' as const),
+    },
+    {
+      label: 'Cereri urgente',
+      value: String(workbench.issues.urgentCount),
+      description: `${workbench.issues.newCount} cereri noi`,
+      icon: <MessageCircle className="h-5 w-5" />,
+      tone: workbench.issues.urgentCount > 0 ? ('warning' as const) : ('success' as const),
+    },
+    {
+      label: 'Citiri lipsă',
+      value: String(workbench.meters.missingReadings),
+      description: `${workbench.meters.suspiciousReadings} citiri suspecte`,
+      icon: <Gauge className="h-5 w-5" />,
+      tone: workbench.meters.missingReadings > 0 ? ('warning' as const) : ('success' as const),
+    },
+    {
+      label: 'Locatari fără cont',
+      value: String(workbench.residents.withoutAccount),
+      description: 'Necesită invitație',
+      icon: <UserX className="h-5 w-5" />,
+      tone: workbench.residents.withoutAccount > 0 ? ('warning' as const) : ('success' as const),
+    },
+    {
+      label: 'Plăți recente',
+      value: String(workbench.payments.recent.length),
+      description: 'Ultimele înregistrări',
+      icon: <Bell className="h-5 w-5" />,
+    },
   ];
 
   return (
     <div className="space-y-5 pb-4">
       <PageHeader
-        title="Acasă"
-        description="CRM operațional pentru locatari, apartamente, datorii, cereri și activitatea A.P.C."
+        title="Panou administrator"
+        description={`Lucru zilnic pentru ${workbench.organization.shortName || 'A.P.C.'}`}
         rightSlot={
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-              {source === 'loading' ? 'Se încarcă...' : source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
+              {source === 'loading' ? 'Se încarcă datele...' : source === 'api' ? 'Date reale' : 'API-ul nu este disponibil temporar'}
             </span>
-            <ButtonLink href={localizedPath('/admin/announcements')} variant="secondary">Publică anunț</ButtonLink>
+            <ButtonLink href={localizedPath('/admin/announcements')} variant="secondary">
+              <Megaphone className="h-4 w-4" /> Publică anunț
+            </ButtonLink>
           </div>
         }
       />
+
+      {source === 'loading' ? (
+        <Card className="p-5">
+          <p className="text-sm font-medium text-foreground">Se încarcă panoul administratorului...</p>
+          <p className="mt-1 text-sm text-muted-foreground">Pregătim datele operaționale ale asociației.</p>
+        </Card>
+      ) : null}
+
+      {error ? (
+        <Card className="border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          {error} Datele reale vor apărea imediat ce API-ul răspunde.
+        </Card>
+      ) : null}
 
       <Card className="p-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Asociația curentă</p>
-            <h2 className="mt-1 text-xl font-semibold text-foreground">{associationIdentity.shortName}</h2>
-            <p className="mt-1 text-sm text-muted-foreground">{associationIdentity.legalName}</p>
+            <h2 className="mt-1 text-xl font-semibold text-foreground">{workbench.organization.shortName}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{workbench.organization.legalName}</p>
           </div>
           <div className="grid gap-2 text-sm sm:grid-cols-2">
-            <span className="rounded-2xl border border-border/70 bg-muted/25 px-3 py-2 font-medium text-foreground">Cod APC: {associationIdentity.code}</span>
-            <span className="rounded-2xl border border-border/70 bg-muted/25 px-3 py-2 font-medium text-foreground">Nr. intern: {associationIdentity.internalNumber}</span>
+            <span className="rounded-2xl border border-border/70 bg-muted/25 px-3 py-2 font-medium text-foreground">
+              Cod APC: {workbench.organization.associationCode || '-'}
+            </span>
+            <span className="rounded-2xl border border-border/70 bg-muted/25 px-3 py-2 font-medium text-foreground">
+              Nr. intern: {workbench.organization.associationNumber || '-'}
+            </span>
           </div>
         </div>
       </Card>
 
-      {setup ? (
-        <Card className="p-4">
-          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-            <div>
-              <p className="text-sm font-semibold text-foreground">Configurare inițială</p>
-              <p className="mt-1 text-sm text-muted-foreground">{setup.progressDetails.label}</p>
-            </div>
-            {setup.nextStep && !setup.nextStep.completed ? (
-              <ButtonLink href={localizedPath(setup.nextStep.href)} variant="primary">
-                {setup.nextStep.actionLabel}
-              </ButtonLink>
-            ) : null}
-          </div>
-          <div className="mt-4 h-2 rounded-full bg-muted">
-            <div className="h-2 rounded-full bg-primary transition-all" style={{ width: `${setup.progressDetails.percent}%` }} />
-          </div>
-          <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-            {setup.steps.map((step) => (
-              <Link
-                key={step.key}
-                href={localizedPath(step.href)}
-                className="flex items-center gap-2 rounded-2xl border border-border/60 bg-muted/25 px-3 py-2 text-sm hover:bg-muted/40"
-              >
-                <CheckCircle2 className={`h-4 w-4 ${step.completed ? 'text-emerald-600' : 'text-muted-foreground'}`} />
-                <span className={step.completed ? 'text-foreground' : 'text-muted-foreground'}>{step.title}</span>
-              </Link>
-            ))}
-          </div>
-        </Card>
-      ) : null}
-
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {summaryCards.map((card) => (
+        {kpiCards.map((card) => (
           <StatCard key={card.label} {...card} />
         ))}
       </section>
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {financeCards.map((card) => (
-          <StatCard key={card.label} {...card} />
-        ))}
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+      <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
         <Card>
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-semibold text-foreground">Activitate recentă</p>
-              <p className="text-sm text-muted-foreground">Ultimele evenimente administrative</p>
-            </div>
-            <Bell className="h-5 w-5 text-muted-foreground" />
-          </div>
-          <div className="mt-4 space-y-2">
-            {recentActivity.map((item) => (
-              <div key={item} className="rounded-2xl border border-border/60 bg-muted/35 px-3 py-2 text-sm text-foreground">
-                {item}
-              </div>
-            ))}
-            {!recentActivity.length ? <p className="text-sm text-muted-foreground">Nu există activitate recentă.</p> : null}
-          </div>
-        </Card>
-
-        <Card>
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold text-foreground">Cereri urgente</p>
-              <p className="text-sm text-muted-foreground">Necesită atenție rapidă</p>
+              <p className="text-sm font-semibold text-foreground">Priorități azi</p>
+              <p className="text-sm text-muted-foreground">Elemente care cer atenția administratorului.</p>
             </div>
             <AlertCircle className="h-5 w-5 text-amber-600" />
           </div>
-          <div className="mt-4 space-y-2">
-            {urgentRequests.map((item) => (
-              <Link key={item.title} href={localizedPath('/admin/issues')} className="block rounded-2xl border border-border/60 bg-white px-3 py-2 text-sm hover:bg-muted/40">
-                <span className="font-medium text-foreground">{item.title}</span>
-                <span className="mt-1 block text-xs text-muted-foreground">{item.apartment} · {item.status}</span>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            {priorityItems.map((item) => (
+              <Link
+                key={item.title}
+                href={localizedPath(item.href)}
+                className="rounded-2xl border border-border/60 bg-white p-3 transition hover:bg-muted/40"
+              >
+                <span className="text-xs font-semibold uppercase text-muted-foreground">{item.title}</span>
+                <span className={`mt-2 block text-2xl font-semibold ${item.tone === 'danger' ? 'text-red-700' : 'text-amber-700'}`}>
+                  {item.value}
+                </span>
+                <span className="mt-1 block text-xs text-muted-foreground">{item.description}</span>
               </Link>
             ))}
-            {!urgentRequests.length ? <p className="text-sm text-muted-foreground">Nu există cereri urgente.</p> : null}
+            {!priorityItems.length ? (
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 sm:col-span-2">
+                Nu există priorități urgente azi.
+              </div>
+            ) : null}
+          </div>
+        </Card>
+
+        <Card>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Datorii și plăți</p>
+              <p className="text-sm text-muted-foreground">Situația financiară curentă.</p>
+            </div>
+            <CreditCard className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <div className="mt-4 grid gap-2">
+            <div className="rounded-2xl border border-border/60 bg-muted/30 p-3">
+              <p className="text-xs font-semibold uppercase text-muted-foreground">Total emis</p>
+              <p className="mt-1 text-lg font-semibold text-foreground">{formatMdl(workbench.finance.totalIssued)}</p>
+            </div>
+            <div className="rounded-2xl border border-border/60 bg-muted/30 p-3">
+              <p className="text-xs font-semibold uppercase text-muted-foreground">Total achitat</p>
+              <p className="mt-1 text-lg font-semibold text-foreground">{formatMdl(workbench.finance.totalPaid)}</p>
+            </div>
+            <div className="rounded-2xl border border-border/60 bg-muted/30 p-3">
+              <p className="text-xs font-semibold uppercase text-muted-foreground">Rată de colectare</p>
+              <p className="mt-1 text-lg font-semibold text-foreground">{workbench.finance.collectionRate.toLocaleString('ro-RO')}%</p>
+            </div>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <ButtonLink href={localizedPath('/admin/payments')} variant="secondary">Vezi plăți</ButtonLink>
+            <ButtonLink href={localizedPath('/admin/invoices')} variant="secondary">Vezi facturi</ButtonLink>
           </div>
         </Card>
       </section>
-
-      <Card>
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-foreground">Sarcini importante</p>
-            <p className="text-sm text-muted-foreground">Follow-up-uri interne pentru locatari, apartamente și cereri.</p>
-          </div>
-          <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">
-            Funcție în lucru
-          </span>
-        </div>
-        <p className="mt-4 rounded-2xl border border-border/70 bg-muted/25 p-4 text-sm text-muted-foreground">
-          Modulul de sarcini interne pentru Admin necesită un model dedicat în backend. Locatarii nu vor vedea aceste sarcini.
-        </p>
-      </Card>
 
       <section className="grid gap-4 xl:grid-cols-2">
         <Card>
           <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-foreground">Ultimele plăți</p>
-            <Link href={localizedPath('/admin/payments')} className="text-xs font-semibold text-primary">Vezi toate</Link>
+            <div>
+              <p className="text-sm font-semibold text-foreground">Cereri urgente</p>
+              <p className="text-sm text-muted-foreground">Cereri noi sau importante de la locatari.</p>
+            </div>
+            <Link href={localizedPath('/admin/issues')} className="text-xs font-semibold text-primary">
+              Vezi cereri
+            </Link>
           </div>
           <div className="mt-4 space-y-2">
-            {latestPayments.map((payment) => (
-              <div key={`${payment.apartment}-${payment.date}`} className="flex items-center justify-between gap-3 rounded-2xl border border-border/60 bg-muted/35 px-3 py-2">
-                <div>
-                  <p className="text-sm font-medium text-foreground">{payment.apartment}</p>
-                  <p className="text-xs text-muted-foreground">{payment.payer} · {payment.date}</p>
-                </div>
-                <p className="text-sm font-semibold text-foreground">{formatMdl(payment.amount)}</p>
-              </div>
+            {workbench.issues.latest.map((issue, index) => (
+              <Link
+                key={issue.id || `${issue.title}-${index}`}
+                href={safeLocalizedLink(localizedPath, issue.link, '/admin/issues')}
+                className="block rounded-2xl border border-border/60 bg-white px-3 py-2 text-sm hover:bg-muted/40"
+              >
+                <span className="font-medium text-foreground">{issue.title || 'Cerere'}</span>
+                <span className="mt-1 block text-xs text-muted-foreground">
+                  {issue.apartmentNumber ? `Apt. ${issue.apartmentNumber}` : 'Spațiu comun'}
+                  {issue.staircaseName ? ` · ${issue.staircaseName}` : ''} · {priorityLabel(issue.priority)} · {statusLabel(issue.status)}
+                </span>
+              </Link>
             ))}
-            {!latestPayments.length ? <p className="text-sm text-muted-foreground">Nu există plăți încă.</p> : null}
+            {!workbench.issues.latest.length ? <p className="text-sm text-muted-foreground">Nu există cereri urgente.</p> : null}
           </div>
         </Card>
 
         <Card>
           <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-foreground">Anunțuri recente</p>
-            <Link href={localizedPath('/admin/announcements')} className="text-xs font-semibold text-primary">Avizier</Link>
+            <div>
+              <p className="text-sm font-semibold text-foreground">Citiri contoare</p>
+              <p className="text-sm text-muted-foreground">Apartamente cu citiri lipsă sau vechi.</p>
+            </div>
+            <Link href={localizedPath('/admin/meters')} className="text-xs font-semibold text-primary">
+              Vezi contoare
+            </Link>
           </div>
           <div className="mt-4 space-y-2">
-            {announcements.map((title) => (
-              <div key={title} className="rounded-2xl border border-border/60 bg-muted/35 px-3 py-2 text-sm text-foreground">
-                {title}
+            {workbench.meters.latestMissing.map((meter, index) => (
+              <Link
+                key={meter.id || `${meter.type}-${index}`}
+                href={localizedPath('/admin/meters')}
+                className="block rounded-2xl border border-border/60 bg-white px-3 py-2 text-sm hover:bg-muted/40"
+              >
+                <span className="font-medium text-foreground">{meterLabel(meter.type)}</span>
+                <span className="mt-1 block text-xs text-muted-foreground">
+                  {meter.apartmentNumber ? `Apt. ${meter.apartmentNumber}` : 'Apartament'} · {meter.staircaseName || 'scară neindicată'} · ultima citire:{' '}
+                  {formatDate(meter.lastReadingDate)}
+                </span>
+              </Link>
+            ))}
+            {!workbench.meters.latestMissing.length ? <p className="text-sm text-muted-foreground">Nu există citiri lipsă.</p> : null}
+          </div>
+        </Card>
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-2">
+        <Card>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Locatari de urmărit</p>
+              <p className="text-sm text-muted-foreground">Datorii și conturi care necesită acțiune.</p>
+            </div>
+            <Link href={localizedPath('/admin/residents')} className="text-xs font-semibold text-primary">
+              Locatari
+            </Link>
+          </div>
+          {workbench.residents.withoutAccount > 0 ? (
+            <Link
+              href={localizedPath('/admin/residents')}
+              className="mt-4 flex items-center justify-between rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 hover:bg-amber-100"
+            >
+              <span>{workbench.residents.withoutAccount} locatari nu au cont creat.</span>
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          ) : null}
+          <div className="mt-4 space-y-2">
+            {workbench.residents.latestWithDebt.map((resident, index) => (
+              <Link
+                key={resident.id || `${resident.apartmentNumber}-${index}`}
+                href={safeLocalizedLink(localizedPath, resident.link, '/admin/apartments')}
+                className="flex items-center justify-between gap-3 rounded-2xl border border-border/60 bg-white px-3 py-2 text-sm hover:bg-muted/40"
+              >
+                <div>
+                  <p className="font-medium text-foreground">{resident.residentName || 'Locatar neindicat'}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Apt. {resident.apartmentNumber || '-'} {resident.staircaseName ? `· ${resident.staircaseName}` : ''}
+                  </p>
+                </div>
+                <span className="text-sm font-semibold text-red-700">{formatMdl(resident.totalDebt || 0)}</span>
+              </Link>
+            ))}
+            {!workbench.residents.latestWithDebt.length ? <p className="text-sm text-muted-foreground">Nu există datorii înregistrate.</p> : null}
+          </div>
+        </Card>
+
+        <Card>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Plăți recente</p>
+              <p className="text-sm text-muted-foreground">Ultimele plăți înregistrate în sistem.</p>
+            </div>
+            <Link href={localizedPath('/admin/payments')} className="text-xs font-semibold text-primary">
+              Vezi toate
+            </Link>
+          </div>
+          <div className="mt-4 space-y-2">
+            {workbench.payments.recent.map((payment, index) => (
+              <Link
+                key={payment.id || `${payment.amount}-${index}`}
+                href={localizedPath('/admin/payments')}
+                className="flex items-center justify-between gap-3 rounded-2xl border border-border/60 bg-white px-3 py-2 hover:bg-muted/40"
+              >
+                <div>
+                  <p className="text-sm font-medium text-foreground">
+                    {payment.apartmentNumber ? `Apt. ${payment.apartmentNumber}` : 'Apartament'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {paymentMethodLabel(payment.method)} · {formatDate(payment.paidAt)}
+                  </p>
+                </div>
+                <p className="text-sm font-semibold text-foreground">{formatMdl(payment.amount || 0)}</p>
+              </Link>
+            ))}
+            {!workbench.payments.recent.length ? <p className="text-sm text-muted-foreground">Nu există plăți încă.</p> : null}
+          </div>
+        </Card>
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-2">
+        <Card>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Activitate recentă</p>
+              <p className="text-sm text-muted-foreground">Evenimente administrative din asociație.</p>
+            </div>
+            <Bell className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <div className="mt-4 space-y-2">
+            {workbench.activity.recent.map((activity, index) => (
+              <div key={activity.id || `${activity.title}-${index}`} className="rounded-2xl border border-border/60 bg-muted/35 px-3 py-2">
+                <p className="text-sm font-medium text-foreground">{activity.title || 'Activitate'}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{activity.message || formatDate(activity.createdAt)}</p>
               </div>
             ))}
-            {!announcements.length ? <p className="text-sm text-muted-foreground">Nu există anunțuri încă. Publică primul anunț pe avizier.</p> : null}
+            {!workbench.activity.recent.length ? <p className="text-sm text-muted-foreground">Nu există activitate recentă.</p> : null}
+          </div>
+        </Card>
+
+        <Card>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Sarcini / follow-up</p>
+              <p className="text-sm text-muted-foreground">Sarcini operaționale ale administratorului.</p>
+            </div>
+            <CheckCircle2 className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <div className="mt-4 space-y-2">
+            {workbench.tasks.items.map((task, index) => (
+              <div key={task.id || `${task.title}-${index}`} className="rounded-2xl border border-border/60 bg-white px-3 py-2 text-sm">
+                <p className="font-medium text-foreground">{task.title || 'Sarcină'}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{task.message || statusLabel(task.status)}</p>
+              </div>
+            ))}
+            {!workbench.tasks.items.length ? <p className="text-sm text-muted-foreground">Nu există sarcini active.</p> : null}
           </div>
         </Card>
       </section>
 
       <Card>
         <p className="text-sm font-semibold text-foreground">Acțiuni rapide</p>
-        <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          <ButtonLink href={localizedPath('/admin/apartments')} variant="primary"><PlusCircle className="h-4 w-4" /> Adaugă apartament</ButtonLink>
-          <ButtonLink href={localizedPath('/admin/residents')} variant="secondary"><Users className="h-4 w-4" /> Adaugă locatar</ButtonLink>
-          <ButtonLink href={localizedPath('/admin/invoices')} variant="secondary"><FileText className="h-4 w-4" /> Emite facturi</ButtonLink>
-          <ButtonLink href={localizedPath('/admin/announcements')} variant="secondary"><Megaphone className="h-4 w-4" /> Publică anunț</ButtonLink>
+        <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <ButtonLink href={localizedPath('/admin/apartments')} variant="primary">
+            <PlusCircle className="h-4 w-4" /> Adaugă apartament
+          </ButtonLink>
+          <ButtonLink href={localizedPath('/admin/residents')} variant="secondary">
+            <Users className="h-4 w-4" /> Adaugă locatar
+          </ButtonLink>
+          <ButtonLink href={localizedPath('/admin/meters')} variant="secondary">
+            <Gauge className="h-4 w-4" /> Adaugă contor
+          </ButtonLink>
+          <ButtonLink href={localizedPath('/admin/invoices')} variant="secondary">
+            <FileText className="h-4 w-4" /> Emite facturi
+          </ButtonLink>
+          <ButtonLink href={localizedPath('/admin/payments')} variant="secondary">
+            <CreditCard className="h-4 w-4" /> Înregistrează plată
+          </ButtonLink>
+          <ButtonLink href={localizedPath('/admin/announcements')} variant="secondary">
+            <Megaphone className="h-4 w-4" /> Publică anunț
+          </ButtonLink>
+          <ButtonLink href={localizedPath('/admin/issues')} variant="secondary">
+            <MessageCircle className="h-4 w-4" /> Vezi cereri
+          </ButtonLink>
+          <ButtonLink href={localizedPath('/admin/imports/apartments')} variant="secondary">
+            <Building2 className="h-4 w-4" /> Importă apartamente
+          </ButtonLink>
         </div>
       </Card>
     </div>

@@ -1196,6 +1196,10 @@ export const financeApi = {
   overview: () => apiRequest<any>('/api/admin/finance-overview'),
 };
 
+export const workbenchApi = {
+  admin: () => apiRequest<any>('/api/admin/workbench'),
+};
+
 export const paymentsApi = {
   list: () => apiRequest<any[]>('/payments'),
   get: (id: string) => apiRequest<any>(`/payments/${id}`),
