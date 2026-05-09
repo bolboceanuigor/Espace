@@ -15,6 +15,11 @@ export class SaasManagementController {
     return this.saasManagementService.getOverview();
   }
 
+  @Get(['superadmin/workbench', 'api/superadmin/workbench'])
+  getWorkbench() {
+    return this.saasManagementService.getWorkbench();
+  }
+
   @Get(['plans', 'api/plans'])
   listPlans() {
     return this.saasManagementService.listPlans();

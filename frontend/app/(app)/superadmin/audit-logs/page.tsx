@@ -18,31 +18,36 @@ export default function SuperadminAuditLogsPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold text-foreground">Global audit logs</h1>
+      <h1 className="text-xl font-semibold text-foreground">Jurnal activitate platformă</h1>
       <div className="rounded-xl border border-border/70 bg-card p-4">
         <div className="grid grid-cols-1 gap-2 md:grid-cols-5">
-          <input className="input" placeholder="Organization ID" value={filters.organizationId} onChange={(e) => setFilters((p) => ({ ...p, organizationId: e.target.value }))} />
-          <input className="input" placeholder="Action" value={filters.action} onChange={(e) => setFilters((p) => ({ ...p, action: e.target.value }))} />
-          <input className="input" placeholder="Entity type" value={filters.entityType} onChange={(e) => setFilters((p) => ({ ...p, entityType: e.target.value }))} />
+          <input className="input" placeholder="ID asociație" value={filters.organizationId} onChange={(e) => setFilters((p) => ({ ...p, organizationId: e.target.value }))} />
+          <input className="input" placeholder="Acțiune" value={filters.action} onChange={(e) => setFilters((p) => ({ ...p, action: e.target.value }))} />
+          <input className="input" placeholder="Tip înregistrare" value={filters.entityType} onChange={(e) => setFilters((p) => ({ ...p, entityType: e.target.value }))} />
           <input className="input" type="date" value={filters.from} onChange={(e) => setFilters((p) => ({ ...p, from: e.target.value }))} />
           <input className="input" type="date" value={filters.to} onChange={(e) => setFilters((p) => ({ ...p, to: e.target.value }))} />
         </div>
         <button className="mt-3 rounded-md border border-border/70 px-3 py-2 text-sm" onClick={load}>
-          Apply filters
+          Aplică filtrele
         </button>
       </div>
       <div className="space-y-2">
         {rows.map((row) => (
           <div key={row.id} className="rounded-xl border border-border/70 bg-card p-3">
             <p className="text-sm font-medium text-foreground">
-              {row.action} • {row.entityType} • {row.organization?.name || row.organizationId || 'GLOBAL'}
+              {row.action} • {row.entityType} • {row.organization?.name || row.organizationId || 'Platformă'}
             </p>
             <p className="text-xs text-muted-foreground">
-              {new Date(row.createdAt).toLocaleString()} • {row.user?.email || row.userId}
+              {new Date(row.createdAt).toLocaleString('ro-RO')} • {row.user?.email || row.userId}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">{row.description}</p>
           </div>
         ))}
+        {!rows.length ? (
+          <div className="rounded-xl border border-border/70 bg-card p-3 text-sm text-muted-foreground">
+            Nu există activitate recentă.
+          </div>
+        ) : null}
       </div>
     </div>
   );

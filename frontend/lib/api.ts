@@ -1678,6 +1678,8 @@ export const onboardingApi = {
 };
 
 export const superadminApi = {
+  workbench: () =>
+    apiRequest<any>('/api/superadmin/workbench'),
   overview: () =>
     apiRequest<any>('/superadmin/overview'),
   listPublicOrganizations: () =>

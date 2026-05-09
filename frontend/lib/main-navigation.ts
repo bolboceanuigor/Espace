@@ -47,7 +47,7 @@ export const SUPERADMIN_NAVIGATION_ITEMS: MainNavigationItem[] = [
   { key: 'administrators', label: 'Administratori', href: '/superadmin/admins' },
   { key: 'tasks', label: 'Sarcini', href: '/superadmin/tasks' },
   { key: 'subscriptions', label: 'Planuri', href: '/superadmin/subscriptions' },
-  { key: 'globalSettings', label: 'Setări', href: '/superadmin/system/status' },
+  { key: 'globalSettings', label: 'Status sistem', href: '/superadmin/system/status' },
 ];
 
 export const ADMIN_NAVIGATION_ITEMS: MainNavigationItem[] = [
