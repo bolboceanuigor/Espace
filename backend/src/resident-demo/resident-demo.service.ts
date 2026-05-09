@@ -510,6 +510,56 @@ export class ResidentDemoService {
     };
   }
 
+  private toOrganizationIdentity(organization: any) {
+    const associationCode = typeof organization?.fiscalCode === 'string' ? organization.fiscalCode : '';
+    return {
+      id: organization?.id ?? null,
+      shortName: organization?.name || (associationCode ? `A.P.C. ${associationCode}` : 'A.P.C.'),
+      legalName:
+        organization?.legalName ||
+        (associationCode ? `Asociația de Proprietari din Condominiu ${associationCode}` : 'Asociația de Proprietari din Condominiu'),
+      associationCode: associationCode || null,
+      associationNumber: associationCode.match(/-(\d{4})$/)?.[1] || null,
+    };
+  }
+
+  private toPrimaryApartment(apartment: any) {
+    if (!apartment) return null;
+    return {
+      id: apartment.id,
+      number: apartment.number,
+      staircase: apartment.staircase?.name ?? null,
+      building: apartment.building?.name ?? null,
+      floor: apartment.floor,
+      areaM2: apartment.areaM2,
+      rooms: apartment.rooms,
+      relationRole: apartment.relationRole,
+    };
+  }
+
+  private unpackDocumentMetadata(fileType?: string | null) {
+    const parts = String(fileType || '').split(':');
+    return {
+      category: parts[1] || 'ALTUL',
+      visibility: parts[2] || 'RESIDENT_VISIBLE',
+    };
+  }
+
+  private toDocument(row: any) {
+    const metadata = this.unpackDocumentMetadata(row.fileType);
+    return {
+      id: row.id,
+      title: row.title,
+      description: row.description,
+      category: metadata.category,
+      visibility: metadata.visibility,
+      fileUrl: row.fileUrl,
+      fileName: row.fileName,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    };
+  }
+
   async listInvoices(user: MvpUser) {
     const scope = await this.getResidentScope(user);
     if (!scope.apartmentIds.length) return [];
@@ -759,6 +809,123 @@ export class ResidentDemoService {
     });
 
     return announcements.map((announcement) => this.toAnnouncement(announcement));
+  }
+
+  async listResidentDocuments(user: MvpUser, take = 5) {
+    const documents = await this.prisma.document.findMany({
+      where: {
+        organizationId: user.organizationId,
+        fileType: { contains: ':RESIDENT_VISIBLE:' },
+      },
+      orderBy: { createdAt: 'desc' },
+      take,
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        fileUrl: true,
+        fileName: true,
+        fileType: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    return documents.map((document) => this.toDocument(document));
+  }
+
+  async getResidentHome(user: MvpUser) {
+    const scope = await this.getResidentScope(user);
+    const organization = await this.organizationFromUser(user);
+
+    if (!scope.apartmentIds.length) {
+      return {
+        resident: scope.resident,
+        organization: this.toOrganizationIdentity(organization),
+        apartments: [],
+        primaryApartment: null,
+        finance: {
+          totalDebt: 0,
+          unpaidInvoicesCount: 0,
+          overdueInvoicesCount: 0,
+          nextDueDate: null,
+          lastPaymentDate: null,
+          status: 'NO_APARTMENT',
+        },
+        meters: { total: 0, missingReadings: 0, latest: [] },
+        issues: { activeCount: 0, latest: [] },
+        announcements: { latest: [] },
+        documents: { latest: [] },
+        emptyStateMessage: this.emptyResidentMessage(),
+      };
+    }
+
+    const [invoices, payments, meters, issues, announcements, documents] = await Promise.all([
+      this.listInvoices(user),
+      this.listPayments(user),
+      this.listMeters(user),
+      this.listIssues(user),
+      this.listAnnouncements(user),
+      this.listResidentDocuments(user, 5),
+    ]);
+    const openInvoices = invoices.filter((invoice) => Number(invoice.remainingAmount ?? invoice.amount ?? 0) > 0);
+    const overdueInvoices = openInvoices.filter(
+      (invoice) => invoice.status === InvoiceStatus.OVERDUE || (invoice.dueDate && new Date(invoice.dueDate) < new Date()),
+    );
+    const activeIssues = issues.filter((issue) => ![IssueStatus.RESOLVED, IssueStatus.CLOSED].includes(issue.status));
+    const missingMeters = meters.filter((meter) => meter.status === MeterStatus.MISSING_READING || !meter.lastReading);
+    const nextDueInvoice = [...openInvoices].sort((a, b) => {
+      const left = a.dueDate ? new Date(a.dueDate).getTime() : Number.MAX_SAFE_INTEGER;
+      const right = b.dueDate ? new Date(b.dueDate).getTime() : Number.MAX_SAFE_INTEGER;
+      return left - right;
+    })[0];
+    const confirmedPayments = payments.filter(
+      (payment) => payment.status === PaymentStatus.CONFIRMED || String(payment.status).toUpperCase() === 'CONFIRMED',
+    );
+    const lastPayment = [...confirmedPayments].sort((a, b) => {
+      const left = a.paidAt ? new Date(a.paidAt).getTime() : 0;
+      const right = b.paidAt ? new Date(b.paidAt).getTime() : 0;
+      return right - left;
+    })[0];
+    const totalInvoiced = this.money(invoices.reduce((sum, invoice) => sum + Number(invoice.amount || 0), 0));
+    const totalPaid = this.confirmedPaymentTotal(payments);
+    const totalDebt = this.money(Math.max(totalInvoiced - totalPaid, 0));
+
+    return {
+      resident: scope.resident
+        ? {
+            ...scope.resident,
+            role: scope.primaryApartment?.relationRole ?? null,
+          }
+        : null,
+      organization: this.toOrganizationIdentity(organization),
+      apartments: scope.apartments.map((apartment) => this.toPrimaryApartment(apartment)),
+      primaryApartment: this.toPrimaryApartment(scope.primaryApartment),
+      finance: {
+        totalDebt,
+        unpaidInvoicesCount: openInvoices.length,
+        overdueInvoicesCount: overdueInvoices.length,
+        nextDueDate: nextDueInvoice?.dueDate ?? null,
+        lastPaymentDate: lastPayment?.paidAt ?? lastPayment?.createdAt ?? null,
+        status: overdueInvoices.length ? 'OVERDUE' : openInvoices.length ? 'UNPAID' : 'PAID',
+      },
+      meters: {
+        total: meters.length,
+        missingReadings: missingMeters.length,
+        latest: meters.slice(0, 5),
+      },
+      issues: {
+        activeCount: activeIssues.length,
+        latest: activeIssues.slice(0, 5),
+      },
+      announcements: {
+        latest: announcements.slice(0, 5),
+      },
+      documents: {
+        latest: documents.slice(0, 5),
+      },
+      emptyStateMessage: null,
+    };
   }
 
   async getResidentContext(user: MvpUser) {

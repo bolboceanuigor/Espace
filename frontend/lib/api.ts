@@ -1034,6 +1034,7 @@ export const messagesMvpApi = {
 };
 
 export const residentDemoApi = {
+  home: () => apiRequest<any>('/resident/home'),
   context: () => apiRequest<any>('/resident/me'),
   financeSummary: () => apiRequest<any>('/resident/finance-summary'),
   invoices: () => apiRequest<any[]>('/resident/invoices'),

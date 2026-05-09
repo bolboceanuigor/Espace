@@ -16,6 +16,11 @@ export class ResidentDemoController {
     return this.residentDemoService.getResidentContext(user);
   }
 
+  @Get(['resident/home', 'api/resident/home'])
+  getResidentHome(@CurrentUser() user: MvpUser) {
+    return this.residentDemoService.getResidentHome(user);
+  }
+
   @Get(['resident/invoices', 'api/resident/invoices'])
   listInvoices(@CurrentUser() user: MvpUser) {
     return this.residentDemoService.listInvoices(user);

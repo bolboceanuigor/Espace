@@ -37,6 +37,7 @@ const NAV_CONFIG: NavItemConfig[] = [
   { label: 'Facturi', href: '/resident/invoices', icon: 'fileText', allowedRoles: ['RESIDENT'], mobileVisible: true, moreMenu: false },
   { label: 'Contoare', href: '/resident/meters', icon: 'chartColumnBig', allowedRoles: ['RESIDENT'], mobileVisible: true, moreMenu: false },
   { label: 'Cereri', href: '/resident/issues', icon: 'circleAlert', allowedRoles: ['RESIDENT'], mobileVisible: true, moreMenu: false },
+  { label: 'Documente', href: '/resident/documents', icon: 'fileText', allowedRoles: ['RESIDENT'], mobileVisible: true, moreMenu: false },
   { label: 'Cont', href: '/resident/account', icon: 'users', allowedRoles: ['RESIDENT'], mobileVisible: true, moreMenu: false },
 ];
 
