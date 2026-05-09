@@ -8,6 +8,7 @@ import {
 import { Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Server, Socket } from 'socket.io';
+import { corsOriginCallback } from '../common/cors/origin';
 
 const ORG_ROOM_PREFIX = 'organization:';
 
@@ -21,7 +22,7 @@ function extractTokenFromCookie(cookieHeader?: string): string | undefined {
 
 @WebSocketGateway({
   cors: {
-    origin: process.env.CORS_ORIGIN || process.env.FRONTEND_URL,
+    origin: corsOriginCallback,
     credentials: true,
   },
 })

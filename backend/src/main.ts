@@ -4,6 +4,7 @@ import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import helmet from 'helmet';
 import { ResponseEnvelopeInterceptor } from './common/interceptors/response-envelope.interceptor';
+import { assertProductionCorsIsSafe, corsOriginCallback } from './common/cors/origin';
 
 async function bootstrap() {
   if (!process.env.DATABASE_URL) {
@@ -72,42 +73,10 @@ async function bootstrap() {
   app.useGlobalInterceptors(new ResponseEnvelopeInterceptor());
   app.useGlobalFilters(new HttpExceptionFilter());
 
-  const isProd = process.env.NODE_ENV === 'production';
-  const allowedOrigins = [
-    'https://espace.md',
-    'https://www.espace.md',
-    'http://localhost:3000',
-    'http://localhost:3001',
-    process.env.FRONTEND_URL,
-    process.env.CORS_ORIGIN,
-  ]
-    .flatMap((value) => (value || '').split(','))
-    .map((value) => value.trim())
-    .filter(Boolean)
-    .filter((value, index, all) => all.indexOf(value) === index);
-  if (isProd && allowedOrigins.some((origin) => origin === '*')) {
-    throw new Error('CORS wildcard is not allowed in production');
-  }
-  const allowVercelPreviews =
-    (process.env.CORS_ALLOW_VERCEL_PREVIEWS ?? 'false').toLowerCase() === 'true';
-  const vercelPreviewPattern = /^https:\/\/[a-z0-9-]+\.vercel\.app$/i;
+  assertProductionCorsIsSafe();
 
   app.enableCors({
-    origin: (origin, callback) => {
-      if (!origin) {
-        callback(null, true);
-        return;
-      }
-      if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-        return;
-      }
-      if (allowVercelPreviews && vercelPreviewPattern.test(origin)) {
-        callback(null, true);
-        return;
-      }
-      callback(new Error('Not allowed by CORS'));
-    },
+    origin: corsOriginCallback,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-org-id'],

@@ -85,7 +85,6 @@ function isPublicRoute(pathname: string): boolean {
     '/pricing',
     '/features',
     '/contact',
-    '/demo-request',
     '/login',
     '/register',
     '/signup',

@@ -2,6 +2,10 @@ import { Controller, Get, NotFoundException } from '@nestjs/common';
 import { Public } from './auth/decorators/public.decorator';
 import { PrismaService } from './prisma/prisma.service';
 
+function getAppVersion() {
+  return process.env.APP_VERSION || process.env.npm_package_version || '0.1.0-beta';
+}
+
 @Controller()
 export class AppController {
   constructor(private readonly prisma: PrismaService) {}
@@ -18,27 +22,37 @@ export class AppController {
     return {
       status: 'ok',
       service: 'espace-api',
+      version: getAppVersion(),
+      environment: process.env.NODE_ENV || 'development',
     };
   }
 
   @Public()
   @Get('health/db')
   async getDatabaseHealth() {
-    const [organizations, users, apartments] = await Promise.all([
-      this.prisma.organization.count(),
-      this.prisma.user.count(),
-      this.prisma.apartment.count(),
-    ]);
+    try {
+      await this.prisma.$queryRaw`SELECT 1`;
+      const [organizations, users, apartments] = await Promise.all([
+        this.prisma.organization.count(),
+        this.prisma.user.count(),
+        this.prisma.apartment.count(),
+      ]);
 
-    return {
-      status: 'ok',
-      database: 'connected',
-      counts: {
-        organizations,
-        users,
-        apartments,
-      },
-    };
+      return {
+        status: 'ok',
+        database: 'connected',
+        counts: {
+          organizations,
+          users,
+          apartments,
+        },
+      };
+    } catch {
+      return {
+        status: 'error',
+        database: 'unavailable',
+      };
+    }
   }
 
   @Public()

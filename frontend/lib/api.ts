@@ -117,6 +117,14 @@ function normalizeErrorMessage(status: number, payload: ApiErrorPayload): ApiErr
       details: undefined,
     };
   }
+  if (status === 404) {
+    return {
+      ...payload,
+      code: payload.code || 'NOT_FOUND',
+      message: 'Înregistrarea nu a fost găsită.',
+      details: undefined,
+    };
+  }
   if (status === 400 && payload.message === 'Validation failed') {
     return { ...payload, message: 'Datele trimise nu sunt valide.' };
   }
@@ -136,8 +144,7 @@ async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<{ 
   if (!API_URL) {
     throw new ApiClientError(503, {
       code: 'API_URL_MISSING',
-      message: 'API-ul online nu este conectat încă. Interfața poate fi vizualizată, dar autentificarea și datele reale sunt indisponibile momentan.',
-      details: { env: 'NEXT_PUBLIC_API_URL' },
+      message: 'API-ul nu este disponibil temporar.',
     });
   }
 
@@ -169,8 +176,7 @@ async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<{ 
     }
     throw new ApiClientError(503, {
       code: 'NETWORK_ERROR',
-      message: 'API-ul online nu răspunde momentan. Încearcă din nou după ce backend-ul este publicat.',
-      details: { env: 'NEXT_PUBLIC_API_URL' },
+      message: 'API-ul nu este disponibil temporar.',
     });
   }
 
@@ -219,8 +225,7 @@ function requireApiUrl() {
   if (API_URL) return API_URL;
   throw new ApiClientError(503, {
     code: 'API_URL_MISSING',
-    message: 'API-ul online nu este conectat încă. Această acțiune necesită backend-ul.',
-    details: { env: 'NEXT_PUBLIC_API_URL' },
+    message: 'API-ul nu este disponibil temporar.',
   });
 }
 
