@@ -436,7 +436,7 @@ function OrganizationMiniCard({ organization, href }: { organization: Organizati
         </span>
       </div>
       <div className="mt-3 grid gap-2 text-xs text-muted-foreground">
-        <span>{organization.associationCode || 'Cod APC neindicat'} · {organization.city || 'Oraș neindicat'}</span>
+        <span>{organization.associationCode || 'Cod A.P.C. neindicat'} · {organization.city || 'Oraș neindicat'}</span>
         <span>Contact: {organization.contact?.name || organization.contact?.email || 'Neatribuit'}</span>
         <span>Plan: {subscriptionLabel(organization)}</span>
         <span>{organization.apartmentsCount} apartamente · {organization.residentsCount} locatari</span>

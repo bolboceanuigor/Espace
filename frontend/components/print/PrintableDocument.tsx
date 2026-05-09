@@ -110,7 +110,7 @@ function ApcDocumentHeader({
           <p className="text-sm font-bold uppercase tracking-wide text-slate-500">{organization.shortName}</p>
           <h1 className="mt-1 text-2xl font-bold leading-tight text-slate-950">{organization.legalName}</h1>
           <div className="mt-3 grid gap-1 text-sm text-slate-600">
-            {organization.associationCode ? <p>Cod APC: <span className="font-semibold text-slate-800">{organization.associationCode}</span></p> : null}
+            {organization.associationCode ? <p>Cod A.P.C.: <span className="font-semibold text-slate-800">{organization.associationCode}</span></p> : null}
             {organization.associationNumber ? <p>Număr intern: <span className="font-semibold text-slate-800">{organization.associationNumber}</span></p> : null}
             {location ? <p>{location}</p> : null}
             {organization.phone || organization.email ? (

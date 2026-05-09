@@ -164,8 +164,24 @@ export default function SuperadminOrganizationsPage() {
       status: form.status,
       associationNumber: associationNumberFromCode(associationCode),
     };
-    if (!payload.associationCode || !payload.legalName || !payload.shortName || !payload.address || !payload.city) {
-      setFormError(!payload.associationCode ? 'Codul A.P.C. este obligatoriu.' : 'Denumirea asociației este obligatorie.');
+    if (!payload.associationCode) {
+      setFormError('Codul A.P.C. este obligatoriu.');
+      return;
+    }
+    if (!payload.legalName) {
+      setFormError('Denumirea asociației este obligatorie.');
+      return;
+    }
+    if (!payload.shortName) {
+      setFormError('Denumirea scurtă este obligatorie.');
+      return;
+    }
+    if (!payload.address) {
+      setFormError('Adresa este obligatorie.');
+      return;
+    }
+    if (!payload.city) {
+      setFormError('Orașul este obligatoriu.');
       return;
     }
     if (!/^A\d{4}-\d{4}$/.test(payload.associationCode)) {
@@ -275,7 +291,7 @@ export default function SuperadminOrganizationsPage() {
                 </div>
                 <p className="mt-1 text-sm font-medium text-foreground/80">{row.legalName}</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Cod APC {row.associationCode || '-'} · Nr. intern {row.associationNumber || '-'}
+                  Cod A.P.C. {row.associationCode || '-'} · Nr. intern {row.associationNumber || '-'}
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {row.address}, {row.city}, {row.country} · {row.apartmentsCount} apartamente · {row.currency}
@@ -309,7 +325,7 @@ export default function SuperadminOrganizationsPage() {
         <ModalBody>
           <div className="grid gap-3 md:grid-cols-2">
             <Field
-              label="Cod APC"
+              label="Cod A.P.C."
               value={form.associationCode}
               placeholder="A0123-0940"
               onChange={(value) => {
@@ -351,7 +367,7 @@ export default function SuperadminOrganizationsPage() {
             </p>
           ) : null}
           <p className="mt-4 text-xs text-muted-foreground">
-            Format recomandat pentru Cod APC: A0123-0940. Ultimele 4 cifre devin numărul intern al asociației.
+            Format recomandat pentru Cod A.P.C.: A0123-0940. Ultimele 4 cifre devin numărul intern al asociației.
           </p>
           <p className="mt-2 text-xs text-muted-foreground">
             A.P.C.-ul este creat în baza de date prin API-ul Espace. Administratorul poate fi adăugat într-un pas separat.

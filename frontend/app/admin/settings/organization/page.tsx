@@ -236,7 +236,7 @@ export default function AdminOrganizationSettingsPage() {
             <Input label="Denumire scurtă" value={form.name} onChange={(event) => update('name', event.target.value)} />
             <Input label="Denumire lungă" value={form.legalName} onChange={(event) => update('legalName', event.target.value)} />
             <Input
-              label="Cod APC"
+              label="Cod A.P.C."
               value={form.fiscalCode}
               onChange={(event) => updateAssociationCode(event.target.value)}
               hint={form.fiscalCode && !recommendedApcCode(form.fiscalCode) ? 'Format recomandat: A0123-0940' : undefined}

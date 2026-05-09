@@ -63,7 +63,7 @@ export default function SuperadminAdminsPage() {
     setListError('');
     setForm((current) => ({
       ...current,
-      organizationId: current.organizationId || apiAssociations[0]?.id || mockAssociations[0]?.id || '',
+      organizationId: current.organizationId || apiAssociations[0]?.id || '',
     }));
   };
 
@@ -304,7 +304,7 @@ export default function SuperadminAdminsPage() {
                 onClick={() => navigator.clipboard?.writeText(invitationLink).catch(() => undefined)}
                 className="mt-2 rounded-2xl border border-emerald-300 bg-white px-3 py-2 text-sm font-semibold text-emerald-900"
               >
-                Copiază linkul
+                Copiază linkul de invitație
               </button>
             </div>
           ) : null}

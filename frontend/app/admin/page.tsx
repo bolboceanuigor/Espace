@@ -410,6 +410,11 @@ export default function AdminPage() {
       ) : null}
 
       {error ? <Card className="border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{error}</Card> : null}
+      {source === 'api' && !crm.organization.id ? (
+        <Card className="border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">
+          Contul tău nu este conectat la o A.P.C. Contactează Superadminul.
+        </Card>
+      ) : null}
 
       <Card className="p-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -420,7 +425,7 @@ export default function AdminPage() {
           </div>
           <div className="grid gap-2 text-sm sm:grid-cols-2">
             <span className="rounded-2xl border border-border/70 bg-muted/25 px-3 py-2 font-medium text-foreground">
-              Cod APC: {crm.organization.associationCode || '-'}
+              Cod A.P.C.: {crm.organization.associationCode || '-'}
             </span>
             <span className="rounded-2xl border border-border/70 bg-muted/25 px-3 py-2 font-medium text-foreground">
               Nr. intern: {crm.organization.associationNumber || '-'}

@@ -317,7 +317,7 @@ export default function AdminResidentDetailPage() {
                 className="mt-3"
                 onClick={() => navigator.clipboard?.writeText(invitationLink)}
               >
-                Copiază linkul
+                Copiază linkul de invitație
               </Button>
             </div>
           ) : null}

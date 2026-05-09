@@ -285,8 +285,24 @@ export default function SuperadminOrganizationDetailsPage() {
     if (!id) return;
     setEditError('');
     setSuccessMessage('');
-    if (!editForm.associationCode || !editForm.legalName || !editForm.shortName || !editForm.address || !editForm.city) {
-      setEditError(!editForm.associationCode ? 'Codul A.P.C. este obligatoriu.' : 'Denumirea asociației este obligatorie.');
+    if (!editForm.associationCode) {
+      setEditError('Codul A.P.C. este obligatoriu.');
+      return;
+    }
+    if (!editForm.legalName.trim()) {
+      setEditError('Denumirea asociației este obligatorie.');
+      return;
+    }
+    if (!editForm.shortName.trim()) {
+      setEditError('Denumirea scurtă este obligatorie.');
+      return;
+    }
+    if (!editForm.address.trim()) {
+      setEditError('Adresa este obligatorie.');
+      return;
+    }
+    if (!editForm.city.trim()) {
+      setEditError('Orașul este obligatoriu.');
       return;
     }
     if (!/^A\d{4}-\d{4}$/.test(editForm.associationCode.trim().toUpperCase())) {
@@ -520,7 +536,7 @@ export default function SuperadminOrganizationDetailsPage() {
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             <Info icon={<Building2 className="h-4 w-4" />} label="Denumire lungă" value={association.legalName} />
             <Info icon={<Building2 className="h-4 w-4" />} label="Denumire scurtă" value={association.shortName} />
-            <Info icon={<Building2 className="h-4 w-4" />} label="Cod APC" value={association.associationCode || '-'} />
+            <Info icon={<Building2 className="h-4 w-4" />} label="Cod A.P.C." value={association.associationCode || '-'} />
             <Info icon={<Building2 className="h-4 w-4" />} label="Număr intern" value={association.associationNumber || '-'} />
             <Info icon={<MapPin className="h-4 w-4" />} label="Adresă" value={`${association.address}, ${association.city}, ${association.country}`} />
             <Info icon={<Building2 className="h-4 w-4" />} label="Oraș" value={association.city} />
@@ -778,7 +794,7 @@ export default function SuperadminOrganizationDetailsPage() {
                 onClick={() => navigator.clipboard?.writeText(adminInvitationLink).catch(() => undefined)}
                 className="mt-2 rounded-2xl border border-emerald-300 bg-white px-3 py-2 text-sm font-semibold text-emerald-900"
               >
-                Copiază linkul
+                Copiază linkul de invitație
               </button>
             </div>
           ) : null}
@@ -800,7 +816,7 @@ export default function SuperadminOrganizationDetailsPage() {
         <ModalHeader title="Editează asociația" onClose={() => setEditModalOpen(false)} />
         <ModalBody>
           <div className="grid gap-3 md:grid-cols-2">
-            <Field label="Cod APC" value={editForm.associationCode} onChange={(value) => setEditForm({ ...editForm, associationCode: value.trim().toUpperCase() })} required />
+            <Field label="Cod A.P.C." value={editForm.associationCode} onChange={(value) => setEditForm({ ...editForm, associationCode: value.trim().toUpperCase() })} required />
             <Field label="Denumire lungă" value={editForm.legalName} onChange={(value) => setEditForm({ ...editForm, legalName: value })} required />
             <Field label="Denumire scurtă" value={editForm.shortName} onChange={(value) => setEditForm({ ...editForm, shortName: value })} required />
             <Field label="Adresă" value={editForm.address} onChange={(value) => setEditForm({ ...editForm, address: value })} required />
