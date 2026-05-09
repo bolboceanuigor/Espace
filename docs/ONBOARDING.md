@@ -1,46 +1,20 @@
-# Onboarding Kit (First 3 Customers)
+# Onboarding Kit
 
-Use this script for first customer onboarding sessions.
+The old onboarding script has been retired for the Espace A.P.C. MVP.
 
-## 1) Create and organize apartments
+Use the real-client preparation checklist for first production-style onboarding:
 
-- Open `/{locale}/properties`
-- Add all apartments with clear names/codes
-- (Optional) assign groups/colors for easier calendar scanning
+- [First Real Client Checklist](./FIRST-REAL-CLIENT-CHECKLIST.md)
+- [Beta Release Checklist](./BETA-RELEASE-CHECKLIST.md)
 
-## 2) Create first reservations
+The current first-client flow is:
 
-- Open `/{locale}/calendar`
-- Click empty cell to create reservation
-- Fill guest name, dates, status, notes
-- Confirm reservation appears on calendar and reservations list
+1. Verify production environment variables.
+2. Verify `/health` and `/health/db`.
+3. Create or verify the production `SUPERADMIN`.
+4. Create the real A.P.C.
+5. Create or invite the A.P.C. administrator.
+6. Configure the A.P.C. profile, blocuri, scări, apartamente, locatari, contoare, tarife and facturi.
+7. Confirm no demo data appears in real flows.
 
-## 3) Set manager access
-
-- Open `/{locale}/team` (admin)
-- Create manager user
-- Assign allowed properties
-- Validate manager sees only assigned properties
-
-## 4) Use cleanings
-
-- Open `/{locale}/cleanings`
-- Verify cleaning tasks are generated from confirmed reservations
-- Toggle `TODO`/`DONE` as operations progress
-
-## 5) Export CSV
-
-- Open `/{locale}/settings`
-- Use CSV export buttons for reservations/clients/properties/cleanings
-- Share exports with accounting/operations if needed
-
-## 6) Change language
-
-- Use language switcher (RO/RU/EN)
-- Verify labels, navigation, and pages remain correct after switch
-
-## Success Criteria
-
-- Team can add properties and reservations without assistance
-- Manager permissions are correctly scoped
-- Calendar + cleanings + exports are understood in one session
+Do not use hotel/PMS, reservation, calendar, cleaning, guest, or property-management scripts for Espace MVP v1.

@@ -1,41 +1,10 @@
-# Final MVP Demo Checklist
+# Demo Checklist Retired
 
-1) Start local stack:
+The old hotel/PMS demo checklist has been retired for the Espace A.P.C. MVP.
 
-```bash
-./dev.sh
-```
+Use the real-client preparation flow instead:
 
-2) Login superadmin:
-- `bolboceanuigor@gmail.com` / `SuperAdmin123!`
+- [First Real Client Checklist](./FIRST-REAL-CLIENT-CHECKLIST.md)
+- [Beta Release Checklist](./BETA-RELEASE-CHECKLIST.md)
 
-3) Add property:
-- open `/{locale}/properties`
-- create one apartment
-
-4) Create reservation from calendar:
-- open `/{locale}/calendar`
-- click empty cell and save reservation
-
-5) Confirm cleaning created:
-- open `/{locale}/cleanings`
-- verify checkout cleaning exists
-
-6) Switch language RO/RU/EN:
-- use language switcher
-- verify labels and pages
-
-7) Create manager + assign properties:
-- open `/{locale}/team`
-- create/update manager and assign properties
-
-8) Login manager and verify restricted view:
-- `manager.test@example.com` / `Manager123!`
-- cannot access Team/Superadmin
-- sees only assigned properties and cleanings
-
-9) Export CSV:
-- from calendar top bar click `Export CSV`
-- verify downloaded file columns:
-  `propertyCode,propertyName,guestName,checkIn,checkOut,status,source`
-
+Do not store demo credentials, production passwords, or client data in repository documentation.

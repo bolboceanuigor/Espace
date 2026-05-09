@@ -71,6 +71,8 @@ Status: beta preparation checklist, not a feature roadmap.
 
 ## First Beta User Flows
 
+For the first real client onboarding runbook, use `docs/FIRST-REAL-CLIENT-CHECKLIST.md`.
+
 ### Superadmin
 
 1. Login as Superadmin.

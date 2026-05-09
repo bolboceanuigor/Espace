@@ -1,13 +1,18 @@
-import { PrismaClient, Role } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
+import { BillingCurrency, OrganizationStatus, PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  const organization = await prisma.organization.upsert({
+  await prisma.organization.upsert({
     where: { id: '9a5c2f00-1111-4d10-a111-0a0000000001' },
     update: {
-      name: 'Platform Core',
+      name: 'Espace Platform',
+      legalName: 'Espace Platform',
+      city: 'Chisinau',
+      country: 'Republica Moldova',
+      currency: BillingCurrency.MDL,
+      defaultCurrency: BillingCurrency.MDL,
+      status: OrganizationStatus.ACTIVE,
       isActive: true,
       isDemo: false,
       onboardingCompleted: true,
@@ -16,7 +21,13 @@ async function main() {
     },
     create: {
       id: '9a5c2f00-1111-4d10-a111-0a0000000001',
-      name: 'Platform Core',
+      name: 'Espace Platform',
+      legalName: 'Espace Platform',
+      city: 'Chisinau',
+      country: 'Republica Moldova',
+      currency: BillingCurrency.MDL,
+      defaultCurrency: BillingCurrency.MDL,
+      status: OrganizationStatus.ACTIVE,
       isActive: true,
       isDemo: false,
       onboardingCompleted: true,
@@ -25,35 +36,8 @@ async function main() {
     },
   });
 
-  const email = process.env.SUPERADMIN_EMAIL || 'superadmin@platform.local';
-  const passwordHash = await bcrypt.hash(process.env.SUPERADMIN_PASSWORD || 'SuperAdmin123!', 10);
-  await prisma.user.upsert({
-    where: { email },
-    update: {
-      organizationId: organization.id,
-      role: Role.SUPER_ADMIN,
-      passwordHash,
-      authProvider: 'LOCAL',
-      isActive: true,
-      emailVerifiedAt: new Date(),
-      firstName: 'Platform',
-      lastName: 'Admin',
-      deletedAt: null,
-    },
-    create: {
-      email,
-      organizationId: organization.id,
-      role: Role.SUPER_ADMIN,
-      passwordHash,
-      authProvider: 'LOCAL',
-      isActive: true,
-      emailVerifiedAt: new Date(),
-      firstName: 'Platform',
-      lastName: 'Admin',
-    },
-  });
-
-  console.log('Production base seed completed.');
+  console.log('Platform base organization is ready.');
+  console.log('Use npm run seed:production-superadmin to create a production SUPERADMIN if needed.');
 }
 
 main()

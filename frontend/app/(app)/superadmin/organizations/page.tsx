@@ -119,7 +119,7 @@ export default function SuperadminOrganizationsPage() {
         if (!active) return;
         setRows(mockAssociations);
         setSource('mock');
-        setListError('API indisponibil temporar. Sunt afișate date temporare.');
+        setListError('Date temporare — API indisponibil.');
       });
     return () => {
       active = false;
@@ -301,7 +301,7 @@ export default function SuperadminOrganizationsPage() {
           </Card>
         ))}
         {source === 'loading' ? <Card className="p-5 text-sm font-medium text-muted-foreground">Se încarcă datele...</Card> : null}
-        {source !== 'loading' && !filteredRows.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există asociații încă.</Card> : null}
+        {source !== 'loading' && !filteredRows.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există A.P.C.-uri încă. Creează prima asociație.</Card> : null}
       </section>
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} maxWidth="2xl">

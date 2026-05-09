@@ -29,6 +29,7 @@
     "prisma:seed": "ts-node prisma/seed.ts",
     "seed:demo": "ts-node prisma/seed.demo.ts",
     "seed:production-base": "ts-node prisma/seed.production-base.ts",
+    "seed:production-superadmin": "ts-node prisma/seed-production-superadmin.ts",
     "seed:production-admin": "ts-node prisma/seed-production-admin.ts",
     "db:demo-cleanup": "ts-node prisma/cleanup-demo.ts",
     "db:check-consistency": "ts-node scripts/check-consistency.ts",

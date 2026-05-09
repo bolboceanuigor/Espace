@@ -127,13 +127,13 @@ export type AdminConversation = {
 
 export const adminApartments: AdminApartment[] = [
   {
-    id: 'apt-45',
-    number: '45',
+    id: 'apt-temp',
+    number: 'T-1',
     staircase: 'Scara 2',
     floor: 6,
     areaM2: 72.4,
     rooms: 3,
-    owner: 'Popescu Ion',
+    owner: 'Locatar temporar',
     phone: '+373 69 111 222',
     residents: 3,
     debt: 1240,
@@ -202,11 +202,11 @@ export const adminApartments: AdminApartment[] = [
 
 export const adminResidents: AdminResident[] = [
   {
-    id: 'popescu-ion',
-    name: 'Popescu Ion',
+    id: 'locatar-temporar',
+    name: 'Locatar temporar',
     phone: '+373 69 111 222',
-    email: 'ion.popescu@example.com',
-    apartments: ['45'],
+    email: 'locatar.temporar@example.com',
+    apartments: ['T-1'],
     role: 'proprietar',
     accountStatus: 'cont creat',
     debt: 1240,
@@ -216,7 +216,7 @@ export const adminResidents: AdminResident[] = [
     name: 'Popescu Maria',
     phone: '+373 69 111 223',
     email: 'maria.popescu@example.com',
-    apartments: ['45'],
+    apartments: ['T-1'],
     role: 'membru familie',
     accountStatus: 'cont creat',
     debt: 1240,
@@ -226,7 +226,7 @@ export const adminResidents: AdminResident[] = [
     name: 'Popescu Andrei',
     phone: '+373 69 111 224',
     email: 'andrei.popescu@example.com',
-    apartments: ['45'],
+    apartments: ['T-1'],
     role: 'locatar',
     accountStatus: 'invitat',
     debt: 1240,
@@ -269,7 +269,7 @@ export const accountStatusVariant: Record<AccountStatus, 'success' | 'warning' |
 export const adminMeters: AdminMeter[] = [
   {
     id: 'meter-45-ar',
-    apartment: '45',
+    apartment: 'T-1',
     staircase: 'Scara 2',
     floor: 6,
     type: 'Apă rece',
@@ -280,7 +280,7 @@ export const adminMeters: AdminMeter[] = [
   },
   {
     id: 'meter-45-ac',
-    apartment: '45',
+    apartment: 'T-1',
     staircase: 'Scara 2',
     floor: 6,
     type: 'Apă caldă',
@@ -291,7 +291,7 @@ export const adminMeters: AdminMeter[] = [
   },
   {
     id: 'meter-45-gz',
-    apartment: '45',
+    apartment: 'T-1',
     staircase: 'Scara 2',
     floor: 6,
     type: 'Gaz',
@@ -338,20 +338,20 @@ export const adminMeters: AdminMeter[] = [
 export const adminInvoices: AdminInvoice[] = [
   {
     id: 'inv-45-2026-05',
-    apartment: '45',
+    apartment: 'T-1',
     staircase: 'Scara 2',
     month: 'Mai 2026',
-    invoiceNumber: 'FAC-2026-05-045',
+    invoiceNumber: 'FAC-2026-05-TMP',
     amount: 1240,
     dueDate: '10 Iunie 2026',
     status: 'Neachitat',
   },
   {
     id: 'inv-45-2026-04',
-    apartment: '45',
+    apartment: 'T-1',
     staircase: 'Scara 2',
     month: 'Aprilie 2026',
-    invoiceNumber: 'FAC-2026-04-045',
+    invoiceNumber: 'FAC-2026-04-TMP',
     amount: 620,
     dueDate: '10 Mai 2026',
     status: 'Întârziat',
@@ -407,8 +407,8 @@ export const adminIssues: AdminIssue[] = [
     id: 'req-1',
     title: 'Infiltrație la balcon după ploaie',
     category: 'Apă',
-    apartment: 'Apt. 45',
-    resident: 'Popescu Ion',
+    apartment: 'Apartament temporar',
+    resident: 'Locatar temporar',
     message: 'Apa se scurge pe lângă rama balconului după ploile puternice.',
     description: 'Locatarul raportează infiltrații repetate în zona balconului. Este nevoie de verificarea hidroizolației și a scurgerii exterioare.',
     date: '30 Aprilie 2026',
@@ -425,7 +425,7 @@ export const adminIssues: AdminIssue[] = [
     id: 'req-2',
     title: 'Verificare presiune apă caldă',
     category: 'Încălzire',
-    apartment: 'Apt. 45',
+    apartment: 'Apartament temporar',
     resident: 'Popescu Maria',
     message: 'Presiunea apei calde este scăzută seara.',
     description: 'Presiunea apei calde scade după ora 20:00. Este necesară verificarea coloanei și a consumului pe scară.',
@@ -533,15 +533,15 @@ export const announcementCategoryVariant: Record<AnnouncementCategory, 'default'
 export const adminConversations: AdminConversation[] = [
   {
     id: 'chat-1',
-    resident: 'Popescu Ion',
-    apartment: 'Apt. 45',
+    resident: 'Locatar temporar',
+    apartment: 'Apartament temporar',
     preview: 'Bună ziua, avem o problemă la balcon după ultima ploaie.',
     time: '18:20',
     unread: true,
     messages: [
-      { id: 'm1', sender: 'Popescu Ion', content: 'Bună ziua, avem o problemă la balcon după ultima ploaie.', time: '18:20' },
+      { id: 'm1', sender: 'Locatar temporar', content: 'Bună ziua, avem o problemă la balcon după ultima ploaie.', time: '18:20' },
       { id: 'm2', sender: 'Admin', content: 'Mulțumesc. Am creat o cerere și revenim cu programarea verificării.', mine: true, time: '18:24' },
-      { id: 'm3', sender: 'Popescu Ion', content: 'Perfect, pot fi acasă mâine după ora 18:00.', time: '18:29' },
+      { id: 'm3', sender: 'Locatar temporar', content: 'Perfect, pot fi acasă mâine după ora 18:00.', time: '18:29' },
     ],
   },
   {

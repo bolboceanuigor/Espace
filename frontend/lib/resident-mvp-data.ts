@@ -14,10 +14,10 @@ export type ResidentPayment = {
 };
 
 export const residentProfile = {
-  name: 'Popescu Ion',
+  name: 'Locatar temporar',
   phone: '+373 69 111 222',
-  email: 'ion.popescu@example.com',
-  apartment: 'Apt. 45',
+  email: 'locatar.temporar@example.com',
+  apartment: 'Apartament temporar',
   staircase: 'Scara 2',
   role: 'Proprietar',
   building: 'A.P.C. A0123-0940',
@@ -30,7 +30,7 @@ export const residentProfile = {
 export const residentInvoices = [
   {
     id: 'res-inv-2026-05',
-    number: 'FAC-2026-05-045',
+    number: 'FAC-2026-05-TMP',
     month: 'Mai 2026',
     amount: 1240,
     paidAmount: 0,
@@ -42,7 +42,7 @@ export const residentInvoices = [
   },
   {
     id: 'res-inv-2026-04',
-    number: 'FAC-2026-04-045',
+    number: 'FAC-2026-04-TMP',
     month: 'Aprilie 2026',
     amount: 1160,
     paidAmount: 1160,
@@ -54,7 +54,7 @@ export const residentInvoices = [
   },
   {
     id: 'res-inv-2026-03',
-    number: 'FAC-2026-03-045',
+    number: 'FAC-2026-03-TMP',
     month: 'Martie 2026',
     amount: 980,
     paidAmount: 980,
@@ -66,7 +66,7 @@ export const residentInvoices = [
   },
   {
     id: 'res-inv-2026-02',
-    number: 'FAC-2026-02-045',
+    number: 'FAC-2026-02-TMP',
     month: 'Februarie 2026',
     amount: 1020,
     paidAmount: 0,
