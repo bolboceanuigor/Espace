@@ -145,13 +145,13 @@ export default function PlatiPage({ loadInvoices, loadPayments, titleDescription
           loadPayments ? loadPayments() : Promise.resolve([]),
         ]);
         if (!active) return;
-        setInvoices(invoiceRows.length ? invoiceRows : FALLBACK_INVOICES);
+        setInvoices(invoiceRows);
         setPayments(paymentRows);
       } catch {
         if (!active) return;
         setInvoices(FALLBACK_INVOICES);
         setPayments([]);
-        setError('Nu am putut încărca datele din API. Afișăm temporar date demonstrative.');
+        setError('Date temporare — API indisponibil.');
       } finally {
         if (active) setLoading(false);
       }

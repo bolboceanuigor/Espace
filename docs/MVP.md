@@ -1,40 +1,43 @@
 # MVP Checklist
 
-Scop: livrare MVP clar, fara scope creep.
+Scop: livrare MVP clar pentru administrarea A.P.C. din Republica Moldova, fara scope creep.
 
 ## Scope implementat acum (MVP-1)
 
-- Auth: register org + admin, login, `/me`, logout, RBAC `ADMIN`/`MANAGER`
+- Auth: login real, `/me`, logout, RBAC `SUPER_ADMIN`/`ADMIN`/`RESIDENT`
 - i18n: RO/RU/EN, locale in URL, language switcher, traduceri UI/form/errors
 - UI: sidebar modern (icon-only + tooltip + toggle), tokens consistente, skeleton/empty states, 403/404
-- Core: Properties CRUD, Reservations CRUD + overlap 409, calendar 40 zile sticky + lanes, create/cancel din calendar, cleanings auto + done toggle, clients CRUD minim
+- Core: A.P.C., blocuri, scări, apartamente, locatari, contoare, facturi, plăți, cereri, avizier, documente
 - Multi-tenant: `organizationId` pe date + izolare stricta
-- Export: CSV reservations (plus alte exporturi disponibile)
+- Export: rapoarte CSV pentru datorii, plăți, facturi, apartamente și locatari
 
 ## Out of scope (explicit)
 
-- Payments / billing UI
-- Channel sync Airbnb/Booking (doar fundatie)
-- Drag&drop (post-MVP)
+- Procesator real de plăți online
+- Semnătură electronică
+- Integrări automate cu furnizori utilități
+- Vechi fluxuri de cazare/turism, rezervări, disponibilitate, check-in/check-out
 - Mobile app nativ (doar responsive basic)
-- Advanced reporting
-- Complex permissions (ramane ADMIN/MANAGER)
+- Contabilitate avansată
 
 ## Final MVP Acceptance Checklist
 
-- [ ] Register org
-- [ ] Login
+- [ ] Login Superadmin
+- [ ] Create A.P.C.
+- [ ] Create Admin
+- [ ] Login Admin
+- [ ] Add bloc, scară, apartament
+- [ ] Add locatar and link to apartament
+- [ ] Add contor and citire
+- [ ] Configure tarife
+- [ ] Generate facturi
+- [ ] Register plată
+- [ ] Login Resident
+- [ ] Resident sees apartment, facturi, contoare, cereri, avizier, documente
 - [ ] /me
 - [ ] i18n routes ok
 - [ ] switch language ok
 - [ ] Sidebar toggle ok
-- [ ] Admin creates property
-- [ ] Admin creates reservation
-- [ ] Overlap returns 409
-- [ ] Calendar shows booking
-- [ ] Manager sees assigned only
-- [ ] Cleanings generated
-- [ ] Export reservations CSV
 - [ ] Build passes
 
 ## Final Gate (obligatoriu)
@@ -43,4 +46,3 @@ Scop: livrare MVP clar, fara scope creep.
 cd frontend && npm run build
 cd ../backend && npm run build
 ```
-

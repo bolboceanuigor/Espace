@@ -60,6 +60,7 @@ export const ADMIN_NAVIGATION_ITEMS: MainNavigationItem[] = [
   { key: 'issues', label: 'Cereri', href: '/admin/issues' },
   { key: 'announcements', label: 'Avizier', href: '/admin/announcements' },
   { key: 'documents', label: 'Documente', href: '/admin/documents' },
+  { key: 'reports', label: 'Rapoarte', href: '/admin/reports' },
   { key: 'buildingSettings', label: 'Setări', href: '/admin/settings/organization' },
 ];
 

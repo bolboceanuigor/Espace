@@ -1,6 +1,6 @@
-# Deploy Guide (First Customer)
+# Deploy Guide (First A.P.C. Client)
 
-Stable production baseline without payments/channels sync.
+Stable production baseline for the Espace A.P.C. MVP.
 
 ## 1) DNS + Domain
 
@@ -111,9 +111,11 @@ Daily cron (example):
 
 1. `GET /api/health` returns `ok=true`.
 2. Open app and login.
-3. Create property.
-4. Create reservation from calendar.
-5. Check cleaning auto-created.
-6. Switch language RO/RU/EN.
-7. Manager cannot access `/team`.
-8. Export reservations CSV works.
+3. Superadmin creates an A.P.C.
+4. Superadmin creates or invites an administrator.
+5. Admin creates bloc, scară, apartament and locatar.
+6. Admin adds contor and citire.
+7. Admin configures tarife, generates facturi and registers a plată.
+8. Resident sees apartment, facturi, contoare, cereri, avizier and public documents.
+9. Switch language RO/RU/EN.
+10. Wrong role cannot access protected dashboards.

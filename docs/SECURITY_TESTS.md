@@ -1,51 +1,55 @@
 # Security Manual Tests
 
-Run these tests before each release and after every hotfix that touches auth, RBAC, calendar, exports, or tenancy filters.
+Run these tests before each release and after every hotfix that touches auth, RBAC, reports, exports, or tenancy filters.
 
-## Test 1 — Cross-tenant property isolation
+## Test 1 — Cross-tenant A.P.C. isolation
 
 - **Given** two organizations `Org A` and `Org B`
-- **When** an `Org A` user opens `/properties`
-- **Then** only `Org A` properties are visible
+- **When** an `Org A` admin opens apartments, residents, invoices, payments, issues or documents
+- **Then** only `Org A` records are visible
 - **And** no `Org B` IDs/names appear in API payloads
 
-## Test 2 — Manager assignment scope
+## Test 2 — Admin organization scope
 
-- **Given** a manager assigned to only a subset of properties
-- **When** manager opens `/properties` and `/calendar`
-- **Then** manager sees only assigned properties
-- **And** unassigned properties are never listed
+- **Given** an admin belongs to one A.P.C.
+- **When** the admin calls organization-scoped endpoints
+- **Then** backend queries are scoped to that admin's `organizationId`
+- **And** the admin cannot choose another organization manually
 
-## Test 3 — Manager create restriction (if policy is view-only)
+## Test 3 — Resident portal scope
 
-- **Given** manager role with view-only property policy
-- **When** manager calls `POST /api/properties` (UI or direct request)
+- **Given** a resident linked to one apartment
+- **When** resident opens invoices, meters, issues, announcements or public documents
+- **Then** only that resident's apartment and A.P.C. data is returned
+
+## Test 4 — Role route access control
+
+- **Given** a resident role
+- **When** resident opens `/{locale}/admin` or `/{locale}/superadmin` directly
 - **Then** API returns `403 FORBIDDEN`
-- **And** no new property is created
+- **And** UI redirects or shows `Nu ai acces la această zonă.`
 
-## Test 4 — Team route access control
+## Test 5 — Internal data protection
 
-- **Given** manager role
-- **When** manager opens `/{locale}/team` directly
-- **Then** user is redirected to forbidden/calendar flow
-- **And** API endpoints for team management return `403`
-
-## Test 5 — Calendar endpoint tenant filter
-
-- **Given** overlapping date ranges in multiple orgs
-- **When** `GET /api/calendar?start=...&end=...` is called by `Org A`
-- **Then** response includes only `Org A` properties/reservations
-- **And** `organizationId` scoping is enforced on backend queries
+- **Given** internal notes, CRM tasks or admin-only documents exist
+- **When** a resident calls resident endpoints
+- **Then** internal records are never returned
 
 ## Test 6 — Export endpoint tenant filter
 
-- **Given** both orgs have reservations/clients
-- **When** `Org A` admin exports CSV endpoints
+- **Given** both orgs have apartments, residents, invoices and payments
+- **When** `Org A` admin exports report CSV endpoints
 - **Then** exported rows contain only `Org A` data
 - **And** no cross-tenant leakage exists in files
 
+## Test 7 — Secrets and password hashes
+
+- **Given** any authenticated API response
+- **When** payloads are inspected
+- **Then** `passwordHash`, database URLs, JWT secrets and provider API keys are absent
+
 ## Pass Criteria
 
-- All 6 tests pass
+- All tests pass
 - No cross-tenant records observed in UI/API/exports
 - Any failure blocks release until fixed

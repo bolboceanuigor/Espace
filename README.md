@@ -1,6 +1,8 @@
-# Espace PMS
+# Espace
 
-Property management SaaS with multi-tenant RBAC, timeline calendar, and localized UI (RO/RU/EN).
+Platformă pentru administrarea A.P.C. și condominiilor din Republica Moldova, cu roluri pentru Superadmin, Administrator și Locatar.
+
+Product direction is documented in [`docs/PROJECT_DIRECTION.md`](docs/PROJECT_DIRECTION.md). Espace MVP v1 is not a lodging or rental-operations product; old rental, reservation and cleaning flows are legacy-only and hidden or redirected away from the production navigation.
 
 ## Local Setup
 
@@ -49,30 +51,22 @@ npm run dev
 npm run db:up
 ```
 
-2) Reset+Seed (DEV):
+2) Generate Prisma client:
 ```bash
 cd backend
-npx prisma db push --force-reset --accept-data-loss
 npx prisma generate
-npx prisma db seed
 ```
 
-### DB Drift Fix (DEV vs PROD)
+### Database Safety
 
-- DEV (rapid reset/alignment):
-```bash
-cd backend
-npx prisma db push --force-reset --accept-data-loss
-npx prisma generate
-npx prisma db seed
-```
 - PROD (safe migrations only):
 ```bash
 cd backend
 npx prisma migrate deploy
 npx prisma generate
 ```
-- Never use `prisma db push` in production.
+- Never run `prisma db push`, resets, truncates or destructive commands against Supabase production data.
+- Demo cleanup scripts are dry-run by default and require explicit confirmation flags.
 
 3) Start apps:
 ```bash
@@ -196,9 +190,9 @@ npm run dev:clean
 
 ## RBAC Rules
 
-- `ADMIN`: full organization access (all assigned and unassigned org properties)
-- `MANAGER`: scoped access only to properties assigned through `PropertyAccess`
-- `/team` and org-wide activity are admin-only
+- `SUPER_ADMIN`: platform CRM access for A.P.C. associations, administrators and onboarding.
+- `ADMIN`: organization-scoped access for one A.P.C., including apartments, residents, meters, invoices, payments, requests, announcements and documents.
+- `RESIDENT`: self-service access only to the linked apartment, invoices, meters, requests, announcements, public documents and account data.
 - Middleware may use role hints from cookie/JWT for UX redirects, but backend RBAC is always source of truth
 
 ## UI Stack
@@ -215,16 +209,13 @@ npm run dev:clean
 
 ## Backup / Export
 
-- Admin can export CSV from Settings:
-  - properties
-  - reservations
-  - clients
-  - cleanings
-- API endpoints:
-  - `GET /api/exports/properties`
-  - `GET /api/exports/reservations?start&end`
-  - `GET /api/exports/clients`
-  - `GET /api/exports/cleanings?start&end`
+- Admin reports support practical A.P.C. exports for:
+  - datorii
+  - plăți
+  - facturi lunare
+  - apartamente
+  - locatari
+- Legacy rental exports are not part of the public MVP direction.
 
 ## Billing Note
 
@@ -235,26 +226,20 @@ npm run dev:clean
   - `GET /api/billing/plans`
   - `GET /api/billing/subscription`
 
-## Channels / Sync Note
+## Legacy Modules Note
 
-- Channel sync (Airbnb/Booking iCal) is planned and feature-flagged.
-- UI is hidden by default (`NEXT_PUBLIC_ENABLE_CHANNELS_UI=false`) and backend sync endpoints are disabled unless `ENABLE_CHANNELS_UI=true`.
-- Placeholder endpoint:
-  - `POST /api/channels/ical/sync`
-- Mapping contract (for future implementation):
-  - iCal `UID` -> `Reservation.externalId`
-  - `SUMMARY` -> `guestName` (fallback: "Airbnb Guest")
-  - `DTSTART`/`DTEND` -> reservation range (`endDate` exclusive)
-  - imported reservations default to `status=CONFIRMED`
+- Old channel, calendar, rental-property, reservation and cleaning modules are not part of Espace MVP v1.
+- Production navigation must stay focused on A.P.C. workflows.
+- Direct legacy routes are redirected to the relevant A.P.C. dashboards where safe.
 
 ## Manual E2E Checklist
 
-1. Register account with `orgName` and verify redirect to `/{locale}/calendar`.
-2. Add property in `/{locale}/properties` as admin.
-3. Create reservation and verify it appears in calendar and reservation list.
-4. Try overlapping reservation on same property and verify `409` error.
-5. Login as manager and verify visibility is limited to assigned properties.
-6. Timezone safety: create reservation `2026-02-21 -> 2026-02-22`, refresh, verify dates do not shift.
+1. Login as Superadmin and create an A.P.C. with code format `A0123-0940`.
+2. Create or invite an administrator for that A.P.C.
+3. Login as Admin and create bloc, scară, apartament and locatar records.
+4. Add contor and citire records.
+5. Configure tarife, generate facturi and register a plată.
+6. Login as Resident and verify apartment, invoices, meters, requests, announcements and public documents.
 
 ## MVP / Demo Docs
 

@@ -4,6 +4,7 @@ import { getApiBaseUrl } from './runtime-config';
 
 const API_URL = getApiBaseUrl();
 const ACTIVE_ORG_STORAGE_KEY = 'activeOrgId';
+const DEBUG_API = process.env.NEXT_PUBLIC_DEBUG_API === 'true';
 
 export class ApiClientError extends Error {
   status: number;
@@ -149,7 +150,7 @@ async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<{ 
   }
 
   const requestUrl = `${API_URL}${normalizeApiPath(path)}${toQueryString(params)}`;
-  if (process.env.NODE_ENV !== 'production' && typeof window !== 'undefined') {
+  if (DEBUG_API && typeof window !== 'undefined') {
     console.debug(`[API] ${method} ${requestUrl}`);
   }
 
@@ -171,7 +172,7 @@ async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<{ 
       body: body !== undefined && responseType === 'json' && !isFormData ? JSON.stringify(body) : (body as BodyInit | undefined),
     });
   } catch {
-    if (process.env.NODE_ENV !== 'production' && typeof window !== 'undefined') {
+    if (DEBUG_API && typeof window !== 'undefined') {
       console.error(`[API] ${method} ${requestUrl} status=NETWORK_ERROR`);
     }
     throw new ApiClientError(503, {
@@ -182,7 +183,7 @@ async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<{ 
 
   if (!response.ok) {
     const payload = await parseErrorPayload(response);
-    if (process.env.NODE_ENV !== 'production' && typeof window !== 'undefined') {
+    if (DEBUG_API && typeof window !== 'undefined') {
       console.error('[api:error]', {
         url: requestUrl,
         method,
@@ -198,7 +199,7 @@ async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<{ 
     throw new ApiClientError(response.status, payload);
   }
 
-  if (process.env.NODE_ENV !== 'production' && typeof window !== 'undefined') {
+  if (DEBUG_API && typeof window !== 'undefined') {
     console.debug(`[API] ${method} ${requestUrl} status=${response.status}`);
   }
 

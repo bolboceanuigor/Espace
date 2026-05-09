@@ -87,11 +87,20 @@ function legacyApcRedirect(pathWithoutLocale: string): string | null {
   if (pathWithoutLocale === '/cleaning' || pathWithoutLocale === '/cleanings' || pathWithoutLocale.startsWith('/cleaning/') || pathWithoutLocale.startsWith('/cleanings/')) return '/admin';
   if (pathWithoutLocale === '/calendar' || pathWithoutLocale === '/calendar-horizontal' || pathWithoutLocale.startsWith('/calendar/') || pathWithoutLocale.startsWith('/calendar-horizontal/')) return '/admin';
   if (pathWithoutLocale === '/manager' || pathWithoutLocale.startsWith('/manager/')) return '/admin';
+  if (pathWithoutLocale === '/owner' || pathWithoutLocale.startsWith('/owner/')) return '/resident';
+  if (pathWithoutLocale === '/reports' || pathWithoutLocale.startsWith('/reports/')) return '/admin/reports';
+  if (pathWithoutLocale === '/resident/reports' || pathWithoutLocale.startsWith('/resident/reports/')) return '/resident';
   if (pathWithoutLocale === '/superadmin/demo' || pathWithoutLocale.startsWith('/superadmin/demo/')) return '/superadmin';
   if (pathWithoutLocale === '/superadmin/demo-requests' || pathWithoutLocale.startsWith('/superadmin/demo-requests/')) return '/superadmin';
+  if (pathWithoutLocale === '/superadmin/qa-checklist' || pathWithoutLocale.startsWith('/superadmin/qa-checklist/')) return '/superadmin';
+  if (pathWithoutLocale === '/superadmin/beta-readiness' || pathWithoutLocale.startsWith('/superadmin/beta-readiness/')) return '/superadmin';
+  if (pathWithoutLocale === '/superadmin/smoke-test' || pathWithoutLocale.startsWith('/superadmin/smoke-test/')) return '/superadmin';
+  if (pathWithoutLocale === '/superadmin/storage' || pathWithoutLocale.startsWith('/superadmin/storage/')) return '/superadmin';
+  if (pathWithoutLocale === '/superadmin/email-templates' || pathWithoutLocale.startsWith('/superadmin/email-templates/')) return '/superadmin';
+  if (pathWithoutLocale === '/superadmin/support-mode' || pathWithoutLocale.startsWith('/superadmin/support-mode/')) return '/superadmin';
   if (pathWithoutLocale === '/superadmin/roadmap' || pathWithoutLocale.startsWith('/superadmin/roadmap/')) return '/superadmin';
   if (pathWithoutLocale === '/superadmin/release-notes' || pathWithoutLocale.startsWith('/superadmin/release-notes/')) return '/superadmin';
-  if (pathWithoutLocale === '/settings/roadmap' || pathWithoutLocale.startsWith('/settings/roadmap/')) return '/admin/settings';
+  if (pathWithoutLocale === '/settings/roadmap' || pathWithoutLocale.startsWith('/settings/roadmap/')) return '/admin/settings/organization';
   if (pathWithoutLocale === '/admin/maintenance/calendar' || pathWithoutLocale.startsWith('/admin/maintenance/calendar/')) return '/admin';
   return null;
 }
