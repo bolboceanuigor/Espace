@@ -236,9 +236,9 @@ function announcementCategoryFromApi(category?: string): ResidentAnnouncementCat
 function paymentMethodFromApi(method?: string | null) {
   const normalized = String(method || '').toUpperCase();
   if (normalized === 'CASH') return 'Numerar';
-  if (normalized === 'BANK' || normalized === 'BANK_TRANSFER') return 'Transfer bancar';
-  if (normalized === 'CARD') return 'Card bancar';
-  if (normalized === 'ONLINE') return 'Altă metodă';
+  if (normalized === 'BANK_TRANSFER') return 'Transfer bancar';
+  if (normalized === 'CARD') return 'Card';
+  if (normalized === 'BANK' || normalized === 'OTHER' || normalized === 'ONLINE') return 'Altă metodă';
   return '-';
 }
 

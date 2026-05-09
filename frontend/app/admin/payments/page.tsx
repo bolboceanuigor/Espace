@@ -13,8 +13,8 @@ const filters: Array<'Toate' | InvoiceStatus> = ['Toate', 'Achitat', 'Neachitat'
 const paymentMethods = {
   CASH: 'Numerar',
   BANK_TRANSFER: 'Transfer bancar',
-  CARD: 'Card bancar',
-  BANK: 'Altă metodă',
+  CARD: 'Card',
+  OTHER: 'Altă metodă',
 } as const;
 const emptyPaymentForm = {
   apartmentId: '',

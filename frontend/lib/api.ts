@@ -1217,7 +1217,7 @@ export const paymentsApi = {
     apartmentId: string;
     invoiceId?: string;
     amount: number;
-    method: 'CASH' | 'BANK' | 'BANK_TRANSFER' | 'CARD';
+    method: 'CASH' | 'BANK' | 'BANK_TRANSFER' | 'CARD' | 'OTHER';
     paidAt?: string;
   }) => apiRequest<any>('/payments', { method: 'POST', body: data }),
   adminList: (params?: {
@@ -1235,7 +1235,7 @@ export const paymentsApi = {
     apartmentId: string;
     invoiceId?: string;
     amount: number;
-    method: 'CASH' | 'BANK' | 'BANK_TRANSFER' | 'CARD';
+    method: 'CASH' | 'BANK' | 'BANK_TRANSFER' | 'CARD' | 'OTHER';
     note?: string;
   }) => apiRequest<any>('/api/admin/payments/manual', { method: 'POST', body: data }),
   adminConfirm: (id: string) => apiRequest<any>(`/api/admin/payments/${id}/confirm`, { method: 'PATCH' }),

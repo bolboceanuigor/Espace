@@ -179,11 +179,13 @@ export class BillingReadService {
       payments: relatedPayments,
       services,
       paidAmount,
+      remainingAmount: remainingDebt,
       remainingDebt,
     };
   }
 
   private toPayment(row: any) {
+    const method = row.method === PaymentMethod.BANK ? 'OTHER' : row.method;
     return {
       id: row.id,
       organizationId: row.organizationId,
@@ -202,7 +204,7 @@ export class BillingReadService {
       invoice: row.invoice ?? null,
       amount: Number(row.amount || 0),
       currency: row.currency,
-      method: row.method,
+      method,
       status: row.status,
       paidAt: row.paidAt ?? row.confirmedAt,
       createdAt: row.createdAt,
@@ -346,13 +348,13 @@ export class BillingReadService {
     const settings = await this.getOrCreateOrganizationSettings(organizationId);
     const activeTariffs = this.toTariffRows(settings).filter((tariff) => tariff.isActive);
     if (!activeTariffs.length) {
-      throw new BadRequestException('Nu există tarife active pentru generarea facturilor.');
+      throw new BadRequestException('Pentru a genera facturi, configurează tarifele.');
     }
 
     const apartments = await this.prisma.apartment.findMany({
       where: {
         organizationId,
-        status: { not: ApartmentStatus.EMPTY },
+        status: { in: [ApartmentStatus.ACTIVE, ApartmentStatus.DEBTOR, ApartmentStatus.PROBLEM, ApartmentStatus.OCCUPIED] },
       },
       select: {
         id: true,
@@ -361,6 +363,10 @@ export class BillingReadService {
       },
       orderBy: [{ number: 'asc' }],
     });
+
+    if (!apartments.length) {
+      throw new BadRequestException('Pentru a genera facturi, adaugă apartamente.');
+    }
 
     let createdInvoicesCount = 0;
     let skippedDuplicatesCount = 0;
@@ -705,6 +711,7 @@ export class BillingReadService {
     });
 
     let updatedInvoiceStatus: InvoiceStatus | null = null;
+    let updatedInvoice: ReturnType<BillingReadService['toInvoice']> | null = null;
     if (invoice) {
       const linkedPayments = await this.prisma.payment.findMany({
         where: {
@@ -713,10 +720,9 @@ export class BillingReadService {
           note: this.invoicePaymentNote(invoice.id),
           status: PaymentStatus.CONFIRMED,
         },
-        select: { amount: true, status: true },
+        orderBy: [{ paidAt: 'desc' }, { createdAt: 'desc' }],
+        select: this.paymentSelect(),
       });
-      const paidAmount = this.confirmedPaymentTotal(linkedPayments);
-      const invoiceAmount = this.invoiceAmount(invoice);
       const nextStatus = this.calculateInvoiceStatus(invoice, linkedPayments);
       const updated = await this.prisma.invoice.update({
         where: { id: invoice.id },
@@ -724,9 +730,10 @@ export class BillingReadService {
           status: nextStatus,
           paidAt: nextStatus === InvoiceStatus.PAID ? input.paidAt : null,
         },
-        select: { status: true },
+        select: this.invoiceSelect(),
       });
       updatedInvoiceStatus = updated.status;
+      updatedInvoice = this.toInvoice(updated, linkedPayments.map((item) => this.toPayment(item)));
     }
 
     await this.activity.createActivity({
@@ -753,6 +760,8 @@ export class BillingReadService {
       ...this.toPayment(payment),
       linkedInvoiceId: invoice?.id ?? null,
       invoiceStatus: updatedInvoiceStatus,
+      updatedInvoiceStatus,
+      updatedInvoice,
     };
   }
 
@@ -890,7 +899,7 @@ export class BillingReadService {
     const apartmentId = this.requiredString(payload.apartmentId, 'Apartamentul este obligatoriu.');
     const invoiceId = typeof payload.invoiceId === 'string' && payload.invoiceId.trim() ? payload.invoiceId.trim() : null;
     const amount = this.requiredNumber(payload.amount, 'Suma plății trebuie să fie mai mare decât 0.');
-    const method = this.optionalEnum(payload.method, PaymentMethod, PaymentMethod.CASH, 'Metoda de plată nu este validă.');
+    const method = this.parsePaymentMethod(payload.method);
     const paidAt =
       typeof payload.paidAt === 'string' && payload.paidAt.trim()
         ? this.requiredDate(payload.paidAt, 'Data plății nu este validă.')
@@ -900,6 +909,17 @@ export class BillingReadService {
     if (amount <= 0) throw new BadRequestException('Suma plății trebuie să fie mai mare decât 0.');
 
     return { organizationId, apartmentId, invoiceId, amount, method, paidAt, month };
+  }
+
+  private parsePaymentMethod(value: unknown) {
+    if (value === undefined || value === null || value === '') return PaymentMethod.CASH;
+    if (typeof value !== 'string') throw new BadRequestException('Metoda de plată nu este validă.');
+    const normalized = value.trim().toUpperCase();
+    if (normalized === 'OTHER') return PaymentMethod.BANK;
+    if (normalized === 'BANK_TRANSFER') return PaymentMethod.BANK_TRANSFER;
+    if (normalized === 'CASH') return PaymentMethod.CASH;
+    if (normalized === 'CARD') return PaymentMethod.CARD;
+    throw new BadRequestException('Metoda de plată nu este validă.');
   }
 
   private async assertOrganizationExists(organizationId: string) {

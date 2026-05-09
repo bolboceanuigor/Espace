@@ -85,6 +85,7 @@ export type AdminInvoice = {
   paymentMethod?: string;
   paidDate?: string;
   paidAmount?: number;
+  remainingAmount?: number;
   remainingDebt?: number;
 };
 
@@ -757,15 +758,18 @@ function invoiceMonthLabel(month?: number | string | null, year?: number | strin
 function paymentMethodFromApi(method?: string | null) {
   const normalized = String(method || '').toUpperCase();
   if (normalized === 'CASH') return 'Numerar';
-  if (normalized === 'BANK' || normalized === 'BANK_TRANSFER') return 'Transfer bancar';
-  if (normalized === 'CARD') return 'Card bancar';
-  if (normalized === 'ONLINE') return 'Altă metodă';
+  if (normalized === 'BANK_TRANSFER') return 'Transfer bancar';
+  if (normalized === 'CARD') return 'Card';
+  if (normalized === 'BANK' || normalized === 'OTHER' || normalized === 'ONLINE') return 'Altă metodă';
   return undefined;
 }
 
 export function normalizeApiInvoice(row: any, payments: any[] = []): AdminInvoice {
   const apartment = String(row?.apartmentNumber || row?.apartment?.number || '-');
-  const paidPayment = payments.find((payment) => String(payment.apartmentId || '') === String(row?.apartmentId || '') && payment.status === 'CONFIRMED');
+  const invoicePaymentNote = row?.id ? `Invoice ${row.id}` : '';
+  const paidPayment =
+    payments.find((payment) => invoicePaymentNote && payment.note === invoicePaymentNote && payment.status === 'CONFIRMED') ||
+    payments.find((payment) => String(payment.apartmentId || '') === String(row?.apartmentId || '') && payment.status === 'CONFIRMED');
 
   return {
     id: String(row?.id || `invoice-${apartment}`),
@@ -783,7 +787,8 @@ export function normalizeApiInvoice(row: any, payments: any[] = []): AdminInvoic
     paymentMethod: paymentMethodFromApi(paidPayment?.method) || paymentMethodFromApi(row?.paymentMethod),
     paidDate: dateLabel(paidPayment?.paidAt || row?.paidAt),
     paidAmount: Number(row?.paidAmount ?? paidPayment?.amount ?? 0),
-    remainingDebt: Number(row?.remainingDebt ?? (String(row?.status || '').toUpperCase() === 'PAID' ? 0 : row?.amount ?? row?.finalAmount ?? 0)),
+    remainingAmount: Number(row?.remainingAmount ?? row?.remainingDebt ?? (String(row?.status || '').toUpperCase() === 'PAID' ? 0 : row?.amount ?? row?.finalAmount ?? 0)),
+    remainingDebt: Number(row?.remainingDebt ?? row?.remainingAmount ?? (String(row?.status || '').toUpperCase() === 'PAID' ? 0 : row?.amount ?? row?.finalAmount ?? 0)),
   };
 }
 

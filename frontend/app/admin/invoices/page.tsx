@@ -97,6 +97,16 @@ export default function AdminInvoicesPage() {
 
   const currentMonths = ['Toate', ...Array.from(new Set(rows.map((invoice) => invoice.month)))];
   const invoiceGenerationReady = source === 'api' && apartmentRows.length > 0 && activeTariffsCount > 0;
+  const invoiceGenerationMessage =
+    source !== 'api'
+      ? ''
+      : apartmentRows.length === 0 && activeTariffsCount === 0
+        ? 'Pentru a genera facturi, adaugă apartamente și configurează tarifele.'
+        : apartmentRows.length === 0
+          ? 'Pentru a genera facturi, adaugă apartamente.'
+          : activeTariffsCount === 0
+            ? 'Pentru a genera facturi, configurează tarifele.'
+            : '';
   const totals = useMemo(() => ({
     issued: rows.length,
     paid: rows.filter((invoice) => invoice.status === 'Achitat'),
@@ -175,7 +185,7 @@ export default function AdminInvoicesPage() {
       return;
     }
     if (!invoiceGenerationReady) {
-      setGenerationError('Pentru a genera facturi, adaugă apartamente și configurează tarifele.');
+      setGenerationError(invoiceGenerationMessage || 'Pentru a genera facturi, adaugă apartamente și configurează tarifele.');
       return;
     }
 
@@ -188,7 +198,7 @@ export default function AdminInvoicesPage() {
       });
       const result = response.data || {};
       const createdInvoicesCount = Number(result.createdInvoicesCount ?? result.createdCount ?? result.count ?? 0);
-      const skippedDuplicatesCount = Number(result.skippedDuplicatesCount ?? result.skippedDuplicates ?? 0);
+      const skippedDuplicatesCount = Number(result.skippedDuplicatesCount ?? result.skippedCount ?? result.skippedDuplicates ?? 0);
       const totalAmount = Number(result.totalAmount ?? 0);
       setGenerationResult({ createdInvoicesCount, skippedDuplicatesCount, totalAmount });
       setSuccessMessage(
@@ -270,7 +280,7 @@ export default function AdminInvoicesPage() {
             </p>
             {!invoiceGenerationReady && source !== 'loading' ? (
               <p className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
-                Pentru a genera facturi, adaugă apartamente și configurează tarifele.
+                {invoiceGenerationMessage}
               </p>
             ) : null}
             <ButtonLink href="/admin/tariffs" variant="secondary" className="mt-4">Configurează tarife</ButtonLink>
@@ -280,7 +290,7 @@ export default function AdminInvoicesPage() {
             <Field label="Anul" value={generationForm.year} onChange={(value) => setGenerationForm({ ...generationForm, year: value })} type="number" required />
             <Field label="Data scadentă" value={generationForm.dueDate} onChange={(value) => setGenerationForm({ ...generationForm, dueDate: value })} type="date" required />
             <Button type="button" onClick={generateMonthlyInvoices} isLoading={isGenerating} disabled={!invoiceGenerationReady || isGenerating} className="self-end">
-              Generează facturi lunare
+              Generează facturi
             </Button>
           </div>
         </div>

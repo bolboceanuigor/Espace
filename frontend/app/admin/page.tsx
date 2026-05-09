@@ -138,8 +138,12 @@ type ResidentCrmData = {
     totalApartments: number;
     totalResidents: number;
     residentsWithoutAccount: number;
+    totalIssued: number;
+    totalPaid: number;
     apartmentsWithDebt: number;
     totalDebt: number;
+    overdueInvoices: number;
+    collectionRate: number;
     openIssues: number;
     urgentIssues: number;
     missingMeterReadings: number;
@@ -165,8 +169,12 @@ const emptyCrm: ResidentCrmData = {
     totalApartments: 0,
     totalResidents: 0,
     residentsWithoutAccount: 0,
+    totalIssued: 0,
+    totalPaid: 0,
     apartmentsWithDebt: 0,
     totalDebt: 0,
+    overdueInvoices: 0,
+    collectionRate: 0,
     openIssues: 0,
     urgentIssues: 0,
     missingMeterReadings: 0,
@@ -221,7 +229,7 @@ const meterTypeLabels: Record<string, string> = {
 
 const paymentMethodLabels: Record<string, string> = {
   CASH: 'Numerar',
-  BANK: 'Transfer bancar',
+  BANK: 'Altă metodă',
   BANK_TRANSFER: 'Transfer bancar',
   CARD: 'Card',
   OTHER: 'Altă metodă',
@@ -385,6 +393,50 @@ export default function AdminPage() {
     },
   ];
 
+  const financeKpiCards = [
+    {
+      label: 'Total emis',
+      value: formatMdl(crm.kpis.totalIssued),
+      description: 'Facturi emise',
+      icon: <FileText className="h-5 w-5" />,
+    },
+    {
+      label: 'Total achitat',
+      value: formatMdl(crm.kpis.totalPaid),
+      description: 'Plăți confirmate',
+      icon: <CheckCircle2 className="h-5 w-5" />,
+      tone: 'success' as const,
+    },
+    {
+      label: 'Restanțe',
+      value: formatMdl(crm.kpis.totalDebt),
+      description: 'Solduri neachitate',
+      icon: <CreditCard className="h-5 w-5" />,
+      tone: crm.kpis.totalDebt > 0 ? ('danger' as const) : ('success' as const),
+    },
+    {
+      label: 'Facturi întârziate',
+      value: String(crm.kpis.overdueInvoices),
+      description: 'Scadență depășită',
+      icon: <AlertCircle className="h-5 w-5" />,
+      tone: crm.kpis.overdueInvoices > 0 ? ('warning' as const) : ('success' as const),
+    },
+    {
+      label: 'Apartamente cu datorii',
+      value: String(crm.kpis.apartmentsWithDebt),
+      description: formatMdl(crm.kpis.totalDebt),
+      icon: <Building2 className="h-5 w-5" />,
+      tone: crm.kpis.apartmentsWithDebt > 0 ? ('danger' as const) : ('success' as const),
+    },
+    {
+      label: 'Rata de colectare',
+      value: `${Number(crm.kpis.collectionRate || 0).toLocaleString('ro-RO')}%`,
+      description: 'Achitat din total emis',
+      icon: <Banknote className="h-5 w-5" />,
+      tone: crm.kpis.collectionRate >= 90 ? ('success' as const) : ('warning' as const),
+    },
+  ];
+
   return (
     <div className="space-y-5 pb-4">
       <PageHeader
@@ -435,6 +487,18 @@ export default function AdminPage() {
       </Card>
 
       <SetupChecklistCard setup={setup} setupError={setupError} localizedPath={localizedPath} />
+
+      <Card>
+        <div className="flex flex-col gap-1">
+          <p className="text-sm font-semibold text-foreground">Financiar</p>
+          <p className="text-sm text-muted-foreground">Facturi, plăți și restanțe calculate din datele reale ale A.P.C.</p>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {financeKpiCards.map((card) => (
+            <StatCard key={card.label} {...card} />
+          ))}
+        </div>
+      </Card>
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {kpiCards.map((card) => (
