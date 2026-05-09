@@ -2,11 +2,12 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { Clock3, Mail, MessageCircle, Phone, Plus, Search, StickyNote, Upload, UserRound, Users, UserX, Wrench } from 'lucide-react';
+import { Clock3, Download, Mail, MessageCircle, Phone, Plus, Search, StickyNote, Upload, UserRound, Users, UserX, Wrench } from 'lucide-react';
 import { Badge, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { apartmentsApi, issuesApi, residentsApi } from '@/lib/api';
 import { accountStatusVariant, adminResidents, normalizeApiApartment, normalizeApiResident, type AdminApartment } from '@/lib/admin-mvp-data';
+import { downloadApartmentImportCsvTemplate } from '@/lib/apartment-import-template';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 const emptyForm = {
@@ -227,6 +228,10 @@ export default function AdminResidentsPage() {
               <Upload className="h-4 w-4" />
               Importă locatari
             </Link>
+            <button type="button" onClick={downloadApartmentImportCsvTemplate} className="inline-flex min-h-10 items-center gap-2 rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted/60">
+              <Download className="h-4 w-4" />
+              Descarcă model CSV
+            </button>
             <button type="button" onClick={() => setModalOpen(true)} className="inline-flex min-h-10 items-center gap-2 rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background">
               <Plus className="h-4 w-4" />
               Adaugă locatar

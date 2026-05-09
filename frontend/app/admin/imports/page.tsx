@@ -41,7 +41,7 @@ export default function AdminImportsPage() {
         rightSlot={
           <Link href={localizedPath('/admin/imports/apartments')} className="inline-flex min-h-10 items-center gap-2 rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background">
             <FileSpreadsheet className="h-4 w-4" />
-            Importă din CSV
+            Importă apartamente
           </Link>
         }
       />

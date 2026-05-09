@@ -651,6 +651,7 @@ export class SetupService {
     const rawArea = this.readImportValue(row, ['suprafata_m2', 'suprafata', 'suprafață m²', 'areaM2', 'area_m2']);
     const rawRooms = this.readImportValue(row, ['camere', 'rooms']);
     const rawRole = this.readImportValue(row, ['rol', 'role']);
+    const rawPhone = this.readImportValue(row, ['telefon', 'phone']);
     const email = this.readImportValue(row, ['email', 'owner_email', 'proprietar_email']).toLowerCase();
     const parsed = {
       buildingName: this.readImportValue(row, ['bloc', 'building', 'buildingName']),
@@ -661,7 +662,7 @@ export class SetupService {
       rooms: rawRooms ? Number(rawRooms) : 1,
       ownerFirstName: this.readImportValue(row, ['proprietar_prenume', 'prenume', 'owner_first_name']),
       ownerLastName: this.readImportValue(row, ['proprietar_nume', 'nume', 'owner_last_name']),
-      phone: this.readImportValue(row, ['telefon', 'phone']),
+      phone: this.normalizeMoldovaPhone(rawPhone),
       email,
       role: this.parseApartmentResidentRole(rawRole),
       errors: [] as string[],
@@ -674,10 +675,27 @@ export class SetupService {
     if (!rawArea || !Number.isFinite(parsed.areaM2)) parsed.errors.push('Suprafața trebuie să fie un număr.');
     else if (parsed.areaM2 <= 0) parsed.errors.push('Suprafața trebuie să fie mai mare decât 0.');
     if (rawRooms && (!Number.isFinite(parsed.rooms) || parsed.rooms < 1)) parsed.errors.push('Numărul de camere trebuie să fie pozitiv.');
+    if (rawPhone && !this.isValidMoldovaPhone(rawPhone)) parsed.errors.push('Telefonul nu este valid. Format recomandat: +373 6X XXX XXX');
     if (parsed.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(parsed.email)) parsed.errors.push('Emailul proprietarului nu este valid.');
     if (rawRole && !this.isSupportedApartmentResidentRole(rawRole)) parsed.errors.push('Rolul locatarului nu este valid.');
 
     return parsed;
+  }
+
+  private normalizePhoneDigits(value: string) {
+    return String(value || '').trim().replace(/[\s().-]/g, '');
+  }
+
+  private isValidMoldovaPhone(value: string) {
+    const normalized = this.normalizePhoneDigits(value);
+    return /^\+373\d{8}$/.test(normalized) || /^0\d{8}$/.test(normalized);
+  }
+
+  private normalizeMoldovaPhone(value: string) {
+    const normalized = this.normalizePhoneDigits(value);
+    if (!normalized) return '';
+    if (/^0\d{8}$/.test(normalized)) return `+373${normalized.slice(1)}`;
+    return normalized;
   }
 
   private isSupportedApartmentResidentRole(value: string) {
@@ -770,25 +788,36 @@ export class SetupService {
       role: ApartmentResidentRole;
     },
   ) {
-    const firstName = parsed.ownerFirstName || (parsed.ownerLastName ? '' : 'Proprietar');
-    const lastName = parsed.ownerLastName || '';
+    const lookupFirstName = parsed.ownerFirstName.trim();
+    const lookupLastName = parsed.ownerLastName.trim();
+    const firstName = lookupFirstName || (lookupLastName ? '' : 'Proprietar');
+    const lastName = lookupLastName || '';
     const residentType =
       parsed.role === ApartmentResidentRole.TENANT
         ? ResidentType.TENANT
         : parsed.role === ApartmentResidentRole.OWNER
           ? ResidentType.OWNER
           : ResidentType.RESIDENT;
-    const existing = await this.prisma.residentProfile.findFirst({
-      where: {
-        organizationId,
-        OR: [
-          ...(parsed.email ? [{ email: parsed.email }] : []),
-          ...(parsed.phone ? [{ phone: parsed.phone, firstName, lastName }] : []),
-          { apartmentId, firstName, lastName, type: residentType },
-        ],
-      },
-      select: { id: true },
-    });
+    let existing: { id: string } | null = null;
+
+    if (parsed.email) {
+      existing = await this.prisma.residentProfile.findFirst({
+        where: { organizationId, email: parsed.email },
+        select: { id: true },
+      });
+    }
+    if (!existing && parsed.phone) {
+      existing = await this.prisma.residentProfile.findFirst({
+        where: { organizationId, phone: parsed.phone },
+        select: { id: true },
+      });
+    }
+    if (!existing && (lookupFirstName || lookupLastName)) {
+      existing = await this.prisma.residentProfile.findFirst({
+        where: { organizationId, firstName, lastName },
+        select: { id: true },
+      });
+    }
 
     const resident = existing
       ? existing

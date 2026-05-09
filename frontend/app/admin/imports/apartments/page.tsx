@@ -7,13 +7,8 @@ import { Card, PageHeader } from '@/components/ui';
 import EmptyState from '@/components/common/EmptyState';
 import LoadingState from '@/components/common/LoadingState';
 import { adminImportsApi, adminStructureApi } from '@/lib/api';
+import { downloadApartmentImportCsvTemplate } from '@/lib/apartment-import-template';
 import { useLocalizedPath } from '@/lib/use-localized-path';
-
-const sampleRows = [
-  ['scara', 'apartament', 'etaj', 'suprafata_m2', 'camere', 'proprietar_prenume', 'proprietar_nume', 'telefon', 'email', 'rol', 'observatii'],
-  ['2', '45', '6', '72.4', '3', 'Ion', 'Popescu', '+37360000000', 'ion@example.com', 'OWNER', ''],
-  ['1', '12', '3', '48.2', '2', 'Elena', 'Rusu', '+37361111111', 'elena@example.com', 'OWNER', ''],
-];
 
 const requiredColumns = ['scara', 'apartament', 'etaj', 'suprafata_m2'];
 const optionalColumns = ['camere', 'proprietar_prenume', 'proprietar_nume', 'telefon', 'email', 'rol', 'observatii'];
@@ -89,17 +84,6 @@ export default function AdminApartmentsImportPage() {
     }
   };
 
-  const downloadSampleCsv = () => {
-    const csv = sampleRows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'model-import-apartamente.csv';
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
   const submitImport = async () => {
     setError('');
     setSummary(null);
@@ -158,7 +142,7 @@ export default function AdminApartmentsImportPage() {
             </div>
             <button
               type="button"
-              onClick={downloadSampleCsv}
+              onClick={downloadApartmentImportCsvTemplate}
               className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-2xl border border-border/70 px-4 text-sm font-semibold hover:bg-muted/60"
             >
               <Download className="h-4 w-4" />
