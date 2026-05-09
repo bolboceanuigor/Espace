@@ -53,9 +53,26 @@ export class HttpExceptionFilter implements ExceptionFilter {
         message = exception.message;
       }
     } else if (exception instanceof Error) {
-      message = exception.message;
-      if (exception.name === 'UnauthorizedError') {
+      const prismaCode = (exception as { code?: string }).code;
+      if (exception.name === 'PrismaClientKnownRequestError') {
+        if (prismaCode === 'P2002') {
+          status = HttpStatus.CONFLICT;
+          message = 'Înregistrarea există deja.';
+          explicitCode = 'CONFLICT';
+        } else if (prismaCode === 'P2025') {
+          status = HttpStatus.NOT_FOUND;
+          message = 'Înregistrarea nu a fost găsită.';
+          explicitCode = 'NOT_FOUND';
+        } else {
+          status = HttpStatus.INTERNAL_SERVER_ERROR;
+          message = 'A apărut o eroare. Încearcă din nou.';
+          explicitCode = 'INTERNAL_ERROR';
+        }
+      } else if (exception.name === 'UnauthorizedError') {
         status = HttpStatus.UNAUTHORIZED;
+        message = 'Sesiunea a expirat. Te rugăm să te autentifici din nou.';
+      } else {
+        message = exception.message;
       }
     }
 

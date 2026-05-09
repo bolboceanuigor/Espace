@@ -565,7 +565,7 @@ export class ResidentDemoService {
     if (!scope.apartmentIds.length) return [];
 
     const invoices = await this.prisma.invoice.findMany({
-      where: { apartmentId: { in: scope.apartmentIds } },
+      where: { organizationId: user.organizationId, apartmentId: { in: scope.apartmentIds } },
       orderBy: [{ year: 'desc' }, { month: 'desc' }, { createdAt: 'desc' }],
       select: this.invoiceSelect(),
     });
@@ -613,7 +613,7 @@ export class ResidentDemoService {
     if (!scope.apartmentIds.length) return [];
 
     const payments = await this.prisma.payment.findMany({
-      where: { apartmentId: { in: scope.apartmentIds } },
+      where: { organizationId: user.organizationId, apartmentId: { in: scope.apartmentIds } },
       orderBy: [{ paidAt: 'desc' }, { createdAt: 'desc' }],
       select: this.paymentSelect(),
     });
@@ -626,6 +626,7 @@ export class ResidentDemoService {
     const invoice = await this.prisma.invoice.findFirst({
       where: {
         id,
+        organizationId: user.organizationId,
         apartmentId: { in: scope.apartmentIds },
       },
       select: this.invoiceSelect(),
@@ -673,7 +674,7 @@ export class ResidentDemoService {
     if (!scope.apartmentIds.length) return [];
 
     const meters = await this.prisma.meter.findMany({
-      where: { apartmentId: { in: scope.apartmentIds } },
+      where: { organizationId: user.organizationId, apartmentId: { in: scope.apartmentIds } },
       orderBy: [{ apartment: { number: 'asc' } }, { type: 'asc' }],
       select: this.meterSelect(),
     });
@@ -688,6 +689,7 @@ export class ResidentDemoService {
     const meter = await this.prisma.meter.findFirst({
       where: {
         id: meterId,
+        organizationId: user.organizationId,
         apartmentId: { in: scope.apartmentIds },
       },
       select: {
@@ -773,7 +775,7 @@ export class ResidentDemoService {
     if (!scope.apartmentIds.length) return [];
 
     const issues = await this.prisma.issue.findMany({
-      where: { apartmentId: { in: scope.apartmentIds } },
+      where: { organizationId: user.organizationId, apartmentId: { in: scope.apartmentIds } },
       orderBy: { createdAt: 'desc' },
       select: this.issueSelect(),
     });

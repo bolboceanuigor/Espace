@@ -7,6 +7,10 @@ export const ESPACE_USER_KEY = 'espace_user';
 export const ESPACE_ROLE_KEY = 'espace_role';
 const isProd = typeof window !== 'undefined' && window.location.protocol === 'https:';
 const cookieSecurity = isProd ? '; secure' : '';
+const DEMO_PREVIEW_ENABLED =
+  process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === 'true' ||
+  process.env.NEXT_PUBLIC_ENABLE_DEMO === 'true' ||
+  process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
 
 export type EspaceRole = 'SUPERADMIN' | 'ADMIN' | 'RESIDENT';
 
@@ -121,7 +125,7 @@ export function getCurrentRole(): EspaceRole | null {
   if (typeof window === 'undefined') return null;
   const storedRole = localStorage.getItem(ESPACE_ROLE_KEY);
   const userRole = getUser()?.role;
-  const demoRole = localStorage.getItem('espace_demo_role');
+  const demoRole = DEMO_PREVIEW_ENABLED ? localStorage.getItem('espace_demo_role') : null;
   return normalizeEspaceRole(storedRole || userRole || demoRole);
 }
 
@@ -134,7 +138,7 @@ export function getStoredAuth(): StoredAuth {
   const token = getToken();
   const user = getUser();
   const role = getCurrentRole();
-  const isDemo = !token && !!localStorage.getItem('espace_demo_role');
+  const isDemo = DEMO_PREVIEW_ENABLED && !token && !!localStorage.getItem('espace_demo_role');
   return { token, user, role, isDemo };
 }
 
@@ -148,7 +152,7 @@ export function isRealAuthenticated() {
 
 export function isDemoAuthenticated() {
   if (typeof window === 'undefined') return false;
-  return !getToken() && !!localStorage.getItem('espace_demo_role');
+  return DEMO_PREVIEW_ENABLED && !getToken() && !!localStorage.getItem('espace_demo_role');
 }
 
 export function getDashboardForRole(role: string | null | undefined, locale = 'ro') {

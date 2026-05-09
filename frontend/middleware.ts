@@ -27,6 +27,10 @@ const LOCALE_COOKIE = 'locale';
 const DEMO_ROLE_COOKIE = 'espace_demo_role';
 const KNOWN_ROLES = ['SUPERADMIN', 'SUPER_ADMIN', 'ADMIN', 'MANAGER', 'RESIDENT', 'TENANT', 'LOCATAR'] as const;
 const CANONICAL_LOGIN_ROUTE = '/login';
+const DEMO_PREVIEW_ENABLED =
+  process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === 'true' ||
+  process.env.NEXT_PUBLIC_ENABLE_DEMO === 'true' ||
+  process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
 
 type TokenPayload = {
   role?: string;
@@ -119,7 +123,7 @@ export function middleware(request: NextRequest) {
   const tokenExpired = !!tokenPayload?.exp && tokenPayload.exp * 1000 <= Date.now();
   const hasUsableToken = !!token && !!tokenPayload && !tokenExpired;
   const realRole = normalizeMiddlewareRole(roleCookie || tokenPayload?.role);
-  const demoRole = !hasUsableToken ? normalizeMiddlewareRole(demoRoleCookie) : null;
+  const demoRole = DEMO_PREVIEW_ENABLED && !hasUsableToken ? normalizeMiddlewareRole(demoRoleCookie) : null;
   const activeRole = realRole || demoRole;
   const hasDemoRole = !!demoRole;
 

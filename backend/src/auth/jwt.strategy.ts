@@ -49,7 +49,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
 
     if (!user) {
-      throw new UnauthorizedException('Invalid token');
+      throw new UnauthorizedException({
+        code: 'UNAUTHORIZED',
+        message: 'Sesiunea a expirat. Te rugăm să te autentifici din nou.',
+      });
     }
 
     return {

@@ -1,4 +1,4 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { OrganizationMemberStatus, Role } from '@prisma/client';
 import { ROLES_KEY } from './roles.decorator';
@@ -25,7 +25,10 @@ export class RolesGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const user = request.user as { id?: string; sub?: string; role?: Role | string; organizationId?: string | null } | undefined;
     if (!user?.role) {
-      throw new ForbiddenException('Missing user role');
+      throw new UnauthorizedException({
+        code: 'UNAUTHORIZED',
+        message: 'Trebuie să te autentifici.',
+      });
     }
 
     if (isSuperAdmin(user)) {
@@ -48,8 +51,11 @@ export class RolesGuard implements CanActivate {
         },
         select: { id: true },
       });
-      return Boolean(hasActiveMembership);
+      if (hasActiveMembership) return true;
     }
-    return false;
+    throw new ForbiddenException({
+      code: 'FORBIDDEN',
+      message: 'Nu ai acces la această zonă.',
+    });
   }
 }

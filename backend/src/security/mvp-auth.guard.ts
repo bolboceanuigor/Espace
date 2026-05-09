@@ -27,6 +27,11 @@ function extractBearerToken(authorization?: string) {
   return authorization.startsWith('Bearer ') ? authorization.slice('Bearer '.length).trim() : '';
 }
 
+function normalizeRole(role: Role | string) {
+  const value = String(role).toUpperCase();
+  return value === 'SUPER_ADMIN' ? 'SUPERADMIN' : value;
+}
+
 @Injectable()
 export class MvpAuthGuard implements CanActivate {
   constructor(
@@ -115,8 +120,8 @@ export class MvpRolesGuard implements CanActivate {
       });
     }
 
-    const currentRole = String(user.role).toUpperCase();
-    const allowed = requiredRoles.some((role) => String(role).toUpperCase() === currentRole);
+    const currentRole = normalizeRole(user.role);
+    const allowed = requiredRoles.some((role) => normalizeRole(role) === currentRole);
     if (!allowed) {
       throw new ForbiddenException({
         code: 'FORBIDDEN_ROLE',

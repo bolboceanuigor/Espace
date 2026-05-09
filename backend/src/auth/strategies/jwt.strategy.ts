@@ -18,10 +18,17 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any) {
-    const user = await this.usersService.findOne(payload.sub);
-    if (!user) {
-      throw new UnauthorizedException();
+    try {
+      const user = await this.usersService.findOne(payload.sub);
+      if (!user) {
+        throw new UnauthorizedException();
+      }
+      return user;
+    } catch {
+      throw new UnauthorizedException({
+        code: 'UNAUTHORIZED',
+        message: 'Sesiunea a expirat. Te rugăm să te autentifici din nou.',
+      });
     }
-    return user;
   }
 }

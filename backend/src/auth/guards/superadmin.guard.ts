@@ -11,7 +11,10 @@ export class SuperAdminGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const { user } = context.switchToHttp().getRequest();
     if (!isSuperAdmin(user)) {
-      throw new ForbiddenException('Superadmin access required');
+      throw new ForbiddenException({
+        code: 'FORBIDDEN',
+        message: 'Nu ai acces la această zonă.',
+      });
     }
     return true;
   }
