@@ -3,602 +3,613 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  ArrowLeft,
-  Banknote,
-  FileText,
-  Gauge,
-  Home,
-  MessageCircle,
-  Plus,
-  StickyNote,
-  Users,
-  Wrench,
-} from 'lucide-react';
-import { Badge, ButtonLink, Card, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
-import { defaultLocale, isLocale } from '@/i18n';
-import { apartmentsApi, metersApi, residentsApi } from '@/lib/api';
-import {
-  type AdminApartment,
-  apartmentMeters,
-  apartmentPayments,
-  apartmentRequests,
-  apartmentStatusVariant,
-  findApartmentById,
-  normalizeApiApartment,
-  normalizeApiApartmentMeters,
-  normalizeApiApartmentPayments,
-  normalizeApiApartmentRequests,
-  normalizeApiApartmentResidents,
-  residentsForApartment,
-} from '@/lib/admin-mvp-data';
-import { formatMdl } from '@/lib/condo-admin-fallback';
+import { ArrowLeft, Building2, Home, Mail, Pencil, Phone, Plus, StickyNote, UserCheck, Users } from 'lucide-react';
+import { Badge, Button, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
+import { adminApartmentsCrmApi } from '@/lib/api';
+import { useLocalizedPath } from '@/lib/use-localized-path';
 
-const paymentVariant = {
-  Achitat: 'success',
-  Neachitat: 'warning',
-  Întârziat: 'error',
-} as const;
+type ApartmentStatus = 'OCCUPIED' | 'VACANT' | 'UNKNOWN';
+type ContactRole = 'OWNER' | 'TENANT' | 'REPRESENTATIVE';
+type ContactStatus = 'ACTIVE' | 'INVITED' | 'NOT_INVITED';
+type ContactMethod = 'PHONE' | 'EMAIL' | 'APP' | 'WHATSAPP' | 'TELEGRAM';
 
-const meterVariant = {
-  Actualizat: 'success',
-  'Lipsă citire': 'warning',
-} as const;
+type ResidentLink = {
+  id: string;
+  residentId: string;
+  fullName: string;
+  phone: string;
+  email: string;
+  role: ContactRole | string;
+  isPrimaryContact: boolean;
+  accountStatus: string;
+  preferredContactMethod: ContactMethod | string;
+};
 
-const requestVariant = {
-  Nouă: 'default',
-  'În lucru': 'warning',
-  Rezolvată: 'success',
-} as const;
+type ApartmentDetail = {
+  id: string;
+  apartmentNumber: string;
+  number?: string;
+  buildingName: string;
+  staircase: string;
+  floor: string;
+  areaM2: number | null;
+  rooms?: number | null;
+  cadastralNumber: string;
+  status: ApartmentStatus;
+  primaryContact: { id: string; fullName: string; phone: string; email?: string } | null;
+  residentsCount: number;
+  completenessStatus: 'COMPLETE' | 'NO_CONTACT' | 'NO_AREA' | 'INCOMPLETE';
+  internalNotes: string;
+  residents: ResidentLink[];
+  meters: Array<{ id: string; type: string; serialNumber: string; status: string; lastReading?: number | null; lastReadingDate?: string | null }>;
+  invoices: Array<{ id: string; amount?: number; totalAmount?: number; status?: string; month?: number; year?: number; dueDate?: string }>;
+  payments: Array<{ id: string; amount?: number; paidAt?: string; method?: string }>;
+  issues: Array<{ id: string; title?: string; status?: string; priority?: string; createdAt?: string }>;
+  activity: Array<{ label: string; date?: string }>;
+  updatedAt: string;
+};
 
-const emptyResidentForm = {
-  firstName: '',
-  lastName: '',
+const emptyApartmentForm = {
+  apartmentNumber: '',
+  building: 'Bloc principal',
+  entrance: '1',
+  floor: '',
+  areaM2: '',
+  rooms: '',
+  cadastralNumber: '',
+  status: 'UNKNOWN' as ApartmentStatus,
+  internalNotes: '',
+};
+
+const emptyContactForm = {
+  fullName: '',
   phone: '',
   email: '',
-  role: 'RESIDENT' as 'OWNER' | 'RESIDENT' | 'TENANT' | 'FAMILY_MEMBER' | 'REPRESENTATIVE',
-  isPrimary: false,
+  role: 'OWNER' as ContactRole,
+  isPrimaryContact: true,
+  preferredContactMethod: 'PHONE' as ContactMethod,
+  status: 'NOT_INVITED' as ContactStatus,
 };
 
-const roleLabels = {
+const statusLabels: Record<ApartmentStatus, string> = {
+  OCCUPIED: 'Ocupat',
+  VACANT: 'Liber',
+  UNKNOWN: 'Necunoscut',
+};
+
+const roleLabels: Record<string, string> = {
   OWNER: 'Proprietar',
-  RESIDENT: 'Locatar',
   TENANT: 'Chiriaș',
+  RESIDENT: 'Locatar',
   FAMILY_MEMBER: 'Membru familie',
   REPRESENTATIVE: 'Reprezentant',
-} as const;
-
-const meterTypeLabels = {
-  COLD_WATER: 'Apă rece',
-  HOT_WATER: 'Apă caldă',
-  GAS: 'Gaz',
-  ELECTRICITY: 'Electricitate',
-  HEATING: 'Încălzire',
-} as const;
-
-const meterStatusLabels = {
-  ACTIVE: 'Actualizat',
-  MISSING_READING: 'Lipsă citire',
-  SUSPICIOUS: 'Suspect',
-  INACTIVE: 'Inactiv',
-} as const;
-
-const emptyMeterForm = {
-  type: 'COLD_WATER' as keyof typeof meterTypeLabels,
-  serialNumber: '',
-  status: 'ACTIVE' as keyof typeof meterStatusLabels,
 };
-const emptyReadingForm = {
-  meterId: '',
-  value: '',
-  readingDate: new Date().toISOString().slice(0, 10),
+
+const accountStatusLabels: Record<string, string> = {
+  ACTIVE: 'Activ',
+  INVITED: 'Invitat',
+  NOT_INVITED: 'Neinvitat',
+  NO_ACCOUNT: 'Fără cont',
 };
+
+const methodLabels: Record<string, string> = {
+  PHONE: 'Telefon',
+  EMAIL: 'Email',
+  APP: 'Aplicație',
+  WHATSAPP: 'WhatsApp',
+  TELEGRAM: 'Telegram',
+};
+
+const completenessLabels = {
+  COMPLETE: 'Complet',
+  NO_CONTACT: 'Fără contact',
+  NO_AREA: 'Fără suprafață',
+  INCOMPLETE: 'Incomplet',
+} as const;
+
+const completenessVariant = {
+  COMPLETE: 'success',
+  NO_CONTACT: 'warning',
+  NO_AREA: 'warning',
+  INCOMPLETE: 'error',
+} as const;
 
 export default function AdminApartmentDetailPage() {
-  const params = useParams<{ id?: string; locale?: string }>();
-  const localeParam = typeof params?.locale === 'string' ? params.locale : defaultLocale;
-  const locale = isLocale(localeParam) ? localeParam : defaultLocale;
+  const params = useParams<{ id?: string }>();
+  const localizedPath = useLocalizedPath();
   const id = typeof params?.id === 'string' ? params.id : '';
-  const fallbackApartment = useMemo(() => findApartmentById(id), [id]);
-  const [apartment, setApartment] = useState<AdminApartment>(fallbackApartment);
-  const [apiDetail, setApiDetail] = useState<any>(null);
-  const [source, setSource] = useState<'api' | 'mock'>('mock');
-  const [residentModalOpen, setResidentModalOpen] = useState(false);
-  const [residentForm, setResidentForm] = useState(emptyResidentForm);
-  const [isCreatingResident, setIsCreatingResident] = useState(false);
-  const [residentError, setResidentError] = useState('');
-  const [meterModalOpen, setMeterModalOpen] = useState(false);
-  const [meterForm, setMeterForm] = useState(emptyMeterForm);
-  const [isCreatingMeter, setIsCreatingMeter] = useState(false);
-  const [meterError, setMeterError] = useState('');
-  const [readingModalOpen, setReadingModalOpen] = useState(false);
-  const [readingForm, setReadingForm] = useState(emptyReadingForm);
-  const [isAddingReading, setIsAddingReading] = useState(false);
-  const [readingError, setReadingError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
-  const residents = source === 'api' ? normalizeApiApartmentResidents(apiDetail) : residentsForApartment(apartment.number);
-  const meters = source === 'api' ? normalizeApiApartmentMeters(apiDetail) : apartmentMeters;
-  const payments = source === 'api' ? normalizeApiApartmentPayments(apiDetail) : apartmentPayments;
-  const requests = source === 'api' ? normalizeApiApartmentRequests(apiDetail) : apartmentRequests;
-  const financialSummary = apartment.financialSummary;
+  const [apartment, setApartment] = useState<ApartmentDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [formOpen, setFormOpen] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
+  const [apartmentForm, setApartmentForm] = useState(emptyApartmentForm);
+  const [contactForm, setContactForm] = useState(emptyContactForm);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState('');
 
   const loadApartment = useCallback(async () => {
     if (!id) return;
-    const res = await apartmentsApi.get(id);
-    setApiDetail(res.data);
-    setApartment(normalizeApiApartment(res.data));
-    setSource('api');
+    setLoading(true);
+    setError('');
+    try {
+      const res = await adminApartmentsCrmApi.get(id);
+      setApartment(res.data || null);
+    } catch (err: any) {
+      setApartment(null);
+      setError(String(err?.message || 'Nu am putut încărca apartamentul.'));
+    } finally {
+      setLoading(false);
+    }
   }, [id]);
 
   useEffect(() => {
-    if (!id) return;
-    let active = true;
-    loadApartment()
-      .then(() => {
-        if (!active) return;
-      })
-      .catch(() => {
-        if (!active) return;
-        setApiDetail(null);
-        setApartment(fallbackApartment);
-        setSource('mock');
-      });
-    return () => {
-      active = false;
-    };
-  }, [fallbackApartment, id, loadApartment]);
+    loadApartment();
+  }, [loadApartment]);
 
-  const createResident = async () => {
-    setResidentError('');
-    setSuccessMessage('');
-    const organizationId = apiDetail?.organizationId || apartment.organizationId;
-    const apartmentId = apiDetail?.id || apartment.id;
-    if (!organizationId || source !== 'api') {
-      setResidentError('Conectarea locatarului necesită date reale din API.');
-      return;
-    }
-    if (!residentForm.firstName.trim() || !residentForm.lastName.trim()) {
-      setResidentError('Completează prenumele și numele.');
-      return;
-    }
+  const pageTitle = apartment ? `Apt. ${apartment.apartmentNumber}` : 'Apartament';
+  const summary = useMemo(() => {
+    if (!apartment) return '';
+    return `Scara ${apartment.staircase || '-'} · Etaj ${apartment.floor || '-'} · ${apartment.areaM2 ? `${apartment.areaM2} m²` : 'fără suprafață'}`;
+  }, [apartment]);
 
-    setIsCreatingResident(true);
-    try {
-      const created = await residentsApi.create({
-        organizationId,
-        firstName: residentForm.firstName.trim(),
-        lastName: residentForm.lastName.trim(),
-        phone: residentForm.phone.trim(),
-        email: residentForm.email.trim(),
-        accountStatus: 'NO_ACCOUNT',
-      });
-      await apartmentsApi.linkResident(apartmentId, {
-        residentId: created.data.id,
-        role: residentForm.role,
-        isPrimary: residentForm.isPrimary,
-      });
-      setResidentForm(emptyResidentForm);
-      setResidentModalOpen(false);
-      setSuccessMessage('Locatarul a fost creat și conectat la apartament.');
-      await loadApartment().catch(() => undefined);
-    } catch (error: any) {
-      const message = String(error?.message || '');
-      setResidentError(message.includes('deja conectată') ? 'Această persoană este deja conectată la apartament.' : 'Nu am putut crea locatarul.');
-    } finally {
-      setIsCreatingResident(false);
-    }
-  };
-
-  const createMeter = async () => {
-    setMeterError('');
-    setSuccessMessage('');
-    const organizationId = apiDetail?.organizationId || apartment.organizationId;
-    const apartmentId = apiDetail?.id || apartment.id;
-    if (!organizationId || source !== 'api') {
-      setMeterError('Crearea contorului necesită date reale din API.');
-      return;
-    }
-    if (!meterForm.serialNumber.trim()) {
-      setMeterError('Completează seria contorului.');
-      return;
-    }
-
-    setIsCreatingMeter(true);
-    try {
-      await metersApi.create({
-        organizationId,
-        apartmentId,
-        type: meterForm.type,
-        serialNumber: meterForm.serialNumber.trim(),
-        status: meterForm.status,
-      });
-      setMeterForm(emptyMeterForm);
-      setMeterModalOpen(false);
-      setSuccessMessage('Contorul a fost creat.');
-      await loadApartment().catch(() => undefined);
-    } catch (error: any) {
-      const message = String(error?.message || '');
-      setMeterError(message.includes('Acest contor există deja') ? 'Acest contor există deja.' : 'Nu am putut crea contorul.');
-    } finally {
-      setIsCreatingMeter(false);
-    }
-  };
-
-  const openReadingModal = (meterId?: string) => {
-    setReadingError('');
-    setSuccessMessage('');
-    const firstMeterId = meterId || (Array.isArray(apiDetail?.meters) ? String(apiDetail.meters[0]?.id || '') : '');
-    setReadingForm({
-      meterId: firstMeterId,
-      value: '',
-      readingDate: new Date().toISOString().slice(0, 10),
+  function openEditModal() {
+    if (!apartment) return;
+    setApartmentForm({
+      apartmentNumber: apartment.apartmentNumber,
+      building: apartment.buildingName || 'Bloc principal',
+      entrance: apartment.staircase || '1',
+      floor: apartment.floor || '',
+      areaM2: apartment.areaM2 ? String(apartment.areaM2) : '',
+      rooms: apartment.rooms ? String(apartment.rooms) : '',
+      cadastralNumber: apartment.cadastralNumber || '',
+      status: apartment.status || 'UNKNOWN',
+      internalNotes: apartment.internalNotes || '',
     });
-    setReadingModalOpen(true);
-  };
+    setFormError('');
+    setFormOpen(true);
+  }
 
-  const addReading = async () => {
-    setReadingError('');
-    setSuccessMessage('');
-    const value = Number(readingForm.value);
-    if (!readingForm.meterId) {
-      setReadingError('Alege contorul.');
+  function openContactModal() {
+    setContactForm(emptyContactForm);
+    setFormError('');
+    setContactOpen(true);
+  }
+
+  function validateApartmentForm() {
+    if (!apartmentForm.apartmentNumber.trim()) return 'Numărul apartamentului este obligatoriu.';
+    if (apartmentForm.areaM2.trim()) {
+      const area = Number(apartmentForm.areaM2);
+      if (!Number.isFinite(area) || area <= 0) return 'Suprafața m² trebuie să fie un număr pozitiv.';
+    }
+    if (apartmentForm.floor.trim() && !Number.isFinite(Number(apartmentForm.floor))) return 'Etajul trebuie să fie un număr.';
+    return '';
+  }
+
+  async function saveApartment() {
+    if (!apartment) return;
+    setFormError('');
+    setSuccess('');
+    const validation = validateApartmentForm();
+    if (validation) {
+      setFormError(validation);
       return;
     }
-    if (!Number.isFinite(value)) {
-      setReadingError('Completează o valoare numerică.');
-      return;
-    }
-
-    setIsAddingReading(true);
+    setSaving(true);
     try {
-      await metersApi.addReading(readingForm.meterId, {
-        value,
-        readingDate: readingForm.readingDate,
-        source: 'ADMIN',
+      await adminApartmentsCrmApi.update(apartment.id, {
+        apartmentNumber: apartmentForm.apartmentNumber.trim(),
+        building: apartmentForm.building.trim() || 'Bloc principal',
+        entrance: apartmentForm.entrance.trim() || '1',
+        floor: apartmentForm.floor.trim() ? Number(apartmentForm.floor) : null,
+        areaM2: apartmentForm.areaM2.trim() ? Number(apartmentForm.areaM2) : null,
+        rooms: apartmentForm.rooms.trim() ? Number(apartmentForm.rooms) : null,
+        cadastralNumber: apartmentForm.cadastralNumber.trim(),
+        status: apartmentForm.status,
+        internalNotes: apartmentForm.internalNotes.trim(),
       });
-      setReadingModalOpen(false);
-      setReadingForm(emptyReadingForm);
-      setSuccessMessage('Citirea a fost adăugată.');
-      await loadApartment().catch(() => undefined);
-    } catch {
-      setReadingError('Nu am putut adăuga citirea.');
+      setFormOpen(false);
+      setSuccess('Apartamentul a fost actualizat.');
+      await loadApartment();
+    } catch (err: any) {
+      setFormError(String(err?.message || 'Nu am putut salva apartamentul.'));
     } finally {
-      setIsAddingReading(false);
+      setSaving(false);
     }
-  };
+  }
+
+  async function saveContact() {
+    if (!apartment) return;
+    setFormError('');
+    setSuccess('');
+    if (!contactForm.fullName.trim()) {
+      setFormError('Numele locatarului este obligatoriu.');
+      return;
+    }
+    setSaving(true);
+    try {
+      await adminApartmentsCrmApi.linkResident(apartment.id, {
+        fullName: contactForm.fullName.trim(),
+        phone: contactForm.phone.trim(),
+        email: contactForm.email.trim(),
+        role: contactForm.role,
+        isPrimaryContact: contactForm.isPrimaryContact,
+        preferredContactMethod: contactForm.preferredContactMethod,
+        status: contactForm.status,
+      });
+      setContactOpen(false);
+      setSuccess('Locatarul a fost conectat la apartament.');
+      await loadApartment();
+    } catch (err: any) {
+      setFormError(String(err?.message || 'Nu am putut salva locatarul.'));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function setPrimaryContact(residentId: string) {
+    if (!apartment) return;
+    setSuccess('');
+    setError('');
+    try {
+      await adminApartmentsCrmApi.setPrimaryContact(apartment.id, residentId);
+      setSuccess('Contactul principal a fost actualizat.');
+      await loadApartment();
+    } catch (err: any) {
+      setError(String(err?.message || 'Nu am putut seta contactul principal.'));
+    }
+  }
+
+  async function markVacant() {
+    if (!apartment) return;
+    setSuccess('');
+    setError('');
+    try {
+      await adminApartmentsCrmApi.update(apartment.id, {
+        apartmentNumber: apartment.apartmentNumber,
+        building: apartment.buildingName || 'Bloc principal',
+        entrance: apartment.staircase || '1',
+        floor: apartment.floor ? Number(apartment.floor) : null,
+        areaM2: apartment.areaM2,
+        rooms: apartment.rooms ?? null,
+        cadastralNumber: apartment.cadastralNumber || '',
+        status: 'VACANT',
+        internalNotes: apartment.internalNotes || '',
+      });
+      setSuccess('Apartamentul a fost marcat ca liber.');
+      await loadApartment();
+    } catch (err: any) {
+      setError(String(err?.message || 'Nu am putut actualiza statusul apartamentului.'));
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-4 pb-8">
+        <Card className="h-28 animate-pulse bg-muted/40" />
+        <div className="grid gap-3 md:grid-cols-3">
+          {[0, 1, 2].map((item) => <Card key={item} className="h-28 animate-pulse bg-muted/40" />)}
+        </div>
+      </div>
+    );
+  }
+
+  if (!apartment) {
+    return (
+      <div className="space-y-5 pb-8">
+        <Link href={localizedPath('/admin/apartments')} className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="h-4 w-4" />
+          Înapoi la apartamente
+        </Link>
+        <Card className="p-8 text-center">
+          <h1 className="text-xl font-semibold text-foreground">Apartamentul nu a fost găsit</h1>
+          <p className="mt-2 text-sm text-muted-foreground">{error || 'Înregistrarea nu este disponibilă pentru asociația curentă.'}</p>
+        </Card>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-5 pb-4">
-      <Link href={`/${locale}/admin/apartments`} className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground">
+    <div className="space-y-5 pb-8">
+      <Link href={localizedPath('/admin/apartments')} className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground">
         <ArrowLeft className="h-4 w-4" />
         Înapoi la apartamente
       </Link>
 
       <PageHeader
-        title={`Apt. ${apartment.number}`}
-        description={`${apartment.staircase} · Etaj ${apartment.floor} · ${apartment.areaM2} m² · ${apartment.rooms} camere`}
+        title={pageTitle}
+        description={summary}
         rightSlot={
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-              {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
-            </span>
-            <Badge variant={apartmentStatusVariant[apartment.status]}>{apartment.status}</Badge>
+            <Badge variant={completenessVariant[apartment.completenessStatus]}>{completenessLabels[apartment.completenessStatus]}</Badge>
+            <Button variant="secondary" onClick={openContactModal}>
+              <Plus className="h-4 w-4" />
+              Adaugă locatar/proprietar
+            </Button>
+            <Button onClick={openEditModal}>
+              <Pencil className="h-4 w-4" />
+              Editează apartament
+            </Button>
           </div>
         }
       />
 
-      {successMessage ? (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
-          {successMessage}
-        </div>
-      ) : null}
+      {success ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">{success}</div> : null}
+      {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</div> : null}
 
-      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Total datorie" value={formatMdl(financialSummary?.totalDebt ?? apartment.debt)} description={`Facturi neachitate: ${financialSummary?.unpaidInvoicesCount ?? apartment.unpaidInvoices}`} icon={<Banknote className="h-5 w-5" />} tone={apartment.debt > 0 ? 'danger' : 'success'} />
-        <StatCard label="Proprietar" value={apartment.owner} description={apartment.phone} icon={<Users className="h-5 w-5" />} tone="success" />
-        <StatCard label="Contoare" value={`${apartment.metersUpdated} actualizate`} description={`${apartment.metersMissing} lipsă`} icon={<Gauge className="h-5 w-5" />} tone={apartment.metersMissing ? 'warning' : 'success'} />
-        <StatCard label="Locatari" value={`${apartment.residents} persoane`} description="Persoane asociate apartamentului" icon={<Home className="h-5 w-5" />} tone="neutral" />
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Status" value={statusLabels[apartment.status]} description="Situația apartamentului" icon={<Home className="h-5 w-5" />} />
+        <StatCard label="Suprafață" value={apartment.areaM2 ? `${apartment.areaM2} m²` : 'Lipsă'} description="Suprafață declarată" icon={<Building2 className="h-5 w-5" />} tone={apartment.areaM2 ? 'neutral' : 'warning'} />
+        <StatCard label="Locatari/proprietari" value={apartment.residents.length} description="Relații conectate" icon={<Users className="h-5 w-5" />} />
+        <StatCard label="Contact principal" value={apartment.primaryContact ? 'Setat' : 'Lipsă'} description={apartment.primaryContact?.fullName || 'Necesită completare'} icon={<UserCheck className="h-5 w-5" />} tone={apartment.primaryContact ? 'success' : 'warning'} />
       </section>
 
-      <Card>
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-9">
-          <button type="button" onClick={() => openReadingModal()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-foreground px-4 text-sm font-semibold text-background hover:opacity-90">
-            <Plus className="h-4 w-4" /> Adaugă citire
-          </button>
-          <button type="button" onClick={() => setMeterModalOpen(true)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-border/70 bg-white px-4 text-sm font-semibold text-foreground shadow-[0_10px_30px_rgba(15,23,42,0.035)] hover:bg-muted/60">
-            <Gauge className="h-4 w-4" /> Adaugă contor
-          </button>
-          <ButtonLink href={`/${locale}/admin/payments`} variant="secondary"><Banknote className="h-4 w-4" /> Adaugă plată</ButtonLink>
-          <ButtonLink href={`/${locale}/admin/invoices`} variant="secondary"><FileText className="h-4 w-4" /> Emite factură</ButtonLink>
-          {source === 'api' ? (
-            <ButtonLink href={`/${locale}/admin/apartments/${id}/statement`} variant="secondary"><FileText className="h-4 w-4" /> Fișă financiară</ButtonLink>
-          ) : null}
-          <ButtonLink href={`/${locale}/admin/issues`} variant="secondary"><Wrench className="h-4 w-4" /> Creează cerere</ButtonLink>
-          <ButtonLink href={`/${locale}/admin/chat`} variant="secondary"><MessageCircle className="h-4 w-4" /> Trimite mesaj</ButtonLink>
-          <button type="button" onClick={() => setResidentModalOpen(true)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-border/70 bg-white px-4 text-sm font-semibold text-foreground shadow-[0_10px_30px_rgba(15,23,42,0.035)] hover:bg-muted/60">
-            <Users className="h-4 w-4" /> Adaugă locatar
-          </button>
-          <button type="button" disabled title="Funcție în lucru" className="inline-flex min-h-11 cursor-not-allowed items-center justify-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 text-sm font-semibold text-amber-800 opacity-80">
-            <StickyNote className="h-4 w-4" /> Adaugă sarcină
-          </button>
+      <div className="grid gap-5 xl:grid-cols-[1.45fr_0.8fr]">
+        <div className="space-y-5">
+          <Card>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">General</h2>
+                <p className="text-sm text-muted-foreground">Datele de bază ale apartamentului în A.P.C.</p>
+              </div>
+              <Badge variant="neutral">Actualizat {formatDate(apartment.updatedAt)}</Badge>
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <InfoLine label="Număr apartament" value={apartment.apartmentNumber} />
+              <InfoLine label="Bloc / corp" value={apartment.buildingName || '-'} />
+              <InfoLine label="Scara" value={apartment.staircase || '-'} />
+              <InfoLine label="Etaj" value={apartment.floor || '-'} />
+              <InfoLine label="Suprafață m²" value={apartment.areaM2 ? `${apartment.areaM2} m²` : '-'} />
+              <InfoLine label="Număr cadastral" value={apartment.cadastralNumber || '-'} />
+            </div>
+          </Card>
+
+          <Card>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Locatari și proprietari</h2>
+                <p className="text-sm text-muted-foreground">Un apartament poate avea mai multe persoane conectate.</p>
+              </div>
+              <Button variant="secondary" onClick={openContactModal}>
+                <Plus className="h-4 w-4" />
+                Adaugă
+              </Button>
+            </div>
+
+            {!apartment.residents.length ? (
+              <div className="mt-5 rounded-2xl border border-dashed border-border/80 bg-muted/30 px-4 py-6 text-sm text-muted-foreground">
+                Nu există locatari sau proprietari conectați la acest apartament.
+              </div>
+            ) : (
+              <div className="mt-5 grid gap-3">
+                {apartment.residents.map((resident) => (
+                  <div key={`${resident.residentId}-${resident.role}`} className="rounded-2xl border border-border/70 bg-white p-4 shadow-[0_10px_30px_rgba(15,23,42,0.035)]">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="font-semibold text-foreground">{resident.fullName}</h3>
+                          {resident.isPrimaryContact ? <Badge variant="success">Contact principal</Badge> : null}
+                          <Badge variant="neutral">{roleLabels[resident.role] || resident.role}</Badge>
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-3 text-sm text-muted-foreground">
+                          <span className="inline-flex items-center gap-1"><Phone className="h-4 w-4" /> {resident.phone || '-'}</span>
+                          <span className="inline-flex items-center gap-1"><Mail className="h-4 w-4" /> {resident.email || '-'}</span>
+                        </div>
+                      </div>
+                      {!resident.isPrimaryContact ? (
+                        <Button variant="secondary" onClick={() => setPrimaryContact(resident.residentId)}>
+                          Setează contact principal
+                        </Button>
+                      ) : null}
+                    </div>
+                    <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+                      <InfoLine label="Status cont" value={accountStatusLabels[resident.accountStatus] || resident.accountStatus || '-'} />
+                      <InfoLine label="Contact preferat" value={methodLabels[resident.preferredContactMethod] || resident.preferredContactMethod || '-'} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
+          <Card>
+            <div className="flex items-center gap-2">
+              <StickyNote className="h-5 w-5 text-muted-foreground" />
+              <h2 className="text-lg font-semibold text-foreground">Note interne</h2>
+            </div>
+            <p className="mt-3 whitespace-pre-wrap rounded-2xl bg-muted/35 px-4 py-4 text-sm text-muted-foreground">
+              {apartment.internalNotes || 'Nu există note interne pentru acest apartament.'}
+            </p>
+          </Card>
         </div>
-      </Card>
 
-      <section className="grid gap-4 xl:grid-cols-[1fr_0.9fr]">
-        <Card>
-          <SectionTitle icon={<Home className="h-5 w-5" />} title="General" description="Datele principale ale apartamentului." />
-          <InfoGrid
-            rows={[
-              ['Apartament', `Apt. ${apartment.number}`],
-              ['Scară', apartment.staircase],
-              ['Etaj', apartment.floor],
-              ['Suprafață', `${apartment.areaM2} m²`],
-              ['Camere', apartment.rooms],
-              ['Status', <Badge key="status" variant={apartmentStatusVariant[apartment.status]}>{apartment.status}</Badge>],
-            ]}
-          />
-        </Card>
-
-        <Card>
-          <SectionTitle icon={<Users className="h-5 w-5" />} title="Locatari" description="Persoane conectate la apartament." />
-          <div className="space-y-3">
-            {residents.map((person: any) => (
-              <Link key={person.id} href={`/${locale}/admin/residents/${person.id}`} className="flex items-center justify-between gap-3 rounded-2xl border border-border/70 bg-muted/25 p-4 hover:bg-muted/45">
-                <div>
-                  <p className="font-semibold text-foreground">{person.name}</p>
-                  <p className="mt-1 text-sm capitalize text-muted-foreground">{person.role}</p>
-                </div>
-                <Badge variant={person.accountStatus === 'cont creat' ? 'success' : person.accountStatus === 'invitat' ? 'warning' : 'neutral'}>
-                  {person.accountStatus}
-                </Badge>
+        <aside className="space-y-5">
+          <Card>
+            <h2 className="text-lg font-semibold text-foreground">Acțiuni</h2>
+            <div className="mt-4 grid gap-2">
+              <Button onClick={openEditModal}>
+                <Pencil className="h-4 w-4" />
+                Editează apartament
+              </Button>
+              <Button variant="secondary" onClick={openContactModal}>
+                <Plus className="h-4 w-4" />
+                Adaugă locatar/proprietar
+              </Button>
+              <Button variant="secondary" onClick={markVacant} disabled={apartment.status === 'VACANT'}>
+                Marchează ca liber
+              </Button>
+              <Link href={localizedPath('/admin/apartments')} className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-border/70 px-4 text-sm font-semibold">
+                Înapoi la listă
               </Link>
-            ))}
-          </div>
-        </Card>
-      </section>
+            </div>
+          </Card>
 
-      <section className="grid gap-4 xl:grid-cols-2">
-        <Card>
-          <SectionTitle icon={<Gauge className="h-5 w-5" />} title="Contoare" description="Citiri pentru apă, gaz, electricitate și încălzire." />
-          <div className="space-y-3">
-            {meters.map((meter: any) => (
-              <div key={meter.serial} className="grid gap-3 rounded-2xl border border-border/70 bg-muted/25 p-4 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-center">
-                <Info label="Tip" value={meter.type} />
-                <Info label="Serie" value={meter.serial} />
-                <Info label="Citire" value={meter.value} />
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant={meterVariant[meter.status as keyof typeof meterVariant]}>{meter.status}</Badge>
-                  {meter.id ? (
-                    <button type="button" onClick={() => openReadingModal(meter.id)} className="inline-flex min-h-9 items-center rounded-xl border border-border/70 bg-white px-3 text-xs font-semibold hover:bg-muted/60">
-                      Citire
-                    </button>
-                  ) : null}
+          <Card>
+            <h2 className="text-lg font-semibold text-foreground">Istoric scurt</h2>
+            <div className="mt-4 space-y-3">
+              {(apartment.activity || []).map((item, index) => (
+                <div key={`${item.label}-${index}`} className="rounded-2xl bg-muted/35 px-3 py-2 text-sm">
+                  <p className="font-medium text-foreground">{item.label}</p>
+                  <p className="text-muted-foreground">{formatDate(item.date)}</p>
                 </div>
-              </div>
-            ))}
-          </div>
-        </Card>
+              ))}
+            </div>
+          </Card>
 
-        <Card>
-          <SectionTitle icon={<Banknote className="h-5 w-5" />} title="Plăți / Datorii" description="Facturi neachitate și istoric plăți." />
-          <div className="grid gap-3 sm:grid-cols-2">
-            <InfoTile label="Total facturat" value={formatMdl(financialSummary?.totalInvoiced ?? apartment.debt)} />
-            <InfoTile label="Total achitat" value={formatMdl(financialSummary?.totalPaid ?? 0)} />
-            <InfoTile label="Total datorie" value={formatMdl(financialSummary?.totalDebt ?? apartment.debt)} danger={(financialSummary?.totalDebt ?? apartment.debt) > 0} />
-            <InfoTile label="Facturi întârziate" value={financialSummary?.overdueInvoicesCount ?? 0} danger={(financialSummary?.overdueInvoicesCount ?? 0) > 0} />
-          </div>
-          <div className="mt-4 space-y-3">
-            {payments.map((payment: any) => (
-              <div key={payment.month} className="flex items-center justify-between gap-3 rounded-2xl border border-border/70 bg-muted/25 p-4">
-                <div>
-                  <p className="font-semibold text-foreground">{payment.month}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">{formatMdl(payment.amount)}</p>
-                </div>
-                <Badge variant={paymentVariant[payment.status as keyof typeof paymentVariant]}>{payment.status}</Badge>
-              </div>
-            ))}
-          </div>
-        </Card>
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-2">
-        <Card>
-          <SectionTitle icon={<Wrench className="h-5 w-5" />} title="Cereri" description="Solicitări conectate acestui apartament." />
-          <div className="space-y-3">
-            {requests.map((request: any) => (
-              <div key={request.title} className="flex items-center justify-between gap-3 rounded-2xl border border-border/70 bg-muted/25 p-4">
-                <div>
-                  <p className="font-semibold text-foreground">{request.title}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">{request.date}</p>
-                </div>
-                <Badge variant={requestVariant[request.status as keyof typeof requestVariant]}>{request.status}</Badge>
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        <Card>
-          <SectionTitle icon={<StickyNote className="h-5 w-5" />} title="Note interne" description="Vizibile doar pentru administratori." />
-          <div className="space-y-3">
-            <p className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-medium text-amber-900">
-              Aceste note sunt interne și nu sunt vizibile pentru locatari.
-            </p>
-            <p className="rounded-2xl border border-border/70 bg-muted/25 p-4 text-sm text-muted-foreground">
-              Funcție în lucru. Modelul dedicat pentru note interne pe apartament nu este conectat încă.
-            </p>
-          </div>
-        </Card>
-      </section>
-
-      <Modal isOpen={residentModalOpen} onClose={() => setResidentModalOpen(false)} maxWidth="2xl">
-        <ModalHeader title={`Adaugă locatar la Apt. ${apartment.number}`} onClose={() => setResidentModalOpen(false)} />
-        <ModalBody>
-          <div className="grid gap-3 md:grid-cols-2">
-            <Field label="Prenume" value={residentForm.firstName} onChange={(value) => setResidentForm({ ...residentForm, firstName: value })} required />
-            <Field label="Nume" value={residentForm.lastName} onChange={(value) => setResidentForm({ ...residentForm, lastName: value })} required />
-            <Field label="Telefon" value={residentForm.phone} onChange={(value) => setResidentForm({ ...residentForm, phone: value })} />
-            <Field label="Email" value={residentForm.email} onChange={(value) => setResidentForm({ ...residentForm, email: value })} type="email" />
-            <label className="block">
-              <span className="label">Rol</span>
-              <select className="select" value={residentForm.role} onChange={(event) => setResidentForm({ ...residentForm, role: event.target.value as typeof residentForm.role })}>
-                {Object.entries(roleLabels).map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </select>
-            </label>
-            <label className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-border/70 bg-white px-3 text-sm font-medium text-foreground">
-              <input type="checkbox" checked={residentForm.isPrimary} onChange={(event) => setResidentForm({ ...residentForm, isPrimary: event.target.checked })} />
-              Este contact principal
-            </label>
-          </div>
-          {residentError ? (
-            <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
-              {residentError}
-            </p>
-          ) : null}
-        </ModalBody>
-        <ModalFooter>
-          <button type="button" onClick={() => setResidentModalOpen(false)} disabled={isCreatingResident} className="rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold disabled:opacity-60">
-            Anulează
-          </button>
-          <button type="button" onClick={createResident} disabled={isCreatingResident} className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background disabled:opacity-60">
-            {isCreatingResident ? 'Se creează...' : 'Creează locatar'}
-          </button>
-        </ModalFooter>
-      </Modal>
-
-      <Modal isOpen={meterModalOpen} onClose={() => setMeterModalOpen(false)} maxWidth="xl">
-        <ModalHeader title={`Adaugă contor la Apt. ${apartment.number}`} onClose={() => setMeterModalOpen(false)} />
-        <ModalBody>
-          <div className="grid gap-3 md:grid-cols-2">
-            <label className="block">
-              <span className="label">Tip contor</span>
-              <select className="select" value={meterForm.type} onChange={(event) => setMeterForm({ ...meterForm, type: event.target.value as typeof meterForm.type })}>
-                {Object.entries(meterTypeLabels).map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </select>
-            </label>
-            <label className="block">
-              <span className="label">Status</span>
-              <select className="select" value={meterForm.status} onChange={(event) => setMeterForm({ ...meterForm, status: event.target.value as typeof meterForm.status })}>
-                {Object.entries(meterStatusLabels).map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </select>
-            </label>
-            <Field label="Serie contor" value={meterForm.serialNumber} onChange={(value) => setMeterForm({ ...meterForm, serialNumber: value })} required />
-          </div>
-          {meterError ? (
-            <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
-              {meterError}
-            </p>
-          ) : null}
-        </ModalBody>
-        <ModalFooter>
-          <button type="button" onClick={() => setMeterModalOpen(false)} disabled={isCreatingMeter} className="rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold disabled:opacity-60">
-            Anulează
-          </button>
-          <button type="button" onClick={createMeter} disabled={isCreatingMeter} className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background disabled:opacity-60">
-            {isCreatingMeter ? 'Se creează...' : 'Creează contor'}
-          </button>
-        </ModalFooter>
-      </Modal>
-
-      <Modal isOpen={readingModalOpen} onClose={() => setReadingModalOpen(false)} maxWidth="xl">
-        <ModalHeader title={`Adaugă citire la Apt. ${apartment.number}`} onClose={() => setReadingModalOpen(false)} />
-        <ModalBody>
-          <div className="grid gap-3 md:grid-cols-2">
-            <label className="block">
-              <span className="label">Contor</span>
-              <select className="select" value={readingForm.meterId} onChange={(event) => setReadingForm({ ...readingForm, meterId: event.target.value })}>
-                <option value="">Alege contorul</option>
-                {(Array.isArray(apiDetail?.meters) ? apiDetail.meters : []).map((meter: any) => (
-                  <option key={meter.id} value={meter.id}>{meterTypeLabels[meter.type as keyof typeof meterTypeLabels] || meter.type} · {meter.serialNumber}</option>
-                ))}
-              </select>
-            </label>
-            <Field label="Valoare" value={readingForm.value} onChange={(value) => setReadingForm({ ...readingForm, value })} type="number" required />
-            <Field label="Data citirii" value={readingForm.readingDate} onChange={(value) => setReadingForm({ ...readingForm, readingDate: value })} type="date" required />
-          </div>
-          {readingError ? (
-            <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
-              {readingError}
-            </p>
-          ) : null}
-        </ModalBody>
-        <ModalFooter>
-          <button type="button" onClick={() => setReadingModalOpen(false)} disabled={isAddingReading} className="rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold disabled:opacity-60">
-            Anulează
-          </button>
-          <button type="button" onClick={addReading} disabled={isAddingReading} className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background disabled:opacity-60">
-            {isAddingReading ? 'Se adaugă...' : 'Adaugă citire'}
-          </button>
-        </ModalFooter>
-      </Modal>
-    </div>
-  );
-}
-
-function SectionTitle({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
-  return (
-    <div className="mb-4 flex items-start gap-3">
-      <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-border/70 bg-muted/45 text-foreground">
-        {icon}
+          <Card>
+            <h2 className="text-lg font-semibold text-foreground">Operațiuni asociate</h2>
+            <div className="mt-4 grid gap-2 text-sm">
+              <InfoLine label="Contoare" value={String(apartment.meters.length)} />
+              <InfoLine label="Facturi" value={String(apartment.invoices.length)} />
+              <InfoLine label="Plăți" value={String(apartment.payments.length)} />
+              <InfoLine label="Cereri" value={String(apartment.issues.length)} />
+            </div>
+          </Card>
+        </aside>
       </div>
-      <div>
-        <h2 className="text-base font-semibold text-foreground">{title}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-      </div>
+
+      <ApartmentFormModal
+        open={formOpen}
+        form={apartmentForm}
+        error={formError}
+        saving={saving}
+        onClose={() => setFormOpen(false)}
+        onChange={setApartmentForm}
+        onSave={saveApartment}
+      />
+
+      <ContactModal
+        open={contactOpen}
+        apartmentNumber={apartment.apartmentNumber}
+        form={contactForm}
+        error={formError}
+        saving={saving}
+        onClose={() => setContactOpen(false)}
+        onChange={setContactForm}
+        onSave={saveContact}
+      />
     </div>
   );
 }
 
-function InfoGrid({ rows }: { rows: Array<[string, React.ReactNode]> }) {
-  return (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-      {rows.map(([label, value]) => (
-        <InfoTile key={label} label={label} value={value} />
-      ))}
-    </div>
-  );
-}
-
-function InfoTile({ label, value, danger }: { label: string; value: React.ReactNode; danger?: boolean }) {
-  return (
-    <div className="rounded-2xl border border-border/70 bg-muted/25 p-4">
-      <p className="text-xs font-medium text-muted-foreground">{label}</p>
-      <div className={`mt-1 text-sm font-semibold ${danger ? 'text-rose-600' : 'text-foreground'}`}>{value}</div>
-    </div>
-  );
-}
-
-function Info({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div>
-      <p className="text-xs font-medium text-muted-foreground">{label}</p>
-      <p className="mt-1 text-sm font-semibold text-foreground">{value}</p>
-    </div>
-  );
-}
-
-function Field({
-  label,
-  value,
+function ApartmentFormModal({
+  open,
+  form,
+  error,
+  saving,
+  onClose,
   onChange,
-  required,
-  type = 'text',
+  onSave,
 }: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  required?: boolean;
-  type?: string;
+  open: boolean;
+  form: typeof emptyApartmentForm;
+  error: string;
+  saving: boolean;
+  onClose: () => void;
+  onChange: (form: typeof emptyApartmentForm) => void;
+  onSave: () => void;
 }) {
   return (
-    <label className="block">
-      <span className="label">{label}{required ? ' *' : ''}</span>
-      <input className="input" type={type} value={value} onChange={(event) => onChange(event.target.value)} />
-    </label>
+    <Modal isOpen={open} onClose={onClose} maxWidth="2xl">
+      <ModalHeader title="Editează apartament" onClose={onClose} />
+      <ModalBody>
+        <div className="grid gap-3 md:grid-cols-2">
+          <Input label="Număr apartament" value={form.apartmentNumber} onChange={(event) => onChange({ ...form, apartmentNumber: event.target.value })} />
+          <Input label="Bloc / corp" value={form.building} onChange={(event) => onChange({ ...form, building: event.target.value })} />
+          <Input label="Scara" value={form.entrance} onChange={(event) => onChange({ ...form, entrance: event.target.value })} />
+          <Input label="Etaj" value={form.floor} onChange={(event) => onChange({ ...form, floor: event.target.value })} />
+          <Input label="Suprafață m²" value={form.areaM2} onChange={(event) => onChange({ ...form, areaM2: event.target.value })} />
+          <Input label="Număr cadastral" value={form.cadastralNumber} onChange={(event) => onChange({ ...form, cadastralNumber: event.target.value })} />
+          <label className="block space-y-1.5">
+            <span className="text-sm font-medium text-foreground">Status</span>
+            <select className="h-11 w-full rounded-2xl border border-border/70 bg-white px-4 text-sm" value={form.status} onChange={(event) => onChange({ ...form, status: event.target.value as ApartmentStatus })}>
+              <option value="OCCUPIED">Ocupat</option>
+              <option value="VACANT">Liber</option>
+              <option value="UNKNOWN">Necunoscut</option>
+            </select>
+          </label>
+          <label className="block space-y-1.5 md:col-span-2">
+            <span className="text-sm font-medium text-foreground">Note interne</span>
+            <textarea className="min-h-24 w-full rounded-2xl border border-border/70 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-foreground/10" value={form.internalNotes} onChange={(event) => onChange({ ...form, internalNotes: event.target.value })} />
+          </label>
+        </div>
+        {error ? <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">{error}</p> : null}
+      </ModalBody>
+      <ModalFooter>
+        <Button variant="secondary" disabled={saving} onClick={onClose}>Anulează</Button>
+        <Button isLoading={saving} onClick={onSave}>Salvează</Button>
+      </ModalFooter>
+    </Modal>
   );
+}
+
+function ContactModal({
+  open,
+  apartmentNumber,
+  form,
+  error,
+  saving,
+  onClose,
+  onChange,
+  onSave,
+}: {
+  open: boolean;
+  apartmentNumber: string;
+  form: typeof emptyContactForm;
+  error: string;
+  saving: boolean;
+  onClose: () => void;
+  onChange: (form: typeof emptyContactForm) => void;
+  onSave: () => void;
+}) {
+  return (
+    <Modal isOpen={open} onClose={onClose} maxWidth="2xl">
+      <ModalHeader title={`Adaugă locatar/proprietar · Apt. ${apartmentNumber}`} onClose={onClose} />
+      <ModalBody>
+        <div className="grid gap-3 md:grid-cols-2">
+          <Input label="Nume complet" value={form.fullName} onChange={(event) => onChange({ ...form, fullName: event.target.value })} />
+          <Input label="Telefon" value={form.phone} onChange={(event) => onChange({ ...form, phone: event.target.value })} />
+          <Input label="Email" value={form.email} onChange={(event) => onChange({ ...form, email: event.target.value })} />
+          <Select value={form.role} onChange={(value) => onChange({ ...form, role: value as ContactRole })} options={['OWNER', 'TENANT', 'REPRESENTATIVE']} labels={{ OWNER: 'Proprietar', TENANT: 'Chiriaș', REPRESENTATIVE: 'Reprezentant' }} />
+          <Select value={form.preferredContactMethod} onChange={(value) => onChange({ ...form, preferredContactMethod: value as ContactMethod })} options={['PHONE', 'EMAIL', 'APP', 'WHATSAPP', 'TELEGRAM']} labels={methodLabels} />
+          <Select value={form.status} onChange={(value) => onChange({ ...form, status: value as ContactStatus })} options={['NOT_INVITED', 'INVITED', 'ACTIVE']} labels={{ NOT_INVITED: 'Neinvitat', INVITED: 'Invitat', ACTIVE: 'Activ' }} />
+          <label className="flex min-h-11 items-center gap-2 rounded-2xl border border-border/70 px-4 text-sm font-medium">
+            <input type="checkbox" checked={form.isPrimaryContact} onChange={(event) => onChange({ ...form, isPrimaryContact: event.target.checked })} />
+            Contact principal
+          </label>
+        </div>
+        <p className="mt-4 text-xs text-muted-foreground">Invitațiile reale nu sunt trimise din acest pas. Se salvează doar structura contactului.</p>
+        {error ? <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">{error}</p> : null}
+      </ModalBody>
+      <ModalFooter>
+        <Button variant="secondary" disabled={saving} onClick={onClose}>Anulează</Button>
+        <Button isLoading={saving} onClick={onSave}>Salvează locatar</Button>
+      </ModalFooter>
+    </Modal>
+  );
+}
+
+function Select({ value, onChange, options, labels }: { value: string; onChange: (value: string) => void; options: string[]; labels?: Record<string, string> }) {
+  return (
+    <select value={value} onChange={(event) => onChange(event.target.value)} className="h-11 rounded-2xl border border-border/70 bg-white px-3 text-sm text-foreground shadow-[0_10px_30px_rgba(15,23,42,0.035)] outline-none focus:ring-2 focus:ring-foreground/10">
+      {options.map((item) => <option key={item} value={item}>{labels?.[item] || item}</option>)}
+    </select>
+  );
+}
+
+function InfoLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-2xl bg-muted/35 px-3 py-2">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="text-right font-medium text-foreground">{value}</span>
+    </div>
+  );
+}
+
+function formatDate(value?: string) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return date.toLocaleDateString('ro-RO');
 }

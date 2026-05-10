@@ -1,5 +1,16 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { ApartmentResidentRole, ApartmentStatus, InvoiceStatus, MeterStatus, NotificationType, PaymentStatus, Prisma, Role } from '@prisma/client';
+import {
+  ApartmentResidentRole,
+  ApartmentStatus,
+  InvoiceStatus,
+  MeterStatus,
+  NotificationType,
+  PaymentStatus,
+  Prisma,
+  ResidentAccountStatus,
+  ResidentType,
+  Role,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ActivityMvpService } from '../activity-mvp/activity-mvp.service';
 import type { MvpUser } from '../security/mvp-auth.guard';
@@ -265,6 +276,322 @@ export class ApartmentsService {
         message: 'Nu ai acces la aceste date.',
       });
     }
+  }
+
+  private adminOrganizationId(user: MvpUser, payload?: Record<string, unknown>) {
+    if (!this.isSuperadmin(user)) return user.organizationId;
+    const requested = typeof payload?.organizationId === 'string' && payload.organizationId.trim() ? payload.organizationId.trim() : user.organizationId;
+    if (!requested) throw new BadRequestException('Asociația este obligatorie.');
+    return requested;
+  }
+
+  async listAdminApartments(user: MvpUser, query: Record<string, string | undefined> = {}) {
+    const organizationId = this.adminOrganizationId(user, query);
+    this.assertOrganizationAccess(user, organizationId);
+
+    const organization = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: {
+        id: true,
+        name: true,
+        legalName: true,
+        fiscalCode: true,
+      },
+    });
+    if (!organization) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+
+    const apartments = await this.prisma.apartment.findMany({
+      where: { organizationId },
+      orderBy: [{ staircase: { name: 'asc' } }, { floor: 'asc' }, { number: 'asc' }],
+      select: this.apartmentSelect(),
+    });
+    const metadata = await this.readApartmentMetadata(organizationId);
+    let items = apartments.map((apartment) => this.toAdminApartmentRow(apartment, metadata));
+
+    items = this.filterAdminApartmentRows(items, query);
+    items = this.sortAdminApartmentRows(items, query.sortBy, query.sortDirection);
+
+    const page = Math.max(1, Math.trunc(Number(query.page || 1)));
+    const limit = Math.min(100, Math.max(1, Math.trunc(Number(query.limit || 20))));
+    const total = items.length;
+    const start = (page - 1) * limit;
+
+    return {
+      organization: {
+        id: organization.id,
+        shortName: organization.name,
+        legalName: organization.legalName || organization.name,
+        associationCode: organization.fiscalCode || '',
+      },
+      items: items.slice(start, start + limit),
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+      stats: this.adminApartmentStats(apartments.map((apartment) => this.toAdminApartmentRow(apartment, metadata))),
+      filters: {
+        staircases: Array.from(new Set(apartments.map((apartment) => String(apartment.staircase?.name || '')).filter(Boolean))).sort(),
+        floors: Array.from(new Set(apartments.map((apartment) => apartment.floor).filter((floor) => floor !== null && floor !== undefined).map(String))).sort((a, b) => Number(a) - Number(b)),
+      },
+    };
+  }
+
+  async getAdminApartment(user: MvpUser, id: string) {
+    const apartment = await this.prisma.apartment.findFirst({
+      where: {
+        ...this.organizationWhere(user),
+        id,
+      },
+      select: this.apartmentSelect(),
+    });
+    if (!apartment) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    const metadata = await this.readApartmentMetadata(apartment.organizationId);
+    return this.toAdminApartmentDetail(apartment, metadata);
+  }
+
+  async createAdminApartment(user: MvpUser, body: unknown) {
+    const payload = this.payload(body);
+    const organizationId = this.adminOrganizationId(user, payload);
+    this.assertOrganizationAccess(user, organizationId);
+    await this.assertOrganizationExists(organizationId);
+    const input = await this.parseAdminApartmentBody(organizationId, payload);
+
+    const duplicate = await this.prisma.apartment.findUnique({
+      where: {
+        staircaseId_number: {
+          staircaseId: input.staircaseId,
+          number: input.number,
+        },
+      },
+      select: { id: true },
+    });
+    if (duplicate) throw new ConflictException('Acest apartament există deja.');
+
+    const apartment = await this.prisma.apartment.create({
+      data: {
+        organizationId,
+        buildingId: input.buildingId,
+        staircaseId: input.staircaseId,
+        number: input.number,
+        floor: input.floor,
+        areaM2: input.areaM2,
+        rooms: input.rooms,
+        status: input.status,
+      },
+      select: this.apartmentSelect(),
+    });
+    await this.updateApartmentMetadata(organizationId, user.id, {
+      [apartment.id]: {
+        cadastralNumber: input.cadastralNumber,
+        internalNotes: input.internalNotes,
+      },
+    });
+    await this.syncBuildingCounters(input.buildingId);
+
+    await this.activity.createActivity({
+      organizationId,
+      actorUserId: user.id,
+      type: 'APARTMENT_CREATED',
+      title: 'Apartament creat',
+      message: `Apartamentul ${apartment.number} a fost creat.`,
+      targetType: 'APARTMENT',
+      targetId: apartment.id,
+      link: `/admin/apartments/${apartment.id}`,
+    });
+
+    const metadata = await this.readApartmentMetadata(organizationId);
+    return this.toAdminApartmentDetail(apartment, metadata);
+  }
+
+  async updateAdminApartment(user: MvpUser, id: string, body: unknown) {
+    const payload = this.payload(body);
+    const existing = await this.prisma.apartment.findFirst({
+      where: {
+        ...this.organizationWhere(user),
+        id,
+      },
+      select: {
+        id: true,
+        organizationId: true,
+        buildingId: true,
+      },
+    });
+    if (!existing) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    this.assertOrganizationAccess(user, existing.organizationId);
+
+    const input = await this.parseAdminApartmentBody(existing.organizationId, payload, true);
+    const duplicate = await this.prisma.apartment.findFirst({
+      where: {
+        id: { not: id },
+        staircaseId: input.staircaseId,
+        number: input.number,
+      },
+      select: { id: true },
+    });
+    if (duplicate) throw new ConflictException('Acest apartament există deja.');
+
+    const apartment = await this.prisma.apartment.update({
+      where: { id },
+      data: {
+        buildingId: input.buildingId,
+        staircaseId: input.staircaseId,
+        number: input.number,
+        floor: input.floor,
+        areaM2: input.areaM2,
+        rooms: input.rooms,
+        status: input.status,
+      },
+      select: this.apartmentSelect(),
+    });
+    await this.updateApartmentMetadata(existing.organizationId, user.id, {
+      [id]: {
+        cadastralNumber: input.cadastralNumber,
+        internalNotes: input.internalNotes,
+      },
+    });
+    await Promise.all(Array.from(new Set([existing.buildingId, input.buildingId])).map((buildingId) => this.syncBuildingCounters(buildingId)));
+
+    await this.activity.createActivity({
+      organizationId: apartment.organizationId,
+      actorUserId: user.id,
+      type: 'APARTMENT_CREATED',
+      title: 'Apartament actualizat',
+      message: `Apartamentul ${apartment.number} a fost actualizat.`,
+      targetType: 'APARTMENT',
+      targetId: apartment.id,
+      link: `/admin/apartments/${apartment.id}`,
+    });
+
+    const metadata = await this.readApartmentMetadata(existing.organizationId);
+    return this.toAdminApartmentDetail(apartment, metadata);
+  }
+
+  async linkOrCreateAdminResident(user: MvpUser, apartmentId: string, body: unknown) {
+    const payload = this.payload(body);
+    const apartment = await this.prisma.apartment.findFirst({
+      where: {
+        ...this.organizationWhere(user),
+        id: apartmentId,
+      },
+      select: { id: true, organizationId: true, number: true },
+    });
+    if (!apartment) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    this.assertOrganizationAccess(user, apartment.organizationId);
+
+    const input = this.parseAdminResidentLinkBody(payload);
+    const resident = await this.findOrCreateApartmentResident(apartment.organizationId, apartmentId, input);
+
+    const existingRelation = await this.prisma.apartmentResident.findFirst({
+      where: {
+        apartmentId,
+        residentId: resident.id,
+        role: input.role,
+      },
+      select: { apartmentId: true, residentId: true, role: true },
+    });
+
+    if (input.isPrimaryContact) {
+      await this.prisma.apartmentResident.updateMany({
+        where: { apartmentId, isPrimary: true },
+        data: { isPrimary: false },
+      });
+    }
+
+    if (existingRelation) {
+      await this.prisma.apartmentResident.update({
+        where: {
+          apartmentId_residentId_role: {
+            apartmentId,
+            residentId: resident.id,
+            role: input.role,
+          },
+        },
+        data: { isPrimary: input.isPrimaryContact },
+      });
+    } else {
+      await this.prisma.apartmentResident.create({
+        data: {
+          apartmentId,
+          residentId: resident.id,
+          role: input.role,
+          isPrimary: input.isPrimaryContact,
+        },
+      });
+    }
+
+    if (input.isPrimaryContact) {
+      await this.prisma.apartment.update({
+        where: { id: apartmentId },
+        data: { ownerResidentId: resident.id, status: ApartmentStatus.OCCUPIED },
+      });
+    }
+
+    await this.updateApartmentMetadata(apartment.organizationId, user.id, {
+      [apartmentId]: {
+        residentContactMethods: {
+          [`${resident.id}:${input.role}`]: input.preferredContactMethod,
+        },
+      },
+    });
+
+    await this.activity.createActivity({
+      organizationId: apartment.organizationId,
+      actorUserId: user.id,
+      type: 'RESIDENT_LINKED',
+      title: 'Locatar conectat',
+      message: `${this.formatResidentName(resident)} a fost conectat la apartamentul ${apartment.number}.`,
+      targetType: 'APARTMENT',
+      targetId: apartmentId,
+      link: `/admin/apartments/${apartmentId}`,
+    });
+
+    return this.getAdminApartment(user, apartmentId);
+  }
+
+  async setPrimaryContact(user: MvpUser, apartmentId: string, body: unknown) {
+    const payload = this.payload(body);
+    const residentId = this.requiredString(payload.residentId, 'Locatarul este obligatoriu.');
+    const apartment = await this.prisma.apartment.findFirst({
+      where: {
+        ...this.organizationWhere(user),
+        id: apartmentId,
+      },
+      select: { id: true, organizationId: true },
+    });
+    if (!apartment) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    this.assertOrganizationAccess(user, apartment.organizationId);
+
+    const relation = await this.prisma.apartmentResident.findFirst({
+      where: {
+        apartmentId,
+        residentId,
+      },
+      select: { apartmentId: true, residentId: true, role: true },
+    });
+    if (!relation) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+
+    await this.prisma.apartmentResident.updateMany({
+      where: { apartmentId, isPrimary: true },
+      data: { isPrimary: false },
+    });
+    await this.prisma.apartmentResident.update({
+      where: {
+        apartmentId_residentId_role: {
+          apartmentId,
+          residentId,
+          role: relation.role,
+        },
+      },
+      data: { isPrimary: true },
+    });
+    await this.prisma.apartment.update({
+      where: { id: apartmentId },
+      data: { ownerResidentId: residentId, status: ApartmentStatus.OCCUPIED },
+    });
+
+    return this.getAdminApartment(user, apartmentId);
   }
 
   async listApartments(user: MvpUser) {
@@ -718,6 +1045,418 @@ export class ApartmentsService {
       where: { id: buildingId },
       data: { staircasesCount, apartmentsCount },
     });
+  }
+
+  private payload(body: unknown): Record<string, any> {
+    return body && typeof body === 'object' ? (body as Record<string, any>) : {};
+  }
+
+  private async assertOrganizationExists(organizationId: string) {
+    const organization = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { id: true },
+    });
+    if (!organization) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+  }
+
+  private toAdminStatus(status: ApartmentStatus) {
+    if (status === ApartmentStatus.EMPTY) return 'VACANT';
+    if (status === ApartmentStatus.OCCUPIED) return 'OCCUPIED';
+    return 'UNKNOWN';
+  }
+
+  private fromAdminStatus(value: unknown) {
+    const status = typeof value === 'string' ? value.trim().toUpperCase() : '';
+    if (!status || status === 'UNKNOWN' || status === 'ACTIVE') return ApartmentStatus.ACTIVE;
+    if (status === 'VACANT' || status === 'EMPTY') return ApartmentStatus.EMPTY;
+    if (status === 'OCCUPIED') return ApartmentStatus.OCCUPIED;
+    if (Object.values(ApartmentStatus).includes(status as ApartmentStatus)) return status as ApartmentStatus;
+    throw new BadRequestException('Statusul apartamentului nu este valid.');
+  }
+
+  private completenessStatus(row: { primaryContact: unknown; areaM2: number | null | undefined }) {
+    const noContact = !row.primaryContact;
+    const noArea = !row.areaM2 || Number(row.areaM2) <= 0;
+    if (noContact && noArea) return 'INCOMPLETE';
+    if (noContact) return 'NO_CONTACT';
+    if (noArea) return 'NO_AREA';
+    return 'COMPLETE';
+  }
+
+  private toAdminApartmentRow(apartment: any, metadata: Record<string, any>) {
+    const primaryRelation = apartment.apartmentResidents?.find((item) => item.isPrimary);
+    const primaryResident = apartment.ownerResident || primaryRelation?.resident || null;
+    const rowMetadata = metadata[apartment.id] || {};
+    const primaryContact = primaryResident
+      ? {
+          id: primaryResident.id,
+          fullName: this.formatResidentName(primaryResident) || 'Contact principal',
+          phone: primaryResident.phone || '',
+          email: primaryResident.email || '',
+        }
+      : null;
+    const row = {
+      id: apartment.id,
+      apartmentNumber: apartment.number,
+      number: apartment.number,
+      organizationId: apartment.organizationId,
+      buildingId: apartment.buildingId,
+      buildingName: apartment.building?.name || '',
+      staircaseId: apartment.staircaseId,
+      staircase: apartment.staircase?.name || '',
+      floor: apartment.floor === null || apartment.floor === undefined ? '' : String(apartment.floor),
+      areaM2: apartment.areaM2 === null || apartment.areaM2 === undefined ? null : Number(apartment.areaM2),
+      rooms: apartment.rooms === null || apartment.rooms === undefined ? null : Number(apartment.rooms),
+      cadastralNumber: rowMetadata.cadastralNumber || '',
+      status: this.toAdminStatus(apartment.status),
+      primaryContact,
+      residentsCount: apartment._count?.apartmentResidents ?? apartment.apartmentResidents?.length ?? 0,
+      completenessStatus: '',
+      updatedAt: apartment.updatedAt,
+    };
+    return {
+      ...row,
+      completenessStatus: this.completenessStatus(row),
+    };
+  }
+
+  private toAdminApartmentDetail(apartment: any, metadata: Record<string, any>) {
+    const base = this.toAdminApartmentRow(apartment, metadata);
+    const rowMetadata = metadata[apartment.id] || {};
+    return {
+      ...base,
+      internalNotes: rowMetadata.internalNotes || '',
+      residents: (apartment.apartmentResidents || []).map((item) => ({
+        id: item.resident.id,
+        residentId: item.resident.id,
+        fullName: this.formatResidentName(item.resident) || 'Locatar',
+        phone: item.resident.phone || '',
+        email: item.resident.email || '',
+        role: item.role,
+        isPrimaryContact: Boolean(item.isPrimary),
+        accountStatus: item.resident.accountStatus,
+        preferredContactMethod: rowMetadata.residentContactMethods?.[`${item.resident.id}:${item.role}`] || 'PHONE',
+      })),
+      meters: (apartment.meters || []).map((meter) => ({
+        id: meter.id,
+        type: meter.type,
+        serialNumber: meter.serialNumber,
+        status: meter.status,
+        lastReading: meter.readings?.[0]?.value ?? null,
+        lastReadingDate: meter.readings?.[0]?.readingDate ?? null,
+      })),
+      invoices: apartment.invoices || [],
+      payments: apartment.payments || [],
+      issues: apartment.issues || [],
+      activity: [
+        { label: 'Creat', date: apartment.createdAt },
+        { label: 'Actualizat', date: apartment.updatedAt },
+      ],
+    };
+  }
+
+  private filterAdminApartmentRows(rows: any[], query: Record<string, string | undefined>) {
+    const search = String(query.search || '').trim().toLowerCase();
+    const staircase = String(query.staircase || '').trim();
+    const floor = String(query.floor || '').trim();
+    const status = String(query.status || '').trim().toUpperCase();
+    const hasPrimaryContact = String(query.hasPrimaryContact || '').trim();
+    const hasArea = String(query.hasArea || '').trim();
+
+    return rows.filter((row) => {
+      const matchesSearch =
+        !search ||
+        [
+          row.apartmentNumber,
+          row.cadastralNumber,
+          row.primaryContact?.fullName,
+          row.primaryContact?.phone,
+          row.primaryContact?.email,
+        ]
+          .join(' ')
+          .toLowerCase()
+          .includes(search);
+      const matchesStaircase = !staircase || staircase === 'ALL' || row.staircase === staircase;
+      const matchesFloor = !floor || floor === 'ALL' || String(row.floor) === floor;
+      const matchesStatus = !status || status === 'ALL' || row.status === status;
+      const matchesContact =
+        !hasPrimaryContact ||
+        hasPrimaryContact === 'ALL' ||
+        (hasPrimaryContact === 'true' ? Boolean(row.primaryContact) : !row.primaryContact);
+      const matchesArea =
+        !hasArea ||
+        hasArea === 'ALL' ||
+        (hasArea === 'true' ? Boolean(row.areaM2 && row.areaM2 > 0) : !row.areaM2 || row.areaM2 <= 0);
+      return matchesSearch && matchesStaircase && matchesFloor && matchesStatus && matchesContact && matchesArea;
+    });
+  }
+
+  private sortAdminApartmentRows(rows: any[], sortBy?: string, sortDirection?: string) {
+    const direction = String(sortDirection || 'asc').toLowerCase() === 'desc' ? -1 : 1;
+    const key = String(sortBy || 'apartmentNumber');
+    return [...rows].sort((a, b) => {
+      if (key === 'areaM2') return ((Number(a.areaM2 || 0) - Number(b.areaM2 || 0)) * direction);
+      if (key === 'floor') return ((Number(a.floor || 0) - Number(b.floor || 0)) * direction);
+      if (key === 'staircase') return String(a.staircase || '').localeCompare(String(b.staircase || ''), 'ro') * direction;
+      const aNumber = Number(a.apartmentNumber);
+      const bNumber = Number(b.apartmentNumber);
+      if (Number.isFinite(aNumber) && Number.isFinite(bNumber)) return (aNumber - bNumber) * direction;
+      return String(a.apartmentNumber || '').localeCompare(String(b.apartmentNumber || ''), 'ro', { numeric: true }) * direction;
+    });
+  }
+
+  private adminApartmentStats(rows: any[]) {
+    return {
+      totalApartments: rows.length,
+      totalAreaM2: this.money(rows.reduce((sum, row) => sum + Number(row.areaM2 || 0), 0)),
+      withPrimaryContact: rows.filter((row) => Boolean(row.primaryContact)).length,
+      withoutPrimaryContact: rows.filter((row) => !row.primaryContact).length,
+      withoutArea: rows.filter((row) => !row.areaM2 || Number(row.areaM2) <= 0).length,
+      occupied: rows.filter((row) => row.status === 'OCCUPIED').length,
+      vacant: rows.filter((row) => row.status === 'VACANT').length,
+      unknown: rows.filter((row) => row.status === 'UNKNOWN').length,
+    };
+  }
+
+  private async parseAdminApartmentBody(organizationId: string, payload: Record<string, unknown>, isUpdate = false) {
+    const number = this.requiredString(payload.apartmentNumber ?? payload.number, 'Numărul apartamentului este obligatoriu.');
+    const structure = await this.resolveApartmentStructure(organizationId, payload);
+    const rawFloor = payload.floor;
+    const floor = rawFloor === undefined || rawFloor === null || rawFloor === '' ? null : Math.trunc(this.requiredNumber(rawFloor, 'Etajul trebuie să fie un număr.'));
+    const rawArea = payload.areaM2;
+    const areaM2 = rawArea === undefined || rawArea === null || rawArea === '' ? null : this.requiredNumber(rawArea, 'Suprafața trebuie să fie un număr pozitiv.');
+    if (areaM2 !== null && areaM2 <= 0) throw new BadRequestException('Suprafața trebuie să fie mai mare decât 0.');
+    const roomsRaw = payload.rooms;
+    const rooms = roomsRaw === undefined || roomsRaw === null || roomsRaw === '' ? null : Math.trunc(this.requiredNumber(roomsRaw, 'Numărul de camere trebuie să fie pozitiv.'));
+    if (rooms !== null && rooms <= 0) throw new BadRequestException('Numărul de camere trebuie să fie pozitiv.');
+
+    if (!structure.buildingId || !structure.staircaseId) {
+      throw new BadRequestException(isUpdate ? 'Blocul și scara sunt obligatorii.' : 'Nu permite crearea apartamentului fără asociație și structură.');
+    }
+
+    return {
+      number,
+      buildingId: structure.buildingId,
+      staircaseId: structure.staircaseId,
+      floor,
+      areaM2,
+      rooms,
+      status: this.fromAdminStatus(payload.status),
+      cadastralNumber: typeof payload.cadastralNumber === 'string' ? payload.cadastralNumber.trim() : '',
+      internalNotes: typeof payload.internalNotes === 'string' ? payload.internalNotes.trim() : '',
+    };
+  }
+
+  private async resolveApartmentStructure(organizationId: string, payload: Record<string, unknown>) {
+    const buildingId = typeof payload.buildingId === 'string' ? payload.buildingId.trim() : '';
+    const staircaseId = typeof payload.staircaseId === 'string' ? payload.staircaseId.trim() : '';
+    if (buildingId && staircaseId) {
+      const [building, staircase] = await Promise.all([
+        this.prisma.building.findFirst({ where: { id: buildingId, organizationId }, select: { id: true } }),
+        this.prisma.staircase.findFirst({ where: { id: staircaseId, buildingId, organizationId }, select: { id: true } }),
+      ]);
+      if (!building) throw new NotFoundException('Blocul nu a fost găsit.');
+      if (!staircase) throw new NotFoundException('Scara nu a fost găsită.');
+      return { buildingId, staircaseId };
+    }
+
+    const buildingName = typeof payload.building === 'string' && payload.building.trim() ? payload.building.trim() : 'Bloc principal';
+    const staircaseName = typeof payload.entrance === 'string' && payload.entrance.trim() ? payload.entrance.trim() : typeof payload.staircase === 'string' && payload.staircase.trim() ? payload.staircase.trim() : '1';
+    const building = await this.findOrCreateBuilding(organizationId, buildingName);
+    const staircase = await this.findOrCreateStaircase(organizationId, building.id, staircaseName);
+    return { buildingId: building.id, staircaseId: staircase.id };
+  }
+
+  private async findOrCreateBuilding(organizationId: string, name: string) {
+    const existing = await this.prisma.building.findFirst({
+      where: { organizationId, name },
+      select: { id: true },
+    });
+    if (existing) return existing;
+    return this.prisma.building.create({
+      data: { organizationId, name, address: null },
+      select: { id: true },
+    });
+  }
+
+  private async findOrCreateStaircase(organizationId: string, buildingId: string, name: string) {
+    const existing = await this.prisma.staircase.findFirst({
+      where: { organizationId, buildingId, name },
+      select: { id: true },
+    });
+    if (existing) return existing;
+    return this.prisma.staircase.create({
+      data: { organizationId, buildingId, name, floorsCount: 0 },
+      select: { id: true },
+    });
+  }
+
+  private parseAdminResidentLinkBody(payload: Record<string, unknown>) {
+    const fullName = this.requiredString(payload.fullName, 'Numele locatarului este obligatoriu.');
+    const phone = typeof payload.phone === 'string' ? payload.phone.trim() : '';
+    const email = typeof payload.email === 'string' ? payload.email.trim().toLowerCase() : '';
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new BadRequestException('Emailul nu este valid.');
+    if (phone && !this.isValidMoldovaPhone(phone)) throw new BadRequestException('Telefonul nu este valid.');
+    return {
+      residentId: typeof payload.residentId === 'string' ? payload.residentId.trim() : '',
+      fullName,
+      phone: phone ? this.normalizeMoldovaPhone(phone) : '',
+      email,
+      role: this.parseAdminResidentRole(payload.role),
+      isPrimaryContact: Boolean(payload.isPrimaryContact ?? payload.isPrimary),
+      preferredContactMethod: this.parsePreferredContactMethod(payload.preferredContactMethod),
+      accountStatus: this.parseAdminResidentStatus(payload.status),
+    };
+  }
+
+  private parseAdminResidentRole(value: unknown) {
+    const role = typeof value === 'string' && value.trim() ? value.trim().toUpperCase() : 'OWNER';
+    if (role === 'OWNER') return ApartmentResidentRole.OWNER;
+    if (role === 'TENANT') return ApartmentResidentRole.TENANT;
+    if (role === 'REPRESENTATIVE') return ApartmentResidentRole.REPRESENTATIVE;
+    throw new BadRequestException('Rolul nu este valid.');
+  }
+
+  private parseAdminResidentStatus(value: unknown) {
+    const status = typeof value === 'string' && value.trim() ? value.trim().toUpperCase() : 'NOT_INVITED';
+    if (status === 'ACTIVE') return ResidentAccountStatus.CREATED;
+    if (status === 'INVITED') return ResidentAccountStatus.INVITED;
+    if (status === 'NOT_INVITED') return ResidentAccountStatus.NO_ACCOUNT;
+    throw new BadRequestException('Statusul locatarului nu este valid.');
+  }
+
+  private parsePreferredContactMethod(value: unknown) {
+    const method = typeof value === 'string' && value.trim() ? value.trim().toUpperCase() : 'PHONE';
+    const allowed = ['PHONE', 'EMAIL', 'APP', 'WHATSAPP', 'TELEGRAM'];
+    if (!allowed.includes(method)) throw new BadRequestException('Metoda de contact nu este validă.');
+    return method;
+  }
+
+  private async findOrCreateApartmentResident(
+    organizationId: string,
+    apartmentId: string,
+    input: {
+      residentId: string;
+      fullName: string;
+      phone: string;
+      email: string;
+      role: ApartmentResidentRole;
+      accountStatus: ResidentAccountStatus;
+      isPrimaryContact: boolean;
+    },
+  ) {
+    const name = this.splitFullName(input.fullName);
+    let existing: { id: string } | null = null;
+    if (input.residentId) {
+      existing = await this.prisma.residentProfile.findFirst({
+        where: { id: input.residentId, organizationId },
+        select: { id: true },
+      });
+    }
+    if (!existing && input.email) {
+      existing = await this.prisma.residentProfile.findFirst({ where: { organizationId, email: input.email }, select: { id: true } });
+    }
+    if (!existing && input.phone) {
+      existing = await this.prisma.residentProfile.findFirst({ where: { organizationId, phone: input.phone }, select: { id: true } });
+    }
+    if (!existing) {
+      existing = await this.prisma.residentProfile.findFirst({
+        where: { organizationId, firstName: name.firstName, lastName: name.lastName },
+        select: { id: true },
+      });
+    }
+
+    const residentData = {
+      apartmentId,
+      firstName: name.firstName,
+      lastName: name.lastName,
+      phone: input.phone || null,
+      email: input.email || null,
+      accountStatus: input.accountStatus,
+      type: input.role === ApartmentResidentRole.TENANT ? ResidentType.TENANT : input.role === ApartmentResidentRole.OWNER ? ResidentType.OWNER : ResidentType.RESIDENT,
+      isPrimary: input.isPrimaryContact,
+    };
+
+    if (existing) {
+      return this.prisma.residentProfile.update({
+        where: { id: existing.id },
+        data: residentData,
+        select: { id: true, firstName: true, lastName: true, phone: true, email: true },
+      });
+    }
+    return this.prisma.residentProfile.create({
+      data: { organizationId, ...residentData },
+      select: { id: true, firstName: true, lastName: true, phone: true, email: true },
+    });
+  }
+
+  private splitFullName(fullName: string) {
+    const parts = fullName.trim().split(/\s+/);
+    const firstName = parts.shift() || '';
+    return {
+      firstName,
+      lastName: parts.join(' '),
+    };
+  }
+
+  private async readApartmentMetadata(organizationId: string): Promise<Record<string, any>> {
+    const note = await this.prisma.clientNote.findFirst({
+      where: { organizationId, title: 'Apartment CRM metadata' },
+      orderBy: { updatedAt: 'desc' },
+      select: { content: true },
+    });
+    if (!note?.content) return {};
+    try {
+      const parsed = JSON.parse(note.content);
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+
+  private async updateApartmentMetadata(organizationId: string, userId: string, patch: Record<string, any>) {
+    const current = await this.readApartmentMetadata(organizationId);
+    const next = { ...current };
+    Object.entries(patch).forEach(([apartmentId, value]) => {
+      next[apartmentId] = {
+        ...(current[apartmentId] || {}),
+        ...value,
+        residentContactMethods: {
+          ...(current[apartmentId]?.residentContactMethods || {}),
+          ...(value?.residentContactMethods || {}),
+        },
+      };
+    });
+    const existing = await this.prisma.clientNote.findFirst({
+      where: { organizationId, title: 'Apartment CRM metadata' },
+      select: { id: true },
+    });
+    if (existing) {
+      await this.prisma.clientNote.update({
+        where: { id: existing.id },
+        data: { content: JSON.stringify(next) },
+      });
+      return;
+    }
+    await this.prisma.clientNote.create({
+      data: {
+        organizationId,
+        createdByUserId: userId,
+        title: 'Apartment CRM metadata',
+        content: JSON.stringify(next),
+      },
+    });
+  }
+
+  private isValidMoldovaPhone(value: string) {
+    const normalized = String(value || '').replace(/[\s().-]/g, '');
+    return /^\+373\d{8}$/.test(normalized) || /^0\d{8}$/.test(normalized);
+  }
+
+  private normalizeMoldovaPhone(value: string) {
+    const normalized = String(value || '').trim().replace(/[\s().-]/g, '');
+    if (/^0\d{8}$/.test(normalized)) return `+373${normalized.slice(1)}`;
+    return normalized;
   }
 
   private requiredString(value: unknown, message: string) {

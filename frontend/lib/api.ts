@@ -766,6 +766,66 @@ export const apartmentsApi = {
   }) => apiRequest<any>(`/apartments/${apartmentId}/residents`, { method: 'POST', body: data }),
 };
 
+export const adminApartmentsCrmApi = {
+  list: (params?: {
+    search?: string;
+    staircase?: string;
+    floor?: string;
+    status?: string;
+    hasPrimaryContact?: string;
+    hasArea?: string;
+    sortBy?: string;
+    sortDirection?: 'asc' | 'desc';
+    page?: number;
+    limit?: number;
+  }) => apiRequest<any>('/api/admin/apartments', { params }),
+  get: (id: string) => apiRequest<any>(`/api/admin/apartments/${id}`),
+  create: (data: {
+    apartmentNumber: string;
+    buildingId?: string;
+    staircaseId?: string;
+    building?: string;
+    entrance?: string;
+    floor?: number | string | null;
+    areaM2?: number | string | null;
+    rooms?: number | string | null;
+    cadastralNumber?: string;
+    status?: 'OCCUPIED' | 'VACANT' | 'UNKNOWN';
+    internalNotes?: string;
+  }) => apiRequest<any>('/api/admin/apartments', { method: 'POST', body: data }),
+  update: (
+    id: string,
+    data: {
+      apartmentNumber: string;
+      buildingId?: string;
+      staircaseId?: string;
+      building?: string;
+      entrance?: string;
+      floor?: number | string | null;
+      areaM2?: number | string | null;
+      rooms?: number | string | null;
+      cadastralNumber?: string;
+      status?: 'OCCUPIED' | 'VACANT' | 'UNKNOWN';
+      internalNotes?: string;
+    },
+  ) => apiRequest<any>(`/api/admin/apartments/${id}`, { method: 'PATCH', body: data }),
+  linkResident: (
+    id: string,
+    data: {
+      residentId?: string;
+      fullName: string;
+      phone?: string;
+      email?: string;
+      role: 'OWNER' | 'TENANT' | 'REPRESENTATIVE';
+      isPrimaryContact?: boolean;
+      preferredContactMethod?: 'PHONE' | 'EMAIL' | 'APP' | 'WHATSAPP' | 'TELEGRAM';
+      status?: 'ACTIVE' | 'INVITED' | 'NOT_INVITED';
+    },
+  ) => apiRequest<any>(`/api/admin/apartments/${id}/residents`, { method: 'POST', body: data }),
+  setPrimaryContact: (id: string, residentId: string) =>
+    apiRequest<any>(`/api/admin/apartments/${id}/primary-contact`, { method: 'PATCH', body: { residentId } }),
+};
+
 export const residentsApi = {
   list: () => apiRequest<any[]>('/residents'),
   get: (id: string) => apiRequest<any>(`/residents/${id}`),
