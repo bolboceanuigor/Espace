@@ -53,6 +53,11 @@ type InvoiceDetails = {
   };
   lines: Array<{
     id: string;
+    lineType?: string;
+    meterId?: string | null;
+    meterReadingId?: string | null;
+    meterType?: string | null;
+    unit?: string | null;
     name: string;
     description?: string;
     calculationType: string;
@@ -271,9 +276,17 @@ export default function ResidentInvoiceDetailsPage() {
               {data.lines.map((line) => (
                 <div key={line.id} className="grid gap-3 rounded-2xl border border-border/70 bg-white px-4 py-3 text-sm md:grid-cols-[1.2fr_0.75fr_0.75fr_0.75fr_0.85fr] md:items-center">
                   <div>
-                    <p className="font-semibold text-foreground">{line.name}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold text-foreground">{line.name}</p>
+                      {line.lineType === 'METER_CONSUMPTION' ? <Badge variant="neutral">Consum contor</Badge> : null}
+                    </div>
                     <p className="mt-1 text-xs text-muted-foreground">{line.description || line.formulaLabel || 'Serviciu facturat'}</p>
                     {line.formulaLabel ? <p className="mt-1 text-xs font-medium text-muted-foreground">{line.formulaLabel}</p> : null}
+                    {line.meterReadingId ? (
+                      <Link className="mt-2 inline-flex text-xs font-semibold text-primary hover:underline" href={localizedPath(`/resident/meter-readings/${line.meterReadingId}`)}>
+                        Vezi indicele
+                      </Link>
+                    ) : null}
                   </div>
                   <Info label="Cantitate" value={String(line.quantity)} />
                   <Info label="Preț unitar" value={formatMdl(line.unitPrice)} />

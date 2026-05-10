@@ -1,7 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Calculator, CalendarDays, Eye, FileDown, FileText, RefreshCw, Save, Trash2, TriangleAlert, WalletCards } from 'lucide-react';
+import { Calculator, CalendarDays, Eye, FileDown, FileText, Gauge, RefreshCw, Save, Trash2, TriangleAlert, WalletCards } from 'lucide-react';
 import { Badge, Button, ButtonLink, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
 import { invoicesApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
@@ -9,11 +10,16 @@ import { useLocalizedPath } from '@/lib/use-localized-path';
 
 type DraftStatus = 'DRAFT' | 'LOCKED' | 'CANCELLED';
 type LineStatus = 'READY' | 'WARNING' | 'ERROR' | 'EXCLUDED';
-type CalculationType = 'PER_M2' | 'FIXED_PER_APARTMENT' | 'MANUAL';
+type CalculationType = 'PER_M2' | 'FIXED_PER_APARTMENT' | 'MANUAL' | 'PER_METER_CONSUMPTION';
 
 type DraftLine = {
   id: string;
+  lineType?: 'TARIFF' | 'MANUAL' | 'ADJUSTMENT' | 'METER_CONSUMPTION';
   tariffId: string | null;
+  meterId?: string | null;
+  meterReadingId?: string | null;
+  meterType?: string | null;
+  unit?: string | null;
   name: string;
   description: string;
   calculationType: CalculationType;
@@ -67,6 +73,9 @@ type DraftData = {
     apartmentsWithoutArea: number;
     perM2Services: number;
     fixedServices: number;
+    meterConsumptionServices?: number;
+    meterConsumptionAmount?: number;
+    apartmentsWithoutApprovedMeterReadings?: number;
     manualServicesExcluded: number;
   };
   tariffsUsed: Array<{ id: string; name: string; calculationType: CalculationType }>;
@@ -91,6 +100,9 @@ const emptyDraft: DraftData = {
     apartmentsWithoutArea: 0,
     perM2Services: 0,
     fixedServices: 0,
+    meterConsumptionServices: 0,
+    meterConsumptionAmount: 0,
+    apartmentsWithoutApprovedMeterReadings: 0,
     manualServicesExcluded: 0,
   },
   tariffsUsed: [],
@@ -149,6 +161,7 @@ export default function AdminInvoiceDraftPage() {
   const [billingMonth, setBillingMonth] = useState(currentBillingMonth());
   const [dueDate, setDueDate] = useState(defaultDueDate(currentBillingMonth()));
   const [description, setDescription] = useState('');
+  const [includeMeterCharges, setIncludeMeterCharges] = useState(true);
   const [draft, setDraft] = useState<DraftData | null>(null);
   const [calculated, setCalculated] = useState<DraftData | null>(null);
   const [selected, setSelected] = useState<DraftItem | null>(null);
@@ -174,6 +187,7 @@ export default function AdminInvoiceDraftPage() {
       if (nextDraft) {
         setDueDate(nextDraft.dueDate || defaultDueDate(month));
         setDescription(nextDraft.description || '');
+        setIncludeMeterCharges(nextDraft.summary?.includeMeterCharges !== false);
       } else {
         setDueDate(defaultDueDate(month));
       }
@@ -212,7 +226,7 @@ export default function AdminInvoiceDraftPage() {
     setError('');
     setMessage('');
     try {
-      const res = await invoicesApi.draftCalculate({ billingMonth, dueDate: dueDate || null, description });
+      const res = await invoicesApi.draftCalculate({ billingMonth, dueDate: dueDate || null, description, includeMeterCharges });
       setCalculated(res.data || emptyDraft);
       setDraft(null);
       setMessage('Draftul a fost calculat. Nu au fost emise facturi finale.');
@@ -233,7 +247,7 @@ export default function AdminInvoiceDraftPage() {
     setError('');
     setMessage('');
     try {
-      const res = await invoicesApi.draftSave({ billingMonth, dueDate: dueDate || null, description });
+      const res = await invoicesApi.draftSave({ billingMonth, dueDate: dueDate || null, description, includeMeterCharges });
       setDraft(res.data || null);
       setCalculated(null);
       setMessage('Draftul a fost salvat.');
@@ -253,7 +267,7 @@ export default function AdminInvoiceDraftPage() {
     setError('');
     setMessage('');
     try {
-      const res = await invoicesApi.draftRecalculate(draft.id, { billingMonth, dueDate: dueDate || null, description });
+      const res = await invoicesApi.draftRecalculate(draft.id, { billingMonth, dueDate: dueDate || null, description, includeMeterCharges });
       setDraft(res.data || null);
       setMessage('Draftul a fost recalculat.');
     } catch (err: any) {
@@ -338,7 +352,7 @@ export default function AdminInvoiceDraftPage() {
         </div>
       ) : null}
 
-      <Card>
+      <Card className="space-y-3">
         <div className="grid gap-3 lg:grid-cols-[1fr_1fr_1.4fr_auto]">
           <Input label="Luna de facturare" type="month" value={billingMonth} onChange={(event) => setBillingMonth(event.target.value)} />
           <Input label="Data scadentă" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
@@ -382,14 +396,30 @@ export default function AdminInvoiceDraftPage() {
             ) : null}
           </div>
         </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-muted/40 px-4 py-3">
+          <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-border text-foreground focus:ring-foreground/20"
+              checked={includeMeterCharges}
+              onChange={(event) => setIncludeMeterCharges(event.target.checked)}
+            />
+            Include tarife pe consum în draft
+          </label>
+          <ButtonLink href={localizedPath(`/admin/invoices/draft/meter-charges-preview?billingMonth=${billingMonth}`)} variant="secondary">
+            <Gauge className="h-4 w-4" />
+            Previzualizează sumele pe consum
+          </ButtonLink>
+        </div>
       </Card>
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-8">
         <StatCard label="Apartamente calculate" value={summary.calculatedApartments} description="Incluse în draft" icon={<WalletCards className="h-5 w-5" />} />
         <StatCard label="Total estimat" value={formatMdl(summary.totalAmount)} description="Nu este factură finală" icon={<Calculator className="h-5 w-5" />} />
         <StatCard label="Cu erori" value={summary.errorsCount} description="Necesită verificare" icon={<TriangleAlert className="h-5 w-5" />} tone={summary.errorsCount ? 'danger' : 'neutral'} />
         <StatCard label="Fără suprafață" value={summary.apartmentsWithoutArea} description="Afectează per m²" icon={<TriangleAlert className="h-5 w-5" />} tone={summary.apartmentsWithoutArea ? 'warning' : 'neutral'} />
         <StatCard label="Tarife active" value={summary.activeTariffsUsed} description="Folosite în calcul" icon={<FileText className="h-5 w-5" />} />
+        <StatCard label="Consum contoare" value={formatMdl(Number(summary.meterConsumptionAmount || 0))} description={`${summary.meterConsumptionServices || 0} tarife pe consum`} icon={<Gauge className="h-5 w-5" />} />
         <StatCard label="Servicii per m²" value={summary.perM2Services} description="După suprafață" icon={<CalendarDays className="h-5 w-5" />} />
         <StatCard label="Manuale excluse" value={summary.manualServicesExcluded} description="Nu se aplică automat" icon={<TriangleAlert className="h-5 w-5" />} tone={summary.manualServicesExcluded ? 'warning' : 'neutral'} />
       </section>
@@ -514,6 +544,7 @@ function RowActions({
 }
 
 function DraftDetailsModal({ item, onClose }: { item: DraftItem | null; onClose: () => void }) {
+  const localizedPath = useLocalizedPath();
   return (
     <Modal isOpen={Boolean(item)} onClose={onClose} maxWidth="2xl">
       {item ? (
@@ -531,8 +562,17 @@ function DraftDetailsModal({ item, onClose }: { item: DraftItem | null; onClose:
                 <div key={line.id} className="rounded-2xl border border-border/70 bg-white px-4 py-3">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <p className="font-semibold text-foreground">{line.name}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-semibold text-foreground">{line.name}</p>
+                        {line.lineType === 'METER_CONSUMPTION' ? <Badge variant="neutral">Consum contor</Badge> : null}
+                      </div>
                       <p className="mt-1 text-xs text-muted-foreground">{line.formulaLabel} = {formatMdl(line.amount)}</p>
+                      {line.lineType === 'METER_CONSUMPTION' ? (
+                        <div className="mt-2 flex flex-wrap gap-2 text-xs font-semibold">
+                          {line.meterReadingId ? <Link className="text-primary hover:underline" href={localizedPath(`/admin/meter-readings/${line.meterReadingId}`)}>Vezi indicele</Link> : null}
+                          {line.meterId ? <Link className="text-primary hover:underline" href={localizedPath(`/admin/meters/${line.meterId}`)}>Vezi contorul</Link> : null}
+                        </div>
+                      ) : null}
                     </div>
                     <Badge variant={statusVariant[line.status]}>{statusLabels[line.status]}</Badge>
                   </div>

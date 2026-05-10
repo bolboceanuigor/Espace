@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, FileText, Home, ReceiptText, UserRound, WalletCards, XCircle } from 'lucide-react';
@@ -14,7 +15,11 @@ type InternalInvoiceLine = {
   id: string;
   sourceDraftLineId?: string | null;
   tariffId?: string | null;
-  lineType: 'TARIFF' | 'MANUAL_ADJUSTMENT' | 'DISCOUNT' | 'CORRECTION';
+  lineType: 'TARIFF' | 'MANUAL_ADJUSTMENT' | 'DISCOUNT' | 'CORRECTION' | 'METER_CONSUMPTION';
+  meterId?: string | null;
+  meterReadingId?: string | null;
+  meterType?: string | null;
+  unit?: string | null;
   name: string;
   description: string;
   calculationType: string;
@@ -270,8 +275,17 @@ export default function AdminInvoiceDetailsPage() {
               {invoice.lines.map((line) => (
                 <div key={line.id} className="grid gap-3 rounded-2xl border border-border/70 bg-white px-4 py-3 text-sm md:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr_0.8fr] md:items-center">
                   <div>
-                    <p className="font-semibold text-foreground">{line.name}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold text-foreground">{line.name}</p>
+                      {line.lineType === 'METER_CONSUMPTION' ? <Badge variant="neutral">Consum contor</Badge> : null}
+                    </div>
                     <p className="mt-1 text-xs text-muted-foreground">{line.description || line.formulaLabel || 'Linie factură internă'}</p>
+                    {line.lineType === 'METER_CONSUMPTION' ? (
+                      <div className="mt-2 flex flex-wrap gap-2 text-xs font-semibold">
+                        {line.meterReadingId ? <Link href={localizedPath(`/admin/meter-readings/${line.meterReadingId}`)} className="text-primary hover:underline">Vezi indicele</Link> : null}
+                        {line.meterId ? <Link href={localizedPath(`/admin/meters/${line.meterId}`)} className="text-primary hover:underline">Vezi contorul</Link> : null}
+                      </div>
+                    ) : null}
                   </div>
                   <span className="text-muted-foreground">{line.calculationType}</span>
                   <span className="text-muted-foreground">{line.quantity}</span>

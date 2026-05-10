@@ -36,6 +36,46 @@ export class BillingReadController {
     return this.billingReadService.createDefaultTariffs(user);
   }
 
+  @Get(['admin/tariffs/meter-based', 'api/admin/tariffs/meter-based'])
+  listMeterBasedTariffs(@CurrentUser() user: MvpUser) {
+    return this.billingReadService.listMeterBasedTariffs(user);
+  }
+
+  @Get(['admin/tariffs/meter-based/stats', 'api/admin/tariffs/meter-based/stats'])
+  getMeterBasedTariffStats(@CurrentUser() user: MvpUser) {
+    return this.billingReadService.getMeterBasedTariffStats(user);
+  }
+
+  @Post(['admin/tariffs/meter-based', 'api/admin/tariffs/meter-based'])
+  createMeterBasedTariff(@CurrentUser() user: MvpUser, @Body() body: unknown) {
+    return this.billingReadService.saveMeterBasedTariff(user, body);
+  }
+
+  @Get(['admin/tariffs/meter-based/:id', 'api/admin/tariffs/meter-based/:id'])
+  getMeterBasedTariff(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.billingReadService.getMeterBasedTariff(user, id);
+  }
+
+  @Patch(['admin/tariffs/meter-based/:id', 'api/admin/tariffs/meter-based/:id'])
+  updateMeterBasedTariff(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.billingReadService.saveMeterBasedTariff(user, body, id);
+  }
+
+  @Patch(['admin/tariffs/meter-based/:id/status', 'api/admin/tariffs/meter-based/:id/status'])
+  updateMeterBasedTariffStatus(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.billingReadService.updateMeterBasedTariffStatus(user, id, body);
+  }
+
+  @Post(['admin/tariffs/meter-based/:id/duplicate', 'api/admin/tariffs/meter-based/:id/duplicate'])
+  duplicateMeterBasedTariff(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.billingReadService.duplicateMeterBasedTariff(user, id);
+  }
+
+  @Get(['admin/tariffs/meter-based/:id/impact', 'api/admin/tariffs/meter-based/:id/impact'])
+  getMeterBasedTariffImpact(@CurrentUser() user: MvpUser, @Param('id') id: string, @Query() query: Record<string, unknown>) {
+    return this.billingReadService.getMeterBasedTariffImpact(user, id, query);
+  }
+
   @Get(['admin/tariffs/:id', 'api/admin/tariffs/:id'])
   getTariff(@CurrentUser() user: MvpUser, @Param('id') id: string) {
     return this.billingReadService.getTariff(user, id);
@@ -79,6 +119,11 @@ export class BillingReadController {
   @Post(['admin/invoices/draft/save', 'api/admin/invoices/draft/save'])
   saveInvoiceDraft(@CurrentUser() user: MvpUser, @Body() body: unknown) {
     return this.billingReadService.saveInvoiceDraft(user, body);
+  }
+
+  @Get(['admin/invoices/draft/meter-charges-preview', 'api/admin/invoices/draft/meter-charges-preview'])
+  getMeterChargesPreview(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.billingReadService.getMeterChargesPreview(user, query);
   }
 
   @Get(['admin/invoices/draft/:id/review', 'api/admin/invoices/draft/:id/review'])

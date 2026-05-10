@@ -15,8 +15,12 @@ type ManualType = 'MANUAL_ADJUSTMENT' | 'DISCOUNT' | 'CORRECTION';
 
 type DraftLine = {
   id: string;
-  lineType: 'TARIFF' | 'MANUAL' | 'ADJUSTMENT';
+  lineType: 'TARIFF' | 'MANUAL' | 'ADJUSTMENT' | 'METER_CONSUMPTION';
   tariffId: string | null;
+  meterId?: string | null;
+  meterReadingId?: string | null;
+  meterType?: string | null;
+  unit?: string | null;
   isManual?: boolean;
   manualType?: ManualType | null;
   name: string;
@@ -510,6 +514,7 @@ function DraftItemModal({
   onSaveAdjustment: (item: DraftItem, lineId: string | null, form: typeof emptyAdjustment) => Promise<void>;
   onDeleteAdjustment: (line: DraftLine) => void;
 }) {
+  const localizedPath = useLocalizedPath();
   const [form, setForm] = useState(emptyAdjustment);
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
 
@@ -553,9 +558,18 @@ function DraftItemModal({
             <div key={line.id} className="rounded-2xl border border-border/70 bg-white px-4 py-3">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="font-semibold text-foreground">{line.name} {line.isManual ? <span className="text-xs text-muted-foreground">(manual)</span> : null}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-semibold text-foreground">{line.name} {line.isManual ? <span className="text-xs text-muted-foreground">(manual)</span> : null}</p>
+                    {line.lineType === 'METER_CONSUMPTION' ? <Badge variant="neutral">Consum contor</Badge> : null}
+                  </div>
                   <p className="mt-1 text-xs text-muted-foreground">{line.formulaLabel} = {formatMdl(line.amount)}</p>
                   <p className="mt-1 text-xs text-muted-foreground">Cantitate {line.quantity} · Preț unitar {formatMdl(line.unitPrice)}</p>
+                  {line.lineType === 'METER_CONSUMPTION' ? (
+                    <div className="mt-2 flex flex-wrap gap-2 text-xs font-semibold">
+                      {line.meterReadingId ? <Link href={localizedPath(`/admin/meter-readings/${line.meterReadingId}`)} className="text-primary hover:underline">Vezi indicele</Link> : null}
+                      {line.meterId ? <Link href={localizedPath(`/admin/meters/${line.meterId}`)} className="text-primary hover:underline">Vezi contorul</Link> : null}
+                    </div>
+                  ) : null}
                 </div>
                 <Badge variant={statusVariant[line.status]}>{statusLabels[line.status]}</Badge>
               </div>

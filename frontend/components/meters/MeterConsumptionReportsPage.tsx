@@ -493,6 +493,10 @@ export function MeterConsumptionReportsPage() {
               <Gauge className="h-4 w-4" />
               Vezi contoare
             </ButtonLink>
+            <ButtonLink href="/admin/tariffs/meter-based" variant="secondary">
+              <Gauge className="h-4 w-4" />
+              Configurează tarife pe consum
+            </ButtonLink>
             <Button variant="outline" onClick={() => window.alert('Exportul raportului va fi disponibil ulterior.')}>
               Export raport
             </Button>

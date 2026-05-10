@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Calculator, CheckCircle2, Pencil, Plus, Power, Ruler, WalletCards } from 'lucide-react';
+import { Calculator, CheckCircle2, Gauge, Pencil, Plus, Power, Ruler, WalletCards } from 'lucide-react';
 import { Badge, Button, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
 import { tariffsApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
@@ -50,6 +50,7 @@ type TariffResponse = {
     inactiveTariffs: number;
     perM2Services: number;
     fixedServices: number;
+    meterConsumptionServices?: number;
     estimatedMonthlyTotal: number;
     apartmentsWithoutArea: number;
   };
@@ -62,6 +63,7 @@ const emptyData: TariffResponse = {
     inactiveTariffs: 0,
     perM2Services: 0,
     fixedServices: 0,
+    meterConsumptionServices: 0,
     estimatedMonthlyTotal: 0,
     apartmentsWithoutArea: 0,
   },
@@ -290,6 +292,10 @@ export default function AdminTariffsPage() {
               <Calculator className="h-4 w-4" />
               Previzualizare calcul
             </Link>
+            <Link href={localizedPath('/admin/tariffs/meter-based')} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl border border-border/70 bg-white px-4 text-sm font-semibold text-foreground shadow-sm hover:bg-muted/70">
+              <Gauge className="h-4 w-4" />
+              Tarife pe consum
+            </Link>
             <Button onClick={openCreate}>
               <Plus className="h-4 w-4" />
               Adaugă tarif
@@ -301,11 +307,12 @@ export default function AdminTariffsPage() {
       {success ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">{success}</div> : null}
       {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</div> : null}
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
         <StatCard label="Tarife active" value={data.stats.activeTariffs} description="Servicii folosite" icon={<CheckCircle2 className="h-5 w-5" />} tone="success" />
         <StatCard label="Inactive" value={data.stats.inactiveTariffs} description="Păstrate ca istoric" icon={<Power className="h-5 w-5" />} tone="warning" />
         <StatCard label="Servicii per m²" value={data.stats.perM2Services} description="După suprafață" icon={<Ruler className="h-5 w-5" />} />
         <StatCard label="Fix per apartament" value={data.stats.fixedServices} description="Sume lunare fixe" icon={<WalletCards className="h-5 w-5" />} />
+        <StatCard label="Tarife consum" value={data.stats.meterConsumptionServices || 0} description="După indici aprobați" icon={<Gauge className="h-5 w-5" />} />
         <StatCard label="Total estimat lunar" value={formatMdl(data.stats.estimatedMonthlyTotal)} description="Fără facturi create" icon={<Calculator className="h-5 w-5" />} />
         <StatCard label="Fără suprafață" value={data.stats.apartmentsWithoutArea} description="Afectează per m²" icon={<Ruler className="h-5 w-5" />} tone="warning" />
       </section>

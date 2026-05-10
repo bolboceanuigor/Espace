@@ -21,7 +21,11 @@ type InternalInvoiceLineMetadata = {
   id: string;
   sourceDraftLineId: string | null;
   tariffId: string | null;
-  lineType: 'TARIFF' | 'MANUAL_ADJUSTMENT' | 'DISCOUNT' | 'CORRECTION';
+  lineType: 'TARIFF' | 'MANUAL_ADJUSTMENT' | 'DISCOUNT' | 'CORRECTION' | 'METER_CONSUMPTION';
+  meterId?: string | null;
+  meterReadingId?: string | null;
+  meterType?: string | null;
+  unit?: string | null;
   name: string;
   description: string;
   calculationType: string;
@@ -2111,6 +2115,11 @@ export class ResidentDemoService {
       },
       lines: (invoice.lines || []).map((line) => ({
         id: line.id,
+        lineType: line.lineType,
+        meterId: line.meterId || null,
+        meterReadingId: line.meterReadingId || null,
+        meterType: line.meterType || null,
+        unit: line.unit || null,
         name: line.name,
         description: line.description,
         calculationType: line.calculationType,

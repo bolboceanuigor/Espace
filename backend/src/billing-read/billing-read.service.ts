@@ -6,10 +6,12 @@ import { ActivityMvpService } from '../activity-mvp/activity-mvp.service';
 import type { MvpUser } from '../security/mvp-auth.guard';
 
 type SupportedTariffId = 'DESERVIRE_BLOC_PER_M2' | 'FOND_REPARATIE_PER_M2' | 'FOND_DEZVOLTARE_FIXED';
-type TariffCalculationType = 'PER_M2' | 'FIXED_PER_APARTMENT' | 'MANUAL';
+type TariffCalculationType = 'PER_M2' | 'FIXED_PER_APARTMENT' | 'MANUAL' | 'PER_METER_CONSUMPTION';
 type TariffStatus = 'DRAFT' | 'ACTIVE' | 'INACTIVE';
 type TariffPeriodicity = 'MONTHLY' | 'ONE_TIME';
 type TariffAppliesTo = 'ALL_APARTMENTS' | 'ONLY_OCCUPIED' | 'CUSTOM_SELECTION';
+type MeterTariffMissingReadingPolicy = 'SKIP_WITH_WARNING' | 'ZERO_WITH_WARNING' | 'BLOCK_DRAFT';
+type MeterReadingWorkflowStatus = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'NEEDS_REVIEW' | 'CANCELLED';
 type TariffRow = {
   id: string;
   organizationId: string;
@@ -22,6 +24,8 @@ type TariffRow = {
   pricePerM2: number | null;
   fixedAmount: number | null;
   defaultManualAmount: number | null;
+  meterType?: string | null;
+  pricePerUnit?: number | null;
   amount: number;
   currency: 'MDL';
   periodicity: TariffPeriodicity;
@@ -29,7 +33,10 @@ type TariffRow = {
   isActive: boolean;
   appliesTo: TariffAppliesTo;
   includeInMonthlyEstimate: boolean;
+  includeInDraftInvoices?: boolean;
   visibleToResidents: boolean;
+  requiresApprovedReading?: boolean;
+  missingReadingPolicy?: MeterTariffMissingReadingPolicy;
   startsAt: string | null;
   endsAt: string | null;
   monthlyEstimate: number;
@@ -45,8 +52,13 @@ type BillingDraftStatus = 'DRAFT' | 'LOCKED' | 'CANCELLED';
 type BillingDraftLineStatus = 'READY' | 'WARNING' | 'ERROR' | 'EXCLUDED';
 type BillingDraftLine = {
   id: string;
-  lineType: 'TARIFF' | 'MANUAL' | 'ADJUSTMENT';
+  lineType: 'TARIFF' | 'MANUAL' | 'ADJUSTMENT' | 'METER_CONSUMPTION';
   tariffId: string | null;
+  meterId?: string | null;
+  meterReadingId?: string | null;
+  meterType?: string | null;
+  unit?: string | null;
+  source?: 'TARIFF' | 'METER_READING' | 'MANUAL' | 'ADJUSTMENT';
   isManual?: boolean;
   manualType?: 'MANUAL_ADJUSTMENT' | 'DISCOUNT' | 'CORRECTION' | null;
   name: string;
@@ -117,7 +129,11 @@ type InternalInvoiceLineMetadata = {
   id: string;
   sourceDraftLineId: string | null;
   tariffId: string | null;
-  lineType: 'TARIFF' | 'MANUAL_ADJUSTMENT' | 'DISCOUNT' | 'CORRECTION';
+  lineType: 'TARIFF' | 'MANUAL_ADJUSTMENT' | 'DISCOUNT' | 'CORRECTION' | 'METER_CONSUMPTION';
+  meterId?: string | null;
+  meterReadingId?: string | null;
+  meterType?: string | null;
+  unit?: string | null;
   name: string;
   description: string;
   calculationType: TariffCalculationType;
@@ -179,6 +195,7 @@ const TARIFF_METADATA_NOTE_TITLE = 'Tariff settings metadata';
 const BILLING_DRAFT_NOTE_TITLE = 'Internal invoice draft metadata';
 const INTERNAL_INVOICE_NOTE_TITLE = 'Internal invoices metadata';
 const INTERNAL_PAYMENT_NOTE_PREFIX = 'INTERNAL_INVOICE_PAYMENT:';
+const METER_WORKFLOW_METADATA_NOTE_TITLE = 'ESPACE_METER_WORKFLOW_METADATA_V1';
 
 const SUPPORTED_TARIFFS: Record<
   SupportedTariffId,
@@ -578,12 +595,16 @@ export class BillingReadService {
   private tariffAmount(row: Pick<TariffRow, 'calculationType' | 'pricePerM2' | 'fixedAmount' | 'defaultManualAmount'>) {
     if (row.calculationType === 'PER_M2') return Number(row.pricePerM2 || 0);
     if (row.calculationType === 'FIXED_PER_APARTMENT') return Number(row.fixedAmount || 0);
+    if (row.calculationType === 'PER_METER_CONSUMPTION') return Number((row as Pick<TariffRow, 'pricePerUnit'>).pricePerUnit || 0);
     return Number(row.defaultManualAmount || 0);
   }
 
-  private tariffUnit(row: Pick<TariffRow, 'calculationType'>) {
+  private tariffUnit(row: Pick<TariffRow, 'calculationType'> & Partial<Pick<TariffRow, 'unit'>>) {
     if (row.calculationType === 'PER_M2') return 'MDL/m²';
     if (row.calculationType === 'FIXED_PER_APARTMENT') return 'MDL/apartament';
+    if (row.calculationType === 'PER_METER_CONSUMPTION') {
+      return `MDL/${row.unit || 'unitate'}`;
+    }
     return 'MDL/manual';
   }
 
@@ -596,17 +617,20 @@ export class BillingReadService {
     const affectedApartments = this.apartmentEligibilityCount(apartments, row.appliesTo);
     if (row.calculationType === 'PER_M2') return this.money(totalAreaM2 * Number(row.pricePerM2 || 0));
     if (row.calculationType === 'FIXED_PER_APARTMENT') return this.money(affectedApartments * Number(row.fixedAmount || 0));
+    if (row.calculationType === 'PER_METER_CONSUMPTION') return 0;
     return this.money(affectedApartments * Number(row.defaultManualAmount || 0));
   }
 
   private normalizeTariffRow(raw: any, organizationId: string, apartments: Array<{ areaM2?: number | null; status?: ApartmentStatus | string | null }>): TariffRow {
     const now = new Date().toISOString();
-    const calculationType = this.parseTariffCalculationType(raw.calculationType || raw.type || (raw.pricePerM2 ? 'PER_M2' : raw.fixedAmount ? 'FIXED_PER_APARTMENT' : 'MANUAL'));
+    const calculationType = this.parseTariffCalculationType(raw.calculationType || raw.type || (raw.pricePerUnit ? 'PER_METER_CONSUMPTION' : raw.pricePerM2 ? 'PER_M2' : raw.fixedAmount ? 'FIXED_PER_APARTMENT' : 'MANUAL'));
     const status = this.parseTariffStatus(raw.status || (raw.isActive ? 'ACTIVE' : 'DRAFT'));
     const periodicity = this.parseTariffPeriodicity(raw.periodicity || 'MONTHLY');
     const appliesTo = this.parseTariffAppliesTo(raw.appliesTo || 'ALL_APARTMENTS');
     const pricePerM2 = calculationType === 'PER_M2' ? this.money(Number(raw.pricePerM2 ?? raw.amount ?? 0)) : null;
     const fixedAmount = calculationType === 'FIXED_PER_APARTMENT' ? this.money(Number(raw.fixedAmount ?? raw.amount ?? 0)) : null;
+    const pricePerUnit = calculationType === 'PER_METER_CONSUMPTION' ? this.money(Number(raw.pricePerUnit ?? raw.amount ?? 0)) : null;
+    const meterType = calculationType === 'PER_METER_CONSUMPTION' ? this.normalizeMeterTypeForTariff(raw.meterType || raw.typeOfMeter || raw.meter) : null;
     const defaultManualAmount = calculationType === 'MANUAL' && raw.defaultManualAmount !== undefined && raw.defaultManualAmount !== null && raw.defaultManualAmount !== ''
       ? this.money(Number(raw.defaultManualAmount))
       : null;
@@ -622,6 +646,8 @@ export class BillingReadService {
       pricePerM2,
       fixedAmount,
       defaultManualAmount,
+      meterType,
+      pricePerUnit,
       amount: 0,
       currency: 'MDL',
       periodicity,
@@ -629,7 +655,10 @@ export class BillingReadService {
       isActive: status === 'ACTIVE',
       appliesTo,
       includeInMonthlyEstimate: raw.includeInMonthlyEstimate !== false,
+      includeInDraftInvoices: raw.includeInDraftInvoices !== false,
       visibleToResidents: raw.visibleToResidents !== false,
+      requiresApprovedReading: raw.requiresApprovedReading !== false,
+      missingReadingPolicy: this.parseMissingReadingPolicy(raw.missingReadingPolicy || 'SKIP_WITH_WARNING'),
       startsAt: raw.startsAt || null,
       endsAt: raw.endsAt || null,
       monthlyEstimate: 0,
@@ -643,6 +672,7 @@ export class BillingReadService {
     };
     row.amount = this.tariffAmount(row);
     row.unit = this.tariffUnit(row);
+    if (row.calculationType === 'PER_METER_CONSUMPTION') row.unit = String(raw.unit || this.defaultMeterUnit(row.meterType)).trim();
     row.monthlyEstimate = this.monthlyEstimateForTariff(row, apartments);
     return row;
   }
@@ -731,12 +761,18 @@ export class BillingReadService {
         pricePerM2: row.pricePerM2,
         fixedAmount: row.fixedAmount,
         defaultManualAmount: row.defaultManualAmount,
+        meterType: row.meterType || null,
+        unit: row.unit,
+        pricePerUnit: row.pricePerUnit ?? null,
         currency: row.currency,
         periodicity: row.periodicity,
         status: row.status,
         appliesTo: row.appliesTo,
         includeInMonthlyEstimate: row.includeInMonthlyEstimate,
+        includeInDraftInvoices: row.includeInDraftInvoices !== false,
         visibleToResidents: row.visibleToResidents,
+        requiresApprovedReading: row.requiresApprovedReading !== false,
+        missingReadingPolicy: row.missingReadingPolicy || 'SKIP_WITH_WARNING',
         startsAt: row.startsAt,
         endsAt: row.endsAt,
         createdAt: row.createdAt,
@@ -799,6 +835,7 @@ export class BillingReadService {
       inactiveTariffs: rows.filter((row) => row.status === 'INACTIVE').length,
       perM2Services: rows.filter((row) => row.calculationType === 'PER_M2').length,
       fixedServices: rows.filter((row) => row.calculationType === 'FIXED_PER_APARTMENT').length,
+      meterConsumptionServices: rows.filter((row) => row.calculationType === 'PER_METER_CONSUMPTION').length,
       estimatedMonthlyTotal: this.money(rows.reduce((sum, row) => sum + row.monthlyEstimate, 0)),
       apartmentsWithoutArea: apartments.filter((apartment) => !apartment.areaM2 || Number(apartment.areaM2) <= 0).length,
       totalApartments: apartments.length,
@@ -1009,6 +1046,109 @@ export class BillingReadService {
     };
   }
 
+  private async meterBasedTariffPayload(user: MvpUser) {
+    const payload = await this.tariffListPayload(user);
+    const billingMonth = this.currentBillingMonth();
+    const preview = await this.buildMeterChargesPreview(user, { billingMonth, includeDraftLines: true, limit: 10000 });
+    const estimateByTariff = new Map<string, number>();
+    (preview.allItems || []).forEach((item: any) => {
+      if (!item.tariff?.id) return;
+      estimateByTariff.set(item.tariff.id, this.money((estimateByTariff.get(item.tariff.id) || 0) + Number(item.amount || 0)));
+    });
+    const items = payload.items
+      .filter((row) => row.calculationType === 'PER_METER_CONSUMPTION')
+      .map((row) => ({
+        ...row,
+        monthlyEstimate: estimateByTariff.get(row.id) || 0,
+        typeLabel: this.meterTypeLabel(row.meterType),
+      }));
+    return {
+      organization: payload.organization,
+      items,
+      stats: {
+        activeMeterTariffs: items.filter((row) => row.status === 'ACTIVE').length,
+        draftMeterTariffs: items.filter((row) => row.status === 'DRAFT').length,
+        inactiveMeterTariffs: items.filter((row) => row.status === 'INACTIVE').length,
+        coveredMeterTypes: new Set(items.filter((row) => row.status === 'ACTIVE').map((row) => row.meterType).filter(Boolean)).size,
+        currentMonthEstimatedTotal: preview.summary.estimatedAmount,
+        apartmentsWithApprovedReadings: preview.summary.calculatedApartments,
+        apartmentsWithoutApprovedReadings: preview.summary.apartmentsWithoutApprovedReadings,
+        needsReviewReadings: preview.summary.needsReviewReadings,
+        billingMonth,
+      },
+    };
+  }
+
+  async listMeterBasedTariffs(user: MvpUser) {
+    return this.meterBasedTariffPayload(user);
+  }
+
+  async getMeterBasedTariffStats(user: MvpUser) {
+    const payload = await this.meterBasedTariffPayload(user);
+    return payload.stats;
+  }
+
+  async getMeterBasedTariff(user: MvpUser, id: string) {
+    const payload = await this.meterBasedTariffPayload(user);
+    const item = payload.items.find((row) => row.id === id);
+    if (!item) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    const impact = await this.getMeterBasedTariffImpact(user, id, { billingMonth: this.currentBillingMonth(), limit: 10000 });
+    return {
+      ...item,
+      organization: payload.organization,
+      impact: impact.summary,
+      previewItems: impact.items.slice(0, 10),
+      activity: [
+        { label: 'Creat', date: item.createdAt },
+        { label: 'Actualizat', date: item.updatedAt },
+      ],
+    };
+  }
+
+  private async assertMeterBasedTariff(user: MvpUser, id: string) {
+    const payload = await this.tariffListPayload(user);
+    const item = payload.items.find((row) => row.id === id);
+    if (!item || item.calculationType !== 'PER_METER_CONSUMPTION') throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    return item;
+  }
+
+  async saveMeterBasedTariff(user: MvpUser, body: unknown, tariffId?: string) {
+    if (tariffId) await this.assertMeterBasedTariff(user, tariffId);
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    return this.saveTariff(
+      user,
+      {
+        ...payload,
+        calculationType: 'PER_METER_CONSUMPTION',
+        includeInDraftInvoices: payload.includeInDraftInvoices !== false,
+        includeInMonthlyEstimate: payload.includeInMonthlyEstimate !== false,
+      },
+      tariffId,
+    );
+  }
+
+  async updateMeterBasedTariffStatus(user: MvpUser, id: string, body: unknown) {
+    await this.assertMeterBasedTariff(user, id);
+    return this.updateTariffStatus(user, id, body);
+  }
+
+  async duplicateMeterBasedTariff(user: MvpUser, id: string) {
+    await this.assertMeterBasedTariff(user, id);
+    return this.duplicateTariff(user, id);
+  }
+
+  async getMeterBasedTariffImpact(user: MvpUser, id: string, query: Record<string, unknown>) {
+    await this.assertMeterBasedTariff(user, id);
+    const billingMonth = query.billingMonth || query.periodMonth || this.currentBillingMonth();
+    return this.buildMeterChargesPreview(user, { ...query, billingMonth, tariffId: id, includeDraftLines: true });
+  }
+
+  async getMeterChargesPreview(user: MvpUser, query: Record<string, unknown>) {
+    const preview = await this.buildMeterChargesPreview(user, query);
+    const { allItems: _allItems, linesByApartment: _linesByApartment, tariffRows: _tariffRows, periodReadings: _periodReadings, ...publicPreview } = preview;
+    return publicPreview;
+  }
+
   private billingMonthWindow(billingMonth: string) {
     const [yearValue, monthValue] = billingMonth.split('-').map((part) => Number(part));
     const startsAt = new Date(Date.UTC(yearValue, monthValue - 1, 1));
@@ -1034,7 +1174,8 @@ export class BillingReadService {
         ? this.requiredDate(payload.dueDate, 'Data scadentă nu este validă.').toISOString().slice(0, 10)
         : null;
     const description = typeof payload.description === 'string' ? payload.description.trim() : '';
-    return { billingMonth, dueDate, description };
+    const includeMeterCharges = payload.includeMeterCharges !== false;
+    return { billingMonth, dueDate, description, includeMeterCharges };
   }
 
   private isTariffActiveForBillingMonth(tariff: TariffRow, billingMonth: string) {
@@ -1181,9 +1322,328 @@ export class BillingReadService {
     return { organization, apartments };
   }
 
+  private parseMeterChargePreviewQuery(rawQuery: Record<string, unknown>) {
+    const billingMonth = this.parseBillingMonth(rawQuery.billingMonth || rawQuery.periodMonth || this.currentBillingMonth());
+    const meterType =
+      rawQuery.meterType && String(rawQuery.meterType).toUpperCase() !== 'ALL'
+        ? this.normalizeMeterTypeForTariff(rawQuery.meterType)
+        : null;
+    const status =
+      rawQuery.status && String(rawQuery.status).toUpperCase() !== 'ALL'
+        ? this.normalizeMeterReadingStatus(rawQuery.status)
+        : null;
+    if (rawQuery.status && String(rawQuery.status).toUpperCase() !== 'ALL' && !status) {
+      throw new BadRequestException('Statusul indicelui nu este valid.');
+    }
+    const source =
+      rawQuery.source && String(rawQuery.source).toUpperCase() !== 'ALL'
+        ? String(rawQuery.source).trim().toUpperCase()
+        : null;
+    if (source && !['RESIDENT', 'ADMIN', 'SYSTEM'].includes(source)) throw new BadRequestException('Sursa indicelui nu este validă.');
+    const page = Math.max(1, Number(rawQuery.page || 1) || 1);
+    const limit = Math.min(200, Math.max(1, Number(rawQuery.limit || 20) || 20));
+    return {
+      billingMonth,
+      meterType,
+      tariffId: typeof rawQuery.tariffId === 'string' && rawQuery.tariffId.trim() ? rawQuery.tariffId.trim() : null,
+      staircase: typeof rawQuery.staircase === 'string' && rawQuery.staircase.trim() ? rawQuery.staircase.trim().toLowerCase() : null,
+      apartmentNumber: typeof rawQuery.apartmentNumber === 'string' && rawQuery.apartmentNumber.trim() ? rawQuery.apartmentNumber.trim().toLowerCase() : null,
+      apartmentId: typeof rawQuery.apartmentId === 'string' && rawQuery.apartmentId.trim() ? rawQuery.apartmentId.trim() : null,
+      warningsOnly: rawQuery.warningsOnly === true || rawQuery.warningsOnly === 'true' || rawQuery.includeWarningsOnly === true || rawQuery.includeWarningsOnly === 'true',
+      status,
+      source,
+      page,
+      limit,
+    };
+  }
+
+  private async buildMeterChargesPreview(user: MvpUser, rawQuery: Record<string, unknown> = {}) {
+    const organizationId = this.resolveOrganizationId(user, rawQuery);
+    this.assertOrganizationAccess(user, organizationId);
+    const query = this.parseMeterChargePreviewQuery(rawQuery);
+    const includeDraftLines = rawQuery.includeDraftLines === true;
+    const { organization, apartments } = await this.invoiceDraftContext(organizationId);
+    const apartmentMap = new Map(apartments.map((apartment: any) => [apartment.id, apartment]));
+    if (query.apartmentId && !apartmentMap.has(query.apartmentId)) throw new NotFoundException('Apartamentul nu a fost găsit.');
+
+    const tariffRows = await this.readTariffRows(organizationId, apartments);
+    const meterTariffs = tariffRows
+      .filter((tariff) => tariff.calculationType === 'PER_METER_CONSUMPTION')
+      .filter((tariff) => this.isTariffActiveForBillingMonth(tariff, query.billingMonth))
+      .filter((tariff) => tariff.includeInDraftInvoices !== false || tariff.includeInMonthlyEstimate !== false)
+      .filter((tariff) => !query.tariffId || tariff.id === query.tariffId)
+      .filter((tariff) => !query.meterType || tariff.meterType === query.meterType);
+
+    const store = await this.readMeterWorkflowMetadata(organizationId);
+    const [meters, rawReadings] = await Promise.all([
+      this.prisma.meter.findMany({
+        where: { organizationId },
+        orderBy: [{ apartment: { staircase: { name: 'asc' } } }, { apartment: { number: 'asc' } }, { type: 'asc' }],
+        select: {
+          id: true,
+          organizationId: true,
+          apartmentId: true,
+          type: true,
+          serialNumber: true,
+          status: true,
+          apartment: {
+            select: {
+              id: true,
+              number: true,
+              floor: true,
+              staircase: { select: { id: true, name: true } },
+            },
+          },
+        },
+      }),
+      this.prisma.meterReading.findMany({
+        where: { organizationId },
+        orderBy: [{ readingDate: 'asc' }, { createdAt: 'asc' }],
+        select: {
+          id: true,
+          meterId: true,
+          apartmentId: true,
+          organizationId: true,
+          value: true,
+          readingDate: true,
+          source: true,
+          createdAt: true,
+          meter: { select: { id: true, type: true, serialNumber: true, status: true } },
+        },
+      }),
+    ]);
+
+    const activeMeters = meters.filter((meter: any) => {
+      const alias = store.meters?.[meter.id]?.statusAlias;
+      return String(alias || meter.status || '').toUpperCase() === 'ACTIVE';
+    });
+    const readings = rawReadings.map((reading: any) => {
+      const metadata = this.readingMetadataForCharge(store, reading);
+      return {
+        ...reading,
+        periodMonth: metadata.periodMonth,
+        status: metadata.status,
+        unit: metadata.unit,
+        source: metadata.source || String(reading.source || 'ADMIN'),
+        readingValue: Number(reading.value || 0),
+        previousReadingValue: metadata.previousReadingValue,
+        consumptionValue: metadata.consumptionValue,
+        submittedAt: metadata.submittedAt || reading.createdAt,
+      };
+    });
+    const readingsByMeter = new Map<string, any[]>();
+    readings.forEach((reading) => {
+      if (!readingsByMeter.has(reading.meterId)) readingsByMeter.set(reading.meterId, []);
+      readingsByMeter.get(reading.meterId)!.push(reading);
+    });
+    readingsByMeter.forEach((list) => {
+      list.sort((left, right) => String(left.periodMonth).localeCompare(String(right.periodMonth)));
+      list.forEach((reading) => {
+        if (reading.previousReadingValue !== null && reading.consumptionValue !== null) return;
+        const previous = [...list]
+          .reverse()
+          .find((candidate) => candidate.id !== reading.id && candidate.status === 'APPROVED' && String(candidate.periodMonth) < String(reading.periodMonth));
+        if (reading.previousReadingValue === null && previous) reading.previousReadingValue = Number(previous.readingValue || 0);
+        if (reading.consumptionValue === null && reading.previousReadingValue !== null) {
+          reading.consumptionValue = this.money(Number(reading.readingValue || 0) - Number(reading.previousReadingValue || 0));
+        }
+      });
+    });
+
+    const relevantMeterTypes = new Set(meterTariffs.map((tariff) => this.meterTypeForPrisma(tariff.meterType)));
+    const periodReadings = readings.filter((reading) => {
+      if (reading.periodMonth !== query.billingMonth) return false;
+      if (!relevantMeterTypes.has(String(reading.meter?.type || '').toUpperCase())) return false;
+      if (query.status && reading.status !== query.status) return false;
+      if (query.source && String(reading.source || '').toUpperCase() !== query.source) return false;
+      return true;
+    });
+    const needsReviewReadings = readings.filter((reading) => reading.periodMonth === query.billingMonth && reading.status === 'NEEDS_REVIEW').length;
+    const rejectedReadings = readings.filter((reading) => reading.periodMonth === query.billingMonth && reading.status === 'REJECTED').length;
+
+    const items: any[] = [];
+    const warnings: string[] = [];
+    const errors: string[] = [];
+    const totalApprovedConsumption: Record<string, { value: number; unit: string }> = {};
+    const calculatedApartments = new Set<string>();
+    const apartmentsWithoutApprovedReadings = new Set<string>();
+
+    for (const apartment of apartments as any[]) {
+      if (query.apartmentId && apartment.id !== query.apartmentId) continue;
+      if (query.staircase && String(apartment.staircase?.name || '').toLowerCase() !== query.staircase) continue;
+      if (query.apartmentNumber && !String(apartment.number || '').toLowerCase().includes(query.apartmentNumber)) continue;
+      const apartmentMeters = activeMeters.filter((meter: any) => meter.apartmentId === apartment.id);
+      for (const tariff of meterTariffs) {
+        if (!this.apartmentMatchesTariff(apartment, tariff)) continue;
+        const tariffMeterType = this.meterTypeForPrisma(tariff.meterType);
+        const metersForTariff = apartmentMeters.filter((meter: any) => String(meter.type).toUpperCase() === tariffMeterType);
+        if (!metersForTariff.length) {
+          const warning = `Apartamentul ${apartment.number} nu are contor activ pentru ${this.meterTypeLabel(tariff.meterType)}.`;
+          warnings.push(warning);
+          apartmentsWithoutApprovedReadings.add(apartment.id);
+          continue;
+        }
+        for (const meter of metersForTariff) {
+          const meterPeriodReadings = readings
+            .filter((reading) => reading.meterId === meter.id && reading.periodMonth === query.billingMonth && reading.status !== 'CANCELLED')
+            .sort((left, right) => new Date(right.submittedAt || right.createdAt).getTime() - new Date(left.submittedAt || left.createdAt).getTime());
+          const approved = meterPeriodReadings.find((reading) => reading.status === 'APPROVED') || null;
+          const visibleReading = approved || meterPeriodReadings.find((reading) => query.status ? reading.status === query.status : reading.status !== 'APPROVED') || null;
+          if (!approved) apartmentsWithoutApprovedReadings.add(apartment.id);
+          if (query.status && !visibleReading) continue;
+
+          const lineWarnings: string[] = [];
+          let status: BillingDraftLineStatus = 'READY';
+          let quantity = approved && Number.isFinite(Number(approved.consumptionValue)) ? Number(approved.consumptionValue) : 0;
+          const unit = approved?.unit || store.meters?.[meter.id]?.unit || tariff.unit || this.defaultMeterUnit(tariff.meterType);
+          const unitPrice = Number(tariff.pricePerUnit || 0);
+          const missingPolicy = tariff.missingReadingPolicy || 'SKIP_WITH_WARNING';
+          let amount = approved ? this.money(quantity * unitPrice) : 0;
+          let draftLine: BillingDraftLine | null = null;
+
+          if (approved && quantity < 0) {
+            status = 'ERROR';
+            lineWarnings.push(`Consumul calculat pentru contorul ${meter.serialNumber || meter.id} este negativ.`);
+          }
+          if (!approved) {
+            status = missingPolicy === 'BLOCK_DRAFT' ? 'ERROR' : 'WARNING';
+            const baseWarning = `Apartamentul ${apartment.number} nu are indice aprobat pentru ${this.meterTypeLabel(tariff.meterType)} în luna ${query.billingMonth}.`;
+            lineWarnings.push(baseWarning);
+            warnings.push(baseWarning);
+            if (visibleReading?.status === 'NEEDS_REVIEW') lineWarnings.push('Indicele transmis necesită verificare și nu a fost inclus în calcul.');
+            if (visibleReading?.status === 'REJECTED') lineWarnings.push('Indicele transmis a fost respins și nu a fost inclus în calcul.');
+            if (missingPolicy === 'BLOCK_DRAFT') errors.push(baseWarning);
+          }
+
+          if (approved || missingPolicy !== 'SKIP_WITH_WARNING') {
+            draftLine = {
+              id: `meter:${apartment.id}:${tariff.id}:${meter.id}:${approved?.id || query.billingMonth}`,
+              lineType: 'METER_CONSUMPTION',
+              tariffId: tariff.id,
+              meterId: meter.id,
+              meterReadingId: approved?.id || null,
+              meterType: this.meterTypeExternal(meter.type),
+              unit,
+              source: 'METER_READING',
+              isManual: false,
+              manualType: null,
+              name: tariff.name,
+              description: approved
+                ? `Contor ${meter.serialNumber || meter.id}, perioada ${query.billingMonth}`
+                : `Fără indice aprobat pentru contorul ${meter.serialNumber || meter.id}, perioada ${query.billingMonth}`,
+              calculationType: 'PER_METER_CONSUMPTION',
+              quantity,
+              unitPrice,
+              amount,
+              currency: 'MDL',
+              formulaLabel: this.formatMeterFormula(quantity, unit, unitPrice),
+              status,
+              warnings: lineWarnings,
+              excludedAt: null,
+              excludedById: null,
+              exclusionReason: null,
+            };
+          }
+
+          if (approved) {
+            calculatedApartments.add(apartment.id);
+            const key = this.meterTypeExternal(meter.type);
+            totalApprovedConsumption[key] = totalApprovedConsumption[key] || { value: 0, unit };
+            totalApprovedConsumption[key].value = this.money(totalApprovedConsumption[key].value + Math.max(quantity, 0));
+          }
+
+          const row = {
+            apartment: {
+              id: apartment.id,
+              apartmentNumber: apartment.number,
+              staircase: apartment.staircase?.name || '',
+              floor: apartment.floor === null || apartment.floor === undefined ? null : String(apartment.floor),
+            },
+            primaryContact: this.primaryContactFromApartment(apartment),
+            meter: {
+              id: meter.id,
+              meterNumber: meter.serialNumber || '',
+              type: this.meterTypeExternal(meter.type),
+              unit,
+            },
+            reading: approved || visibleReading
+              ? {
+                  id: (approved || visibleReading).id,
+                  periodMonth: (approved || visibleReading).periodMonth,
+                  previousReadingValue: (approved || visibleReading).previousReadingValue,
+                  readingValue: (approved || visibleReading).readingValue,
+                  consumptionValue: (approved || visibleReading).consumptionValue,
+                  status: (approved || visibleReading).status,
+                }
+              : null,
+            tariff: {
+              id: tariff.id,
+              name: tariff.name,
+              pricePerUnit: unitPrice,
+              currency: 'MDL',
+              missingReadingPolicy: missingPolicy,
+            },
+            amount,
+            formulaLabel: this.formatMeterFormula(quantity, unit, unitPrice),
+            status,
+            warnings: lineWarnings,
+            draftLine,
+          };
+          items.push(row);
+        }
+      }
+    }
+
+    const filteredItems = query.warningsOnly ? items.filter((item) => item.warnings?.length || item.status === 'ERROR' || item.status === 'WARNING') : items;
+    const estimatedAmount = this.money(items.reduce((sum, item) => sum + Number(item.amount || 0), 0));
+    const page = includeDraftLines ? 1 : query.page;
+    const limit = includeDraftLines ? Math.max(filteredItems.length, 1) : query.limit;
+    const start = (page - 1) * limit;
+    const pagedItems = filteredItems.slice(start, start + limit);
+    return {
+      billingMonth: query.billingMonth,
+      association: {
+        id: organization.id,
+        shortName: organization.name,
+        legalName: organization.legalName || organization.name,
+        associationCode: organization.fiscalCode || '',
+      },
+      summary: {
+        currency: 'MDL',
+        activeMeterTariffs: meterTariffs.length,
+        totalApprovedConsumption,
+        estimatedAmount,
+        calculatedApartments: calculatedApartments.size,
+        apartmentsWithoutApprovedReadings: apartmentsWithoutApprovedReadings.size,
+        warningsCount: Array.from(new Set(warnings)).length,
+        errorsCount: Array.from(new Set(errors)).length,
+        needsReviewReadings,
+        rejectedReadings,
+      },
+      items: pagedItems,
+      allItems: filteredItems,
+      linesByApartment: filteredItems.reduce((acc: Record<string, BillingDraftLine[]>, item) => {
+        if (item.draftLine) {
+          const apartmentId = item.apartment.id;
+          acc[apartmentId] = acc[apartmentId] || [];
+          acc[apartmentId].push(item.draftLine);
+        }
+        return acc;
+      }, {}),
+      warnings: Array.from(new Set(warnings.length ? warnings : meterTariffs.length ? [] : ['Nu există tarife pe consum active pentru perioada selectată.'])),
+      meta: {
+        page,
+        limit,
+        total: filteredItems.length,
+      },
+      tariffRows: meterTariffs,
+      periodReadings,
+    };
+  }
+
   private async calculateDraftRecord(
     user: MvpUser,
-    input: { billingMonth: string; dueDate: string | null; description: string },
+    input: { billingMonth: string; dueDate: string | null; description: string; includeMeterCharges?: boolean },
     existing?: BillingDraftRecord | null,
   ): Promise<BillingDraftRecord> {
     const organizationId = this.resolveOrganizationId(user);
@@ -1192,9 +1652,22 @@ export class BillingReadService {
     const tariffRows = await this.readTariffRows(organizationId, apartments);
     const tariffsActiveInPeriod = tariffRows.filter((tariff) => this.isTariffActiveForBillingMonth(tariff, input.billingMonth));
     const tariffsUsed = tariffsActiveInPeriod.filter((tariff) => {
+      if (tariff.calculationType === 'PER_METER_CONSUMPTION' && input.includeMeterCharges === false) return false;
       if (!tariff.includeInMonthlyEstimate) return false;
       if (tariff.calculationType === 'MANUAL') return Number(tariff.defaultManualAmount || 0) > 0;
       return true;
+    });
+    const standardTariffsUsed = tariffsUsed.filter((tariff) => tariff.calculationType !== 'PER_METER_CONSUMPTION');
+    const meterChargePreview = input.includeMeterCharges
+      ? await this.buildMeterChargesPreview(user, { billingMonth: input.billingMonth, includeDraftLines: true, limit: 10000 })
+      : null;
+    const meterLinesByApartment = (meterChargePreview?.linesByApartment || {}) as Record<string, BillingDraftLine[]>;
+    const meterWarningsByApartment = new Map<string, string[]>();
+    (meterChargePreview?.allItems || []).forEach((item: any) => {
+      if (!item?.apartment?.id || !item.warnings?.length) return;
+      const current = meterWarningsByApartment.get(item.apartment.id) || [];
+      current.push(...item.warnings);
+      meterWarningsByApartment.set(item.apartment.id, Array.from(new Set(current)));
     });
     const manualServicesExcluded = tariffsActiveInPeriod.filter(
       (tariff) => tariff.calculationType === 'MANUAL' && (!tariff.includeInMonthlyEstimate || Number(tariff.defaultManualAmount || 0) <= 0),
@@ -1208,7 +1681,7 @@ export class BillingReadService {
     const items: BillingDraftItem[] = apartments.map((apartment: any) => {
       const areaM2 = apartment.areaM2 === null || apartment.areaM2 === undefined ? null : Number(apartment.areaM2);
       const warnings: string[] = [];
-      const lines: BillingDraftLine[] = tariffsUsed
+      const baseLines: BillingDraftLine[] = standardTariffsUsed
         .filter((tariff) => this.apartmentMatchesTariff(apartment, tariff))
         .map((tariff) => {
           const lineWarnings: string[] = [];
@@ -1257,7 +1730,10 @@ export class BillingReadService {
             exclusionReason: null,
           };
         });
-      if (!lines.length && tariffsUsed.length === 0) {
+      const meterLines = meterLinesByApartment[apartment.id] || [];
+      warnings.push(...(meterWarningsByApartment.get(apartment.id) || []));
+      const lines = [...baseLines, ...meterLines];
+      if (!lines.length && tariffsUsed.length === 0 && !(meterChargePreview?.tariffRows || []).length) {
         warnings.push('Nu există tarife active pentru această perioadă.');
       }
       const itemId = `apt:${apartment.id}`;
@@ -1285,8 +1761,13 @@ export class BillingReadService {
         ? ['Există apartamente fără suprafață. Tarifele per m² nu pot fi calculate complet.']
         : []),
       ...(manualServicesExcluded ? ['Unele servicii manuale nu au fost incluse automat în calcul.'] : []),
+      ...(meterChargePreview?.warnings || []),
     ];
     const now = new Date().toISOString();
+    const meterTariffsUsed = ((meterChargePreview?.tariffRows || []) as TariffRow[]).filter(
+      (tariff) => !standardTariffsUsed.some((row) => row.id === tariff.id),
+    );
+    const tariffRowsUsedForMetadata = [...standardTariffsUsed, ...meterTariffsUsed];
     const draft: BillingDraftRecord = {
       id: existing?.id || randomUUID(),
       associationId: organizationId,
@@ -1316,19 +1797,26 @@ export class BillingReadService {
         totalAmount: totals.totalAmount,
         warningsCount: totals.warningsCount,
         errorsCount: totals.errorsCount,
-        activeTariffsUsed: tariffsUsed.length,
+        activeTariffsUsed: tariffRowsUsedForMetadata.length,
         apartmentsWithoutArea: apartments.filter((apartment) => !apartment.areaM2 || Number(apartment.areaM2) <= 0).length,
-        perM2Services: tariffsUsed.filter((tariff) => tariff.calculationType === 'PER_M2').length,
-        fixedServices: tariffsUsed.filter((tariff) => tariff.calculationType === 'FIXED_PER_APARTMENT').length,
+        perM2Services: standardTariffsUsed.filter((tariff) => tariff.calculationType === 'PER_M2').length,
+        fixedServices: standardTariffsUsed.filter((tariff) => tariff.calculationType === 'FIXED_PER_APARTMENT').length,
+        meterConsumptionServices: (meterChargePreview?.tariffRows || []).length,
+        meterConsumptionAmount: meterChargePreview?.summary?.estimatedAmount || 0,
+        apartmentsWithoutApprovedMeterReadings: meterChargePreview?.summary?.apartmentsWithoutApprovedReadings || 0,
+        includeMeterCharges: input.includeMeterCharges !== false,
         manualServicesExcluded,
       },
-      tariffsUsed: tariffsUsed.map((tariff) => ({
+      tariffsUsed: tariffRowsUsedForMetadata.map((tariff) => ({
         id: tariff.id,
         name: tariff.name,
         calculationType: tariff.calculationType,
         pricePerM2: tariff.pricePerM2,
         fixedAmount: tariff.fixedAmount,
         defaultManualAmount: tariff.defaultManualAmount,
+        meterType: tariff.meterType || null,
+        unit: tariff.unit,
+        pricePerUnit: tariff.pricePerUnit ?? null,
       })),
       items,
       warnings: topWarnings,
@@ -1892,6 +2380,7 @@ export class BillingReadService {
   }
 
   private internalInvoiceLineType(line: BillingDraftLine): InternalInvoiceLineMetadata['lineType'] {
+    if (line.lineType === 'METER_CONSUMPTION') return 'METER_CONSUMPTION';
     if (line.isManual) return line.manualType || 'MANUAL_ADJUSTMENT';
     return 'TARIFF';
   }
@@ -2256,6 +2745,10 @@ export class BillingReadService {
             sourceDraftLineId: line.id,
             tariffId: line.tariffId,
             lineType: this.internalInvoiceLineType(line),
+            meterId: line.meterId || null,
+            meterReadingId: line.meterReadingId || null,
+            meterType: line.meterType || null,
+            unit: line.unit || null,
             name: line.name,
             description: line.description || '',
             calculationType: line.calculationType,
@@ -3584,6 +4077,7 @@ export class BillingReadService {
     const normalized = typeof value === 'string' ? value.trim().toUpperCase() : '';
     if (normalized === 'PER_M2') return 'PER_M2';
     if (normalized === 'FIXED' || normalized === 'FIXED_PER_APARTMENT') return 'FIXED_PER_APARTMENT';
+    if (normalized === 'PER_METER_CONSUMPTION' || normalized === 'METER_CONSUMPTION') return 'PER_METER_CONSUMPTION';
     if (normalized === 'MANUAL' || !normalized) return 'MANUAL';
     throw new BadRequestException('Tipul calculului este obligatoriu.');
   }
@@ -3604,6 +4098,105 @@ export class BillingReadService {
     const normalized = typeof value === 'string' && value.trim() ? value.trim().toUpperCase() : 'ALL_APARTMENTS';
     if (['ALL_APARTMENTS', 'ONLY_OCCUPIED', 'CUSTOM_SELECTION'].includes(normalized)) return normalized as TariffAppliesTo;
     throw new BadRequestException('Aplicabilitatea nu este validă.');
+  }
+
+  private parseMissingReadingPolicy(value: unknown): MeterTariffMissingReadingPolicy {
+    const normalized = typeof value === 'string' && value.trim() ? value.trim().toUpperCase() : 'SKIP_WITH_WARNING';
+    if (['SKIP_WITH_WARNING', 'ZERO_WITH_WARNING', 'BLOCK_DRAFT'].includes(normalized)) {
+      return normalized as MeterTariffMissingReadingPolicy;
+    }
+    throw new BadRequestException('Politica pentru indici lipsă nu este validă.');
+  }
+
+  private normalizeMeterTypeForTariff(value: unknown) {
+    const normalized = this.requiredString(value, 'Tipul contorului este obligatoriu.').trim().toUpperCase();
+    if (normalized === 'HEATING') return 'HEAT';
+    if (['COLD_WATER', 'HOT_WATER', 'ELECTRICITY', 'GAS', 'HEAT', 'OTHER'].includes(normalized)) return normalized;
+    throw new BadRequestException('Tipul contorului nu este valid.');
+  }
+
+  private meterTypeForPrisma(value: unknown) {
+    const normalized = String(value || '').toUpperCase();
+    return normalized === 'HEAT' ? 'HEATING' : normalized;
+  }
+
+  private meterTypeExternal(value: unknown) {
+    const normalized = String(value || '').toUpperCase();
+    return normalized === 'HEATING' ? 'HEAT' : normalized;
+  }
+
+  private defaultMeterUnit(value: unknown) {
+    const normalized = String(value || '').toUpperCase();
+    if (normalized === 'ELECTRICITY') return 'kWh';
+    if (normalized === 'HEAT' || normalized === 'HEATING') return 'Gcal';
+    if (normalized === 'OTHER') return 'unitate';
+    return 'm³';
+  }
+
+  private async readMeterWorkflowMetadata(organizationId: string): Promise<{
+    meters: Record<string, any>;
+    readings: Record<string, any>;
+  }> {
+    const note = await this.prisma.clientNote.findFirst({
+      where: { organizationId, title: METER_WORKFLOW_METADATA_NOTE_TITLE },
+      orderBy: { updatedAt: 'desc' },
+      select: { content: true },
+    });
+    if (!note?.content) return { meters: {}, readings: {} };
+    try {
+      const parsed = JSON.parse(note.content);
+      return {
+        meters: parsed && typeof parsed.meters === 'object' && !Array.isArray(parsed.meters) ? parsed.meters : {},
+        readings: parsed && typeof parsed.readings === 'object' && !Array.isArray(parsed.readings) ? parsed.readings : {},
+      };
+    } catch {
+      return { meters: {}, readings: {} };
+    }
+  }
+
+  private readingMetadataForCharge(store: { readings: Record<string, any>; meters: Record<string, any> }, row: any) {
+    const raw = store.readings?.[row.id] || {};
+    const status = this.normalizeMeterReadingStatus(raw.status) || 'APPROVED';
+    const periodMonth = raw.periodMonth || new Date(row.readingDate).toISOString().slice(0, 7);
+    const unit = raw.unit || store.meters?.[row.meterId]?.unit || this.defaultMeterUnit(row.meter?.type);
+    return {
+      ...raw,
+      status,
+      periodMonth,
+      unit,
+      previousReadingValue: raw.previousReadingValue === undefined || raw.previousReadingValue === null ? null : Number(raw.previousReadingValue),
+      consumptionValue: raw.consumptionValue === undefined || raw.consumptionValue === null ? null : Number(raw.consumptionValue),
+    };
+  }
+
+  private normalizeMeterReadingStatus(value: unknown): MeterReadingWorkflowStatus | null {
+    const normalized = typeof value === 'string' ? value.trim().toUpperCase() : '';
+    if (['DRAFT', 'SUBMITTED', 'APPROVED', 'REJECTED', 'NEEDS_REVIEW', 'CANCELLED'].includes(normalized)) {
+      return normalized as MeterReadingWorkflowStatus;
+    }
+    return null;
+  }
+
+  private currentBillingMonth() {
+    const now = new Date();
+    return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+  }
+
+  private formatMeterFormula(quantity: number, unit: string, unitPrice: number) {
+    return `${quantity.toLocaleString('ro-RO')} ${unit || 'unitate'} × ${unitPrice.toLocaleString('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MDL`;
+  }
+
+  private meterTypeLabel(value: unknown) {
+    const labels: Record<string, string> = {
+      COLD_WATER: 'Apă rece',
+      HOT_WATER: 'Apă caldă',
+      ELECTRICITY: 'Electricitate',
+      GAS: 'Gaz',
+      HEAT: 'Căldură',
+      HEATING: 'Căldură',
+      OTHER: 'Altul',
+    };
+    return labels[String(value || '').toUpperCase()] || 'Contor';
   }
 
   private optionalDateString(value: unknown, message: string) {
@@ -3650,9 +4243,24 @@ export class BillingReadService {
       calculationType === 'MANUAL' && payload.defaultManualAmount !== undefined && payload.defaultManualAmount !== null && payload.defaultManualAmount !== ''
         ? this.requiredNumber(payload.defaultManualAmount, 'Suma manuală trebuie să fie un număr pozitiv.')
         : null;
+    const meterType = calculationType === 'PER_METER_CONSUMPTION' ? this.normalizeMeterTypeForTariff(payload.meterType) : null;
+    const pricePerUnit =
+      calculationType === 'PER_METER_CONSUMPTION'
+        ? this.requiredNumber(payload.pricePerUnit ?? payload.amount, 'Prețul per unitate trebuie să fie un număr pozitiv.')
+        : null;
+    const unit =
+      calculationType === 'PER_METER_CONSUMPTION'
+        ? String(payload.unit || this.defaultMeterUnit(meterType)).trim()
+        : undefined;
+    const missingReadingPolicy =
+      calculationType === 'PER_METER_CONSUMPTION'
+        ? this.parseMissingReadingPolicy(payload.missingReadingPolicy || 'SKIP_WITH_WARNING')
+        : undefined;
     if (pricePerM2 !== null && pricePerM2 <= 0) throw new BadRequestException('Valoarea per m² trebuie să fie pozitivă.');
     if (fixedAmount !== null && fixedAmount <= 0) throw new BadRequestException('Suma fixă trebuie să fie pozitivă.');
     if (defaultManualAmount !== null && defaultManualAmount < 0) throw new BadRequestException('Suma manuală trebuie să fie pozitivă.');
+    if (pricePerUnit !== null && pricePerUnit <= 0) throw new BadRequestException('Prețul per unitate trebuie să fie pozitiv.');
+    if (calculationType === 'PER_METER_CONSUMPTION' && !unit) throw new BadRequestException('Unitatea este obligatorie.');
 
     return {
       name,
@@ -3662,12 +4270,18 @@ export class BillingReadService {
       pricePerM2,
       fixedAmount,
       defaultManualAmount,
+      meterType,
+      unit,
+      pricePerUnit,
       currency: 'MDL',
       periodicity,
       status,
       appliesTo,
       includeInMonthlyEstimate: payload.includeInMonthlyEstimate !== false,
+      includeInDraftInvoices: payload.includeInDraftInvoices !== false,
       visibleToResidents: payload.visibleToResidents !== false,
+      requiresApprovedReading: payload.requiresApprovedReading !== false,
+      missingReadingPolicy,
       startsAt,
       endsAt,
       internalNotes: typeof payload.internalNotes === 'string' ? payload.internalNotes.trim() : '',

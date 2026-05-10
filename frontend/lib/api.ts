@@ -1446,14 +1446,26 @@ export const invoicesApi = {
   adminReceipts: () => apiRequest<any[]>('/api/admin/receipts'),
   adminReceiptPdf: (id: string) => apiRequest<Blob>(`/api/admin/receipts/${id}/pdf`, { responseType: 'blob' }),
   draftGet: (params: { billingMonth: string }) => apiRequest<any>('/api/admin/invoices/draft', { params }),
-  draftCalculate: (data: { billingMonth: string; dueDate?: string | null; description?: string }) =>
+  draftCalculate: (data: { billingMonth: string; dueDate?: string | null; description?: string; includeMeterCharges?: boolean }) =>
     apiRequest<any>('/api/admin/invoices/draft/calculate', { method: 'POST', body: data }),
-  draftSave: (data: { billingMonth: string; dueDate?: string | null; description?: string }) =>
+  draftSave: (data: { billingMonth: string; dueDate?: string | null; description?: string; includeMeterCharges?: boolean }) =>
     apiRequest<any>('/api/admin/invoices/draft/save', { method: 'POST', body: data }),
   draftGetOne: (id: string) => apiRequest<any>(`/api/admin/invoices/draft/${id}`),
   draftReview: (id: string) => apiRequest<any>(`/api/admin/invoices/draft/${id}/review`),
-  draftRecalculate: (id: string, data?: { billingMonth?: string; dueDate?: string | null; description?: string }) =>
+  draftRecalculate: (id: string, data?: { billingMonth?: string; dueDate?: string | null; description?: string; includeMeterCharges?: boolean }) =>
     apiRequest<any>(`/api/admin/invoices/draft/${id}/recalculate`, { method: 'PATCH', body: data || {} }),
+  meterChargesPreview: (params?: {
+    billingMonth?: string;
+    periodMonth?: string;
+    meterType?: string;
+    tariffId?: string;
+    staircase?: string;
+    apartmentNumber?: string;
+    status?: string;
+    warningsOnly?: boolean;
+    page?: number;
+    limit?: number;
+  }) => apiRequest<any>('/api/admin/invoices/draft/meter-charges-preview', { params }),
   draftUpdateLineStatus: (draftId: string, lineId: string, status: 'READY' | 'EXCLUDED') =>
     apiRequest<any>(`/api/admin/invoices/draft/${draftId}/lines/${lineId}/status`, { method: 'PATCH', body: { status } }),
   draftUpdateApartmentStatus: (draftId: string, apartmentId: string, status: 'READY' | 'EXCLUDED') =>
@@ -1547,6 +1559,16 @@ export const tariffsApi = {
   createDefaults: () => apiRequest<any>('/api/admin/tariffs/defaults', { method: 'POST' }),
   duplicate: (id: string) => apiRequest<any>(`/api/admin/tariffs/${id}/duplicate`, { method: 'POST' }),
   preview: () => apiRequest<any>('/api/admin/tariffs/preview'),
+  meterBasedList: () => apiRequest<any>('/api/admin/tariffs/meter-based'),
+  meterBasedStats: () => apiRequest<any>('/api/admin/tariffs/meter-based/stats'),
+  meterBasedGet: (id: string) => apiRequest<any>(`/api/admin/tariffs/meter-based/${id}`),
+  meterBasedCreate: (data: any) => apiRequest<any>('/api/admin/tariffs/meter-based', { method: 'POST', body: data }),
+  meterBasedUpdate: (id: string, data: any) => apiRequest<any>(`/api/admin/tariffs/meter-based/${id}`, { method: 'PATCH', body: data }),
+  meterBasedUpdateStatus: (id: string, status: 'DRAFT' | 'ACTIVE' | 'INACTIVE') =>
+    apiRequest<any>(`/api/admin/tariffs/meter-based/${id}/status`, { method: 'PATCH', body: { status } }),
+  meterBasedDuplicate: (id: string) => apiRequest<any>(`/api/admin/tariffs/meter-based/${id}/duplicate`, { method: 'POST' }),
+  meterBasedImpact: (id: string, params?: { billingMonth?: string; periodMonth?: string; page?: number; limit?: number }) =>
+    apiRequest<any>(`/api/admin/tariffs/meter-based/${id}/impact`, { params }),
 };
 
 export const financeApi = {
