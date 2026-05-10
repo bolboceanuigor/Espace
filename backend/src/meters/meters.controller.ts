@@ -70,6 +70,60 @@ export class MetersController {
     return this.metersService.getReadingStats(user, query);
   }
 
+  @Get(['admin/meter-readings/reports/consumption', 'api/admin/meter-readings/reports/consumption'])
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
+  getConsumptionReport(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.metersService.getConsumptionReport(user, query);
+  }
+
+  @Get(['admin/meter-readings/reports/summary', 'api/admin/meter-readings/reports/summary'])
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
+  getConsumptionSummary(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.metersService.getConsumptionSummary(user, query);
+  }
+
+  @Get(['admin/meter-readings/reports/by-meter-type', 'api/admin/meter-readings/reports/by-meter-type'])
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
+  getConsumptionByMeterType(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.metersService.getConsumptionByMeterType(user, query);
+  }
+
+  @Get(['admin/meter-readings/reports/by-staircase', 'api/admin/meter-readings/reports/by-staircase'])
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
+  getConsumptionByStaircase(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.metersService.getConsumptionByStaircase(user, query);
+  }
+
+  @Get(['admin/meter-readings/reports/by-apartment', 'api/admin/meter-readings/reports/by-apartment'])
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
+  getConsumptionByApartment(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.metersService.getConsumptionByApartment(user, query);
+  }
+
+  @Get(['admin/meter-readings/reports/missing', 'api/admin/meter-readings/reports/missing'])
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
+  getMissingReadingsReport(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.metersService.getMissingReadingsReport(user, query);
+  }
+
+  @Get(['admin/meter-readings/reports/issues', 'api/admin/meter-readings/reports/issues'])
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
+  getReadingIssuesReport(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.metersService.getReadingIssuesReport(user, query);
+  }
+
+  @Get(['admin/meter-readings/reports/trends', 'api/admin/meter-readings/reports/trends'])
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
+  getConsumptionTrends(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.metersService.getConsumptionTrends(user, query);
+  }
+
+  @Get(['admin/meter-readings/reports/top-consumption', 'api/admin/meter-readings/reports/top-consumption'])
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
+  getTopConsumption(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.metersService.getTopConsumption(user, query);
+  }
+
   @Get(['admin/meter-readings', 'api/admin/meter-readings'])
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   listAdminReadings(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {

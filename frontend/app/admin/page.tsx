@@ -360,8 +360,15 @@ export default function AdminPage() {
         title: 'Citiri lipsă',
         value: String(crm.kpis.missingMeterReadings),
         description: 'Contoare fără citire curentă',
-        href: '/admin/meters',
+        href: '/admin/meter-readings/reports',
         active: crm.kpis.missingMeterReadings > 0,
+      },
+      {
+        title: 'Rapoarte consum',
+        value: 'Vezi raport',
+        description: 'Indici aprobați, lipsă și needs review',
+        href: '/admin/meter-readings/reports',
+        active: true,
       },
       {
         title: 'Locatari fără cont',
@@ -623,7 +630,7 @@ export default function AdminPage() {
         </Card>
 
         <Card>
-          <SectionHeader title="Citiri lipsă" description="Contoare fără citire în luna curentă." href={localizedPath('/admin/meters')} />
+          <SectionHeader title="Citiri lipsă" description="Contoare fără citire în luna curentă." href={localizedPath('/admin/meter-readings/reports')} />
           <div className="mt-4 space-y-2">
             {crm.missingReadings.map((meter) => (
               <Link key={meter.id} href={safeLocalizedLink(localizedPath, meter.link, '/admin/meters')} className="block rounded-2xl border border-border/70 bg-white px-4 py-3 hover:bg-muted/40">
@@ -691,6 +698,9 @@ export default function AdminPage() {
           </ButtonLink>
           <ButtonLink href={localizedPath('/admin/meters')} variant="secondary">
             <Gauge className="h-4 w-4" /> Adaugă contor
+          </ButtonLink>
+          <ButtonLink href={localizedPath('/admin/meter-readings/reports')} variant="secondary">
+            <Gauge className="h-4 w-4" /> Rapoarte consum
           </ButtonLink>
           <ButtonLink href={localizedPath('/admin/invoices')} variant="secondary">
             <FileText className="h-4 w-4" /> Emite facturi

@@ -303,6 +303,10 @@ export function AdminMetersPage() {
         description="Gestionează contoarele apartamentelor din asociație."
         rightSlot={
           <div className="flex flex-wrap gap-2">
+            <ButtonLink href="/admin/meter-readings/reports" variant="secondary">
+              <History className="h-4 w-4" />
+              Rapoarte consum
+            </ButtonLink>
             <ButtonLink href="/admin/meter-readings" variant="secondary">
               <ListChecks className="h-4 w-4" />
               Vezi indici transmiși
@@ -617,10 +621,16 @@ export function AdminMeterReadingsPage() {
         title="Indici contoare"
         description="Verifică și aprobă indicii transmiși de locatari."
         rightSlot={
-          <ButtonLink href="/admin/meters" variant="secondary">
-            <Gauge className="h-4 w-4" />
-            Contoare
-          </ButtonLink>
+          <div className="flex flex-wrap gap-2">
+            <ButtonLink href="/admin/meter-readings/reports" variant="secondary">
+              <History className="h-4 w-4" />
+              Vezi raport consum
+            </ButtonLink>
+            <ButtonLink href="/admin/meters" variant="secondary">
+              <Gauge className="h-4 w-4" />
+              Contoare
+            </ButtonLink>
+          </div>
         }
       />
       <InlineError message={error} />

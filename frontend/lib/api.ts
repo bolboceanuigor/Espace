@@ -966,6 +966,24 @@ export const metersApi = {
     apiRequest<any>(`/api/admin/meter-readings/${id}/reject`, { method: 'PATCH', body: data }),
   adminNeedsReviewReading: (id: string, data?: Record<string, unknown>) =>
     apiRequest<any>(`/api/admin/meter-readings/${id}/needs-review`, { method: 'PATCH', body: data || {} }),
+  adminConsumptionReport: (params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>('/api/admin/meter-readings/reports/consumption', { params }),
+  adminConsumptionSummary: (params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>('/api/admin/meter-readings/reports/summary', { params }),
+  adminConsumptionByMeterType: (params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>('/api/admin/meter-readings/reports/by-meter-type', { params }),
+  adminConsumptionByStaircase: (params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>('/api/admin/meter-readings/reports/by-staircase', { params }),
+  adminConsumptionByApartment: (params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>('/api/admin/meter-readings/reports/by-apartment', { params }),
+  adminConsumptionMissing: (params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>('/api/admin/meter-readings/reports/missing', { params }),
+  adminConsumptionIssues: (params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>('/api/admin/meter-readings/reports/issues', { params }),
+  adminConsumptionTrends: (params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>('/api/admin/meter-readings/reports/trends', { params }),
+  adminTopConsumption: (params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>('/api/admin/meter-readings/reports/top-consumption', { params }),
   adminApartmentMeters: (apartmentId: string) => apiRequest<any>(`/api/admin/apartments/${apartmentId}/meters`),
   adminApartmentReadings: (apartmentId: string, params?: Record<string, string | number | boolean | null | undefined>) =>
     apiRequest<any>(`/api/admin/apartments/${apartmentId}/meter-readings`, { params }),
