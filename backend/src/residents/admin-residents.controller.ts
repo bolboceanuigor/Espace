@@ -11,9 +11,39 @@ import { ResidentsService } from './residents.service';
 export class AdminResidentsController {
   constructor(private readonly residentsService: ResidentsService) {}
 
+  @Get(['admin/resident-update-requests', 'api/admin/resident-update-requests'])
+  listUpdateRequests(@CurrentUser() user: MvpUser, @Query() query: Record<string, string | undefined>) {
+    return this.residentsService.listAdminResidentUpdateRequests(user, query);
+  }
+
+  @Get(['admin/resident-update-requests/stats', 'api/admin/resident-update-requests/stats'])
+  updateRequestStats(@CurrentUser() user: MvpUser) {
+    return this.residentsService.getAdminResidentUpdateRequestStats(user);
+  }
+
+  @Get(['admin/resident-update-requests/:id', 'api/admin/resident-update-requests/:id'])
+  getUpdateRequest(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.residentsService.getAdminResidentUpdateRequest(user, id);
+  }
+
+  @Patch(['admin/resident-update-requests/:id/approve', 'api/admin/resident-update-requests/:id/approve'])
+  approveUpdateRequest(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.residentsService.approveAdminResidentUpdateRequest(user, id, body);
+  }
+
+  @Patch(['admin/resident-update-requests/:id/reject', 'api/admin/resident-update-requests/:id/reject'])
+  rejectUpdateRequest(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.residentsService.rejectAdminResidentUpdateRequest(user, id, body);
+  }
+
   @Get(['admin/residents', 'api/admin/residents'])
   list(@CurrentUser() user: MvpUser, @Query() query: Record<string, string | undefined>) {
     return this.residentsService.listAdminResidents(user, query);
+  }
+
+  @Get(['admin/residents/:id/update-requests', 'api/admin/residents/:id/update-requests'])
+  residentUpdateRequests(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.residentsService.listAdminResidentUpdateRequestsForResident(user, id);
   }
 
   @Get(['admin/residents/:id', 'api/admin/residents/:id'])

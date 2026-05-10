@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
 import { formatMdl } from '@/lib/condo-admin-fallback';
-import { onboardingApi, workbenchApi } from '@/lib/api';
+import { adminResidentUpdateRequestsApi, onboardingApi, workbenchApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 type CrmOrganization = {
@@ -274,6 +274,7 @@ export default function AdminPage() {
   const [crm, setCrm] = useState<ResidentCrmData>(emptyCrm);
   const [setup, setSetup] = useState<SetupChecklist | null>(null);
   const [setupError, setSetupError] = useState('');
+  const [pendingUpdateRequests, setPendingUpdateRequests] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -311,6 +312,17 @@ export default function AdminPage() {
         setSetupError('Nu am putut încărca checklistul de configurare inițială.');
       });
 
+    adminResidentUpdateRequestsApi
+      .stats()
+      .then((response) => {
+        if (!active) return;
+        setPendingUpdateRequests(Number(response.data?.pending || 0));
+      })
+      .catch(() => {
+        if (!active) return;
+        setPendingUpdateRequests(0);
+      });
+
     return () => {
       active = false;
     };
@@ -346,8 +358,15 @@ export default function AdminPage() {
         href: '/admin/residents',
         active: crm.kpis.residentsWithoutAccount > 0,
       },
+      {
+        title: 'Solicitări date pending',
+        value: String(pendingUpdateRequests),
+        description: 'Cererile locatarilor pentru actualizare date',
+        href: '/admin/resident-update-requests',
+        active: pendingUpdateRequests > 0,
+      },
     ],
-    [crm],
+    [crm, pendingUpdateRequests],
   );
 
   const kpiCards = [

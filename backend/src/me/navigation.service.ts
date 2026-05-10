@@ -33,6 +33,7 @@ const NAV_CONFIG: NavItemConfig[] = [
   { label: 'Plăți', href: '/admin/payments', icon: 'creditCard', allowedRoles: ['ADMIN'], requiredPermission: 'payments.view', mobileVisible: false, moreMenu: true },
   { label: 'Reconciliere', href: '/admin/payments/reconciliation', icon: 'chartColumnBig', allowedRoles: ['ADMIN'], requiredPermission: 'payments.view', mobileVisible: false, moreMenu: true },
   { label: 'Cereri', href: '/admin/issues', icon: 'circleAlert', allowedRoles: ['ADMIN'], requiredPermission: 'issues.view', mobileVisible: false, moreMenu: true },
+  { label: 'Solicitări date', href: '/admin/resident-update-requests', icon: 'users', allowedRoles: ['ADMIN'], requiredPermission: 'residents.manage', mobileVisible: false, moreMenu: true },
   { label: 'Avizier', href: '/admin/announcements', icon: 'megaphone', allowedRoles: ['ADMIN'], requiredPermission: 'announcements.view', mobileVisible: false, moreMenu: true },
   { label: 'Documente', href: '/admin/documents', icon: 'fileText', allowedRoles: ['ADMIN'], mobileVisible: false, moreMenu: true },
   { label: 'Rapoarte', href: '/admin/reports', icon: 'chartColumnBig', allowedRoles: ['ADMIN'], mobileVisible: false, moreMenu: true },

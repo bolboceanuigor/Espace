@@ -18,6 +18,7 @@ export type MainNavigationKey =
   | 'paymentReconciliation'
   | 'reports'
   | 'issues'
+  | 'residentUpdateRequests'
   | 'documents'
   | 'chat'
   | 'imports'
@@ -62,6 +63,7 @@ export const ADMIN_NAVIGATION_ITEMS: MainNavigationItem[] = [
   { key: 'payments', label: 'Plăți', href: '/admin/payments' },
   { key: 'paymentReconciliation', label: 'Reconciliere', href: '/admin/payments/reconciliation' },
   { key: 'issues', label: 'Cereri', href: '/admin/issues' },
+  { key: 'residentUpdateRequests', label: 'Solicitări date', href: '/admin/resident-update-requests' },
   { key: 'announcements', label: 'Avizier', href: '/admin/announcements' },
   { key: 'documents', label: 'Documente', href: '/admin/documents' },
   { key: 'imports', label: 'Import date', href: '/admin/imports' },

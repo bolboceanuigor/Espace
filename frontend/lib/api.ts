@@ -900,6 +900,41 @@ export const adminResidentsCrmApi = {
     apiRequest<any>(`/api/admin/residents/${id}/apartments/${apartmentId}`, { method: 'DELETE' }),
   updateStatus: (id: string, status: 'ACTIVE' | 'INVITED' | 'NOT_INVITED' | 'INACTIVE') =>
     apiRequest<any>(`/api/admin/residents/${id}/status`, { method: 'PATCH', body: { status } }),
+  updateRequests: (id: string) => apiRequest<any>(`/api/admin/residents/${id}/update-requests`),
+};
+
+export const adminResidentUpdateRequestsApi = {
+  list: (params?: {
+    status?: string;
+    requestType?: string;
+    apartmentId?: string;
+    staircase?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    search?: string;
+    sortBy?: string;
+    sortDirection?: 'asc' | 'desc';
+    page?: number;
+    limit?: number;
+  }) => apiRequest<any>('/api/admin/resident-update-requests', { params }),
+  stats: () => apiRequest<any>('/api/admin/resident-update-requests/stats'),
+  get: (id: string) => apiRequest<any>(`/api/admin/resident-update-requests/${id}`),
+  approve: (
+    id: string,
+    data: {
+      adminResponse?: string;
+      internalNotes?: string;
+      applyChangeNow?: boolean;
+      apartmentRelationPatch?: {
+        apartmentId?: string;
+        role?: 'OWNER' | 'TENANT' | 'REPRESENTATIVE' | 'RESIDENT';
+        isPrimaryContact?: boolean;
+        relationStatus?: string;
+      };
+    },
+  ) => apiRequest<any>(`/api/admin/resident-update-requests/${id}/approve`, { method: 'PATCH', body: data }),
+  reject: (id: string, data: { adminResponse: string; internalNotes?: string }) =>
+    apiRequest<any>(`/api/admin/resident-update-requests/${id}/reject`, { method: 'PATCH', body: data }),
 };
 
 export const metersApi = {

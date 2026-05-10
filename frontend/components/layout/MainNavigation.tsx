@@ -31,6 +31,7 @@ const ICONS: Record<MainNavigationKey, React.ComponentType<{ className?: string 
   reports: FileText,
   announcements: Megaphone,
   residents: Users,
+  residentUpdateRequests: UserRound,
   meters: Gauge,
   payments: CreditCard,
   paymentReconciliation: FileText,

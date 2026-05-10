@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { ArrowLeft, Building2, Mail, Pencil, Phone, Plus, StickyNote, Unlink, UserCheck, UserRound } from 'lucide-react';
-import { Badge, Button, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
+import { Badge, Button, ButtonLink, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
 import { adminResidentsCrmApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
@@ -50,6 +50,18 @@ type ResidentDetail = {
   messages: any[];
   activity: Array<{ label: string; date?: string }>;
   apartmentOptions: ApartmentOption[];
+  updateRequests?: Array<{
+    id: string;
+    requestType: string;
+    requestTypeLabel?: string;
+    status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+    currentValueLabel?: string;
+    requestedValueLabel?: string;
+    message?: string;
+    adminResponse?: string;
+    createdAt?: string;
+    reviewedAt?: string | null;
+  }>;
   updatedAt: string;
 };
 
@@ -114,6 +126,20 @@ const completenessVariant = {
   NO_PHONE: 'warning',
   NO_EMAIL: 'neutral',
   INACTIVE: 'error',
+} as const;
+
+const updateRequestStatusLabels = {
+  PENDING: 'Pending',
+  APPROVED: 'Aprobată',
+  REJECTED: 'Respinsă',
+  CANCELLED: 'Anulată',
+} as const;
+
+const updateRequestStatusVariant = {
+  PENDING: 'warning',
+  APPROVED: 'success',
+  REJECTED: 'error',
+  CANCELLED: 'neutral',
 } as const;
 
 export default function AdminResidentDetailPage() {
@@ -433,6 +459,45 @@ export default function AdminResidentDetailPage() {
             <p className="mt-3 whitespace-pre-wrap rounded-2xl bg-muted/35 px-4 py-4 text-sm text-muted-foreground">
               {resident.internalNotes || 'Nu există note interne pentru această persoană.'}
             </p>
+          </Card>
+
+          <Card>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Solicitări actualizare date</h2>
+                <p className="text-sm text-muted-foreground">Ultimele cereri trimise de locatar pentru date personale sau relații cu apartamentele.</p>
+              </div>
+              <ButtonLink href={`/admin/resident-update-requests?search=${encodeURIComponent(resident.fullName)}`} variant="secondary">
+                Vezi toate solicitările
+              </ButtonLink>
+            </div>
+            {!resident.updateRequests?.length ? (
+              <div className="mt-5 rounded-2xl border border-dashed border-border/80 bg-muted/30 px-4 py-6 text-sm text-muted-foreground">
+                Nu există solicitări de actualizare pentru această persoană.
+              </div>
+            ) : (
+              <div className="mt-5 grid gap-3">
+                {resident.updateRequests.map((request) => (
+                  <div key={request.id} className="rounded-2xl border border-border/70 bg-white p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-foreground">{request.requestTypeLabel || request.requestType}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {request.currentValueLabel || '-'} → <span className="font-medium text-foreground">{request.requestedValueLabel || '-'}</span>
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">Trimisă la {formatDate(request.createdAt)}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Badge variant={updateRequestStatusVariant[request.status]}>{updateRequestStatusLabels[request.status]}</Badge>
+                        <ButtonLink href={`/admin/resident-update-requests/${request.id}`} size="sm" variant="secondary">
+                          Deschide
+                        </ButtonLink>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </Card>
         </div>
 

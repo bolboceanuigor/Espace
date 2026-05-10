@@ -5,6 +5,50 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ActivityMvpService } from '../activity-mvp/activity-mvp.service';
 import type { MvpUser } from '../security/mvp-auth.guard';
 
+const RESIDENT_PROFILE_UPDATE_REQUESTS_TITLE = 'Resident profile update requests';
+const RESIDENT_UPDATE_REQUEST_TYPES = [
+  'FULL_NAME_CHANGE',
+  'PHONE_CHANGE',
+  'EMAIL_CHANGE',
+  'CONTACT_METHOD_CHANGE',
+  'APARTMENT_RELATION_CHANGE',
+  'OTHER',
+] as const;
+const RESIDENT_UPDATE_REQUEST_STATUSES = ['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'] as const;
+
+type ResidentUpdateRequestStatus = (typeof RESIDENT_UPDATE_REQUEST_STATUSES)[number];
+type ResidentUpdateRequestType = (typeof RESIDENT_UPDATE_REQUEST_TYPES)[number];
+type StoredResidentUpdateRequest = {
+  id: string;
+  associationId: string;
+  residentId: string;
+  apartmentId?: string | null;
+  requestType: ResidentUpdateRequestType;
+  status: ResidentUpdateRequestStatus;
+  currentFullName?: string | null;
+  requestedFullName?: string | null;
+  currentPhone?: string | null;
+  requestedPhone?: string | null;
+  currentEmail?: string | null;
+  requestedEmail?: string | null;
+  currentPreferredContactMethod?: string | null;
+  requestedPreferredContactMethod?: string | null;
+  message?: string | null;
+  attachmentPlaceholder?: boolean;
+  adminResponse?: string | null;
+  internalNotes?: string | null;
+  reviewedById?: string | null;
+  reviewedAt?: string | null;
+  cancelledAt?: string | null;
+  appliedAt?: string | null;
+  appliedById?: string | null;
+  applyChangeNow?: boolean;
+  oldSnapshot?: Record<string, unknown> | null;
+  newSnapshot?: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 @Injectable()
 export class ResidentsService {
   constructor(
@@ -230,11 +274,17 @@ export class ResidentsService {
       select: this.residentSelect(),
     });
     if (!resident) throw new NotFoundException('Înregistrarea nu a fost găsită.');
-    const [metadata, apartmentOptions] = await Promise.all([
+    const [metadata, apartmentOptions, updateRequests] = await Promise.all([
       this.readResidentMetadata(resident.organizationId),
       this.listApartmentOptions(resident.organizationId),
+      this.readProfileUpdateRequests(resident.organizationId),
     ]);
-    return this.toAdminResidentDetail(resident, metadata, apartmentOptions);
+    return this.toAdminResidentDetail(
+      resident,
+      metadata,
+      apartmentOptions,
+      updateRequests.filter((request) => request.residentId === resident.id),
+    );
   }
 
   async createAdminResident(user: MvpUser, body: unknown) {
@@ -498,6 +548,190 @@ export class ResidentsService {
       [residentId]: { status },
     });
     return this.getAdminResident(user, residentId);
+  }
+
+  async listAdminResidentUpdateRequests(user: MvpUser, query: Record<string, string | undefined> = {}) {
+    const organizationId = this.adminOrganizationId(user, query);
+    this.assertOrganizationAccess(user, organizationId);
+    const [organization, rawRequests, residents, apartments] = await Promise.all([
+      this.prisma.organization.findUnique({
+        where: { id: organizationId },
+        select: { id: true, name: true, legalName: true, fiscalCode: true },
+      }),
+      this.readProfileUpdateRequests(organizationId),
+      this.prisma.residentProfile.findMany({
+        where: { organizationId },
+        select: this.residentSelect(),
+      }),
+      this.prisma.apartment.findMany({
+        where: { organizationId },
+        select: {
+          id: true,
+          number: true,
+          floor: true,
+          staircase: { select: { id: true, name: true } },
+          building: { select: { id: true, name: true } },
+        },
+      }),
+    ]);
+    if (!organization) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+
+    const residentsById = new Map((residents as any[]).map((resident) => [resident.id, resident]));
+    const apartmentsById = new Map((apartments as any[]).map((apartment) => [apartment.id, apartment]));
+    let items = rawRequests
+      .filter((request) => request.associationId === organizationId)
+      .map((request) => this.toAdminUpdateRequestRow(request, residentsById.get(request.residentId), request.apartmentId ? apartmentsById.get(request.apartmentId) : null));
+    const allItems = items;
+    items = this.filterAdminUpdateRequestRows(items, query);
+    items = this.sortAdminUpdateRequestRows(items, query.sortBy, query.sortDirection);
+
+    const page = Math.max(1, Math.trunc(Number(query.page || 1)));
+    const limit = Math.min(100, Math.max(1, Math.trunc(Number(query.limit || 20))));
+    const total = items.length;
+    const start = (page - 1) * limit;
+
+    return {
+      organization: {
+        id: organization.id,
+        shortName: organization.name,
+        legalName: organization.legalName || organization.name,
+        associationCode: organization.fiscalCode || '',
+      },
+      items: items.slice(start, start + limit),
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+      stats: this.adminUpdateRequestStats(allItems),
+    };
+  }
+
+  async getAdminResidentUpdateRequestStats(user: MvpUser) {
+    const organizationId = this.adminOrganizationId(user);
+    this.assertOrganizationAccess(user, organizationId);
+    const requests = await this.readProfileUpdateRequests(organizationId);
+    return this.adminUpdateRequestStats(requests.filter((request) => request.associationId === organizationId));
+  }
+
+  async getAdminResidentUpdateRequest(user: MvpUser, id: string) {
+    const organizationId = this.adminOrganizationId(user);
+    this.assertOrganizationAccess(user, organizationId);
+    const request = await this.requireAdminUpdateRequest(organizationId, id);
+    return this.adminUpdateRequestDetail(organizationId, request);
+  }
+
+  async approveAdminResidentUpdateRequest(user: MvpUser, id: string, body: unknown) {
+    const organizationId = this.adminOrganizationId(user);
+    this.assertOrganizationAccess(user, organizationId);
+    const payload = this.payload(body);
+    const adminResponse = typeof payload.adminResponse === 'string' ? payload.adminResponse.trim() : '';
+    const internalNotes = typeof payload.internalNotes === 'string' ? payload.internalNotes.trim() : '';
+    const applyChangeNow = payload.applyChangeNow !== false;
+    const items = await this.readProfileUpdateRequests(organizationId);
+    const index = items.findIndex((request) => request.id === id && request.associationId === organizationId);
+    if (index === -1) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    if (items[index].status !== 'PENDING') throw new BadRequestException('Doar solicitările pending pot fi procesate.');
+
+    const request = items[index];
+    const resident = await this.prisma.residentProfile.findFirst({
+      where: { id: request.residentId, organizationId },
+      select: {
+        id: true,
+        organizationId: true,
+        userId: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+        email: true,
+        accountStatus: true,
+      },
+    });
+    if (!resident) throw new NotFoundException('Locatarul nu a fost găsit.');
+
+    const now = new Date().toISOString();
+    const applyResult = applyChangeNow
+      ? await this.applyResidentUpdateRequest(user, organizationId, request, resident, payload)
+      : { applied: false, oldSnapshot: null, newSnapshot: null, note: null };
+    const responseSuffix = applyResult.note ? ` ${applyResult.note}` : '';
+
+    items[index] = {
+      ...request,
+      status: 'APPROVED',
+      adminResponse: adminResponse || `Solicitarea a fost aprobată.${responseSuffix}`.trim(),
+      internalNotes,
+      applyChangeNow,
+      reviewedById: user.id,
+      reviewedAt: now,
+      appliedAt: applyResult.applied ? now : null,
+      appliedById: applyResult.applied ? user.id : null,
+      oldSnapshot: applyResult.oldSnapshot,
+      newSnapshot: applyResult.newSnapshot,
+      updatedAt: now,
+    };
+    await this.writeProfileUpdateRequests(organizationId, user.id, items);
+    await this.activity.createActivity({
+      organizationId,
+      actorUserId: user.id,
+      type: 'RESIDENT_UPDATED',
+      title: 'Solicitare date aprobată',
+      message: `${this.fullName(resident)}: ${this.requestTypeLabel(request.requestType)}.`,
+      targetType: 'RESIDENT',
+      targetId: resident.id,
+      link: `/admin/resident-update-requests/${id}`,
+    });
+    return this.adminUpdateRequestDetail(organizationId, items[index]);
+  }
+
+  async rejectAdminResidentUpdateRequest(user: MvpUser, id: string, body: unknown) {
+    const organizationId = this.adminOrganizationId(user);
+    this.assertOrganizationAccess(user, organizationId);
+    const payload = this.payload(body);
+    const adminResponse = this.requiredString(payload.adminResponse, 'Răspunsul adminului este obligatoriu.');
+    const internalNotes = typeof payload.internalNotes === 'string' ? payload.internalNotes.trim() : '';
+    const items = await this.readProfileUpdateRequests(organizationId);
+    const index = items.findIndex((request) => request.id === id && request.associationId === organizationId);
+    if (index === -1) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    if (items[index].status !== 'PENDING') throw new BadRequestException('Doar solicitările pending pot fi procesate.');
+    const now = new Date().toISOString();
+    items[index] = {
+      ...items[index],
+      status: 'REJECTED',
+      adminResponse,
+      internalNotes,
+      reviewedById: user.id,
+      reviewedAt: now,
+      updatedAt: now,
+    };
+    await this.writeProfileUpdateRequests(organizationId, user.id, items);
+    await this.activity.createActivity({
+      organizationId,
+      actorUserId: user.id,
+      type: 'RESIDENT_UPDATED',
+      title: 'Solicitare date respinsă',
+      message: `${this.requestTypeLabel(items[index].requestType)} a fost respinsă.`,
+      targetType: 'RESIDENT',
+      targetId: items[index].residentId,
+      link: `/admin/resident-update-requests/${id}`,
+    });
+    return this.adminUpdateRequestDetail(organizationId, items[index]);
+  }
+
+  async listAdminResidentUpdateRequestsForResident(user: MvpUser, residentId: string) {
+    const resident = await this.prisma.residentProfile.findFirst({
+      where: { id: residentId, ...this.organizationWhere(user) },
+      select: { id: true, organizationId: true },
+    });
+    if (!resident) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    this.assertOrganizationAccess(user, resident.organizationId);
+    const requests = (await this.readProfileUpdateRequests(resident.organizationId))
+      .filter((request) => request.residentId === resident.id)
+      .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+    return {
+      items: requests.map((request) => this.toAdminResidentRequestPreview(request)),
+      meta: { total: requests.length },
+    };
   }
 
   async listResidents(user: MvpUser) {
@@ -766,7 +1000,7 @@ export class ResidentsService {
     };
   }
 
-  private toAdminResidentDetail(row: any, metadata: Record<string, any>, apartmentOptions: any[]) {
+  private toAdminResidentDetail(row: any, metadata: Record<string, any>, apartmentOptions: any[], updateRequests: StoredResidentUpdateRequest[] = []) {
     const base = this.toAdminResidentRow(row, metadata);
     const rowMetadata = metadata[row.id] || {};
     return {
@@ -779,6 +1013,10 @@ export class ResidentsService {
         { label: 'Actualizat', date: row.updatedAt },
       ],
       apartmentOptions,
+      updateRequests: updateRequests
+        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+        .slice(0, 5)
+        .map((request) => this.toAdminResidentRequestPreview(request)),
     };
   }
 
@@ -850,6 +1088,243 @@ export class ResidentsService {
       withoutEmail: rows.filter((row) => !row.email).length,
       withoutApartment: rows.filter((row) => row.apartmentsCount === 0).length,
       primaryContacts: rows.filter((row) => row.isPrimaryContactSomewhere).length,
+    };
+  }
+
+  private requestTypeLabel(type?: string | null) {
+    const labels: Record<string, string> = {
+      FULL_NAME_CHANGE: 'Schimbare nume',
+      PHONE_CHANGE: 'Schimbare telefon',
+      EMAIL_CHANGE: 'Schimbare email',
+      CONTACT_METHOD_CHANGE: 'Schimbare metodă contact',
+      APARTMENT_RELATION_CHANGE: 'Schimbare relație apartament',
+      OTHER: 'Altă solicitare',
+    };
+    return labels[String(type || '').toUpperCase()] || 'Solicitare';
+  }
+
+  private requestValueLabels(request: StoredResidentUpdateRequest) {
+    if (request.requestType === 'FULL_NAME_CHANGE') {
+      return {
+        currentValueLabel: request.currentFullName || 'Necompletat',
+        requestedValueLabel: request.requestedFullName || 'Necompletat',
+      };
+    }
+    if (request.requestType === 'PHONE_CHANGE') {
+      return {
+        currentValueLabel: request.currentPhone || 'Necompletat',
+        requestedValueLabel: request.requestedPhone || 'Necompletat',
+      };
+    }
+    if (request.requestType === 'EMAIL_CHANGE') {
+      return {
+        currentValueLabel: request.currentEmail || 'Necompletat',
+        requestedValueLabel: request.requestedEmail || 'Necompletat',
+      };
+    }
+    if (request.requestType === 'CONTACT_METHOD_CHANGE') {
+      return {
+        currentValueLabel: request.currentPreferredContactMethod || 'Necompletat',
+        requestedValueLabel: request.requestedPreferredContactMethod || 'Necompletat',
+      };
+    }
+    return {
+      currentValueLabel: request.message || 'Verificare manuală',
+      requestedValueLabel: request.message || 'Verificare manuală',
+    };
+  }
+
+  private updateRequestComparison(request: StoredResidentUpdateRequest) {
+    if (request.requestType === 'FULL_NAME_CHANGE') {
+      return [
+        {
+          field: 'fullName',
+          label: 'Nume complet',
+          currentValue: request.currentFullName || 'Necompletat',
+          requestedValue: request.requestedFullName || 'Necompletat',
+          resultValue: request.requestedFullName || 'Necompletat',
+        },
+      ];
+    }
+    if (request.requestType === 'PHONE_CHANGE') {
+      return [
+        {
+          field: 'phone',
+          label: 'Telefon',
+          currentValue: request.currentPhone || 'Necompletat',
+          requestedValue: request.requestedPhone || 'Necompletat',
+          resultValue: request.requestedPhone || 'Necompletat',
+        },
+      ];
+    }
+    if (request.requestType === 'EMAIL_CHANGE') {
+      return [
+        {
+          field: 'email',
+          label: 'Email locatar',
+          currentValue: request.currentEmail || 'Necompletat',
+          requestedValue: request.requestedEmail || 'Necompletat',
+          resultValue: request.requestedEmail || 'Necompletat',
+        },
+      ];
+    }
+    if (request.requestType === 'CONTACT_METHOD_CHANGE') {
+      return [
+        {
+          field: 'preferredContactMethod',
+          label: 'Metodă contact',
+          currentValue: request.currentPreferredContactMethod || 'Necompletat',
+          requestedValue: request.requestedPreferredContactMethod || 'Necompletat',
+          resultValue: request.requestedPreferredContactMethod || 'Necompletat',
+        },
+      ];
+    }
+    return [
+      {
+        field: 'message',
+        label: this.requestTypeLabel(request.requestType),
+        currentValue: 'Verificare manuală',
+        requestedValue: request.message || 'Necompletat',
+        resultValue: 'Decizie admin',
+      },
+    ];
+  }
+
+  private toAdminUpdateRequestRow(request: StoredResidentUpdateRequest, resident: any, apartment: any) {
+    const apartments = (resident?.apartmentResidents || []).map((item) => this.apartmentSummary(item));
+    const apartmentFallback = apartment || apartments[0] || null;
+    const labels = this.requestValueLabels(request);
+    return {
+      id: request.id,
+      requestType: request.requestType,
+      requestTypeLabel: this.requestTypeLabel(request.requestType),
+      status: request.status,
+      resident: resident
+        ? {
+            id: resident.id,
+            fullName: this.fullName(resident),
+            phone: resident.phone || '',
+            email: resident.email || '',
+          }
+        : {
+            id: request.residentId,
+            fullName: request.currentFullName || 'Locatar',
+            phone: request.currentPhone || '',
+            email: request.currentEmail || '',
+          },
+      apartment: apartmentFallback
+        ? {
+            id: apartmentFallback.id,
+            apartmentNumber: apartmentFallback.number,
+            staircase: apartmentFallback.staircase?.name || '',
+            floor: apartmentFallback.floor === null || apartmentFallback.floor === undefined ? '' : String(apartmentFallback.floor),
+          }
+        : null,
+      apartments: apartments.map((item) => ({
+        id: item.id,
+        apartmentNumber: item.number,
+        staircase: item.staircase?.name || '',
+        role: item.role,
+        isPrimaryContact: item.isPrimary,
+      })),
+      currentValueLabel: labels.currentValueLabel,
+      requestedValueLabel: labels.requestedValueLabel,
+      message: request.message || '',
+      adminResponse: request.adminResponse || '',
+      internalNotes: request.internalNotes || '',
+      createdAt: request.createdAt,
+      reviewedAt: request.reviewedAt || null,
+      cancelledAt: request.cancelledAt || null,
+      appliedAt: request.appliedAt || null,
+    };
+  }
+
+  private toAdminResidentRequestPreview(request: StoredResidentUpdateRequest) {
+    const labels = this.requestValueLabels(request);
+    return {
+      id: request.id,
+      requestType: request.requestType,
+      requestTypeLabel: this.requestTypeLabel(request.requestType),
+      status: request.status,
+      currentValueLabel: labels.currentValueLabel,
+      requestedValueLabel: labels.requestedValueLabel,
+      message: request.message || '',
+      adminResponse: request.adminResponse || '',
+      createdAt: request.createdAt,
+      reviewedAt: request.reviewedAt || null,
+      cancelledAt: request.cancelledAt || null,
+      appliedAt: request.appliedAt || null,
+    };
+  }
+
+  private filterAdminUpdateRequestRows(rows: any[], query: Record<string, string | undefined>) {
+    const status = String(query.status || '').trim().toUpperCase();
+    const requestType = String(query.requestType || '').trim().toUpperCase();
+    const apartmentId = String(query.apartmentId || '').trim();
+    const staircase = String(query.staircase || '').trim().toLowerCase();
+    const search = String(query.search || '').trim().toLowerCase();
+    const dateFrom = query.dateFrom ? new Date(query.dateFrom) : null;
+    const dateTo = query.dateTo ? new Date(query.dateTo) : null;
+    return rows.filter((row) => {
+      const createdAt = new Date(row.createdAt || 0);
+      const matchesStatus = !status || status === 'ALL' || row.status === status;
+      const matchesType = !requestType || requestType === 'ALL' || row.requestType === requestType;
+      const matchesApartment = !apartmentId || row.apartment?.id === apartmentId || row.apartments?.some((item) => item.id === apartmentId);
+      const matchesStaircase = !staircase || String(row.apartment?.staircase || '').toLowerCase().includes(staircase);
+      const matchesDateFrom = !dateFrom || createdAt >= dateFrom;
+      const matchesDateTo = !dateTo || createdAt <= dateTo;
+      const matchesSearch =
+        !search ||
+        [
+          row.resident?.fullName,
+          row.resident?.phone,
+          row.resident?.email,
+          row.currentValueLabel,
+          row.requestedValueLabel,
+          row.message,
+          row.apartment?.apartmentNumber,
+          ...(row.apartments || []).map((item) => item.apartmentNumber),
+        ]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(search));
+      return matchesStatus && matchesType && matchesApartment && matchesStaircase && matchesDateFrom && matchesDateTo && matchesSearch;
+    });
+  }
+
+  private sortAdminUpdateRequestRows(rows: any[], sortBy?: string, sortDirection?: string) {
+    const key = String(sortBy || 'newest');
+    const direction = String(sortDirection || '').toLowerCase() === 'asc' ? 1 : -1;
+    return [...rows].sort((a, b) => {
+      if (key === 'oldest') return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
+      if (key === 'pending') {
+        const aRank = a.status === 'PENDING' ? 0 : 1;
+        const bRank = b.status === 'PENDING' ? 0 : 1;
+        if (aRank !== bRank) return aRank - bRank;
+        return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+      }
+      if (key === 'requestType') return String(a.requestType).localeCompare(String(b.requestType), 'ro') * (direction || 1);
+      if (key === 'residentName') {
+        return String(a.resident?.fullName || '').localeCompare(String(b.resident?.fullName || ''), 'ro') * (direction || 1);
+      }
+      return (new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime()) * direction;
+    });
+  }
+
+  private adminUpdateRequestStats(rows: any[]) {
+    const now = new Date();
+    const month = now.getMonth();
+    const year = now.getFullYear();
+    const sorted = [...rows].sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+    return {
+      pending: rows.filter((row) => row.status === 'PENDING').length,
+      approved: rows.filter((row) => row.status === 'APPROVED').length,
+      rejected: rows.filter((row) => row.status === 'REJECTED').length,
+      cancelled: rows.filter((row) => row.status === 'CANCELLED').length,
+      currentMonth: rows.filter((row) => {
+        const createdAt = new Date(row.createdAt || 0);
+        return createdAt.getMonth() === month && createdAt.getFullYear() === year;
+      }).length,
+      lastRequestAt: sorted[0]?.createdAt || null,
     };
   }
 
@@ -984,6 +1459,271 @@ export class ResidentsService {
         content,
       },
     });
+  }
+
+  private async readProfileUpdateRequests(organizationId: string): Promise<StoredResidentUpdateRequest[]> {
+    const note = await this.prisma.clientNote.findFirst({
+      where: { organizationId, title: RESIDENT_PROFILE_UPDATE_REQUESTS_TITLE },
+      orderBy: { updatedAt: 'desc' },
+      select: { content: true },
+    });
+    if (!note?.content) return [];
+    try {
+      const parsed = JSON.parse(note.content);
+      const items = Array.isArray(parsed?.items) ? parsed.items : [];
+      return items.filter((item) => {
+        const type = String(item?.requestType || '').toUpperCase();
+        const status = String(item?.status || '').toUpperCase();
+        return item?.id && item?.residentId && RESIDENT_UPDATE_REQUEST_TYPES.includes(type as any) && RESIDENT_UPDATE_REQUEST_STATUSES.includes(status as any);
+      }) as StoredResidentUpdateRequest[];
+    } catch {
+      return [];
+    }
+  }
+
+  private async writeProfileUpdateRequests(organizationId: string, userId: string, items: StoredResidentUpdateRequest[]) {
+    const existing = await this.prisma.clientNote.findFirst({
+      where: { organizationId, title: RESIDENT_PROFILE_UPDATE_REQUESTS_TITLE },
+      select: { id: true },
+    });
+    const content = JSON.stringify({ items });
+    if (existing) {
+      await this.prisma.clientNote.update({
+        where: { id: existing.id },
+        data: { content },
+      });
+      return;
+    }
+    await this.prisma.clientNote.create({
+      data: {
+        organizationId,
+        createdByUserId: userId,
+        title: RESIDENT_PROFILE_UPDATE_REQUESTS_TITLE,
+        content,
+      },
+    });
+  }
+
+  private async requireAdminUpdateRequest(organizationId: string, id: string) {
+    const request = (await this.readProfileUpdateRequests(organizationId)).find((item) => item.id === id && item.associationId === organizationId);
+    if (!request) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    return request;
+  }
+
+  private async adminUpdateRequestDetail(organizationId: string, request: StoredResidentUpdateRequest) {
+    const [organization, resident, metadata] = await Promise.all([
+      this.prisma.organization.findUnique({
+        where: { id: organizationId },
+        select: { id: true, name: true, legalName: true, fiscalCode: true },
+      }),
+      this.prisma.residentProfile.findFirst({
+        where: { id: request.residentId, organizationId },
+        select: this.residentSelect(),
+      }),
+      this.readResidentMetadata(organizationId),
+    ]);
+    if (!organization) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    if (!resident) throw new NotFoundException('Locatarul nu a fost găsit.');
+    const residentMetadata = metadata[resident.id] || {};
+    const apartments = (resident.apartmentResidents || []).map((item) => this.toAdminApartmentLink(item, residentMetadata));
+    const selectedApartment = request.apartmentId ? apartments.find((item) => item.apartmentId === request.apartmentId) : null;
+    const status = this.toAdminResidentStatus(resident, residentMetadata);
+    return {
+      request: {
+        ...request,
+        requestTypeLabel: this.requestTypeLabel(request.requestType),
+        internalNotes: request.internalNotes || null,
+      },
+      resident: {
+        id: resident.id,
+        fullName: this.fullName(resident),
+        phone: resident.phone || '',
+        email: resident.email || '',
+        preferredContactMethod: residentMetadata.preferredContactMethod || 'PHONE',
+        status,
+      },
+      association: {
+        id: organization.id,
+        shortName: organization.name,
+        legalName: organization.legalName || organization.name,
+        associationCode: organization.fiscalCode || '',
+      },
+      apartment: selectedApartment
+        ? {
+            id: selectedApartment.apartmentId,
+            apartmentNumber: selectedApartment.apartmentNumber,
+            staircase: selectedApartment.staircase,
+            role: selectedApartment.role,
+            isPrimaryContact: selectedApartment.isPrimaryContact,
+          }
+        : null,
+      apartments,
+      comparison: this.updateRequestComparison(request),
+      availableActions: {
+        canApprove: request.status === 'PENDING',
+        canReject: request.status === 'PENDING',
+        canCancel: false,
+      },
+    };
+  }
+
+  private async applyResidentUpdateRequest(
+    user: MvpUser,
+    organizationId: string,
+    request: StoredResidentUpdateRequest,
+    resident: { id: string; userId?: string | null; firstName?: string | null; lastName?: string | null; phone?: string | null; email?: string | null },
+    payload: Record<string, unknown>,
+  ) {
+    const oldSnapshot = {
+      fullName: this.fullName(resident),
+      phone: resident.phone || null,
+      email: resident.email || null,
+    };
+    if (request.requestType === 'FULL_NAME_CHANGE') {
+      const requestedFullName = this.requiredString(request.requestedFullName, 'Numele solicitat este obligatoriu.');
+      const { firstName, lastName } = this.splitFullName(requestedFullName);
+      await this.prisma.residentProfile.update({
+        where: { id: resident.id },
+        data: { firstName, lastName },
+      });
+      if (resident.userId) {
+        await this.prisma.user.update({
+          where: { id: resident.userId },
+          data: { firstName, lastName, fullName: requestedFullName },
+        });
+      }
+      return {
+        applied: true,
+        oldSnapshot,
+        newSnapshot: { ...oldSnapshot, fullName: requestedFullName },
+        note: null,
+      };
+    }
+    if (request.requestType === 'PHONE_CHANGE') {
+      const requestedPhone = this.requiredString(request.requestedPhone, 'Telefonul solicitat este obligatoriu.');
+      await this.prisma.residentProfile.update({
+        where: { id: resident.id },
+        data: { phone: requestedPhone.trim() },
+      });
+      return {
+        applied: true,
+        oldSnapshot,
+        newSnapshot: { ...oldSnapshot, phone: requestedPhone.trim() },
+        note: null,
+      };
+    }
+    if (request.requestType === 'EMAIL_CHANGE') {
+      const requestedEmail = this.requiredString(request.requestedEmail, 'Emailul solicitat este obligatoriu.').toLowerCase();
+      if (!this.isValidEmail(requestedEmail)) throw new BadRequestException('Emailul nu este valid.');
+      const duplicate = await this.prisma.residentProfile.findFirst({
+        where: { organizationId, email: requestedEmail, id: { not: resident.id } },
+        select: { id: true },
+      });
+      if (duplicate) throw new ConflictException('Există deja o persoană cu acest email.');
+      await this.prisma.residentProfile.update({
+        where: { id: resident.id },
+        data: { email: requestedEmail },
+      });
+      return {
+        applied: true,
+        oldSnapshot,
+        newSnapshot: { ...oldSnapshot, email: requestedEmail },
+        note: 'Emailul de autentificare rămâne neschimbat până la un flow separat de validare.',
+      };
+    }
+    if (request.requestType === 'CONTACT_METHOD_CHANGE') {
+      const requestedPreferredContactMethod = this.parsePreferredContactMethod(request.requestedPreferredContactMethod);
+      await this.updateResidentMetadata(organizationId, user.id, {
+        [resident.id]: { preferredContactMethod: requestedPreferredContactMethod },
+      });
+      return {
+        applied: true,
+        oldSnapshot,
+        newSnapshot: { ...oldSnapshot, preferredContactMethod: requestedPreferredContactMethod },
+        note: null,
+      };
+    }
+    if (request.requestType === 'APARTMENT_RELATION_CHANGE') {
+      const patch = payload.apartmentRelationPatch && typeof payload.apartmentRelationPatch === 'object'
+        ? (payload.apartmentRelationPatch as Record<string, unknown>)
+        : null;
+      if (!patch) {
+        return {
+          applied: false,
+          oldSnapshot,
+          newSnapshot: null,
+          note: 'Schimbarea relației cu apartamentul trebuie aplicată manual.',
+        };
+      }
+      const input = this.parseResidentApartmentRelationBody(patch, true);
+      const apartment = await this.prisma.apartment.findFirst({
+        where: { id: input.apartmentId, organizationId },
+        select: { id: true, number: true },
+      });
+      if (!apartment) throw new NotFoundException('Apartamentul nu a fost găsit.');
+      const existing = await this.prisma.apartmentResident.findUnique({
+        where: {
+          apartmentId_residentId_role: {
+            apartmentId: apartment.id,
+            residentId: resident.id,
+            role: input.role,
+          },
+        },
+        select: { apartmentId: true },
+      });
+      if (input.isPrimaryContact) {
+        await this.prisma.apartmentResident.updateMany({
+          where: { apartmentId: apartment.id, isPrimary: true },
+          data: { isPrimary: false },
+        });
+      }
+      if (existing) {
+        await this.prisma.apartmentResident.update({
+          where: {
+            apartmentId_residentId_role: {
+              apartmentId: apartment.id,
+              residentId: resident.id,
+              role: input.role,
+            },
+          },
+          data: { isPrimary: input.isPrimaryContact },
+        });
+      } else {
+        await this.prisma.apartmentResident.create({
+          data: {
+            apartmentId: apartment.id,
+            residentId: resident.id,
+            role: input.role,
+            isPrimary: input.isPrimaryContact,
+          },
+        });
+      }
+      if (input.isPrimaryContact) {
+        await this.prisma.apartment.update({
+          where: { id: apartment.id },
+          data: { ownerResidentId: resident.id },
+        });
+      }
+      await this.updateResidentRelationMetadata(organizationId, user.id, resident.id, apartment.id, input.role, input);
+      return {
+        applied: true,
+        oldSnapshot,
+        newSnapshot: {
+          ...oldSnapshot,
+          apartmentId: apartment.id,
+          apartmentNumber: apartment.number,
+          role: input.role,
+          isPrimaryContact: input.isPrimaryContact,
+        },
+        note: null,
+      };
+    }
+    return {
+      applied: false,
+      oldSnapshot,
+      newSnapshot: null,
+      note: 'Solicitarea a fost marcată ca rezolvată fără modificare automată.',
+    };
   }
 
   private async updateResidentRelationMetadata(
