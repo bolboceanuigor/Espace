@@ -1,10 +1,46 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { ApartmentStatus, InvoiceStatus, NotificationType, PaymentMethod, PaymentStatus, Prisma, Role } from '@prisma/client';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { ActivityMvpService } from '../activity-mvp/activity-mvp.service';
 import type { MvpUser } from '../security/mvp-auth.guard';
 
 type SupportedTariffId = 'DESERVIRE_BLOC_PER_M2' | 'FOND_REPARATIE_PER_M2' | 'FOND_DEZVOLTARE_FIXED';
+type TariffCalculationType = 'PER_M2' | 'FIXED_PER_APARTMENT' | 'MANUAL';
+type TariffStatus = 'DRAFT' | 'ACTIVE' | 'INACTIVE';
+type TariffPeriodicity = 'MONTHLY' | 'ONE_TIME';
+type TariffAppliesTo = 'ALL_APARTMENTS' | 'ONLY_OCCUPIED' | 'CUSTOM_SELECTION';
+type TariffRow = {
+  id: string;
+  organizationId: string;
+  name: string;
+  internalCode: string;
+  code: string;
+  description: string;
+  calculationType: TariffCalculationType;
+  type: TariffCalculationType;
+  pricePerM2: number | null;
+  fixedAmount: number | null;
+  defaultManualAmount: number | null;
+  amount: number;
+  currency: 'MDL';
+  periodicity: TariffPeriodicity;
+  status: TariffStatus;
+  isActive: boolean;
+  appliesTo: TariffAppliesTo;
+  includeInMonthlyEstimate: boolean;
+  visibleToResidents: boolean;
+  startsAt: string | null;
+  endsAt: string | null;
+  monthlyEstimate: number;
+  affectedApartments: number;
+  unit: string;
+  createdAt: string;
+  updatedAt: string;
+  createdById?: string | null;
+  updatedById?: string | null;
+  internalNotes?: string;
+};
 
 const SUPPORTED_TARIFFS: Record<
   SupportedTariffId,
@@ -34,6 +70,51 @@ const SUPPORTED_TARIFFS: Record<
     unit: 'MDL/apartament',
   },
 };
+
+const RECOMMENDED_TARIFFS = [
+  {
+    name: 'Deservire bloc',
+    internalCode: 'BUILDING_SERVICE',
+    description: 'Serviciu lunar calculat după suprafața apartamentului.',
+    calculationType: 'PER_M2' as TariffCalculationType,
+    pricePerM2: 2.85,
+    fixedAmount: null,
+    defaultManualAmount: null,
+    periodicity: 'MONTHLY' as TariffPeriodicity,
+    status: 'ACTIVE' as TariffStatus,
+    appliesTo: 'ALL_APARTMENTS' as TariffAppliesTo,
+    includeInMonthlyEstimate: true,
+    visibleToResidents: true,
+  },
+  {
+    name: 'Fond reparație',
+    internalCode: 'REPAIR_FUND',
+    description: 'Fond lunar pentru reparații, calculat per m².',
+    calculationType: 'PER_M2' as TariffCalculationType,
+    pricePerM2: 0.5,
+    fixedAmount: null,
+    defaultManualAmount: null,
+    periodicity: 'MONTHLY' as TariffPeriodicity,
+    status: 'ACTIVE' as TariffStatus,
+    appliesTo: 'ALL_APARTMENTS' as TariffAppliesTo,
+    includeInMonthlyEstimate: true,
+    visibleToResidents: true,
+  },
+  {
+    name: 'Fond investiții',
+    internalCode: 'INVESTMENT_FUND',
+    description: 'Sumă fixă lunară per apartament.',
+    calculationType: 'FIXED_PER_APARTMENT' as TariffCalculationType,
+    pricePerM2: null,
+    fixedAmount: 60,
+    defaultManualAmount: null,
+    periodicity: 'MONTHLY' as TariffPeriodicity,
+    status: 'ACTIVE' as TariffStatus,
+    appliesTo: 'ALL_APARTMENTS' as TariffAppliesTo,
+    includeInMonthlyEstimate: true,
+    visibleToResidents: true,
+  },
+];
 
 @Injectable()
 export class BillingReadService {
@@ -253,86 +334,467 @@ export class BillingReadService {
     });
   }
 
-  private toTariffRows(settings: {
+  private async tariffContext(organizationId: string) {
+    const [organization, apartments] = await Promise.all([
+      this.prisma.organization.findUnique({
+        where: { id: organizationId },
+        select: { id: true, name: true, legalName: true, fiscalCode: true, currency: true },
+      }),
+      this.prisma.apartment.findMany({
+        where: { organizationId },
+        orderBy: [{ staircase: { name: 'asc' } }, { floor: 'asc' }, { number: 'asc' }],
+        select: {
+          id: true,
+          number: true,
+          areaM2: true,
+          status: true,
+          floor: true,
+          staircase: { select: { id: true, name: true } },
+        },
+      }),
+    ]);
+    if (!organization) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    return { organization, apartments };
+  }
+
+  private apartmentEligibilityCount(apartments: Array<{ status?: ApartmentStatus | string | null }>, appliesTo: TariffAppliesTo) {
+    if (appliesTo !== 'ONLY_OCCUPIED') return apartments.length;
+    const occupiedStatuses = new Set(['ACTIVE', 'DEBTOR', 'PROBLEM', 'OCCUPIED']);
+    return apartments.filter((apartment) => occupiedStatuses.has(String(apartment.status || '').toUpperCase())).length;
+  }
+
+  private tariffAmount(row: Pick<TariffRow, 'calculationType' | 'pricePerM2' | 'fixedAmount' | 'defaultManualAmount'>) {
+    if (row.calculationType === 'PER_M2') return Number(row.pricePerM2 || 0);
+    if (row.calculationType === 'FIXED_PER_APARTMENT') return Number(row.fixedAmount || 0);
+    return Number(row.defaultManualAmount || 0);
+  }
+
+  private tariffUnit(row: Pick<TariffRow, 'calculationType'>) {
+    if (row.calculationType === 'PER_M2') return 'MDL/m²';
+    if (row.calculationType === 'FIXED_PER_APARTMENT') return 'MDL/apartament';
+    return 'MDL/manual';
+  }
+
+  private monthlyEstimateForTariff(
+    row: Pick<TariffRow, 'status' | 'periodicity' | 'includeInMonthlyEstimate' | 'calculationType' | 'pricePerM2' | 'fixedAmount' | 'defaultManualAmount' | 'appliesTo'>,
+    apartments: Array<{ areaM2?: number | null; status?: ApartmentStatus | string | null }>,
+  ) {
+    if (row.status !== 'ACTIVE' || row.periodicity !== 'MONTHLY' || !row.includeInMonthlyEstimate) return 0;
+    const totalAreaM2 = apartments.reduce((sum, apartment) => sum + Number(apartment.areaM2 || 0), 0);
+    const affectedApartments = this.apartmentEligibilityCount(apartments, row.appliesTo);
+    if (row.calculationType === 'PER_M2') return this.money(totalAreaM2 * Number(row.pricePerM2 || 0));
+    if (row.calculationType === 'FIXED_PER_APARTMENT') return this.money(affectedApartments * Number(row.fixedAmount || 0));
+    return this.money(affectedApartments * Number(row.defaultManualAmount || 0));
+  }
+
+  private normalizeTariffRow(raw: any, organizationId: string, apartments: Array<{ areaM2?: number | null; status?: ApartmentStatus | string | null }>): TariffRow {
+    const now = new Date().toISOString();
+    const calculationType = this.parseTariffCalculationType(raw.calculationType || raw.type || (raw.pricePerM2 ? 'PER_M2' : raw.fixedAmount ? 'FIXED_PER_APARTMENT' : 'MANUAL'));
+    const status = this.parseTariffStatus(raw.status || (raw.isActive ? 'ACTIVE' : 'DRAFT'));
+    const periodicity = this.parseTariffPeriodicity(raw.periodicity || 'MONTHLY');
+    const appliesTo = this.parseTariffAppliesTo(raw.appliesTo || 'ALL_APARTMENTS');
+    const pricePerM2 = calculationType === 'PER_M2' ? this.money(Number(raw.pricePerM2 ?? raw.amount ?? 0)) : null;
+    const fixedAmount = calculationType === 'FIXED_PER_APARTMENT' ? this.money(Number(raw.fixedAmount ?? raw.amount ?? 0)) : null;
+    const defaultManualAmount = calculationType === 'MANUAL' && raw.defaultManualAmount !== undefined && raw.defaultManualAmount !== null && raw.defaultManualAmount !== ''
+      ? this.money(Number(raw.defaultManualAmount))
+      : null;
+    const row: TariffRow = {
+      id: String(raw.id || randomUUID()),
+      organizationId,
+      name: String(raw.name || 'Tarif').trim(),
+      internalCode: String(raw.internalCode || raw.code || '').trim().toUpperCase(),
+      code: String(raw.internalCode || raw.code || raw.id || '').trim().toUpperCase(),
+      description: String(raw.description || '').trim(),
+      calculationType,
+      type: calculationType,
+      pricePerM2,
+      fixedAmount,
+      defaultManualAmount,
+      amount: 0,
+      currency: 'MDL',
+      periodicity,
+      status,
+      isActive: status === 'ACTIVE',
+      appliesTo,
+      includeInMonthlyEstimate: raw.includeInMonthlyEstimate !== false,
+      visibleToResidents: raw.visibleToResidents !== false,
+      startsAt: raw.startsAt || null,
+      endsAt: raw.endsAt || null,
+      monthlyEstimate: 0,
+      affectedApartments: this.apartmentEligibilityCount(apartments, appliesTo),
+      unit: 'MDL',
+      createdAt: raw.createdAt || now,
+      updatedAt: raw.updatedAt || now,
+      createdById: raw.createdById || null,
+      updatedById: raw.updatedById || null,
+      internalNotes: String(raw.internalNotes || ''),
+    };
+    row.amount = this.tariffAmount(row);
+    row.unit = this.tariffUnit(row);
+    row.monthlyEstimate = this.monthlyEstimateForTariff(row, apartments);
+    return row;
+  }
+
+  private legacyRowsFromSettings(settings: {
     organizationId: string;
     maintenanceFeePerM2: number;
     repairFundPerM2: number;
     developmentFundFixed: number;
     updatedAt: Date;
-  }) {
-    return (Object.entries(SUPPORTED_TARIFFS) as Array<[SupportedTariffId, (typeof SUPPORTED_TARIFFS)[SupportedTariffId]]>).map(
-      ([id, config]) => {
-        const amount = Number(settings[config.field] || 0);
-        return {
-          id,
-          code: id,
-          organizationId: settings.organizationId,
-          name: config.name,
-          type: config.calculationType,
-          calculationType: config.calculationType,
-          legacyType: config.calculationType === 'PER_M2' ? 'PER_M2' : 'FIXED',
-          amount,
-          currency: 'MDL',
-          unit: config.unit,
-          isActive: amount > 0,
-          updatedAt: settings.updatedAt,
-        };
+  }, apartments: Array<{ areaM2?: number | null; status?: ApartmentStatus | string | null }>) {
+    const rows = [
+      {
+        id: 'BUILDING_SERVICE',
+        name: 'Deservire bloc',
+        internalCode: 'BUILDING_SERVICE',
+        calculationType: 'PER_M2',
+        pricePerM2: Number(settings.maintenanceFeePerM2 || 0),
+        status: Number(settings.maintenanceFeePerM2 || 0) > 0 ? 'ACTIVE' : 'INACTIVE',
       },
-    );
+      {
+        id: 'REPAIR_FUND',
+        name: 'Fond reparație',
+        internalCode: 'REPAIR_FUND',
+        calculationType: 'PER_M2',
+        pricePerM2: Number(settings.repairFundPerM2 || 0),
+        status: Number(settings.repairFundPerM2 || 0) > 0 ? 'ACTIVE' : 'INACTIVE',
+      },
+      {
+        id: 'INVESTMENT_FUND',
+        name: 'Fond investiții',
+        internalCode: 'INVESTMENT_FUND',
+        calculationType: 'FIXED_PER_APARTMENT',
+        fixedAmount: Number(settings.developmentFundFixed || 0),
+        status: Number(settings.developmentFundFixed || 0) > 0 ? 'ACTIVE' : 'INACTIVE',
+      },
+    ];
+    return rows
+      .filter((row) => row.status === 'ACTIVE')
+      .map((row) =>
+        this.normalizeTariffRow(
+          {
+            ...row,
+            currency: 'MDL',
+            periodicity: 'MONTHLY',
+            appliesTo: 'ALL_APARTMENTS',
+            includeInMonthlyEstimate: true,
+            visibleToResidents: true,
+            createdAt: settings.updatedAt.toISOString(),
+            updatedAt: settings.updatedAt.toISOString(),
+          },
+          settings.organizationId,
+          apartments,
+        ),
+      );
+  }
+
+  private async readTariffRows(organizationId: string, apartments: Array<{ areaM2?: number | null; status?: ApartmentStatus | string | null }>): Promise<TariffRow[]> {
+    const note = await this.prisma.clientNote.findFirst({
+      where: { organizationId, title: 'Tariff settings metadata' },
+      orderBy: { updatedAt: 'desc' },
+      select: { content: true },
+    });
+    if (note?.content) {
+      try {
+        const parsed = JSON.parse(note.content);
+        const rows = Array.isArray(parsed?.items) ? parsed.items : Array.isArray(parsed) ? parsed : [];
+        return rows.map((row) => this.normalizeTariffRow(row, organizationId, apartments));
+      } catch {
+        return [];
+      }
+    }
+    const settings = await this.getOrCreateOrganizationSettings(organizationId);
+    return this.legacyRowsFromSettings(settings, apartments);
+  }
+
+  private async writeTariffRows(organizationId: string, actorUserId: string, rows: TariffRow[]) {
+    const payload = {
+      version: 1,
+      items: rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        internalCode: row.internalCode,
+        description: row.description,
+        calculationType: row.calculationType,
+        pricePerM2: row.pricePerM2,
+        fixedAmount: row.fixedAmount,
+        defaultManualAmount: row.defaultManualAmount,
+        currency: row.currency,
+        periodicity: row.periodicity,
+        status: row.status,
+        appliesTo: row.appliesTo,
+        includeInMonthlyEstimate: row.includeInMonthlyEstimate,
+        visibleToResidents: row.visibleToResidents,
+        startsAt: row.startsAt,
+        endsAt: row.endsAt,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+        createdById: row.createdById,
+        updatedById: row.updatedById,
+        internalNotes: row.internalNotes || '',
+      })),
+    };
+    const existing = await this.prisma.clientNote.findFirst({
+      where: { organizationId, title: 'Tariff settings metadata' },
+      select: { id: true },
+    });
+    const content = JSON.stringify(payload);
+    if (existing) {
+      await this.prisma.clientNote.update({
+        where: { id: existing.id },
+        data: { content },
+      });
+    } else {
+      await this.prisma.clientNote.create({
+        data: {
+          organizationId,
+          createdByUserId: actorUserId,
+          title: 'Tariff settings metadata',
+          content,
+        },
+      });
+    }
+    await this.syncLegacyTariffSettings(organizationId, rows);
+  }
+
+  private async syncLegacyTariffSettings(organizationId: string, rows: TariffRow[]) {
+    const activeByCode = new Map(rows.filter((row) => row.status === 'ACTIVE').map((row) => [row.internalCode, row]));
+    const maintenance = activeByCode.get('BUILDING_SERVICE') || activeByCode.get('DESERVIRE_BLOC_PER_M2');
+    const repair = activeByCode.get('REPAIR_FUND') || activeByCode.get('FOND_REPARATIE_PER_M2');
+    const investment = activeByCode.get('INVESTMENT_FUND') || activeByCode.get('FOND_DEZVOLTARE_FIXED');
+    await this.prisma.organizationSetting.upsert({
+      where: { organizationId },
+      update: {
+        maintenanceFeePerM2: maintenance?.calculationType === 'PER_M2' ? Number(maintenance.pricePerM2 || 0) : 0,
+        repairFundPerM2: repair?.calculationType === 'PER_M2' ? Number(repair.pricePerM2 || 0) : 0,
+        developmentFundFixed: investment?.calculationType === 'FIXED_PER_APARTMENT' ? Number(investment.fixedAmount || 0) : 0,
+      },
+      create: {
+        organizationId,
+        maintenanceFeePerM2: maintenance?.calculationType === 'PER_M2' ? Number(maintenance.pricePerM2 || 0) : 0,
+        repairFundPerM2: repair?.calculationType === 'PER_M2' ? Number(repair.pricePerM2 || 0) : 0,
+        developmentFundFixed: investment?.calculationType === 'FIXED_PER_APARTMENT' ? Number(investment.fixedAmount || 0) : 0,
+        appName: 'Espace',
+        defaultLocale: 'ro',
+        weekStart: 'MONDAY',
+      },
+    });
+  }
+
+  private tariffStats(rows: TariffRow[], apartments: Array<{ areaM2?: number | null; status?: ApartmentStatus | string | null }>) {
+    return {
+      activeTariffs: rows.filter((row) => row.status === 'ACTIVE').length,
+      inactiveTariffs: rows.filter((row) => row.status === 'INACTIVE').length,
+      perM2Services: rows.filter((row) => row.calculationType === 'PER_M2').length,
+      fixedServices: rows.filter((row) => row.calculationType === 'FIXED_PER_APARTMENT').length,
+      estimatedMonthlyTotal: this.money(rows.reduce((sum, row) => sum + row.monthlyEstimate, 0)),
+      apartmentsWithoutArea: apartments.filter((apartment) => !apartment.areaM2 || Number(apartment.areaM2) <= 0).length,
+      totalApartments: apartments.length,
+      totalAreaM2: this.money(apartments.reduce((sum, apartment) => sum + Number(apartment.areaM2 || 0), 0)),
+    };
+  }
+
+  private async tariffListPayload(user: MvpUser) {
+    const organizationId = this.resolveOrganizationId(user);
+    this.assertOrganizationAccess(user, organizationId);
+    const { organization, apartments } = await this.tariffContext(organizationId);
+    const items = await this.readTariffRows(organizationId, apartments);
+    return {
+      organization: {
+        id: organization.id,
+        shortName: organization.name,
+        legalName: organization.legalName || organization.name,
+        associationCode: organization.fiscalCode || '',
+        currency: 'MDL',
+      },
+      items,
+      stats: this.tariffStats(items, apartments),
+    };
   }
 
   async listTariffs(user: MvpUser) {
-    const organizationId = this.resolveOrganizationId(user);
-    this.assertOrganizationAccess(user, organizationId);
-    const settings = await this.getOrCreateOrganizationSettings(organizationId);
-    return this.toTariffRows(settings);
+    return this.tariffListPayload(user);
+  }
+
+  async getTariffStats(user: MvpUser) {
+    const payload = await this.tariffListPayload(user);
+    return payload.stats;
+  }
+
+  async getTariff(user: MvpUser, id: string) {
+    const payload = await this.tariffListPayload(user);
+    const item = payload.items.find((row) => row.id === id);
+    if (!item) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    return {
+      ...item,
+      organization: payload.organization,
+      activity: [
+        { label: 'Creat', date: item.createdAt },
+        { label: 'Actualizat', date: item.updatedAt },
+      ],
+    };
   }
 
   async saveTariff(user: MvpUser, body: unknown, tariffId?: string) {
     const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
     const organizationId = this.resolveOrganizationId(user, payload);
     this.assertOrganizationAccess(user, organizationId);
-    await this.assertOrganizationExists(organizationId);
+    const { apartments } = await this.tariffContext(organizationId);
+    const rows = await this.readTariffRows(organizationId, apartments);
+    const input = this.parseTariffPayload(payload, Boolean(tariffId));
+    const existingIndex = tariffId ? rows.findIndex((row) => row.id === tariffId) : -1;
+    if (tariffId && existingIndex === -1) throw new NotFoundException('Înregistrarea nu a fost găsită.');
 
-    const id = this.resolveTariffId(payload, tariffId);
-    const config = SUPPORTED_TARIFFS[id];
-    const amount = this.requiredNumber(payload.amount, 'Suma trebuie să fie un număr pozitiv.');
-    const isActive = payload.isActive === undefined || payload.isActive === null ? true : Boolean(payload.isActive);
-
-    if (amount < 0) {
-      throw new BadRequestException('Suma trebuie să fie un număr pozitiv.');
-    }
-
-    const settings = await this.prisma.organizationSetting.upsert({
-      where: { organizationId },
-      update: {
-        [config.field]: isActive ? this.money(amount) : 0,
+    this.assertNoActiveTariffCodeDuplicate(rows, input.internalCode, input.status, tariffId);
+    const now = new Date().toISOString();
+    const next = this.normalizeTariffRow(
+      {
+        ...(existingIndex >= 0 ? rows[existingIndex] : {}),
+        ...input,
+        id: tariffId || randomUUID(),
+        createdAt: existingIndex >= 0 ? rows[existingIndex].createdAt : now,
+        updatedAt: now,
+        createdById: existingIndex >= 0 ? rows[existingIndex].createdById : user.id,
+        updatedById: user.id,
       },
-      create: {
-        organizationId,
-        [config.field]: isActive ? this.money(amount) : 0,
-        appName: 'Espace',
-        defaultLocale: 'ro',
-        weekStart: 'MONDAY',
-      },
-    });
-
-    return this.toTariffRows(settings).find((tariff) => tariff.id === id);
+      organizationId,
+      apartments,
+    );
+    const nextRows = existingIndex >= 0 ? rows.map((row, index) => (index === existingIndex ? next : row)) : [...rows, next];
+    await this.writeTariffRows(organizationId, user.id, nextRows);
+    return next;
   }
 
   async deactivateTariff(user: MvpUser, tariffId: string) {
-    return this.saveTariff(user, { amount: 0, isActive: false }, tariffId);
+    return this.updateTariffStatus(user, tariffId, { status: 'INACTIVE' });
   }
 
   async updateTariffStatus(user: MvpUser, tariffId: string, body: unknown) {
     const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
-    const isActive = Boolean(payload.isActive ?? payload.active ?? payload.status === 'ACTIVE');
     const organizationId = this.resolveOrganizationId(user, payload);
     this.assertOrganizationAccess(user, organizationId);
-    const settings = await this.getOrCreateOrganizationSettings(organizationId);
-    const existing = this.toTariffRows(settings).find((tariff) => tariff.id === this.resolveTariffId({}, tariffId));
-    const requestedAmount = payload.amount === undefined || payload.amount === null || payload.amount === '' ? existing?.amount : payload.amount;
-    return this.saveTariff(user, { ...payload, amount: isActive ? Number(requestedAmount || 0) : 0, isActive }, tariffId);
+    const { apartments } = await this.tariffContext(organizationId);
+    const rows = await this.readTariffRows(organizationId, apartments);
+    const index = rows.findIndex((row) => row.id === tariffId);
+    if (index === -1) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    const status = this.parseTariffStatus(payload.status || (payload.isActive ? 'ACTIVE' : 'INACTIVE'));
+    this.assertNoActiveTariffCodeDuplicate(rows, rows[index].internalCode, status, tariffId);
+    const updated = this.normalizeTariffRow({ ...rows[index], status, updatedAt: new Date().toISOString(), updatedById: user.id }, organizationId, apartments);
+    const nextRows = rows.map((row, rowIndex) => (rowIndex === index ? updated : row));
+    await this.writeTariffRows(organizationId, user.id, nextRows);
+    return updated;
+  }
+
+  async createDefaultTariffs(user: MvpUser) {
+    const organizationId = this.resolveOrganizationId(user);
+    this.assertOrganizationAccess(user, organizationId);
+    const { apartments } = await this.tariffContext(organizationId);
+    const rows = await this.readTariffRows(organizationId, apartments);
+    const existingCodes = new Set(rows.filter((row) => row.status !== 'INACTIVE').map((row) => row.internalCode));
+    const now = new Date().toISOString();
+    const additions = RECOMMENDED_TARIFFS
+      .filter((row) => !existingCodes.has(row.internalCode))
+      .map((row) =>
+        this.normalizeTariffRow(
+          {
+            ...row,
+            id: randomUUID(),
+            createdAt: now,
+            updatedAt: now,
+            createdById: user.id,
+            updatedById: user.id,
+          },
+          organizationId,
+          apartments,
+        ),
+      );
+    const nextRows = [...rows, ...additions];
+    await this.writeTariffRows(organizationId, user.id, nextRows);
+    return {
+      createdCount: additions.length,
+      items: nextRows,
+      stats: this.tariffStats(nextRows, apartments),
+    };
+  }
+
+  async duplicateTariff(user: MvpUser, tariffId: string) {
+    const organizationId = this.resolveOrganizationId(user);
+    this.assertOrganizationAccess(user, organizationId);
+    const { apartments } = await this.tariffContext(organizationId);
+    const rows = await this.readTariffRows(organizationId, apartments);
+    const source = rows.find((row) => row.id === tariffId);
+    if (!source) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    const now = new Date().toISOString();
+    const copy = this.normalizeTariffRow(
+      {
+        ...source,
+        id: randomUUID(),
+        name: `${source.name} (copie)`,
+        internalCode: source.internalCode ? `${source.internalCode}_COPY` : '',
+        status: 'DRAFT',
+        createdAt: now,
+        updatedAt: now,
+        createdById: user.id,
+        updatedById: user.id,
+      },
+      organizationId,
+      apartments,
+    );
+    const nextRows = [...rows, copy];
+    await this.writeTariffRows(organizationId, user.id, nextRows);
+    return copy;
+  }
+
+  async previewTariffs(user: MvpUser) {
+    const organizationId = this.resolveOrganizationId(user);
+    this.assertOrganizationAccess(user, organizationId);
+    const { apartments } = await this.tariffContext(organizationId);
+    const rows = (await this.readTariffRows(organizationId, apartments)).filter(
+      (row) => row.status === 'ACTIVE' && row.periodicity === 'MONTHLY' && row.includeInMonthlyEstimate,
+    );
+    const items = apartments.slice(0, 20).map((apartment) => {
+      const areaM2 = Number(apartment.areaM2 || 0);
+      const warnings: string[] = [];
+      const lines = rows.map((tariff) => {
+        let amount = 0;
+        if (tariff.calculationType === 'PER_M2') {
+          if (!areaM2) warnings.push(`Apt. ${apartment.number}: lipsește suprafața pentru ${tariff.name}.`);
+          amount = this.money(areaM2 * Number(tariff.pricePerM2 || 0));
+        } else if (tariff.calculationType === 'FIXED_PER_APARTMENT') {
+          amount = this.money(Number(tariff.fixedAmount || 0));
+        } else {
+          amount = this.money(Number(tariff.defaultManualAmount || 0));
+        }
+        return {
+          tariffId: tariff.id,
+          name: tariff.name,
+          amount,
+        };
+      });
+      return {
+        apartmentId: apartment.id,
+        apartmentNumber: apartment.number,
+        staircase: apartment.staircase?.name || '',
+        areaM2: apartment.areaM2 === null || apartment.areaM2 === undefined ? null : Number(apartment.areaM2),
+        lines,
+        total: this.money(lines.reduce((sum, line) => sum + line.amount, 0)),
+        warnings,
+      };
+    });
+    const summary = this.tariffStats(rows, apartments);
+    const warnings = summary.apartmentsWithoutArea && rows.some((row) => row.calculationType === 'PER_M2')
+      ? ['Există apartamente fără suprafață. Tarifele per m² nu pot fi calculate complet pentru acestea.']
+      : [];
+    return {
+      summary: {
+        totalApartments: summary.totalApartments,
+        totalAreaM2: summary.totalAreaM2,
+        estimatedMonthlyTotal: summary.estimatedMonthlyTotal,
+        apartmentsWithoutArea: summary.apartmentsWithoutArea,
+      },
+      items,
+      warnings,
+    };
   }
 
   async generateMonthlyInvoices(user: MvpUser, body: unknown) {
@@ -344,12 +806,6 @@ export class BillingReadService {
       select: { id: true },
     });
     if (!organization) throw new NotFoundException('Înregistrarea nu a fost găsită.');
-
-    const settings = await this.getOrCreateOrganizationSettings(organizationId);
-    const activeTariffs = this.toTariffRows(settings).filter((tariff) => tariff.isActive);
-    if (!activeTariffs.length) {
-      throw new BadRequestException('Pentru a genera facturi, configurează tarifele.');
-    }
 
     const apartments = await this.prisma.apartment.findMany({
       where: {
@@ -366,6 +822,13 @@ export class BillingReadService {
 
     if (!apartments.length) {
       throw new BadRequestException('Pentru a genera facturi, adaugă apartamente.');
+    }
+
+    const activeTariffs = (await this.readTariffRows(organizationId, apartments)).filter(
+      (tariff) => tariff.status === 'ACTIVE' && tariff.periodicity === 'MONTHLY',
+    );
+    if (!activeTariffs.length) {
+      throw new BadRequestException('Pentru a genera facturi, configurează tarifele.');
     }
 
     let createdInvoicesCount = 0;
@@ -929,6 +1392,108 @@ export class BillingReadService {
     });
     if (!organization) {
       throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    }
+  }
+
+  private parseTariffCalculationType(value: unknown): TariffCalculationType {
+    const normalized = typeof value === 'string' ? value.trim().toUpperCase() : '';
+    if (normalized === 'PER_M2') return 'PER_M2';
+    if (normalized === 'FIXED' || normalized === 'FIXED_PER_APARTMENT') return 'FIXED_PER_APARTMENT';
+    if (normalized === 'MANUAL' || !normalized) return 'MANUAL';
+    throw new BadRequestException('Tipul calculului este obligatoriu.');
+  }
+
+  private parseTariffStatus(value: unknown): TariffStatus {
+    const normalized = typeof value === 'string' && value.trim() ? value.trim().toUpperCase() : 'DRAFT';
+    if (['DRAFT', 'ACTIVE', 'INACTIVE'].includes(normalized)) return normalized as TariffStatus;
+    throw new BadRequestException('Statusul tarifului nu este valid.');
+  }
+
+  private parseTariffPeriodicity(value: unknown): TariffPeriodicity {
+    const normalized = typeof value === 'string' && value.trim() ? value.trim().toUpperCase() : 'MONTHLY';
+    if (normalized === 'MONTHLY' || normalized === 'ONE_TIME') return normalized;
+    throw new BadRequestException('Periodicitatea nu este validă.');
+  }
+
+  private parseTariffAppliesTo(value: unknown): TariffAppliesTo {
+    const normalized = typeof value === 'string' && value.trim() ? value.trim().toUpperCase() : 'ALL_APARTMENTS';
+    if (['ALL_APARTMENTS', 'ONLY_OCCUPIED', 'CUSTOM_SELECTION'].includes(normalized)) return normalized as TariffAppliesTo;
+    throw new BadRequestException('Aplicabilitatea nu este validă.');
+  }
+
+  private optionalDateString(value: unknown, message: string) {
+    if (value === undefined || value === null || value === '') return null;
+    if (typeof value !== 'string') throw new BadRequestException(message);
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) throw new BadRequestException(message);
+    return value.slice(0, 10);
+  }
+
+  private parseTariffPayload(payload: Record<string, unknown>, _isUpdate = false) {
+    const name = this.requiredString(payload.name, 'Numele tarifului este obligatoriu.');
+    const calculationType = this.parseTariffCalculationType(payload.calculationType || payload.type);
+    const internalCode =
+      typeof payload.internalCode === 'string' && payload.internalCode.trim()
+        ? payload.internalCode.trim().toUpperCase()
+        : typeof payload.code === 'string' && payload.code.trim()
+          ? payload.code.trim().toUpperCase()
+          : '';
+    const description = typeof payload.description === 'string' ? payload.description.trim() : '';
+    const status =
+      payload.status === undefined && payload.isActive !== undefined
+        ? payload.isActive
+          ? 'ACTIVE'
+          : 'INACTIVE'
+        : this.parseTariffStatus(payload.status || 'DRAFT');
+    const periodicity = this.parseTariffPeriodicity(payload.periodicity || 'MONTHLY');
+    const appliesTo = this.parseTariffAppliesTo(payload.appliesTo || 'ALL_APARTMENTS');
+    const startsAt = this.optionalDateString(payload.startsAt, 'Data activării nu este validă.');
+    const endsAt = this.optionalDateString(payload.endsAt, 'Data finală nu este validă.');
+    if (startsAt && endsAt && new Date(startsAt) > new Date(endsAt)) {
+      throw new BadRequestException('Data activării nu poate fi după data finală.');
+    }
+
+    const pricePerM2 =
+      calculationType === 'PER_M2'
+        ? this.requiredNumber(payload.pricePerM2 ?? payload.amount, 'Valoarea per m² trebuie să fie un număr pozitiv.')
+        : null;
+    const fixedAmount =
+      calculationType === 'FIXED_PER_APARTMENT'
+        ? this.requiredNumber(payload.fixedAmount ?? payload.amount, 'Suma fixă trebuie să fie un număr pozitiv.')
+        : null;
+    const defaultManualAmount =
+      calculationType === 'MANUAL' && payload.defaultManualAmount !== undefined && payload.defaultManualAmount !== null && payload.defaultManualAmount !== ''
+        ? this.requiredNumber(payload.defaultManualAmount, 'Suma manuală trebuie să fie un număr pozitiv.')
+        : null;
+    if (pricePerM2 !== null && pricePerM2 <= 0) throw new BadRequestException('Valoarea per m² trebuie să fie pozitivă.');
+    if (fixedAmount !== null && fixedAmount <= 0) throw new BadRequestException('Suma fixă trebuie să fie pozitivă.');
+    if (defaultManualAmount !== null && defaultManualAmount < 0) throw new BadRequestException('Suma manuală trebuie să fie pozitivă.');
+
+    return {
+      name,
+      internalCode,
+      description,
+      calculationType,
+      pricePerM2,
+      fixedAmount,
+      defaultManualAmount,
+      currency: 'MDL',
+      periodicity,
+      status,
+      appliesTo,
+      includeInMonthlyEstimate: payload.includeInMonthlyEstimate !== false,
+      visibleToResidents: payload.visibleToResidents !== false,
+      startsAt,
+      endsAt,
+      internalNotes: typeof payload.internalNotes === 'string' ? payload.internalNotes.trim() : '',
+    };
+  }
+
+  private assertNoActiveTariffCodeDuplicate(rows: TariffRow[], internalCode: string, status: TariffStatus, currentId?: string) {
+    if (!internalCode || status !== 'ACTIVE') return;
+    const duplicate = rows.find((row) => row.id !== currentId && row.status === 'ACTIVE' && row.internalCode === internalCode);
+    if (duplicate) {
+      throw new ConflictException('Există deja un tarif activ cu acest cod intern.');
     }
   }
 

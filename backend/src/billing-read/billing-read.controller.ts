@@ -21,6 +21,26 @@ export class BillingReadController {
     return this.billingReadService.listTariffs(user);
   }
 
+  @Get(['admin/tariffs/stats', 'api/admin/tariffs/stats'])
+  getTariffStats(@CurrentUser() user: MvpUser) {
+    return this.billingReadService.getTariffStats(user);
+  }
+
+  @Get(['admin/tariffs/preview', 'api/admin/tariffs/preview'])
+  previewTariffs(@CurrentUser() user: MvpUser) {
+    return this.billingReadService.previewTariffs(user);
+  }
+
+  @Post(['admin/tariffs/defaults', 'api/admin/tariffs/defaults'])
+  createDefaultTariffs(@CurrentUser() user: MvpUser) {
+    return this.billingReadService.createDefaultTariffs(user);
+  }
+
+  @Get(['admin/tariffs/:id', 'api/admin/tariffs/:id'])
+  getTariff(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.billingReadService.getTariff(user, id);
+  }
+
   @Post(['admin/tariffs', 'api/admin/tariffs'])
   createTariff(@CurrentUser() user: MvpUser, @Body() body: unknown) {
     return this.billingReadService.saveTariff(user, body);
@@ -34,6 +54,11 @@ export class BillingReadController {
   @Patch(['admin/tariffs/:id/status', 'api/admin/tariffs/:id/status'])
   updateTariffStatus(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
     return this.billingReadService.updateTariffStatus(user, id, body);
+  }
+
+  @Post(['admin/tariffs/:id/duplicate', 'api/admin/tariffs/:id/duplicate'])
+  duplicateTariff(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.billingReadService.duplicateTariff(user, id);
   }
 
   @Delete(['admin/tariffs/:id', 'api/admin/tariffs/:id'])

@@ -1298,26 +1298,59 @@ export const invoicesApi = {
 };
 
 export const tariffsApi = {
-  list: () => apiRequest<any[]>('/api/admin/tariffs'),
+  list: () => apiRequest<any>('/api/admin/tariffs'),
+  stats: () => apiRequest<any>('/api/admin/tariffs/stats'),
+  get: (id: string) => apiRequest<any>(`/api/admin/tariffs/${id}`),
   create: (data: {
     name: string;
-    type: 'PER_M2' | 'FIXED_PER_APARTMENT' | 'FIXED';
-    amount: number;
+    internalCode?: string;
+    description?: string;
+    calculationType?: 'PER_M2' | 'FIXED_PER_APARTMENT' | 'MANUAL';
+    type?: 'PER_M2' | 'FIXED_PER_APARTMENT' | 'FIXED' | 'MANUAL';
+    pricePerM2?: number | null;
+    fixedAmount?: number | null;
+    defaultManualAmount?: number | null;
+    amount?: number;
     currency?: 'MDL';
-    isActive?: boolean;
+    periodicity?: 'MONTHLY' | 'ONE_TIME';
+    status?: 'DRAFT' | 'ACTIVE' | 'INACTIVE';
+    appliesTo?: 'ALL_APARTMENTS' | 'ONLY_OCCUPIED' | 'CUSTOM_SELECTION';
+    includeInMonthlyEstimate?: boolean;
+    visibleToResidents?: boolean;
+    startsAt?: string | null;
+    endsAt?: string | null;
+    internalNotes?: string;
     code?: string;
   }) => apiRequest<any>('/api/admin/tariffs', { method: 'POST', body: data }),
   update: (
     id: string,
     data: {
       name?: string;
-      type?: 'PER_M2' | 'FIXED_PER_APARTMENT' | 'FIXED';
-      amount: number;
+      internalCode?: string;
+      description?: string;
+      calculationType?: 'PER_M2' | 'FIXED_PER_APARTMENT' | 'MANUAL';
+      type?: 'PER_M2' | 'FIXED_PER_APARTMENT' | 'FIXED' | 'MANUAL';
+      pricePerM2?: number | null;
+      fixedAmount?: number | null;
+      defaultManualAmount?: number | null;
+      amount?: number;
       currency?: 'MDL';
-      isActive?: boolean;
+      periodicity?: 'MONTHLY' | 'ONE_TIME';
+      status?: 'DRAFT' | 'ACTIVE' | 'INACTIVE';
+      appliesTo?: 'ALL_APARTMENTS' | 'ONLY_OCCUPIED' | 'CUSTOM_SELECTION';
+      includeInMonthlyEstimate?: boolean;
+      visibleToResidents?: boolean;
+      startsAt?: string | null;
+      endsAt?: string | null;
+      internalNotes?: string;
     },
   ) => apiRequest<any>(`/api/admin/tariffs/${id}`, { method: 'PATCH', body: data }),
-  deactivate: (id: string) => apiRequest<any>(`/api/admin/tariffs/${id}`, { method: 'DELETE' }),
+  updateStatus: (id: string, status: 'DRAFT' | 'ACTIVE' | 'INACTIVE') =>
+    apiRequest<any>(`/api/admin/tariffs/${id}/status`, { method: 'PATCH', body: { status } }),
+  deactivate: (id: string) => apiRequest<any>(`/api/admin/tariffs/${id}/status`, { method: 'PATCH', body: { status: 'INACTIVE' } }),
+  createDefaults: () => apiRequest<any>('/api/admin/tariffs/defaults', { method: 'POST' }),
+  duplicate: (id: string) => apiRequest<any>(`/api/admin/tariffs/${id}/duplicate`, { method: 'POST' }),
+  preview: () => apiRequest<any>('/api/admin/tariffs/preview'),
 };
 
 export const financeApi = {
