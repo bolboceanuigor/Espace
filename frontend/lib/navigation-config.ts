@@ -54,6 +54,7 @@ export const NAVIGATION_CONFIG: NavigationItem[] = [
   { label: 'Setări', href: '/admin/settings/organization', icon: 'settings', allowedRoles: ['ADMIN'], mobileVisible: false, moreMenu: true },
 
   { label: 'Acasă', href: '/resident', icon: 'home', allowedRoles: ['RESIDENT'], mobileVisible: true, moreMenu: false },
+  { label: 'Apartamentele mele', href: '/resident/apartments', icon: 'building2', allowedRoles: ['RESIDENT'], mobileVisible: false, moreMenu: true },
   { label: 'Facturi', href: '/resident/invoices', icon: 'fileText', allowedRoles: ['RESIDENT'], mobileVisible: true, moreMenu: false },
   { label: 'Contoare', href: '/resident/meters', icon: 'chartColumnBig', allowedRoles: ['RESIDENT'], mobileVisible: true, moreMenu: false },
   { label: 'Cereri', href: '/resident/issues', icon: 'circleAlert', allowedRoles: ['RESIDENT'], mobileVisible: true, moreMenu: false },

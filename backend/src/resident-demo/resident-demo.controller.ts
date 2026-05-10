@@ -26,6 +26,11 @@ export class ResidentDemoController {
     return this.residentDemoService.getDashboard(user, query);
   }
 
+  @Get(['resident/apartments', 'api/resident/apartments'])
+  listApartments(@CurrentUser() user: MvpUser) {
+    return this.residentDemoService.listApartments(user);
+  }
+
   @Get(['resident/invoices', 'api/resident/invoices'])
   listInvoices(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
     return this.residentDemoService.listInternalInvoices(user, query);
@@ -64,6 +69,26 @@ export class ResidentDemoController {
   @Get(['resident/payments/:id', 'api/resident/payments/:id'])
   getPayment(@CurrentUser() user: MvpUser, @Param('id') id: string) {
     return this.residentDemoService.getInternalPayment(user, id);
+  }
+
+  @Get(['resident/apartments/:id/financial-summary', 'api/resident/apartments/:id/financial-summary'])
+  getApartmentFinancialSummary(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.residentDemoService.getApartmentFinancialSummary(user, id);
+  }
+
+  @Get(['resident/apartments/:id/invoices', 'api/resident/apartments/:id/invoices'])
+  getApartmentInvoices(@CurrentUser() user: MvpUser, @Param('id') id: string, @Query() query: Record<string, unknown>) {
+    return this.residentDemoService.listApartmentInvoices(user, id, query);
+  }
+
+  @Get(['resident/apartments/:id/payments', 'api/resident/apartments/:id/payments'])
+  getApartmentPayments(@CurrentUser() user: MvpUser, @Param('id') id: string, @Query() query: Record<string, unknown>) {
+    return this.residentDemoService.listApartmentPayments(user, id, query);
+  }
+
+  @Get(['resident/apartments/:id', 'api/resident/apartments/:id'])
+  getApartment(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.residentDemoService.getApartmentProfile(user, id);
   }
 
   @Get(['resident/meters', 'api/resident/meters'])

@@ -94,6 +94,8 @@ export class ResidentDemoService {
       areaM2: true,
       rooms: true,
       status: true,
+      createdAt: true,
+      updatedAt: true,
       building: { select: { id: true, name: true, address: true } },
       staircase: { select: { id: true, name: true } },
     };
@@ -714,8 +716,129 @@ export class ResidentDemoService {
       floor: apartment.floor === null || apartment.floor === undefined ? null : String(apartment.floor),
       areaM2: apartment.areaM2 ?? null,
       rooms: apartment.rooms ?? null,
+      status: this.residentApartmentStatus(apartment.status),
+      updatedAt: apartment.updatedAt ?? null,
       role: apartment.relationRole ?? 'RESIDENT',
       isPrimaryContact: Boolean(apartment.isPrimary),
+    };
+  }
+
+  private residentApartmentStatus(status?: string | null) {
+    if (status === 'EMPTY') return 'VACANT';
+    if (status === 'OCCUPIED' || status === 'ACTIVE') return 'OCCUPIED';
+    return 'UNKNOWN';
+  }
+
+  private residentAccountStatus(status?: string | null) {
+    if (status === 'INVITED') return 'INVITED';
+    if (status === 'CREATED') return 'ACTIVE';
+    if (status === 'NO_ACCOUNT') return 'NOT_INVITED';
+    return 'NOT_INVITED';
+  }
+
+  private dashboardInvoiceItem(invoice: InternalInvoiceMetadata) {
+    return {
+      id: invoice.invoiceId || invoice.id,
+      invoiceNumber: invoice.invoiceNumber,
+      billingMonth: invoice.billingMonth,
+      apartmentId: invoice.apartmentId,
+      apartmentNumber: invoice.apartment.apartmentNumber,
+      totalAmount: Number(invoice.totalAmount || 0),
+      paidAmount: Number(invoice.paidAmount || 0),
+      balanceAmount: Number(invoice.balanceAmount || 0),
+      status: invoice.status,
+      dueDate: invoice.dueDate,
+      issueDate: invoice.issueDate,
+      isOverdue: this.isInternalInvoiceOverdue(invoice),
+    };
+  }
+
+  private async residentFinancialData(user: MvpUser, scope: Awaited<ReturnType<ResidentDemoService['getResidentScope']>>, organization: any) {
+    const metadata = await this.readInternalInvoiceMetadata(user.organizationId);
+    const scopedInvoices = metadata.filter((invoice) => scope.apartmentIds.includes(invoice.apartmentId));
+    const allInvoiceById = new Map(scopedInvoices.map((invoice) => [invoice.invoiceId, invoice]));
+    const paymentsRows = await this.prisma.payment.findMany({
+      where: {
+        organizationId: user.organizationId,
+        apartmentId: { in: scope.apartmentIds },
+        note: { startsWith: INTERNAL_PAYMENT_NOTE_PREFIX },
+      },
+      orderBy: [{ paidAt: 'desc' }, { createdAt: 'desc' }],
+      select: this.paymentSelect(),
+    });
+    const scopedPayments = paymentsRows
+      .map((row) => {
+        const note = this.parseInternalPaymentNote(row.note);
+        const invoice = note ? allInvoiceById.get(note.invoiceId) : null;
+        return invoice ? this.toResidentPaymentItem(row, invoice, organization) : null;
+      })
+      .filter(Boolean) as Array<ReturnType<ResidentDemoService['toResidentPaymentItem']>>;
+    return { scopedInvoices, scopedPayments };
+  }
+
+  private apartmentFinancialSummary(
+    apartmentId: string,
+    invoices: InternalInvoiceMetadata[],
+    payments: Array<ReturnType<ResidentDemoService['toResidentPaymentItem']>>,
+  ) {
+    const apartmentInvoices = invoices.filter((invoice) => invoice.apartmentId === apartmentId);
+    const activeInvoices = apartmentInvoices.filter((invoice) => invoice.status !== 'CANCELLED' && invoice.status !== 'VOID');
+    const unpaidInvoices = activeInvoices.filter((invoice) => Number(invoice.balanceAmount || 0) > 0);
+    const confirmedPayments = payments.filter((payment) => payment.apartment.id === apartmentId && String(payment.status).toUpperCase() === 'CONFIRMED');
+    const lastInvoice = [...apartmentInvoices].sort((a, b) => {
+      const left = new Date(a.issueDate || a.createdAt || 0).getTime();
+      const right = new Date(b.issueDate || b.createdAt || 0).getTime();
+      return right - left;
+    })[0];
+    const lastPayment = [...confirmedPayments].sort((a, b) => {
+      const left = new Date(a.paymentDate || a.createdAt || 0).getTime();
+      const right = new Date(b.paymentDate || b.createdAt || 0).getTime();
+      return right - left;
+    })[0];
+    return {
+      currency: 'MDL',
+      currentBalance: this.money(activeInvoices.reduce((sum, invoice) => sum + Number(invoice.balanceAmount || 0), 0)),
+      totalInvoices: apartmentInvoices.length,
+      unpaidInvoices: unpaidInvoices.length,
+      paidInvoices: activeInvoices.filter((invoice) => invoice.status === 'PAID' || Number(invoice.balanceAmount || 0) <= 0).length,
+      overdueInvoices: unpaidInvoices.filter((invoice) => this.isInternalInvoiceOverdue(invoice)).length,
+      totalPaidAmount: this.money(confirmedPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0)),
+      lastInvoice: lastInvoice ? this.dashboardInvoiceItem(lastInvoice) : null,
+      lastPayment: lastPayment
+        ? {
+            id: lastPayment.id,
+            amount: Number(lastPayment.amount || 0),
+            currency: lastPayment.currency || 'MDL',
+            paymentDate: lastPayment.paymentDate,
+            method: lastPayment.method,
+            status: lastPayment.status,
+          }
+        : null,
+      lastInvoiceBillingMonth: lastInvoice?.billingMonth ?? null,
+      lastPaymentDate: lastPayment?.paymentDate ?? lastPayment?.createdAt ?? null,
+    };
+  }
+
+  private async requireApartmentFromResidentScope(user: MvpUser, apartmentId: string) {
+    const scope = await this.getResidentScope(user);
+    const apartment = scope.apartments.find((item) => item.id === apartmentId);
+    if (!apartment) {
+      throw new NotFoundException('Apartamentul nu a fost găsit sau nu aparține contului tău.');
+    }
+    return { scope, apartment };
+  }
+
+  private relatedResidentItem(row: any, user: MvpUser, currentResidentIds: Set<string>) {
+    const resident = row.resident || row;
+    const isCurrentUser = resident.userId === user.id || currentResidentIds.has(resident.id);
+    return {
+      id: resident.id,
+      fullName: this.fullName(resident) || 'Locatar',
+      role: row.role || this.roleFromResidentType(resident.type),
+      isPrimaryContact: Boolean(row.isPrimary || resident.isPrimary),
+      isCurrentUser,
+      phone: isCurrentUser ? resident.phone || null : null,
+      email: isCurrentUser ? resident.email || null : null,
     };
   }
 
@@ -1285,6 +1408,195 @@ export class ResidentDemoService {
       alerts,
       emptyStateCode: visibleInvoices.length ? null : 'NO_INVOICES',
     };
+  }
+
+  async listApartments(user: MvpUser) {
+    const scope = await this.getResidentScope(user);
+    const organization = await this.organizationFromUser(user);
+    const association = {
+      ...this.toOrganizationIdentity(organization),
+      address: organization?.address ?? null,
+    };
+    if (!scope.apartmentIds.length) {
+      return {
+        items: [],
+        meta: { total: 0 },
+        association,
+        emptyStateCode: 'NO_APARTMENT',
+        emptyStateMessage: this.emptyResidentMessage(),
+      };
+    }
+    const { scopedInvoices, scopedPayments } = await this.residentFinancialData(user, scope, organization);
+    return {
+      items: scope.apartments.map((apartment) => {
+        const base = this.toDashboardApartment(apartment);
+        const summary = this.apartmentFinancialSummary(apartment.id, scopedInvoices, scopedPayments);
+        return {
+          id: apartment.id,
+          apartmentNumber: base?.apartmentNumber || String(apartment.number || ''),
+          building: base?.building || null,
+          staircase: base?.staircase || null,
+          floor: base?.floor || null,
+          areaM2: base?.areaM2 ?? null,
+          status: base?.status || 'UNKNOWN',
+          myRole: base?.role || 'RESIDENT',
+          isPrimaryContact: Boolean(base?.isPrimaryContact),
+          association,
+          financialSummary: {
+            currency: 'MDL',
+            currentBalance: summary.currentBalance,
+            unpaidInvoices: summary.unpaidInvoices,
+            overdueInvoices: summary.overdueInvoices,
+            lastInvoiceBillingMonth: summary.lastInvoiceBillingMonth,
+            lastPaymentDate: summary.lastPaymentDate,
+          },
+        };
+      }),
+      meta: { total: scope.apartments.length },
+      association,
+    };
+  }
+
+  async getApartmentProfile(user: MvpUser, id: string) {
+    const { scope, apartment } = await this.requireApartmentFromResidentScope(user, id);
+    const organization = await this.organizationFromUser(user);
+    const association = {
+      ...this.toOrganizationIdentity(organization),
+      address: organization?.address ?? null,
+    };
+    const detailedApartment = await this.prisma.apartment.findFirst({
+      where: { id, organizationId: user.organizationId },
+      select: {
+        id: true,
+        number: true,
+        floor: true,
+        areaM2: true,
+        rooms: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+        building: { select: { id: true, name: true, address: true } },
+        staircase: { select: { id: true, name: true } },
+        ownerResident: { select: { id: true, userId: true, firstName: true, lastName: true, phone: true, email: true, accountStatus: true, type: true, isPrimary: true, createdAt: true } },
+        residents: { select: { id: true, userId: true, firstName: true, lastName: true, phone: true, email: true, accountStatus: true, type: true, isPrimary: true, createdAt: true } },
+        apartmentResidents: {
+          orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+          select: {
+            role: true,
+            isPrimary: true,
+            createdAt: true,
+            resident: { select: { id: true, userId: true, firstName: true, lastName: true, phone: true, email: true, accountStatus: true, type: true, isPrimary: true, createdAt: true } },
+          },
+        },
+      },
+    });
+    if (!detailedApartment) throw new NotFoundException('Apartamentul nu a fost găsit sau nu aparține contului tău.');
+
+    const { scopedInvoices, scopedPayments } = await this.residentFinancialData(user, scope, organization);
+    const financialSummary = this.apartmentFinancialSummary(id, scopedInvoices, scopedPayments);
+    const apartmentInvoices = scopedInvoices
+      .filter((invoice) => invoice.apartmentId === id)
+      .sort((a, b) => new Date(b.issueDate || b.createdAt || 0).getTime() - new Date(a.issueDate || a.createdAt || 0).getTime());
+    const apartmentPayments = scopedPayments
+      .filter((payment) => payment.apartment.id === id)
+      .sort((a, b) => new Date(b.paymentDate || b.createdAt || 0).getTime() - new Date(a.paymentDate || a.createdAt || 0).getTime());
+
+    const currentResidentIds = new Set(scope.residentProfiles.map((resident) => resident.id));
+    const relatedByKey = new Map<string, any>();
+    for (const relation of detailedApartment.apartmentResidents || []) {
+      relatedByKey.set(`${relation.resident.id}:${relation.role}`, this.relatedResidentItem(relation, user, currentResidentIds));
+    }
+    for (const resident of detailedApartment.residents || []) {
+      const key = `${resident.id}:${this.roleFromResidentType(resident.type)}`;
+      if (!relatedByKey.has(key)) relatedByKey.set(key, this.relatedResidentItem(resident, user, currentResidentIds));
+    }
+    if (detailedApartment.ownerResident) {
+      const key = `${detailedApartment.ownerResident.id}:OWNER`;
+      if (!relatedByKey.has(key)) {
+        relatedByKey.set(
+          key,
+          this.relatedResidentItem({ resident: detailedApartment.ownerResident, role: 'OWNER', isPrimary: detailedApartment.ownerResident.isPrimary }, user, currentResidentIds),
+        );
+      }
+    }
+    const relatedResidents = Array.from(relatedByKey.values());
+    const currentRelationRow = (detailedApartment.apartmentResidents || []).find(
+      (relation) => relation.resident.userId === user.id || currentResidentIds.has(relation.resident.id),
+    );
+    const currentRelation =
+      relatedResidents.find((resident) => resident.isCurrentUser && resident.isPrimaryContact) ??
+      relatedResidents.find((resident) => resident.isCurrentUser) ??
+      {
+        role: apartment.relationRole || 'RESIDENT',
+        isPrimaryContact: Boolean(apartment.isPrimary),
+      };
+    const currentProfile = scope.residentProfiles.find((resident) => currentResidentIds.has(resident.id));
+    const alerts: Array<{ type: string; severity: 'INFO' | 'WARNING'; title: string; message: string }> = [];
+    if (financialSummary.overdueInvoices) {
+      alerts.push({ type: 'OVERDUE_INVOICES', severity: 'WARNING', title: 'Există facturi cu scadența depășită', message: 'Unele facturi pentru acest apartament au scadența depășită.' });
+    } else if (financialSummary.unpaidInvoices) {
+      alerts.push({ type: 'UNPAID_INVOICES', severity: 'INFO', title: 'Există facturi neachitate pentru acest apartament', message: 'Verifică facturile recente pentru detalii despre sold.' });
+    }
+    if (!detailedApartment.areaM2) {
+      alerts.push({ type: 'MISSING_AREA', severity: 'INFO', title: 'Unele date ale apartamentului nu sunt completate', message: 'Suprafața apartamentului nu este completată.' });
+    }
+    if (!currentRelation.isPrimaryContact) {
+      alerts.push({ type: 'NOT_PRIMARY_CONTACT', severity: 'INFO', title: 'Nu ești contactul principal pentru acest apartament', message: 'Pentru schimbarea contactului principal, contactează administratorul asociației.' });
+    }
+
+    return {
+      apartment: {
+        id: detailedApartment.id,
+        apartmentNumber: detailedApartment.number,
+        building: detailedApartment.building?.name ?? null,
+        staircase: detailedApartment.staircase?.name ?? null,
+        floor: detailedApartment.floor === null || detailedApartment.floor === undefined ? null : String(detailedApartment.floor),
+        areaM2: detailedApartment.areaM2 ?? null,
+        cadastralNumber: null,
+        status: this.residentApartmentStatus(detailedApartment.status),
+        updatedAt: detailedApartment.updatedAt,
+      },
+      association,
+      myRelation: {
+        role: currentRelation.role || apartment.relationRole || 'RESIDENT',
+        isPrimaryContact: Boolean(currentRelation.isPrimaryContact),
+        preferredContactMethod: 'PHONE',
+        status: this.residentAccountStatus(currentProfile?.accountStatus),
+        relationStartDate: currentRelationRow?.createdAt ?? null,
+      },
+      relatedResidents,
+      financialSummary,
+      recentInvoices: apartmentInvoices.slice(0, 5).map((invoice) => this.dashboardInvoiceItem(invoice)),
+      recentPayments: apartmentPayments.slice(0, 5).map((payment) => ({
+        id: payment.id,
+        amount: Number(payment.amount || 0),
+        currency: payment.currency || 'MDL',
+        paymentDate: payment.paymentDate,
+        method: payment.method,
+        status: payment.status,
+        referenceNumber: payment.referenceNumber || '',
+        invoiceNumber: payment.invoice.invoiceNumber,
+        invoiceId: payment.invoice.id,
+      })),
+      alerts,
+    };
+  }
+
+  async getApartmentFinancialSummary(user: MvpUser, id: string) {
+    const { scope } = await this.requireApartmentFromResidentScope(user, id);
+    const organization = await this.organizationFromUser(user);
+    const { scopedInvoices, scopedPayments } = await this.residentFinancialData(user, scope, organization);
+    return this.apartmentFinancialSummary(id, scopedInvoices, scopedPayments);
+  }
+
+  async listApartmentInvoices(user: MvpUser, id: string, query: Record<string, unknown> = {}) {
+    await this.requireApartmentFromResidentScope(user, id);
+    return this.listInternalInvoices(user, { ...query, apartmentId: id });
+  }
+
+  async listApartmentPayments(user: MvpUser, id: string, query: Record<string, unknown> = {}) {
+    await this.requireApartmentFromResidentScope(user, id);
+    return this.listPayments(user, { ...query, apartmentId: id });
   }
 
   async getInternalPayment(user: MvpUser, id: string) {

@@ -71,6 +71,7 @@ export const ADMIN_NAVIGATION_ITEMS: MainNavigationItem[] = [
 
 export const RESIDENT_NAVIGATION_ITEMS: MainNavigationItem[] = [
   { key: 'home', label: 'Acasă', href: '/resident' },
+  { key: 'apartments', label: 'Apartamentele mele', href: '/resident/apartments' },
   { key: 'payments', label: 'Facturi', href: '/resident/invoices' },
   { key: 'meters', label: 'Contoare', href: '/resident/meters' },
   { key: 'issues', label: 'Cereri', href: '/resident/issues' },

@@ -1163,6 +1163,13 @@ export const messagesMvpApi = {
 export const residentDemoApi = {
   home: () => apiRequest<any>('/resident/home'),
   dashboard: (params?: { apartmentId?: string; includeRecent?: boolean }) => apiRequest<any>('/resident/dashboard', { params }),
+  apartments: () => apiRequest<any>('/resident/apartments'),
+  apartment: (id: string) => apiRequest<any>(`/resident/apartments/${id}`),
+  apartmentFinancialSummary: (id: string) => apiRequest<any>(`/resident/apartments/${id}/financial-summary`),
+  apartmentInvoices: (id: string, params?: { page?: number; limit?: number }) =>
+    apiRequest<any>(`/resident/apartments/${id}/invoices`, { params }),
+  apartmentPayments: (id: string, params?: { page?: number; limit?: number }) =>
+    apiRequest<any>(`/resident/apartments/${id}/payments`, { params }),
   context: () => apiRequest<any>('/resident/me'),
   financeSummary: () => apiRequest<any>('/resident/finance-summary'),
   invoices: (params?: {

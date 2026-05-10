@@ -407,6 +407,7 @@ export default function ResidentDashboardPage() {
               <h2 className="text-base font-semibold text-foreground">Apartamentele mele</h2>
               <p className="text-sm text-muted-foreground">Apartamentele asociate contului tău.</p>
             </div>
+            <ButtonLink href="/resident/apartments" variant="secondary" size="sm">Vezi toate apartamentele</ButtonLink>
           </div>
           <div className="mt-4 space-y-3">
             {dashboard.apartmentSummaries.map((apartment) => (
