@@ -331,6 +331,9 @@ export default function AdminInvoiceDraftPage() {
         rightSlot={
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="neutral">{badgeText}</Badge>
+            <ButtonLink href={localizedPath(`/admin/billing?billingMonth=${billingMonth}`)} variant="secondary">
+              Proces lunar
+            </ButtonLink>
             <Button type="button" variant="secondary" disabled title="Exportul va fi disponibil ulterior.">
               <FileDown className="h-4 w-4" />
               Export

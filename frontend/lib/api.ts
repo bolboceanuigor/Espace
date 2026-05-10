@@ -1505,6 +1505,31 @@ export const invoicesApi = {
   residentReceiptPdf: (id: string) => apiRequest<Blob>(`/api/resident/receipts/${id}/pdf`, { responseType: 'blob' }),
 };
 
+export const billingApi = {
+  overview: (params?: { billingMonth?: string }) => apiRequest<any>('/api/admin/billing', { params }),
+  runs: (params?: {
+    status?: string;
+    billingMonth?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    page?: number;
+    limit?: number;
+    sortBy?: string;
+    sortDirection?: 'asc' | 'desc';
+  }) => apiRequest<any>('/api/admin/billing/runs', { params }),
+  createRun: (data: { billingMonth: string }) => apiRequest<any>('/api/admin/billing/runs', { method: 'POST', body: data }),
+  getRun: (id: string) => apiRequest<any>(`/api/admin/billing/runs/${id}`),
+  updateRun: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/admin/billing/runs/${id}`, { method: 'PATCH', body: data }),
+  preflight: (id: string) => apiRequest<any>(`/api/admin/billing/runs/${id}/preflight`, { method: 'POST' }),
+  calculateDraft: (id: string, data?: { includeMeterCharges?: boolean; dueDate?: string | null; description?: string }) =>
+    apiRequest<any>(`/api/admin/billing/runs/${id}/calculate-draft`, { method: 'POST', body: data || {} }),
+  linkDraft: (id: string, draftId: string) => apiRequest<any>(`/api/admin/billing/runs/${id}/link-draft`, { method: 'POST', body: { draftId } }),
+  updateStatus: (id: string, status: string) => apiRequest<any>(`/api/admin/billing/runs/${id}/status`, { method: 'PATCH', body: { status } }),
+  cancel: (id: string, cancellationReason: string) =>
+    apiRequest<any>(`/api/admin/billing/runs/${id}/cancel`, { method: 'PATCH', body: { cancellationReason } }),
+  checks: (id: string) => apiRequest<any>(`/api/admin/billing/runs/${id}/checks`),
+};
+
 export const tariffsApi = {
   list: () => apiRequest<any>('/api/admin/tariffs'),
   stats: () => apiRequest<any>('/api/admin/tariffs/stats'),

@@ -14,6 +14,7 @@ export type MainNavigationKey =
   | 'announcements'
   | 'residents'
   | 'meters'
+  | 'billing'
   | 'payments'
   | 'paymentReconciliation'
   | 'reports'
@@ -61,6 +62,7 @@ export const ADMIN_NAVIGATION_ITEMS: MainNavigationItem[] = [
   { key: 'residents', label: 'Locatari', href: '/admin/residents' },
   { key: 'meters', label: 'Contoare', href: '/admin/meters' },
   { key: 'meterReports', label: 'Rapoarte consum', href: '/admin/meter-readings/reports' },
+  { key: 'billing', label: 'Facturare', href: '/admin/billing' },
   { key: 'invoices', label: 'Facturi', href: '/admin/invoices' },
   { key: 'invoiceDraft', label: 'Calcul facturi', href: '/admin/invoices/draft' },
   { key: 'payments', label: 'Plăți', href: '/admin/payments' },

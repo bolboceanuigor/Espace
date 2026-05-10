@@ -124,6 +124,45 @@ type BillingDraftRecord = {
   items: BillingDraftItem[];
   warnings: string[];
 };
+type BillingRunStatus = 'NOT_STARTED' | 'PRECHECK' | 'READY_FOR_DRAFT' | 'DRAFT_CALCULATED' | 'IN_REVIEW' | 'DRAFT_LOCKED' | 'FINALIZED' | 'CANCELLED';
+type BillingRunCheckStatus = 'PASSED' | 'WARNING' | 'FAILED' | 'NOT_APPLICABLE';
+type BillingRunCheckSeverity = 'INFO' | 'WARNING' | 'CRITICAL';
+type BillingRunCheckCategory = 'ASSOCIATION' | 'APARTMENTS' | 'RESIDENTS' | 'TARIFFS' | 'METERS' | 'DRAFT' | 'FINALIZATION';
+type BillingRunCheck = {
+  id: string;
+  key: string;
+  label: string;
+  category: BillingRunCheckCategory;
+  status: BillingRunCheckStatus;
+  severity: BillingRunCheckSeverity;
+  message: string;
+  actionUrl?: string | null;
+  metadata?: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+};
+type BillingRunRecord = {
+  id: string;
+  associationId: string;
+  organizationId: string;
+  billingMonth: string;
+  status: BillingRunStatus;
+  currency: 'MDL';
+  draftId: string | null;
+  finalizedAt: string | null;
+  finalizedById: string | null;
+  invoicesCount: number;
+  totalAmount: number;
+  warningsCount: number;
+  errorsCount: number;
+  startedById: string;
+  cancelledAt: string | null;
+  cancelledById: string | null;
+  cancellationReason: string | null;
+  checks: BillingRunCheck[];
+  createdAt: string;
+  updatedAt: string;
+};
 type InternalInvoiceStatus = 'ISSUED' | 'PARTIALLY_PAID' | 'PAID' | 'CANCELLED' | 'VOID';
 type InternalInvoiceLineMetadata = {
   id: string;
@@ -193,6 +232,7 @@ type InternalPaymentNote = {
 
 const TARIFF_METADATA_NOTE_TITLE = 'Tariff settings metadata';
 const BILLING_DRAFT_NOTE_TITLE = 'Internal invoice draft metadata';
+const BILLING_RUN_NOTE_TITLE = 'Monthly billing run metadata';
 const INTERNAL_INVOICE_NOTE_TITLE = 'Internal invoices metadata';
 const INTERNAL_PAYMENT_NOTE_PREFIX = 'INTERNAL_INVOICE_PAYMENT:';
 const METER_WORKFLOW_METADATA_NOTE_TITLE = 'ESPACE_METER_WORKFLOW_METADATA_V1';
@@ -1870,6 +1910,247 @@ export class BillingReadService {
     }
   }
 
+  private normalizeBillingRun(raw: any, organizationId: string): BillingRunRecord {
+    const now = new Date().toISOString();
+    const status = this.parseBillingRunStatus(raw?.status, 'PRECHECK');
+    const checks = Array.isArray(raw?.checks)
+      ? raw.checks.map((check: any) => ({
+          id: String(check?.id || randomUUID()),
+          key: String(check?.key || 'UNKNOWN_CHECK'),
+          label: String(check?.label || 'Verificare'),
+          category: this.parseBillingRunCheckCategory(check?.category),
+          status: this.parseBillingRunCheckStatus(check?.status),
+          severity: this.parseBillingRunCheckSeverity(check?.severity),
+          message: String(check?.message || ''),
+          actionUrl: check?.actionUrl ? String(check.actionUrl) : null,
+          metadata: check?.metadata && typeof check.metadata === 'object' ? check.metadata : null,
+          createdAt: String(check?.createdAt || raw?.createdAt || now),
+          updatedAt: String(check?.updatedAt || raw?.updatedAt || now),
+        }))
+      : [];
+    return {
+      id: String(raw?.id || randomUUID()),
+      associationId: String(raw?.associationId || raw?.organizationId || organizationId),
+      organizationId,
+      billingMonth: this.parseBillingMonth(raw?.billingMonth || this.currentBillingMonth()),
+      status,
+      currency: 'MDL',
+      draftId: raw?.draftId ? String(raw.draftId) : null,
+      finalizedAt: raw?.finalizedAt ? String(raw.finalizedAt) : null,
+      finalizedById: raw?.finalizedById ? String(raw.finalizedById) : null,
+      invoicesCount: Math.max(0, Number(raw?.invoicesCount || 0) || 0),
+      totalAmount: this.money(Number(raw?.totalAmount || 0) || 0),
+      warningsCount: Math.max(0, Number(raw?.warningsCount || checks.filter((check: BillingRunCheck) => check.status === 'WARNING').length) || 0),
+      errorsCount: Math.max(0, Number(raw?.errorsCount || checks.filter((check: BillingRunCheck) => check.status === 'FAILED').length) || 0),
+      startedById: String(raw?.startedById || raw?.createdById || ''),
+      cancelledAt: raw?.cancelledAt ? String(raw.cancelledAt) : null,
+      cancelledById: raw?.cancelledById ? String(raw.cancelledById) : null,
+      cancellationReason: raw?.cancellationReason ? String(raw.cancellationReason) : null,
+      checks,
+      createdAt: String(raw?.createdAt || now),
+      updatedAt: String(raw?.updatedAt || now),
+    };
+  }
+
+  private async readBillingRuns(organizationId: string, client: any = this.prisma): Promise<BillingRunRecord[]> {
+    const note = await client.clientNote.findFirst({
+      where: { organizationId, title: BILLING_RUN_NOTE_TITLE },
+      orderBy: { updatedAt: 'desc' },
+      select: { content: true },
+    });
+    if (!note?.content) return [];
+    try {
+      const parsed = JSON.parse(note.content);
+      const items = Array.isArray(parsed?.items) ? parsed.items : [];
+      return items.map((item: any) => this.normalizeBillingRun(item, organizationId));
+    } catch {
+      return [];
+    }
+  }
+
+  private async writeBillingRuns(organizationId: string, actorUserId: string, runs: BillingRunRecord[], client: any = this.prisma) {
+    const payload = { version: 1, items: runs };
+    const existing = await client.clientNote.findFirst({
+      where: { organizationId, title: BILLING_RUN_NOTE_TITLE },
+      select: { id: true },
+    });
+    const content = JSON.stringify(payload);
+    if (existing) {
+      await client.clientNote.update({ where: { id: existing.id }, data: { content } });
+    } else {
+      await client.clientNote.create({
+        data: {
+          organizationId,
+          createdByUserId: actorUserId,
+          title: BILLING_RUN_NOTE_TITLE,
+          content,
+        },
+      });
+    }
+  }
+
+  private parseBillingRunStatus(value: unknown, fallback: BillingRunStatus = 'PRECHECK'): BillingRunStatus {
+    const normalized = typeof value === 'string' ? value.trim().toUpperCase() : '';
+    if (
+      normalized === 'NOT_STARTED' ||
+      normalized === 'PRECHECK' ||
+      normalized === 'READY_FOR_DRAFT' ||
+      normalized === 'DRAFT_CALCULATED' ||
+      normalized === 'IN_REVIEW' ||
+      normalized === 'DRAFT_LOCKED' ||
+      normalized === 'FINALIZED' ||
+      normalized === 'CANCELLED'
+    ) {
+      return normalized as BillingRunStatus;
+    }
+    return fallback;
+  }
+
+  private parseBillingRunCheckStatus(value: unknown): BillingRunCheckStatus {
+    const normalized = typeof value === 'string' ? value.trim().toUpperCase() : '';
+    if (normalized === 'PASSED' || normalized === 'WARNING' || normalized === 'FAILED' || normalized === 'NOT_APPLICABLE') {
+      return normalized as BillingRunCheckStatus;
+    }
+    return 'NOT_APPLICABLE';
+  }
+
+  private parseBillingRunCheckSeverity(value: unknown): BillingRunCheckSeverity {
+    const normalized = typeof value === 'string' ? value.trim().toUpperCase() : '';
+    if (normalized === 'INFO' || normalized === 'WARNING' || normalized === 'CRITICAL') return normalized as BillingRunCheckSeverity;
+    return 'INFO';
+  }
+
+  private parseBillingRunCheckCategory(value: unknown): BillingRunCheckCategory {
+    const normalized = typeof value === 'string' ? value.trim().toUpperCase() : '';
+    if (
+      normalized === 'ASSOCIATION' ||
+      normalized === 'APARTMENTS' ||
+      normalized === 'RESIDENTS' ||
+      normalized === 'TARIFFS' ||
+      normalized === 'METERS' ||
+      normalized === 'DRAFT' ||
+      normalized === 'FINALIZATION'
+    ) {
+      return normalized as BillingRunCheckCategory;
+    }
+    return 'ASSOCIATION';
+  }
+
+  private makeBillingRunCheck(input: {
+    key: string;
+    label: string;
+    category: BillingRunCheckCategory;
+    status: BillingRunCheckStatus;
+    severity?: BillingRunCheckSeverity;
+    message: string;
+    actionUrl?: string | null;
+    metadata?: Record<string, unknown> | null;
+  }): BillingRunCheck {
+    const now = new Date().toISOString();
+    return {
+      id: randomUUID(),
+      key: input.key,
+      label: input.label,
+      category: input.category,
+      status: input.status,
+      severity: input.severity || (input.status === 'FAILED' ? 'CRITICAL' : input.status === 'WARNING' ? 'WARNING' : 'INFO'),
+      message: input.message,
+      actionUrl: input.actionUrl || null,
+      metadata: input.metadata || null,
+      createdAt: now,
+      updatedAt: now,
+    };
+  }
+
+  private billingRunCounts(checks: BillingRunCheck[]) {
+    return {
+      warningsCount: checks.filter((check) => check.status === 'WARNING').length,
+      errorsCount: checks.filter((check) => check.status === 'FAILED' && check.severity === 'CRITICAL').length,
+    };
+  }
+
+  private findActiveBillingRun(runs: BillingRunRecord[], billingMonth: string) {
+    return runs.find((run) => run.billingMonth === billingMonth && run.status !== 'CANCELLED') || null;
+  }
+
+  private draftForBillingRun(run: BillingRunRecord | null, drafts: BillingDraftRecord[], billingMonth?: string) {
+    if (run?.draftId) {
+      const byId = drafts.find((draft) => draft.id === run.draftId && draft.status !== 'CANCELLED');
+      if (byId) return byId;
+    }
+    const month = run?.billingMonth || billingMonth;
+    return month ? drafts.find((draft) => draft.billingMonth === month && draft.status !== 'CANCELLED') || null : null;
+  }
+
+  private billingRunStatusFromState(run: BillingRunRecord, draft: BillingDraftRecord | null, finalInvoices: InternalInvoiceMetadata[] = []) {
+    if (run.status === 'CANCELLED') return 'CANCELLED' as BillingRunStatus;
+    const invoiceCount = finalInvoices.filter((invoice) => invoice.billingMonth === run.billingMonth && (!draft || invoice.sourceDraftId === draft.id)).length;
+    if (run.finalizedAt || invoiceCount > 0 || draft?.finalizedAt || draft?.invoicesGenerated) return 'FINALIZED' as BillingRunStatus;
+    if (draft?.status === 'LOCKED') return 'DRAFT_LOCKED' as BillingRunStatus;
+    if (draft) return run.status === 'IN_REVIEW' ? 'IN_REVIEW' : 'DRAFT_CALCULATED';
+    if (run.status === 'NOT_STARTED') return 'NOT_STARTED';
+    if (run.errorsCount > 0) return 'PRECHECK';
+    return run.status === 'PRECHECK' ? 'READY_FOR_DRAFT' : run.status;
+  }
+
+  private async syncBillingRunForDraft(
+    organizationId: string,
+    actorUserId: string,
+    draft: BillingDraftRecord,
+    forcedStatus?: BillingRunStatus,
+    client: any = this.prisma,
+  ) {
+    const runs = await this.readBillingRuns(organizationId, client);
+    const now = new Date().toISOString();
+    const response = this.draftResponse(draft) as BillingDraftRecord;
+    const existing = runs.find((run) => run.draftId === response.id) || this.findActiveBillingRun(runs, response.billingMonth);
+    const nextStatus =
+      forcedStatus ||
+      (response.finalizedAt || response.invoicesGenerated
+        ? 'FINALIZED'
+        : response.status === 'LOCKED'
+          ? 'DRAFT_LOCKED'
+          : 'DRAFT_CALCULATED');
+    const record: BillingRunRecord = existing
+      ? {
+          ...existing,
+          draftId: response.id,
+          status: existing.status === 'CANCELLED' ? existing.status : nextStatus,
+          totalAmount: Number(response.finalizedAmount || response.totalAmount || 0),
+          warningsCount: Number(response.warningsCount || 0),
+          errorsCount: Number(response.errorsCount || 0),
+          finalizedAt: response.finalizedAt || existing.finalizedAt,
+          finalizedById: response.finalizedById || existing.finalizedById,
+          invoicesCount: Number(response.invoicesCount || existing.invoicesCount || 0),
+          updatedAt: now,
+        }
+      : {
+          id: randomUUID(),
+          associationId: organizationId,
+          organizationId,
+          billingMonth: response.billingMonth,
+          status: nextStatus,
+          currency: 'MDL',
+          draftId: response.id,
+          finalizedAt: response.finalizedAt || null,
+          finalizedById: response.finalizedById || null,
+          invoicesCount: Number(response.invoicesCount || 0),
+          totalAmount: Number(response.finalizedAmount || response.totalAmount || 0),
+          warningsCount: Number(response.warningsCount || 0),
+          errorsCount: Number(response.errorsCount || 0),
+          startedById: actorUserId,
+          cancelledAt: null,
+          cancelledById: null,
+          cancellationReason: null,
+          checks: [],
+          createdAt: now,
+          updatedAt: now,
+        };
+    const nextRuns = existing ? runs.map((run) => (run.id === existing.id ? record : run)) : [...runs, record];
+    await this.writeBillingRuns(organizationId, actorUserId, nextRuns, client);
+    return record;
+  }
+
   private async readInternalInvoiceMetadata(organizationId: string, client: any = this.prisma): Promise<InternalInvoiceMetadata[]> {
     const note = await client.clientNote.findFirst({
       where: { organizationId, title: INTERNAL_INVOICE_NOTE_TITLE },
@@ -2013,8 +2294,12 @@ export class BillingReadService {
 
   private async reviewPayload(draft: BillingDraftRecord) {
     const response = this.draftResponse(draft) as BillingDraftRecord;
-    const association = await this.draftOrganization(response.organizationId);
+    const [association, runs] = await Promise.all([
+      this.draftOrganization(response.organizationId),
+      this.readBillingRuns(response.organizationId),
+    ]);
     const checklist = this.buildDraftChecklist(response);
+    const billingRun = runs.find((run) => run.draftId === response.id) || this.findActiveBillingRun(runs, response.billingMonth);
     return {
       draft: {
         id: response.id,
@@ -2045,6 +2330,16 @@ export class BillingReadService {
         finalizedAmount: Number(response.finalizedAmount || 0),
       },
       association,
+      billingRun: billingRun
+        ? {
+            id: billingRun.id,
+            billingMonth: billingRun.billingMonth,
+            status: billingRun.status,
+            warningsCount: billingRun.warningsCount,
+            errorsCount: billingRun.errorsCount,
+            actionUrl: `/admin/billing/runs/${billingRun.id}`,
+          }
+        : null,
       checklist: checklist.items,
       canLock: checklist.canLock,
       requiresWarningConfirmation: checklist.requiresWarningConfirmation,
@@ -2052,6 +2347,669 @@ export class BillingReadService {
       warnings: response.warnings || [],
       tariffsUsed: response.tariffsUsed || [],
     };
+  }
+
+  private billingRunSummaryFromData(input: {
+    apartments: any[];
+    tariffs: TariffRow[];
+    meterPreview: any | null;
+    checks: BillingRunCheck[];
+    draft: BillingDraftRecord | null;
+    finalInvoices: InternalInvoiceMetadata[];
+    billingMonth: string;
+  }) {
+    const activeTariffs = input.tariffs.filter((tariff) => this.isTariffActiveForBillingMonth(tariff, input.billingMonth));
+    const activeMeterTariffs = activeTariffs.filter((tariff) => tariff.calculationType === 'PER_METER_CONSUMPTION');
+    const hasPerM2Tariffs = activeTariffs.some((tariff) => tariff.calculationType === 'PER_M2');
+    const primaryMissing = input.apartments.filter((apartment) => !this.primaryContactFromApartment(apartment)).length;
+    const areaMissing = hasPerM2Tariffs ? input.apartments.filter((apartment) => !apartment.areaM2 || Number(apartment.areaM2) <= 0).length : 0;
+    const { warningsCount, errorsCount } = this.billingRunCounts(input.checks);
+    return {
+      totalApartments: input.apartments.length,
+      apartmentsWithoutPrimaryContact: primaryMissing,
+      apartmentsWithoutArea: areaMissing,
+      activeTariffs: activeTariffs.length,
+      activeMeterTariffs: activeMeterTariffs.length,
+      approvedMeterReadings: Number(input.meterPreview?.periodReadings?.filter?.((reading: any) => reading.status === 'APPROVED')?.length || 0),
+      missingMeterReadings: Number(input.meterPreview?.summary?.apartmentsWithoutApprovedReadings || 0),
+      warningsCount,
+      errorsCount,
+      draftTotal: Number(input.draft?.totalAmount || 0),
+      invoicesGenerated: input.finalInvoices.filter((invoice) => invoice.billingMonth === input.billingMonth).length,
+    };
+  }
+
+  private billingRunTimeline(run: BillingRunRecord | null, summary: any, draft: BillingDraftRecord | null, finalInvoices: InternalInvoiceMetadata[]) {
+    const runUrl = run ? `/admin/billing/runs/${run.id}` : '/admin/billing';
+    const statusFor = (category: BillingRunCheckCategory) => {
+      const checks = run?.checks?.filter((check) => check.category === category) || [];
+      if (checks.some((check) => check.status === 'FAILED')) return 'ERROR';
+      if (checks.some((check) => check.status === 'WARNING')) return 'WARNING';
+      if (checks.some((check) => check.status === 'PASSED')) return 'COMPLETE';
+      return 'PENDING';
+    };
+    return [
+      {
+        key: 'PRECHECK',
+        label: 'Verificări inițiale',
+        status: run ? (summary.errorsCount > 0 ? 'ERROR' : summary.warningsCount > 0 ? 'WARNING' : 'COMPLETE') : 'PENDING',
+        description: run ? `${summary.warningsCount} avertizări, ${summary.errorsCount} erori` : 'Procesul lunar nu este pornit.',
+        actionUrl: runUrl,
+      },
+      {
+        key: 'APARTMENTS',
+        label: 'Date apartamente',
+        status: statusFor('APARTMENTS') === 'PENDING' ? (summary.totalApartments > 0 ? 'COMPLETE' : 'PENDING') : statusFor('APARTMENTS'),
+        description: `${summary.totalApartments || 0} apartamente, ${summary.apartmentsWithoutArea || 0} fără suprafață`,
+        actionUrl: '/admin/apartments',
+      },
+      {
+        key: 'RESIDENTS',
+        label: 'Locatari și contacte',
+        status: statusFor('RESIDENTS'),
+        description: `${summary.apartmentsWithoutPrimaryContact || 0} apartamente fără contact principal`,
+        actionUrl: '/admin/residents',
+      },
+      {
+        key: 'TARIFFS',
+        label: 'Tarife',
+        status: statusFor('TARIFFS'),
+        description: `${summary.activeTariffs || 0} tarife active, ${summary.activeMeterTariffs || 0} pe consum`,
+        actionUrl: '/admin/tariffs',
+      },
+      {
+        key: 'METERS',
+        label: 'Contoare și consum',
+        status: summary.activeMeterTariffs > 0 ? statusFor('METERS') : 'PENDING',
+        description: summary.activeMeterTariffs > 0 ? `${summary.approvedMeterReadings || 0} indici aprobați, ${summary.missingMeterReadings || 0} lipsă` : 'Nu există tarife active pe consum.',
+        actionUrl: '/admin/meter-readings/reports',
+      },
+      {
+        key: 'DRAFT',
+        label: 'Calcul draft',
+        status: draft ? 'COMPLETE' : 'PENDING',
+        description: draft ? `Draft ${draft.status}, total ${Number(draft.totalAmount || 0).toLocaleString('ro-RO')} MDL` : 'Draftul nu este calculat.',
+        actionUrl: draft ? `/admin/invoices/draft/${draft.id}/review` : '/admin/invoices/draft',
+      },
+      {
+        key: 'LOCK',
+        label: 'Blocare draft',
+        status: draft?.status === 'LOCKED' ? 'COMPLETE' : draft ? 'PENDING' : 'PENDING',
+        description: draft?.status === 'LOCKED' ? 'Draftul este blocat.' : 'Disponibil după revizuire.',
+        actionUrl: draft ? `/admin/invoices/draft/${draft.id}/review` : runUrl,
+      },
+      {
+        key: 'FINALIZATION',
+        label: 'Generare facturi finale',
+        status: finalInvoices.length > 0 || draft?.invoicesGenerated ? 'COMPLETE' : 'PENDING',
+        description: finalInvoices.length > 0 || draft?.invoicesGenerated ? `${finalInvoices.length || draft?.invoicesCount || 0} facturi generate` : 'Disponibil după blocarea draftului.',
+        actionUrl: draft?.status === 'LOCKED' ? `/admin/invoices/finalize/${draft.id}` : '/admin/invoices',
+      },
+    ];
+  }
+
+  private billingRunNextAction(run: BillingRunRecord | null, summary: any, draft: BillingDraftRecord | null, finalInvoices: InternalInvoiceMetadata[]) {
+    if (!run) {
+      return {
+        key: 'START_RUN',
+        label: 'Pornește proces lunar',
+        description: 'Nu există proces de facturare pentru luna selectată.',
+        actionUrl: '/admin/billing',
+      };
+    }
+    if (run.status === 'CANCELLED') {
+      return {
+        key: 'CANCELLED',
+        label: 'Proces anulat',
+        description: 'Procesul lunar a fost anulat logic.',
+        actionUrl: `/admin/billing/runs/${run.id}`,
+      };
+    }
+    if (run.status === 'FINALIZED' || finalInvoices.length > 0 || draft?.invoicesGenerated) {
+      return {
+        key: 'VIEW_INVOICES',
+        label: 'Vezi facturile generate',
+        description: 'Procesul lunar este finalizat.',
+        actionUrl: `/admin/invoices?billingMonth=${run.billingMonth}`,
+      };
+    }
+    if (summary.errorsCount > 0) {
+      return {
+        key: 'RESOLVE_CRITICAL_ERRORS',
+        label: 'Rezolvă problemele critice',
+        description: 'Există verificări critice eșuate înainte de calcul.',
+        actionUrl: `/admin/billing/runs/${run.id}`,
+      };
+    }
+    if (!draft) {
+      return {
+        key: 'CALCULATE_DRAFT',
+        label: 'Calculează draft',
+        description: 'Verificările permit calculul draftului pentru luna selectată.',
+        actionUrl: `/admin/billing/runs/${run.id}`,
+      };
+    }
+    if (draft.status === 'DRAFT') {
+      return {
+        key: 'REVIEW_DRAFT',
+        label: 'Revizuiește draftul',
+        description: 'Draftul a fost calculat și trebuie verificat înainte de blocare.',
+        actionUrl: `/admin/invoices/draft/${draft.id}/review`,
+      };
+    }
+    if (draft.status === 'LOCKED') {
+      return {
+        key: 'FINALIZE_INVOICES',
+        label: 'Generează facturi finale',
+        description: 'Draftul este blocat și poate fi convertit în facturi finale.',
+        actionUrl: `/admin/invoices/finalize/${draft.id}`,
+      };
+    }
+    return {
+      key: 'RUN_PREFLIGHT',
+      label: 'Rulează verificări',
+      description: 'Actualizează verificările procesului lunar.',
+      actionUrl: `/admin/billing/runs/${run.id}`,
+    };
+  }
+
+  private async buildBillingRunPreflight(user: MvpUser, billingMonth: string, run: BillingRunRecord | null = null) {
+    const organizationId = this.resolveOrganizationId(user);
+    this.assertOrganizationAccess(user, organizationId);
+    const { organization, apartments } = await this.invoiceDraftContext(organizationId);
+    const [tariffs, drafts, invoices] = await Promise.all([
+      this.readTariffRows(organizationId, apartments),
+      this.readBillingDrafts(organizationId),
+      this.readInternalInvoiceMetadata(organizationId),
+    ]);
+    const draft = this.draftForBillingRun(run, drafts, billingMonth);
+    const finalInvoices = invoices.filter((invoice) => invoice.billingMonth === billingMonth && (!draft || invoice.sourceDraftId === draft.id));
+    const activeTariffs = tariffs.filter((tariff) => this.isTariffActiveForBillingMonth(tariff, billingMonth));
+    const activeMeterTariffs = activeTariffs.filter((tariff) => tariff.calculationType === 'PER_METER_CONSUMPTION');
+    const hasPerM2Tariffs = activeTariffs.some((tariff) => tariff.calculationType === 'PER_M2');
+    let meterPreview: any | null = null;
+    if (activeMeterTariffs.length) {
+      meterPreview = await this.buildMeterChargesPreview(user, { billingMonth, includeDraftLines: true, limit: 10000 }).catch(() => null);
+    }
+
+    const apartmentNumbers = new Map<string, number>();
+    apartments.forEach((apartment: any) => {
+      const key = `${apartment.staircase?.name || ''}:${apartment.number || ''}`.toLowerCase();
+      apartmentNumbers.set(key, (apartmentNumbers.get(key) || 0) + 1);
+    });
+    const duplicateApartments = Array.from(apartmentNumbers.values()).filter((count) => count > 1).length;
+    const apartmentsWithoutArea = hasPerM2Tariffs ? apartments.filter((apartment: any) => !apartment.areaM2 || Number(apartment.areaM2) <= 0).length : 0;
+    const apartmentsWithoutPrimary = apartments.filter((apartment: any) => !this.primaryContactFromApartment(apartment)).length;
+    const contactsWithoutReach = apartments.filter((apartment: any) => {
+      const contact = this.primaryContactFromApartment(apartment);
+      return contact && !contact.phone;
+    }).length;
+    const residentIds = new Set<string>();
+    apartments.forEach((apartment: any) => {
+      if (apartment.ownerResident?.id) residentIds.add(apartment.ownerResident.id);
+      (apartment.apartmentResidents || []).forEach((relation: any) => {
+        if (relation.resident?.id) residentIds.add(relation.resident.id);
+      });
+    });
+    const invalidTariffs = activeTariffs.filter((tariff) => {
+      if (tariff.calculationType === 'PER_M2') return Number(tariff.pricePerM2 || 0) <= 0;
+      if (tariff.calculationType === 'FIXED_PER_APARTMENT') return Number(tariff.fixedAmount || 0) <= 0;
+      if (tariff.calculationType === 'PER_METER_CONSUMPTION') return Number(tariff.pricePerUnit || 0) <= 0;
+      return false;
+    }).length;
+    const missingMeterReadings = Number(meterPreview?.summary?.apartmentsWithoutApprovedReadings || 0);
+    const needsReviewReadings = Number(meterPreview?.summary?.needsReviewReadings || 0);
+    const rejectedReadings = Number(meterPreview?.summary?.rejectedReadings || 0);
+
+    const checks: BillingRunCheck[] = [
+      this.makeBillingRunCheck({
+        key: 'ASSOCIATION_PRESENT',
+        category: 'ASSOCIATION',
+        label: 'APC disponibilă',
+        status: organization ? 'PASSED' : 'FAILED',
+        message: organization ? 'APC este disponibilă pentru facturare.' : 'APC nu a fost găsită.',
+        actionUrl: '/admin/settings/organization',
+      }),
+      this.makeBillingRunCheck({
+        key: 'ASSOCIATION_CODE',
+        category: 'ASSOCIATION',
+        label: 'Cod APC',
+        status: organization.fiscalCode ? 'PASSED' : 'WARNING',
+        severity: organization.fiscalCode ? 'INFO' : 'WARNING',
+        message: organization.fiscalCode ? 'Codul APC este completat.' : 'Codul APC lipsește din profilul asociației.',
+        actionUrl: '/admin/settings/organization',
+      }),
+      this.makeBillingRunCheck({
+        key: 'ASSOCIATION_ACTIVE_STATUS',
+        category: 'ASSOCIATION',
+        label: 'Status APC',
+        status: 'NOT_APPLICABLE',
+        message: 'Schema curentă nu expune un câmp de status operațional pentru APC.',
+        actionUrl: '/admin/settings/organization',
+      }),
+      this.makeBillingRunCheck({
+        key: 'APARTMENTS_EXIST',
+        category: 'APARTMENTS',
+        label: 'Apartamente existente',
+        status: apartments.length > 0 ? 'PASSED' : 'FAILED',
+        message: apartments.length > 0 ? `Există ${apartments.length} apartamente.` : 'Nu există apartamente pentru această asociație.',
+        actionUrl: '/admin/apartments',
+      }),
+      this.makeBillingRunCheck({
+        key: 'APARTMENT_UNIQUE_NUMBERS',
+        category: 'APARTMENTS',
+        label: 'Numere apartamente unice',
+        status: duplicateApartments > 0 ? 'WARNING' : 'PASSED',
+        message: duplicateApartments > 0 ? `Există ${duplicateApartments} numere de apartamente duplicate pe aceeași scară.` : 'Numerele apartamentelor nu au duplicate evidente.',
+        actionUrl: '/admin/apartments',
+      }),
+      this.makeBillingRunCheck({
+        key: 'APARTMENT_AREAS',
+        category: 'APARTMENTS',
+        label: 'Suprafețe apartamente',
+        status: hasPerM2Tariffs ? (apartmentsWithoutArea > 0 ? 'WARNING' : 'PASSED') : 'NOT_APPLICABLE',
+        severity: apartmentsWithoutArea > 0 ? 'WARNING' : 'INFO',
+        message: hasPerM2Tariffs
+          ? apartmentsWithoutArea > 0
+            ? `Există ${apartmentsWithoutArea} apartamente fără suprafață pentru tarife per m².`
+            : 'Apartamentele au suprafețe pentru tarifele per m².'
+          : 'Nu există tarife active per m² pentru această lună.',
+        actionUrl: '/admin/apartments',
+      }),
+      this.makeBillingRunCheck({
+        key: 'RESIDENTS_EXIST',
+        category: 'RESIDENTS',
+        label: 'Locatari/proprietari',
+        status: residentIds.size > 0 ? 'PASSED' : 'WARNING',
+        message: residentIds.size > 0 ? `Există ${residentIds.size} locatari/proprietari legați de apartamente.` : 'Nu există locatari/proprietari legați de apartamente.',
+        actionUrl: '/admin/residents',
+      }),
+      this.makeBillingRunCheck({
+        key: 'APARTMENTS_WITH_PRIMARY_CONTACT',
+        category: 'RESIDENTS',
+        label: 'Contacte principale',
+        status: apartmentsWithoutPrimary > 0 ? 'WARNING' : 'PASSED',
+        message: apartmentsWithoutPrimary > 0 ? `Există ${apartmentsWithoutPrimary} apartamente fără contact principal.` : 'Apartamentele au contact principal.',
+        actionUrl: '/admin/apartments?hasPrimaryContact=false',
+      }),
+      this.makeBillingRunCheck({
+        key: 'CONTACT_REACHABILITY',
+        category: 'RESIDENTS',
+        label: 'Date contact',
+        status: contactsWithoutReach > 0 ? 'WARNING' : 'PASSED',
+        message: contactsWithoutReach > 0 ? `Există ${contactsWithoutReach} contacte principale fără telefon.` : 'Contactele principale au telefon completat.',
+        actionUrl: '/admin/residents',
+      }),
+      this.makeBillingRunCheck({
+        key: 'ACTIVE_TARIFFS',
+        category: 'TARIFFS',
+        label: 'Tarife active',
+        status: activeTariffs.length > 0 ? 'PASSED' : 'FAILED',
+        message: activeTariffs.length > 0 ? `Există ${activeTariffs.length} tarife active pentru luna selectată.` : 'Nu există tarife active. Nu poți calcula draftul.',
+        actionUrl: '/admin/tariffs',
+      }),
+      this.makeBillingRunCheck({
+        key: 'TARIFF_VALUES',
+        category: 'TARIFFS',
+        label: 'Valori tarife',
+        status: invalidTariffs > 0 ? 'FAILED' : activeTariffs.length ? 'PASSED' : 'NOT_APPLICABLE',
+        message: invalidTariffs > 0 ? `Există ${invalidTariffs} tarife active cu valori nevalide.` : activeTariffs.length ? 'Tarifele active au valori pozitive.' : 'Nu există tarife active de verificat.',
+        actionUrl: '/admin/tariffs',
+      }),
+      this.makeBillingRunCheck({
+        key: 'METER_TARIFFS',
+        category: 'METERS',
+        label: 'Tarife pe consum',
+        status: activeMeterTariffs.length > 0 ? 'PASSED' : 'NOT_APPLICABLE',
+        message: activeMeterTariffs.length > 0 ? `Există ${activeMeterTariffs.length} tarife active pe consum.` : 'Nu există tarife pe consum active pentru luna selectată.',
+        actionUrl: '/admin/tariffs/meter-based',
+      }),
+      this.makeBillingRunCheck({
+        key: 'APPROVED_METER_READINGS',
+        category: 'METERS',
+        label: 'Indici aprobați',
+        status: activeMeterTariffs.length ? (missingMeterReadings > 0 ? 'WARNING' : 'PASSED') : 'NOT_APPLICABLE',
+        message: activeMeterTariffs.length
+          ? missingMeterReadings > 0
+            ? `Există ${missingMeterReadings} apartamente fără indici aprobați pentru luna ${billingMonth}.`
+            : 'Indicii contoarelor sunt aprobați pentru tarifele pe consum.'
+          : 'Nu sunt necesari indici pentru această lună.',
+        actionUrl: '/admin/meter-readings/reports',
+      }),
+      this.makeBillingRunCheck({
+        key: 'METER_READING_ISSUES',
+        category: 'METERS',
+        label: 'Indici cu probleme',
+        status: activeMeterTariffs.length ? (needsReviewReadings || rejectedReadings ? 'WARNING' : 'PASSED') : 'NOT_APPLICABLE',
+        message: activeMeterTariffs.length
+          ? needsReviewReadings || rejectedReadings
+            ? `Există ${needsReviewReadings} indici needs review și ${rejectedReadings} respinși.`
+            : 'Nu există indici cu probleme pentru luna selectată.'
+          : 'Nu sunt necesare verificări pentru indici.',
+        actionUrl: '/admin/meter-readings',
+      }),
+      this.makeBillingRunCheck({
+        key: 'DRAFT_EXISTS',
+        category: 'DRAFT',
+        label: 'Draft calculat',
+        status: draft ? 'PASSED' : 'WARNING',
+        severity: draft ? 'INFO' : 'WARNING',
+        message: draft ? `Există draft ${draft.status} pentru luna ${billingMonth}.` : 'Draftul nu este calculat încă.',
+        actionUrl: draft ? `/admin/invoices/draft/${draft.id}/review` : '/admin/invoices/draft',
+      }),
+      this.makeBillingRunCheck({
+        key: 'FINAL_INVOICES',
+        category: 'FINALIZATION',
+        label: 'Facturi finale',
+        status: finalInvoices.length > 0 || draft?.invoicesGenerated ? 'PASSED' : 'WARNING',
+        severity: finalInvoices.length > 0 || draft?.invoicesGenerated ? 'INFO' : 'WARNING',
+        message: finalInvoices.length > 0 || draft?.invoicesGenerated
+          ? `Există ${finalInvoices.length || draft?.invoicesCount || 0} facturi finale generate.`
+          : 'Facturile finale nu sunt generate încă.',
+        actionUrl: `/admin/invoices?billingMonth=${billingMonth}`,
+      }),
+    ];
+    const summary = this.billingRunSummaryFromData({ apartments, tariffs, meterPreview, checks, draft, finalInvoices, billingMonth });
+    return {
+      association: {
+        id: organization.id,
+        shortName: organization.name,
+        legalName: organization.legalName || organization.name,
+        associationCode: organization.fiscalCode || '',
+      },
+      checks,
+      summary,
+      draft: draft ? this.draftResponse(draft) as BillingDraftRecord : null,
+      finalInvoices,
+    };
+  }
+
+  private billingRunDetailPayload(run: BillingRunRecord | null, association: any, summary: any, draft: BillingDraftRecord | null, finalInvoices: InternalInvoiceMetadata[]) {
+    const hydratedRun = run
+      ? {
+          ...run,
+          status: this.billingRunStatusFromState(run, draft, finalInvoices),
+          draftId: draft?.id || run.draftId || null,
+          totalAmount: Number(draft?.finalizedAmount || draft?.totalAmount || run.totalAmount || 0),
+          invoicesCount: Number(finalInvoices.length || draft?.invoicesCount || run.invoicesCount || 0),
+        }
+      : null;
+    const timeline = this.billingRunTimeline(hydratedRun, summary, draft, finalInvoices);
+    const nextAction = this.billingRunNextAction(hydratedRun, summary, draft, finalInvoices);
+    return {
+      billingMonth: hydratedRun?.billingMonth || draft?.billingMonth || null,
+      association,
+      billingRun: hydratedRun,
+      summary,
+      timeline,
+      checks: hydratedRun?.checks || [],
+      draft: draft
+        ? {
+            id: draft.id,
+            billingMonth: draft.billingMonth,
+            status: draft.status,
+            totalAmount: Number(draft.totalAmount || 0),
+            warningsCount: Number(draft.warningsCount || 0),
+            errorsCount: Number(draft.errorsCount || 0),
+            lockedAt: draft.lockedAt || null,
+            finalizedAt: draft.finalizedAt || null,
+            invoicesGenerated: Boolean(draft.invoicesGenerated),
+            invoicesCount: Number(draft.invoicesCount || 0),
+          }
+        : null,
+      finalInvoices: {
+        count: finalInvoices.length,
+        totalAmount: this.money(finalInvoices.reduce((sum, invoice) => sum + Number(invoice.totalAmount || 0), 0)),
+      },
+      nextAction,
+    };
+  }
+
+  async getBillingOverview(user: MvpUser, query: Record<string, unknown>) {
+    const organizationId = this.resolveOrganizationId(user, query);
+    this.assertOrganizationAccess(user, organizationId);
+    const billingMonth = this.parseBillingMonth(query.billingMonth || this.currentBillingMonth());
+    const runs = await this.readBillingRuns(organizationId);
+    const run = this.findActiveBillingRun(runs, billingMonth);
+    const preflight = await this.buildBillingRunPreflight(user, billingMonth, run);
+    if (!run) {
+      const timeline = this.billingRunTimeline(null, preflight.summary, preflight.draft, preflight.finalInvoices);
+      return {
+        billingMonth,
+        association: preflight.association,
+        billingRun: null,
+        summary: preflight.summary,
+        timeline,
+        checks: preflight.checks,
+        nextAction: this.billingRunNextAction(null, preflight.summary, preflight.draft, preflight.finalInvoices),
+      };
+    }
+    const displayRun = {
+      ...run,
+      checks: preflight.checks,
+      warningsCount: preflight.summary.warningsCount,
+      errorsCount: preflight.summary.errorsCount,
+      draftId: preflight.draft?.id || run.draftId,
+      totalAmount: Number(preflight.draft?.totalAmount || run.totalAmount || 0),
+      invoicesCount: Number(preflight.finalInvoices.length || preflight.draft?.invoicesCount || run.invoicesCount || 0),
+    };
+    return {
+      ...this.billingRunDetailPayload(displayRun, preflight.association, preflight.summary, preflight.draft, preflight.finalInvoices),
+      billingMonth,
+    };
+  }
+
+  async listBillingRuns(user: MvpUser, query: Record<string, unknown>) {
+    const organizationId = this.resolveOrganizationId(user, query);
+    this.assertOrganizationAccess(user, organizationId);
+    const page = Math.max(1, Number(query.page || 1) || 1);
+    const limit = Math.min(100, Math.max(1, Number(query.limit || 20) || 20));
+    const status = query.status ? this.parseBillingRunStatus(query.status, 'PRECHECK') : null;
+    const billingMonth = query.billingMonth ? this.parseBillingMonth(query.billingMonth) : null;
+    const drafts = await this.readBillingDrafts(organizationId);
+    const invoices = await this.readInternalInvoiceMetadata(organizationId);
+    let runs = await this.readBillingRuns(organizationId);
+    runs = runs.map((run) => {
+      const draft = this.draftForBillingRun(run, drafts, run.billingMonth);
+      const finalInvoices = invoices.filter((invoice) => invoice.billingMonth === run.billingMonth && (!draft || invoice.sourceDraftId === draft.id));
+      return {
+        ...run,
+        status: this.billingRunStatusFromState(run, draft, finalInvoices),
+        draftId: draft?.id || run.draftId || null,
+        totalAmount: Number(draft?.finalizedAmount || draft?.totalAmount || run.totalAmount || 0),
+        invoicesCount: Number(finalInvoices.length || draft?.invoicesCount || run.invoicesCount || 0),
+      };
+    });
+    if (status) runs = runs.filter((run) => run.status === status);
+    if (billingMonth) runs = runs.filter((run) => run.billingMonth === billingMonth);
+    if (query.dateFrom) runs = runs.filter((run) => new Date(run.createdAt).getTime() >= new Date(String(query.dateFrom)).getTime());
+    if (query.dateTo) runs = runs.filter((run) => new Date(run.createdAt).getTime() <= new Date(String(query.dateTo)).getTime());
+    const direction = String(query.sortDirection || 'desc').toLowerCase() === 'asc' ? 1 : -1;
+    const sortBy = String(query.sortBy || 'updatedAt');
+    runs.sort((left: any, right: any) => {
+      const a = sortBy === 'billingMonth' ? left.billingMonth : left.updatedAt;
+      const b = sortBy === 'billingMonth' ? right.billingMonth : right.updatedAt;
+      return String(a).localeCompare(String(b)) * direction;
+    });
+    const start = (page - 1) * limit;
+    return {
+      items: runs.slice(start, start + limit),
+      meta: { page, limit, total: runs.length },
+    };
+  }
+
+  async createBillingRun(user: MvpUser, body: unknown) {
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const organizationId = this.resolveOrganizationId(user, payload);
+    this.assertOrganizationAccess(user, organizationId);
+    const billingMonth = this.parseBillingMonth(payload.billingMonth || this.currentBillingMonth());
+    const runs = await this.readBillingRuns(organizationId);
+    const existing = this.findActiveBillingRun(runs, billingMonth);
+    if (existing) throw new ConflictException('Există deja un proces activ pentru această lună.');
+    const now = new Date().toISOString();
+    const run: BillingRunRecord = {
+      id: randomUUID(),
+      associationId: organizationId,
+      organizationId,
+      billingMonth,
+      status: 'PRECHECK',
+      currency: 'MDL',
+      draftId: null,
+      finalizedAt: null,
+      finalizedById: null,
+      invoicesCount: 0,
+      totalAmount: 0,
+      warningsCount: 0,
+      errorsCount: 0,
+      startedById: user.id,
+      cancelledAt: null,
+      cancelledById: null,
+      cancellationReason: null,
+      checks: [],
+      createdAt: now,
+      updatedAt: now,
+    };
+    await this.writeBillingRuns(organizationId, user.id, [...runs, run]);
+    return this.runBillingRunPreflight(user, run.id);
+  }
+
+  async getBillingRun(user: MvpUser, id: string) {
+    const organizationId = this.resolveOrganizationId(user);
+    this.assertOrganizationAccess(user, organizationId);
+    const runs = await this.readBillingRuns(organizationId);
+    const run = runs.find((item) => item.id === id);
+    if (!run) throw new NotFoundException('Procesul de facturare nu a fost găsit.');
+    const preflight = await this.buildBillingRunPreflight(user, run.billingMonth, run);
+    const displayRun = {
+      ...run,
+      checks: preflight.checks,
+      warningsCount: preflight.summary.warningsCount,
+      errorsCount: preflight.summary.errorsCount,
+      draftId: preflight.draft?.id || run.draftId,
+      totalAmount: Number(preflight.draft?.totalAmount || run.totalAmount || 0),
+      invoicesCount: Number(preflight.finalInvoices.length || preflight.draft?.invoicesCount || run.invoicesCount || 0),
+    };
+    return this.billingRunDetailPayload(displayRun, preflight.association, preflight.summary, preflight.draft, preflight.finalInvoices);
+  }
+
+  async updateBillingRun(user: MvpUser, id: string, body: unknown) {
+    return this.updateBillingRunStatus(user, id, body);
+  }
+
+  async runBillingRunPreflight(user: MvpUser, id: string) {
+    const organizationId = this.resolveOrganizationId(user);
+    this.assertOrganizationAccess(user, organizationId);
+    const runs = await this.readBillingRuns(organizationId);
+    const run = runs.find((item) => item.id === id);
+    if (!run) throw new NotFoundException('Procesul de facturare nu a fost găsit.');
+    if (run.status === 'CANCELLED' || run.status === 'FINALIZED') throw new BadRequestException('Procesul nu mai poate rula verificări.');
+    const preflight = await this.buildBillingRunPreflight(user, run.billingMonth, run);
+    const { warningsCount, errorsCount } = this.billingRunCounts(preflight.checks);
+    const status = preflight.draft
+      ? this.billingRunStatusFromState(run, preflight.draft, preflight.finalInvoices)
+      : errorsCount > 0
+        ? 'PRECHECK'
+        : 'READY_FOR_DRAFT';
+    const updated: BillingRunRecord = {
+      ...run,
+      status,
+      checks: preflight.checks,
+      warningsCount,
+      errorsCount,
+      draftId: preflight.draft?.id || run.draftId || null,
+      totalAmount: Number(preflight.draft?.totalAmount || run.totalAmount || 0),
+      invoicesCount: Number(preflight.finalInvoices.length || preflight.draft?.invoicesCount || run.invoicesCount || 0),
+      updatedAt: new Date().toISOString(),
+    };
+    await this.writeBillingRuns(organizationId, user.id, runs.map((item) => (item.id === id ? updated : item)));
+    return this.billingRunDetailPayload(updated, preflight.association, preflight.summary, preflight.draft, preflight.finalInvoices);
+  }
+
+  async calculateBillingRunDraft(user: MvpUser, id: string, body: unknown) {
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const organizationId = this.resolveOrganizationId(user, payload);
+    this.assertOrganizationAccess(user, organizationId);
+    const runs = await this.readBillingRuns(organizationId);
+    const run = runs.find((item) => item.id === id);
+    if (!run) throw new NotFoundException('Procesul de facturare nu a fost găsit.');
+    if (run.status === 'CANCELLED' || run.status === 'FINALIZED') throw new BadRequestException('Procesul nu permite calculul draftului.');
+    const preflight = await this.buildBillingRunPreflight(user, run.billingMonth, run);
+    const { errorsCount } = this.billingRunCounts(preflight.checks);
+    if (errorsCount > 0) throw new BadRequestException('Rezolvă problemele critice înainte de calcularea draftului.');
+    const drafts = await this.readBillingDrafts(organizationId);
+    const existing = this.draftForBillingRun(run, drafts, run.billingMonth);
+    if (existing) this.assertDraftMutable(existing);
+    const input = this.parseDraftPayload({
+      billingMonth: run.billingMonth,
+      dueDate: payload.dueDate || null,
+      description: payload.description || `Facturare lunară ${run.billingMonth}`,
+      includeMeterCharges: payload.includeMeterCharges === false ? false : true,
+    });
+    const calculated = await this.calculateDraftRecord(user, input, existing);
+    const nextDrafts = existing ? drafts.map((draft) => (draft.id === existing.id ? calculated : draft)) : [...drafts, calculated];
+    await this.writeBillingDrafts(organizationId, user.id, nextDrafts);
+    const syncedRun = await this.syncBillingRunForDraft(organizationId, user.id, calculated, 'DRAFT_CALCULATED');
+    const freshPreflight = await this.buildBillingRunPreflight(user, run.billingMonth, syncedRun);
+    return this.billingRunDetailPayload(syncedRun, freshPreflight.association, freshPreflight.summary, freshPreflight.draft, freshPreflight.finalInvoices);
+  }
+
+  async linkBillingRunDraft(user: MvpUser, id: string, body: unknown) {
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const organizationId = this.resolveOrganizationId(user, payload);
+    this.assertOrganizationAccess(user, organizationId);
+    const draftId = typeof payload.draftId === 'string' && payload.draftId.trim() ? payload.draftId.trim() : '';
+    if (!draftId) throw new BadRequestException('draftId este obligatoriu.');
+    const [runs, drafts] = await Promise.all([this.readBillingRuns(organizationId), this.readBillingDrafts(organizationId)]);
+    const run = runs.find((item) => item.id === id);
+    if (!run) throw new NotFoundException('Procesul de facturare nu a fost găsit.');
+    const draft = drafts.find((item) => item.id === draftId && item.status !== 'CANCELLED');
+    if (!draft || draft.billingMonth !== run.billingMonth) throw new NotFoundException('Draftul nu aparține lunii procesului.');
+    const updated = { ...run, draftId: draft.id, status: this.billingRunStatusFromState(run, draft), totalAmount: Number(draft.totalAmount || 0), updatedAt: new Date().toISOString() };
+    await this.writeBillingRuns(organizationId, user.id, runs.map((item) => (item.id === id ? updated : item)));
+    return this.getBillingRun(user, id);
+  }
+
+  async updateBillingRunStatus(user: MvpUser, id: string, body: unknown) {
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const organizationId = this.resolveOrganizationId(user, payload);
+    this.assertOrganizationAccess(user, organizationId);
+    const requestedStatus = this.parseBillingRunStatus(payload.status);
+    if (!['PRECHECK', 'READY_FOR_DRAFT', 'DRAFT_CALCULATED', 'IN_REVIEW', 'DRAFT_LOCKED'].includes(requestedStatus)) {
+      throw new BadRequestException('Statusul procesului nu poate fi setat manual.');
+    }
+    const runs = await this.readBillingRuns(organizationId);
+    const run = runs.find((item) => item.id === id);
+    if (!run) throw new NotFoundException('Procesul de facturare nu a fost găsit.');
+    if (run.status === 'CANCELLED' || run.status === 'FINALIZED') throw new BadRequestException('Procesul nu mai poate fi modificat.');
+    const updated = { ...run, status: requestedStatus, updatedAt: new Date().toISOString() };
+    await this.writeBillingRuns(organizationId, user.id, runs.map((item) => (item.id === id ? updated : item)));
+    return this.getBillingRun(user, id);
+  }
+
+  async cancelBillingRun(user: MvpUser, id: string, body: unknown) {
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const reason = this.requiredString(payload.cancellationReason || payload.reason, 'Motivul anulării este obligatoriu.');
+    const organizationId = this.resolveOrganizationId(user, payload);
+    this.assertOrganizationAccess(user, organizationId);
+    const runs = await this.readBillingRuns(organizationId);
+    const run = runs.find((item) => item.id === id);
+    if (!run) throw new NotFoundException('Procesul de facturare nu a fost găsit.');
+    if (run.status === 'FINALIZED' || run.finalizedAt || run.invoicesCount > 0) throw new BadRequestException('Procesul finalizat nu poate fi anulat.');
+    const updated: BillingRunRecord = {
+      ...run,
+      status: 'CANCELLED',
+      cancelledAt: new Date().toISOString(),
+      cancelledById: user.id,
+      cancellationReason: reason,
+      updatedAt: new Date().toISOString(),
+    };
+    await this.writeBillingRuns(organizationId, user.id, runs.map((item) => (item.id === id ? updated : item)));
+    return { success: true, billingRun: updated, message: 'Procesul lunar a fost anulat.' };
+  }
+
+  async getBillingRunChecks(user: MvpUser, id: string) {
+    const detail = await this.getBillingRun(user, id);
+    return { items: detail.checks || [] };
   }
 
   async getInvoiceDraft(user: MvpUser, query: Record<string, unknown>) {
@@ -2098,6 +3056,7 @@ export class BillingReadService {
     const calculated = await this.calculateDraftRecord(user, input, existing);
     const nextDrafts = existing ? drafts.map((draft) => (draft.id === existing.id ? calculated : draft)) : [...drafts, calculated];
     await this.writeBillingDrafts(organizationId, user.id, nextDrafts);
+    await this.syncBillingRunForDraft(organizationId, user.id, calculated, 'DRAFT_CALCULATED');
     return this.draftResponse(calculated);
   }
 
@@ -2117,6 +3076,7 @@ export class BillingReadService {
     const calculated = await this.calculateDraftRecord(user, input, existing);
     const nextDrafts = drafts.map((draft) => (draft.id === id ? calculated : draft));
     await this.writeBillingDrafts(organizationId, user.id, nextDrafts);
+    await this.syncBillingRunForDraft(organizationId, user.id, calculated, 'DRAFT_CALCULATED');
     return this.draftResponse(calculated);
   }
 
@@ -2339,6 +3299,7 @@ export class BillingReadService {
       updatedAt: new Date().toISOString(),
     } as BillingDraftRecord) as BillingDraftRecord;
     await this.writeBillingDrafts(organizationId, user.id, drafts.map((item) => (item.id === id ? locked : item)));
+    await this.syncBillingRunForDraft(organizationId, user.id, locked, 'DRAFT_LOCKED');
     return this.reviewPayload(locked);
   }
 
@@ -2806,6 +3767,20 @@ export class BillingReadService {
           })
           .catch(() => undefined),
       ),
+    );
+    await this.syncBillingRunForDraft(
+      organizationId,
+      user.id,
+      {
+        ...response,
+        finalizedAt: now,
+        finalizedById: user.id,
+        invoicesGenerated: true,
+        invoicesCount: result.createdMetadata.length,
+        finalizedAmount: result.totalAmount,
+        updatedAt: now,
+      } as BillingDraftRecord,
+      'FINALIZED',
     );
 
     return {

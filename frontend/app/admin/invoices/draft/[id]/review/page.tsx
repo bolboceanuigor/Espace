@@ -81,6 +81,14 @@ type ReviewData = {
     shortName: string;
     associationCode: string;
   };
+  billingRun?: {
+    id: string;
+    billingMonth: string;
+    status: string;
+    warningsCount: number;
+    errorsCount: number;
+    actionUrl: string;
+  } | null;
   checklist: Array<{ key: string; label: string; status: 'COMPLETE' | 'WARNING' | 'BLOCKED' }>;
   canLock: boolean;
   requiresWarningConfirmation: boolean;
@@ -287,6 +295,7 @@ export default function InvoiceDraftReviewPage() {
               <Badge variant="neutral">{data?.association.shortName || 'A.P.C.'} · {data?.association.associationCode || 'cod necompletat'}</Badge>
               <Badge variant={draftStatusVariant[draft.status]}>{draft.status}</Badge>
               <Badge variant="neutral">{draft.billingMonth} · MDL</Badge>
+              {data?.billingRun ? <ButtonLink href={localizedPath(`/admin/billing/runs/${data.billingRun.id}`)} variant="secondary" size="sm">Înapoi la procesul lunar</ButtonLink> : null}
             </div>
           ) : null
         }
@@ -305,6 +314,11 @@ export default function InvoiceDraftReviewPage() {
             {draft?.finalizedAt ? <span>Finalizat: {formatDate(draft.finalizedAt)} · {draft.invoicesCount || 0} facturi</span> : null}
           </div>
           <div className="flex flex-wrap gap-2">
+            {data?.billingRun ? (
+              <ButtonLink href={localizedPath(`/admin/billing/runs/${data.billingRun.id}`)} variant="secondary">
+                Proces lunar
+              </ButtonLink>
+            ) : null}
             <Button variant="secondary" onClick={recalculateDraft} isLoading={busy === 'recalculate'} disabled={readOnly || !draft}>
               <RefreshCw className="h-4 w-4" />
               Recalculează draft

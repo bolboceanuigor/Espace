@@ -16,6 +16,61 @@ export class BillingReadController {
     return this.billingReadService.listInvoices(user);
   }
 
+  @Get(['admin/billing', 'api/admin/billing'])
+  getBillingOverview(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.billingReadService.getBillingOverview(user, query);
+  }
+
+  @Get(['admin/billing/runs', 'api/admin/billing/runs'])
+  listBillingRuns(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.billingReadService.listBillingRuns(user, query);
+  }
+
+  @Post(['admin/billing/runs', 'api/admin/billing/runs'])
+  createBillingRun(@CurrentUser() user: MvpUser, @Body() body: unknown) {
+    return this.billingReadService.createBillingRun(user, body);
+  }
+
+  @Get(['admin/billing/runs/:id/checks', 'api/admin/billing/runs/:id/checks'])
+  getBillingRunChecks(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.billingReadService.getBillingRunChecks(user, id);
+  }
+
+  @Get(['admin/billing/runs/:id', 'api/admin/billing/runs/:id'])
+  getBillingRun(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.billingReadService.getBillingRun(user, id);
+  }
+
+  @Patch(['admin/billing/runs/:id', 'api/admin/billing/runs/:id'])
+  updateBillingRun(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.billingReadService.updateBillingRun(user, id, body);
+  }
+
+  @Post(['admin/billing/runs/:id/preflight', 'api/admin/billing/runs/:id/preflight'])
+  runBillingRunPreflight(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.billingReadService.runBillingRunPreflight(user, id);
+  }
+
+  @Post(['admin/billing/runs/:id/calculate-draft', 'api/admin/billing/runs/:id/calculate-draft'])
+  calculateBillingRunDraft(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.billingReadService.calculateBillingRunDraft(user, id, body);
+  }
+
+  @Post(['admin/billing/runs/:id/link-draft', 'api/admin/billing/runs/:id/link-draft'])
+  linkBillingRunDraft(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.billingReadService.linkBillingRunDraft(user, id, body);
+  }
+
+  @Patch(['admin/billing/runs/:id/status', 'api/admin/billing/runs/:id/status'])
+  updateBillingRunStatus(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.billingReadService.updateBillingRunStatus(user, id, body);
+  }
+
+  @Patch(['admin/billing/runs/:id/cancel', 'api/admin/billing/runs/:id/cancel'])
+  cancelBillingRun(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.billingReadService.cancelBillingRun(user, id, body);
+  }
+
   @Get(['admin/tariffs', 'api/admin/tariffs'])
   listTariffs(@CurrentUser() user: MvpUser) {
     return this.billingReadService.listTariffs(user);

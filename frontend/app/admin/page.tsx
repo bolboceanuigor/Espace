@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
 import { formatMdl } from '@/lib/condo-admin-fallback';
-import { adminResidentUpdateRequestsApi, communicationsApi, onboardingApi, workbenchApi } from '@/lib/api';
+import { adminResidentUpdateRequestsApi, billingApi, communicationsApi, onboardingApi, workbenchApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 type CrmOrganization = {
@@ -267,6 +267,11 @@ function safeLocalizedLink(localizedPath: (href: string) => string, href?: strin
   return localizedPath((href || fallback).replace('/admin/issues', '/admin/requests'));
 }
 
+function currentBillingMonth() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
 export default function AdminPage() {
   const localizedPath = useLocalizedPath();
   const [source, setSource] = useState<'loading' | 'api' | 'error'>('loading');
@@ -276,6 +281,7 @@ export default function AdminPage() {
   const [setupError, setSetupError] = useState('');
   const [pendingUpdateRequests, setPendingUpdateRequests] = useState(0);
   const [announcementStats, setAnnouncementStats] = useState<any>({});
+  const [billingOverview, setBillingOverview] = useState<any>(null);
 
   useEffect(() => {
     let active = true;
@@ -335,6 +341,17 @@ export default function AdminPage() {
         setAnnouncementStats({});
       });
 
+    billingApi
+      .overview({ billingMonth: currentBillingMonth() })
+      .then((response) => {
+        if (!active) return;
+        setBillingOverview(response.data || null);
+      })
+      .catch(() => {
+        if (!active) return;
+        setBillingOverview(null);
+      });
+
     return () => {
       active = false;
     };
@@ -391,8 +408,15 @@ export default function AdminPage() {
         href: '/admin/announcements',
         active: Number(announcementStats.draft || 0) > 0,
       },
+      {
+        title: 'Facturare lunară',
+        value: billingOverview?.billingRun ? billingOverview.billingRun.status : 'Nepornit',
+        description: billingOverview?.nextAction?.label || 'Pornește procesul lunar',
+        href: '/admin/billing',
+        active: Boolean(billingOverview?.summary?.errorsCount || billingOverview?.summary?.warningsCount || !billingOverview?.billingRun),
+      },
     ],
-    [announcementStats, crm, pendingUpdateRequests],
+    [announcementStats, billingOverview, crm, pendingUpdateRequests],
   );
 
   const kpiCards = [
@@ -542,6 +566,21 @@ export default function AdminPage() {
           {financeKpiCards.map((card) => (
             <StatCard key={card.label} {...card} />
           ))}
+        </div>
+        <div className="mt-4 rounded-2xl border border-border/70 bg-muted/25 p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Facturare lunară</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {billingOverview?.billingRun
+                  ? `${billingOverview.billingMonth}: ${billingOverview.nextAction?.label || 'Proces în lucru'} · ${billingOverview.summary?.warningsCount || 0} warnings · ${billingOverview.summary?.errorsCount || 0} errors`
+                  : `${currentBillingMonth()}: procesul lunar nu este pornit`}
+              </p>
+            </div>
+            <ButtonLink href={localizedPath('/admin/billing')} variant="secondary">
+              <ListChecks className="h-4 w-4" /> Deschide facturarea
+            </ButtonLink>
+          </div>
         </div>
       </Card>
 
@@ -701,6 +740,9 @@ export default function AdminPage() {
           </ButtonLink>
           <ButtonLink href={localizedPath('/admin/meter-readings/reports')} variant="secondary">
             <Gauge className="h-4 w-4" /> Rapoarte consum
+          </ButtonLink>
+          <ButtonLink href={localizedPath('/admin/billing')} variant="secondary">
+            <ListChecks className="h-4 w-4" /> Facturare lunară
           </ButtonLink>
           <ButtonLink href={localizedPath('/admin/invoices')} variant="secondary">
             <FileText className="h-4 w-4" /> Emite facturi
