@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
 import { formatMdl } from '@/lib/condo-admin-fallback';
-import { adminResidentUpdateRequestsApi, onboardingApi, workbenchApi } from '@/lib/api';
+import { adminResidentUpdateRequestsApi, communicationsApi, onboardingApi, workbenchApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 type CrmOrganization = {
@@ -275,6 +275,7 @@ export default function AdminPage() {
   const [setup, setSetup] = useState<SetupChecklist | null>(null);
   const [setupError, setSetupError] = useState('');
   const [pendingUpdateRequests, setPendingUpdateRequests] = useState(0);
+  const [announcementStats, setAnnouncementStats] = useState<any>({});
 
   useEffect(() => {
     let active = true;
@@ -323,6 +324,17 @@ export default function AdminPage() {
         setPendingUpdateRequests(0);
       });
 
+    communicationsApi
+      .adminAnnouncementStats()
+      .then((response) => {
+        if (!active) return;
+        setAnnouncementStats(response.data || {});
+      })
+      .catch(() => {
+        if (!active) return;
+        setAnnouncementStats({});
+      });
+
     return () => {
       active = false;
     };
@@ -365,8 +377,15 @@ export default function AdminPage() {
         href: '/admin/resident-update-requests',
         active: pendingUpdateRequests > 0,
       },
+      {
+        title: 'Anunțuri draft',
+        value: String(announcementStats.draft || 0),
+        description: `${announcementStats.published || 0} publicate în avizier`,
+        href: '/admin/announcements',
+        active: Number(announcementStats.draft || 0) > 0,
+      },
     ],
-    [crm, pendingUpdateRequests],
+    [announcementStats, crm, pendingUpdateRequests],
   );
 
   const kpiCards = [

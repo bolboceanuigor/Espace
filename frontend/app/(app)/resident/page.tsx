@@ -12,11 +12,12 @@ import {
   CreditCard,
   FileText,
   Home,
+  Megaphone,
   ReceiptText,
   Wallet,
 } from 'lucide-react';
 import { Badge, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
-import { residentDemoApi } from '@/lib/api';
+import { communicationsApi, residentDemoApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
@@ -84,6 +85,18 @@ type DashboardAlert = {
   severity: 'INFO' | 'WARNING' | 'ERROR';
   title: string;
   message: string;
+};
+
+type RecentAnnouncement = {
+  id: string;
+  title: string;
+  excerpt?: string | null;
+  category?: string | null;
+  priority?: string | null;
+  pinned?: boolean;
+  publishedAt?: string | null;
+  createdAt?: string | null;
+  isRead?: boolean;
 };
 
 type ResidentDashboard = {
@@ -180,6 +193,16 @@ const roleLabels: Record<string, string> = {
   FAMILY_MEMBER: 'Membru familie',
 };
 
+const announcementCategoryLabels: Record<string, string> = {
+  GENERAL: 'General',
+  MAINTENANCE: 'Mentenanță',
+  PAYMENTS: 'Plăți',
+  EMERGENCY: 'Urgență',
+  MEETING: 'Ședință',
+  DOCUMENTS: 'Documente',
+  OTHER: 'Altul',
+};
+
 function formatDate(value?: string | null) {
   if (!value) return '-';
   const date = new Date(value);
@@ -234,6 +257,7 @@ export default function ResidentDashboardPage() {
   const [selectedApartmentId, setSelectedApartmentId] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [recentAnnouncements, setRecentAnnouncements] = useState<RecentAnnouncement[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -257,6 +281,23 @@ export default function ResidentDashboardPage() {
       active = false;
     };
   }, [selectedApartmentId]);
+
+  useEffect(() => {
+    let active = true;
+    communicationsApi
+      .listRecentResidentAnnouncements()
+      .then((response) => {
+        if (!active) return;
+        setRecentAnnouncements(response.data?.items || []);
+      })
+      .catch(() => {
+        if (!active) return;
+        setRecentAnnouncements([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const summary = dashboard.financialSummary;
   const currentStatus = useMemo(() => statusCopy(summary), [summary]);
@@ -419,6 +460,47 @@ export default function ResidentDashboardPage() {
           </div>
         </Card>
       </section>
+
+      <Card>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-foreground">Anunțuri recente</h2>
+            <p className="text-sm text-muted-foreground">Ultimele informații publicate de administrația asociației.</p>
+          </div>
+          <ButtonLink href="/resident/announcements" variant="secondary" size="sm">Vezi toate anunțurile</ButtonLink>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {recentAnnouncements.slice(0, 5).map((announcement) => (
+            <Link
+              key={announcement.id}
+              href={localizedPath(`/resident/announcements/${announcement.id}`)}
+              className={`rounded-2xl border p-4 transition hover:bg-white ${
+                announcement.priority === 'URGENT'
+                  ? 'border-rose-200 bg-rose-50/45'
+                  : announcement.priority === 'HIGH'
+                    ? 'border-amber-200 bg-amber-50/45'
+                    : 'border-border/70 bg-muted/25'
+              }`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="flex items-center gap-1 text-xs font-semibold text-muted-foreground">
+                    <Megaphone className="h-3.5 w-3.5" />
+                    {announcementCategoryLabels[String(announcement.category || 'GENERAL')] || announcement.category || 'General'}
+                  </p>
+                  <h3 className="mt-2 line-clamp-2 text-sm font-semibold text-foreground">{announcement.title}</h3>
+                </div>
+                {!announcement.isRead ? <span className="rounded-full bg-foreground px-2 py-1 text-[11px] font-semibold text-background">Nou</span> : null}
+              </div>
+              <p className="mt-2 line-clamp-2 text-xs leading-5 text-muted-foreground">{announcement.excerpt || 'Anunț publicat pe avizier.'}</p>
+              <p className="mt-3 text-xs text-muted-foreground">{formatDate(announcement.publishedAt || announcement.createdAt)}</p>
+            </Link>
+          ))}
+          {!recentAnnouncements.length ? (
+            <EmptyBlock title="Nu există anunțuri" text="Anunțurile publicate de administrator vor apărea aici." />
+          ) : null}
+        </div>
+      </Card>
 
       <section className="grid gap-4 xl:grid-cols-2">
         <Card>

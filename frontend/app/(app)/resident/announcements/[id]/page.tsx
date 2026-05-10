@@ -1,37 +1,54 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { MessageCircle, Pencil, Trash2 } from 'lucide-react';
-import { communicationsApi } from '@/lib/api';
+import { ArrowLeft, CalendarDays, Megaphone, Paperclip, Tag } from 'lucide-react';
+import { Card } from '@/components/ui';
 import MobilePageHeader from '@/components/common/MobilePageHeader';
 import LoadingState from '@/components/common/LoadingState';
 import EmptyState from '@/components/common/EmptyState';
+import { communicationsApi } from '@/lib/api';
+import { useLocalizedPath } from '@/lib/use-localized-path';
+
+const categoryLabels: Record<string, string> = {
+  GENERAL: 'General',
+  MAINTENANCE: 'Mentenanță',
+  PAYMENTS: 'Plăți',
+  EMERGENCY: 'Urgență',
+  MEETING: 'Ședință',
+  DOCUMENTS: 'Documente',
+  OTHER: 'Altul',
+};
+
+const priorityLabels: Record<string, string> = {
+  LOW: 'Scăzută',
+  NORMAL: 'Normală',
+  HIGH: 'Importantă',
+  URGENT: 'Urgentă',
+};
+
+function formatDate(value?: string | null) {
+  if (!value) return '—';
+  return new Intl.DateTimeFormat('ro-MD', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
+}
 
 export default function ResidentAnnouncementDetailsPage() {
   const params = useParams<{ id: string }>();
-  const [announcement, setAnnouncement] = useState<any>(null);
-  const [comments, setComments] = useState<any[]>([]);
-  const [content, setContent] = useState('');
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingContent, setEditingContent] = useState('');
+  const localizedPath = useLocalizedPath();
+  const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
-    setError(null);
+    setError('');
     try {
-      const [announcementRes, commentsRes] = await Promise.all([
-        communicationsApi.getResidentAnnouncement(params.id),
-        communicationsApi.listResidentAnnouncementComments(params.id),
-      ]);
-      setAnnouncement(announcementRes.data || null);
-      setComments(commentsRes.data || []);
-    } catch {
-      setError('Nu am putut încărca anunțul.');
-      setAnnouncement(null);
-      setComments([]);
+      const response = await communicationsApi.getResidentAnnouncement(params.id);
+      setData(response.data || null);
+    } catch (err: any) {
+      setError(String(err?.message || 'Nu am putut încărca anunțul.'));
+      setData(null);
     } finally {
       setLoading(false);
     }
@@ -45,129 +62,65 @@ export default function ResidentAnnouncementDetailsPage() {
   if (error) {
     return (
       <div className="space-y-4 pb-24 md:pb-4">
-        <MobilePageHeader title="Detalii anunț" subtitle="Comentarii și discuții" showBackButton />
-        <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
-          {error}{' '}
-          <button className="underline" onClick={() => load().catch(() => undefined)}>
-            Reîncearcă
-          </button>
-        </div>
+        <MobilePageHeader title="Avizier" subtitle="Detalii anunț" showBackButton />
+        <EmptyState title="Anunțul nu este disponibil" description={error} />
       </div>
     );
   }
+
+  const announcement = data?.announcement;
   if (!announcement) {
     return (
       <div className="space-y-4 pb-24 md:pb-4">
-        <MobilePageHeader title="Detalii anunț" subtitle="Comentarii și discuții" showBackButton />
-        <EmptyState title="Anunțul nu este disponibil" description="Poate a fost șters sau nu mai ai acces la el." />
+        <MobilePageHeader title="Avizier" subtitle="Detalii anunț" showBackButton />
+        <EmptyState title="Anunțul nu este disponibil" description="Anunțul nu există sau nu aparține contului tău." />
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 overflow-x-hidden pb-24 md:pb-4">
-      <MobilePageHeader title="Detalii anunț" subtitle="Comentarii și discuții" showBackButton />
-      <div className="rounded-xl border border-border/70 bg-card p-4">
-        <h1 className="text-xl font-semibold text-foreground">{announcement.title}</h1>
-        <p className="mt-2 text-sm text-muted-foreground">{announcement.content}</p>
-        <p className="mt-2 text-xs text-muted-foreground">{new Date(announcement.createdAt).toLocaleString()}</p>
-      </div>
+    <div className="space-y-4 overflow-x-hidden pb-24 md:pb-6">
+      <MobilePageHeader title="Avizier" subtitle="Detalii anunț" showBackButton />
 
-      <div className="rounded-xl border border-border/70 bg-card p-4">
-        <div className="flex items-center gap-2">
-          <MessageCircle className="h-4 w-4 text-muted-foreground" />
-          <p className="text-sm font-medium text-foreground">Comentarii comunitate</p>
-        </div>
-        {!announcement.commentsEnabled ? (
-          <p className="mt-2 text-xs text-muted-foreground">Comentariile sunt dezactivate pentru acest anunț.</p>
-        ) : null}
-
-        <div className="mt-3 space-y-2">
-          {comments.map((comment) => (
-            <div key={comment.id} className="rounded-lg border border-border/60 p-3">
-              <p className="text-xs text-muted-foreground">
-                {comment.author?.displayName || 'Locatar'}
-                {comment.author?.apartmentNumber ? ` • Ap. ${comment.author.apartmentNumber}` : ''}
-                {' • '}
-                {new Date(comment.createdAt).toLocaleString()}
-              </p>
-              {editingId === comment.id ? (
-                <div className="mt-2 space-y-2">
-                  <textarea
-                    className="input min-h-[80px]"
-                    value={editingContent}
-                    onChange={(event) => setEditingContent(event.target.value)}
-                  />
-                  <div className="flex gap-2">
-                    <button
-                      className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-white"
-                      onClick={async () => {
-                        await communicationsApi.updateResidentAnnouncementComment(comment.id, { content: editingContent });
-                        setEditingId(null);
-                        setEditingContent('');
-                        await load();
-                      }}
-                    >
-                      Salveaza
-                    </button>
-                    <button className="rounded-md border border-border px-3 py-1.5 text-xs" onClick={() => setEditingId(null)}>
-                      Renunta
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <p className="mt-1 text-sm text-foreground">{comment.content}</p>
-              )}
-              {comment.isOwn ? (
-                <div className="mt-2 flex gap-3 text-xs">
-                  <button
-                    className="inline-flex items-center gap-1 text-primary"
-                    onClick={() => {
-                      setEditingId(comment.id);
-                      setEditingContent(comment.content);
-                    }}
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                    Editeaza
-                  </button>
-                  <button
-                    className="inline-flex items-center gap-1 text-rose-600"
-                    onClick={async () => {
-                      await communicationsApi.deleteResidentAnnouncementComment(comment.id);
-                      await load();
-                    }}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                    Sterge
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          ))}
-          {!comments.length ? <p className="text-sm text-muted-foreground">Nu exista comentarii.</p> : null}
+      <Card className={`p-5 ${announcement.priority === 'URGENT' ? 'border-rose-200 bg-rose-50/35' : announcement.priority === 'HIGH' ? 'border-amber-200 bg-amber-50/35' : ''}`}>
+        <div className="flex flex-wrap gap-2">
+          <span className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-white/80 px-3 py-1 text-xs font-semibold text-muted-foreground">
+            <Tag className="h-3.5 w-3.5" />
+            {categoryLabels[announcement.category] || announcement.category}
+          </span>
+          <span className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-white/80 px-3 py-1 text-xs font-semibold text-muted-foreground">
+            <Megaphone className="h-3.5 w-3.5" />
+            {priorityLabels[announcement.priority] || announcement.priority}
+          </span>
+          <span className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-white/80 px-3 py-1 text-xs font-semibold text-muted-foreground">
+            <CalendarDays className="h-3.5 w-3.5" />
+            {formatDate(announcement.publishedAt || announcement.createdAt)}
+          </span>
         </div>
 
-        {announcement.commentsEnabled ? (
-          <>
-            <textarea
-              className="input mt-3 min-h-[90px]"
-              placeholder="Adauga un comentariu"
-              value={content}
-              onChange={(event) => setContent(event.target.value)}
-            />
-            <button
-              className="mt-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-white"
-              onClick={async () => {
-                await communicationsApi.createResidentAnnouncementComment(announcement.id, { content });
-                setContent('');
-                await load();
-              }}
-            >
-              Trimite comentariu
-            </button>
-          </>
-        ) : null}
-      </div>
+        <h1 className="mt-4 text-2xl font-semibold tracking-tight text-foreground">{announcement.title}</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {data?.association?.shortName || announcement.association?.shortName || 'A.P.C.'}
+        </p>
+        <div className="mt-5 whitespace-pre-wrap text-sm leading-7 text-foreground">{announcement.body || announcement.content}</div>
+
+        <div className="mt-5 rounded-2xl border border-dashed border-border/80 bg-white/70 p-4 text-sm text-muted-foreground">
+          <span className="inline-flex items-center gap-2">
+            <Paperclip className="h-4 w-4" />
+            Atașamentele vor fi disponibile ulterior.
+          </span>
+        </div>
+
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-4">
+          <span className="text-xs font-semibold text-muted-foreground">
+            {announcement.isRead ? 'Marcat ca citit' : 'Se marchează ca citit la deschidere'}
+          </span>
+          <Link href={localizedPath('/resident/announcements')} className="inline-flex min-h-10 items-center gap-2 rounded-2xl border border-border/70 px-4 text-sm font-semibold hover:bg-muted/60">
+            <ArrowLeft className="h-4 w-4" />
+            Înapoi la avizier
+          </Link>
+        </div>
+      </Card>
     </div>
   );
 }

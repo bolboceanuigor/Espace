@@ -1025,39 +1025,18 @@ export const adminImportsApi = {
 };
 
 export const communicationsApi = {
-  listAdminAnnouncements: (params?: {
-    contentType?: 'ANNOUNCEMENT' | 'DOCUMENT' | 'MAINTENANCE' | 'VOTE' | 'SYSTEM_NOTICE';
-    importance?: 'NORMAL' | 'IMPORTANT' | 'URGENT';
-    targetType?: 'ORGANIZATION' | 'BUILDING' | 'STAIRCASE' | 'APARTMENT';
-    pinned?: boolean;
-  }) =>
-    apiRequest<any[]>('/api/admin/announcements', {
-      params: {
-        contentType: params?.contentType,
-        importance: params?.importance,
-        targetType: params?.targetType,
-        pinned: params?.pinned !== undefined ? String(params.pinned) : undefined,
-      },
-    }),
-  createAdminAnnouncement: (data: {
-    title: string;
-    content: string;
-    contentType?: 'ANNOUNCEMENT' | 'DOCUMENT' | 'MAINTENANCE' | 'VOTE' | 'SYSTEM_NOTICE';
-    importance: 'NORMAL' | 'IMPORTANT' | 'URGENT';
-    targetType: 'ORGANIZATION' | 'BUILDING' | 'STAIRCASE' | 'APARTMENT';
-    buildingId?: string;
-    staircaseId?: string;
-    apartmentId?: string;
-    isPinned?: boolean;
-    commentsEnabled?: boolean;
-  }) => apiRequest<any>('/api/admin/announcements', { method: 'POST', body: data }),
+  listAdminAnnouncements: (params?: Record<string, string | number | boolean | undefined | null>) =>
+    apiRequest<any>('/api/admin/announcements', { params }),
+  adminAnnouncementStats: () => apiRequest<any>('/api/admin/announcements/stats'),
+  createAdminAnnouncement: (data: Record<string, unknown>) => apiRequest<any>('/api/admin/announcements', { method: 'POST', body: data }),
+  getAdminAnnouncement: (id: string) => apiRequest<any>(`/api/admin/announcements/${id}`),
   updateAdminAnnouncement: (id: string, data: any) =>
     apiRequest<any>(`/api/admin/announcements/${id}`, { method: 'PATCH', body: data }),
+  publishAdminAnnouncement: (id: string) => apiRequest<any>(`/api/admin/announcements/${id}/publish`, { method: 'PATCH' }),
+  archiveAdminAnnouncement: (id: string) => apiRequest<any>(`/api/admin/announcements/${id}/archive`, { method: 'PATCH' }),
+  duplicateAdminAnnouncement: (id: string) => apiRequest<any>(`/api/admin/announcements/${id}/duplicate`, { method: 'POST' }),
   deleteAdminAnnouncement: (id: string) => apiRequest<any>(`/api/admin/announcements/${id}`, { method: 'DELETE' }),
-  pinAdminAnnouncement: (id: string, isPinned?: boolean) =>
-    apiRequest<any>(`/api/admin/announcements/${id}/pin`, { method: 'PATCH', body: { isPinned } }),
-  toggleAdminAnnouncementComments: (id: string, commentsEnabled?: boolean) =>
-    apiRequest<any>(`/api/admin/announcements/${id}/toggle-comments`, { method: 'PATCH', body: { commentsEnabled } }),
+  adminAnnouncementReadStats: (id: string) => apiRequest<any>(`/api/admin/announcements/${id}/read-stats`),
 
   listAdminDocuments: () => apiRequest<any[]>('/api/admin/documents'),
   createAdminDocument: (data: {
@@ -1075,16 +1054,12 @@ export const communicationsApi = {
     apiRequest<any>(`/api/admin/documents/${id}`, { method: 'PATCH', body: data }),
   deleteAdminDocument: (id: string) => apiRequest<any>(`/api/admin/documents/${id}`, { method: 'DELETE' }),
 
-  listResidentAnnouncements: () => apiRequest<any[]>('/api/resident/announcements'),
+  listResidentAnnouncements: (params?: Record<string, string | number | boolean | undefined | null>) =>
+    apiRequest<any>('/api/resident/announcements', { params }),
+  listRecentResidentAnnouncements: () => apiRequest<any>('/api/resident/announcements/recent'),
+  residentAnnouncementStats: () => apiRequest<any>('/api/resident/announcements/stats'),
   getResidentAnnouncement: (id: string) => apiRequest<any>(`/api/resident/announcements/${id}`),
-  listResidentAnnouncementComments: (announcementId: string) =>
-    apiRequest<any[]>(`/api/resident/announcements/${announcementId}/comments`),
-  createResidentAnnouncementComment: (announcementId: string, data: { content: string }) =>
-    apiRequest<any>(`/api/resident/announcements/${announcementId}/comments`, { method: 'POST', body: data }),
-  updateResidentAnnouncementComment: (id: string, data: { content: string }) =>
-    apiRequest<any>(`/api/resident/announcement-comments/${id}`, { method: 'PATCH', body: data }),
-  deleteResidentAnnouncementComment: (id: string) =>
-    apiRequest<any>(`/api/resident/announcement-comments/${id}`, { method: 'DELETE' }),
+  markResidentAnnouncementRead: (id: string) => apiRequest<any>(`/api/resident/announcements/${id}/read`, { method: 'PATCH' }),
   listResidentDocuments: () => apiRequest<any[]>('/api/resident/documents'),
   listResidentNotifications: () => apiRequest<any[]>('/api/resident/notifications'),
   markResidentNotificationRead: (id: string) => apiRequest<any>(`/api/resident/notifications/${id}/read`, { method: 'PATCH' }),
