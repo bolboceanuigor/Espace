@@ -5,6 +5,7 @@ import { Calculator, CalendarDays, Eye, FileDown, FileText, RefreshCw, Save, Tra
 import { Badge, Button, ButtonLink, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
 import { invoicesApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
+import { useLocalizedPath } from '@/lib/use-localized-path';
 
 type DraftStatus = 'DRAFT' | 'LOCKED' | 'CANCELLED';
 type LineStatus = 'READY' | 'WARNING' | 'ERROR' | 'EXCLUDED';
@@ -46,6 +47,8 @@ type DraftData = {
   dueDate: string | null;
   description: string;
   status?: DraftStatus;
+  invoicesGenerated?: boolean;
+  finalizedAt?: string | null;
   currency: 'MDL';
   organization?: {
     shortName?: string;
@@ -142,6 +145,7 @@ function roundMoney(value: number) {
 }
 
 export default function AdminInvoiceDraftPage() {
+  const localizedPath = useLocalizedPath();
   const [billingMonth, setBillingMonth] = useState(currentBillingMonth());
   const [dueDate, setDueDate] = useState(defaultDueDate(currentBillingMonth()));
   const [description, setDescription] = useState('');
@@ -349,9 +353,19 @@ export default function AdminInvoiceDraftPage() {
               Salvează draft
             </Button>
             {draft?.id ? (
-              <ButtonLink href={`/admin/invoices/draft/${draft.id}/review`} variant="secondary">
+              <ButtonLink href={localizedPath(`/admin/invoices/draft/${draft.id}/review`)} variant="secondary">
                 <Eye className="h-4 w-4" />
                 {draft.status === 'LOCKED' ? 'Vezi draft blocat' : 'Revizuiește draft'}
+              </ButtonLink>
+            ) : null}
+            {draft?.id && draft.status === 'LOCKED' && !draft.invoicesGenerated ? (
+              <ButtonLink href={localizedPath(`/admin/invoices/finalize/${draft.id}`)}>
+                Generează facturi finale
+              </ButtonLink>
+            ) : null}
+            {draft?.invoicesGenerated ? (
+              <ButtonLink href={localizedPath(`/admin/invoices?billingMonth=${draft.billingMonth}`)} variant="secondary">
+                Vezi facturile generate
               </ButtonLink>
             ) : null}
             {draft?.id && draft.status === 'DRAFT' ? (

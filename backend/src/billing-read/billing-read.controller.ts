@@ -151,6 +151,16 @@ export class BillingReadController {
     return this.billingReadService.cancelInvoiceDraft(user, id);
   }
 
+  @Get(['admin/invoices/finalize/:draftId', 'api/admin/invoices/finalize/:draftId'])
+  getInvoiceFinalizeSummary(@CurrentUser() user: MvpUser, @Param('draftId') draftId: string) {
+    return this.billingReadService.getInvoiceFinalizeSummary(user, draftId);
+  }
+
+  @Post(['admin/invoices/finalize/:draftId', 'api/admin/invoices/finalize/:draftId'])
+  finalizeInvoiceDraft(@CurrentUser() user: MvpUser, @Param('draftId') draftId: string) {
+    return this.billingReadService.finalizeInvoiceDraft(user, draftId);
+  }
+
   @Post(['admin/invoices/generate-monthly', 'api/admin/invoices/generate-monthly'])
   generateMonthlyInvoices(@CurrentUser() user: MvpUser, @Body() body: unknown) {
     return this.billingReadService.generateMonthlyInvoices(user, body);
@@ -159,6 +169,21 @@ export class BillingReadController {
   @Get(['admin/invoices/monthly-summary', 'api/admin/invoices/monthly-summary'])
   getMonthlySummary(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
     return this.billingReadService.getMonthlySummary(user, query);
+  }
+
+  @Get(['admin/invoices', 'api/admin/invoices'])
+  listAdminInternalInvoices(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.billingReadService.listAdminInternalInvoices(user, query);
+  }
+
+  @Get(['admin/invoices/:id', 'api/admin/invoices/:id'])
+  getAdminInternalInvoice(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.billingReadService.getAdminInternalInvoice(user, id);
+  }
+
+  @Patch(['admin/invoices/:id/status', 'api/admin/invoices/:id/status'])
+  updateAdminInternalInvoiceStatus(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.billingReadService.updateAdminInternalInvoiceStatus(user, id, body);
   }
 
   @Get(['admin/finance-overview', 'api/admin/finance-overview'])

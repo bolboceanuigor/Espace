@@ -102,14 +102,66 @@ type BillingDraftRecord = {
   excludedAmount?: number;
   includedApartments?: number;
   excludedApartments?: number;
+  finalizedAt?: string | null;
+  finalizedById?: string | null;
+  invoicesGenerated?: boolean;
+  invoicesCount?: number;
+  finalizedAmount?: number;
   summary: Record<string, unknown>;
   tariffsUsed: Array<Record<string, unknown>>;
   items: BillingDraftItem[];
   warnings: string[];
 };
+type InternalInvoiceStatus = 'ISSUED' | 'PARTIALLY_PAID' | 'PAID' | 'CANCELLED' | 'VOID';
+type InternalInvoiceLineMetadata = {
+  id: string;
+  sourceDraftLineId: string | null;
+  tariffId: string | null;
+  lineType: 'TARIFF' | 'MANUAL_ADJUSTMENT' | 'DISCOUNT' | 'CORRECTION';
+  name: string;
+  description: string;
+  calculationType: TariffCalculationType;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+  currency: 'MDL';
+  formulaLabel: string;
+};
+type InternalInvoiceMetadata = {
+  id: string;
+  invoiceId: string;
+  associationId: string;
+  organizationId: string;
+  apartmentId: string;
+  primaryContactId: string | null;
+  sourceDraftId: string;
+  invoiceNumber: string;
+  billingMonth: string;
+  issueDate: string;
+  dueDate: string | null;
+  status: InternalInvoiceStatus;
+  currency: 'MDL';
+  subtotalAmount: number;
+  totalAmount: number;
+  paidAmount: number;
+  balanceAmount: number;
+  notes: string;
+  apartment: {
+    id: string;
+    apartmentNumber: string;
+    staircase: string;
+    floor: string | null;
+  };
+  primaryContact: { id: string; fullName: string; phone: string | null } | null;
+  lines: InternalInvoiceLineMetadata[];
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+};
 
 const TARIFF_METADATA_NOTE_TITLE = 'Tariff settings metadata';
 const BILLING_DRAFT_NOTE_TITLE = 'Internal invoice draft metadata';
+const INTERNAL_INVOICE_NOTE_TITLE = 'Internal invoices metadata';
 
 const SUPPORTED_TARIFFS: Record<
   SupportedTariffId,
@@ -1218,21 +1270,62 @@ export class BillingReadService {
     }
   }
 
-  private async writeBillingDrafts(organizationId: string, actorUserId: string, drafts: BillingDraftRecord[]) {
+  private async writeBillingDrafts(organizationId: string, actorUserId: string, drafts: BillingDraftRecord[], client: any = this.prisma) {
     const payload = { version: 1, items: drafts };
-    const existing = await this.prisma.clientNote.findFirst({
+    const existing = await client.clientNote.findFirst({
       where: { organizationId, title: BILLING_DRAFT_NOTE_TITLE },
       select: { id: true },
     });
     const content = JSON.stringify(payload);
     if (existing) {
-      await this.prisma.clientNote.update({ where: { id: existing.id }, data: { content } });
+      await client.clientNote.update({ where: { id: existing.id }, data: { content } });
     } else {
-      await this.prisma.clientNote.create({
+      await client.clientNote.create({
         data: {
           organizationId,
           createdByUserId: actorUserId,
           title: BILLING_DRAFT_NOTE_TITLE,
+          content,
+        },
+      });
+    }
+  }
+
+  private async readInternalInvoiceMetadata(organizationId: string, client: any = this.prisma): Promise<InternalInvoiceMetadata[]> {
+    const note = await client.clientNote.findFirst({
+      where: { organizationId, title: INTERNAL_INVOICE_NOTE_TITLE },
+      orderBy: { updatedAt: 'desc' },
+      select: { content: true },
+    });
+    if (!note?.content) return [];
+    try {
+      const parsed = JSON.parse(note.content);
+      return Array.isArray(parsed?.items) ? parsed.items : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private async writeInternalInvoiceMetadata(
+    organizationId: string,
+    actorUserId: string,
+    invoices: InternalInvoiceMetadata[],
+    client: any = this.prisma,
+  ) {
+    const payload = { version: 1, items: invoices };
+    const existing = await client.clientNote.findFirst({
+      where: { organizationId, title: INTERNAL_INVOICE_NOTE_TITLE },
+      select: { id: true },
+    });
+    const content = JSON.stringify(payload);
+    if (existing) {
+      await client.clientNote.update({ where: { id: existing.id }, data: { content } });
+    } else {
+      await client.clientNote.create({
+        data: {
+          organizationId,
+          createdByUserId: actorUserId,
+          title: INTERNAL_INVOICE_NOTE_TITLE,
           content,
         },
       });
@@ -1366,6 +1459,11 @@ export class BillingReadService {
         lockedById: response.lockedById || null,
         cancelledAt: response.cancelledAt || null,
         cancelledById: response.cancelledById || null,
+        finalizedAt: response.finalizedAt || null,
+        finalizedById: response.finalizedById || null,
+        invoicesGenerated: Boolean(response.invoicesGenerated),
+        invoicesCount: Number(response.invoicesCount || 0),
+        finalizedAmount: Number(response.finalizedAmount || 0),
       },
       association,
       checklist: checklist.items,
@@ -1682,6 +1780,396 @@ export class BillingReadService {
     const nextDrafts = drafts.map((item) => (item.id === id ? cancelled : item));
     await this.writeBillingDrafts(organizationId, user.id, nextDrafts);
     return { id, status: 'CANCELLED', message: 'Draftul a fost anulat.' };
+  }
+
+  private internalInvoicePlan(draftId: string) {
+    return `INTERNAL_FINAL:${draftId}`;
+  }
+
+  private normalizeInvoiceCode(value?: string | null) {
+    const normalized = String(value || 'APC')
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^A-Z0-9-]/g, '');
+    return normalized || 'APC';
+  }
+
+  private invoiceNumberFor(associationCode: string, billingMonth: string, sequence: number) {
+    const compactMonth = billingMonth.replace('-', '');
+    return `${this.normalizeInvoiceCode(associationCode)}-${compactMonth}-${String(sequence).padStart(4, '0')}`;
+  }
+
+  private internalInvoiceLineType(line: BillingDraftLine): InternalInvoiceLineMetadata['lineType'] {
+    if (line.isManual) return line.manualType || 'MANUAL_ADJUSTMENT';
+    return 'TARIFF';
+  }
+
+  private includedDraftItems(draft: BillingDraftRecord) {
+    const response = this.draftResponse(draft) as BillingDraftRecord;
+    return (response.items || [])
+      .filter((item) => item.status !== 'EXCLUDED')
+      .map((item) => {
+        const lines = (item.lines || []).filter((line) => line.status === 'READY' || line.status === 'WARNING');
+        return this.recomputeDraftItem({ ...item, lines });
+      })
+      .filter((item) => item.lines.length > 0 && Number(item.total || 0) > 0);
+  }
+
+  private invoiceMetadataStats(items: InternalInvoiceMetadata[]) {
+    return {
+      issued: items.filter((item) => item.status === 'ISSUED').length,
+      paid: items.filter((item) => item.status === 'PAID').length,
+      partiallyPaid: items.filter((item) => item.status === 'PARTIALLY_PAID').length,
+      cancelled: items.filter((item) => item.status === 'CANCELLED' || item.status === 'VOID').length,
+      totalAmount: this.money(items.reduce((sum, item) => sum + Number(item.totalAmount || 0), 0)),
+      paidAmount: this.money(items.reduce((sum, item) => sum + Number(item.paidAmount || 0), 0)),
+      balanceAmount: this.money(items.reduce((sum, item) => sum + Number(item.balanceAmount || 0), 0)),
+    };
+  }
+
+  private async finalizationContext(user: MvpUser, draftId: string) {
+    const organizationId = this.resolveOrganizationId(user);
+    this.assertOrganizationAccess(user, organizationId);
+    const [drafts, metadata, organization, existingDbInvoices] = await Promise.all([
+      this.readBillingDrafts(organizationId),
+      this.readInternalInvoiceMetadata(organizationId),
+      this.prisma.organization.findUnique({
+        where: { id: organizationId },
+        select: { id: true, name: true, legalName: true, fiscalCode: true, currency: true },
+      }),
+      this.prisma.invoice.count({
+        where: { organizationId, plan: this.internalInvoicePlan(draftId) },
+      }),
+    ]);
+    if (!organization) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    const draft = drafts.find((item) => item.id === draftId);
+    if (!draft) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    return { organizationId, drafts, draft, metadata, organization, existingDbInvoices };
+  }
+
+  private finalizeEligibility(draft: BillingDraftRecord, metadata: InternalInvoiceMetadata[], existingDbInvoices = 0) {
+    const response = this.draftResponse(draft) as BillingDraftRecord;
+    const includedItems = this.includedDraftItems(response);
+    const includedLines = includedItems.flatMap((item) => item.lines);
+    const reasons: string[] = [];
+    if (response.status === 'DRAFT') reasons.push('Draftul trebuie blocat înainte de finalizare.');
+    if (response.status === 'CANCELLED') reasons.push('Draftul este anulat și nu poate fi finalizat.');
+    if (Boolean(response.invoicesGenerated || response.finalizedAt) || metadata.some((item) => item.sourceDraftId === response.id) || existingDbInvoices > 0) {
+      reasons.push('Facturile au fost deja generate pentru acest draft.');
+    }
+    if (Number(response.totalAmount || 0) <= 0) reasons.push('Draftul nu are sumă pozitivă de finalizat.');
+    if (!includedItems.length) reasons.push('Draftul nu are apartamente incluse.');
+    if (!includedLines.length) reasons.push('Draftul nu are linii pregătite pentru facturare.');
+    return {
+      canFinalize: reasons.length === 0,
+      reasons,
+      includedItems,
+      includedLinesCount: includedLines.length,
+      totalAmount: this.money(includedItems.reduce((sum, item) => sum + Number(item.total || 0), 0)),
+    };
+  }
+
+  async getInvoiceFinalizeSummary(user: MvpUser, draftId: string) {
+    const { draft, metadata, organization, existingDbInvoices } = await this.finalizationContext(user, draftId);
+    const response = this.draftResponse(draft) as BillingDraftRecord;
+    const eligibility = this.finalizeEligibility(response, metadata, existingDbInvoices);
+    const associationCode = this.normalizeInvoiceCode(organization.fiscalCode || organization.name);
+    const existingMonthSequences = metadata
+      .filter((item) => item.billingMonth === response.billingMonth && item.invoiceNumber.startsWith(`${associationCode}-${response.billingMonth.replace('-', '')}-`))
+      .map((item) => Number(item.invoiceNumber.split('-').pop()))
+      .filter((value) => Number.isFinite(value));
+    const firstSequence = (existingMonthSequences.length ? Math.max(...existingMonthSequences) : 0) + 1;
+    const lastSequence = Math.max(firstSequence, firstSequence + Math.max(eligibility.includedItems.length, 1) - 1);
+
+    return {
+      draft: {
+        id: response.id,
+        billingMonth: response.billingMonth,
+        status: response.status,
+        currency: response.currency,
+        includedApartments: eligibility.includedItems.length,
+        includedAmount: eligibility.totalAmount,
+        totalAmount: response.totalAmount,
+        lockedAt: response.lockedAt || null,
+        lockedById: response.lockedById || null,
+        finalizedAt: response.finalizedAt || null,
+        invoicesGenerated: Boolean(response.invoicesGenerated),
+        invoicesCount: Number(response.invoicesCount || 0),
+      },
+      association: {
+        id: organization.id,
+        shortName: organization.name,
+        legalName: organization.legalName || organization.name,
+        associationCode,
+      },
+      eligibility: {
+        canFinalize: eligibility.canFinalize,
+        reasons: eligibility.reasons,
+      },
+      preview: {
+        invoicesToCreate: eligibility.includedItems.length,
+        totalAmount: eligibility.totalAmount,
+        firstInvoiceNumber: this.invoiceNumberFor(associationCode, response.billingMonth, firstSequence),
+        lastInvoiceNumber: this.invoiceNumberFor(associationCode, response.billingMonth, lastSequence),
+      },
+    };
+  }
+
+  async finalizeInvoiceDraft(user: MvpUser, draftId: string) {
+    const { organizationId, drafts, draft, metadata, organization, existingDbInvoices } = await this.finalizationContext(user, draftId);
+    const response = this.draftResponse(draft) as BillingDraftRecord;
+    const eligibility = this.finalizeEligibility(response, metadata, existingDbInvoices);
+    if (!eligibility.canFinalize) {
+      throw new BadRequestException(eligibility.reasons[0] || 'Draftul nu poate fi finalizat.');
+    }
+
+    const associationCode = this.normalizeInvoiceCode(organization.fiscalCode || organization.name);
+    const { month, year } = this.billingMonthWindow(response.billingMonth);
+    const dueDate = response.dueDate ? this.requiredDate(response.dueDate, 'Data scadentă nu este validă.') : new Date(year, month - 1, 25);
+    const now = new Date().toISOString();
+    const existingMonthSequences = metadata
+      .filter((item) => item.billingMonth === response.billingMonth && item.invoiceNumber.startsWith(`${associationCode}-${response.billingMonth.replace('-', '')}-`))
+      .map((item) => Number(item.invoiceNumber.split('-').pop()))
+      .filter((value) => Number.isFinite(value));
+    let sequence = (existingMonthSequences.length ? Math.max(...existingMonthSequences) : 0) + 1;
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const duplicate = await tx.invoice.findFirst({
+        where: { organizationId, plan: this.internalInvoicePlan(response.id) },
+        select: { id: true },
+      });
+      if (duplicate) {
+        throw new ConflictException('Facturile au fost deja generate pentru acest draft.');
+      }
+
+      const createdMetadata: InternalInvoiceMetadata[] = [];
+      let totalAmount = 0;
+      for (const item of eligibility.includedItems) {
+        const lines = item.lines.filter((line) => line.status === 'READY' || line.status === 'WARNING');
+        const invoiceTotal = this.money(lines.reduce((sum, line) => sum + Number(line.amount || 0), 0));
+        if (invoiceTotal <= 0) continue;
+        const invoiceNumber = this.invoiceNumberFor(associationCode, response.billingMonth, sequence);
+        sequence += 1;
+        const invoice = await tx.invoice.create({
+          data: {
+            organizationId,
+            apartmentId: item.apartmentId,
+            month,
+            year,
+            amount: invoiceTotal,
+            finalAmount: invoiceTotal,
+            discount: 0,
+            plan: this.internalInvoicePlan(response.id),
+            status: InvoiceStatus.UNPAID,
+            dueDate,
+          },
+          select: { id: true, issuedAt: true, createdAt: true },
+        });
+
+        await tx.monthlyCharge.createMany({
+          data: lines.map((line) => ({
+            organizationId,
+            apartmentId: item.apartmentId,
+            month,
+            year,
+            tariffName: `${line.name} · ${line.id.replace(/[^a-zA-Z0-9]/g, '').slice(-10) || randomUUID().slice(0, 8)}`,
+            amount: this.money(Number(line.amount || 0)),
+            status: 'FINAL_INTERNAL',
+            createdByUserId: user.id || null,
+          })),
+          skipDuplicates: true,
+        });
+
+        const invoiceMetadata: InternalInvoiceMetadata = {
+          id: randomUUID(),
+          invoiceId: invoice.id,
+          associationId: organizationId,
+          organizationId,
+          apartmentId: item.apartmentId,
+          primaryContactId: item.primaryContact?.id || null,
+          sourceDraftId: response.id,
+          invoiceNumber,
+          billingMonth: response.billingMonth,
+          issueDate: invoice.issuedAt?.toISOString?.() || now,
+          dueDate: response.dueDate || dueDate.toISOString().slice(0, 10),
+          status: 'ISSUED',
+          currency: 'MDL',
+          subtotalAmount: invoiceTotal,
+          totalAmount: invoiceTotal,
+          paidAmount: 0,
+          balanceAmount: invoiceTotal,
+          notes: response.description || '',
+          apartment: {
+            id: item.apartmentId,
+            apartmentNumber: item.apartmentNumber,
+            staircase: item.staircase || '',
+            floor: item.floor || null,
+          },
+          primaryContact: item.primaryContact || null,
+          lines: lines.map((line) => ({
+            id: randomUUID(),
+            sourceDraftLineId: line.id,
+            tariffId: line.tariffId,
+            lineType: this.internalInvoiceLineType(line),
+            name: line.name,
+            description: line.description || '',
+            calculationType: line.calculationType,
+            quantity: Number(line.quantity || 0),
+            unitPrice: this.money(Number(line.unitPrice || 0)),
+            amount: this.money(Number(line.amount || 0)),
+            currency: 'MDL',
+            formulaLabel: line.formulaLabel || '',
+          })),
+          createdById: user.id,
+          createdAt: invoice.createdAt?.toISOString?.() || now,
+          updatedAt: now,
+        };
+        createdMetadata.push(invoiceMetadata);
+        totalAmount = this.money(totalAmount + invoiceTotal);
+      }
+
+      if (!createdMetadata.length) {
+        throw new BadRequestException('Draftul nu are facturi valide de generat.');
+      }
+
+      await this.writeInternalInvoiceMetadata(organizationId, user.id, [...metadata, ...createdMetadata], tx);
+      const finalizedDraft = this.draftResponse({
+        ...response,
+        finalizedAt: now,
+        finalizedById: user.id,
+        invoicesGenerated: true,
+        invoicesCount: createdMetadata.length,
+        finalizedAmount: totalAmount,
+        updatedAt: now,
+      } as BillingDraftRecord) as BillingDraftRecord;
+      await this.writeBillingDrafts(organizationId, user.id, drafts.map((item) => (item.id === response.id ? finalizedDraft : item)), tx);
+      return { createdMetadata, totalAmount };
+    });
+
+    await this.activity.createActivity({
+      organizationId,
+      actorUserId: user.id,
+      type: 'INVOICE_CREATED',
+      title: `Facturi interne generate pentru ${response.billingMonth}`,
+      message: `Au fost create ${result.createdMetadata.length} facturi interne finale în valoare de ${result.totalAmount.toLocaleString('ro-RO')} MDL.`,
+      targetType: 'INVOICE',
+      link: `/admin/invoices?billingMonth=${response.billingMonth}`,
+    }).catch(() => undefined);
+
+    return {
+      success: true,
+      sourceDraftId: response.id,
+      billingMonth: response.billingMonth,
+      createdInvoices: result.createdMetadata.length,
+      totalAmount: result.totalAmount,
+      redirectTo: `/ro/admin/invoices?billingMonth=${response.billingMonth}`,
+    };
+  }
+
+  async listAdminInternalInvoices(user: MvpUser, query: Record<string, unknown>) {
+    const organizationId = this.resolveOrganizationId(user, query);
+    this.assertOrganizationAccess(user, organizationId);
+    const [organization, metadata] = await Promise.all([
+      this.prisma.organization.findUnique({
+        where: { id: organizationId },
+        select: { id: true, name: true, legalName: true, fiscalCode: true },
+      }),
+      this.readInternalInvoiceMetadata(organizationId),
+    ]);
+    if (!organization) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+
+    const billingMonth = typeof query.billingMonth === 'string' && query.billingMonth.trim() ? this.parseBillingMonth(query.billingMonth) : '';
+    const status = typeof query.status === 'string' && query.status.trim() ? query.status.trim().toUpperCase() : '';
+    const search = typeof query.search === 'string' ? query.search.trim().toLowerCase() : '';
+    const apartmentNumber = typeof query.apartmentNumber === 'string' ? query.apartmentNumber.trim().toLowerCase() : '';
+    const page = Math.max(1, Number(query.page || 1));
+    const limit = Math.min(100, Math.max(1, Number(query.limit || 20)));
+    const sortBy = typeof query.sortBy === 'string' ? query.sortBy : 'createdAt';
+    const sortDirection = String(query.sortDirection || 'desc').toLowerCase() === 'asc' ? 'asc' : 'desc';
+
+    const filtered = metadata.filter((invoice) => {
+      const matchesMonth = !billingMonth || invoice.billingMonth === billingMonth;
+      const matchesStatus = !status || invoice.status === status;
+      const matchesApartment = !apartmentNumber || invoice.apartment.apartmentNumber.toLowerCase().includes(apartmentNumber);
+      const haystack = `${invoice.invoiceNumber} ${invoice.apartment.apartmentNumber} ${invoice.apartment.staircase} ${invoice.primaryContact?.fullName || ''} ${invoice.primaryContact?.phone || ''}`.toLowerCase();
+      return matchesMonth && matchesStatus && matchesApartment && (!search || haystack.includes(search));
+    });
+
+    filtered.sort((a, b) => {
+      const direction = sortDirection === 'asc' ? 1 : -1;
+      const numberValue = (value: unknown) => Number(value || 0);
+      if (sortBy === 'totalAmount') return (numberValue(a.totalAmount) - numberValue(b.totalAmount)) * direction;
+      if (sortBy === 'balanceAmount') return (numberValue(a.balanceAmount) - numberValue(b.balanceAmount)) * direction;
+      if (sortBy === 'apartmentNumber') return a.apartment.apartmentNumber.localeCompare(b.apartment.apartmentNumber, 'ro', { numeric: true }) * direction;
+      if (sortBy === 'invoiceNumber') return a.invoiceNumber.localeCompare(b.invoiceNumber, 'ro', { numeric: true }) * direction;
+      if (sortBy === 'status') return a.status.localeCompare(b.status, 'ro') * direction;
+      if (sortBy === 'dueDate') return (new Date(a.dueDate || 0).getTime() - new Date(b.dueDate || 0).getTime()) * direction;
+      return (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) * direction;
+    });
+
+    const start = (page - 1) * limit;
+    const items = filtered.slice(start, start + limit);
+    return {
+      items,
+      meta: { page, limit, total: filtered.length },
+      stats: this.invoiceMetadataStats(filtered),
+      association: {
+        id: organization.id,
+        shortName: organization.name,
+        legalName: organization.legalName || organization.name,
+        associationCode: this.normalizeInvoiceCode(organization.fiscalCode || organization.name),
+      },
+    };
+  }
+
+  async getAdminInternalInvoice(user: MvpUser, id: string) {
+    const organizationId = this.resolveOrganizationId(user);
+    this.assertOrganizationAccess(user, organizationId);
+    const metadata = await this.readInternalInvoiceMetadata(organizationId);
+    const invoice = metadata.find((item) => item.id === id || item.invoiceId === id);
+    if (!invoice) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    const organization = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { id: true, name: true, legalName: true, fiscalCode: true },
+    });
+    return {
+      invoice,
+      association: organization
+        ? {
+            id: organization.id,
+            shortName: organization.name,
+            legalName: organization.legalName || organization.name,
+            associationCode: this.normalizeInvoiceCode(organization.fiscalCode || organization.name),
+          }
+        : null,
+    };
+  }
+
+  async updateAdminInternalInvoiceStatus(user: MvpUser, id: string, body: unknown) {
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const nextStatus = typeof payload.status === 'string' ? payload.status.trim().toUpperCase() : '';
+    if (nextStatus !== 'CANCELLED' && nextStatus !== 'VOID') {
+      throw new BadRequestException('Statusul facturii nu este valid.');
+    }
+    const organizationId = this.resolveOrganizationId(user, payload);
+    this.assertOrganizationAccess(user, organizationId);
+    const metadata = await this.readInternalInvoiceMetadata(organizationId);
+    const index = metadata.findIndex((item) => item.id === id || item.invoiceId === id);
+    if (index === -1) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    const current = metadata[index];
+    if (current.status === 'PAID' || current.status === 'PARTIALLY_PAID') {
+      throw new BadRequestException('Factura cu plăți nu poate fi anulată în acest pas.');
+    }
+    const updated: InternalInvoiceMetadata = {
+      ...current,
+      status: nextStatus as 'CANCELLED' | 'VOID',
+      balanceAmount: 0,
+      updatedAt: new Date().toISOString(),
+    };
+    const nextItems = metadata.map((item, itemIndex) => (itemIndex === index ? updated : item));
+    await this.writeInternalInvoiceMetadata(organizationId, user.id, nextItems);
+    return { invoice: updated, message: nextStatus === 'VOID' ? 'Factura a fost marcată VOID.' : 'Factura a fost anulată.' };
   }
 
   async generateMonthlyInvoices(user: MvpUser, body: unknown) {

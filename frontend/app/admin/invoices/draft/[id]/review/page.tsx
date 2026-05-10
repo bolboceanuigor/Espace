@@ -3,8 +3,8 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, Calculator, CheckCircle2, Eye, LockKeyhole, Pencil, Plus, RefreshCw, Save, Trash2, TriangleAlert, WalletCards, XCircle } from 'lucide-react';
-import { Badge, Button, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
+import { ArrowLeft, Calculator, CheckCircle2, Eye, FileText, LockKeyhole, Pencil, Plus, RefreshCw, Save, Trash2, TriangleAlert, WalletCards, XCircle } from 'lucide-react';
+import { Badge, Button, ButtonLink, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
 import { invoicesApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { useLocalizedPath } from '@/lib/use-localized-path';
@@ -66,6 +66,11 @@ type ReviewData = {
     lockedById?: string | null;
     cancelledAt?: string | null;
     cancelledById?: string | null;
+    finalizedAt?: string | null;
+    finalizedById?: string | null;
+    invoicesGenerated?: boolean;
+    invoicesCount?: number;
+    finalizedAmount?: number;
   };
   association: {
     id: string;
@@ -293,6 +298,7 @@ export default function InvoiceDraftReviewPage() {
             <span>Creat: {formatDate(draft?.createdAt)}</span>
             <span>Creat de: {draft?.createdById || 'Nespecificat'}</span>
             {draft?.lockedAt ? <span>Blocat: {formatDate(draft.lockedAt)} · {draft.lockedById || ''}</span> : null}
+            {draft?.finalizedAt ? <span>Finalizat: {formatDate(draft.finalizedAt)} · {draft.invoicesCount || 0} facturi</span> : null}
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" onClick={recalculateDraft} isLoading={busy === 'recalculate'} disabled={readOnly || !draft}>
@@ -307,6 +313,17 @@ export default function InvoiceDraftReviewPage() {
               <LockKeyhole className="h-4 w-4" />
               Blochează draft
             </Button>
+            {draft?.status === 'LOCKED' && !draft.invoicesGenerated ? (
+              <ButtonLink href={localizedPath(`/admin/invoices/finalize/${draft.id}`)}>
+                <FileText className="h-4 w-4" />
+                Generează facturi finale
+              </ButtonLink>
+            ) : null}
+            {draft?.invoicesGenerated ? (
+              <ButtonLink href={localizedPath(`/admin/invoices?billingMonth=${draft.billingMonth}`)} variant="secondary">
+                Vezi facturile generate
+              </ButtonLink>
+            ) : null}
             <Button variant="danger" onClick={cancelDraft} isLoading={busy === 'cancel'} disabled={readOnly || !draft}>
               <Trash2 className="h-4 w-4" />
               Anulează draft

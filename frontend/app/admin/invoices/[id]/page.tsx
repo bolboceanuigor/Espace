@@ -1,134 +1,247 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, CreditCard, FileText, Home, Printer, ReceiptText } from 'lucide-react';
-import { Badge, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
+import { ArrowLeft, FileText, Home, ReceiptText, UserRound, WalletCards, XCircle } from 'lucide-react';
+import { Badge, Button, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
 import { invoicesApi } from '@/lib/api';
-import { adminInvoices, invoiceStatusVariant, normalizeApiInvoice, type AdminInvoice } from '@/lib/admin-mvp-data';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { useLocalizedPath } from '@/lib/use-localized-path';
+
+type InternalInvoiceStatus = 'ISSUED' | 'PARTIALLY_PAID' | 'PAID' | 'CANCELLED' | 'VOID';
+
+type InternalInvoiceLine = {
+  id: string;
+  sourceDraftLineId?: string | null;
+  tariffId?: string | null;
+  lineType: 'TARIFF' | 'MANUAL_ADJUSTMENT' | 'DISCOUNT' | 'CORRECTION';
+  name: string;
+  description: string;
+  calculationType: string;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+  currency: 'MDL';
+  formulaLabel: string;
+};
+
+type InternalInvoice = {
+  id: string;
+  invoiceId: string;
+  sourceDraftId: string;
+  invoiceNumber: string;
+  billingMonth: string;
+  issueDate?: string | null;
+  dueDate?: string | null;
+  status: InternalInvoiceStatus;
+  totalAmount: number;
+  paidAmount: number;
+  balanceAmount: number;
+  notes?: string;
+  apartment: { id: string; apartmentNumber: string; staircase?: string; floor?: string | null };
+  primaryContact?: { id: string; fullName: string; phone?: string | null } | null;
+  lines: InternalInvoiceLine[];
+};
+
+const statusLabels: Record<InternalInvoiceStatus, string> = {
+  ISSUED: 'Emisă',
+  PARTIALLY_PAID: 'Achitată parțial',
+  PAID: 'Achitată',
+  CANCELLED: 'Anulată',
+  VOID: 'VOID',
+};
+
+const statusVariant = {
+  ISSUED: 'warning',
+  PARTIALLY_PAID: 'warning',
+  PAID: 'success',
+  CANCELLED: 'neutral',
+  VOID: 'neutral',
+} as const;
 
 export default function AdminInvoiceDetailsPage() {
   const params = useParams<{ id: string }>();
   const localizedPath = useLocalizedPath();
-  const fallback = useMemo(() => adminInvoices.find((invoice) => invoice.id === params.id) ?? adminInvoices[0], [params.id]);
-  const [invoice, setInvoice] = useState<AdminInvoice>(fallback);
-  const [rawInvoice, setRawInvoice] = useState<any>(null);
-  const [source, setSource] = useState<'api' | 'mock'>('mock');
+  const invoiceId = String(params?.id || '');
+  const [invoice, setInvoice] = useState<InternalInvoice | null>(null);
+  const [association, setAssociation] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState('');
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+
+  const loadInvoice = useCallback(async () => {
+    if (!invoiceId) return;
+    setLoading(true);
+    setError('');
+    try {
+      const res = await invoicesApi.adminGetOne(invoiceId);
+      setInvoice(res.data?.invoice || null);
+      setAssociation(res.data?.association || null);
+    } catch (err: any) {
+      setInvoice(null);
+      setError(String(err?.message || 'Nu am putut încărca factura internă.'));
+    } finally {
+      setLoading(false);
+    }
+  }, [invoiceId]);
 
   useEffect(() => {
-    let active = true;
-    invoicesApi
-      .get(params.id)
-      .then((res) => {
-        if (!active) return;
-        setRawInvoice(res.data);
-        setInvoice(normalizeApiInvoice(res.data, res.data?.payments || []));
-        setSource('api');
-      })
-      .catch(() => {
-        if (!active) return;
-        setRawInvoice(null);
-        setInvoice(fallback);
-        setSource('mock');
-      });
-    return () => {
-      active = false;
-    };
-  }, [fallback, params.id]);
+    loadInvoice();
+  }, [loadInvoice]);
 
-  const payments = Array.isArray(rawInvoice?.payments) ? rawInvoice.payments : [];
+  async function updateStatus(nextStatus: 'CANCELLED' | 'VOID') {
+    if (!invoice) return;
+    setBusy(nextStatus);
+    setError('');
+    setMessage('');
+    try {
+      const res = await invoicesApi.adminUpdateStatus(invoice.invoiceId || invoice.id, { status: nextStatus });
+      setInvoice(res.data?.invoice || null);
+      setMessage(nextStatus === 'VOID' ? 'Factura a fost marcată VOID.' : 'Factura a fost anulată.');
+    } catch (err: any) {
+      setError(String(err?.message || 'Nu am putut actualiza statusul facturii.'));
+    } finally {
+      setBusy('');
+    }
+  }
+
+  if (!loading && !invoice) {
+    return (
+      <div className="space-y-5 pb-8">
+        <Card className="p-8 text-center">
+          <h1 className="text-xl font-semibold text-foreground">Factura nu a fost găsită</h1>
+          <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">Factura internă solicitată nu există sau nu aparține asociației tale.</p>
+          <ButtonLink href={localizedPath('/admin/invoices')} className="mt-5">Înapoi la facturi</ButtonLink>
+        </Card>
+      </div>
+    );
+  }
+
+  const isClosed = invoice?.status === 'CANCELLED' || invoice?.status === 'VOID' || invoice?.status === 'PAID' || invoice?.status === 'PARTIALLY_PAID';
 
   return (
-    <div className="space-y-5 pb-4">
+    <div className="space-y-5 pb-8">
+      <ButtonLink href={localizedPath('/admin/invoices')} variant="ghost">
+        <ArrowLeft className="h-4 w-4" />
+        Înapoi la listă
+      </ButtonLink>
+
       <PageHeader
-        title={invoice.invoiceNumber}
-        description={`Apt. ${invoice.apartment} · ${invoice.month}`}
+        title={invoice?.invoiceNumber || 'Factură internă'}
+        description={invoice ? `Apt. ${invoice.apartment.apartmentNumber} · luna ${invoice.billingMonth}` : 'Se încarcă datele...'}
         rightSlot={
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-              {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
-            </span>
-            {source === 'api' ? (
-              <ButtonLink href={localizedPath(`/admin/invoices/${params.id}/print`)} variant="secondary">
-                <Printer className="h-4 w-4" />
-                Printează factura
-              </ButtonLink>
-            ) : null}
-            <ButtonLink href={localizedPath('/admin/invoices')} variant="secondary">
-              <ArrowLeft className="h-4 w-4" />
-              Înapoi
-            </ButtonLink>
+            {association ? <Badge variant="neutral">{association.shortName} · {association.associationCode}</Badge> : null}
+            {invoice ? <Badge variant={statusVariant[invoice.status]}>{statusLabels[invoice.status]}</Badge> : null}
           </div>
         }
       />
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Apartament" value={`Apt. ${invoice.apartment}`} description={invoice.staircase} icon={<Home className="h-5 w-5" />} />
-        <StatCard label="Suma" value={formatMdl(invoice.amount)} description="Total factură" icon={<FileText className="h-5 w-5" />} />
-        <StatCard label="Scadență" value={invoice.dueDate} description="Termen de plată" icon={<ReceiptText className="h-5 w-5" />} tone={invoice.status === 'Întârziat' ? 'danger' : 'warning'} />
-        <StatCard label="Status" value={invoice.status} description={invoice.paymentMethod ?? 'Așteaptă plată'} icon={<CreditCard className="h-5 w-5" />} tone={invoice.status === 'Achitat' ? 'success' : invoice.status === 'Întârziat' ? 'danger' : 'warning'} />
-      </section>
+      {loading ? <Card className="h-32 animate-pulse bg-muted/40" /> : null}
+      {message ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">{message}</div> : null}
+      {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</div> : null}
 
-      <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-        <Card>
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Detalii factură</p>
-              <h2 className="mt-1 text-xl font-semibold text-foreground">{invoice.invoiceNumber}</h2>
-            </div>
-            <Badge variant={invoiceStatusVariant[invoice.status]}>{invoice.status}</Badge>
-          </div>
+      {invoice ? (
+        <>
+          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <StatCard label="Apartament" value={`Apt. ${invoice.apartment.apartmentNumber}`} description={invoice.apartment.staircase ? `Scara ${invoice.apartment.staircase}` : 'Scară nespecificată'} icon={<Home className="h-5 w-5" />} />
+            <StatCard label="Total" value={formatMdl(invoice.totalAmount)} description="Total factură" icon={<WalletCards className="h-5 w-5" />} />
+            <StatCard label="Achitat" value={formatMdl(invoice.paidAmount)} description="Plăți conectate ulterior" icon={<WalletCards className="h-5 w-5" />} tone="success" />
+            <StatCard label="Sold" value={formatMdl(invoice.balanceAmount)} description="De urmărit manual" icon={<ReceiptText className="h-5 w-5" />} tone={invoice.balanceAmount > 0 ? 'warning' : 'success'} />
+            <StatCard label="Status" value={statusLabels[invoice.status]} description={invoice.billingMonth} icon={<FileText className="h-5 w-5" />} />
+          </section>
 
-          <div className="mt-5 grid gap-2 text-sm sm:grid-cols-2">
-            <Info label="Luna" value={invoice.month} />
-            <Info label="Apartament" value={`Apt. ${invoice.apartment}`} />
-            <Info label="Scara" value={invoice.staircase} />
-            <Info label="Suma" value={formatMdl(invoice.amount)} strong />
-            <Info label="Data scadentă" value={invoice.dueDate} />
-            <Info label="Metodă plată" value={invoice.paymentMethod ?? '-'} />
-          </div>
-        </Card>
-
-        <Card>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Servicii incluse</p>
-          <div className="mt-4 grid gap-2 text-sm">
-            {['Întreținere', 'Fond reparații', 'Apă', 'Încălzire', 'Curățenie', 'Lift'].map((item) => (
-              <div key={item} className="flex items-center justify-between gap-3 rounded-2xl bg-muted/35 px-3 py-2">
-                <span className="text-muted-foreground">{item}</span>
-                <span className="font-medium text-foreground">Inclus</span>
+          <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+            <Card>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Detalii factură</p>
+                  <h2 className="mt-1 text-xl font-semibold text-foreground">{invoice.invoiceNumber}</h2>
+                </div>
+                <Badge variant={statusVariant[invoice.status]}>{statusLabels[invoice.status]}</Badge>
               </div>
-            ))}
-          </div>
-        </Card>
-      </div>
-
-      <Card>
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="font-semibold text-foreground">Plăți asociate</p>
-            <p className="mt-1 text-sm text-muted-foreground">Listă informativă; procesarea online va fi conectată ulterior.</p>
-          </div>
-        </div>
-
-        <div className="mt-4 grid gap-2">
-          {payments.length ? (
-            payments.map((payment: any) => (
-              <div key={payment.id} className="grid gap-2 rounded-2xl border border-border/70 bg-white px-3 py-3 text-sm sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-center">
-                <span className="font-semibold text-foreground">{formatMdl(Number(payment.amount || 0))}</span>
-                <span className="text-muted-foreground">{payment.method || '-'}</span>
-                <span className="text-muted-foreground">{payment.paidAt ? new Intl.DateTimeFormat('ro-RO').format(new Date(payment.paidAt)) : 'Neconfirmată'}</span>
-                <ButtonLink href={localizedPath(`/admin/payments/${payment.id}/print`)} size="sm" variant="secondary">
-                  Confirmare
+              <div className="mt-5 grid gap-2 text-sm sm:grid-cols-2">
+                <Info label="Luna" value={invoice.billingMonth} />
+                <Info label="Data emiterii" value={formatDate(invoice.issueDate)} />
+                <Info label="Scadență" value={formatDate(invoice.dueDate)} />
+                <Info label="Sursă draft" value={invoice.sourceDraftId} />
+                <Info label="Total" value={formatMdl(invoice.totalAmount)} strong />
+                <Info label="Sold" value={formatMdl(invoice.balanceAmount)} strong />
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <ButtonLink href={localizedPath(`/admin/apartments/${invoice.apartment.id}`)} variant="secondary">
+                  <Home className="h-4 w-4" />
+                  Vezi apartament
                 </ButtonLink>
+                {invoice.primaryContact?.id ? (
+                  <ButtonLink href={localizedPath(`/admin/residents/${invoice.primaryContact.id}`)} variant="secondary">
+                    <UserRound className="h-4 w-4" />
+                    Vezi locatar
+                  </ButtonLink>
+                ) : null}
+                <ButtonLink href={localizedPath(`/admin/invoices/draft/${invoice.sourceDraftId}/review`)} variant="secondary">
+                  Vezi draft
+                </ButtonLink>
+                <Button type="button" variant="secondary" disabled>PDF în curând</Button>
+                {!isClosed ? (
+                  <>
+                    <Button type="button" variant="secondary" onClick={() => updateStatus('CANCELLED')} isLoading={busy === 'CANCELLED'}>
+                      <XCircle className="h-4 w-4" />
+                      Anulează
+                    </Button>
+                    <Button type="button" variant="secondary" onClick={() => updateStatus('VOID')} isLoading={busy === 'VOID'}>
+                      VOID
+                    </Button>
+                  </>
+                ) : null}
               </div>
-            ))
-          ) : (
-            <p className="rounded-2xl bg-muted/35 px-3 py-3 text-sm text-muted-foreground">Nu există plăți asociate acestei facturi.</p>
-          )}
-        </div>
-      </Card>
+            </Card>
+
+            <Card>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Contact principal</p>
+              {invoice.primaryContact ? (
+                <div className="mt-4 grid gap-2 text-sm">
+                  <Info label="Nume" value={invoice.primaryContact.fullName} strong />
+                  <Info label="Telefon" value={invoice.primaryContact.phone || '-'} />
+                </div>
+              ) : (
+                <p className="mt-4 rounded-2xl bg-muted/35 px-3 py-3 text-sm text-muted-foreground">Nu există contact principal conectat la această factură.</p>
+              )}
+              <p className="mt-4 text-xs text-muted-foreground">Factura este internă. Trimiterea către locatari și PDF-ul final vor fi conectate ulterior.</p>
+            </Card>
+          </div>
+
+          <Card>
+            <h2 className="text-base font-semibold text-foreground">Linii factură</h2>
+            <div className="mt-4 grid gap-2">
+              {invoice.lines.map((line) => (
+                <div key={line.id} className="grid gap-3 rounded-2xl border border-border/70 bg-white px-4 py-3 text-sm md:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr_0.8fr] md:items-center">
+                  <div>
+                    <p className="font-semibold text-foreground">{line.name}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{line.description || line.formulaLabel || 'Linie factură internă'}</p>
+                  </div>
+                  <span className="text-muted-foreground">{line.calculationType}</span>
+                  <span className="text-muted-foreground">{line.quantity}</span>
+                  <span className="text-muted-foreground">{formatMdl(line.unitPrice)}</span>
+                  <strong className="text-right text-foreground">{formatMdl(line.amount)}</strong>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 rounded-2xl bg-muted/35 px-4 py-4 text-right">
+              <p className="text-sm text-muted-foreground">Total factură</p>
+              <p className="mt-1 text-2xl font-semibold text-foreground">{formatMdl(invoice.totalAmount)}</p>
+            </div>
+          </Card>
+
+          <Card>
+            <h2 className="text-base font-semibold text-foreground">Note interne</h2>
+            <p className="mt-3 whitespace-pre-wrap rounded-2xl bg-muted/35 px-4 py-4 text-sm text-muted-foreground">
+              {invoice.notes || 'Nu există note interne pentru această factură.'}
+            </p>
+          </Card>
+        </>
+      ) : null}
     </div>
   );
 }
@@ -137,7 +250,14 @@ function Info({ label, value, strong }: { label: string; value: string; strong?:
   return (
     <div className="rounded-2xl bg-muted/35 px-3 py-2">
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className={`mt-1 ${strong ? 'font-semibold' : 'font-medium'} text-foreground`}>{value}</p>
+      <p className={`mt-1 break-words ${strong ? 'font-semibold' : 'font-medium'} text-foreground`}>{value}</p>
     </div>
   );
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return new Intl.DateTimeFormat('ro-RO').format(date);
 }

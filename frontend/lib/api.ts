@@ -1278,9 +1278,26 @@ export const invoicesApi = {
     apiRequest<any>('/api/admin/invoices/generate-monthly', { method: 'POST', body: data }),
   monthlySummary: (params: { month: number; year: number }) =>
     apiRequest<any>('/api/admin/invoices/monthly-summary', { params }),
-  adminList: (params?: { month?: number; year?: number; buildingId?: string; staircaseId?: string; status?: string; page?: number; limit?: number }) =>
+  adminList: (params?: {
+    billingMonth?: string;
+    status?: string;
+    search?: string;
+    apartmentNumber?: string;
+    page?: number;
+    limit?: number;
+    sortBy?: string;
+    sortDirection?: 'asc' | 'desc';
+    month?: number;
+    year?: number;
+    buildingId?: string;
+    staircaseId?: string;
+  }) =>
     apiRequest<any>('/api/admin/invoices', { params }),
   adminGetOne: (id: string) => apiRequest<any>(`/api/admin/invoices/${id}`),
+  adminUpdateStatus: (id: string, data: { status: 'CANCELLED' | 'VOID' }) =>
+    apiRequest<any>(`/api/admin/invoices/${id}/status`, { method: 'PATCH', body: data }),
+  finalizeSummary: (draftId: string) => apiRequest<any>(`/api/admin/invoices/finalize/${draftId}`),
+  finalizeDraft: (draftId: string) => apiRequest<any>(`/api/admin/invoices/finalize/${draftId}`, { method: 'POST' }),
   issue: (id: string) => apiRequest<any>(`/api/admin/invoices/${id}/issue`, { method: 'POST' }),
   regenerate: (id: string) => apiRequest<any>(`/api/admin/invoices/${id}/regenerate`, { method: 'POST' }),
   adminPdf: (id: string) => apiRequest<Blob>(`/api/admin/invoices/${id}/pdf`, { responseType: 'blob' }),

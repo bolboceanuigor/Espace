@@ -1,454 +1,328 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { Calculator, CalendarDays, CheckCircle2, Clock3, FileText, Printer, Search, Send } from 'lucide-react';
-import { Badge, Button, ButtonLink, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
-import { apartmentsApi, invoicesApi, paymentsApi, tariffsApi } from '@/lib/api';
-import { adminInvoices, invoiceStatusVariant, normalizeApiApartment, normalizeApiInvoice, type AdminApartment, type AdminInvoice, type InvoiceStatus } from '@/lib/admin-mvp-data';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ArrowUpDown, Eye, FileText, Home, Search, WalletCards, XCircle } from 'lucide-react';
+import { Badge, Button, ButtonLink, Card, Input, PageHeader, StatCard } from '@/components/ui';
+import { invoicesApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
-const months = ['Toate', 'Mai 2026', 'Aprilie 2026', 'Martie 2026'];
-const statuses: Array<'Toate' | InvoiceStatus> = ['Toate', 'Achitat', 'Neachitat', 'Întârziat'];
-const invoiceStatuses = {
-  UNPAID: 'Neachitat',
-  PAID: 'Achitat',
-  OVERDUE: 'Întârziat',
+type InternalInvoiceStatus = 'ISSUED' | 'PARTIALLY_PAID' | 'PAID' | 'CANCELLED' | 'VOID';
+
+type InternalInvoice = {
+  id: string;
+  invoiceId?: string;
+  invoiceNumber: string;
+  billingMonth: string;
+  status: InternalInvoiceStatus;
+  currency: 'MDL';
+  totalAmount: number;
+  paidAmount: number;
+  balanceAmount: number;
+  dueDate?: string | null;
+  createdAt: string;
+  apartment: {
+    id: string;
+    apartmentNumber: string;
+    staircase?: string;
+    floor?: string | null;
+  };
+  primaryContact?: { id: string; fullName: string; phone?: string | null } | null;
+};
+
+type InvoiceListResponse = {
+  items: InternalInvoice[];
+  meta: { page: number; limit: number; total: number };
+  stats: {
+    issued: number;
+    paid: number;
+    partiallyPaid: number;
+    cancelled: number;
+    totalAmount: number;
+    paidAmount: number;
+    balanceAmount: number;
+  };
+  association?: {
+    shortName: string;
+    associationCode: string;
+  };
+};
+
+const statusLabels: Record<InternalInvoiceStatus, string> = {
+  ISSUED: 'Emisă',
+  PARTIALLY_PAID: 'Achitată parțial',
+  PAID: 'Achitată',
+  CANCELLED: 'Anulată',
+  VOID: 'VOID',
+};
+
+const statusVariant = {
+  ISSUED: 'warning',
+  PARTIALLY_PAID: 'warning',
+  PAID: 'success',
+  CANCELLED: 'neutral',
+  VOID: 'neutral',
 } as const;
-const emptyInvoiceForm = {
-  apartmentId: '',
-  month: String(new Date().getMonth() + 1),
-  year: String(new Date().getFullYear()),
-  amount: '',
-  dueDate: new Date().toISOString().slice(0, 10),
-  status: 'UNPAID' as keyof typeof invoiceStatuses,
-};
-const emptyGenerationForm = {
-  month: String(new Date().getMonth() + 1),
-  year: String(new Date().getFullYear()),
-  dueDate: new Date(new Date().getFullYear(), new Date().getMonth(), 25).toISOString().slice(0, 10),
-};
 
 export default function AdminInvoicesPage() {
   const localizedPath = useLocalizedPath();
-  const [month, setMonth] = useState('Toate');
-  const [status, setStatus] = useState<'Toate' | InvoiceStatus>('Toate');
+  const [billingMonth, setBillingMonth] = useState('');
+  const [status, setStatus] = useState('');
   const [query, setQuery] = useState('');
-  const [rows, setRows] = useState<AdminInvoice[]>([]);
-  const [apartmentRows, setApartmentRows] = useState<AdminApartment[]>([]);
-  const [source, setSource] = useState<'loading' | 'api' | 'mock'>('loading');
-  const [modalOpen, setModalOpen] = useState(false);
-  const [form, setForm] = useState(emptyInvoiceForm);
-  const [isCreating, setIsCreating] = useState(false);
-  const [formError, setFormError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
-  const [generationForm, setGenerationForm] = useState(emptyGenerationForm);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generationError, setGenerationError] = useState('');
-  const [generationResult, setGenerationResult] = useState<{
-    createdInvoicesCount: number;
-    skippedDuplicatesCount: number;
-    totalAmount: number;
-  } | null>(null);
-  const [activeTariffsCount, setActiveTariffsCount] = useState(0);
+  const [sortBy, setSortBy] = useState('createdAt');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [data, setData] = useState<InvoiceListResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState('');
 
-  const loadInvoices = async () => {
-    const [invoiceRes, paymentRes, apartmentsRes, tariffsRes] = await Promise.all([
-      invoicesApi.list(),
-      paymentsApi.list().catch(() => ({ data: [] })),
-      apartmentsApi.list().catch(() => ({ data: [] })),
-      tariffsApi.list().catch(() => ({ data: [] })),
-    ]);
-    const apiRows = (invoiceRes.data || []).map((invoice) => normalizeApiInvoice(invoice, paymentRes.data || []));
-    const apiApartments = (apartmentsRes.data || []).map(normalizeApiApartment);
-    const activeTariffs = (tariffsRes.data || []).filter((tariff: any) => tariff?.isActive !== false);
-    setRows(apiRows);
-    setSource('api');
-    setApartmentRows(apiApartments);
-    setActiveTariffsCount(activeTariffs.length);
-    setForm((current) => {
-      if (current.apartmentId || !apiApartments[0]?.id) return current;
-      return { ...current, apartmentId: apiApartments[0].id };
-    });
-  };
+  const loadInvoices = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await invoicesApi.adminList({
+        billingMonth: billingMonth || undefined,
+        status: status || undefined,
+        search: query || undefined,
+        sortBy,
+        sortDirection,
+        page: 1,
+        limit: 50,
+      });
+      setData(res.data || null);
+    } catch (err: any) {
+      setData(null);
+      setError(String(err?.message || 'Nu am putut încărca facturile interne.'));
+    } finally {
+      setLoading(false);
+    }
+  }, [billingMonth, query, sortBy, sortDirection, status]);
 
   useEffect(() => {
-    let active = true;
-    loadInvoices().catch(() => {
-        if (!active) return;
-        setRows(adminInvoices);
-        setApartmentRows([]);
-        setSource('mock');
-      });
-    return () => {
-      active = false;
-    };
+    const params = new URLSearchParams(window.location.search);
+    const value = params.get('billingMonth') || '';
+    if (value) setBillingMonth(value);
   }, []);
 
-  const filtered = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    return rows.filter((invoice) => {
-      const matchesSearch = !needle || `${invoice.apartment} ${invoice.staircase} ${invoice.month} ${invoice.invoiceNumber}`.toLowerCase().includes(needle);
-      const matchesMonth = month === 'Toate' || invoice.month === month;
-      const matchesStatus = status === 'Toate' || invoice.status === status;
-      return matchesSearch && matchesMonth && matchesStatus;
-    });
-  }, [month, query, rows, status]);
+  useEffect(() => {
+    loadInvoices();
+  }, [loadInvoices]);
 
-  const currentMonths = ['Toate', ...Array.from(new Set(rows.map((invoice) => invoice.month)))];
-  const invoiceGenerationReady = source === 'api' && apartmentRows.length > 0 && activeTariffsCount > 0;
-  const invoiceGenerationMessage =
-    source !== 'api'
-      ? ''
-      : apartmentRows.length === 0 && activeTariffsCount === 0
-        ? 'Pentru a genera facturi, adaugă apartamente și configurează tarifele.'
-        : apartmentRows.length === 0
-          ? 'Pentru a genera facturi, adaugă apartamente.'
-          : activeTariffsCount === 0
-            ? 'Pentru a genera facturi, configurează tarifele.'
-            : '';
-  const totals = useMemo(() => ({
-    issued: rows.length,
-    paid: rows.filter((invoice) => invoice.status === 'Achitat'),
-    unpaid: rows.filter((invoice) => invoice.status !== 'Achitat'),
-    nextDue: rows.find((invoice) => invoice.status !== 'Achitat')?.dueDate || 'Nu există',
-  }), [rows]);
+  const rows = data?.items || [];
+  const stats = data?.stats || {
+    issued: 0,
+    paid: 0,
+    partiallyPaid: 0,
+    cancelled: 0,
+    totalAmount: 0,
+    paidAmount: 0,
+    balanceAmount: 0,
+  };
 
-  const createInvoice = async () => {
-    setFormError('');
-    setSuccessMessage('');
-    const selectedApartment = apartmentRows.find((item) => item.id === form.apartmentId);
-    const amount = Number(form.amount);
-    const monthNumber = Number(form.month);
-    const yearNumber = Number(form.year);
-    if (!selectedApartment?.organizationId) {
-      setFormError('Apartamentul este obligatoriu.');
-      return;
-    }
-    if (!Number.isInteger(monthNumber) || monthNumber < 1 || monthNumber > 12) {
-      setFormError('Luna nu este validă.');
-      return;
-    }
-    if (!Number.isInteger(yearNumber) || yearNumber < 2000 || yearNumber > 2100) {
-      setFormError('Anul nu este valid.');
-      return;
-    }
-    if (!Number.isFinite(amount) || amount <= 0) {
-      setFormError('Suma facturii trebuie să fie pozitivă.');
-      return;
-    }
-    if (!form.dueDate || Number.isNaN(new Date(form.dueDate).getTime())) {
-      setFormError('Data scadentă nu este validă.');
-      return;
-    }
+  const canClearFilters = Boolean(billingMonth || status || query);
 
-    setIsCreating(true);
+  const statusOptions = useMemo(
+    () => [
+      { value: '', label: 'Toate statusurile' },
+      { value: 'ISSUED', label: 'Emise' },
+      { value: 'PAID', label: 'Achitate' },
+      { value: 'PARTIALLY_PAID', label: 'Achitate parțial' },
+      { value: 'CANCELLED', label: 'Anulate' },
+      { value: 'VOID', label: 'VOID' },
+    ],
+    [],
+  );
+
+  async function updateStatus(invoice: InternalInvoice, nextStatus: 'CANCELLED' | 'VOID') {
+    setBusy(`${invoice.id}:${nextStatus}`);
+    setError('');
+    setMessage('');
     try {
-      await invoicesApi.create({
-        organizationId: selectedApartment.organizationId,
-        apartmentId: selectedApartment.id,
-        month: monthNumber,
-        year: yearNumber,
-        amount,
-        dueDate: form.dueDate,
-        status: form.status,
-      });
-      setModalOpen(false);
-      setForm({ ...emptyInvoiceForm, apartmentId: selectedApartment.id });
-      setSuccessMessage('Factura a fost emisă.');
-      setSource('api');
-      await loadInvoices().catch(() => undefined);
-    } catch (error: any) {
-      const message = String(error?.message || '');
-      setFormError(message || 'Nu am putut emite factura.');
+      await invoicesApi.adminUpdateStatus(invoice.invoiceId || invoice.id, { status: nextStatus });
+      setMessage(nextStatus === 'VOID' ? 'Factura a fost marcată VOID.' : 'Factura a fost anulată.');
+      await loadInvoices();
+    } catch (err: any) {
+      setError(String(err?.message || 'Nu am putut actualiza statusul facturii.'));
     } finally {
-      setIsCreating(false);
+      setBusy('');
     }
-  };
+  }
 
-  const generateMonthlyInvoices = async () => {
-    setGenerationError('');
-    setSuccessMessage('');
-    setGenerationResult(null);
-    const monthNumber = Number(generationForm.month);
-    const yearNumber = Number(generationForm.year);
-    if (!Number.isInteger(monthNumber) || monthNumber < 1 || monthNumber > 12) {
-      setGenerationError('Luna nu este validă.');
-      return;
-    }
-    if (!Number.isInteger(yearNumber) || yearNumber < 2000 || yearNumber > 2100) {
-      setGenerationError('Anul nu este valid.');
-      return;
-    }
-    if (!generationForm.dueDate || Number.isNaN(new Date(generationForm.dueDate).getTime())) {
-      setGenerationError('Data scadentă nu este validă.');
-      return;
-    }
-    if (!invoiceGenerationReady) {
-      setGenerationError(invoiceGenerationMessage || 'Pentru a genera facturi, adaugă apartamente și configurează tarifele.');
-      return;
-    }
-
-    setIsGenerating(true);
-    try {
-      const response = await invoicesApi.generateMonthly({
-        month: monthNumber,
-        year: yearNumber,
-        dueDate: generationForm.dueDate,
-      });
-      const result = response.data || {};
-      const createdInvoicesCount = Number(result.createdInvoicesCount ?? result.createdCount ?? result.count ?? 0);
-      const skippedDuplicatesCount = Number(result.skippedDuplicatesCount ?? result.skippedCount ?? result.skippedDuplicates ?? 0);
-      const totalAmount = Number(result.totalAmount ?? 0);
-      setGenerationResult({ createdInvoicesCount, skippedDuplicatesCount, totalAmount });
-      setSuccessMessage(
-        skippedDuplicatesCount > 0
-          ? 'Facturile au fost generate. Unele facturi existau deja și au fost omise.'
-          : 'Facturile au fost generate.',
-      );
-      setSource('api');
-      await loadInvoices().catch(() => undefined);
-    } catch (error: any) {
-      const message = String(error?.message || '');
-      setGenerationError(message || 'Nu am putut genera facturile lunare.');
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const exportCsv = () => {
-    const headers = ['Apartament', 'Luna', 'Anul', 'Suma', 'Status', 'Data scadentă', 'Datorie'];
-    const lines = filtered.map((invoice) => [
-      `Apt. ${invoice.apartment}`,
-      String(invoice.monthNumber || ''),
-      String(invoice.yearNumber || ''),
-      invoice.amount.toFixed(2),
-      invoice.status,
-      invoice.dueDate,
-      Number(invoice.remainingDebt ?? (invoice.status === 'Achitat' ? 0 : invoice.amount)).toFixed(2),
-    ]);
-    const csv = [headers, ...lines]
-      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
-      .join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `facturi-${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
+  const toggleSortDirection = () => setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'));
 
   return (
-    <div className="space-y-5 pb-4">
+    <div className="space-y-5 pb-8">
       <PageHeader
-        title="Facturi"
-        description="Facturi lunare pe apartament, cu status de plată și scadențe."
+        title="Facturi interne"
+        description="Facturile finale generate din drafturile blocate ale asociației."
         rightSlot={
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-              {source === 'loading' ? 'Se încarcă...' : source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
-            </span>
-            <Button type="button" variant="secondary" onClick={exportCsv}>Export CSV</Button>
-            <ButtonLink href={localizedPath('/admin/invoices/draft')} variant="secondary">Calcul draft</ButtonLink>
-            <ButtonLink href={localizedPath('/admin/payments')} variant="secondary">Vezi plăți</ButtonLink>
+            {data?.association ? (
+              <Badge variant="neutral">{data.association.shortName} · {data.association.associationCode}</Badge>
+            ) : null}
+            <ButtonLink href={localizedPath('/admin/invoices/draft')} variant="secondary">Mergi la calcul draft</ButtonLink>
           </div>
         }
       />
 
-      {successMessage ? (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
-          {successMessage}
-        </div>
-      ) : null}
+      {message ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">{message}</div> : null}
+      {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</div> : null}
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Facturi emise" value={String(totals.issued)} description="În evidența curentă" icon={<FileText className="h-5 w-5" />} />
-        <StatCard label="Achitate" value={String(totals.paid.length)} description={formatMdl(totals.paid.reduce((sum, invoice) => sum + invoice.amount, 0))} icon={<CheckCircle2 className="h-5 w-5" />} tone="success" />
-        <StatCard label="Neachitate" value={String(totals.unpaid.length)} description={formatMdl(totals.unpaid.reduce((sum, invoice) => sum + invoice.amount, 0))} icon={<Clock3 className="h-5 w-5" />} tone="danger" />
-        <StatCard label="Următoarea scadență" value={totals.nextDue} description="Termen de plată curent" icon={<CalendarDays className="h-5 w-5" />} tone="warning" />
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+        <StatCard label="Total facturi" value={String(data?.meta.total || 0)} description="În evidența internă" icon={<FileText className="h-5 w-5" />} />
+        <StatCard label="Total emis" value={formatMdl(stats.totalAmount)} description="Suma finală internă" icon={<WalletCards className="h-5 w-5" />} />
+        <StatCard label="Total achitat" value={formatMdl(stats.paidAmount)} description={`${stats.paid} facturi achitate`} icon={<WalletCards className="h-5 w-5" />} tone="success" />
+        <StatCard label="Sold rămas" value={formatMdl(stats.balanceAmount)} description="De urmărit manual" icon={<WalletCards className="h-5 w-5" />} tone={stats.balanceAmount > 0 ? 'warning' : 'success'} />
+        <StatCard label="Facturi emise" value={String(stats.issued)} description="Neachitate încă" icon={<FileText className="h-5 w-5" />} tone="warning" />
+        <StatCard label="Anulate / VOID" value={String(stats.cancelled)} description="Nu intră în colectare" icon={<XCircle className="h-5 w-5" />} />
       </section>
 
       <Card>
-        <div className="grid gap-4 xl:grid-cols-[0.9fr_1.4fr]">
-          <div>
-            <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border/70 bg-muted/45 text-foreground">
-              <Calculator className="h-5 w-5" />
-            </div>
-            <h2 className="mt-3 text-base font-semibold text-foreground">Generare facturi lunare</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Generează facturi reale pe baza tarifelor APC active: deservire bloc, fond reparație și fond dezvoltare.
-            </p>
-            {!invoiceGenerationReady && source !== 'loading' ? (
-              <p className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
-                {invoiceGenerationMessage}
-              </p>
-            ) : null}
-            <ButtonLink href="/admin/tariffs" variant="secondary" className="mt-4">Configurează tarife</ButtonLink>
-          </div>
-          <div className="grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto]">
-            <Field label="Luna" value={generationForm.month} onChange={(value) => setGenerationForm({ ...generationForm, month: value })} type="number" required />
-            <Field label="Anul" value={generationForm.year} onChange={(value) => setGenerationForm({ ...generationForm, year: value })} type="number" required />
-            <Field label="Data scadentă" value={generationForm.dueDate} onChange={(value) => setGenerationForm({ ...generationForm, dueDate: value })} type="date" required />
-            <Button type="button" onClick={generateMonthlyInvoices} isLoading={isGenerating} disabled={!invoiceGenerationReady || isGenerating} className="self-end">
-              Generează facturi
-            </Button>
-          </div>
-        </div>
-        {generationResult ? (
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            <MiniResult label="Facturi create" value={String(generationResult.createdInvoicesCount)} />
-            <MiniResult label="Omise duplicate" value={String(generationResult.skippedDuplicatesCount)} />
-            <MiniResult label="Total generat" value={formatMdl(generationResult.totalAmount)} />
-          </div>
-        ) : null}
-        {generationError ? (
-          <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
-            {generationError}
-          </p>
-        ) : null}
-      </Card>
-
-      <Card>
-        <div className="grid gap-3 lg:grid-cols-[1.3fr_1fr_1fr_auto]">
+        <div className="grid gap-3 lg:grid-cols-[1.3fr_0.8fr_0.9fr_0.9fr_auto_auto]">
           <label className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input className="pl-9" placeholder="Caută apartament, lună sau număr factură" value={query} onChange={(event) => setQuery(event.target.value)} />
+            <Input className="pl-9" placeholder="Caută factură, apartament, contact sau telefon" value={query} onChange={(event) => setQuery(event.target.value)} />
           </label>
-          <Select value={month} onChange={setMonth} options={currentMonths.length > 1 ? currentMonths : months} label="Luna" />
-          <Select value={status} onChange={(value) => setStatus(value as 'Toate' | InvoiceStatus)} options={statuses} label="Status" />
-          <Button type="button" onClick={() => setModalOpen(true)} className="self-end" variant="primary"><Send className="h-4 w-4" /> Emite factură</Button>
+          <Input label="Luna" type="month" value={billingMonth} onChange={(event) => setBillingMonth(event.target.value)} />
+          <label className="grid gap-1">
+            <span className="text-xs font-medium text-muted-foreground">Status</span>
+            <select value={status} onChange={(event) => setStatus(event.target.value)} className="h-11 rounded-2xl border border-border/70 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-foreground/10">
+              {statusOptions.map((option) => <option key={option.value || 'all'} value={option.value}>{option.label}</option>)}
+            </select>
+          </label>
+          <label className="grid gap-1">
+            <span className="text-xs font-medium text-muted-foreground">Sortare</span>
+            <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} className="h-11 rounded-2xl border border-border/70 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-foreground/10">
+              <option value="createdAt">Data creării</option>
+              <option value="invoiceNumber">Număr factură</option>
+              <option value="apartmentNumber">Apartament</option>
+              <option value="totalAmount">Suma totală</option>
+              <option value="balanceAmount">Sold</option>
+              <option value="dueDate">Scadență</option>
+            </select>
+          </label>
+          <Button type="button" variant="secondary" onClick={toggleSortDirection} className="self-end">
+            <ArrowUpDown className="h-4 w-4" />
+            {sortDirection === 'asc' ? 'Asc' : 'Desc'}
+          </Button>
+          <Button type="button" variant="secondary" onClick={() => { setBillingMonth(''); setStatus(''); setQuery(''); }} disabled={!canClearFilters} className="self-end">
+            Resetează
+          </Button>
         </div>
       </Card>
 
-      <section className="hidden overflow-hidden rounded-[1.35rem] border border-border/70 bg-white shadow-[0_14px_40px_rgba(15,23,42,0.045)] md:block">
-        <div className="grid grid-cols-[1fr_0.8fr_0.9fr_0.9fr_0.9fr_0.9fr_auto] gap-3 border-b border-border/70 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          <span>Factura</span>
+      <section className="hidden overflow-hidden rounded-[1.35rem] border border-border/70 bg-white shadow-[0_14px_40px_rgba(15,23,42,0.045)] xl:block">
+        <div className="grid grid-cols-[1.15fr_0.8fr_1.1fr_0.7fr_0.85fr_0.75fr_0.75fr_0.75fr_0.85fr_1.05fr] gap-3 border-b border-border/70 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <span>Număr factură</span>
           <span>Apartament</span>
+          <span>Contact principal</span>
           <span>Luna</span>
-          <span>Suma</span>
-          <span>Scadență</span>
+          <span>Total</span>
+          <span>Achitat</span>
+          <span>Sold</span>
           <span>Status</span>
-          <span />
+          <span>Scadență</span>
+          <span>Acțiuni</span>
         </div>
-        {filtered.map((invoice) => (
-          <div key={invoice.id} className="grid grid-cols-[1fr_0.8fr_0.9fr_0.9fr_0.9fr_0.9fr_auto] items-center gap-3 border-b border-border/50 px-4 py-4 text-sm last:border-b-0">
-            <div>
-              <p className="font-semibold text-foreground">{invoice.invoiceNumber}</p>
-              <p className="text-xs text-muted-foreground">{invoice.paymentMethod ? `${invoice.paymentMethod} · ${invoice.paidDate}` : 'Așteaptă plată'}</p>
-            </div>
-            <span className="text-muted-foreground">Apt. {invoice.apartment}</span>
-            <span className="text-muted-foreground">{invoice.month}</span>
-            <span className="font-semibold text-foreground">{formatMdl(invoice.amount)}</span>
-            <span className="text-muted-foreground">{invoice.dueDate}</span>
-            <Badge variant={invoiceStatusVariant[invoice.status]}>{invoice.status}</Badge>
-            <div className="flex items-center gap-2">
-              <ButtonLink href={localizedPath(`/admin/invoices/${invoice.id}`)} size="sm" variant="secondary">Deschide</ButtonLink>
-              {source === 'api' ? (
-                <ButtonLink href={localizedPath(`/admin/invoices/${invoice.id}/print`)} size="sm" variant="secondary">
-                  <Printer className="h-3.5 w-3.5" />
-                  Printează
-                </ButtonLink>
-              ) : null}
-            </div>
+        {rows.map((invoice) => (
+          <div key={invoice.id} className="grid grid-cols-[1.15fr_0.8fr_1.1fr_0.7fr_0.85fr_0.75fr_0.75fr_0.75fr_0.85fr_1.05fr] items-center gap-3 border-b border-border/50 px-4 py-4 text-sm last:border-b-0">
+            <strong className="text-foreground">{invoice.invoiceNumber}</strong>
+            <span className="text-muted-foreground">Apt. {invoice.apartment.apartmentNumber}{invoice.apartment.staircase ? ` · sc. ${invoice.apartment.staircase}` : ''}</span>
+            <span className="text-muted-foreground">{invoice.primaryContact?.fullName || '-'}</span>
+            <span className="text-muted-foreground">{invoice.billingMonth}</span>
+            <strong className="text-foreground">{formatMdl(invoice.totalAmount)}</strong>
+            <span className="text-muted-foreground">{formatMdl(invoice.paidAmount)}</span>
+            <span className="font-semibold text-foreground">{formatMdl(invoice.balanceAmount)}</span>
+            <Badge variant={statusVariant[invoice.status]}>{statusLabels[invoice.status]}</Badge>
+            <span className="text-muted-foreground">{formatDate(invoice.dueDate)}</span>
+            <RowActions invoice={invoice} busy={busy} localizedPath={localizedPath} onStatus={updateStatus} />
           </div>
         ))}
-        {source === 'loading' ? <div className="px-4 py-8 text-sm font-medium text-muted-foreground">Se încarcă datele...</div> : null}
-        {source !== 'loading' && !filtered.length ? <div className="px-4 py-8 text-sm font-medium text-muted-foreground">Nu există facturi încă. Emite prima factură sau generează facturile lunare.</div> : null}
+        {loading ? <div className="px-4 py-8 text-sm font-medium text-muted-foreground">Se încarcă datele...</div> : null}
+        {!loading && !rows.length ? <EmptyState localizedPath={localizedPath} /> : null}
       </section>
 
-      <section className="grid gap-3 md:hidden">
-        {filtered.map((invoice) => (
-          <InvoiceCard
-            key={invoice.id}
-            invoice={invoice}
-            href={localizedPath(`/admin/invoices/${invoice.id}`)}
-            printHref={localizedPath(`/admin/invoices/${invoice.id}/print`)}
-            canPrint={source === 'api'}
-          />
+      <section className="grid gap-3 xl:hidden">
+        {rows.map((invoice) => (
+          <Card key={invoice.id} className="p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="font-semibold text-foreground">{invoice.invoiceNumber}</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Apt. {invoice.apartment.apartmentNumber} · {invoice.billingMonth}</p>
+              </div>
+              <Badge variant={statusVariant[invoice.status]}>{statusLabels[invoice.status]}</Badge>
+            </div>
+            <div className="mt-4 grid gap-2 text-sm">
+              <Info label="Contact" value={invoice.primaryContact?.fullName || '-'} />
+              <Info label="Total" value={formatMdl(invoice.totalAmount)} strong />
+              <Info label="Achitat" value={formatMdl(invoice.paidAmount)} />
+              <Info label="Sold" value={formatMdl(invoice.balanceAmount)} />
+              <Info label="Scadență" value={formatDate(invoice.dueDate)} />
+            </div>
+            <div className="mt-4">
+              <RowActions invoice={invoice} busy={busy} localizedPath={localizedPath} onStatus={updateStatus} />
+            </div>
+          </Card>
         ))}
-        {source === 'loading' ? <Card className="p-5 text-sm font-medium text-muted-foreground">Se încarcă datele...</Card> : null}
-        {source !== 'loading' && !filtered.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există facturi încă. Emite prima factură sau generează facturile lunare.</Card> : null}
+        {loading ? <Card className="p-5 text-sm font-medium text-muted-foreground">Se încarcă datele...</Card> : null}
+        {!loading && !rows.length ? <EmptyState localizedPath={localizedPath} /> : null}
       </section>
-
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} maxWidth="2xl">
-        <ModalHeader title="Emite factură" onClose={() => setModalOpen(false)} />
-        <ModalBody>
-          <div className="grid gap-3 md:grid-cols-2">
-            <label className="block">
-              <span className="label">Apartament</span>
-              <select className="select" value={form.apartmentId} onChange={(event) => setForm({ ...form, apartmentId: event.target.value })}>
-                <option value="">Alege apartamentul</option>
-                {apartmentRows.map((apartment) => (
-                  <option key={apartment.id} value={apartment.id}>Apt. {apartment.number} · {apartment.staircase}</option>
-                ))}
-              </select>
-            </label>
-            <Field label="Luna" value={form.month} onChange={(value) => setForm({ ...form, month: value })} type="number" required />
-            <Field label="Anul" value={form.year} onChange={(value) => setForm({ ...form, year: value })} type="number" required />
-            <Field label="Suma" value={form.amount} onChange={(value) => setForm({ ...form, amount: value })} type="number" required />
-            <Field label="Data scadentă" value={form.dueDate} onChange={(value) => setForm({ ...form, dueDate: value })} type="date" required />
-            <label className="block">
-              <span className="label">Status</span>
-              <select className="select" value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as typeof form.status })}>
-                {Object.entries(invoiceStatuses).map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-          {formError ? (
-            <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
-              {formError}
-            </p>
-          ) : null}
-        </ModalBody>
-        <ModalFooter>
-          <button type="button" onClick={() => setModalOpen(false)} disabled={isCreating} className="rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold disabled:opacity-60">
-            Anulează
-          </button>
-          <button type="button" onClick={createInvoice} disabled={isCreating} className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background disabled:opacity-60">
-            {isCreating ? 'Se emite...' : 'Emite factură'}
-          </button>
-        </ModalFooter>
-      </Modal>
     </div>
   );
 }
 
-function InvoiceCard({ invoice, href, printHref, canPrint }: { invoice: AdminInvoice; href: string; printHref: string; canPrint: boolean }) {
+function RowActions({
+  invoice,
+  busy,
+  localizedPath,
+  onStatus,
+}: {
+  invoice: InternalInvoice;
+  busy: string;
+  localizedPath: (path: string) => string;
+  onStatus: (invoice: InternalInvoice, status: 'CANCELLED' | 'VOID') => void;
+}) {
+  const isFinalClosed = invoice.status === 'CANCELLED' || invoice.status === 'VOID' || invoice.status === 'PAID' || invoice.status === 'PARTIALLY_PAID';
   return (
-    <Card className="p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="font-semibold text-foreground">{invoice.invoiceNumber}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Apt. {invoice.apartment} · {invoice.month}</p>
-        </div>
-        <Badge variant={invoiceStatusVariant[invoice.status]}>{invoice.status}</Badge>
-      </div>
-      <div className="mt-4 grid gap-2 text-sm">
-        <Info label="Suma" value={formatMdl(invoice.amount)} strong />
-        <Info label="Data scadentă" value={invoice.dueDate} />
-        <Info label="Metodă plată" value={invoice.paymentMethod ?? '-'} />
-      </div>
-      <div className={`mt-4 grid gap-2 ${canPrint ? 'sm:grid-cols-2' : ''}`}>
-        <ButtonLink href={href} className="w-full" variant="secondary">Deschide</ButtonLink>
-        {canPrint ? (
-          <ButtonLink href={printHref} className="w-full" variant="secondary">
-            <Printer className="h-4 w-4" />
-            Printează
-          </ButtonLink>
-        ) : null}
-      </div>
-    </Card>
+    <div className="flex flex-wrap gap-1.5">
+      <ButtonLink href={localizedPath(`/admin/invoices/${invoice.invoiceId || invoice.id}`)} size="sm" variant="secondary">
+        <Eye className="h-3.5 w-3.5" />
+        Deschide
+      </ButtonLink>
+      <ButtonLink href={localizedPath(`/admin/apartments/${invoice.apartment.id}`)} size="sm" variant="secondary">
+        <Home className="h-3.5 w-3.5" />
+        Apartament
+      </ButtonLink>
+      {invoice.primaryContact?.id ? (
+        <ButtonLink href={localizedPath(`/admin/residents/${invoice.primaryContact.id}`)} size="sm" variant="secondary">
+          Locatar
+        </ButtonLink>
+      ) : null}
+      {!isFinalClosed ? (
+        <>
+          <Button type="button" size="sm" variant="secondary" onClick={() => onStatus(invoice, 'CANCELLED')} isLoading={busy === `${invoice.id}:CANCELLED`}>
+            Anulează
+          </Button>
+          <Button type="button" size="sm" variant="secondary" onClick={() => onStatus(invoice, 'VOID')} isLoading={busy === `${invoice.id}:VOID`}>
+            VOID
+          </Button>
+        </>
+      ) : null}
+    </div>
   );
 }
 
-function MiniResult({ label, value }: { label: string; value: string }) {
+function EmptyState({ localizedPath }: { localizedPath: (path: string) => string }) {
   return (
-    <div className="rounded-2xl border border-border/70 bg-muted/25 px-4 py-3">
-      <p className="text-xs font-medium text-muted-foreground">{label}</p>
-      <p className="mt-1 text-sm font-semibold text-foreground">{value}</p>
+    <div className="px-4 py-10 text-center">
+      <h2 className="text-lg font-semibold text-foreground">Nu există facturi interne</h2>
+      <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">
+        După ce finalizezi un draft blocat, facturile interne vor apărea aici.
+      </p>
+      <ButtonLink href={localizedPath('/admin/invoices/draft')} className="mt-4">
+        Mergi la calcul draft
+      </ButtonLink>
     </div>
   );
 }
@@ -462,40 +336,9 @@ function Info({ label, value, strong }: { label: string; value: string; strong?:
   );
 }
 
-function Field({
-  label,
-  value,
-  onChange,
-  required,
-  type = 'text',
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  required?: boolean;
-  type?: string;
-}) {
-  return (
-    <label className="block">
-      <span className="label">{label}{required ? ' *' : ''}</span>
-      <input className="input" type={type} value={value} onChange={(event) => onChange(event.target.value)} />
-    </label>
-  );
-}
-
-function Select({ value, onChange, options, label }: { value: string; onChange: (value: string) => void; options: readonly string[]; label: string }) {
-  return (
-    <label className="grid gap-1">
-      <span className="text-xs font-medium text-muted-foreground">{label}</span>
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-11 rounded-2xl border border-border/70 bg-white px-3 text-sm text-foreground shadow-[0_10px_30px_rgba(15,23,42,0.035)] outline-none focus:ring-2 focus:ring-foreground/10"
-      >
-        {options.map((item) => (
-          <option key={item} value={item}>{item}</option>
-        ))}
-      </select>
-    </label>
-  );
+function formatDate(value?: string | null) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return new Intl.DateTimeFormat('ro-RO').format(date);
 }
