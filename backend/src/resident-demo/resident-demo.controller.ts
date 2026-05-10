@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -22,8 +22,8 @@ export class ResidentDemoController {
   }
 
   @Get(['resident/invoices', 'api/resident/invoices'])
-  listInvoices(@CurrentUser() user: MvpUser) {
-    return this.residentDemoService.listInvoices(user);
+  listInvoices(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.residentDemoService.listInternalInvoices(user, query);
   }
 
   @Get(['resident/finance-summary', 'api/resident/finance-summary'])
@@ -31,9 +31,14 @@ export class ResidentDemoController {
     return this.residentDemoService.getFinanceSummary(user);
   }
 
+  @Get(['resident/invoices/stats', 'api/resident/invoices/stats'])
+  getInvoiceStats(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.residentDemoService.getInternalInvoiceStats(user, query);
+  }
+
   @Get(['resident/invoices/:id', 'api/resident/invoices/:id'])
   getInvoice(@CurrentUser() user: MvpUser, @Param('id') id: string) {
-    return this.residentDemoService.getInvoice(user, id);
+    return this.residentDemoService.getInternalInvoice(user, id);
   }
 
   @Get(['resident/payments', 'api/resident/payments'])

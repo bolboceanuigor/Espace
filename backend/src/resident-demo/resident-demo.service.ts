@@ -15,6 +15,55 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ActivityMvpService } from '../activity-mvp/activity-mvp.service';
 import type { MvpUser } from '../security/mvp-auth.guard';
 
+type InternalInvoiceStatus = 'ISSUED' | 'PARTIALLY_PAID' | 'PAID' | 'CANCELLED' | 'VOID';
+type InternalInvoiceLineMetadata = {
+  id: string;
+  sourceDraftLineId: string | null;
+  tariffId: string | null;
+  lineType: 'TARIFF' | 'MANUAL_ADJUSTMENT' | 'DISCOUNT' | 'CORRECTION';
+  name: string;
+  description: string;
+  calculationType: string;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+  currency: 'MDL';
+  formulaLabel: string;
+};
+type InternalInvoiceMetadata = {
+  id: string;
+  invoiceId: string;
+  associationId: string;
+  organizationId: string;
+  apartmentId: string;
+  primaryContactId: string | null;
+  sourceDraftId: string;
+  invoiceNumber: string;
+  billingMonth: string;
+  issueDate: string;
+  dueDate: string | null;
+  status: InternalInvoiceStatus;
+  currency: 'MDL';
+  subtotalAmount: number;
+  totalAmount: number;
+  paidAmount: number;
+  balanceAmount: number;
+  notes: string;
+  apartment: {
+    id: string;
+    apartmentNumber: string;
+    staircase: string;
+    floor: string | null;
+  };
+  primaryContact: { id: string; fullName: string; phone: string | null } | null;
+  lines: InternalInvoiceLineMetadata[];
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+const INTERNAL_INVOICE_NOTE_TITLE = 'Internal invoices metadata';
+
 @Injectable()
 export class ResidentDemoService {
   constructor(
@@ -212,6 +261,7 @@ export class ResidentDemoService {
         name: true,
         legalName: true,
         fiscalCode: true,
+        address: true,
         bankName: true,
         bankAccountIban: true,
         bankSwift: true,
@@ -523,6 +573,82 @@ export class ResidentDemoService {
     };
   }
 
+  private async readInternalInvoiceMetadata(organizationId: string): Promise<InternalInvoiceMetadata[]> {
+    const note = await this.prisma.clientNote.findFirst({
+      where: { organizationId, title: INTERNAL_INVOICE_NOTE_TITLE },
+      orderBy: { updatedAt: 'desc' },
+      select: { content: true },
+    });
+    if (!note?.content) return [];
+    try {
+      const parsed = JSON.parse(note.content);
+      return Array.isArray(parsed?.items) ? parsed.items : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private isInternalInvoiceOverdue(invoice: Pick<InternalInvoiceMetadata, 'dueDate' | 'balanceAmount' | 'status'>) {
+    if (!invoice.dueDate) return false;
+    if (invoice.status === 'PAID' || invoice.status === 'CANCELLED' || invoice.status === 'VOID') return false;
+    return Number(invoice.balanceAmount || 0) > 0 && new Date(invoice.dueDate) < new Date();
+  }
+
+  private residentInvoiceStats(items: InternalInvoiceMetadata[]) {
+    return {
+      totalInvoices: items.length,
+      totalAmount: this.money(items.reduce((sum, invoice) => sum + Number(invoice.totalAmount || 0), 0)),
+      paidAmount: this.money(items.reduce((sum, invoice) => sum + Number(invoice.paidAmount || 0), 0)),
+      balanceAmount: this.money(items.reduce((sum, invoice) => sum + Number(invoice.balanceAmount || 0), 0)),
+      unpaidInvoices: items.filter((invoice) => Number(invoice.balanceAmount || 0) > 0 && invoice.status !== 'CANCELLED' && invoice.status !== 'VOID').length,
+      paidInvoices: items.filter((invoice) => invoice.status === 'PAID' || Number(invoice.balanceAmount || 0) <= 0).length,
+      overdueInvoices: items.filter((invoice) => this.isInternalInvoiceOverdue(invoice)).length,
+    };
+  }
+
+  private toResidentInternalInvoiceListItem(invoice: InternalInvoiceMetadata, association: any) {
+    return {
+      id: invoice.invoiceId || invoice.id,
+      metadataId: invoice.id,
+      invoiceNumber: invoice.invoiceNumber,
+      billingMonth: invoice.billingMonth,
+      apartment: invoice.apartment,
+      association: this.toOrganizationIdentity(association),
+      status: invoice.status,
+      currency: invoice.currency,
+      totalAmount: Number(invoice.totalAmount || 0),
+      paidAmount: Number(invoice.paidAmount || 0),
+      balanceAmount: Number(invoice.balanceAmount || 0),
+      issueDate: invoice.issueDate,
+      dueDate: invoice.dueDate,
+      isOverdue: this.isInternalInvoiceOverdue(invoice),
+    };
+  }
+
+  private parseResidentInvoiceQuery(query: Record<string, unknown>) {
+    const page = Math.max(1, Number(query.page || 1));
+    const limit = Math.min(100, Math.max(1, Number(query.limit || 20)));
+    const billingMonth = typeof query.billingMonth === 'string' && /^\d{4}-\d{2}$/.test(query.billingMonth) ? query.billingMonth : '';
+    const status = typeof query.status === 'string' ? query.status.trim().toUpperCase() : '';
+    const sortBy = typeof query.sortBy === 'string' ? query.sortBy : 'newest';
+    const sortDirection = String(query.sortDirection || '').toLowerCase() === 'asc' ? 'asc' : 'desc';
+    const apartmentId = typeof query.apartmentId === 'string' ? query.apartmentId.trim() : '';
+    const unpaidOnly = query.unpaidOnly === true || String(query.unpaidOnly || '').toLowerCase() === 'true';
+    const overdueOnly = query.overdueOnly === true || String(query.overdueOnly || '').toLowerCase() === 'true';
+    return { page, limit, billingMonth, status, sortBy, sortDirection, apartmentId, unpaidOnly, overdueOnly };
+  }
+
+  private apartmentOptionsFromScope(scope: Awaited<ReturnType<ResidentDemoService['getResidentScope']>>) {
+    return scope.apartments.map((apartment) => ({
+      id: apartment.id,
+      apartmentNumber: apartment.number,
+      staircase: apartment.staircase?.name ?? null,
+      floor: apartment.floor === null || apartment.floor === undefined ? null : String(apartment.floor),
+      areaM2: apartment.areaM2 ?? null,
+      isPrimary: Boolean(apartment.isPrimary),
+    }));
+  }
+
   private toPrimaryApartment(apartment: any) {
     if (!apartment) return null;
     return {
@@ -608,6 +734,73 @@ export class ResidentDemoService {
     });
   }
 
+  async listInternalInvoices(user: MvpUser, query: Record<string, unknown> = {}) {
+    const scope = await this.getResidentScope(user);
+    const organization = await this.organizationFromUser(user);
+    const parsed = this.parseResidentInvoiceQuery(query);
+
+    if (!scope.apartmentIds.length) {
+      return {
+        items: [],
+        meta: { page: parsed.page, limit: parsed.limit, total: 0 },
+        stats: this.residentInvoiceStats([]),
+        association: this.toOrganizationIdentity(organization),
+        apartments: [],
+        emptyStateCode: 'NO_APARTMENT',
+        emptyStateMessage: this.emptyResidentMessage(),
+      };
+    }
+
+    if (parsed.apartmentId && !scope.apartmentIds.includes(parsed.apartmentId)) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN_RESIDENT_SCOPE',
+        message: 'Nu ai acces la aceste date.',
+      });
+    }
+
+    const invoices = (await this.readInternalInvoiceMetadata(user.organizationId)).filter((invoice) => {
+      if (!scope.apartmentIds.includes(invoice.apartmentId)) return false;
+      if (parsed.apartmentId && invoice.apartmentId !== parsed.apartmentId) return false;
+      if (parsed.billingMonth && invoice.billingMonth !== parsed.billingMonth) return false;
+      if (parsed.status && invoice.status !== parsed.status) return false;
+      if (parsed.unpaidOnly && (Number(invoice.balanceAmount || 0) <= 0 || invoice.status === 'CANCELLED' || invoice.status === 'VOID')) return false;
+      if (parsed.overdueOnly && !this.isInternalInvoiceOverdue(invoice)) return false;
+      return true;
+    });
+
+    invoices.sort((a, b) => {
+      if (parsed.sortBy === 'oldest') return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      if (parsed.sortBy === 'amount_desc') return Number(b.totalAmount || 0) - Number(a.totalAmount || 0);
+      if (parsed.sortBy === 'amount_asc') return Number(a.totalAmount || 0) - Number(b.totalAmount || 0);
+      if (parsed.sortBy === 'due_soon') {
+        return new Date(a.dueDate || '9999-12-31').getTime() - new Date(b.dueDate || '9999-12-31').getTime();
+      }
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+
+    const start = (parsed.page - 1) * parsed.limit;
+    const items = invoices.slice(start, start + parsed.limit);
+    return {
+      items: items.map((invoice) => this.toResidentInternalInvoiceListItem(invoice, organization)),
+      meta: { page: parsed.page, limit: parsed.limit, total: invoices.length },
+      stats: this.residentInvoiceStats(invoices),
+      association: this.toOrganizationIdentity(organization),
+      apartments: this.apartmentOptionsFromScope(scope),
+      emptyStateCode: invoices.length ? null : 'NO_INVOICES',
+    };
+  }
+
+  async getInternalInvoiceStats(user: MvpUser, query: Record<string, unknown> = {}) {
+    const result = await this.listInternalInvoices(user, { ...query, page: 1, limit: 100 });
+    return {
+      stats: result.stats,
+      association: result.association,
+      apartments: result.apartments,
+      emptyStateCode: result.emptyStateCode,
+      emptyStateMessage: result.emptyStateMessage,
+    };
+  }
+
   async listPayments(user: MvpUser) {
     const scope = await this.getResidentScope(user);
     if (!scope.apartmentIds.length) return [];
@@ -666,6 +859,70 @@ export class ResidentDemoService {
       lineItemsAvailable: mappedInvoice.services.length > 0,
       paymentInstructions: this.toPaymentInstructions(organization),
       organization,
+    };
+  }
+
+  async getInternalInvoice(user: MvpUser, id: string) {
+    const scope = await this.requireResidentScope(user);
+    const [organization, metadata, apartmentDetails] = await Promise.all([
+      this.organizationFromUser(user),
+      this.readInternalInvoiceMetadata(user.organizationId),
+      this.prisma.apartment.findMany({
+        where: { organizationId: user.organizationId, id: { in: scope.apartmentIds } },
+        select: this.apartmentSelect(),
+      }),
+    ]);
+    const invoice = metadata.find((item) => (item.invoiceId === id || item.id === id) && scope.apartmentIds.includes(item.apartmentId));
+    if (!invoice) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    const apartment = apartmentDetails.find((item) => item.id === invoice.apartmentId);
+
+    return {
+      invoice: {
+        id: invoice.invoiceId || invoice.id,
+        metadataId: invoice.id,
+        invoiceNumber: invoice.invoiceNumber,
+        billingMonth: invoice.billingMonth,
+        status: invoice.status,
+        currency: invoice.currency,
+        subtotalAmount: Number(invoice.subtotalAmount || invoice.totalAmount || 0),
+        totalAmount: Number(invoice.totalAmount || 0),
+        paidAmount: Number(invoice.paidAmount || 0),
+        balanceAmount: Number(invoice.balanceAmount || 0),
+        issueDate: invoice.issueDate,
+        dueDate: invoice.dueDate,
+        isOverdue: this.isInternalInvoiceOverdue(invoice),
+      },
+      association: {
+        ...this.toOrganizationIdentity(organization),
+        address: organization?.address ?? null,
+        administratorName: organization?.administratorName ?? null,
+      },
+      apartment: {
+        id: invoice.apartmentId,
+        apartmentNumber: invoice.apartment.apartmentNumber,
+        staircase: invoice.apartment.staircase,
+        floor: invoice.apartment.floor,
+        areaM2: apartment?.areaM2 ?? null,
+      },
+      administratorContact: {
+        name: organization?.administratorName ?? null,
+        paymentInstructions: this.toPaymentInstructions(organization),
+      },
+      lines: (invoice.lines || []).map((line) => ({
+        id: line.id,
+        name: line.name,
+        description: line.description,
+        calculationType: line.calculationType,
+        quantity: Number(line.quantity || 0),
+        unitPrice: Number(line.unitPrice || 0),
+        amount: Number(line.amount || 0),
+        currency: line.currency,
+        formulaLabel: line.formulaLabel,
+      })),
+      actions: {
+        pdfAvailable: false,
+        onlinePaymentsAvailable: false,
+      },
     };
   }
 
@@ -1035,15 +1292,14 @@ export class ResidentDemoService {
       };
     }
 
-    const [invoices, payments] = await Promise.all([
-      this.listInvoices(user),
+    const [invoiceResponse, payments] = await Promise.all([
+      this.listInternalInvoices(user, { page: 1, limit: 100 }),
       this.listPayments(user),
     ]);
-    const openInvoices = invoices.filter((invoice) => Number(invoice.remainingAmount ?? invoice.amount ?? 0) > 0);
-    const overdueInvoices = openInvoices.filter(
-      (invoice) => invoice.status === InvoiceStatus.OVERDUE || (invoice.dueDate && new Date(invoice.dueDate) < new Date()),
-    );
-    const nextDueInvoice = [...openInvoices].sort((a, b) => {
+    const invoices = invoiceResponse.items || [];
+    const openInvoices = invoices.filter((invoice: any) => Number(invoice.balanceAmount || 0) > 0);
+    const overdueInvoices = openInvoices.filter((invoice: any) => invoice.isOverdue);
+    const nextDueInvoice = [...openInvoices].sort((a: any, b: any) => {
       const left = a.dueDate ? new Date(a.dueDate).getTime() : Number.MAX_SAFE_INTEGER;
       const right = b.dueDate ? new Date(b.dueDate).getTime() : Number.MAX_SAFE_INTEGER;
       return left - right;
@@ -1059,8 +1315,8 @@ export class ResidentDemoService {
         return sum + Number(payment.amount || 0);
       }, 0),
     );
-    const totalInvoiced = this.money(invoices.reduce((sum, invoice) => sum + Number(invoice.amount || 0), 0));
-    const totalPaid = this.confirmedPaymentTotal(payments);
+    const totalInvoiced = this.money(invoices.reduce((sum: number, invoice: any) => sum + Number(invoice.totalAmount || 0), 0));
+    const totalPaid = Number(invoiceResponse.stats?.paidAmount || 0);
     const lastPayment = [...confirmedPayments].sort((a, b) => {
       const left = a.paidAt ? new Date(a.paidAt).getTime() : 0;
       const right = b.paidAt ? new Date(b.paidAt).getTime() : 0;

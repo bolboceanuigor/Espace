@@ -169,10 +169,18 @@ function monthLabel(month?: number | string | null, year?: number | string | nul
   return new Intl.DateTimeFormat('ro-RO', { month: 'long', year: 'numeric' }).format(new Date(yearNumber, monthNumber - 1, 1));
 }
 
+function billingMonthLabel(value?: string | null) {
+  if (!value) return 'Luna curentă';
+  const [year, month] = value.split('-').map(Number);
+  if (!year || !month) return value;
+  return monthLabel(month, year);
+}
+
 function invoiceStatusFromApi(status?: string): ResidentInvoiceStatus {
   const normalized = String(status || '').toUpperCase();
   if (normalized === 'PAID') return 'Achitat';
   if (normalized === 'OVERDUE') return 'Întârziat';
+  if (normalized === 'CANCELLED' || normalized === 'VOID') return 'Achitat';
   return 'Neachitat';
 }
 
@@ -243,22 +251,32 @@ function paymentMethodFromApi(method?: string | null) {
 }
 
 export function normalizeResidentInvoice(row: any) {
-  const apartmentNumber = row?.apartmentNumber || row?.apartment?.number || '';
-  const amount = Number(row?.amount ?? 0);
+  const apartmentNumber = row?.apartmentNumber || row?.apartment?.number || row?.apartment?.apartmentNumber || '';
+  const amount = Number(row?.amount ?? row?.totalAmount ?? row?.totalDue ?? 0);
   const paidAmount = Number(row?.paidAmount ?? 0);
-  const remainingAmount = Number(row?.remainingAmount ?? row?.remainingDebt ?? (String(row?.status || '').toUpperCase() === 'PAID' ? 0 : amount));
+  const remainingAmount = Number(
+    row?.remainingAmount ??
+      row?.remainingDebt ??
+      row?.balanceAmount ??
+      (String(row?.status || '').toUpperCase() === 'PAID' ? 0 : amount),
+  );
   const status = invoiceStatusFromAmounts(invoiceStatusFromApi(row?.status), remainingAmount);
   const services = Array.isArray(row?.services)
     ? row.services
         .map((service: any) => (typeof service === 'string' ? service : service?.tariffName || service?.name))
         .filter(Boolean)
+    : Array.isArray(row?.lines)
+      ? row.lines.map((line: any) => line?.name).filter(Boolean)
     : [];
 
   return {
     id: String(row?.id || 'invoice'),
-    number: String(row?.invoiceNumber || `FAC-${row?.year || '----'}-${String(row?.month || '').padStart(2, '0')}${apartmentNumber ? `-${apartmentNumber}` : ''}`),
+    number: String(
+      row?.invoiceNumber ||
+        `FAC-${row?.billingMonth || `${row?.year || '----'}-${String(row?.month || '').padStart(2, '0')}`}${apartmentNumber ? `-${apartmentNumber}` : ''}`,
+    ),
     apartmentNumber,
-    month: monthLabel(row?.month, row?.year),
+    month: row?.billingMonth ? billingMonthLabel(row.billingMonth) : monthLabel(row?.month, row?.year),
     amount,
     paidAmount,
     remainingAmount,

@@ -42,7 +42,8 @@ export default function ResidentPaymentsPage() {
     ])
       .then(([summaryRes, invoiceRes, paymentRes, paymentInfoRes]) => {
         if (!active) return;
-        const apiRows = (invoiceRes.data || []).map(normalizeResidentInvoice);
+        const invoiceItems = Array.isArray(invoiceRes.data) ? invoiceRes.data : invoiceRes.data?.items || [];
+        const apiRows = invoiceItems.map(normalizeResidentInvoice);
         const apiPayments = (paymentRes.data || []).map(normalizeResidentPayment);
         setFinanceSummary(summaryRes.data || null);
         setOrganizationPaymentInfo(toPaymentInfo(paymentInfoRes.data));

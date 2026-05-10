@@ -1164,7 +1164,18 @@ export const residentDemoApi = {
   home: () => apiRequest<any>('/resident/home'),
   context: () => apiRequest<any>('/resident/me'),
   financeSummary: () => apiRequest<any>('/resident/finance-summary'),
-  invoices: () => apiRequest<any[]>('/resident/invoices'),
+  invoices: (params?: {
+    apartmentId?: string;
+    billingMonth?: string;
+    status?: string;
+    unpaidOnly?: boolean;
+    overdueOnly?: boolean;
+    sortBy?: string;
+    sortDirection?: 'asc' | 'desc';
+    page?: number;
+    limit?: number;
+  }) => apiRequest<any>('/resident/invoices', { params }),
+  invoiceStats: (params?: { apartmentId?: string; billingMonth?: string }) => apiRequest<any>('/resident/invoices/stats', { params }),
   invoice: (id: string) => apiRequest<any>(`/resident/invoices/${id}`),
   payments: () => apiRequest<any[]>('/resident/payments'),
   meters: () => apiRequest<any[]>('/resident/meters'),
@@ -1337,7 +1348,17 @@ export const invoicesApi = {
     apiRequest<any>(`/api/admin/invoices/draft/${draftId}/lock`, { method: 'POST', body: data }),
   draftCancel: (id: string) => apiRequest<any>(`/api/admin/invoices/draft/${id}/cancel`, { method: 'PATCH' }),
 
-  residentList: () => apiRequest<any[]>('/api/resident/invoices'),
+  residentList: (params?: {
+    apartmentId?: string;
+    billingMonth?: string;
+    status?: string;
+    unpaidOnly?: boolean;
+    overdueOnly?: boolean;
+    sortBy?: string;
+    sortDirection?: 'asc' | 'desc';
+    page?: number;
+    limit?: number;
+  }) => apiRequest<any>('/api/resident/invoices', { params }),
   residentGetOne: (id: string) => apiRequest<any>(`/api/resident/invoices/${id}`),
   residentPdf: (id: string) => apiRequest<Blob>(`/api/resident/invoices/${id}/pdf`, { responseType: 'blob' }),
   residentReceipts: () => apiRequest<any[]>('/api/resident/receipts'),

@@ -13,13 +13,20 @@ export default function ResidentNewPaymentPage() {
     amount: '',
     provider: 'MAIB' as 'MAIB' | 'PAYNET' | 'OPLATA' | 'MANUAL_BANK_TRANSFER' | 'CASH',
   });
-  const [result, setResult] = useState<any>(null);
 
   useEffect(() => {
     invoicesApi.residentList().then((res) => {
-      setInvoices(res.data || []);
-      const first = res.data?.[0];
-      if (first) setForm((p) => ({ ...p, apartmentId: first.apartmentId, invoiceId: first.id, amount: String(first.totalDue || '') }));
+      const rows = Array.isArray(res.data) ? res.data : res.data?.items || [];
+      setInvoices(rows);
+      const first = rows[0];
+      if (first) {
+        setForm((p) => ({
+          ...p,
+          apartmentId: first.apartmentId || first.apartment?.id || '',
+          invoiceId: first.id,
+          amount: String(first.totalDue || first.balanceAmount || first.totalAmount || ''),
+        }));
+      }
     }).catch(() => undefined);
     paymentsApi.residentProviderList().then((res) => {
       const rows = res.data || [];
@@ -36,15 +43,20 @@ export default function ResidentNewPaymentPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold text-foreground">Create Payment Intent</h1>
+      <h1 className="text-xl font-semibold text-foreground">Plată factură</h1>
       <div className="rounded-xl border border-border/70 bg-card p-4">
         <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
           <select className="select" value={form.invoiceId} onChange={(e) => {
             const invoice = invoices.find((i) => i.id === e.target.value);
-            setForm((p) => ({ ...p, invoiceId: e.target.value, apartmentId: invoice?.apartmentId || '', amount: String(invoice?.totalDue || p.amount) }));
+            setForm((p) => ({
+              ...p,
+              invoiceId: e.target.value,
+              apartmentId: invoice?.apartmentId || invoice?.apartment?.id || '',
+              amount: String(invoice?.totalDue || invoice?.balanceAmount || invoice?.totalAmount || p.amount),
+            }));
           }}>
-            <option value="">Select invoice</option>
-            {invoices.map((i) => <option key={i.id} value={i.id}>{i.invoiceNumber} - due {i.totalDue}</option>)}
+            <option value="">Selectează factura</option>
+            {invoices.map((i) => <option key={i.id} value={i.id}>{i.invoiceNumber} - sold {i.totalDue || i.balanceAmount || i.totalAmount || 0}</option>)}
           </select>
           <input className="input" type="number" min={0.01} step="0.01" placeholder="Amount" value={form.amount} onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))} />
           <select className="select" value={form.provider} onChange={(e) => setForm((p) => ({ ...p, provider: e.target.value as any }))}>
@@ -69,25 +81,11 @@ export default function ResidentNewPaymentPage() {
         ) : null}
         <button
           className="mt-3 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-white"
-          disabled={providers.length === 0}
-          onClick={async () => {
-            const res = await paymentsApi.residentCreateIntent({
-              apartmentId: form.apartmentId,
-              invoiceId: form.invoiceId || undefined,
-              amount: Number(form.amount),
-              provider: form.provider,
-            });
-            setResult(res.data);
-          }}
+          disabled
         >
-          Create intent
+          Plățile online vor fi disponibile ulterior
         </button>
       </div>
-      {result ? (
-        <div className="rounded-xl border border-border/70 bg-card p-4 text-sm text-muted-foreground">
-          Intent status: {result.status} • {result.message || 'Created'}
-        </div>
-      ) : null}
     </div>
   );
 }
