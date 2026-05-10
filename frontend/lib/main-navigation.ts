@@ -77,7 +77,7 @@ export const RESIDENT_NAVIGATION_ITEMS: MainNavigationItem[] = [
   { key: 'issues', label: 'Cereri', href: '/resident/issues' },
   { key: 'announcements', label: 'Avizier', href: '/resident/announcements' },
   { key: 'documents', label: 'Documente', href: '/resident/documents' },
-  { key: 'account', label: 'Cont', href: '/resident/account' },
+  { key: 'account', label: 'Cont', href: '/resident/profile' },
 ];
 
 export const MAIN_NAVIGATION_ITEMS = RESIDENT_NAVIGATION_ITEMS;

@@ -284,8 +284,11 @@ export default function ResidentApartmentDetailsPage() {
                 <Info label="Data legării" value={formatDate(data.myRelation.relationStartDate)} />
               </div>
               <p className="mt-4 rounded-2xl bg-muted/35 px-4 py-3 text-sm leading-6 text-muted-foreground">
-                Pentru modificarea acestor date, contactează administratorul asociației.
+                Pentru modificarea acestor date, contactează administratorul asociației sau trimite o solicitare din profilul tău.
               </p>
+              <div className="mt-3">
+                <ButtonLink href="/resident/profile" variant="secondary" size="sm">Solicită actualizare date</ButtonLink>
+              </div>
             </Card>
           </section>
 

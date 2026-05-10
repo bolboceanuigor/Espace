@@ -45,7 +45,7 @@ const NAV_CONFIG: NavItemConfig[] = [
   { label: 'Cereri', href: '/resident/issues', icon: 'circleAlert', allowedRoles: ['RESIDENT'], mobileVisible: true, moreMenu: false },
   { label: 'Avizier', href: '/resident/announcements', icon: 'megaphone', allowedRoles: ['RESIDENT'], mobileVisible: false, moreMenu: true },
   { label: 'Documente', href: '/resident/documents', icon: 'fileText', allowedRoles: ['RESIDENT'], mobileVisible: false, moreMenu: true },
-  { label: 'Cont', href: '/resident/account', icon: 'users', allowedRoles: ['RESIDENT'], mobileVisible: false, moreMenu: true },
+  { label: 'Cont', href: '/resident/profile', icon: 'users', allowedRoles: ['RESIDENT'], mobileVisible: false, moreMenu: true },
 ];
 
 @Injectable()

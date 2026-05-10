@@ -283,7 +283,7 @@ export default function ResidentDashboardPage() {
           </p>
           {error ? <p className="mt-3 text-sm font-semibold text-rose-700">{error}</p> : null}
           <div className="mt-5 flex flex-wrap justify-center gap-2">
-            <ButtonLink href="/resident/account" variant="secondary">Vezi profilul meu</ButtonLink>
+            <ButtonLink href="/resident/profile" variant="secondary">Vezi profilul meu</ButtonLink>
             <ButtonLink href="/resident/announcements" variant="secondary">Vezi avizierul</ButtonLink>
           </div>
         </Card>
@@ -318,21 +318,24 @@ export default function ResidentDashboardPage() {
               {dashboard.association.shortName} · {apartmentLabel}
             </p>
           </div>
-          {dashboard.apartments.length > 1 ? (
-            <label className="flex flex-col gap-1 text-xs font-semibold text-muted-foreground">
-              Apartament
-              <select
-                value={selectedApartmentId}
-                onChange={(event) => setSelectedApartmentId(event.target.value)}
-                className="h-10 rounded-2xl border border-border/70 bg-white px-3 text-sm font-medium text-foreground outline-none focus:ring-2 focus:ring-primary/25"
-              >
-                <option value="">Toate apartamentele</option>
-                {dashboard.apartments.map((apartment) => (
-                  <option key={apartment.id} value={apartment.id}>Apartament {apartment.apartmentNumber}</option>
-                ))}
-              </select>
-            </label>
-          ) : null}
+          <div className="flex flex-wrap items-end gap-2">
+            {dashboard.apartments.length > 1 ? (
+              <label className="flex flex-col gap-1 text-xs font-semibold text-muted-foreground">
+                Apartament
+                <select
+                  value={selectedApartmentId}
+                  onChange={(event) => setSelectedApartmentId(event.target.value)}
+                  className="h-10 rounded-2xl border border-border/70 bg-white px-3 text-sm font-medium text-foreground outline-none focus:ring-2 focus:ring-primary/25"
+                >
+                  <option value="">Toate apartamentele</option>
+                  {dashboard.apartments.map((apartment) => (
+                    <option key={apartment.id} value={apartment.id}>Apartament {apartment.apartmentNumber}</option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            <ButtonLink href="/resident/profile" variant="secondary">Profilul meu</ButtonLink>
+          </div>
         </div>
       </Card>
 

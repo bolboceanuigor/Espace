@@ -1170,6 +1170,21 @@ export const residentDemoApi = {
     apiRequest<any>(`/resident/apartments/${id}/invoices`, { params }),
   apartmentPayments: (id: string, params?: { page?: number; limit?: number }) =>
     apiRequest<any>(`/resident/apartments/${id}/payments`, { params }),
+  profile: () => apiRequest<any>('/resident/profile'),
+  updatePreferences: (data: {
+    preferredContactMethod?: string;
+    receiveInvoiceNotifications?: boolean;
+    receivePaymentNotifications?: boolean;
+    receiveAnnouncementNotifications?: boolean;
+    receiveMaintenanceNotifications?: boolean;
+    language?: string;
+  }) => apiRequest<any>('/resident/profile/preferences', { method: 'PATCH', body: data }),
+  updateRequests: () => apiRequest<any>('/resident/profile/update-requests'),
+  updateRequest: (id: string) => apiRequest<any>(`/resident/profile/update-requests/${id}`),
+  createUpdateRequest: (data: Record<string, unknown>) =>
+    apiRequest<any>('/resident/profile/update-requests', { method: 'POST', body: data }),
+  cancelUpdateRequest: (id: string) =>
+    apiRequest<any>(`/resident/profile/update-requests/${id}/cancel`, { method: 'PATCH' }),
   context: () => apiRequest<any>('/resident/me'),
   financeSummary: () => apiRequest<any>('/resident/finance-summary'),
   invoices: (params?: {

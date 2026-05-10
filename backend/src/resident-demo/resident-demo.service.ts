@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   InvoiceStatus,
@@ -77,6 +78,17 @@ type InternalPaymentNote = {
 
 const INTERNAL_INVOICE_NOTE_TITLE = 'Internal invoices metadata';
 const INTERNAL_PAYMENT_NOTE_PREFIX = 'INTERNAL_INVOICE_PAYMENT:';
+const RESIDENT_CRM_METADATA_TITLE = 'Resident CRM metadata';
+const RESIDENT_PROFILE_UPDATE_REQUESTS_TITLE = 'Resident profile update requests';
+const CONTACT_METHODS = ['PHONE', 'EMAIL', 'APP', 'WHATSAPP', 'TELEGRAM'] as const;
+const UPDATE_REQUEST_TYPES = [
+  'FULL_NAME_CHANGE',
+  'PHONE_CHANGE',
+  'EMAIL_CHANGE',
+  'CONTACT_METHOD_CHANGE',
+  'APARTMENT_RELATION_CHANGE',
+  'OTHER',
+] as const;
 
 @Injectable()
 export class ResidentDemoService {
@@ -149,6 +161,8 @@ export class ResidentDemoService {
       phone: profile.phone,
       email: profile.email,
       accountStatus: profile.accountStatus,
+      createdAt: profile.createdAt,
+      updatedAt: profile.updatedAt,
     };
   }
 
@@ -842,6 +856,124 @@ export class ResidentDemoService {
     };
   }
 
+  private async readResidentMetadata(organizationId: string): Promise<Record<string, any>> {
+    const note = await this.prisma.clientNote.findFirst({
+      where: { organizationId, title: RESIDENT_CRM_METADATA_TITLE },
+      orderBy: { updatedAt: 'desc' },
+      select: { content: true },
+    });
+    if (!note?.content) return {};
+    try {
+      const parsed = JSON.parse(note.content);
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+
+  private async updateResidentMetadata(organizationId: string, userId: string, residentId: string, patch: Record<string, any>) {
+    const current = await this.readResidentMetadata(organizationId);
+    const next = {
+      ...current,
+      [residentId]: {
+        ...(current[residentId] || {}),
+        ...patch,
+        notificationPreferences: {
+          ...(current[residentId]?.notificationPreferences || {}),
+          ...(patch.notificationPreferences || {}),
+        },
+      },
+    };
+    const existing = await this.prisma.clientNote.findFirst({
+      where: { organizationId, title: RESIDENT_CRM_METADATA_TITLE },
+      select: { id: true },
+    });
+    const content = JSON.stringify(next);
+    if (existing) {
+      await this.prisma.clientNote.update({ where: { id: existing.id }, data: { content } });
+      return next;
+    }
+    await this.prisma.clientNote.create({
+      data: {
+        organizationId,
+        createdByUserId: userId,
+        title: RESIDENT_CRM_METADATA_TITLE,
+        content,
+      },
+    });
+    return next;
+  }
+
+  private async readProfileUpdateRequests(organizationId: string): Promise<any[]> {
+    const note = await this.prisma.clientNote.findFirst({
+      where: { organizationId, title: RESIDENT_PROFILE_UPDATE_REQUESTS_TITLE },
+      orderBy: { updatedAt: 'desc' },
+      select: { content: true },
+    });
+    if (!note?.content) return [];
+    try {
+      const parsed = JSON.parse(note.content);
+      return Array.isArray(parsed?.items) ? parsed.items : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private async writeProfileUpdateRequests(organizationId: string, userId: string, items: any[]) {
+    const existing = await this.prisma.clientNote.findFirst({
+      where: { organizationId, title: RESIDENT_PROFILE_UPDATE_REQUESTS_TITLE },
+      select: { id: true },
+    });
+    const content = JSON.stringify({ items });
+    if (existing) {
+      await this.prisma.clientNote.update({ where: { id: existing.id }, data: { content } });
+      return;
+    }
+    await this.prisma.clientNote.create({
+      data: {
+        organizationId,
+        createdByUserId: userId,
+        title: RESIDENT_PROFILE_UPDATE_REQUESTS_TITLE,
+        content,
+      },
+    });
+  }
+
+  private normalizeContactMethod(value: unknown, fallback = 'PHONE') {
+    const normalized = typeof value === 'string' ? value.trim().toUpperCase() : '';
+    return CONTACT_METHODS.includes(normalized as any) ? normalized : fallback;
+  }
+
+  private notificationPreferencesFromMetadata(metadata: Record<string, any>) {
+    const prefs = metadata.notificationPreferences || {};
+    return {
+      receiveInvoiceNotifications: prefs.receiveInvoiceNotifications !== false,
+      receivePaymentNotifications: prefs.receivePaymentNotifications !== false,
+      receiveAnnouncementNotifications: prefs.receiveAnnouncementNotifications !== false,
+      receiveMaintenanceNotifications: prefs.receiveMaintenanceNotifications !== false,
+      language: typeof metadata.language === 'string' && metadata.language.trim() ? metadata.language.trim() : 'ro',
+    };
+  }
+
+  private toResidentProfileStatus(profile?: any, metadata?: Record<string, any>) {
+    const metadataStatus = typeof metadata?.status === 'string' ? metadata.status.toUpperCase() : '';
+    if (['ACTIVE', 'INVITED', 'NOT_INVITED', 'INACTIVE'].includes(metadataStatus)) return metadataStatus;
+    return this.residentAccountStatus(profile?.accountStatus);
+  }
+
+  private profileRequestPreview(request: any) {
+    return {
+      id: request.id,
+      requestType: request.requestType,
+      status: request.status,
+      message: request.message || '',
+      adminResponse: request.adminResponse || null,
+      createdAt: request.createdAt,
+      reviewedAt: request.reviewedAt || null,
+      resolvedAt: request.reviewedAt || request.cancelledAt || null,
+    };
+  }
+
   private unpackDocumentMetadata(fileType?: string | null) {
     const parts = String(fileType || '').split(':');
     return {
@@ -1455,6 +1587,196 @@ export class ResidentDemoService {
       meta: { total: scope.apartments.length },
       association,
     };
+  }
+
+  async getProfile(user: MvpUser) {
+    const scope = await this.getResidentScope(user);
+    const organization = await this.organizationFromUser(user);
+    const association = {
+      ...this.toOrganizationIdentity(organization),
+      address: organization?.address ?? null,
+    };
+    const metadata = await this.readResidentMetadata(user.organizationId);
+    const residentId = scope.resident?.id || scope.residentProfiles[0]?.id || '';
+    const residentMetadata = residentId ? metadata[residentId] || {} : {};
+    const preferredContactMethod = this.normalizeContactMethod(residentMetadata.preferredContactMethod);
+    const notificationPreferences = this.notificationPreferencesFromMetadata(residentMetadata);
+    const requests = (await this.readProfileUpdateRequests(user.organizationId))
+      .filter((request) => request.residentId === residentId)
+      .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+    const fullName =
+      scope.resident?.name ||
+      `${scope.user.firstName || ''} ${scope.user.lastName || ''}`.trim() ||
+      scope.user.email ||
+      'Locatar';
+
+    return {
+      user: {
+        id: scope.user.id,
+        fullName,
+        email: scope.user.email,
+      },
+      resident: residentId
+        ? {
+            id: residentId,
+            fullName,
+            phone: scope.resident?.phone || null,
+            email: scope.resident?.email || scope.user.email || null,
+            preferredContactMethod,
+            status: this.toResidentProfileStatus(scope.resident, residentMetadata),
+            createdAt: scope.residentProfiles[0]?.createdAt ?? null,
+            updatedAt: scope.residentProfiles[0]?.updatedAt ?? null,
+          }
+        : null,
+      preferences: {
+        preferredContactMethod,
+        ...notificationPreferences,
+      },
+      association,
+      apartments: scope.apartments.map((apartment) => ({
+        id: apartment.id,
+        apartmentNumber: String(apartment.number || ''),
+        staircase: apartment.staircase?.name ?? null,
+        floor: apartment.floor === null || apartment.floor === undefined ? null : String(apartment.floor),
+        areaM2: apartment.areaM2 ?? null,
+        role: apartment.relationRole ?? 'RESIDENT',
+        isPrimaryContact: Boolean(apartment.isPrimary),
+        association: {
+          shortName: association.shortName,
+          associationCode: association.associationCode,
+        },
+        relationStatus: this.toResidentProfileStatus(apartment.resident, metadata[apartment.resident?.id] || residentMetadata),
+      })),
+      recentUpdateRequests: requests.slice(0, 5).map((request) => this.profileRequestPreview(request)),
+      emptyStateCode: residentId ? null : 'PROFILE_NOT_FOUND',
+    };
+  }
+
+  async updateProfilePreferences(user: MvpUser, body: unknown) {
+    const scope = await this.requireResidentScope(user);
+    const residentId = scope.resident?.id || scope.residentProfiles[0]?.id;
+    if (!residentId) throw new NotFoundException('Profilul nu a fost găsit.');
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const preferredContactMethod = this.normalizeContactMethod(payload.preferredContactMethod);
+    const language = typeof payload.language === 'string' && payload.language.trim() ? payload.language.trim().slice(0, 8) : 'ro';
+    await this.updateResidentMetadata(user.organizationId, user.id, residentId, {
+      preferredContactMethod,
+      language,
+      notificationPreferences: {
+        receiveInvoiceNotifications: payload.receiveInvoiceNotifications !== false,
+        receivePaymentNotifications: payload.receivePaymentNotifications !== false,
+        receiveAnnouncementNotifications: payload.receiveAnnouncementNotifications !== false,
+        receiveMaintenanceNotifications: payload.receiveMaintenanceNotifications !== false,
+      },
+    });
+    const profile = await this.getProfile(user);
+    return {
+      message: 'Preferințele au fost salvate.',
+      preferences: profile.preferences,
+    };
+  }
+
+  async listProfileUpdateRequests(user: MvpUser) {
+    const scope = await this.getResidentScope(user);
+    const residentId = scope.resident?.id || scope.residentProfiles[0]?.id;
+    if (!residentId) return { items: [], meta: { total: 0 } };
+    const items = (await this.readProfileUpdateRequests(user.organizationId))
+      .filter((request) => request.residentId === residentId)
+      .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+    return {
+      items: items.map((request) => this.profileRequestPreview(request)),
+      meta: { total: items.length },
+    };
+  }
+
+  async getProfileUpdateRequest(user: MvpUser, id: string) {
+    const scope = await this.getResidentScope(user);
+    const residentId = scope.resident?.id || scope.residentProfiles[0]?.id;
+    const request = (await this.readProfileUpdateRequests(user.organizationId)).find((item) => item.id === id && item.residentId === residentId);
+    if (!request) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    return request;
+  }
+
+  async createProfileUpdateRequest(user: MvpUser, body: unknown) {
+    const scope = await this.requireResidentScope(user);
+    const residentId = scope.resident?.id || scope.residentProfiles[0]?.id;
+    if (!residentId) throw new NotFoundException('Profilul nu a fost găsit.');
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const requestType = typeof payload.requestType === 'string' ? payload.requestType.trim().toUpperCase() : '';
+    if (!UPDATE_REQUEST_TYPES.includes(requestType as any)) throw new BadRequestException('Tipul solicitării este obligatoriu.');
+    const apartmentId = typeof payload.apartmentId === 'string' && payload.apartmentId.trim() ? payload.apartmentId.trim() : null;
+    if (apartmentId && !scope.apartmentIds.includes(apartmentId)) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN_RESIDENT_SCOPE',
+        message: 'Nu ai acces la aceste date.',
+      });
+    }
+    const requestedFullName = typeof payload.requestedFullName === 'string' ? payload.requestedFullName.trim() : '';
+    const requestedPhone = typeof payload.requestedPhone === 'string' ? payload.requestedPhone.trim() : '';
+    const requestedEmail = typeof payload.requestedEmail === 'string' ? payload.requestedEmail.trim().toLowerCase() : '';
+    const requestedPreferredContactMethod = this.normalizeContactMethod(payload.requestedPreferredContactMethod, '');
+    const message = typeof payload.message === 'string' ? payload.message.trim() : '';
+
+    if (requestType === 'FULL_NAME_CHANGE' && !requestedFullName) throw new BadRequestException('Numele solicitat este obligatoriu.');
+    if (requestType === 'PHONE_CHANGE' && !requestedPhone) throw new BadRequestException('Telefonul solicitat este obligatoriu.');
+    if (requestType === 'EMAIL_CHANGE') {
+      if (!requestedEmail) throw new BadRequestException('Emailul solicitat este obligatoriu.');
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(requestedEmail)) throw new BadRequestException('Emailul nu este valid.');
+    }
+    if (requestType === 'CONTACT_METHOD_CHANGE' && !requestedPreferredContactMethod) {
+      throw new BadRequestException('Metoda preferată de contact este obligatorie.');
+    }
+    if (requestType === 'OTHER' && !message) throw new BadRequestException('Mesajul este obligatoriu.');
+
+    const metadata = await this.readResidentMetadata(user.organizationId);
+    const residentMetadata = metadata[residentId] || {};
+    const currentFullName = scope.resident?.name || `${scope.user.firstName || ''} ${scope.user.lastName || ''}`.trim() || scope.user.email || '';
+    const now = new Date().toISOString();
+    const request = {
+      id: randomUUID(),
+      associationId: user.organizationId,
+      residentId,
+      apartmentId,
+      requestType,
+      status: 'PENDING',
+      currentFullName,
+      requestedFullName: requestedFullName || null,
+      currentPhone: scope.resident?.phone || null,
+      requestedPhone: requestedPhone || null,
+      currentEmail: scope.resident?.email || scope.user.email || null,
+      requestedEmail: requestedEmail || null,
+      currentPreferredContactMethod: this.normalizeContactMethod(residentMetadata.preferredContactMethod),
+      requestedPreferredContactMethod: requestedPreferredContactMethod || null,
+      message: message || null,
+      attachmentPlaceholder: Boolean(payload.attachmentPlaceholder),
+      adminResponse: null,
+      reviewedById: null,
+      reviewedAt: null,
+      cancelledAt: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const items = await this.readProfileUpdateRequests(user.organizationId);
+    await this.writeProfileUpdateRequests(user.organizationId, user.id, [request, ...items]);
+    return request;
+  }
+
+  async cancelProfileUpdateRequest(user: MvpUser, id: string) {
+    const scope = await this.getResidentScope(user);
+    const residentId = scope.resident?.id || scope.residentProfiles[0]?.id;
+    const items = await this.readProfileUpdateRequests(user.organizationId);
+    const index = items.findIndex((item) => item.id === id && item.residentId === residentId);
+    if (index === -1) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    if (items[index].status !== 'PENDING') throw new BadRequestException('Doar solicitările în așteptare pot fi anulate.');
+    const now = new Date().toISOString();
+    items[index] = {
+      ...items[index],
+      status: 'CANCELLED',
+      cancelledAt: now,
+      updatedAt: now,
+    };
+    await this.writeProfileUpdateRequests(user.organizationId, user.id, items);
+    return items[index];
   }
 
   async getApartmentProfile(user: MvpUser, id: string) {

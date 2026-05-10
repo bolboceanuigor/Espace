@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -24,6 +24,36 @@ export class ResidentDemoController {
   @Get(['resident/dashboard', 'api/resident/dashboard'])
   getDashboard(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
     return this.residentDemoService.getDashboard(user, query);
+  }
+
+  @Get(['resident/profile', 'api/resident/profile'])
+  getProfile(@CurrentUser() user: MvpUser) {
+    return this.residentDemoService.getProfile(user);
+  }
+
+  @Patch(['resident/profile/preferences', 'api/resident/profile/preferences'])
+  updateProfilePreferences(@CurrentUser() user: MvpUser, @Body() body: unknown) {
+    return this.residentDemoService.updateProfilePreferences(user, body);
+  }
+
+  @Post(['resident/profile/update-requests', 'api/resident/profile/update-requests'])
+  createProfileUpdateRequest(@CurrentUser() user: MvpUser, @Body() body: unknown) {
+    return this.residentDemoService.createProfileUpdateRequest(user, body);
+  }
+
+  @Get(['resident/profile/update-requests', 'api/resident/profile/update-requests'])
+  listProfileUpdateRequests(@CurrentUser() user: MvpUser) {
+    return this.residentDemoService.listProfileUpdateRequests(user);
+  }
+
+  @Get(['resident/profile/update-requests/:id', 'api/resident/profile/update-requests/:id'])
+  getProfileUpdateRequest(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.residentDemoService.getProfileUpdateRequest(user, id);
+  }
+
+  @Patch(['resident/profile/update-requests/:id/cancel', 'api/resident/profile/update-requests/:id/cancel'])
+  cancelProfileUpdateRequest(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.residentDemoService.cancelProfileUpdateRequest(user, id);
   }
 
   @Get(['resident/apartments', 'api/resident/apartments'])
