@@ -8,5 +8,6 @@ import { ActivityMvpModule } from '../activity-mvp/activity-mvp.module';
   imports: [MvpSecurityModule, ActivityMvpModule],
   controllers: [MetersController],
   providers: [MetersService],
+  exports: [MetersService],
 })
 export class MetersModule {}

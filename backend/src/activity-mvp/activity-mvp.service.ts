@@ -563,6 +563,9 @@ export class ActivityMvpService {
     if (raw === NotificationType.ANNOUNCEMENT) return 'ANNOUNCEMENT';
     if (raw === NotificationType.INVOICE) return 'INVOICE';
     if (raw === NotificationType.PAYMENT) return 'PAYMENT';
+    if (link.includes('/meter-readings/') || link.includes('/meters/') || text.includes('indice') || text.includes('contor')) {
+      return 'METER_READING';
+    }
     if (link.includes('resident-update-requests') || link.includes('/resident/profile') || text.includes('actualizare date')) {
       return 'PROFILE_UPDATE_REQUEST';
     }
@@ -587,12 +590,14 @@ export class ActivityMvpService {
 
   private notificationEntity(link: string | null | undefined, type: string) {
     const value = String(link || '');
-    const match = value.match(/\/(announcements|requests|invoices|payments|resident-update-requests|apartments|residents)\/([^/?#]+)/);
+    const match = value.match(/\/(announcements|requests|invoices|payments|meter-readings|meters|resident-update-requests|apartments|residents)\/([^/?#]+)/);
     const id = match?.[2] || null;
     if (match?.[1] === 'announcements') return { entityType: 'ANNOUNCEMENT', entityId: id };
     if (match?.[1] === 'requests') return { entityType: 'RESIDENT_REQUEST', entityId: id };
     if (match?.[1] === 'invoices') return { entityType: 'INVOICE', entityId: id };
     if (match?.[1] === 'payments') return { entityType: 'PAYMENT', entityId: id };
+    if (match?.[1] === 'meter-readings') return { entityType: 'METER_READING', entityId: id };
+    if (match?.[1] === 'meters') return { entityType: 'METER', entityId: id };
     if (match?.[1] === 'resident-update-requests' || type === 'PROFILE_UPDATE_REQUEST') {
       return { entityType: 'RESIDENT_PROFILE_UPDATE_REQUEST', entityId: id };
     }

@@ -30,6 +30,7 @@ const TYPE_OPTIONS = [
   ['REQUEST_STATUS', 'Status solicitări'],
   ['INVOICE', 'Facturi'],
   ['PAYMENT', 'Plăți'],
+  ['METER_READING', 'Indici contoare'],
   ['PROFILE_UPDATE_REQUEST', 'Solicitări date'],
   ['SYSTEM', 'Sistem'],
 ];

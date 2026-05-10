@@ -3,13 +3,17 @@ import { Role } from '@prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { MvpAuthGuard, MvpRolesGuard, MvpUser } from '../security/mvp-auth.guard';
+import { MetersService } from '../meters/meters.service';
 import { ResidentDemoService } from './resident-demo.service';
 
 @Controller()
 @UseGuards(MvpAuthGuard, MvpRolesGuard)
 @Roles(Role.RESIDENT)
 export class ResidentDemoController {
-  constructor(private readonly residentDemoService: ResidentDemoService) {}
+  constructor(
+    private readonly residentDemoService: ResidentDemoService,
+    private readonly metersService: MetersService,
+  ) {}
 
   @Get(['resident/me', 'api/resident/me', 'resident/demo', 'api/resident/demo'])
   getResidentContext(@CurrentUser() user: MvpUser) {
@@ -122,13 +126,38 @@ export class ResidentDemoController {
   }
 
   @Get(['resident/meters', 'api/resident/meters'])
-  listMeters(@CurrentUser() user: MvpUser) {
-    return this.residentDemoService.listMeters(user);
+  listMeters(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.metersService.listResidentMeters(user, query);
   }
 
   @Post(['resident/meters/:meterId/readings', 'api/resident/meters/:meterId/readings'])
   addMeterReading(@CurrentUser() user: MvpUser, @Param('meterId') meterId: string, @Body() body: unknown) {
-    return this.residentDemoService.addMeterReading(user, meterId, body);
+    return this.metersService.createResidentReading(user, body, meterId);
+  }
+
+  @Get(['resident/meters/:id', 'api/resident/meters/:id'])
+  getMeter(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.metersService.getResidentMeter(user, id);
+  }
+
+  @Get(['resident/meter-readings', 'api/resident/meter-readings'])
+  listMeterReadings(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.metersService.listResidentReadings(user, query);
+  }
+
+  @Post(['resident/meter-readings', 'api/resident/meter-readings'])
+  createMeterReading(@CurrentUser() user: MvpUser, @Body() body: unknown) {
+    return this.metersService.createResidentReading(user, body);
+  }
+
+  @Get(['resident/meter-readings/:id', 'api/resident/meter-readings/:id'])
+  getMeterReading(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.metersService.getResidentReading(user, id);
+  }
+
+  @Patch(['resident/meter-readings/:id/cancel', 'api/resident/meter-readings/:id/cancel'])
+  cancelMeterReading(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.metersService.cancelResidentReading(user, id);
   }
 
   @Get(['resident/issues', 'api/resident/issues'])

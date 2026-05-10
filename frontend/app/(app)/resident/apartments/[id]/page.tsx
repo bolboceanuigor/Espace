@@ -3,9 +3,9 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { AlertCircle, ArrowLeft, Building2, CheckCircle2, FileText, MessageCircle, ReceiptText, Users, Wallet } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Building2, CheckCircle2, FileText, Gauge, MessageCircle, ReceiptText, Users, Wallet } from 'lucide-react';
 import { Badge, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
-import { requestsApi, residentDemoApi } from '@/lib/api';
+import { metersApi, requestsApi, residentDemoApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
@@ -198,6 +198,7 @@ export default function ResidentApartmentDetailsPage() {
   const apartmentId = String(params?.id || '');
   const [data, setData] = useState<ApartmentProfile | null>(null);
   const [recentRequests, setRecentRequests] = useState<RecentRequest[]>([]);
+  const [meters, setMeters] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -235,6 +236,23 @@ export default function ResidentApartmentDetailsPage() {
       .catch(() => {
         if (!active) return;
         setRecentRequests([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [apartmentId]);
+
+  useEffect(() => {
+    let active = true;
+    metersApi
+      .residentList({ apartmentId })
+      .then((response) => {
+        if (!active) return;
+        setMeters(response.data?.items || []);
+      })
+      .catch(() => {
+        if (!active) return;
+        setMeters([]);
       });
     return () => {
       active = false;
@@ -417,6 +435,37 @@ export default function ResidentApartmentDetailsPage() {
               </div>
             </Card>
           </section>
+
+          <Card>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold text-foreground">Contoare</h2>
+                <p className="text-sm text-muted-foreground">Contoarele active pentru acest apartament.</p>
+              </div>
+              <ButtonLink href={`/resident/meters?apartmentId=${apartment.id}`} variant="secondary" size="sm">Vezi contoare</ButtonLink>
+            </div>
+            <div className="mt-4 grid gap-3 lg:grid-cols-3">
+              {meters.slice(0, 3).map((meter) => (
+                <div key={meter.id} className="rounded-2xl border border-border/70 bg-muted/25 p-4">
+                  <p className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                    <Gauge className="h-3.5 w-3.5" />
+                    {meter.typeLabel || 'Contor'}
+                  </p>
+                  <h3 className="mt-2 text-sm font-semibold text-foreground">{meter.label || meter.meterNumber || 'Contor'}</h3>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Ultim indice: {meter.lastApprovedReading ? `${meter.lastApprovedReading.readingValue} ${meter.unit || ''}` : 'primul indice'}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <ButtonLink href={`/resident/meters/${meter.id}`} variant="secondary" size="sm">Istoric</ButtonLink>
+                    <ButtonLink href={`/resident/meter-readings/new?meterId=${meter.id}&apartmentId=${apartment.id}`} variant="secondary" size="sm">
+                      Transmite indice
+                    </ButtonLink>
+                  </div>
+                </div>
+              ))}
+              {!meters.length ? <EmptyBlock title="Nu există contoare asociate" text="Contoarele vor apărea aici după ce administratorul le adaugă." /> : null}
+            </div>
+          </Card>
 
           <Card>
             <div className="flex items-center justify-between gap-3">

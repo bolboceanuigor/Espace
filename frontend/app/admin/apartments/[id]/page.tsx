@@ -470,6 +470,14 @@ export default function AdminApartmentDetailPage() {
             <Link href={localizedPath(`/admin/requests?apartmentId=${apartment.id}`)} className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-2xl border border-border/70 px-4 text-sm font-semibold hover:bg-muted/60">
               Vezi solicitările apartamentului
             </Link>
+            <div className="mt-2 grid gap-2">
+              <Link href={localizedPath(`/admin/meters?apartmentId=${apartment.id}`)} className="inline-flex min-h-10 w-full items-center justify-center rounded-2xl border border-border/70 px-4 text-sm font-semibold hover:bg-muted/60">
+                Vezi contoarele apartamentului
+              </Link>
+              <Link href={localizedPath(`/admin/meter-readings?apartmentId=${apartment.id}`)} className="inline-flex min-h-10 w-full items-center justify-center rounded-2xl border border-border/70 px-4 text-sm font-semibold hover:bg-muted/60">
+                Vezi istoricul indicilor
+              </Link>
+            </div>
           </Card>
         </aside>
       </div>

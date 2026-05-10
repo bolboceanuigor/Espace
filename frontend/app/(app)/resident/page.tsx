@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   CreditCard,
   FileText,
+  Gauge,
   Home,
   MessageCircle,
   Megaphone,
@@ -18,7 +19,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import { Badge, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
-import { communicationsApi, requestsApi, residentDemoApi } from '@/lib/api';
+import { communicationsApi, metersApi, requestsApi, residentDemoApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
@@ -290,6 +291,7 @@ export default function ResidentDashboardPage() {
   const [recentAnnouncements, setRecentAnnouncements] = useState<RecentAnnouncement[]>([]);
   const [recentRequests, setRecentRequests] = useState<RecentRequest[]>([]);
   const [requestStats, setRequestStats] = useState<any>({});
+  const [meterStats, setMeterStats] = useState<any>({});
 
   useEffect(() => {
     let active = true;
@@ -349,6 +351,23 @@ export default function ResidentDashboardPage() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    metersApi
+      .residentList({ apartmentId: selectedApartmentId || undefined })
+      .then((response) => {
+        if (!active) return;
+        setMeterStats(response.data?.stats || {});
+      })
+      .catch(() => {
+        if (!active) return;
+        setMeterStats({});
+      });
+    return () => {
+      active = false;
+    };
+  }, [selectedApartmentId]);
 
   const summary = dashboard.financialSummary;
   const currentStatus = useMemo(() => statusCopy(summary), [summary]);
@@ -467,6 +486,7 @@ export default function ResidentDashboardPage() {
         <StatCard label="Achitate" value={String(summary.paidInvoices)} description="Facturi fără sold" icon={<CheckCircle2 className="h-5 w-5" />} tone="success" />
         <StatCard label="Parțial achitate" value={String(summary.partiallyPaidInvoices)} description="Facturi cu sold rămas" icon={<AlertCircle className="h-5 w-5" />} tone={summary.partiallyPaidInvoices > 0 ? 'warning' : 'neutral'} />
         <StatCard label="Solicitări deschise" value={String(requestStats.open || 0)} description="Către administrație" icon={<MessageCircle className="h-5 w-5" />} tone={Number(requestStats.open || 0) > 0 ? 'warning' : 'neutral'} />
+        <StatCard label="Contoare active" value={String(meterStats.activeMeters || 0)} description={`${meterStats.submittedCurrentMonth || 0} indici transmiși luna curentă`} icon={<Gauge className="h-5 w-5" />} />
       </section>
 
       <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
