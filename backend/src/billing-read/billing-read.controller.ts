@@ -66,6 +66,46 @@ export class BillingReadController {
     return this.billingReadService.deactivateTariff(user, id);
   }
 
+  @Get(['admin/invoices/draft', 'api/admin/invoices/draft'])
+  getInvoiceDraft(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.billingReadService.getInvoiceDraft(user, query);
+  }
+
+  @Post(['admin/invoices/draft/calculate', 'api/admin/invoices/draft/calculate'])
+  calculateInvoiceDraft(@CurrentUser() user: MvpUser, @Body() body: unknown) {
+    return this.billingReadService.calculateInvoiceDraft(user, body);
+  }
+
+  @Post(['admin/invoices/draft/save', 'api/admin/invoices/draft/save'])
+  saveInvoiceDraft(@CurrentUser() user: MvpUser, @Body() body: unknown) {
+    return this.billingReadService.saveInvoiceDraft(user, body);
+  }
+
+  @Get(['admin/invoices/draft/:id', 'api/admin/invoices/draft/:id'])
+  getInvoiceDraftById(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.billingReadService.getInvoiceDraftById(user, id);
+  }
+
+  @Patch(['admin/invoices/draft/:id/recalculate', 'api/admin/invoices/draft/:id/recalculate'])
+  recalculateInvoiceDraft(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.billingReadService.recalculateInvoiceDraft(user, id, body);
+  }
+
+  @Patch(['admin/invoices/draft/:id/lines/:lineId/status', 'api/admin/invoices/draft/:id/lines/:lineId/status'])
+  updateInvoiceDraftLineStatus(
+    @CurrentUser() user: MvpUser,
+    @Param('id') id: string,
+    @Param('lineId') lineId: string,
+    @Body() body: unknown,
+  ) {
+    return this.billingReadService.updateInvoiceDraftLineStatus(user, id, lineId, body);
+  }
+
+  @Patch(['admin/invoices/draft/:id/cancel', 'api/admin/invoices/draft/:id/cancel'])
+  cancelInvoiceDraft(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.billingReadService.cancelInvoiceDraft(user, id);
+  }
+
   @Post(['admin/invoices/generate-monthly', 'api/admin/invoices/generate-monthly'])
   generateMonthlyInvoices(@CurrentUser() user: MvpUser, @Body() body: unknown) {
     return this.billingReadService.generateMonthlyInvoices(user, body);

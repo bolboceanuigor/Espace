@@ -27,6 +27,7 @@ const ICONS: Record<MainNavigationKey, React.ComponentType<{ className?: string 
   adminHome: Home,
   apartments: Building2,
   invoices: FileText,
+  invoiceDraft: FileText,
   reports: FileText,
   announcements: Megaphone,
   residents: Users,

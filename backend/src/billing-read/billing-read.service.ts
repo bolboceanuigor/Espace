@@ -41,6 +41,61 @@ type TariffRow = {
   updatedById?: string | null;
   internalNotes?: string;
 };
+type BillingDraftStatus = 'DRAFT' | 'LOCKED' | 'CANCELLED';
+type BillingDraftLineStatus = 'READY' | 'WARNING' | 'ERROR' | 'EXCLUDED';
+type BillingDraftLine = {
+  id: string;
+  lineType: 'TARIFF' | 'MANUAL' | 'ADJUSTMENT';
+  tariffId: string | null;
+  name: string;
+  description: string;
+  calculationType: TariffCalculationType;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+  currency: 'MDL';
+  formulaLabel: string;
+  status: BillingDraftLineStatus;
+  warnings: string[];
+};
+type BillingDraftItem = {
+  id: string;
+  apartmentId: string;
+  apartmentNumber: string;
+  staircase: string;
+  floor: string | null;
+  areaM2: number | null;
+  primaryContact: { id: string; fullName: string; phone: string | null } | null;
+  lines: BillingDraftLine[];
+  total: number;
+  status: BillingDraftLineStatus;
+  warnings: string[];
+  internalNotes: string;
+};
+type BillingDraftRecord = {
+  id: string;
+  associationId: string;
+  organizationId: string;
+  billingMonth: string;
+  dueDate: string | null;
+  description: string;
+  status: BillingDraftStatus;
+  currency: 'MDL';
+  totalAmount: number;
+  apartmentsCount: number;
+  warningsCount: number;
+  errorsCount: number;
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+  summary: Record<string, unknown>;
+  tariffsUsed: Array<Record<string, unknown>>;
+  items: BillingDraftItem[];
+  warnings: string[];
+};
+
+const TARIFF_METADATA_NOTE_TITLE = 'Tariff settings metadata';
+const BILLING_DRAFT_NOTE_TITLE = 'Internal invoice draft metadata';
 
 const SUPPORTED_TARIFFS: Record<
   SupportedTariffId,
@@ -490,7 +545,7 @@ export class BillingReadService {
 
   private async readTariffRows(organizationId: string, apartments: Array<{ areaM2?: number | null; status?: ApartmentStatus | string | null }>): Promise<TariffRow[]> {
     const note = await this.prisma.clientNote.findFirst({
-      where: { organizationId, title: 'Tariff settings metadata' },
+      where: { organizationId, title: TARIFF_METADATA_NOTE_TITLE },
       orderBy: { updatedAt: 'desc' },
       select: { content: true },
     });
@@ -535,7 +590,7 @@ export class BillingReadService {
       })),
     };
     const existing = await this.prisma.clientNote.findFirst({
-      where: { organizationId, title: 'Tariff settings metadata' },
+      where: { organizationId, title: TARIFF_METADATA_NOTE_TITLE },
       select: { id: true },
     });
     const content = JSON.stringify(payload);
@@ -549,7 +604,7 @@ export class BillingReadService {
         data: {
           organizationId,
           createdByUserId: actorUserId,
-          title: 'Tariff settings metadata',
+          title: TARIFF_METADATA_NOTE_TITLE,
           content,
         },
       });
@@ -795,6 +850,428 @@ export class BillingReadService {
       items,
       warnings,
     };
+  }
+
+  private billingMonthWindow(billingMonth: string) {
+    const [yearValue, monthValue] = billingMonth.split('-').map((part) => Number(part));
+    const startsAt = new Date(Date.UTC(yearValue, monthValue - 1, 1));
+    const endsAt = new Date(Date.UTC(yearValue, monthValue, 0, 23, 59, 59, 999));
+    return { month: monthValue, year: yearValue, startsAt, endsAt };
+  }
+
+  private parseBillingMonth(value: unknown) {
+    const billingMonth = this.requiredString(value, 'Luna de facturare este obligatorie.');
+    if (!/^\d{4}-\d{2}$/.test(billingMonth)) {
+      throw new BadRequestException('Luna de facturare nu este validă.');
+    }
+    const { month, year } = this.billingMonthWindow(billingMonth);
+    if (month < 1 || month > 12) throw new BadRequestException('Luna nu este validă.');
+    if (year < 2000 || year > 2100) throw new BadRequestException('Anul nu este valid.');
+    return billingMonth;
+  }
+
+  private parseDraftPayload(payload: Record<string, unknown>) {
+    const billingMonth = this.parseBillingMonth(payload.billingMonth);
+    const dueDate =
+      typeof payload.dueDate === 'string' && payload.dueDate.trim()
+        ? this.requiredDate(payload.dueDate, 'Data scadentă nu este validă.').toISOString().slice(0, 10)
+        : null;
+    const description = typeof payload.description === 'string' ? payload.description.trim() : '';
+    return { billingMonth, dueDate, description };
+  }
+
+  private isTariffActiveForBillingMonth(tariff: TariffRow, billingMonth: string) {
+    if (tariff.status !== 'ACTIVE' || tariff.periodicity !== 'MONTHLY') return false;
+    const { startsAt, endsAt } = this.billingMonthWindow(billingMonth);
+    if (tariff.startsAt && new Date(tariff.startsAt) > endsAt) return false;
+    if (tariff.endsAt && new Date(tariff.endsAt) < startsAt) return false;
+    return true;
+  }
+
+  private apartmentMatchesTariff(apartment: { status?: ApartmentStatus | string | null }, tariff: Pick<TariffRow, 'appliesTo'>) {
+    if (tariff.appliesTo !== 'ONLY_OCCUPIED') return true;
+    const occupiedStatuses = new Set(['ACTIVE', 'DEBTOR', 'PROBLEM', 'OCCUPIED']);
+    return occupiedStatuses.has(String(apartment.status || '').toUpperCase());
+  }
+
+  private residentFullName(resident?: { firstName?: string | null; lastName?: string | null; email?: string | null; phone?: string | null } | null) {
+    if (!resident) return '';
+    return `${resident.firstName || ''} ${resident.lastName || ''}`.trim() || resident.email || resident.phone || '';
+  }
+
+  private primaryContactFromApartment(apartment: any) {
+    const owner = apartment.ownerResident;
+    const primaryRelation = (apartment.apartmentResidents || []).find((relation: any) => relation.isPrimary);
+    const fallbackRelation = (apartment.apartmentResidents || [])[0];
+    const resident = owner || primaryRelation?.resident || fallbackRelation?.resident || null;
+    if (!resident) return null;
+    return {
+      id: resident.id,
+      fullName: this.residentFullName(resident),
+      phone: resident.phone || null,
+    };
+  }
+
+  private draftLineStatus(lines: BillingDraftLine[], warnings: string[]): BillingDraftLineStatus {
+    if (lines.some((line) => line.status === 'ERROR')) return 'ERROR';
+    if (warnings.length || lines.some((line) => line.status === 'WARNING')) return 'WARNING';
+    return 'READY';
+  }
+
+  private draftTotals(items: BillingDraftItem[]) {
+    const includedItems = items.filter((item) => item.status !== 'EXCLUDED');
+    return {
+      totalAmount: this.money(includedItems.reduce((sum, item) => sum + item.total, 0)),
+      apartmentsCount: items.length,
+      calculatedApartments: includedItems.filter((item) => item.status === 'READY' || item.status === 'WARNING').length,
+      warningsCount: items.filter((item) => item.status === 'WARNING').length,
+      errorsCount: items.filter((item) => item.status === 'ERROR').length,
+    };
+  }
+
+  private draftResponse(draft: BillingDraftRecord) {
+    const totals = this.draftTotals(draft.items);
+    const manualExcluded = Number(draft.summary?.manualServicesExcluded || 0);
+    return {
+      ...draft,
+      associationId: draft.organizationId,
+      totalAmount: totals.totalAmount,
+      apartmentsCount: totals.apartmentsCount,
+      warningsCount: totals.warningsCount,
+      errorsCount: totals.errorsCount,
+      summary: {
+        ...draft.summary,
+        billingMonth: draft.billingMonth,
+        currency: draft.currency,
+        totalApartments: totals.apartmentsCount,
+        calculatedApartments: totals.calculatedApartments,
+        totalAmount: totals.totalAmount,
+        warningsCount: totals.warningsCount,
+        errorsCount: totals.errorsCount,
+        manualServicesExcluded: manualExcluded,
+      },
+    };
+  }
+
+  private async invoiceDraftContext(organizationId: string) {
+    const [organization, apartments] = await Promise.all([
+      this.prisma.organization.findUnique({
+        where: { id: organizationId },
+        select: { id: true, name: true, legalName: true, fiscalCode: true, currency: true },
+      }),
+      this.prisma.apartment.findMany({
+        where: { organizationId },
+        orderBy: [{ staircase: { name: 'asc' } }, { floor: 'asc' }, { number: 'asc' }],
+        select: {
+          id: true,
+          number: true,
+          areaM2: true,
+          status: true,
+          floor: true,
+          staircase: { select: { id: true, name: true } },
+          ownerResident: { select: { id: true, firstName: true, lastName: true, phone: true, email: true } },
+          apartmentResidents: {
+            orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+            select: {
+              role: true,
+              isPrimary: true,
+              resident: { select: { id: true, firstName: true, lastName: true, phone: true, email: true } },
+            },
+          },
+        },
+      }),
+    ]);
+    if (!organization) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    return { organization, apartments };
+  }
+
+  private async calculateDraftRecord(
+    user: MvpUser,
+    input: { billingMonth: string; dueDate: string | null; description: string },
+    existing?: BillingDraftRecord | null,
+  ): Promise<BillingDraftRecord> {
+    const organizationId = this.resolveOrganizationId(user);
+    this.assertOrganizationAccess(user, organizationId);
+    const { organization, apartments } = await this.invoiceDraftContext(organizationId);
+    const tariffRows = await this.readTariffRows(organizationId, apartments);
+    const tariffsActiveInPeriod = tariffRows.filter((tariff) => this.isTariffActiveForBillingMonth(tariff, input.billingMonth));
+    const tariffsUsed = tariffsActiveInPeriod.filter((tariff) => {
+      if (!tariff.includeInMonthlyEstimate) return false;
+      if (tariff.calculationType === 'MANUAL') return Number(tariff.defaultManualAmount || 0) > 0;
+      return true;
+    });
+    const manualServicesExcluded = tariffsActiveInPeriod.filter(
+      (tariff) => tariff.calculationType === 'MANUAL' && (!tariff.includeInMonthlyEstimate || Number(tariff.defaultManualAmount || 0) <= 0),
+    ).length;
+    const previousStatuses = new Map<string, BillingDraftLineStatus>();
+    (existing?.items || []).forEach((item) => {
+      previousStatuses.set(item.id, item.status);
+      previousStatuses.set(item.apartmentId, item.status);
+    });
+
+    const items: BillingDraftItem[] = apartments.map((apartment: any) => {
+      const areaM2 = apartment.areaM2 === null || apartment.areaM2 === undefined ? null : Number(apartment.areaM2);
+      const warnings: string[] = [];
+      const lines: BillingDraftLine[] = tariffsUsed
+        .filter((tariff) => this.apartmentMatchesTariff(apartment, tariff))
+        .map((tariff) => {
+          const lineWarnings: string[] = [];
+          let quantity = 1;
+          let unitPrice = 0;
+          let amount = 0;
+          let formulaLabel = '';
+          if (tariff.calculationType === 'PER_M2') {
+            quantity = Number(areaM2 || 0);
+            unitPrice = Number(tariff.pricePerM2 || 0);
+            if (!areaM2 || areaM2 <= 0) {
+              lineWarnings.push('Lipsește suprafața apartamentului. Tariful per m² nu poate fi calculat.');
+            }
+            amount = this.money(quantity * unitPrice);
+            formulaLabel = `${quantity.toLocaleString('ro-RO')} m² × ${unitPrice.toLocaleString('ro-RO')} MDL`;
+          } else if (tariff.calculationType === 'FIXED_PER_APARTMENT') {
+            quantity = 1;
+            unitPrice = Number(tariff.fixedAmount || 0);
+            amount = this.money(unitPrice);
+            formulaLabel = `${unitPrice.toLocaleString('ro-RO')} MDL`;
+          } else {
+            quantity = 1;
+            unitPrice = Number(tariff.defaultManualAmount || 0);
+            amount = this.money(unitPrice);
+            formulaLabel = `sumă manuală default ${unitPrice.toLocaleString('ro-RO')} MDL`;
+          }
+          warnings.push(...lineWarnings);
+          return {
+            id: `line:${apartment.id}:${tariff.id}`,
+            lineType: tariff.calculationType === 'MANUAL' ? 'MANUAL' : 'TARIFF',
+            tariffId: tariff.id,
+            name: tariff.name,
+            description: tariff.description || '',
+            calculationType: tariff.calculationType,
+            quantity,
+            unitPrice,
+            amount,
+            currency: 'MDL',
+            formulaLabel,
+            status: lineWarnings.length ? 'WARNING' : 'READY',
+            warnings: lineWarnings,
+          };
+        });
+      if (!lines.length && tariffsUsed.length === 0) {
+        warnings.push('Nu există tarife active pentru această perioadă.');
+      }
+      const itemId = `apt:${apartment.id}`;
+      const calculatedStatus = this.draftLineStatus(lines, warnings);
+      const previousStatus = previousStatuses.get(itemId) || previousStatuses.get(apartment.id);
+      const status = previousStatus === 'EXCLUDED' ? 'EXCLUDED' : calculatedStatus;
+      return {
+        id: itemId,
+        apartmentId: apartment.id,
+        apartmentNumber: apartment.number,
+        staircase: apartment.staircase?.name || '',
+        floor: apartment.floor === null || apartment.floor === undefined ? null : String(apartment.floor),
+        areaM2,
+        primaryContact: this.primaryContactFromApartment(apartment),
+        lines,
+        total: this.money(lines.reduce((sum, line) => sum + line.amount, 0)),
+        status,
+        warnings: Array.from(new Set(warnings)),
+        internalNotes: '',
+      };
+    });
+    const totals = this.draftTotals(items);
+    const topWarnings = [
+      ...(items.some((item) => item.warnings.some((warning) => warning.includes('suprafața'))) && tariffsUsed.some((tariff) => tariff.calculationType === 'PER_M2')
+        ? ['Există apartamente fără suprafață. Tarifele per m² nu pot fi calculate complet.']
+        : []),
+      ...(manualServicesExcluded ? ['Unele servicii manuale nu au fost incluse automat în calcul.'] : []),
+    ];
+    const now = new Date().toISOString();
+    const draft: BillingDraftRecord = {
+      id: existing?.id || randomUUID(),
+      associationId: organizationId,
+      organizationId,
+      billingMonth: input.billingMonth,
+      dueDate: input.dueDate,
+      description: input.description || `Plata lunară pentru ${input.billingMonth}`,
+      status: existing?.status && existing.status !== 'CANCELLED' ? existing.status : 'DRAFT',
+      currency: 'MDL',
+      totalAmount: totals.totalAmount,
+      apartmentsCount: totals.apartmentsCount,
+      warningsCount: totals.warningsCount,
+      errorsCount: totals.errorsCount,
+      createdById: existing?.createdById || user.id,
+      createdAt: existing?.createdAt || now,
+      updatedAt: now,
+      summary: {
+        billingMonth: input.billingMonth,
+        currency: 'MDL',
+        totalApartments: totals.apartmentsCount,
+        calculatedApartments: totals.calculatedApartments,
+        totalAmount: totals.totalAmount,
+        warningsCount: totals.warningsCount,
+        errorsCount: totals.errorsCount,
+        activeTariffsUsed: tariffsUsed.length,
+        apartmentsWithoutArea: apartments.filter((apartment) => !apartment.areaM2 || Number(apartment.areaM2) <= 0).length,
+        perM2Services: tariffsUsed.filter((tariff) => tariff.calculationType === 'PER_M2').length,
+        fixedServices: tariffsUsed.filter((tariff) => tariff.calculationType === 'FIXED_PER_APARTMENT').length,
+        manualServicesExcluded,
+      },
+      tariffsUsed: tariffsUsed.map((tariff) => ({
+        id: tariff.id,
+        name: tariff.name,
+        calculationType: tariff.calculationType,
+        pricePerM2: tariff.pricePerM2,
+        fixedAmount: tariff.fixedAmount,
+        defaultManualAmount: tariff.defaultManualAmount,
+      })),
+      items,
+      warnings: topWarnings,
+    };
+
+    return {
+      ...this.draftResponse(draft),
+      organization: {
+        id: organization.id,
+        shortName: organization.name,
+        legalName: organization.legalName || organization.name,
+        associationCode: organization.fiscalCode || '',
+        currency: 'MDL',
+      },
+    } as BillingDraftRecord;
+  }
+
+  private async readBillingDrafts(organizationId: string): Promise<BillingDraftRecord[]> {
+    const note = await this.prisma.clientNote.findFirst({
+      where: { organizationId, title: BILLING_DRAFT_NOTE_TITLE },
+      orderBy: { updatedAt: 'desc' },
+      select: { content: true },
+    });
+    if (!note?.content) return [];
+    try {
+      const parsed = JSON.parse(note.content);
+      return Array.isArray(parsed?.items) ? parsed.items : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private async writeBillingDrafts(organizationId: string, actorUserId: string, drafts: BillingDraftRecord[]) {
+    const payload = { version: 1, items: drafts };
+    const existing = await this.prisma.clientNote.findFirst({
+      where: { organizationId, title: BILLING_DRAFT_NOTE_TITLE },
+      select: { id: true },
+    });
+    const content = JSON.stringify(payload);
+    if (existing) {
+      await this.prisma.clientNote.update({ where: { id: existing.id }, data: { content } });
+    } else {
+      await this.prisma.clientNote.create({
+        data: {
+          organizationId,
+          createdByUserId: actorUserId,
+          title: BILLING_DRAFT_NOTE_TITLE,
+          content,
+        },
+      });
+    }
+  }
+
+  async getInvoiceDraft(user: MvpUser, query: Record<string, unknown>) {
+    const organizationId = this.resolveOrganizationId(user, query);
+    this.assertOrganizationAccess(user, organizationId);
+    const billingMonth = this.parseBillingMonth(query.billingMonth);
+    const drafts = await this.readBillingDrafts(organizationId);
+    const draft = drafts.find((item) => item.billingMonth === billingMonth && item.status !== 'CANCELLED') || null;
+    return { draft: draft ? this.draftResponse(draft) : null, billingMonth };
+  }
+
+  async getInvoiceDraftById(user: MvpUser, id: string) {
+    const organizationId = this.resolveOrganizationId(user);
+    this.assertOrganizationAccess(user, organizationId);
+    const drafts = await this.readBillingDrafts(organizationId);
+    const draft = drafts.find((item) => item.id === id && item.status !== 'CANCELLED');
+    if (!draft) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    return this.draftResponse(draft);
+  }
+
+  async calculateInvoiceDraft(user: MvpUser, body: unknown) {
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const input = this.parseDraftPayload(payload);
+    return this.calculateDraftRecord(user, input);
+  }
+
+  async saveInvoiceDraft(user: MvpUser, body: unknown) {
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const input = this.parseDraftPayload(payload);
+    const organizationId = this.resolveOrganizationId(user, payload);
+    this.assertOrganizationAccess(user, organizationId);
+    const drafts = await this.readBillingDrafts(organizationId);
+    const existing = drafts.find((draft) => draft.billingMonth === input.billingMonth && draft.status !== 'CANCELLED') || null;
+    const calculated = await this.calculateDraftRecord(user, input, existing);
+    const nextDrafts = existing ? drafts.map((draft) => (draft.id === existing.id ? calculated : draft)) : [...drafts, calculated];
+    await this.writeBillingDrafts(organizationId, user.id, nextDrafts);
+    return this.draftResponse(calculated);
+  }
+
+  async recalculateInvoiceDraft(user: MvpUser, id: string, body: unknown) {
+    const organizationId = this.resolveOrganizationId(user, body && typeof body === 'object' ? (body as Record<string, unknown>) : {});
+    this.assertOrganizationAccess(user, organizationId);
+    const drafts = await this.readBillingDrafts(organizationId);
+    const existing = drafts.find((draft) => draft.id === id && draft.status !== 'CANCELLED');
+    if (!existing) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const input = this.parseDraftPayload({
+      billingMonth: payload.billingMonth || existing.billingMonth,
+      dueDate: payload.dueDate === undefined ? existing.dueDate : payload.dueDate,
+      description: payload.description === undefined ? existing.description : payload.description,
+    });
+    const calculated = await this.calculateDraftRecord(user, input, existing);
+    const nextDrafts = drafts.map((draft) => (draft.id === id ? calculated : draft));
+    await this.writeBillingDrafts(organizationId, user.id, nextDrafts);
+    return this.draftResponse(calculated);
+  }
+
+  async updateInvoiceDraftLineStatus(user: MvpUser, id: string, lineId: string, body: unknown) {
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const statusValue = typeof payload.status === 'string' ? payload.status.trim().toUpperCase() : '';
+    if (statusValue !== 'READY' && statusValue !== 'EXCLUDED') {
+      throw new BadRequestException('Statusul liniei nu este valid.');
+    }
+    const organizationId = this.resolveOrganizationId(user, payload);
+    this.assertOrganizationAccess(user, organizationId);
+    const drafts = await this.readBillingDrafts(organizationId);
+    const draft = drafts.find((item) => item.id === id && item.status !== 'CANCELLED');
+    if (!draft) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    let changed = false;
+    const updatedItems = draft.items.map((item) => {
+      if (item.id === lineId || item.apartmentId === lineId) {
+        changed = true;
+        return { ...item, status: statusValue as BillingDraftLineStatus, updatedAt: new Date().toISOString() };
+      }
+      const updatedLines = item.lines.map((line) => {
+        if (line.id !== lineId) return line;
+        changed = true;
+        return { ...line, status: statusValue as BillingDraftLineStatus };
+      });
+      return { ...item, lines: updatedLines };
+    });
+    if (!changed) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    const updatedDraft = this.draftResponse({ ...draft, items: updatedItems, updatedAt: new Date().toISOString() }) as BillingDraftRecord;
+    const nextDrafts = drafts.map((item) => (item.id === id ? updatedDraft : item));
+    await this.writeBillingDrafts(organizationId, user.id, nextDrafts);
+    return this.draftResponse(updatedDraft);
+  }
+
+  async cancelInvoiceDraft(user: MvpUser, id: string) {
+    const organizationId = this.resolveOrganizationId(user);
+    this.assertOrganizationAccess(user, organizationId);
+    const drafts = await this.readBillingDrafts(organizationId);
+    const draft = drafts.find((item) => item.id === id && item.status !== 'CANCELLED');
+    if (!draft) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    const cancelled = { ...draft, status: 'CANCELLED' as BillingDraftStatus, updatedAt: new Date().toISOString() };
+    const nextDrafts = drafts.map((item) => (item.id === id ? cancelled : item));
+    await this.writeBillingDrafts(organizationId, user.id, nextDrafts);
+    return { id, status: 'CANCELLED', message: 'Draftul a fost anulat.' };
   }
 
   async generateMonthlyInvoices(user: MvpUser, body: unknown) {

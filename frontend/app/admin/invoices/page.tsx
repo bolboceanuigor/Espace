@@ -250,6 +250,7 @@ export default function AdminInvoicesPage() {
               {source === 'loading' ? 'Se încarcă...' : source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
             </span>
             <Button type="button" variant="secondary" onClick={exportCsv}>Export CSV</Button>
+            <ButtonLink href={localizedPath('/admin/invoices/draft')} variant="secondary">Calcul draft</ButtonLink>
             <ButtonLink href={localizedPath('/admin/payments')} variant="secondary">Vezi plăți</ButtonLink>
           </div>
         }

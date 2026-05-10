@@ -1289,6 +1289,17 @@ export const invoicesApi = {
   adminReminderHistory: () => apiRequest<any[]>('/api/admin/reminders'),
   adminReceipts: () => apiRequest<any[]>('/api/admin/receipts'),
   adminReceiptPdf: (id: string) => apiRequest<Blob>(`/api/admin/receipts/${id}/pdf`, { responseType: 'blob' }),
+  draftGet: (params: { billingMonth: string }) => apiRequest<any>('/api/admin/invoices/draft', { params }),
+  draftCalculate: (data: { billingMonth: string; dueDate?: string | null; description?: string }) =>
+    apiRequest<any>('/api/admin/invoices/draft/calculate', { method: 'POST', body: data }),
+  draftSave: (data: { billingMonth: string; dueDate?: string | null; description?: string }) =>
+    apiRequest<any>('/api/admin/invoices/draft/save', { method: 'POST', body: data }),
+  draftGetOne: (id: string) => apiRequest<any>(`/api/admin/invoices/draft/${id}`),
+  draftRecalculate: (id: string, data?: { billingMonth?: string; dueDate?: string | null; description?: string }) =>
+    apiRequest<any>(`/api/admin/invoices/draft/${id}/recalculate`, { method: 'PATCH', body: data || {} }),
+  draftUpdateLineStatus: (draftId: string, lineId: string, status: 'READY' | 'EXCLUDED') =>
+    apiRequest<any>(`/api/admin/invoices/draft/${draftId}/lines/${lineId}/status`, { method: 'PATCH', body: { status } }),
+  draftCancel: (id: string) => apiRequest<any>(`/api/admin/invoices/draft/${id}/cancel`, { method: 'PATCH' }),
 
   residentList: () => apiRequest<any[]>('/api/resident/invoices'),
   residentGetOne: (id: string) => apiRequest<any>(`/api/resident/invoices/${id}`),
