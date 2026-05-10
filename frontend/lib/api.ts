@@ -1473,6 +1473,30 @@ export const paymentsApi = {
   adminInvoiceSearch: (params?: { search?: string; unpaidOnly?: boolean }) =>
     apiRequest<any>('/api/admin/payments/invoice-search', { params }),
   adminInvoicePayments: (invoiceId: string) => apiRequest<any>(`/api/admin/invoices/${invoiceId}/payments`),
+  adminReconciliation: (params?: {
+    billingMonth?: string;
+    status?: string;
+    unpaidOnly?: boolean;
+    partiallyPaidOnly?: boolean;
+    overdueOnly?: boolean;
+    staircase?: string;
+    apartmentNumber?: string;
+    search?: string;
+    minBalance?: string;
+    maxBalance?: string;
+    sortBy?: string;
+    sortDirection?: 'asc' | 'desc';
+    page?: number;
+    limit?: number;
+  }) => apiRequest<any>('/api/admin/payments/reconciliation', { params }),
+  adminReconciliationStats: (params?: { billingMonth?: string; status?: string }) =>
+    apiRequest<any>('/api/admin/payments/reconciliation/stats', { params }),
+  adminReconciliationDebtors: (params?: { billingMonth?: string; limit?: number }) =>
+    apiRequest<any>('/api/admin/payments/reconciliation/debtors', { params }),
+  adminReconciliationRecentPayments: (params?: { limit?: number }) =>
+    apiRequest<any>('/api/admin/payments/reconciliation/recent-payments', { params }),
+  adminReconciliationApartment: (apartmentId: string, params?: { billingMonth?: string }) =>
+    apiRequest<any>(`/api/admin/payments/reconciliation/apartments/${apartmentId}`, { params }),
   adminManual: (data: {
     apartmentId: string;
     invoiceId?: string;

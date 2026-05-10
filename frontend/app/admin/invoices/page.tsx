@@ -161,6 +161,7 @@ export default function AdminInvoicesPage() {
             {data?.association ? (
               <Badge variant="neutral">{data.association.shortName} · {data.association.associationCode}</Badge>
             ) : null}
+            <ButtonLink href={localizedPath('/admin/payments/reconciliation')} variant="secondary">Reconciliere plăți</ButtonLink>
             <ButtonLink href={localizedPath('/admin/invoices/draft')} variant="secondary">Mergi la calcul draft</ButtonLink>
           </div>
         }

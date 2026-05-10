@@ -2675,6 +2675,287 @@ export class BillingReadService {
     };
   }
 
+  private isCollectableInternalInvoice(invoice: InternalInvoiceMetadata) {
+    return invoice.status !== 'CANCELLED' && invoice.status !== 'VOID';
+  }
+
+  private internalInvoiceOverdueDays(invoice: InternalInvoiceMetadata, today = new Date()) {
+    if (!this.isCollectableInternalInvoice(invoice) || Number(invoice.balanceAmount || 0) <= 0 || !invoice.dueDate) return 0;
+    const dueDate = new Date(invoice.dueDate);
+    if (Number.isNaN(dueDate.getTime())) return 0;
+    const startOfToday = new Date(today);
+    startOfToday.setHours(0, 0, 0, 0);
+    dueDate.setHours(0, 0, 0, 0);
+    if (dueDate >= startOfToday) return 0;
+    return Math.max(1, Math.ceil((startOfToday.getTime() - dueDate.getTime()) / 86_400_000));
+  }
+
+  private internalInvoiceLastPaymentDate(invoiceId: string, paymentRows: any[]) {
+    const dates = paymentRows
+      .filter((payment) => payment.status === PaymentStatus.CONFIRMED && this.parseInternalPaymentNote(payment.note)?.invoiceId === invoiceId)
+      .map((payment) => payment.paidAt ?? payment.confirmedAt ?? payment.createdAt)
+      .filter(Boolean)
+      .map((date) => new Date(date).getTime())
+      .filter((time) => Number.isFinite(time));
+    if (!dates.length) return null;
+    return new Date(Math.max(...dates)).toISOString();
+  }
+
+  private reconciliationSummary(invoices: InternalInvoiceMetadata[], billingMonth = '') {
+    const collectable = invoices.filter((invoice) => this.isCollectableInternalInvoice(invoice));
+    const totalAmount = this.money(collectable.reduce((sum, invoice) => sum + Number(invoice.totalAmount || 0), 0));
+    const paidAmount = this.money(collectable.reduce((sum, invoice) => sum + Number(invoice.paidAmount || 0), 0));
+    const balanceAmount = this.money(collectable.reduce((sum, invoice) => sum + Number(invoice.balanceAmount || 0), 0));
+    return {
+      billingMonth: billingMonth || null,
+      currency: 'MDL',
+      totalInvoices: invoices.length,
+      totalAmount,
+      paidAmount,
+      balanceAmount,
+      paidInvoices: collectable.filter((invoice) => invoice.status === 'PAID').length,
+      partiallyPaidInvoices: collectable.filter((invoice) => invoice.status === 'PARTIALLY_PAID').length,
+      unpaidInvoices: collectable.filter((invoice) => invoice.status === 'ISSUED' && Number(invoice.balanceAmount || 0) > 0).length,
+      overdueInvoices: collectable.filter((invoice) => this.internalInvoiceOverdueDays(invoice) > 0).length,
+      collectionRate: totalAmount > 0 ? this.money((paidAmount / totalAmount) * 100) : 0,
+    };
+  }
+
+  private reconciliationStatusBreakdown(invoices: InternalInvoiceMetadata[]) {
+    const statuses: InternalInvoiceStatus[] = ['ISSUED', 'PARTIALLY_PAID', 'PAID', 'CANCELLED', 'VOID'];
+    return statuses.map((status) => {
+      const rows = invoices.filter((invoice) => invoice.status === status);
+      return {
+        status,
+        count: rows.length,
+        totalAmount: this.money(rows.reduce((sum, invoice) => sum + Number(invoice.totalAmount || 0), 0)),
+        paidAmount: this.money(rows.reduce((sum, invoice) => sum + Number(invoice.paidAmount || 0), 0)),
+        balanceAmount: this.money(rows.reduce((sum, invoice) => sum + Number(invoice.balanceAmount || 0), 0)),
+      };
+    });
+  }
+
+  private toReconciliationInvoiceItem(invoice: InternalInvoiceMetadata, paymentRows: any[]) {
+    const overdueDays = this.internalInvoiceOverdueDays(invoice);
+    return {
+      invoiceId: invoice.invoiceId,
+      metadataId: invoice.id,
+      invoiceNumber: invoice.invoiceNumber,
+      billingMonth: invoice.billingMonth,
+      apartment: invoice.apartment,
+      primaryContact: invoice.primaryContact,
+      totalAmount: Number(invoice.totalAmount || 0),
+      paidAmount: Number(invoice.paidAmount || 0),
+      balanceAmount: Number(invoice.balanceAmount || 0),
+      status: invoice.status,
+      dueDate: invoice.dueDate,
+      isOverdue: overdueDays > 0,
+      overdueDays,
+      lastPaymentDate: this.internalInvoiceLastPaymentDate(invoice.invoiceId, paymentRows),
+    };
+  }
+
+  private filterReconciliationInvoices(metadata: InternalInvoiceMetadata[], query: Record<string, unknown>) {
+    const billingMonth = typeof query.billingMonth === 'string' && query.billingMonth.trim() ? this.parseBillingMonth(query.billingMonth) : '';
+    const status = typeof query.status === 'string' && query.status.trim() ? query.status.trim().toUpperCase() : '';
+    const staircase = typeof query.staircase === 'string' ? query.staircase.trim().toLowerCase() : '';
+    const apartmentNumber = typeof query.apartmentNumber === 'string' ? query.apartmentNumber.trim().toLowerCase() : '';
+    const search = typeof query.search === 'string' ? query.search.trim().toLowerCase() : '';
+    const minBalance = query.minBalance !== undefined && query.minBalance !== '' ? Number(query.minBalance) : null;
+    const maxBalance = query.maxBalance !== undefined && query.maxBalance !== '' ? Number(query.maxBalance) : null;
+    const unpaidOnly = String(query.unpaidOnly || '').toLowerCase() === 'true';
+    const partiallyPaidOnly = String(query.partiallyPaidOnly || '').toLowerCase() === 'true';
+    const overdueOnly = String(query.overdueOnly || '').toLowerCase() === 'true';
+
+    return metadata.filter((invoice) => {
+      const matchesMonth = !billingMonth || invoice.billingMonth === billingMonth;
+      const matchesStatus = !status || invoice.status === status;
+      const matchesStaircase = !staircase || String(invoice.apartment.staircase || '').toLowerCase().includes(staircase);
+      const matchesApartment = !apartmentNumber || String(invoice.apartment.apartmentNumber || '').toLowerCase().includes(apartmentNumber);
+      const matchesUnpaid = !unpaidOnly || (this.isCollectableInternalInvoice(invoice) && Number(invoice.balanceAmount || 0) > 0);
+      const matchesPartiallyPaid = !partiallyPaidOnly || invoice.status === 'PARTIALLY_PAID';
+      const matchesOverdue = !overdueOnly || this.internalInvoiceOverdueDays(invoice) > 0;
+      const matchesMinBalance = minBalance === null || Number(invoice.balanceAmount || 0) >= minBalance;
+      const matchesMaxBalance = maxBalance === null || Number(invoice.balanceAmount || 0) <= maxBalance;
+      const haystack = `${invoice.invoiceNumber} ${invoice.billingMonth} ${invoice.apartment.apartmentNumber} ${invoice.apartment.staircase} ${invoice.primaryContact?.fullName || ''} ${invoice.primaryContact?.phone || ''}`.toLowerCase();
+      return (
+        matchesMonth &&
+        matchesStatus &&
+        matchesStaircase &&
+        matchesApartment &&
+        matchesUnpaid &&
+        matchesPartiallyPaid &&
+        matchesOverdue &&
+        matchesMinBalance &&
+        matchesMaxBalance &&
+        (!search || haystack.includes(search))
+      );
+    });
+  }
+
+  private sortReconciliationItems(items: ReturnType<BillingReadService['toReconciliationInvoiceItem']>[], query: Record<string, unknown>) {
+    const sortBy = typeof query.sortBy === 'string' ? query.sortBy : 'balanceAmount';
+    const sortDirection = String(query.sortDirection || 'desc').toLowerCase() === 'asc' ? 'asc' : 'desc';
+    const direction = sortDirection === 'asc' ? 1 : -1;
+    return items.sort((a, b) => {
+      const numberValue = (value: unknown) => Number(value || 0);
+      if (sortBy === 'totalAmount') return (numberValue(a.totalAmount) - numberValue(b.totalAmount)) * direction;
+      if (sortBy === 'paidAmount') return (numberValue(a.paidAmount) - numberValue(b.paidAmount)) * direction;
+      if (sortBy === 'balanceAmount') return (numberValue(a.balanceAmount) - numberValue(b.balanceAmount)) * direction;
+      if (sortBy === 'apartmentNumber') {
+        return String(a.apartment.apartmentNumber || '').localeCompare(String(b.apartment.apartmentNumber || ''), 'ro', { numeric: true }) * direction;
+      }
+      if (sortBy === 'dueDate') return (new Date(a.dueDate || 0).getTime() - new Date(b.dueDate || 0).getTime()) * direction;
+      if (sortBy === 'lastPaymentDate') return (new Date(a.lastPaymentDate || 0).getTime() - new Date(b.lastPaymentDate || 0).getTime()) * direction;
+      return String(a.invoiceNumber || '').localeCompare(String(b.invoiceNumber || ''), 'ro', { numeric: true }) * direction;
+    });
+  }
+
+  private async reconciliationContext(user: MvpUser, query: Record<string, unknown> = {}) {
+    const organizationId = this.resolveOrganizationId(user, query);
+    this.assertOrganizationAccess(user, organizationId);
+    const [metadata, paymentRows, organization] = await Promise.all([
+      this.readInternalInvoiceMetadata(organizationId),
+      this.internalPaymentRows(organizationId),
+      this.prisma.organization.findUnique({
+        where: { id: organizationId },
+        select: { id: true, name: true, legalName: true, fiscalCode: true },
+      }),
+    ]);
+    if (!organization) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    return {
+      organizationId,
+      metadata,
+      paymentRows,
+      association: {
+        id: organization.id,
+        shortName: organization.name,
+        legalName: organization.legalName || organization.name,
+        associationCode: this.normalizeInvoiceCode(organization.fiscalCode || organization.name),
+        currency: 'MDL',
+      },
+    };
+  }
+
+  async getAdminPaymentReconciliation(user: MvpUser, query: Record<string, unknown>) {
+    const { metadata, paymentRows, association } = await this.reconciliationContext(user, query);
+    const billingMonth = typeof query.billingMonth === 'string' && query.billingMonth.trim() ? this.parseBillingMonth(query.billingMonth) : '';
+    const page = Math.max(1, Number(query.page || 1));
+    const limit = Math.min(100, Math.max(1, Number(query.limit || 20)));
+    const filtered = this.filterReconciliationInvoices(metadata, query);
+    const sortedItems = this.sortReconciliationItems(
+      filtered.map((invoice) => this.toReconciliationInvoiceItem(invoice, paymentRows)),
+      query,
+    );
+    const start = (page - 1) * limit;
+    return {
+      summary: this.reconciliationSummary(filtered, billingMonth),
+      statusBreakdown: this.reconciliationStatusBreakdown(filtered),
+      items: sortedItems.slice(start, start + limit),
+      meta: { page, limit, total: sortedItems.length },
+      association,
+    };
+  }
+
+  async getAdminPaymentReconciliationStats(user: MvpUser, query: Record<string, unknown>) {
+    const { metadata, association } = await this.reconciliationContext(user, query);
+    const billingMonth = typeof query.billingMonth === 'string' && query.billingMonth.trim() ? this.parseBillingMonth(query.billingMonth) : '';
+    const filtered = this.filterReconciliationInvoices(metadata, query);
+    return {
+      summary: this.reconciliationSummary(filtered, billingMonth),
+      statusBreakdown: this.reconciliationStatusBreakdown(filtered),
+      association,
+    };
+  }
+
+  async getAdminPaymentReconciliationDebtors(user: MvpUser, query: Record<string, unknown>) {
+    const { metadata, paymentRows } = await this.reconciliationContext(user, query);
+    const billingMonth = typeof query.billingMonth === 'string' && query.billingMonth.trim() ? this.parseBillingMonth(query.billingMonth) : '';
+    const rows = metadata.filter(
+      (invoice) =>
+        this.isCollectableInternalInvoice(invoice) &&
+        Number(invoice.balanceAmount || 0) > 0 &&
+        (!billingMonth || invoice.billingMonth === billingMonth),
+    );
+    const grouped = new Map<
+      string,
+      {
+        apartmentId: string;
+        apartmentNumber: string;
+        staircase: string;
+        primaryContact: InternalInvoiceMetadata['primaryContact'];
+        balanceAmount: number;
+        unpaidInvoicesCount: number;
+        oldestUnpaidBillingMonth: string;
+        lastPaymentDate: string | null;
+      }
+    >();
+    rows.forEach((invoice) => {
+      const current = grouped.get(invoice.apartment.id);
+      const lastPaymentDate = this.internalInvoiceLastPaymentDate(invoice.invoiceId, paymentRows);
+      if (!current) {
+        grouped.set(invoice.apartment.id, {
+          apartmentId: invoice.apartment.id,
+          apartmentNumber: invoice.apartment.apartmentNumber,
+          staircase: invoice.apartment.staircase,
+          primaryContact: invoice.primaryContact,
+          balanceAmount: this.money(Number(invoice.balanceAmount || 0)),
+          unpaidInvoicesCount: 1,
+          oldestUnpaidBillingMonth: invoice.billingMonth,
+          lastPaymentDate,
+        });
+        return;
+      }
+      current.balanceAmount = this.money(current.balanceAmount + Number(invoice.balanceAmount || 0));
+      current.unpaidInvoicesCount += 1;
+      if (invoice.billingMonth < current.oldestUnpaidBillingMonth) current.oldestUnpaidBillingMonth = invoice.billingMonth;
+      if (lastPaymentDate && (!current.lastPaymentDate || new Date(lastPaymentDate) > new Date(current.lastPaymentDate))) {
+        current.lastPaymentDate = lastPaymentDate;
+      }
+    });
+    return {
+      items: [...grouped.values()]
+        .sort((a, b) => Number(b.balanceAmount || 0) - Number(a.balanceAmount || 0))
+        .slice(0, Math.min(50, Math.max(1, Number(query.limit || 10)))),
+    };
+  }
+
+  async getAdminPaymentReconciliationRecentPayments(user: MvpUser, query: Record<string, unknown>) {
+    const { metadata, paymentRows } = await this.reconciliationContext(user, query);
+    const invoiceById = new Map(metadata.map((invoice) => [invoice.invoiceId, invoice]));
+    const limit = Math.min(50, Math.max(1, Number(query.limit || 10)));
+    return {
+      items: paymentRows
+        .slice(0, limit)
+        .map((row) => this.toAdminInternalPayment(row, invoiceById.get(this.parseInternalPaymentNote(row.note)?.invoiceId || '') || null)),
+    };
+  }
+
+  async getAdminPaymentReconciliationApartment(user: MvpUser, apartmentId: string, query: Record<string, unknown>) {
+    const { metadata, paymentRows } = await this.reconciliationContext(user, query);
+    const billingMonth = typeof query.billingMonth === 'string' && query.billingMonth.trim() ? this.parseBillingMonth(query.billingMonth) : '';
+    const invoices = metadata.filter((invoice) => invoice.apartment.id === apartmentId && (!billingMonth || invoice.billingMonth === billingMonth));
+    if (!invoices.length) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    const invoiceIds = new Set(invoices.map((invoice) => invoice.invoiceId));
+    const payments = paymentRows
+      .filter((row) => {
+        const note = this.parseInternalPaymentNote(row.note);
+        return note?.invoiceId && invoiceIds.has(note.invoiceId);
+      })
+      .map((row) => this.toAdminInternalPayment(row, this.findInternalInvoice(invoices, this.parseInternalPaymentNote(row.note)?.invoiceId || '')));
+    const items = this.sortReconciliationItems(
+      invoices.map((invoice) => this.toReconciliationInvoiceItem(invoice, paymentRows)),
+      { sortBy: 'billingMonth', sortDirection: 'desc' },
+    );
+    return {
+      apartment: invoices[0].apartment,
+      primaryContact: invoices[0].primaryContact,
+      summary: this.reconciliationSummary(invoices, billingMonth),
+      invoices: items,
+      payments,
+    };
+  }
+
   async generateMonthlyInvoices(user: MvpUser, body: unknown) {
     const input = this.parseGenerateMonthlyBody(body);
     const organizationId = this.resolveOrganizationId(user, body && typeof body === 'object' ? (body as Record<string, unknown>) : {});

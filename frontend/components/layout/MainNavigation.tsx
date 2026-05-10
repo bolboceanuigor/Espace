@@ -33,6 +33,7 @@ const ICONS: Record<MainNavigationKey, React.ComponentType<{ className?: string 
   residents: Users,
   meters: Gauge,
   payments: CreditCard,
+  paymentReconciliation: FileText,
   issues: CircleAlert,
   documents: FileText,
   home: Home,

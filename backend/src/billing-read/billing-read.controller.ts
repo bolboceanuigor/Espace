@@ -206,6 +206,35 @@ export class BillingReadController {
     return this.billingReadService.searchAdminPaymentInvoices(user, query);
   }
 
+  @Get(['admin/payments/reconciliation/stats', 'api/admin/payments/reconciliation/stats'])
+  getAdminPaymentReconciliationStats(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.billingReadService.getAdminPaymentReconciliationStats(user, query);
+  }
+
+  @Get(['admin/payments/reconciliation/debtors', 'api/admin/payments/reconciliation/debtors'])
+  getAdminPaymentReconciliationDebtors(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.billingReadService.getAdminPaymentReconciliationDebtors(user, query);
+  }
+
+  @Get(['admin/payments/reconciliation/recent-payments', 'api/admin/payments/reconciliation/recent-payments'])
+  getAdminPaymentReconciliationRecentPayments(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.billingReadService.getAdminPaymentReconciliationRecentPayments(user, query);
+  }
+
+  @Get(['admin/payments/reconciliation/apartments/:apartmentId', 'api/admin/payments/reconciliation/apartments/:apartmentId'])
+  getAdminPaymentReconciliationApartment(
+    @CurrentUser() user: MvpUser,
+    @Param('apartmentId') apartmentId: string,
+    @Query() query: Record<string, unknown>,
+  ) {
+    return this.billingReadService.getAdminPaymentReconciliationApartment(user, apartmentId, query);
+  }
+
+  @Get(['admin/payments/reconciliation', 'api/admin/payments/reconciliation'])
+  getAdminPaymentReconciliation(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.billingReadService.getAdminPaymentReconciliation(user, query);
+  }
+
   @Get(['admin/payments', 'api/admin/payments'])
   listAdminPayments(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
     return this.billingReadService.listAdminPayments(user, query);

@@ -262,6 +262,9 @@ export default function AdminPaymentsPage() {
           <div className="flex flex-wrap items-center gap-2">
             {association ? <Badge variant="neutral">{association.shortName} · {association.associationCode}</Badge> : null}
             <Badge variant="neutral">MDL</Badge>
+            <ButtonLink href="/admin/payments/reconciliation" variant="secondary">
+              Vezi reconciliere
+            </ButtonLink>
             <Button type="button" onClick={() => openPaymentModal()}>
               <Banknote className="h-4 w-4" />
               Înregistrează plată
