@@ -50,6 +50,7 @@ export const NAVIGATION_CONFIG: NavigationItem[] = [
   { label: 'Solicitări', href: '/admin/requests', icon: 'circleAlert', allowedRoles: ['ADMIN'], mobileVisible: false, moreMenu: true },
   { label: 'Solicitări date', href: '/admin/resident-update-requests', icon: 'users', allowedRoles: ['ADMIN'], mobileVisible: false, moreMenu: true },
   { label: 'Avizier', href: '/admin/announcements', icon: 'megaphone', allowedRoles: ['ADMIN'], mobileVisible: false, moreMenu: true },
+  { label: 'Notificări', href: '/admin/notifications', icon: 'circleAlert', allowedRoles: ['ADMIN'], mobileVisible: false, moreMenu: true },
   { label: 'Documente', href: '/admin/documents', icon: 'fileText', allowedRoles: ['ADMIN'], mobileVisible: false, moreMenu: true },
   { label: 'Rapoarte', href: '/admin/reports', icon: 'chartColumnBig', allowedRoles: ['ADMIN'], mobileVisible: false, moreMenu: true },
   { label: 'Setări', href: '/admin/settings/organization', icon: 'settings', allowedRoles: ['ADMIN'], mobileVisible: false, moreMenu: true },
@@ -60,6 +61,7 @@ export const NAVIGATION_CONFIG: NavigationItem[] = [
   { label: 'Contoare', href: '/resident/meters', icon: 'chartColumnBig', allowedRoles: ['RESIDENT'], mobileVisible: true, moreMenu: false },
   { label: 'Solicitări', href: '/resident/requests', icon: 'circleAlert', allowedRoles: ['RESIDENT'], mobileVisible: true, moreMenu: false },
   { label: 'Avizier', href: '/resident/announcements', icon: 'megaphone', allowedRoles: ['RESIDENT'], mobileVisible: false, moreMenu: true },
+  { label: 'Notificări', href: '/resident/notifications', icon: 'circleAlert', allowedRoles: ['RESIDENT'], mobileVisible: false, moreMenu: true },
   { label: 'Documente', href: '/resident/documents', icon: 'fileText', allowedRoles: ['RESIDENT'], mobileVisible: false, moreMenu: true },
   { label: 'Cont', href: '/resident/profile', icon: 'users', allowedRoles: ['RESIDENT'], mobileVisible: false, moreMenu: true },
 ];

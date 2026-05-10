@@ -1061,7 +1061,7 @@ export const communicationsApi = {
   getResidentAnnouncement: (id: string) => apiRequest<any>(`/api/resident/announcements/${id}`),
   markResidentAnnouncementRead: (id: string) => apiRequest<any>(`/api/resident/announcements/${id}/read`, { method: 'PATCH' }),
   listResidentDocuments: () => apiRequest<any[]>('/api/resident/documents'),
-  listResidentNotifications: () => apiRequest<any[]>('/api/resident/notifications'),
+  listResidentNotifications: () => apiRequest<any>('/api/resident/notifications'),
   markResidentNotificationRead: (id: string) => apiRequest<any>(`/api/resident/notifications/${id}/read`, { method: 'PATCH' }),
   markResidentNotificationsReadAll: () => apiRequest<any>('/api/resident/notifications/read-all', { method: 'PATCH' }),
 
@@ -1761,7 +1761,10 @@ export const supportChatApi = {
 };
 
 export const notificationsApi = {
-  adminList: (params?: { type?: string }) => apiRequest<any[]>('/api/admin/notifications', { params }),
+  adminList: (params?: Record<string, string | number | boolean | undefined | null>) => apiRequest<any>('/api/admin/notifications', { params }),
+  adminUnreadCount: () => apiRequest<any>('/api/admin/notifications/unread-count'),
+  adminRead: (id: string) => apiRequest<any>(`/api/admin/notifications/${id}/read`, { method: 'PATCH' }),
+  adminReadAll: (data?: { type?: string }) => apiRequest<any>('/api/admin/notifications/read-all', { method: 'PATCH', body: data }),
   adminTest: (data: { title: string; message: string; type?: string }) =>
     apiRequest<any>('/api/admin/notifications/test', { method: 'POST', body: data }),
 
@@ -1773,9 +1776,10 @@ export const notificationsApi = {
   adminUpdateSmsIntegration: (data: { provider: 'TWILIO' | 'OTHER'; configJson?: any; isActive: boolean }) =>
     apiRequest<any>('/api/admin/integrations/sms', { method: 'PATCH', body: data }),
 
-  residentList: () => apiRequest<any[]>('/api/resident/notifications'),
+  residentList: (params?: Record<string, string | number | boolean | undefined | null>) => apiRequest<any>('/api/resident/notifications', { params }),
+  residentUnreadCount: () => apiRequest<any>('/api/resident/notifications/unread-count'),
   residentRead: (id: string) => apiRequest<any>(`/api/resident/notifications/${id}/read`, { method: 'PATCH' }),
-  residentReadAll: () => apiRequest<any>('/api/resident/notifications/read-all', { method: 'PATCH' }),
+  residentReadAll: (data?: { type?: string }) => apiRequest<any>('/api/resident/notifications/read-all', { method: 'PATCH', body: data }),
   residentPreferences: () => apiRequest<any>('/api/resident/notification-preferences'),
   residentUpdatePreferences: (data: {
     emailEnabled?: boolean;

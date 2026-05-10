@@ -2300,6 +2300,20 @@ export class BillingReadService {
       targetType: 'INVOICE',
       link: `/admin/invoices?billingMonth=${response.billingMonth}`,
     }).catch(() => undefined);
+    await Promise.all(
+      result.createdMetadata.map((invoice) =>
+        this.activity
+          .notifyApartmentResidents({
+            organizationId,
+            apartmentId: invoice.apartmentId,
+            type: NotificationType.INVOICE,
+            title: 'Factură internă emisă',
+            message: `Factura ${invoice.invoiceNumber} pentru ${invoice.billingMonth} a fost emisă.`,
+            link: `/resident/invoices/${invoice.invoiceId}`,
+          })
+          .catch(() => undefined),
+      ),
+    );
 
     return {
       success: true,
@@ -2595,7 +2609,7 @@ export class BillingReadService {
       type: NotificationType.PAYMENT,
       title: 'Plată înregistrată',
       message: `A fost înregistrată o plată de ${this.money(amount).toLocaleString('ro-RO')} MDL pentru factura ${invoice.invoiceNumber}.`,
-      link: `/resident/invoices/${invoice.invoiceId}`,
+      link: `/resident/payments/${payment.created.id}`,
     }).catch(() => undefined);
 
     return {
@@ -2649,6 +2663,18 @@ export class BillingReadService {
       const recalculated = await this.recalculateInternalInvoicePaymentState(organizationId, note.invoiceId, user.id, tx);
       return { updated, updatedInvoice: recalculated.invoice };
     });
+    if (result.updatedInvoice?.apartmentId) {
+      await this.activity
+        .notifyApartmentResidents({
+          organizationId,
+          apartmentId: result.updatedInvoice.apartmentId,
+          type: NotificationType.PAYMENT,
+          title: 'Plată anulată',
+          message: `Plata pentru factura ${note.invoiceNumber} a fost anulată de administrator.`,
+          link: `/resident/payments/${row.id}`,
+        })
+        .catch(() => undefined);
+    }
 
     return {
       payment: this.toAdminInternalPayment(result.updated, result.updatedInvoice),
@@ -3375,7 +3401,7 @@ export class BillingReadService {
       type: NotificationType.PAYMENT,
       title: 'Plată înregistrată',
       message: `A fost înregistrată o plată de ${this.money(input.amount).toLocaleString('ro-RO')} MDL pentru apartamentul tău.`,
-      link: '/resident/payments',
+      link: `/resident/payments/${payment.id}`,
     });
 
     return {

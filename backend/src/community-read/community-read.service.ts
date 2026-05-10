@@ -963,6 +963,13 @@ export class CommunityReadService {
       targetId: issue.id,
       link: `/admin/requests/${issue.id}`,
     });
+    await this.activity.notifyOrganizationAdmins({
+      organizationId: user.organizationId,
+      type: NotificationType.ISSUE,
+      title: priority === 'URGENT' ? 'Solicitare urgentă de la locatar' : 'Solicitare nouă de la locatar',
+      message: `Locatarul a trimis solicitarea ${requestNumber}: „${title}”.`,
+      link: `/admin/requests/${issue.id}`,
+    });
 
     return this.toRequest(issue, store, false);
   }
@@ -992,6 +999,14 @@ export class CommunityReadService {
       targetId: row.id,
       link: `/admin/requests/${row.id}`,
     });
+    await this.activity.notifyOrganizationAdmins({
+      organizationId: row.organizationId,
+      assignedUserId: row.assignedToUserId,
+      type: NotificationType.ISSUE,
+      title: 'Comentariu nou la solicitare',
+      message: `Locatarul a comentat la „${row.title}”: ${this.preview(message, 120)}`,
+      link: `/admin/requests/${row.id}`,
+    });
     return comment;
   }
 
@@ -999,14 +1014,32 @@ export class CommunityReadService {
     const { row, store } = await this.findResidentRequest(user, id);
     const meta = this.requestMeta(row, store);
     if (!['NEW', 'IN_REVIEW'].includes(meta.status)) throw new BadRequestException('Solicitarea nu mai poate fi anulată.');
-    return this.changeRequestStatus(row, store, user.id, meta.status, 'CANCELLED', 'Solicitarea a fost anulată de locatar.');
+    const updated = await this.changeRequestStatus(row, store, user.id, meta.status, 'CANCELLED', 'Solicitarea a fost anulată de locatar.');
+    await this.activity.notifyOrganizationAdmins({
+      organizationId: row.organizationId,
+      assignedUserId: row.assignedToUserId,
+      type: NotificationType.ISSUE,
+      title: 'Solicitare anulată de locatar',
+      message: `Locatarul a anulat solicitarea „${row.title}”.`,
+      link: `/admin/requests/${row.id}`,
+    });
+    return updated;
   }
 
   async closeResidentRequest(user: MvpUser, id: string) {
     const { row, store } = await this.findResidentRequest(user, id);
     const meta = this.requestMeta(row, store);
     if (meta.status !== 'RESOLVED') throw new BadRequestException('Poți închide doar o solicitare rezolvată.');
-    return this.changeRequestStatus(row, store, user.id, meta.status, 'CLOSED', 'Solicitarea a fost închisă de locatar.');
+    const updated = await this.changeRequestStatus(row, store, user.id, meta.status, 'CLOSED', 'Solicitarea a fost închisă de locatar.');
+    await this.activity.notifyOrganizationAdmins({
+      organizationId: row.organizationId,
+      assignedUserId: row.assignedToUserId,
+      type: NotificationType.ISSUE,
+      title: 'Solicitare închisă de locatar',
+      message: `Locatarul a închis solicitarea „${row.title}”.`,
+      link: `/admin/requests/${row.id}`,
+    });
+    return updated;
   }
 
   async markResidentRequestResolved(user: MvpUser, id: string) {
@@ -1015,7 +1048,16 @@ export class CommunityReadService {
     if (!['WAITING_FOR_RESIDENT', 'IN_PROGRESS'].includes(meta.status)) {
       throw new BadRequestException('Solicitarea nu poate fi marcată ca rezolvată în acest status.');
     }
-    return this.changeRequestStatus(row, store, user.id, meta.status, 'RESOLVED', 'Locatarul a confirmat rezolvarea solicitării.');
+    const updated = await this.changeRequestStatus(row, store, user.id, meta.status, 'RESOLVED', 'Locatarul a confirmat rezolvarea solicitării.');
+    await this.activity.notifyOrganizationAdmins({
+      organizationId: row.organizationId,
+      assignedUserId: row.assignedToUserId,
+      type: NotificationType.ISSUE,
+      title: 'Solicitare marcată rezolvată de locatar',
+      message: `Locatarul a confirmat rezolvarea solicitării „${row.title}”.`,
+      link: `/admin/requests/${row.id}`,
+    });
+    return updated;
   }
 
   async listAdminRequests(user: MvpUser, query: Record<string, string | undefined>) {
@@ -1060,7 +1102,13 @@ export class CommunityReadService {
     const store = await this.readRequestMetadata(row.organizationId);
     const meta = this.requestMeta(row, store);
     const nextStatus = this.normalizeRequestStatus(this.objectPayload(body).status);
-    return this.changeRequestStatus(row, store, user.id, meta.status, nextStatus, `Status schimbat la ${nextStatus}.`);
+    const updated = await this.changeRequestStatus(row, store, user.id, meta.status, nextStatus, `Status schimbat la ${nextStatus}.`);
+    await this.notifyRequestResident(row, {
+      title: 'Status solicitare actualizat',
+      message: `Solicitarea „${row.title}” are acum statusul ${nextStatus}.`,
+      link: `/resident/requests/${row.id}`,
+    });
+    return updated;
   }
 
   async updateAdminRequestPriority(user: MvpUser, id: string, body: unknown) {
@@ -1109,9 +1157,15 @@ export class CommunityReadService {
   async addAdminRequestComment(user: MvpUser, id: string, body: unknown) {
     const row = await this.findAdminRequest(user, id);
     const message = this.requiredString(this.objectPayload(body).message, 'Comentariul este obligatoriu.');
-    return this.prisma.issueComment.create({
+    const comment = await this.prisma.issueComment.create({
       data: { issueId: row.id, userId: user.id, message, isInternal: false },
     });
+    await this.notifyRequestResident(row, {
+      title: 'Răspuns nou la solicitare',
+      message: `Administratorul a răspuns la „${row.title}”: ${this.preview(message, 120)}`,
+      link: `/resident/requests/${row.id}`,
+    });
+    return comment;
   }
 
   async addAdminRequestInternalNote(user: MvpUser, id: string, body: unknown) {
@@ -1126,21 +1180,39 @@ export class CommunityReadService {
     const row = await this.findAdminRequest(user, id);
     const store = await this.readRequestMetadata(row.organizationId);
     const meta = this.requestMeta(row, store);
-    return this.changeRequestStatus(row, store, user.id, meta.status, 'RESOLVED', 'Solicitarea a fost marcată ca rezolvată.');
+    const updated = await this.changeRequestStatus(row, store, user.id, meta.status, 'RESOLVED', 'Solicitarea a fost marcată ca rezolvată.');
+    await this.notifyRequestResident(row, {
+      title: 'Solicitare marcată rezolvată',
+      message: `Solicitarea „${row.title}” a fost marcată ca rezolvată.`,
+      link: `/resident/requests/${row.id}`,
+    });
+    return updated;
   }
 
   async closeAdminRequest(user: MvpUser, id: string) {
     const row = await this.findAdminRequest(user, id);
     const store = await this.readRequestMetadata(row.organizationId);
     const meta = this.requestMeta(row, store);
-    return this.changeRequestStatus(row, store, user.id, meta.status, 'CLOSED', 'Solicitarea a fost închisă.');
+    const updated = await this.changeRequestStatus(row, store, user.id, meta.status, 'CLOSED', 'Solicitarea a fost închisă.');
+    await this.notifyRequestResident(row, {
+      title: 'Solicitare închisă',
+      message: `Solicitarea „${row.title}” a fost închisă.`,
+      link: `/resident/requests/${row.id}`,
+    });
+    return updated;
   }
 
   async reopenAdminRequest(user: MvpUser, id: string) {
     const row = await this.findAdminRequest(user, id);
     const store = await this.readRequestMetadata(row.organizationId);
     const meta = this.requestMeta(row, store);
-    return this.changeRequestStatus(row, store, user.id, meta.status, 'IN_PROGRESS', 'Solicitarea a fost redeschisă.');
+    const updated = await this.changeRequestStatus(row, store, user.id, meta.status, 'IN_PROGRESS', 'Solicitarea a fost redeschisă.');
+    await this.notifyRequestResident(row, {
+      title: 'Solicitare redeschisă',
+      message: `Solicitarea „${row.title}” a fost redeschisă.`,
+      link: `/resident/requests/${row.id}`,
+    });
+    return updated;
   }
 
   async listAdminResidentRequests(user: MvpUser, residentId: string) {
@@ -1260,6 +1332,9 @@ export class CommunityReadService {
       targetId: announcement.id,
       link: `/admin/announcements/${announcement.id}`,
     });
+    if (input.metadata.status === 'PUBLISHED') {
+      await this.notifyAnnouncementResidents(organizationId, announcement, store.items[announcement.id]);
+    }
 
     return this.toAnnouncement(announcement, store, null, await this.targetedResidentCount(organizationId, announcement, store.items[announcement.id]));
   }
@@ -1312,6 +1387,9 @@ export class CommunityReadService {
       targetId: updated.id,
       link: `/admin/announcements/${updated.id}`,
     });
+    if (existingMeta.status !== 'PUBLISHED' && input.metadata.status === 'PUBLISHED') {
+      await this.notifyAnnouncementResidents(updated.organizationId, updated, store.items[id]);
+    }
 
     return this.toAnnouncement(updated, store, null, await this.targetedResidentCount(updated.organizationId, updated, store.items[id]));
   }
@@ -1350,6 +1428,9 @@ export class CommunityReadService {
       targetId: updated.id,
       link: `/admin/announcements/${updated.id}`,
     });
+    if (nextMeta.status === 'PUBLISHED') {
+      await this.notifyAnnouncementResidents(updated.organizationId, updated, nextMeta);
+    }
     return this.toAnnouncement(updated, store, null, await this.targetedResidentCount(updated.organizationId, updated, nextMeta));
   }
 
@@ -1443,6 +1524,12 @@ export class CommunityReadService {
     const now = new Date().toISOString();
     store.reads[id] = { ...(store.reads[id] || {}), [readKey]: store.reads[id]?.[readKey] || now };
     await this.writeAnnouncementMetadata(announcement.organizationId, user.id, store);
+    await this.activity.markNotificationsReadByLink({
+      organizationId: announcement.organizationId,
+      userId: user.id,
+      type: NotificationType.ANNOUNCEMENT,
+      link: `/resident/announcements/${announcement.id}`,
+    });
     const association = await this.getOrganizationBadge(announcement.organizationId);
     return {
       announcement: this.toAnnouncement(announcement, store, store.reads[id]?.[readKey] || now),
@@ -1456,6 +1543,12 @@ export class CommunityReadService {
     const now = new Date().toISOString();
     store.reads[id] = { ...(store.reads[id] || {}), [readKey]: now };
     await this.writeAnnouncementMetadata(announcement.organizationId, user.id, store);
+    await this.activity.markNotificationsReadByLink({
+      organizationId: announcement.organizationId,
+      userId: user.id,
+      type: NotificationType.ANNOUNCEMENT,
+      link: `/resident/announcements/${announcement.id}`,
+    });
     return { success: true, readAt: now };
   }
 
@@ -1472,6 +1565,102 @@ export class CommunityReadService {
       staircase: apartment.staircase?.name || null,
       floor: apartment.floor,
     }));
+  }
+
+  private async notifyRequestResident(
+    row: any,
+    input: {
+      title: string;
+      message: string;
+      link: string;
+    },
+  ) {
+    if (row.residentId) {
+      await this.activity.notifyResidentProfile({
+        organizationId: row.organizationId,
+        residentId: row.residentId,
+        type: NotificationType.ISSUE,
+        title: input.title,
+        message: input.message,
+        link: input.link,
+      });
+      return;
+    }
+    if (row.createdByUserId) {
+      await this.activity.createNotification({
+        organizationId: row.organizationId,
+        userId: row.createdByUserId,
+        type: NotificationType.ISSUE,
+        title: input.title,
+        message: input.message,
+        link: input.link,
+      });
+    }
+  }
+
+  private async notifyAnnouncementResidents(organizationId: string, row: any, meta: AnnouncementMetadata) {
+    const now = new Date();
+    if (!meta.visibleToResidents || meta.status !== 'PUBLISHED' || row.status === AnnouncementStatus.ARCHIVED) return;
+    if (meta.publishAt && new Date(meta.publishAt) > now) return;
+    if (meta.expiresAt && new Date(meta.expiresAt) < now) return;
+    const userIds = await this.eligibleAnnouncementUserIds(organizationId, row, meta);
+    if (!userIds.length) return;
+    const urgent = meta.priority === 'URGENT';
+    const high = meta.priority === 'HIGH';
+    await this.activity.notifyUsers({
+      organizationId,
+      userIds,
+      type: NotificationType.ANNOUNCEMENT,
+      title: urgent ? `Anunț urgent: ${row.title}` : high ? `Anunț important: ${row.title}` : `Anunț nou: ${row.title}`,
+      message: meta.excerpt || this.preview(row.content, 180) || 'Administratorul a publicat un anunț nou.',
+      link: `/resident/announcements/${row.id}`,
+    });
+  }
+
+  private async eligibleAnnouncementUserIds(organizationId: string, row: any, meta: AnnouncementMetadata) {
+    const residents = await this.prisma.residentProfile.findMany({
+      where: { organizationId, userId: { not: null } },
+      select: {
+        id: true,
+        userId: true,
+        type: true,
+        apartment: { select: { id: true, buildingId: true, staircaseId: true, staircase: { select: { name: true } } } },
+        apartmentResidents: {
+          select: {
+            role: true,
+            apartment: { select: { id: true, buildingId: true, staircaseId: true, staircase: { select: { name: true } } } },
+          },
+        },
+      },
+    });
+    const userIds = new Set<string>();
+    for (const resident of residents) {
+      const scope: ResidentAnnouncementScope = {
+        residentIds: [resident.id],
+        apartmentIds: [
+          ...(resident.apartment?.id ? [resident.apartment.id] : []),
+          ...resident.apartmentResidents.map((relation) => relation.apartment?.id).filter(Boolean),
+        ] as string[],
+        buildingIds: [
+          ...(resident.apartment?.buildingId ? [resident.apartment.buildingId] : []),
+          ...resident.apartmentResidents.map((relation) => relation.apartment?.buildingId).filter(Boolean),
+        ] as string[],
+        staircaseIds: [
+          ...(resident.apartment?.staircaseId ? [resident.apartment.staircaseId] : []),
+          ...resident.apartmentResidents.map((relation) => relation.apartment?.staircaseId).filter(Boolean),
+        ] as string[],
+        staircaseNames: [
+          ...(resident.apartment?.staircase?.name ? [resident.apartment.staircase.name] : []),
+          ...resident.apartmentResidents.map((relation) => relation.apartment?.staircase?.name).filter(Boolean),
+        ] as string[],
+        roles: [
+          ...(resident.type ? [String(resident.type).toUpperCase()] : []),
+          ...resident.apartmentResidents.map((relation) => String(relation.role || '').toUpperCase()).filter(Boolean),
+        ],
+      };
+      if (resident.userId && this.isAnnouncementVisibleToResident(row, meta, scope)) userIds.add(resident.userId);
+    }
+    return Array.from(userIds);
   }
 
   private filterRequests(items: any[], query: Record<string, string | undefined>, admin: boolean) {

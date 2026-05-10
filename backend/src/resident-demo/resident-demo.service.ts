@@ -1758,6 +1758,13 @@ export class ResidentDemoService {
     };
     const items = await this.readProfileUpdateRequests(user.organizationId);
     await this.writeProfileUpdateRequests(user.organizationId, user.id, [request, ...items]);
+    await this.activity.notifyOrganizationAdmins({
+      organizationId: user.organizationId,
+      type: NotificationType.SYSTEM,
+      title: 'Cerere nouă de actualizare date',
+      message: `${currentFullName || 'Un locatar'} a trimis o cerere de actualizare date.`,
+      link: `/admin/resident-update-requests/${request.id}`,
+    });
     return request;
   }
 
@@ -1776,6 +1783,13 @@ export class ResidentDemoService {
       updatedAt: now,
     };
     await this.writeProfileUpdateRequests(user.organizationId, user.id, items);
+    await this.activity.notifyOrganizationAdmins({
+      organizationId: user.organizationId,
+      type: NotificationType.SYSTEM,
+      title: 'Cerere de actualizare date anulată',
+      message: 'Locatarul a anulat o cerere de actualizare date.',
+      link: `/admin/resident-update-requests/${id}`,
+    });
     return items[index];
   }
 

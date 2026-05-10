@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { ApartmentResidentRole, InvoiceStatus, PlatformRole, Prisma, ResidentAccountStatus, Role } from '@prisma/client';
+import { ApartmentResidentRole, InvoiceStatus, NotificationType, PlatformRole, Prisma, ResidentAccountStatus, Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { ActivityMvpService } from '../activity-mvp/activity-mvp.service';
@@ -681,6 +681,14 @@ export class ResidentsService {
       targetId: resident.id,
       link: `/admin/resident-update-requests/${id}`,
     });
+    await this.activity.notifyResidentProfile({
+      organizationId,
+      residentId: resident.id,
+      type: NotificationType.SYSTEM,
+      title: 'Solicitare date aprobată',
+      message: 'Administratorul a aprobat solicitarea ta de actualizare date.',
+      link: '/resident/profile',
+    });
     return this.adminUpdateRequestDetail(organizationId, items[index]);
   }
 
@@ -714,6 +722,14 @@ export class ResidentsService {
       targetType: 'RESIDENT',
       targetId: items[index].residentId,
       link: `/admin/resident-update-requests/${id}`,
+    });
+    await this.activity.notifyResidentProfile({
+      organizationId,
+      residentId: items[index].residentId,
+      type: NotificationType.SYSTEM,
+      title: 'Solicitare date respinsă',
+      message: 'Administratorul a respins solicitarea ta de actualizare date.',
+      link: '/resident/profile',
     });
     return this.adminUpdateRequestDetail(organizationId, items[index]);
   }

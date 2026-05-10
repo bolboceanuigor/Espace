@@ -28,23 +28,34 @@ export default function AppShell({ children }: AppShellProps) {
   );
 }
 
-function ResidentNotificationButton({
+function notificationTarget(locale: string, url?: string | null) {
+  if (!url) return '';
+  if (/^https?:\/\//i.test(url)) return url;
+  if (url.startsWith(`/${locale}/`)) return url;
+  return `/${locale}${url.startsWith('/') ? url : `/${url}`}`;
+}
+
+function NotificationButton({
+  mode,
   notifications,
+  unreadCount,
   open,
   setOpen,
   setNotifications,
+  setUnreadCount,
   router,
   locale,
 }: {
+  mode: 'admin' | 'resident';
   notifications: any[];
+  unreadCount: number;
   open: boolean;
   setOpen: (value: boolean | ((current: boolean) => boolean)) => void;
   setNotifications: (value: any[] | ((current: any[]) => any[])) => void;
+  setUnreadCount: (value: number | ((current: number) => number)) => void;
   router: { push: (href: string) => void };
   locale: string;
 }) {
-  const unreadCount = notifications.filter((item) => !item.isRead).length;
-
   return (
     <div className="relative">
       <button
@@ -67,15 +78,17 @@ function ResidentNotificationButton({
             <button
               className="text-[11px] font-semibold text-primary"
               onClick={async () => {
-                await notificationsApi.residentReadAll();
+                if (mode === 'admin') await notificationsApi.adminReadAll();
+                else await notificationsApi.residentReadAll();
                 setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
+                setUnreadCount(0);
               }}
             >
               Marchează tot ca citit
             </button>
           </div>
           <div className="max-h-72 space-y-1 overflow-y-auto">
-            {notifications.map((item) => (
+            {notifications.slice(0, 5).map((item) => (
               <button
                 key={item.id}
                 className={`w-full rounded-lg border px-2 py-1 text-left text-xs ${
@@ -83,10 +96,13 @@ function ResidentNotificationButton({
                 }`}
                 onClick={async () => {
                   if (!item.isRead) {
-                    await notificationsApi.residentRead(item.id);
+                    if (mode === 'admin') await notificationsApi.adminRead(item.id);
+                    else await notificationsApi.residentRead(item.id);
                     setNotifications((prev) => prev.map((entry) => (entry.id === item.id ? { ...entry, isRead: true } : entry)));
+                    setUnreadCount((current) => Math.max(0, current - 1));
                   }
-                  if (item.link) router.push(`/${locale}${item.link}`);
+                  const target = notificationTarget(locale, item.actionUrl || item.link);
+                  if (target) router.push(target);
                   setOpen(false);
                 }}
               >
@@ -96,6 +112,16 @@ function ResidentNotificationButton({
             ))}
             {!notifications.length ? <p className="p-2 text-xs text-muted-foreground">Nu ai notificări noi.</p> : null}
           </div>
+          <button
+            type="button"
+            className="mt-2 w-full rounded-lg border border-border/60 px-2 py-1.5 text-xs font-semibold text-foreground"
+            onClick={() => {
+              router.push(`/${locale}${mode === 'admin' ? '/admin/notifications' : '/resident/notifications'}`);
+              setOpen(false);
+            }}
+          >
+            Vezi toate notificările
+          </button>
         </div>
       ) : null}
     </div>
@@ -114,6 +140,7 @@ function AppShellContent({ children }: AppShellProps) {
   const [trialInfo, setTrialInfo] = useState<{ status: string; daysRemaining: number } | null>(null);
   const [adminSubscription, setAdminSubscription] = useState<{ status: string; trialEndDate?: string | null } | null>(null);
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [notificationsUnreadCount, setNotificationsUnreadCount] = useState(0);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [supportSession, setSupportSession] = useState<any | null>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -391,20 +418,24 @@ function AppShellContent({ children }: AppShellProps) {
   }, [isAuthenticated, user?.id, normalizedRole]);
 
   useEffect(() => {
-    if (isPreviewSession || !['RESIDENT', 'TENANT'].includes(normalizedRole)) {
+    if (isPreviewSession || !['ADMIN', 'RESIDENT', 'TENANT'].includes(normalizedRole)) {
       setNotifications([]);
+      setNotificationsUnreadCount(0);
       return;
     }
     let active = true;
-    notificationsApi
-      .residentList()
+    const request = normalizedRole === 'ADMIN' ? notificationsApi.adminList({ limit: 5 }) : notificationsApi.residentList({ limit: 5 });
+    request
       .then((res) => {
         if (!active) return;
-        setNotifications(res.data || []);
+        const data = res.data;
+        setNotifications(Array.isArray(data) ? data : data?.items || []);
+        setNotificationsUnreadCount(Array.isArray(data) ? data.filter((item: any) => !item.isRead).length : Number(data?.stats?.unread ?? 0));
       })
       .catch(() => {
         if (!active) return;
         setNotifications([]);
+        setNotificationsUnreadCount(0);
       });
     return () => {
       active = false;
@@ -468,22 +499,28 @@ function AppShellContent({ children }: AppShellProps) {
         <header className="sticky top-0 z-30 hidden border-b border-border/60 bg-background/82 px-4 py-3 backdrop-blur-xl md:block">
           <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
             <MainNavigation role={normalizedRole} variant="desktop" />
-            <ResidentNotificationButton
+            <NotificationButton
+              mode="resident"
               notifications={notifications}
+              unreadCount={notificationsUnreadCount}
               open={notificationsOpen}
               setOpen={setNotificationsOpen}
               setNotifications={setNotifications}
+              setUnreadCount={setNotificationsUnreadCount}
               router={router}
               locale={locale}
             />
           </div>
         </header>
         <div className="fixed right-4 top-4 z-40 md:hidden">
-          <ResidentNotificationButton
+          <NotificationButton
+            mode="resident"
             notifications={notifications}
+            unreadCount={notificationsUnreadCount}
             open={notificationsOpen}
             setOpen={setNotificationsOpen}
             setNotifications={setNotifications}
+            setUnreadCount={setNotificationsUnreadCount}
             router={router}
             locale={locale}
           />
@@ -561,59 +598,18 @@ function AppShellContent({ children }: AppShellProps) {
                 Trimite feedback
               </button>
               {normalizedRole === 'SUPER_ADMIN' ? <OrgSwitcher /> : null}
-              {['RESIDENT', 'TENANT'].includes(normalizedRole) ? (
-                <div className="relative">
-                  <button
-                    type="button"
-                    className="relative rounded-2xl border border-border/60 bg-white/85 p-2 text-muted-foreground shadow-sm hover:bg-white"
-                    onClick={() => setNotificationsOpen((value) => !value)}
-                  >
-                    <Bell className="h-4 w-4" />
-                    {notifications.filter((item) => !item.isRead).length > 0 ? (
-                      <span className="absolute -right-1 -top-1 inline-flex min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold text-white">
-                        {notifications.filter((item) => !item.isRead).length}
-                      </span>
-                    ) : null}
-                  </button>
-                  {notificationsOpen ? (
-                    <div className="absolute right-0 z-50 mt-2 w-80 rounded-xl border border-border/70 bg-card p-2 shadow-lg">
-                      <div className="mb-2 flex items-center justify-between">
-                        <p className="text-xs font-semibold text-foreground">Notificări</p>
-                        <button
-                          className="text-[11px] text-primary"
-                          onClick={async () => {
-                            await notificationsApi.residentReadAll();
-                            setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
-                          }}
-                        >
-                          Marchează tot ca citit
-                        </button>
-                      </div>
-                      <div className="max-h-72 space-y-1 overflow-y-auto">
-                        {notifications.map((item) => (
-                          <button
-                            key={item.id}
-                            className={`w-full rounded-lg border px-2 py-1 text-left text-xs ${
-                              item.isRead ? 'border-border/60 text-muted-foreground' : 'border-primary/30 bg-primary/5 text-foreground'
-                            }`}
-                            onClick={async () => {
-                              if (!item.isRead) {
-                                await notificationsApi.residentRead(item.id);
-                                setNotifications((prev) => prev.map((entry) => (entry.id === item.id ? { ...entry, isRead: true } : entry)));
-                              }
-                              if (item.link) router.push(`/${locale}${item.link}`);
-                              setNotificationsOpen(false);
-                            }}
-                          >
-                            <p className="font-medium">{item.title}</p>
-                            <p className="line-clamp-2">{item.message}</p>
-                          </button>
-                        ))}
-                        {!notifications.length ? <p className="text-xs text-muted-foreground">Nu ai notificări noi.</p> : null}
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
+              {normalizedRole === 'ADMIN' ? (
+                <NotificationButton
+                  mode="admin"
+                  notifications={notifications}
+                  unreadCount={notificationsUnreadCount}
+                  open={notificationsOpen}
+                  setOpen={setNotificationsOpen}
+                  setNotifications={setNotifications}
+                  setUnreadCount={setNotificationsUnreadCount}
+                  router={router}
+                  locale={locale}
+                />
               ) : null}
               <div className="hidden text-right md:block">
                 <p className="text-sm font-medium text-foreground">

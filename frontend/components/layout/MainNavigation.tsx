@@ -32,6 +32,7 @@ const ICONS: Record<MainNavigationKey, React.ComponentType<{ className?: string 
   announcements: Megaphone,
   residents: Users,
   residentUpdateRequests: UserRound,
+  notifications: CircleAlert,
   meters: Gauge,
   payments: CreditCard,
   paymentReconciliation: FileText,

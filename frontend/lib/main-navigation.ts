@@ -19,6 +19,7 @@ export type MainNavigationKey =
   | 'reports'
   | 'issues'
   | 'residentUpdateRequests'
+  | 'notifications'
   | 'documents'
   | 'chat'
   | 'imports'
@@ -65,6 +66,7 @@ export const ADMIN_NAVIGATION_ITEMS: MainNavigationItem[] = [
   { key: 'issues', label: 'Solicitări', href: '/admin/requests' },
   { key: 'residentUpdateRequests', label: 'Solicitări date', href: '/admin/resident-update-requests' },
   { key: 'announcements', label: 'Avizier', href: '/admin/announcements' },
+  { key: 'notifications', label: 'Notificări', href: '/admin/notifications' },
   { key: 'documents', label: 'Documente', href: '/admin/documents' },
   { key: 'imports', label: 'Import date', href: '/admin/imports' },
   { key: 'reports', label: 'Rapoarte', href: '/admin/reports' },
@@ -78,6 +80,7 @@ export const RESIDENT_NAVIGATION_ITEMS: MainNavigationItem[] = [
   { key: 'meters', label: 'Contoare', href: '/resident/meters' },
   { key: 'issues', label: 'Solicitări', href: '/resident/requests' },
   { key: 'announcements', label: 'Avizier', href: '/resident/announcements' },
+  { key: 'notifications', label: 'Notificări', href: '/resident/notifications' },
   { key: 'documents', label: 'Documente', href: '/resident/documents' },
   { key: 'account', label: 'Cont', href: '/resident/profile' },
 ];
