@@ -47,6 +47,8 @@ type BillingDraftLine = {
   id: string;
   lineType: 'TARIFF' | 'MANUAL' | 'ADJUSTMENT';
   tariffId: string | null;
+  isManual?: boolean;
+  manualType?: 'MANUAL_ADJUSTMENT' | 'DISCOUNT' | 'CORRECTION' | null;
   name: string;
   description: string;
   calculationType: TariffCalculationType;
@@ -57,6 +59,9 @@ type BillingDraftLine = {
   formulaLabel: string;
   status: BillingDraftLineStatus;
   warnings: string[];
+  excludedAt?: string | null;
+  excludedById?: string | null;
+  exclusionReason?: string | null;
 };
 type BillingDraftItem = {
   id: string;
@@ -88,6 +93,15 @@ type BillingDraftRecord = {
   createdById: string;
   createdAt: string;
   updatedAt: string;
+  lockedAt?: string | null;
+  lockedById?: string | null;
+  cancelledAt?: string | null;
+  cancelledById?: string | null;
+  cancellationReason?: string | null;
+  includedAmount?: number;
+  excludedAmount?: number;
+  includedApartments?: number;
+  excludedApartments?: number;
   summary: Record<string, unknown>;
   tariffsUsed: Array<Record<string, unknown>>;
   items: BillingDraftItem[];
@@ -913,30 +927,64 @@ export class BillingReadService {
   }
 
   private draftLineStatus(lines: BillingDraftLine[], warnings: string[]): BillingDraftLineStatus {
-    if (lines.some((line) => line.status === 'ERROR')) return 'ERROR';
-    if (warnings.length || lines.some((line) => line.status === 'WARNING')) return 'WARNING';
+    if (lines.length && lines.every((line) => line.status === 'EXCLUDED')) return 'EXCLUDED';
+    const includedLines = lines.filter((line) => line.status !== 'EXCLUDED');
+    if (includedLines.some((line) => line.status === 'ERROR')) return 'ERROR';
+    if (warnings.length || includedLines.some((line) => line.status === 'WARNING')) return 'WARNING';
     return 'READY';
   }
 
+  private restoreDraftLineStatus(line: BillingDraftLine): BillingDraftLineStatus {
+    if (line.warnings?.length) return 'WARNING';
+    return 'READY';
+  }
+
+  private recomputeDraftItem(item: BillingDraftItem): BillingDraftItem {
+    if (item.status === 'EXCLUDED') {
+      return {
+        ...item,
+        lines: item.lines.map((line) => ({ ...line, status: 'EXCLUDED' as BillingDraftLineStatus })),
+        total: 0,
+      };
+    }
+    const total = this.money(item.lines.filter((line) => line.status !== 'EXCLUDED').reduce((sum, line) => sum + Number(line.amount || 0), 0));
+    const status = this.draftLineStatus(item.lines, item.warnings || []);
+    return { ...item, total, status };
+  }
+
   private draftTotals(items: BillingDraftItem[]) {
-    const includedItems = items.filter((item) => item.status !== 'EXCLUDED');
+    const normalizedItems = items.map((item) => this.recomputeDraftItem(item));
+    const includedItems = normalizedItems.filter((item) => item.status !== 'EXCLUDED');
+    const excludedItems = normalizedItems.filter((item) => item.status === 'EXCLUDED');
+    const allLines = normalizedItems.flatMap((item) => item.lines || []);
     return {
       totalAmount: this.money(includedItems.reduce((sum, item) => sum + item.total, 0)),
-      apartmentsCount: items.length,
+      includedAmount: this.money(includedItems.reduce((sum, item) => sum + item.total, 0)),
+      excludedAmount: this.money(allLines.filter((line) => line.status === 'EXCLUDED').reduce((sum, line) => sum + Number(line.amount || 0), 0)),
+      apartmentsCount: normalizedItems.length,
+      includedApartments: includedItems.length,
+      excludedApartments: excludedItems.length,
       calculatedApartments: includedItems.filter((item) => item.status === 'READY' || item.status === 'WARNING').length,
-      warningsCount: items.filter((item) => item.status === 'WARNING').length,
-      errorsCount: items.filter((item) => item.status === 'ERROR').length,
+      warningsCount: includedItems.filter((item) => item.status === 'WARNING').length,
+      errorsCount: includedItems.filter((item) => item.status === 'ERROR').length,
+      tariffLinesCount: allLines.length,
     };
   }
 
   private draftResponse(draft: BillingDraftRecord) {
-    const totals = this.draftTotals(draft.items);
+    const normalizedItems = (draft.items || []).map((item) => this.recomputeDraftItem(item));
+    const totals = this.draftTotals(normalizedItems);
     const manualExcluded = Number(draft.summary?.manualServicesExcluded || 0);
     return {
       ...draft,
       associationId: draft.organizationId,
+      items: normalizedItems,
       totalAmount: totals.totalAmount,
+      includedAmount: totals.includedAmount,
+      excludedAmount: totals.excludedAmount,
       apartmentsCount: totals.apartmentsCount,
+      includedApartments: totals.includedApartments,
+      excludedApartments: totals.excludedApartments,
       warningsCount: totals.warningsCount,
       errorsCount: totals.errorsCount,
       summary: {
@@ -949,6 +997,11 @@ export class BillingReadService {
         warningsCount: totals.warningsCount,
         errorsCount: totals.errorsCount,
         manualServicesExcluded: manualExcluded,
+        includedAmount: totals.includedAmount,
+        excludedAmount: totals.excludedAmount,
+        includedApartments: totals.includedApartments,
+        excludedApartments: totals.excludedApartments,
+        tariffLinesCount: totals.tariffLinesCount,
       },
     };
   }
@@ -1044,6 +1097,8 @@ export class BillingReadService {
             id: `line:${apartment.id}:${tariff.id}`,
             lineType: tariff.calculationType === 'MANUAL' ? 'MANUAL' : 'TARIFF',
             tariffId: tariff.id,
+            isManual: false,
+            manualType: null,
             name: tariff.name,
             description: tariff.description || '',
             calculationType: tariff.calculationType,
@@ -1054,6 +1109,9 @@ export class BillingReadService {
             formulaLabel,
             status: lineWarnings.length ? 'WARNING' : 'READY',
             warnings: lineWarnings,
+            excludedAt: null,
+            excludedById: null,
+            exclusionReason: null,
           };
         });
       if (!lines.length && tariffsUsed.length === 0) {
@@ -1102,6 +1160,11 @@ export class BillingReadService {
       createdById: existing?.createdById || user.id,
       createdAt: existing?.createdAt || now,
       updatedAt: now,
+      lockedAt: existing?.lockedAt || null,
+      lockedById: existing?.lockedById || null,
+      cancelledAt: existing?.cancelledAt || null,
+      cancelledById: existing?.cancelledById || null,
+      cancellationReason: existing?.cancellationReason || null,
       summary: {
         billingMonth: input.billingMonth,
         currency: 'MDL',
@@ -1176,6 +1239,144 @@ export class BillingReadService {
     }
   }
 
+  private assertDraftMutable(draft: BillingDraftRecord) {
+    if (draft.status === 'LOCKED') {
+      throw new BadRequestException('Draftul este blocat și nu mai poate fi modificat.');
+    }
+    if (draft.status === 'CANCELLED') {
+      throw new BadRequestException('Draftul este anulat și nu mai poate fi modificat.');
+    }
+  }
+
+  private parseDraftLineStatus(value: unknown) {
+    const normalized = typeof value === 'string' ? value.trim().toUpperCase() : '';
+    if (normalized === 'READY' || normalized === 'EXCLUDED') return normalized as 'READY' | 'EXCLUDED';
+    throw new BadRequestException('Statusul liniei nu este valid.');
+  }
+
+  private parseManualAdjustmentPayload(body: unknown, isUpdate = false) {
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const manualTypeRaw = typeof payload.type === 'string' ? payload.type.trim().toUpperCase() : typeof payload.manualType === 'string' ? payload.manualType.trim().toUpperCase() : 'MANUAL_ADJUSTMENT';
+    if (!['MANUAL_ADJUSTMENT', 'DISCOUNT', 'CORRECTION'].includes(manualTypeRaw)) {
+      throw new BadRequestException('Tipul ajustării nu este valid.');
+    }
+    const manualType = manualTypeRaw as 'MANUAL_ADJUSTMENT' | 'DISCOUNT' | 'CORRECTION';
+    const name = isUpdate && payload.name === undefined ? null : this.requiredString(payload.name, 'Numele ajustării este obligatoriu.');
+    const amount = payload.amount === undefined && isUpdate ? null : this.requiredNumber(payload.amount, 'Suma ajustării trebuie să fie un număr.');
+    if (amount !== null) {
+      if (manualType === 'MANUAL_ADJUSTMENT' && amount <= 0) throw new BadRequestException('Suma ajustării manuale trebuie să fie pozitivă.');
+      if ((manualType === 'DISCOUNT' || manualType === 'CORRECTION') && amount === 0) throw new BadRequestException('Suma ajustării trebuie să fie diferită de 0.');
+    }
+    const status = payload.status === undefined ? (isUpdate ? null : 'READY') : this.parseDraftLineStatus(payload.status);
+    return {
+      name,
+      description: typeof payload.description === 'string' ? payload.description.trim() : undefined,
+      amount: amount === null ? null : this.money(amount),
+      manualType,
+      status,
+    };
+  }
+
+  private async draftOrganization(organizationId: string) {
+    const organization = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { id: true, name: true, legalName: true, fiscalCode: true },
+    });
+    if (!organization) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    return {
+      id: organization.id,
+      shortName: organization.name,
+      legalName: organization.legalName || organization.name,
+      associationCode: organization.fiscalCode || '',
+    };
+  }
+
+  private buildDraftChecklist(draft: BillingDraftRecord) {
+    const response = this.draftResponse(draft) as BillingDraftRecord;
+    const summary = response.summary || {};
+    const totalAmount = Number(response.totalAmount || summary.totalAmount || 0);
+    const errorsCount = Number(response.errorsCount || summary.errorsCount || 0);
+    const warningsCount = Number(response.warningsCount || summary.warningsCount || 0);
+    const tariffLinesCount = Number(summary.tariffLinesCount || 0);
+    const apartmentsWithoutArea = Number(summary.apartmentsWithoutArea || 0);
+    const activeTariffsUsed = Number(summary.activeTariffsUsed || 0);
+    const canLock = errorsCount === 0 && totalAmount > 0 && tariffLinesCount > 0 && response.status === 'DRAFT';
+    return {
+      canLock,
+      requiresWarningConfirmation: warningsCount > 0,
+      items: [
+        {
+          key: 'ALL_APARTMENTS_REVIEWED',
+          label: 'Toate apartamentele au fost verificate',
+          status: response.items?.length ? 'COMPLETE' : 'BLOCKED',
+        },
+        {
+          key: 'NO_CRITICAL_ERRORS',
+          label: 'Nu există erori critice',
+          status: errorsCount === 0 ? 'COMPLETE' : 'BLOCKED',
+        },
+        {
+          key: 'MISSING_AREA_REVIEWED',
+          label: 'Apartamentele fără suprafață au fost analizate',
+          status: apartmentsWithoutArea === 0 ? 'COMPLETE' : 'WARNING',
+        },
+        {
+          key: 'ACTIVE_TARIFFS_CONFIRMED',
+          label: 'Tarifele active sunt corecte',
+          status: activeTariffsUsed > 0 ? 'COMPLETE' : 'BLOCKED',
+        },
+        {
+          key: 'MONTHLY_TOTAL_CONFIRMED',
+          label: 'Totalul lunar pare corect',
+          status: totalAmount > 0 ? 'COMPLETE' : 'BLOCKED',
+        },
+        {
+          key: 'READY_TO_LOCK',
+          label: 'Draftul este pregătit pentru blocare',
+          status: canLock ? (warningsCount > 0 ? 'WARNING' : 'COMPLETE') : 'BLOCKED',
+        },
+      ],
+    };
+  }
+
+  private async reviewPayload(draft: BillingDraftRecord) {
+    const response = this.draftResponse(draft) as BillingDraftRecord;
+    const association = await this.draftOrganization(response.organizationId);
+    const checklist = this.buildDraftChecklist(response);
+    return {
+      draft: {
+        id: response.id,
+        billingMonth: response.billingMonth,
+        status: response.status,
+        currency: response.currency,
+        totalAmount: response.totalAmount || 0,
+        includedAmount: response.includedAmount || 0,
+        excludedAmount: response.excludedAmount || 0,
+        apartmentsCount: response.apartmentsCount || 0,
+        includedApartments: response.includedApartments || 0,
+        excludedApartments: response.excludedApartments || 0,
+        warningsCount: response.warningsCount || 0,
+        errorsCount: response.errorsCount || 0,
+        tariffLinesCount: Number(response.summary?.tariffLinesCount || 0),
+        dueDate: response.dueDate,
+        description: response.description,
+        createdAt: response.createdAt,
+        createdById: response.createdById,
+        lockedAt: response.lockedAt || null,
+        lockedById: response.lockedById || null,
+        cancelledAt: response.cancelledAt || null,
+        cancelledById: response.cancelledById || null,
+      },
+      association,
+      checklist: checklist.items,
+      canLock: checklist.canLock,
+      requiresWarningConfirmation: checklist.requiresWarningConfirmation,
+      items: response.items || [],
+      warnings: response.warnings || [],
+      tariffsUsed: response.tariffsUsed || [],
+    };
+  }
+
   async getInvoiceDraft(user: MvpUser, query: Record<string, unknown>) {
     const organizationId = this.resolveOrganizationId(user, query);
     this.assertOrganizationAccess(user, organizationId);
@@ -1189,9 +1390,18 @@ export class BillingReadService {
     const organizationId = this.resolveOrganizationId(user);
     this.assertOrganizationAccess(user, organizationId);
     const drafts = await this.readBillingDrafts(organizationId);
-    const draft = drafts.find((item) => item.id === id && item.status !== 'CANCELLED');
+    const draft = drafts.find((item) => item.id === id);
     if (!draft) throw new NotFoundException('Înregistrarea nu a fost găsită.');
     return this.draftResponse(draft);
+  }
+
+  async getInvoiceDraftReview(user: MvpUser, id: string) {
+    const organizationId = this.resolveOrganizationId(user);
+    this.assertOrganizationAccess(user, organizationId);
+    const drafts = await this.readBillingDrafts(organizationId);
+    const draft = drafts.find((item) => item.id === id);
+    if (!draft) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    return this.reviewPayload(draft);
   }
 
   async calculateInvoiceDraft(user: MvpUser, body: unknown) {
@@ -1207,6 +1417,7 @@ export class BillingReadService {
     this.assertOrganizationAccess(user, organizationId);
     const drafts = await this.readBillingDrafts(organizationId);
     const existing = drafts.find((draft) => draft.billingMonth === input.billingMonth && draft.status !== 'CANCELLED') || null;
+    if (existing) this.assertDraftMutable(existing);
     const calculated = await this.calculateDraftRecord(user, input, existing);
     const nextDrafts = existing ? drafts.map((draft) => (draft.id === existing.id ? calculated : draft)) : [...drafts, calculated];
     await this.writeBillingDrafts(organizationId, user.id, nextDrafts);
@@ -1219,6 +1430,7 @@ export class BillingReadService {
     const drafts = await this.readBillingDrafts(organizationId);
     const existing = drafts.find((draft) => draft.id === id && draft.status !== 'CANCELLED');
     if (!existing) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    this.assertDraftMutable(existing);
     const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
     const input = this.parseDraftPayload({
       billingMonth: payload.billingMonth || existing.billingMonth,
@@ -1233,27 +1445,36 @@ export class BillingReadService {
 
   async updateInvoiceDraftLineStatus(user: MvpUser, id: string, lineId: string, body: unknown) {
     const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
-    const statusValue = typeof payload.status === 'string' ? payload.status.trim().toUpperCase() : '';
-    if (statusValue !== 'READY' && statusValue !== 'EXCLUDED') {
-      throw new BadRequestException('Statusul liniei nu este valid.');
-    }
+    const statusValue = this.parseDraftLineStatus(payload.status);
     const organizationId = this.resolveOrganizationId(user, payload);
     this.assertOrganizationAccess(user, organizationId);
     const drafts = await this.readBillingDrafts(organizationId);
-    const draft = drafts.find((item) => item.id === id && item.status !== 'CANCELLED');
+    const draft = drafts.find((item) => item.id === id);
     if (!draft) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    this.assertDraftMutable(draft);
     let changed = false;
     const updatedItems = draft.items.map((item) => {
       if (item.id === lineId || item.apartmentId === lineId) {
         changed = true;
-        return { ...item, status: statusValue as BillingDraftLineStatus, updatedAt: new Date().toISOString() };
+        const lines = item.lines.map((line) => ({
+          ...line,
+          status: statusValue === 'EXCLUDED' ? 'EXCLUDED' as BillingDraftLineStatus : this.restoreDraftLineStatus(line),
+          excludedAt: statusValue === 'EXCLUDED' ? new Date().toISOString() : null,
+          excludedById: statusValue === 'EXCLUDED' ? user.id : null,
+        }));
+        return this.recomputeDraftItem({ ...item, lines, status: statusValue as BillingDraftLineStatus });
       }
       const updatedLines = item.lines.map((line) => {
         if (line.id !== lineId) return line;
         changed = true;
-        return { ...line, status: statusValue as BillingDraftLineStatus };
+        return {
+          ...line,
+          status: statusValue === 'EXCLUDED' ? 'EXCLUDED' as BillingDraftLineStatus : this.restoreDraftLineStatus(line),
+          excludedAt: statusValue === 'EXCLUDED' ? new Date().toISOString() : null,
+          excludedById: statusValue === 'EXCLUDED' ? user.id : null,
+        };
       });
-      return { ...item, lines: updatedLines };
+      return this.recomputeDraftItem({ ...item, lines: updatedLines });
     });
     if (!changed) throw new NotFoundException('Înregistrarea nu a fost găsită.');
     const updatedDraft = this.draftResponse({ ...draft, items: updatedItems, updatedAt: new Date().toISOString() }) as BillingDraftRecord;
@@ -1262,13 +1483,202 @@ export class BillingReadService {
     return this.draftResponse(updatedDraft);
   }
 
+  async updateInvoiceDraftApartmentStatus(user: MvpUser, id: string, apartmentId: string, body: unknown) {
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const statusValue = this.parseDraftLineStatus(payload.status);
+    const organizationId = this.resolveOrganizationId(user, payload);
+    this.assertOrganizationAccess(user, organizationId);
+    const drafts = await this.readBillingDrafts(organizationId);
+    const draft = drafts.find((item) => item.id === id);
+    if (!draft) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    this.assertDraftMutable(draft);
+    let changed = false;
+    const updatedItems = draft.items.map((item) => {
+      if (item.apartmentId !== apartmentId && item.id !== apartmentId) return item;
+      changed = true;
+      const lines = item.lines.map((line) => ({
+        ...line,
+        status: statusValue === 'EXCLUDED' ? 'EXCLUDED' as BillingDraftLineStatus : this.restoreDraftLineStatus(line),
+        excludedAt: statusValue === 'EXCLUDED' ? new Date().toISOString() : null,
+        excludedById: statusValue === 'EXCLUDED' ? user.id : null,
+      }));
+      return this.recomputeDraftItem({ ...item, lines, status: statusValue as BillingDraftLineStatus });
+    });
+    if (!changed) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    const updatedDraft = this.draftResponse({ ...draft, items: updatedItems, updatedAt: new Date().toISOString() }) as BillingDraftRecord;
+    const nextDrafts = drafts.map((item) => (item.id === id ? updatedDraft : item));
+    await this.writeBillingDrafts(organizationId, user.id, nextDrafts);
+    return this.reviewPayload(updatedDraft);
+  }
+
+  async addInvoiceDraftAdjustment(user: MvpUser, id: string, apartmentId: string, body: unknown) {
+    const input = this.parseManualAdjustmentPayload(body);
+    const organizationId = this.resolveOrganizationId(user, body && typeof body === 'object' ? (body as Record<string, unknown>) : {});
+    this.assertOrganizationAccess(user, organizationId);
+    const drafts = await this.readBillingDrafts(organizationId);
+    const draft = drafts.find((item) => item.id === id);
+    if (!draft) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    this.assertDraftMutable(draft);
+    let changed = false;
+    const line: BillingDraftLine = {
+      id: `manual:${randomUUID()}`,
+      lineType: 'ADJUSTMENT',
+      tariffId: null,
+      isManual: true,
+      manualType: input.manualType,
+      name: input.name || 'Ajustare manuală',
+      description: input.description || '',
+      calculationType: 'MANUAL',
+      quantity: 1,
+      unitPrice: Number(input.amount || 0),
+      amount: Number(input.amount || 0),
+      currency: 'MDL',
+      formulaLabel: `Ajustare manuală: ${Number(input.amount || 0).toLocaleString('ro-RO')} MDL`,
+      status: input.status || 'READY',
+      warnings: [],
+      excludedAt: input.status === 'EXCLUDED' ? new Date().toISOString() : null,
+      excludedById: input.status === 'EXCLUDED' ? user.id : null,
+      exclusionReason: null,
+    };
+    const updatedItems = draft.items.map((item) => {
+      if (item.apartmentId !== apartmentId && item.id !== apartmentId) return item;
+      changed = true;
+      return this.recomputeDraftItem({ ...item, lines: [...item.lines, line] });
+    });
+    if (!changed) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    const updatedDraft = this.draftResponse({ ...draft, items: updatedItems, updatedAt: new Date().toISOString() }) as BillingDraftRecord;
+    await this.writeBillingDrafts(organizationId, user.id, drafts.map((item) => (item.id === id ? updatedDraft : item)));
+    return this.reviewPayload(updatedDraft);
+  }
+
+  async updateInvoiceDraftAdjustment(user: MvpUser, id: string, lineId: string, body: unknown) {
+    const input = this.parseManualAdjustmentPayload(body, true);
+    const organizationId = this.resolveOrganizationId(user, body && typeof body === 'object' ? (body as Record<string, unknown>) : {});
+    this.assertOrganizationAccess(user, organizationId);
+    const drafts = await this.readBillingDrafts(organizationId);
+    const draft = drafts.find((item) => item.id === id);
+    if (!draft) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    this.assertDraftMutable(draft);
+    let changed = false;
+    const updatedItems = draft.items.map((item) => {
+      const updatedLines = item.lines.map((line) => {
+        if (line.id !== lineId) return line;
+        if (!line.isManual) throw new BadRequestException('Doar ajustările manuale pot fi editate.');
+        changed = true;
+        const amount = input.amount === null ? line.amount : input.amount;
+        const status = input.status || line.status;
+        return {
+          ...line,
+          name: input.name || line.name,
+          description: input.description === undefined ? line.description : input.description,
+          manualType: input.manualType || line.manualType,
+          unitPrice: amount,
+          amount,
+          formulaLabel: `Ajustare manuală: ${amount.toLocaleString('ro-RO')} MDL`,
+          status,
+          excludedAt: status === 'EXCLUDED' ? (line.excludedAt || new Date().toISOString()) : null,
+          excludedById: status === 'EXCLUDED' ? (line.excludedById || user.id) : null,
+        };
+      });
+      return this.recomputeDraftItem({ ...item, lines: updatedLines });
+    });
+    if (!changed) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    const updatedDraft = this.draftResponse({ ...draft, items: updatedItems, updatedAt: new Date().toISOString() }) as BillingDraftRecord;
+    await this.writeBillingDrafts(organizationId, user.id, drafts.map((item) => (item.id === id ? updatedDraft : item)));
+    return this.reviewPayload(updatedDraft);
+  }
+
+  async deleteInvoiceDraftAdjustment(user: MvpUser, id: string, lineId: string) {
+    const organizationId = this.resolveOrganizationId(user);
+    this.assertOrganizationAccess(user, organizationId);
+    const drafts = await this.readBillingDrafts(organizationId);
+    const draft = drafts.find((item) => item.id === id);
+    if (!draft) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    this.assertDraftMutable(draft);
+    let found = false;
+    const updatedItems = draft.items.map((item) => {
+      const line = item.lines.find((candidate) => candidate.id === lineId);
+      if (!line) return item;
+      if (!line.isManual) throw new BadRequestException('Liniile generate din tarife nu pot fi șterse.');
+      found = true;
+      return this.recomputeDraftItem({ ...item, lines: item.lines.filter((candidate) => candidate.id !== lineId) });
+    });
+    if (!found) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    const updatedDraft = this.draftResponse({ ...draft, items: updatedItems, updatedAt: new Date().toISOString() }) as BillingDraftRecord;
+    await this.writeBillingDrafts(organizationId, user.id, drafts.map((item) => (item.id === id ? updatedDraft : item)));
+    return this.reviewPayload(updatedDraft);
+  }
+
+  async recalculateInvoiceDraftApartment(user: MvpUser, id: string, apartmentId: string) {
+    const organizationId = this.resolveOrganizationId(user);
+    this.assertOrganizationAccess(user, organizationId);
+    const drafts = await this.readBillingDrafts(organizationId);
+    const draft = drafts.find((item) => item.id === id);
+    if (!draft) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    this.assertDraftMutable(draft);
+    const recalculated = await this.calculateDraftRecord(
+      user,
+      { billingMonth: draft.billingMonth, dueDate: draft.dueDate || null, description: draft.description || '' },
+      draft,
+    );
+    const freshItem = recalculated.items.find((item) => item.apartmentId === apartmentId || item.id === apartmentId);
+    if (!freshItem) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    const currentItem = draft.items.find((item) => item.apartmentId === apartmentId || item.id === apartmentId);
+    const manualLines = (currentItem?.lines || []).filter((line) => line.isManual);
+    const nextItem = this.recomputeDraftItem({ ...freshItem, lines: [...freshItem.lines, ...manualLines] });
+    const updatedDraft = this.draftResponse({
+      ...draft,
+      items: draft.items.map((item) => (item.apartmentId === apartmentId || item.id === apartmentId ? nextItem : item)),
+      updatedAt: new Date().toISOString(),
+    }) as BillingDraftRecord;
+    await this.writeBillingDrafts(organizationId, user.id, drafts.map((item) => (item.id === id ? updatedDraft : item)));
+    return this.reviewPayload(updatedDraft);
+  }
+
+  async lockInvoiceDraft(user: MvpUser, id: string, body: unknown) {
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const organizationId = this.resolveOrganizationId(user, payload);
+    this.assertOrganizationAccess(user, organizationId);
+    const drafts = await this.readBillingDrafts(organizationId);
+    const draft = drafts.find((item) => item.id === id);
+    if (!draft) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    this.assertDraftMutable(draft);
+    const response = this.draftResponse(draft) as BillingDraftRecord;
+    const totals = this.draftTotals(response.items || []);
+    if (totals.errorsCount > 0) throw new BadRequestException('Draftul nu poate fi blocat cât timp există erori critice.');
+    if (totals.totalAmount <= 0) throw new BadRequestException('Draftul nu poate fi blocat cu total 0.');
+    if (!totals.tariffLinesCount) throw new BadRequestException('Draftul nu poate fi blocat fără linii calculate.');
+    if (totals.warningsCount > 0 && payload.confirmWarnings !== true) {
+      throw new BadRequestException('Confirmă blocarea draftului cu avertizări.');
+    }
+    if (payload.understood !== true) {
+      throw new BadRequestException('Confirmarea explicită este obligatorie pentru blocare.');
+    }
+    const locked = this.draftResponse({
+      ...response,
+      status: 'LOCKED',
+      lockedAt: new Date().toISOString(),
+      lockedById: user.id,
+      updatedAt: new Date().toISOString(),
+    } as BillingDraftRecord) as BillingDraftRecord;
+    await this.writeBillingDrafts(organizationId, user.id, drafts.map((item) => (item.id === id ? locked : item)));
+    return this.reviewPayload(locked);
+  }
+
   async cancelInvoiceDraft(user: MvpUser, id: string) {
     const organizationId = this.resolveOrganizationId(user);
     this.assertOrganizationAccess(user, organizationId);
     const drafts = await this.readBillingDrafts(organizationId);
-    const draft = drafts.find((item) => item.id === id && item.status !== 'CANCELLED');
+    const draft = drafts.find((item) => item.id === id);
     if (!draft) throw new NotFoundException('Înregistrarea nu a fost găsită.');
-    const cancelled = { ...draft, status: 'CANCELLED' as BillingDraftStatus, updatedAt: new Date().toISOString() };
+    if (draft.status !== 'DRAFT') throw new BadRequestException('Doar drafturile în lucru pot fi anulate.');
+    const cancelled = {
+      ...draft,
+      status: 'CANCELLED' as BillingDraftStatus,
+      cancelledAt: new Date().toISOString(),
+      cancelledById: user.id,
+      updatedAt: new Date().toISOString(),
+    };
     const nextDrafts = drafts.map((item) => (item.id === id ? cancelled : item));
     await this.writeBillingDrafts(organizationId, user.id, nextDrafts);
     return { id, status: 'CANCELLED', message: 'Draftul a fost anulat.' };

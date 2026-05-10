@@ -81,6 +81,11 @@ export class BillingReadController {
     return this.billingReadService.saveInvoiceDraft(user, body);
   }
 
+  @Get(['admin/invoices/draft/:id/review', 'api/admin/invoices/draft/:id/review'])
+  getInvoiceDraftReview(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.billingReadService.getInvoiceDraftReview(user, id);
+  }
+
   @Get(['admin/invoices/draft/:id', 'api/admin/invoices/draft/:id'])
   getInvoiceDraftById(@CurrentUser() user: MvpUser, @Param('id') id: string) {
     return this.billingReadService.getInvoiceDraftById(user, id);
@@ -99,6 +104,46 @@ export class BillingReadController {
     @Body() body: unknown,
   ) {
     return this.billingReadService.updateInvoiceDraftLineStatus(user, id, lineId, body);
+  }
+
+  @Patch(['admin/invoices/draft/:id/apartments/:apartmentId/status', 'api/admin/invoices/draft/:id/apartments/:apartmentId/status'])
+  updateInvoiceDraftApartmentStatus(
+    @CurrentUser() user: MvpUser,
+    @Param('id') id: string,
+    @Param('apartmentId') apartmentId: string,
+    @Body() body: unknown,
+  ) {
+    return this.billingReadService.updateInvoiceDraftApartmentStatus(user, id, apartmentId, body);
+  }
+
+  @Post(['admin/invoices/draft/:id/apartments/:apartmentId/adjustments', 'api/admin/invoices/draft/:id/apartments/:apartmentId/adjustments'])
+  addInvoiceDraftAdjustment(
+    @CurrentUser() user: MvpUser,
+    @Param('id') id: string,
+    @Param('apartmentId') apartmentId: string,
+    @Body() body: unknown,
+  ) {
+    return this.billingReadService.addInvoiceDraftAdjustment(user, id, apartmentId, body);
+  }
+
+  @Patch(['admin/invoices/draft/:id/adjustments/:lineId', 'api/admin/invoices/draft/:id/adjustments/:lineId'])
+  updateInvoiceDraftAdjustment(@CurrentUser() user: MvpUser, @Param('id') id: string, @Param('lineId') lineId: string, @Body() body: unknown) {
+    return this.billingReadService.updateInvoiceDraftAdjustment(user, id, lineId, body);
+  }
+
+  @Delete(['admin/invoices/draft/:id/adjustments/:lineId', 'api/admin/invoices/draft/:id/adjustments/:lineId'])
+  deleteInvoiceDraftAdjustment(@CurrentUser() user: MvpUser, @Param('id') id: string, @Param('lineId') lineId: string) {
+    return this.billingReadService.deleteInvoiceDraftAdjustment(user, id, lineId);
+  }
+
+  @Post(['admin/invoices/draft/:id/recalculate-apartment/:apartmentId', 'api/admin/invoices/draft/:id/recalculate-apartment/:apartmentId'])
+  recalculateInvoiceDraftApartment(@CurrentUser() user: MvpUser, @Param('id') id: string, @Param('apartmentId') apartmentId: string) {
+    return this.billingReadService.recalculateInvoiceDraftApartment(user, id, apartmentId);
+  }
+
+  @Post(['admin/invoices/draft/:id/lock', 'api/admin/invoices/draft/:id/lock'])
+  lockInvoiceDraft(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.billingReadService.lockInvoiceDraft(user, id, body);
   }
 
   @Patch(['admin/invoices/draft/:id/cancel', 'api/admin/invoices/draft/:id/cancel'])

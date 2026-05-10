@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Calculator, CalendarDays, Eye, FileDown, FileText, RefreshCw, Save, Trash2, TriangleAlert, WalletCards } from 'lucide-react';
-import { Badge, Button, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
+import { Badge, Button, ButtonLink, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
 import { invoicesApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 
@@ -349,12 +349,18 @@ export default function AdminInvoiceDraftPage() {
               Salvează draft
             </Button>
             {draft?.id ? (
+              <ButtonLink href={`/admin/invoices/draft/${draft.id}/review`} variant="secondary">
+                <Eye className="h-4 w-4" />
+                {draft.status === 'LOCKED' ? 'Vezi draft blocat' : 'Revizuiește draft'}
+              </ButtonLink>
+            ) : null}
+            {draft?.id && draft.status === 'DRAFT' ? (
               <Button variant="secondary" onClick={recalculateDraft} isLoading={recalculating}>
                 <RefreshCw className="h-4 w-4" />
                 Recalculează
               </Button>
             ) : null}
-            {draft?.id ? (
+            {draft?.id && draft.status === 'DRAFT' ? (
               <Button variant="danger" onClick={cancelDraft} disabled={saving}>
                 <Trash2 className="h-4 w-4" />
                 Șterge draft

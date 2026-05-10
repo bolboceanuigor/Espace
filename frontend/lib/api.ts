@@ -1295,10 +1295,29 @@ export const invoicesApi = {
   draftSave: (data: { billingMonth: string; dueDate?: string | null; description?: string }) =>
     apiRequest<any>('/api/admin/invoices/draft/save', { method: 'POST', body: data }),
   draftGetOne: (id: string) => apiRequest<any>(`/api/admin/invoices/draft/${id}`),
+  draftReview: (id: string) => apiRequest<any>(`/api/admin/invoices/draft/${id}/review`),
   draftRecalculate: (id: string, data?: { billingMonth?: string; dueDate?: string | null; description?: string }) =>
     apiRequest<any>(`/api/admin/invoices/draft/${id}/recalculate`, { method: 'PATCH', body: data || {} }),
   draftUpdateLineStatus: (draftId: string, lineId: string, status: 'READY' | 'EXCLUDED') =>
     apiRequest<any>(`/api/admin/invoices/draft/${draftId}/lines/${lineId}/status`, { method: 'PATCH', body: { status } }),
+  draftUpdateApartmentStatus: (draftId: string, apartmentId: string, status: 'READY' | 'EXCLUDED') =>
+    apiRequest<any>(`/api/admin/invoices/draft/${draftId}/apartments/${apartmentId}/status`, { method: 'PATCH', body: { status } }),
+  draftAddAdjustment: (
+    draftId: string,
+    apartmentId: string,
+    data: { name: string; description?: string; amount: number; type: 'MANUAL_ADJUSTMENT' | 'DISCOUNT' | 'CORRECTION'; status?: 'READY' | 'EXCLUDED' },
+  ) => apiRequest<any>(`/api/admin/invoices/draft/${draftId}/apartments/${apartmentId}/adjustments`, { method: 'POST', body: data }),
+  draftUpdateAdjustment: (
+    draftId: string,
+    lineId: string,
+    data: { name?: string; description?: string; amount?: number; type?: 'MANUAL_ADJUSTMENT' | 'DISCOUNT' | 'CORRECTION'; status?: 'READY' | 'EXCLUDED' },
+  ) => apiRequest<any>(`/api/admin/invoices/draft/${draftId}/adjustments/${lineId}`, { method: 'PATCH', body: data }),
+  draftDeleteAdjustment: (draftId: string, lineId: string) =>
+    apiRequest<any>(`/api/admin/invoices/draft/${draftId}/adjustments/${lineId}`, { method: 'DELETE' }),
+  draftRecalculateApartment: (draftId: string, apartmentId: string) =>
+    apiRequest<any>(`/api/admin/invoices/draft/${draftId}/recalculate-apartment/${apartmentId}`, { method: 'POST' }),
+  draftLock: (draftId: string, data: { understood: boolean; confirmWarnings?: boolean }) =>
+    apiRequest<any>(`/api/admin/invoices/draft/${draftId}/lock`, { method: 'POST', body: data }),
   draftCancel: (id: string) => apiRequest<any>(`/api/admin/invoices/draft/${id}/cancel`, { method: 'PATCH' }),
 
   residentList: () => apiRequest<any[]>('/api/resident/invoices'),
