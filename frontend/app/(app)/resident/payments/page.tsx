@@ -1,197 +1,336 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, Clock3, CreditCard, ReceiptText } from 'lucide-react';
-import { Badge, Card, PageHeader, StatCard } from '@/components/ui';
-import { organizationSettingsApi, residentDemoApi } from '@/lib/api';
+import Link from 'next/link';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Banknote, CalendarDays, CheckCircle2, Clock3, CreditCard, FileText, ReceiptText, Search, WalletCards } from 'lucide-react';
+import { Badge, Button, ButtonLink, Card, Input, PageHeader, StatCard } from '@/components/ui';
+import { residentDemoApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
-import {
-  normalizeResidentInvoice,
-  normalizeResidentPayment,
-  residentInvoices,
-  residentInvoiceStatusVariant,
-  residentPayments,
-  residentProfile,
-  type ResidentInvoiceStatus,
-  type ResidentPayment,
-} from '@/lib/resident-mvp-data';
+import { useLocalizedPath } from '@/lib/use-localized-path';
+
+type PaymentStatus = 'CONFIRMED' | 'CANCELLED';
+type InvoiceStatus = 'ISSUED' | 'PARTIALLY_PAID' | 'PAID' | 'CANCELLED' | 'VOID';
+type PaymentMethod = 'CASH' | 'BANK_TRANSFER' | 'CARD_TERMINAL' | 'INFOCOM' | 'OPLATA' | 'OTHER';
+
+type ApartmentOption = {
+  id: string;
+  apartmentNumber: string;
+  staircase?: string | null;
+  floor?: string | null;
+  isPrimary?: boolean;
+};
+
+type ResidentPayment = {
+  id: string;
+  amount: number;
+  currency: 'MDL';
+  paymentDate?: string | null;
+  method: PaymentMethod;
+  referenceNumber?: string;
+  payerName?: string;
+  status: PaymentStatus;
+  invoice: {
+    id: string;
+    invoiceNumber: string;
+    billingMonth: string;
+    status: InvoiceStatus;
+    totalAmount: number;
+    paidAmount: number;
+    balanceAmount: number;
+    dueDate?: string | null;
+  };
+  apartment: {
+    id: string;
+    apartmentNumber: string;
+    staircase?: string | null;
+    floor?: string | null;
+  };
+  association?: {
+    id?: string | null;
+    shortName: string;
+    associationCode?: string | null;
+  };
+  createdAt: string;
+};
+
+type PaymentsResponse = {
+  items: ResidentPayment[];
+  meta: { page: number; limit: number; total: number };
+  stats: {
+    totalPayments: number;
+    confirmedPayments: number;
+    cancelledPayments: number;
+    totalPaidAmount: number;
+    currentMonthPaidAmount: number;
+    remainingBalance: number;
+    paidInvoices: number;
+    partiallyPaidInvoices: number;
+    lastPaymentDate?: string | null;
+  };
+  association?: { shortName: string; associationCode?: string | null };
+  apartments?: ApartmentOption[];
+  emptyStateCode?: 'NO_APARTMENT' | 'NO_PAYMENTS' | null;
+  emptyStateMessage?: string | null;
+};
+
+const methodLabels: Record<PaymentMethod, string> = {
+  CASH: 'Numerar',
+  BANK_TRANSFER: 'Transfer bancar',
+  CARD_TERMINAL: 'Terminal card',
+  INFOCOM: 'InfoCom',
+  OPLATA: 'Oplata',
+  OTHER: 'Altă metodă',
+};
+
+const statusLabels: Record<PaymentStatus, string> = {
+  CONFIRMED: 'Confirmată',
+  CANCELLED: 'Anulată',
+};
+
+const invoiceStatusLabels: Record<InvoiceStatus, string> = {
+  ISSUED: 'Emisă',
+  PARTIALLY_PAID: 'Parțial achitată',
+  PAID: 'Achitată',
+  CANCELLED: 'Anulată',
+  VOID: 'Void',
+};
+
+const emptyStats = {
+  totalPayments: 0,
+  confirmedPayments: 0,
+  cancelledPayments: 0,
+  totalPaidAmount: 0,
+  currentMonthPaidAmount: 0,
+  remainingBalance: 0,
+  paidInvoices: 0,
+  partiallyPaidInvoices: 0,
+  lastPaymentDate: null,
+};
 
 export default function ResidentPaymentsPage() {
-  const [filter, setFilter] = useState<'Toate' | ResidentInvoiceStatus>('Toate');
-  const [rows, setRows] = useState<typeof residentInvoices>([]);
-  const [payments, setPayments] = useState<ResidentPayment[]>([]);
-  const [financeSummary, setFinanceSummary] = useState<any>(null);
-  const [organizationPaymentInfo, setOrganizationPaymentInfo] = useState<any>(null);
-  const [source, setSource] = useState<'loading' | 'api' | 'mock'>('loading');
-  const visible = useMemo(() => rows.filter((invoice) => filter === 'Toate' || invoice.status === filter), [filter, rows]);
-  const paidThisYear = payments.length ? payments.reduce((sum, payment) => sum + payment.amount, 0) : rows.filter((invoice) => invoice.status === 'Achitat').reduce((sum, invoice) => sum + invoice.amount, 0);
-  const unpaidCount = rows.filter((invoice) => invoice.status !== 'Achitat').length;
-  const currentBalance = rows.filter((invoice) => invoice.status !== 'Achitat').reduce((sum, invoice) => sum + (invoice.remainingAmount || invoice.amount), 0);
-  const summaryDebt = Number(financeSummary?.totalDebt ?? currentBalance);
-  const summaryPaidThisYear = Number(financeSummary?.totalPaidThisYear ?? paidThisYear);
-  const summaryUnpaidCount = Number(financeSummary?.unpaidInvoicesCount ?? unpaidCount);
-  const paymentInstructions = financeSummary?.paymentInstructions || organizationPaymentInfo;
+  const localizedPath = useLocalizedPath();
+  const [data, setData] = useState<PaymentsResponse | null>(null);
+  const [apartmentId, setApartmentId] = useState('');
+  const [billingMonth, setBillingMonth] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [method, setMethod] = useState('');
+  const [status, setStatus] = useState('');
+  const [confirmedOnly, setConfirmedOnly] = useState(true);
+  const [query, setQuery] = useState('');
+  const [sortBy, setSortBy] = useState('newest');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const loadPayments = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await residentDemoApi.payments({
+        apartmentId: apartmentId || undefined,
+        billingMonth: billingMonth || undefined,
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
+        method: method || undefined,
+        status: status || undefined,
+        confirmedOnly: confirmedOnly || undefined,
+        search: query || undefined,
+        sortBy,
+        page: 1,
+        limit: 50,
+      });
+      setData(res.data || null);
+    } catch (err: any) {
+      setData(null);
+      setError(String(err?.message || 'Nu am putut încărca istoricul plăților.'));
+    } finally {
+      setLoading(false);
+    }
+  }, [apartmentId, billingMonth, confirmedOnly, dateFrom, dateTo, method, query, sortBy, status]);
 
   useEffect(() => {
-    let active = true;
-    Promise.all([
-      residentDemoApi.financeSummary().catch(() => ({ data: null })),
-      residentDemoApi.invoices(),
-      residentDemoApi.payments().catch(() => ({ data: [] })),
-      organizationSettingsApi.residentPublicInfo().catch(() => ({ data: null })),
-    ])
-      .then(([summaryRes, invoiceRes, paymentRes, paymentInfoRes]) => {
-        if (!active) return;
-        const invoiceItems = Array.isArray(invoiceRes.data) ? invoiceRes.data : invoiceRes.data?.items || [];
-        const apiRows = invoiceItems.map(normalizeResidentInvoice);
-        const apiPayments = (paymentRes.data || []).map(normalizeResidentPayment);
-        setFinanceSummary(summaryRes.data || null);
-        setOrganizationPaymentInfo(toPaymentInfo(paymentInfoRes.data));
-        setRows(apiRows);
-        setPayments(apiPayments);
-        setSource('api');
-      })
-      .catch(() => {
-        if (!active) return;
-        setRows(residentInvoices);
-        setPayments(residentPayments);
-        setFinanceSummary(null);
-        setOrganizationPaymentInfo(null);
-        setSource('mock');
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
+    loadPayments();
+  }, [loadPayments]);
+
+  const rows = data?.items || [];
+  const stats = data?.stats || emptyStats;
+  const apartments = useMemo(() => data?.apartments || [], [data?.apartments]);
+  const apartmentLabel = useMemo(() => {
+    if (!apartments.length) return 'fără apartament';
+    if (apartments.length === 1) return `Apt. ${apartments[0].apartmentNumber}`;
+    return `${apartments.length} apartamente`;
+  }, [apartments]);
+  const emptyTitle = data?.emptyStateCode === 'NO_APARTMENT' ? 'Nu ai un apartament asociat contului' : 'Nu ai plăți înregistrate';
+  const emptyText =
+    data?.emptyStateCode === 'NO_APARTMENT'
+      ? 'Contactează administratorul asociației pentru a lega contul tău de apartament.'
+      : 'Plățile vor apărea aici după ce administratorul le înregistrează în sistem.';
+  const canReset = Boolean(apartmentId || billingMonth || dateFrom || dateTo || method || status || query || !confirmedOnly || sortBy !== 'newest');
+
+  function resetFilters() {
+    setApartmentId('');
+    setBillingMonth('');
+    setDateFrom('');
+    setDateTo('');
+    setMethod('');
+    setStatus('');
+    setConfirmedOnly(true);
+    setQuery('');
+    setSortBy('newest');
+  }
 
   return (
-    <div className="space-y-5 pb-4">
+    <div className="space-y-5 pb-8">
       <PageHeader
-        title="Plăți"
-        description="Soldul și istoricul plăților pentru apartamentul tău."
+        title="Istoricul plăților"
+        description="Vezi plățile înregistrate pentru facturile apartamentului tău."
         rightSlot={
-          <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-            {source === 'loading' ? 'Se încarcă...' : source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
-          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            {data?.association ? <Badge variant="neutral">{data.association.shortName} · {data.association.associationCode || 'cod necompletat'}</Badge> : null}
+            <Badge variant="neutral">{apartmentLabel}</Badge>
+            <Badge variant="neutral">MDL</Badge>
+          </div>
         }
       />
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Sold curent" value={formatMdl(summaryDebt || (source === 'mock' ? residentProfile.currentBalance : 0))} description={summaryDebt > 0 ? 'Datorie curentă' : source === 'mock' ? residentProfile.status : 'Achitat'} icon={<ReceiptText className="h-5 w-5" />} tone={summaryDebt > 0 ? 'danger' : 'success'} />
-        <StatCard label="Total achitat anul acesta" value={formatMdl(summaryPaidThisYear)} description="Plăți confirmate" icon={<CheckCircle2 className="h-5 w-5" />} tone="success" />
-        <StatCard label="Facturi neachitate" value={summaryUnpaidCount} description="Necesită atenție" icon={<Clock3 className="h-5 w-5" />} tone={summaryUnpaidCount > 0 ? 'warning' : 'success'} />
-        <StatCard label="Următoarea scadență" value={financeSummary?.nextDueDate ? formatDate(financeSummary.nextDueDate) : 'Nu există'} description="Pentru facturi deschise" icon={<CreditCard className="h-5 w-5" />} tone={financeSummary?.overdueInvoicesCount ? 'danger' : 'neutral'} />
+
+      {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</div> : null}
+
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
+        <StatCard label="Total plăți" value={stats.totalPayments} description="Înregistrări vizibile" icon={<ReceiptText className="h-5 w-5" />} />
+        <StatCard label="Total achitat" value={formatMdl(stats.totalPaidAmount)} description="Plăți confirmate" icon={<CheckCircle2 className="h-5 w-5" />} tone="success" />
+        <StatCard label="Luna curentă" value={formatMdl(stats.currentMonthPaidAmount)} description="Achitat în această lună" icon={<CalendarDays className="h-5 w-5" />} />
+        <StatCard label="Ultima plată" value={formatDate(stats.lastPaymentDate)} description="Cea mai recentă confirmare" icon={<Banknote className="h-5 w-5" />} />
+        <StatCard label="Sold rămas" value={formatMdl(stats.remainingBalance)} description="Pe facturi interne" icon={<WalletCards className="h-5 w-5" />} tone={stats.remainingBalance > 0 ? 'warning' : 'success'} />
+        <StatCard label="Facturi achitate" value={stats.paidInvoices} description="Sold zero" icon={<CheckCircle2 className="h-5 w-5" />} tone="success" />
+        <StatCard label="Parțial achitate" value={stats.partiallyPaidInvoices} description="Cu sold rămas" icon={<Clock3 className="h-5 w-5" />} tone={stats.partiallyPaidInvoices ? 'warning' : 'neutral'} />
       </section>
 
       <Card>
-        <h2 className="font-semibold text-foreground">Cum poți achita</h2>
-        {paymentInstructions?.configured ? (
-          <div className="mt-4 grid gap-2 text-sm text-muted-foreground">
-            {paymentInstructions.bankName ? <p><span className="font-semibold text-foreground">Bancă:</span> {paymentInstructions.bankName}</p> : null}
-            {paymentInstructions.bankAccountIban ? <p><span className="font-semibold text-foreground">IBAN:</span> {paymentInstructions.bankAccountIban}</p> : null}
-            {paymentInstructions.bankSwift ? <p><span className="font-semibold text-foreground">SWIFT:</span> {paymentInstructions.bankSwift}</p> : null}
-            {paymentInstructions.paymentInstructions ? <p>{paymentInstructions.paymentInstructions}</p> : null}
-          </div>
-        ) : (
-          <p className="mt-4 rounded-2xl bg-muted/35 p-3 text-sm text-muted-foreground">
-            Administratorul nu a configurat încă instrucțiunile de plată.
-          </p>
-        )}
-        <p className="mt-3 rounded-2xl border border-border/70 bg-muted/25 p-3 text-sm font-medium text-muted-foreground">
-          Plățile online vor fi conectate ulterior. Pentru moment, plata se înregistrează de administratorul A.P.C.
-        </p>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[1.2fr_0.9fr_0.8fr_0.8fr_0.9fr_auto]">
+          <label className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input className="pl-9" placeholder="Caută factură, referință, plătitor sau apartament" value={query} onChange={(event) => setQuery(event.target.value)} />
+          </label>
+          <Select label="Apartament" value={apartmentId} onChange={setApartmentId} options={[
+            ['', 'Toate apartamentele'],
+            ...apartments.map((apartment) => [
+              apartment.id,
+              `Apt. ${apartment.apartmentNumber}${apartment.staircase ? ` · sc. ${apartment.staircase}` : ''}`,
+            ] as [string, string]),
+          ]} />
+          <Input label="Luna facturii" type="month" value={billingMonth} onChange={(event) => setBillingMonth(event.target.value)} />
+          <Select label="Metodă" value={method} onChange={setMethod} options={[['', 'Toate metodele'], ...Object.entries(methodLabels)]} />
+          <Select label="Status" value={status} onChange={setStatus} options={[['', 'Toate'], ['CONFIRMED', 'Confirmate'], ['CANCELLED', 'Anulate']]} />
+          <Button type="button" variant="secondary" disabled={!canReset} onClick={resetFilters} className="self-end">Resetează</Button>
+        </div>
+        <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-[0.8fr_0.8fr_0.9fr_auto]">
+          <Input label="De la data" type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} />
+          <Input label="Până la data" type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} />
+          <Select label="Sortare" value={sortBy} onChange={setSortBy} options={[
+            ['newest', 'Cele mai noi'],
+            ['oldest', 'Cele mai vechi'],
+            ['amount_desc', 'Sumă descrescător'],
+            ['amount_asc', 'Sumă crescător'],
+            ['method', 'Metodă plată'],
+          ]} />
+          <Button type="button" variant={confirmedOnly ? 'primary' : 'secondary'} onClick={() => setConfirmedOnly((value) => !value)} className="self-end">
+            Doar confirmate
+          </Button>
+        </div>
       </Card>
 
-      <div className="flex flex-wrap gap-2">
-        {(['Toate', 'Achitat', 'Neachitat', 'Întârziat'] as const).map((item) => (
-          <button
-            key={item}
-            type="button"
-            onClick={() => setFilter(item)}
-            className={`h-11 shrink-0 rounded-full border px-4 text-sm font-semibold ${filter === item ? 'border-foreground bg-foreground text-background' : 'border-border/70 bg-white text-foreground'}`}
-          >
-            {item}
-          </button>
-        ))}
-      </div>
+      {loading ? (
+        <div className="grid gap-3">
+          {[0, 1, 2].map((item) => <Card key={item} className="h-28 animate-pulse bg-muted/40" />)}
+        </div>
+      ) : null}
+
+      {!loading && !rows.length ? (
+        <Card className="p-8 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-muted/60 text-muted-foreground">
+            <CreditCard className="h-5 w-5" />
+          </div>
+          <h2 className="mt-4 text-lg font-semibold text-foreground">{emptyTitle}</h2>
+          <p className="mx-auto mt-2 max-w-lg text-sm text-muted-foreground">{emptyText}</p>
+          <ButtonLink href="/resident/invoices" className="mt-5">Vezi facturile mele</ButtonLink>
+        </Card>
+      ) : null}
 
       <section className="grid gap-3">
-        {visible.map((invoice) => (
-          <Card key={invoice.id} className="p-4">
-            <div className="flex items-start justify-between gap-3">
+        {rows.map((payment) => (
+          <Card key={payment.id} className="p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <h2 className="font-semibold text-foreground">{invoice.month}</h2>
-                <p className="mt-1 text-sm text-muted-foreground">{invoice.number}</p>
+                <p className="text-sm font-semibold text-foreground">{payment.invoice.invoiceNumber}</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {monthLabel(payment.invoice.billingMonth)} · Apt. {payment.apartment.apartmentNumber}
+                  {payment.apartment.staircase ? ` · sc. ${payment.apartment.staircase}` : ''}
+                </p>
               </div>
-              <Badge variant={residentInvoiceStatusVariant[invoice.status]}>{invoice.status}</Badge>
+              <Badge variant={payment.status === 'CANCELLED' ? 'neutral' : 'success'}>{statusLabels[payment.status]}</Badge>
             </div>
-            <div className="mt-4 flex items-end justify-between gap-3">
-              <div>
-                <p className="text-xs text-muted-foreground">Suma</p>
-                <p className="mt-1 text-xl font-semibold text-foreground">{formatMdl(invoice.amount)}</p>
-                {invoice.remainingAmount > 0 ? (
-                  <p className="mt-1 text-xs font-semibold text-rose-600">Rest de plată: {formatMdl(invoice.remainingAmount)}</p>
-                ) : null}
-              </div>
-              <p className="text-right text-xs text-muted-foreground">Scadență: {invoice.dueDate}</p>
+
+            <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
+              <Info label="Data plății" value={formatDate(payment.paymentDate)} />
+              <Info label="Sumă" value={formatMdl(payment.amount)} strong />
+              <Info label="Metodă" value={methodLabels[payment.method] || payment.method} />
+              <Info label="Referință" value={payment.referenceNumber || '-'} />
+              <Info label="Sold factură" value={formatMdl(payment.invoice.balanceAmount)} strong={payment.invoice.balanceAmount > 0} />
+              <Info label="Status factură" value={invoiceStatusLabels[payment.invoice.status]} />
             </div>
-            {invoice.status !== 'Achitat' ? (
-              <button
-                type="button"
-                disabled
-                className="mt-4 inline-flex min-h-11 w-full cursor-not-allowed items-center justify-center gap-2 rounded-2xl border border-border/70 bg-muted/35 px-4 text-sm font-semibold text-muted-foreground"
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Link
+                href={localizedPath(`/resident/payments/${payment.id}`)}
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-foreground px-4 text-sm font-semibold text-background transition hover:opacity-90 sm:w-auto"
               >
-                <CreditCard className="h-4 w-4" />
-                Plățile online vor fi conectate ulterior
-              </button>
-            ) : (
-              <p className="mt-4 rounded-2xl bg-emerald-50 p-3 text-sm font-medium text-emerald-700">Achitat pe {invoice.paidDate}</p>
-            )}
+                Deschide
+              </Link>
+              <ButtonLink href={`/resident/invoices/${payment.invoice.id}`} variant="secondary">Vezi factura</ButtonLink>
+            </div>
           </Card>
         ))}
-        {!visible.length ? (
-          <Card className="p-5 text-sm font-medium text-muted-foreground">
-            {source === 'loading' ? 'Se încarcă datele...' : source === 'api' ? 'Nu există facturi pentru apartamentul tău.' : 'Nu există facturi încă.'}
-          </Card>
-        ) : null}
       </section>
 
       <Card>
-        <h2 className="font-semibold text-foreground">Istoric plăți</h2>
-        <div className="mt-4 grid gap-2">
-          {payments.map((payment) => (
-            <div key={payment.id} className="flex items-center justify-between gap-3 rounded-2xl bg-muted/35 px-3 py-3 text-sm">
-              <div>
-                <p className="font-semibold text-foreground">{formatMdl(payment.amount)}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {payment.method}{payment.invoiceLabel ? ` · ${payment.invoiceLabel}` : ''}
-                </p>
-              </div>
-              <p className="text-right text-xs text-muted-foreground">{payment.paidAt}</p>
-            </div>
-          ))}
-          {!payments.length ? (
-            <p className="rounded-2xl bg-muted/35 px-3 py-3 text-sm text-muted-foreground">
-              {source === 'loading' ? 'Se încarcă datele...' : 'Nu există plăți înregistrate.'}
-            </p>
-          ) : null}
-        </div>
+        <h2 className="font-semibold text-foreground">Notă</h2>
+        <p className="mt-3 rounded-2xl bg-muted/35 px-4 py-3 text-sm text-muted-foreground">
+          Această pagină afișează doar plățile introduse de administratorul A.P.C. Nu poți crea, anula sau modifica plăți din portalul locatarului.
+        </p>
       </Card>
     </div>
   );
 }
 
-function toPaymentInfo(row: any) {
-  if (!row) return null;
-  const configured = Boolean(row.bankName || row.bankAccountIban || row.bankSwift || row.paymentInstructions);
-  return {
-    configured,
-    bankName: row.bankName || '',
-    bankAccountIban: row.bankAccountIban || '',
-    bankSwift: row.bankSwift || '',
-    paymentInstructions: row.paymentInstructions || '',
-  };
+function Select({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: Array<[string, string]> }) {
+  return (
+    <label className="grid gap-1">
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)} className="h-11 rounded-2xl border border-border/70 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-foreground/10">
+        {options.map(([optionValue, optionLabel]) => <option key={optionValue || 'empty'} value={optionValue}>{optionLabel}</option>)}
+      </select>
+    </label>
+  );
 }
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat('ro-RO', { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(value));
+function Info({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div className="rounded-2xl bg-muted/35 p-3">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className={`mt-1 ${strong ? 'text-lg font-semibold' : 'font-semibold'} text-foreground`}>{value}</p>
+    </div>
+  );
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return new Intl.DateTimeFormat('ro-RO', { day: '2-digit', month: 'long', year: 'numeric' }).format(date);
+}
+
+function monthLabel(value: string) {
+  const [year, month] = value.split('-').map(Number);
+  if (!year || !month) return value;
+  return new Intl.DateTimeFormat('ro-RO', { month: 'long', year: 'numeric' }).format(new Date(year, month - 1, 1));
 }

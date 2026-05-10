@@ -240,14 +240,22 @@ export default function ResidentInvoiceDetailsPage() {
           </div>
 
           <Card>
-            <h2 className="text-base font-semibold text-foreground">Plăți înregistrate</h2>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-base font-semibold text-foreground">Plăți înregistrate</h2>
+              <ButtonLink href={localizedPath('/resident/payments')} variant="secondary" size="sm">
+                Vezi istoricul complet al plăților
+              </ButtonLink>
+            </div>
             <div className="mt-4 grid gap-2">
               {(data.payments || []).map((payment) => (
                 <div key={payment.id} className="grid gap-2 rounded-2xl border border-border/70 bg-white px-4 py-3 text-sm sm:grid-cols-[0.9fr_0.9fr_1fr_0.9fr] sm:items-center">
                   <span className="text-muted-foreground">{formatDate(payment.paymentDate || payment.paidAt)}</span>
                   <strong className="text-foreground">{formatMdl(payment.amount)}</strong>
                   <span className="text-muted-foreground">{paymentMethodLabels[payment.method] || payment.method}</span>
-                  <Badge variant={payment.status === 'CANCELLED' ? 'neutral' : 'success'}>{payment.status === 'CANCELLED' ? 'Anulată' : 'Confirmată'}</Badge>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant={payment.status === 'CANCELLED' ? 'neutral' : 'success'}>{payment.status === 'CANCELLED' ? 'Anulată' : 'Confirmată'}</Badge>
+                    <ButtonLink href={localizedPath(`/resident/payments/${payment.id}`)} variant="secondary" size="sm">Detalii</ButtonLink>
+                  </div>
                   {payment.referenceNumber ? <p className="sm:col-span-4 text-xs text-muted-foreground">Referință: {payment.referenceNumber}</p> : null}
                 </div>
               ))}

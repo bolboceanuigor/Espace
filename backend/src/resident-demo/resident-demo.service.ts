@@ -672,7 +672,7 @@ export class ResidentDemoService {
     const billingMonth = typeof query.billingMonth === 'string' && /^\d{4}-\d{2}$/.test(query.billingMonth) ? query.billingMonth : '';
     const status = typeof query.status === 'string' ? query.status.trim().toUpperCase() : '';
     const sortBy = typeof query.sortBy === 'string' ? query.sortBy : 'newest';
-    const sortDirection = String(query.sortDirection || '').toLowerCase() === 'asc' ? 'asc' : 'desc';
+    const sortDirection: 'asc' | 'desc' = String(query.sortDirection || '').toLowerCase() === 'asc' ? 'asc' : 'desc';
     const apartmentId = typeof query.apartmentId === 'string' ? query.apartmentId.trim() : '';
     const unpaidOnly = query.unpaidOnly === true || String(query.unpaidOnly || '').toLowerCase() === 'true';
     const overdueOnly = query.overdueOnly === true || String(query.overdueOnly || '').toLowerCase() === 'true';
@@ -842,17 +842,256 @@ export class ResidentDemoService {
     };
   }
 
-  async listPayments(user: MvpUser) {
-    const scope = await this.getResidentScope(user);
-    if (!scope.apartmentIds.length) return [];
+  private parseResidentPaymentQuery(query: Record<string, unknown> = {}) {
+    const page = Math.max(1, Number(query.page || 1));
+    const limit = Math.min(100, Math.max(1, Number(query.limit || 20)));
+    const apartmentId = typeof query.apartmentId === 'string' ? query.apartmentId.trim() : '';
+    const billingMonth = typeof query.billingMonth === 'string' && /^\d{4}-\d{2}$/.test(query.billingMonth) ? query.billingMonth : '';
+    const invoiceId = typeof query.invoiceId === 'string' ? query.invoiceId.trim() : '';
+    const method = typeof query.method === 'string' ? query.method.trim().toUpperCase() : '';
+    const status = typeof query.status === 'string' ? query.status.trim().toUpperCase() : '';
+    const dateFrom = typeof query.dateFrom === 'string' && query.dateFrom.trim() ? new Date(query.dateFrom) : null;
+    const dateTo = typeof query.dateTo === 'string' && query.dateTo.trim() ? new Date(query.dateTo) : null;
+    if (dateTo) dateTo.setHours(23, 59, 59, 999);
+    const confirmedOnly = query.confirmedOnly === true || String(query.confirmedOnly || '').toLowerCase() === 'true';
+    const search = typeof query.search === 'string' ? query.search.trim().toLowerCase() : '';
+    const sortBy = typeof query.sortBy === 'string' ? query.sortBy : 'newest';
+    const sortDirection = String(query.sortDirection || '').toLowerCase() === 'asc' ? 'asc' : 'desc';
+    return { page, limit, apartmentId, billingMonth, invoiceId, method, status, dateFrom, dateTo, confirmedOnly, search, sortBy, sortDirection };
+  }
 
+  private toResidentPaymentItem(row: any, invoice: InternalInvoiceMetadata, organization: any) {
+    const payment = this.toPayment(row);
+    const note = String(payment.note || '');
+    const residentVisibleNote = note.startsWith(INTERNAL_PAYMENT_NOTE_PREFIX) ? '' : note;
+    return {
+      id: payment.id,
+      amount: payment.amount,
+      currency: payment.currency || 'MDL',
+      paymentDate: payment.paidAt || payment.createdAt,
+      method: payment.method,
+      referenceNumber: payment.referenceNumber || '',
+      payerName: payment.payerName || '',
+      notes: residentVisibleNote,
+      status: payment.status,
+      invoice: {
+        id: invoice.invoiceId || invoice.id,
+        metadataId: invoice.id,
+        invoiceNumber: invoice.invoiceNumber,
+        billingMonth: invoice.billingMonth,
+        status: invoice.status,
+        currency: invoice.currency,
+        totalAmount: Number(invoice.totalAmount || 0),
+        paidAmount: Number(invoice.paidAmount || 0),
+        balanceAmount: Number(invoice.balanceAmount || 0),
+        issueDate: invoice.issueDate,
+        dueDate: invoice.dueDate,
+      },
+      apartment: invoice.apartment,
+      association: this.toOrganizationIdentity(organization),
+      createdAt: payment.createdAt,
+      updatedAt: payment.updatedAt,
+    };
+  }
+
+  private residentPaymentStats(invoices: InternalInvoiceMetadata[], payments: Array<ReturnType<ResidentDemoService['toResidentPaymentItem']>>) {
+    const confirmed = payments.filter((payment) => payment.status === PaymentStatus.CONFIRMED || String(payment.status).toUpperCase() === 'CONFIRMED');
+    const cancelled = payments.filter((payment) => payment.status === PaymentStatus.CANCELLED || String(payment.status).toUpperCase() === 'CANCELLED');
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const paymentMonth = (payment: ReturnType<ResidentDemoService['toResidentPaymentItem']>) => {
+      const date = payment.paymentDate ? new Date(payment.paymentDate) : null;
+      if (!date || Number.isNaN(date.getTime())) return '';
+      return date.toISOString().slice(0, 7);
+    };
+    const lastPayment = [...confirmed].sort((a, b) => {
+      const left = new Date(a.paymentDate || a.createdAt || 0).getTime();
+      const right = new Date(b.paymentDate || b.createdAt || 0).getTime();
+      return right - left;
+    })[0];
+    return {
+      totalPayments: payments.length,
+      confirmedPayments: confirmed.length,
+      cancelledPayments: cancelled.length,
+      totalPaidAmount: this.money(confirmed.reduce((sum, payment) => sum + Number(payment.amount || 0), 0)),
+      currentMonthPaidAmount: this.money(
+        confirmed.filter((payment) => paymentMonth(payment) === currentMonth).reduce((sum, payment) => sum + Number(payment.amount || 0), 0),
+      ),
+      remainingBalance: this.money(
+        invoices
+          .filter((invoice) => invoice.status !== 'CANCELLED' && invoice.status !== 'VOID')
+          .reduce((sum, invoice) => sum + Number(invoice.balanceAmount || 0), 0),
+      ),
+      paidInvoices: invoices.filter((invoice) => invoice.status === 'PAID' || Number(invoice.balanceAmount || 0) <= 0).length,
+      partiallyPaidInvoices: invoices.filter((invoice) => invoice.status === 'PARTIALLY_PAID').length,
+      lastPaymentDate: lastPayment?.paymentDate || lastPayment?.createdAt || null,
+    };
+  }
+
+  private filterResidentInternalInvoicesForPayments(metadata: InternalInvoiceMetadata[], apartmentIds: string[], parsed: ReturnType<ResidentDemoService['parseResidentPaymentQuery']>) {
+    return metadata.filter((invoice) => {
+      if (!apartmentIds.includes(invoice.apartmentId)) return false;
+      if (parsed.apartmentId && invoice.apartmentId !== parsed.apartmentId) return false;
+      if (parsed.billingMonth && invoice.billingMonth !== parsed.billingMonth) return false;
+      if (parsed.invoiceId && invoice.invoiceId !== parsed.invoiceId && invoice.id !== parsed.invoiceId) return false;
+      return true;
+    });
+  }
+
+  private sortResidentPayments(items: Array<ReturnType<ResidentDemoService['toResidentPaymentItem']>>, sortBy: string, sortDirection: 'asc' | 'desc') {
+    const direction = sortDirection === 'asc' ? 1 : -1;
+    return items.sort((a, b) => {
+      if (sortBy === 'amount_desc') return Number(b.amount || 0) - Number(a.amount || 0);
+      if (sortBy === 'amount_asc') return Number(a.amount || 0) - Number(b.amount || 0);
+      if (sortBy === 'method') return String(a.method || '').localeCompare(String(b.method || ''), 'ro') * direction;
+      if (sortBy === 'oldest') return new Date(a.paymentDate || 0).getTime() - new Date(b.paymentDate || 0).getTime();
+      return new Date(b.paymentDate || 0).getTime() - new Date(a.paymentDate || 0).getTime();
+    });
+  }
+
+  async listPayments(user: MvpUser, query: Record<string, unknown> = {}) {
+    const scope = await this.getResidentScope(user);
+    const organization = await this.organizationFromUser(user);
+    const parsed = this.parseResidentPaymentQuery(query);
+    if (!scope.apartmentIds.length) {
+      return {
+        items: [],
+        meta: { page: parsed.page, limit: parsed.limit, total: 0 },
+        stats: this.residentPaymentStats([], []),
+        association: this.toOrganizationIdentity(organization),
+        apartments: [],
+        emptyStateCode: 'NO_APARTMENT',
+        emptyStateMessage: this.emptyResidentMessage(),
+      };
+    }
+    if (parsed.apartmentId && !scope.apartmentIds.includes(parsed.apartmentId)) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN_RESIDENT_SCOPE',
+        message: 'Nu ai acces la aceste date.',
+      });
+    }
+
+    const metadata = await this.readInternalInvoiceMetadata(user.organizationId);
+    const visibleInvoices = this.filterResidentInternalInvoicesForPayments(metadata, scope.apartmentIds, parsed);
+    if (parsed.invoiceId && !visibleInvoices.length) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    const invoiceById = new Map(visibleInvoices.map((invoice) => [invoice.invoiceId, invoice]));
     const payments = await this.prisma.payment.findMany({
-      where: { organizationId: user.organizationId, apartmentId: { in: scope.apartmentIds } },
+      where: {
+        organizationId: user.organizationId,
+        apartmentId: { in: scope.apartmentIds },
+        note: { startsWith: INTERNAL_PAYMENT_NOTE_PREFIX },
+      },
       orderBy: [{ paidAt: 'desc' }, { createdAt: 'desc' }],
       select: this.paymentSelect(),
     });
 
-    return payments.map((payment) => this.toPayment(payment));
+    const filtered = payments
+      .map((row) => {
+        const note = this.parseInternalPaymentNote(row.note);
+        const invoice = note ? invoiceById.get(note.invoiceId) : null;
+        return invoice ? this.toResidentPaymentItem(row, invoice, organization) : null;
+      })
+      .filter(Boolean) as Array<ReturnType<ResidentDemoService['toResidentPaymentItem']>>;
+
+    const searched = filtered.filter((payment) => {
+      const paymentDate = payment.paymentDate ? new Date(payment.paymentDate) : null;
+      const matchesDateFrom = !parsed.dateFrom || (paymentDate && paymentDate >= parsed.dateFrom);
+      const matchesDateTo = !parsed.dateTo || (paymentDate && paymentDate <= parsed.dateTo);
+      const matchesMethod = !parsed.method || payment.method === parsed.method;
+      const matchesStatus = !parsed.status || payment.status === parsed.status;
+      const matchesConfirmedOnly = !parsed.confirmedOnly || payment.status === PaymentStatus.CONFIRMED;
+      const haystack = `${payment.invoice.invoiceNumber} ${payment.referenceNumber || ''} ${payment.payerName || ''} ${payment.apartment.apartmentNumber} ${payment.method || ''}`.toLowerCase();
+      return matchesDateFrom && matchesDateTo && matchesMethod && matchesStatus && matchesConfirmedOnly && (!parsed.search || haystack.includes(parsed.search));
+    });
+    const sorted = this.sortResidentPayments(searched, parsed.sortBy, parsed.sortDirection === 'asc' ? 'asc' : 'desc');
+    const start = (parsed.page - 1) * parsed.limit;
+    return {
+      items: sorted.slice(start, start + parsed.limit),
+      meta: { page: parsed.page, limit: parsed.limit, total: sorted.length },
+      stats: this.residentPaymentStats(visibleInvoices, searched),
+      association: this.toOrganizationIdentity(organization),
+      apartments: this.apartmentOptionsFromScope(scope),
+      emptyStateCode: sorted.length ? null : 'NO_PAYMENTS',
+    };
+  }
+
+  async getInternalPaymentStats(user: MvpUser, query: Record<string, unknown> = {}) {
+    const result = await this.listPayments(user, { ...query, page: 1, limit: 100 });
+    return {
+      stats: result.stats,
+      association: result.association,
+      apartments: result.apartments,
+      emptyStateCode: result.emptyStateCode,
+      emptyStateMessage: result.emptyStateMessage,
+    };
+  }
+
+  async getInternalPayment(user: MvpUser, id: string) {
+    const scope = await this.requireResidentScope(user);
+    const [organization, metadata, row] = await Promise.all([
+      this.organizationFromUser(user),
+      this.readInternalInvoiceMetadata(user.organizationId),
+      this.prisma.payment.findFirst({
+        where: {
+          id,
+          organizationId: user.organizationId,
+          apartmentId: { in: scope.apartmentIds },
+          note: { startsWith: INTERNAL_PAYMENT_NOTE_PREFIX },
+        },
+        select: this.paymentSelect(),
+      }),
+    ]);
+    if (!row) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    const note = this.parseInternalPaymentNote(row.note);
+    const invoice = note
+      ? metadata.find((item) => item.invoiceId === note.invoiceId && scope.apartmentIds.includes(item.apartmentId))
+      : null;
+    if (!invoice) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    const payment = this.toResidentPaymentItem(row, invoice, organization);
+    return {
+      payment: {
+        id: payment.id,
+        amount: payment.amount,
+        currency: payment.currency,
+        paymentDate: payment.paymentDate,
+        method: payment.method,
+        referenceNumber: payment.referenceNumber,
+        payerName: payment.payerName,
+        notes: payment.notes,
+        status: payment.status,
+        createdAt: payment.createdAt,
+      },
+      invoice: payment.invoice,
+      apartment: payment.apartment,
+      association: {
+        ...payment.association,
+        address: organization?.address ?? null,
+      },
+      invoiceBalanceAfterPayment: payment.invoice.balanceAmount,
+    };
+  }
+
+  async listInternalInvoicePayments(user: MvpUser, id: string) {
+    const scope = await this.requireResidentScope(user);
+    const [organization, metadata] = await Promise.all([this.organizationFromUser(user), this.readInternalInvoiceMetadata(user.organizationId)]);
+    const invoice = metadata.find((item) => (item.invoiceId === id || item.id === id) && scope.apartmentIds.includes(item.apartmentId));
+    if (!invoice) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    const payments = await this.prisma.payment.findMany({
+      where: {
+        organizationId: user.organizationId,
+        apartmentId: invoice.apartmentId,
+        note: { startsWith: INTERNAL_PAYMENT_NOTE_PREFIX },
+      },
+      orderBy: [{ paidAt: 'desc' }, { createdAt: 'desc' }],
+      select: this.paymentSelect(),
+    });
+    const items = payments
+      .filter((payment) => this.parseInternalPaymentNote(payment.note)?.invoiceId === invoice.invoiceId)
+      .map((payment) => this.toResidentPaymentItem(payment, invoice, organization));
+    return {
+      items,
+      stats: this.residentPaymentStats([invoice], items),
+    };
   }
 
   async getInvoice(user: MvpUser, id: string) {
@@ -1202,7 +1441,7 @@ export class ResidentDemoService {
       };
     }
 
-    const [invoices, payments, meters, issues, announcements, documents] = await Promise.all([
+    const [invoices, paymentResponse, meters, issues, announcements, documents] = await Promise.all([
       this.listInvoices(user),
       this.listPayments(user),
       this.listMeters(user),
@@ -1210,6 +1449,7 @@ export class ResidentDemoService {
       this.listAnnouncements(user),
       this.listResidentDocuments(user, 5),
     ]);
+    const payments = paymentResponse.items || [];
     const openInvoices = invoices.filter((invoice) => Number(invoice.remainingAmount ?? invoice.amount ?? 0) > 0);
     const overdueInvoices = openInvoices.filter(
       (invoice) => invoice.status === InvoiceStatus.OVERDUE || (invoice.dueDate && new Date(invoice.dueDate) < new Date()),
@@ -1225,8 +1465,8 @@ export class ResidentDemoService {
       (payment) => payment.status === PaymentStatus.CONFIRMED || String(payment.status).toUpperCase() === 'CONFIRMED',
     );
     const lastPayment = [...confirmedPayments].sort((a, b) => {
-      const left = a.paidAt ? new Date(a.paidAt).getTime() : 0;
-      const right = b.paidAt ? new Date(b.paidAt).getTime() : 0;
+      const left = a.paidAt || a.paymentDate ? new Date(a.paidAt || a.paymentDate).getTime() : 0;
+      const right = b.paidAt || b.paymentDate ? new Date(b.paidAt || b.paymentDate).getTime() : 0;
       return right - left;
     })[0];
     const totalInvoiced = this.money(invoices.reduce((sum, invoice) => sum + Number(invoice.amount || 0), 0));
@@ -1248,7 +1488,7 @@ export class ResidentDemoService {
         unpaidInvoicesCount: openInvoices.length,
         overdueInvoicesCount: overdueInvoices.length,
         nextDueDate: nextDueInvoice?.dueDate ?? null,
-        lastPaymentDate: lastPayment?.paidAt ?? lastPayment?.createdAt ?? null,
+        lastPaymentDate: lastPayment?.paidAt ?? lastPayment?.paymentDate ?? lastPayment?.createdAt ?? null,
         status: overdueInvoices.length ? 'OVERDUE' : openInvoices.length ? 'UNPAID' : 'PAID',
       },
       meters: {
@@ -1280,7 +1520,8 @@ export class ResidentDemoService {
       this.listIssues(user),
       this.listAnnouncements(user),
     ]);
-    const payments = await this.listPayments(user);
+    const paymentResponse = await this.listPayments(user);
+    const payments = paymentResponse.items || [];
     const openInvoices = invoices.filter((invoice) => Number(invoice.remainingAmount ?? invoice.amount ?? 0) > 0);
     const overdueInvoices = openInvoices.filter((invoice) => invoice.status === InvoiceStatus.OVERDUE || (invoice.dueDate && new Date(invoice.dueDate) < new Date()));
     const activeIssues = issues.filter((issue) => issue.status !== IssueStatus.RESOLVED);
@@ -1346,10 +1587,11 @@ export class ResidentDemoService {
       };
     }
 
-    const [invoiceResponse, payments] = await Promise.all([
+    const [invoiceResponse, paymentResponse] = await Promise.all([
       this.listInternalInvoices(user, { page: 1, limit: 100 }),
       this.listPayments(user),
     ]);
+    const payments = paymentResponse.items || [];
     const invoices = invoiceResponse.items || [];
     const openInvoices = invoices.filter((invoice: any) => Number(invoice.balanceAmount || 0) > 0);
     const overdueInvoices = openInvoices.filter((invoice: any) => invoice.isOverdue);
@@ -1364,7 +1606,7 @@ export class ResidentDemoService {
     );
     const totalPaidThisYear = this.money(
       confirmedPayments.reduce((sum, payment) => {
-        const paidAt = payment.paidAt ?? payment.createdAt;
+        const paidAt = payment.paidAt ?? payment.paymentDate ?? payment.createdAt;
         if (!paidAt || new Date(paidAt).getFullYear() !== currentYear) return sum;
         return sum + Number(payment.amount || 0);
       }, 0),
@@ -1372,8 +1614,8 @@ export class ResidentDemoService {
     const totalInvoiced = this.money(invoices.reduce((sum: number, invoice: any) => sum + Number(invoice.totalAmount || 0), 0));
     const totalPaid = Number(invoiceResponse.stats?.paidAmount || 0);
     const lastPayment = [...confirmedPayments].sort((a, b) => {
-      const left = a.paidAt ? new Date(a.paidAt).getTime() : 0;
-      const right = b.paidAt ? new Date(b.paidAt).getTime() : 0;
+      const left = a.paidAt || a.paymentDate ? new Date(a.paidAt || a.paymentDate).getTime() : 0;
+      const right = b.paidAt || b.paymentDate ? new Date(b.paidAt || b.paymentDate).getTime() : 0;
       return right - left;
     })[0];
     const totalDebt = this.money(Math.max(totalInvoiced - totalPaid, 0));
@@ -1393,7 +1635,7 @@ export class ResidentDemoService {
       unpaidInvoicesCount: openInvoices.length,
       overdueInvoicesCount: overdueInvoices.length,
       nextDueDate: nextDueInvoice?.dueDate ?? null,
-      lastPaymentDate: lastPayment?.paidAt ?? lastPayment?.createdAt ?? null,
+      lastPaymentDate: lastPayment?.paidAt ?? lastPayment?.paymentDate ?? lastPayment?.createdAt ?? null,
       status: overdueInvoices.length ? 'OVERDUE' : openInvoices.length ? 'UNPAID' : 'PAID',
       primaryApartment,
       organization,

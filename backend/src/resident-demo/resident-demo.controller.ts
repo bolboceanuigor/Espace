@@ -36,14 +36,29 @@ export class ResidentDemoController {
     return this.residentDemoService.getInternalInvoiceStats(user, query);
   }
 
+  @Get(['resident/invoices/:id/payments', 'api/resident/invoices/:id/payments'])
+  getInvoicePayments(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.residentDemoService.listInternalInvoicePayments(user, id);
+  }
+
   @Get(['resident/invoices/:id', 'api/resident/invoices/:id'])
   getInvoice(@CurrentUser() user: MvpUser, @Param('id') id: string) {
     return this.residentDemoService.getInternalInvoice(user, id);
   }
 
   @Get(['resident/payments', 'api/resident/payments'])
-  listPayments(@CurrentUser() user: MvpUser) {
-    return this.residentDemoService.listPayments(user);
+  listPayments(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.residentDemoService.listPayments(user, query);
+  }
+
+  @Get(['resident/payments/stats', 'api/resident/payments/stats'])
+  getPaymentStats(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.residentDemoService.getInternalPaymentStats(user, query);
+  }
+
+  @Get(['resident/payments/:id', 'api/resident/payments/:id'])
+  getPayment(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.residentDemoService.getInternalPayment(user, id);
   }
 
   @Get(['resident/meters', 'api/resident/meters'])

@@ -1177,7 +1177,24 @@ export const residentDemoApi = {
   }) => apiRequest<any>('/resident/invoices', { params }),
   invoiceStats: (params?: { apartmentId?: string; billingMonth?: string }) => apiRequest<any>('/resident/invoices/stats', { params }),
   invoice: (id: string) => apiRequest<any>(`/resident/invoices/${id}`),
-  payments: () => apiRequest<any[]>('/resident/payments'),
+  invoicePayments: (id: string) => apiRequest<any>(`/resident/invoices/${id}/payments`),
+  payments: (params?: {
+    apartmentId?: string;
+    billingMonth?: string;
+    invoiceId?: string;
+    method?: string;
+    status?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    confirmedOnly?: boolean;
+    search?: string;
+    page?: number;
+    limit?: number;
+    sortBy?: string;
+    sortDirection?: 'asc' | 'desc';
+  }) => apiRequest<any>('/resident/payments', { params }),
+  paymentStats: (params?: { apartmentId?: string; billingMonth?: string }) => apiRequest<any>('/resident/payments/stats', { params }),
+  payment: (id: string) => apiRequest<any>(`/resident/payments/${id}`),
   meters: () => apiRequest<any[]>('/resident/meters'),
   addMeterReading: (meterId: string, data: { value: number; readingDate?: string; source?: 'RESIDENT' }) =>
     apiRequest<any>(`/resident/meters/${meterId}/readings`, { method: 'POST', body: data }),
