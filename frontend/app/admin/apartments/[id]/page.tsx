@@ -388,7 +388,9 @@ export default function AdminApartmentDetailPage() {
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="font-semibold text-foreground">{resident.fullName}</h3>
+                          <Link href={localizedPath(`/admin/residents/${resident.residentId}`)} className="font-semibold text-foreground hover:underline">
+                            {resident.fullName}
+                          </Link>
                           {resident.isPrimaryContact ? <Badge variant="success">Contact principal</Badge> : null}
                           <Badge variant="neutral">{roleLabels[resident.role] || resident.role}</Badge>
                         </div>

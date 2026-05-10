@@ -841,6 +841,67 @@ export const residentsApi = {
     apiRequest<any>(`/residents/${residentId}/create-account`, { method: 'POST', body: data }),
 };
 
+export const adminResidentsCrmApi = {
+  list: (params?: {
+    search?: string;
+    role?: string;
+    status?: string;
+    hasApartment?: string;
+    isPrimaryContact?: string;
+    preferredContactMethod?: string;
+    sortBy?: string;
+    sortDirection?: 'asc' | 'desc';
+    page?: number;
+    limit?: number;
+  }) => apiRequest<any>('/api/admin/residents', { params }),
+  get: (id: string) => apiRequest<any>(`/api/admin/residents/${id}`),
+  create: (data: {
+    fullName: string;
+    phone?: string;
+    email?: string;
+    preferredContactMethod?: 'PHONE' | 'EMAIL' | 'APP' | 'WHATSAPP' | 'TELEGRAM';
+    status?: 'ACTIVE' | 'INVITED' | 'NOT_INVITED' | 'INACTIVE';
+    internalNotes?: string;
+  }) => apiRequest<any>('/api/admin/residents', { method: 'POST', body: data }),
+  update: (
+    id: string,
+    data: {
+      fullName: string;
+      phone?: string;
+      email?: string;
+      preferredContactMethod?: 'PHONE' | 'EMAIL' | 'APP' | 'WHATSAPP' | 'TELEGRAM';
+      status?: 'ACTIVE' | 'INVITED' | 'NOT_INVITED' | 'INACTIVE';
+      internalNotes?: string;
+    },
+  ) => apiRequest<any>(`/api/admin/residents/${id}`, { method: 'PATCH', body: data }),
+  linkApartment: (
+    id: string,
+    data: {
+      apartmentId: string;
+      role: 'OWNER' | 'TENANT' | 'REPRESENTATIVE' | 'RESIDENT';
+      isPrimaryContact?: boolean;
+      relationStartDate?: string;
+      relationEndDate?: string;
+      notes?: string;
+    },
+  ) => apiRequest<any>(`/api/admin/residents/${id}/apartments`, { method: 'POST', body: data }),
+  updateApartmentRelation: (
+    id: string,
+    apartmentId: string,
+    data: {
+      role: 'OWNER' | 'TENANT' | 'REPRESENTATIVE' | 'RESIDENT';
+      isPrimaryContact?: boolean;
+      relationStartDate?: string;
+      relationEndDate?: string;
+      notes?: string;
+    },
+  ) => apiRequest<any>(`/api/admin/residents/${id}/apartments/${apartmentId}`, { method: 'PATCH', body: data }),
+  unlinkApartment: (id: string, apartmentId: string) =>
+    apiRequest<any>(`/api/admin/residents/${id}/apartments/${apartmentId}`, { method: 'DELETE' }),
+  updateStatus: (id: string, status: 'ACTIVE' | 'INVITED' | 'NOT_INVITED' | 'INACTIVE') =>
+    apiRequest<any>(`/api/admin/residents/${id}/status`, { method: 'PATCH', body: { status } }),
+};
+
 export const metersApi = {
   list: () => apiRequest<any[]>('/meters'),
   get: (id: string) => apiRequest<any>(`/meters/${id}`),
