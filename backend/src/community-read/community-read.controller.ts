@@ -26,6 +26,119 @@ export class CommunityReadController {
     return this.communityReadService.updateIssueStatus(user, id, body);
   }
 
+  @Roles(Role.RESIDENT)
+  @Get(['resident/requests', 'api/resident/requests'])
+  listResidentRequests(@CurrentUser() user: MvpUser, @Query() query: Record<string, string | undefined>) {
+    return this.communityReadService.listResidentRequests(user, query);
+  }
+
+  @Roles(Role.RESIDENT)
+  @Get(['resident/requests/stats', 'api/resident/requests/stats'])
+  getResidentRequestStats(@CurrentUser() user: MvpUser) {
+    return this.communityReadService.getResidentRequestStats(user);
+  }
+
+  @Roles(Role.RESIDENT)
+  @Post(['resident/requests', 'api/resident/requests'])
+  createResidentRequest(@CurrentUser() user: MvpUser, @Body() body: unknown) {
+    return this.communityReadService.createResidentRequest(user, body);
+  }
+
+  @Roles(Role.RESIDENT)
+  @Get(['resident/requests/:id', 'api/resident/requests/:id'])
+  getResidentRequest(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.communityReadService.getResidentRequest(user, id);
+  }
+
+  @Roles(Role.RESIDENT)
+  @Post(['resident/requests/:id/comments', 'api/resident/requests/:id/comments'])
+  addResidentRequestComment(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.communityReadService.addResidentRequestComment(user, id, body);
+  }
+
+  @Roles(Role.RESIDENT)
+  @Patch(['resident/requests/:id/cancel', 'api/resident/requests/:id/cancel'])
+  cancelResidentRequest(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.communityReadService.cancelResidentRequest(user, id);
+  }
+
+  @Roles(Role.RESIDENT)
+  @Patch(['resident/requests/:id/close', 'api/resident/requests/:id/close'])
+  closeResidentRequest(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.communityReadService.closeResidentRequest(user, id);
+  }
+
+  @Roles(Role.RESIDENT)
+  @Patch(['resident/requests/:id/mark-resolved', 'api/resident/requests/:id/mark-resolved'])
+  markResidentRequestResolved(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.communityReadService.markResidentRequestResolved(user, id);
+  }
+
+  @Get(['admin/requests', 'api/admin/requests'])
+  listAdminRequests(@CurrentUser() user: MvpUser, @Query() query: Record<string, string | undefined>) {
+    return this.communityReadService.listAdminRequests(user, query);
+  }
+
+  @Get(['admin/requests/stats', 'api/admin/requests/stats'])
+  getAdminRequestStats(@CurrentUser() user: MvpUser) {
+    return this.communityReadService.getAdminRequestStats(user);
+  }
+
+  @Get(['admin/requests/:id', 'api/admin/requests/:id'])
+  getAdminRequest(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.communityReadService.getAdminRequest(user, id);
+  }
+
+  @Patch(['admin/requests/:id/status', 'api/admin/requests/:id/status'])
+  updateAdminRequestStatus(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.communityReadService.updateAdminRequestStatus(user, id, body);
+  }
+
+  @Patch(['admin/requests/:id/priority', 'api/admin/requests/:id/priority'])
+  updateAdminRequestPriority(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.communityReadService.updateAdminRequestPriority(user, id, body);
+  }
+
+  @Patch(['admin/requests/:id/assign', 'api/admin/requests/:id/assign'])
+  assignAdminRequest(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.communityReadService.assignAdminRequest(user, id, body);
+  }
+
+  @Post(['admin/requests/:id/comments', 'api/admin/requests/:id/comments'])
+  addAdminRequestComment(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.communityReadService.addAdminRequestComment(user, id, body);
+  }
+
+  @Post(['admin/requests/:id/internal-notes', 'api/admin/requests/:id/internal-notes'])
+  addAdminRequestInternalNote(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.communityReadService.addAdminRequestInternalNote(user, id, body);
+  }
+
+  @Patch(['admin/requests/:id/resolve', 'api/admin/requests/:id/resolve'])
+  resolveAdminRequest(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.communityReadService.resolveAdminRequest(user, id);
+  }
+
+  @Patch(['admin/requests/:id/close', 'api/admin/requests/:id/close'])
+  closeAdminRequest(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.communityReadService.closeAdminRequest(user, id);
+  }
+
+  @Patch(['admin/requests/:id/reopen', 'api/admin/requests/:id/reopen'])
+  reopenAdminRequest(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.communityReadService.reopenAdminRequest(user, id);
+  }
+
+  @Get(['admin/residents/:id/requests', 'api/admin/residents/:id/requests'])
+  listAdminResidentRequests(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.communityReadService.listAdminResidentRequests(user, id);
+  }
+
+  @Get(['admin/apartments/:id/requests', 'api/admin/apartments/:id/requests'])
+  listAdminApartmentRequests(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.communityReadService.listAdminApartmentRequests(user, id);
+  }
+
   @Get(['announcements', 'api/announcements'])
   listAnnouncements(@CurrentUser() user: MvpUser) {
     return this.communityReadService.listAnnouncements(user);

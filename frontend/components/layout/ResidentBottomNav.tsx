@@ -9,8 +9,8 @@ const ITEMS = [
   { href: '/resident', label: 'Acasă', icon: Home },
   { href: '/resident/invoices', label: 'Facturi', icon: FileText },
   { href: '/resident/meters', label: 'Contoare', icon: Gauge },
-  { href: '/resident/issues', label: 'Cereri', icon: Wrench },
-  { href: '/resident/account', label: 'Cont', icon: Menu },
+  { href: '/resident/requests', label: 'Solicitări', icon: Wrench },
+  { href: '/resident/profile', label: 'Cont', icon: Menu },
 ];
 
 export default function ResidentBottomNav() {

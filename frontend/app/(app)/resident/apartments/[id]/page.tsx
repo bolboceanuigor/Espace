@@ -3,9 +3,9 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { AlertCircle, ArrowLeft, Building2, CheckCircle2, FileText, ReceiptText, Users, Wallet } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Building2, CheckCircle2, FileText, MessageCircle, ReceiptText, Users, Wallet } from 'lucide-react';
 import { Badge, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
-import { residentDemoApi } from '@/lib/api';
+import { requestsApi, residentDemoApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
@@ -102,6 +102,16 @@ type ApartmentProfile = {
   }>;
 };
 
+type RecentRequest = {
+  id: string;
+  requestNumber: string;
+  title: string;
+  status: string;
+  priority: string;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+};
+
 const roleLabels: Record<string, string> = {
   OWNER: 'Proprietar',
   TENANT: 'Chiriaș',
@@ -137,6 +147,16 @@ const invoiceStatusLabels: Record<InvoiceStatus, string> = {
   PAID: 'Achitată',
   CANCELLED: 'Anulată',
   VOID: 'Void',
+};
+
+const requestStatusLabels: Record<string, string> = {
+  NEW: 'Nouă',
+  IN_REVIEW: 'În verificare',
+  IN_PROGRESS: 'În lucru',
+  WAITING_FOR_RESIDENT: 'Așteaptă răspunsul tău',
+  RESOLVED: 'Rezolvată',
+  CLOSED: 'Închisă',
+  CANCELLED: 'Anulată',
 };
 
 const paymentMethodLabels: Record<string, string> = {
@@ -177,6 +197,7 @@ export default function ResidentApartmentDetailsPage() {
   const localizedPath = useLocalizedPath();
   const apartmentId = String(params?.id || '');
   const [data, setData] = useState<ApartmentProfile | null>(null);
+  const [recentRequests, setRecentRequests] = useState<RecentRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -197,6 +218,23 @@ export default function ResidentApartmentDetailsPage() {
       })
       .finally(() => {
         if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [apartmentId]);
+
+  useEffect(() => {
+    let active = true;
+    requestsApi
+      .residentList({ apartmentId, limit: 3, sortBy: 'updatedAt' })
+      .then((response) => {
+        if (!active) return;
+        setRecentRequests(response.data?.items || []);
+      })
+      .catch(() => {
+        if (!active) return;
+        setRecentRequests([]);
       });
     return () => {
       active = false;
@@ -379,6 +417,33 @@ export default function ResidentApartmentDetailsPage() {
               </div>
             </Card>
           </section>
+
+          <Card>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold text-foreground">Solicitări pentru acest apartament</h2>
+                <p className="text-sm text-muted-foreground">Ultimele solicitări trimise către administrație.</p>
+              </div>
+              <ButtonLink href={`/resident/requests/new?apartmentId=${apartment.id}`} variant="secondary" size="sm">
+                Creează solicitare pentru acest apartament
+              </ButtonLink>
+            </div>
+            <div className="mt-4 grid gap-3 lg:grid-cols-3">
+              {recentRequests.map((request) => (
+                <Link key={request.id} href={localizedPath(`/resident/requests/${request.id}`)} className="rounded-2xl border border-border/70 bg-muted/25 p-4 transition hover:bg-white">
+                  <p className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                    <MessageCircle className="h-3.5 w-3.5" />
+                    {request.requestNumber}
+                  </p>
+                  <h3 className="mt-2 line-clamp-2 text-sm font-semibold text-foreground">{request.title}</h3>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {requestStatusLabels[request.status] || request.status} · {formatDate(request.updatedAt || request.createdAt)}
+                  </p>
+                </Link>
+              ))}
+              {!recentRequests.length ? <EmptyBlock title="Nu există solicitări pentru acest apartament" text="Cererile trimise pentru apartament vor apărea aici." /> : null}
+            </div>
+          </Card>
 
           <Card>
             <h2 className="text-base font-semibold text-foreground">Atenționări</h2>

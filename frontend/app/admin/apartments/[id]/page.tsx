@@ -465,8 +465,11 @@ export default function AdminApartmentDetailPage() {
               <InfoLine label="Contoare" value={String(apartment.meters.length)} />
               <InfoLine label="Facturi" value={String(apartment.invoices.length)} />
               <InfoLine label="Plăți" value={String(apartment.payments.length)} />
-              <InfoLine label="Cereri" value={String(apartment.issues.length)} />
+              <InfoLine label="Solicitări" value={String(apartment.issues.length)} />
             </div>
+            <Link href={localizedPath(`/admin/requests?apartmentId=${apartment.id}`)} className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-2xl border border-border/70 px-4 text-sm font-semibold hover:bg-muted/60">
+              Vezi solicitările apartamentului
+            </Link>
           </Card>
         </aside>
       </div>

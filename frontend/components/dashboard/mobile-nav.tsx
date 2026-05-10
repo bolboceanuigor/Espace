@@ -9,7 +9,7 @@ const links = [
   { href: '/admin/residents', label: 'Locatari' },
   { href: '/admin/invoices', label: 'Facturi' },
   { href: '/admin/payments', label: 'Plăți' },
-  { href: '/admin/issues', label: 'Cereri' },
+  { href: '/admin/requests', label: 'Solicitări' },
   { href: '/admin/announcements', label: 'Avizier' },
   { href: '/admin/documents', label: 'Documente' },
   { href: '/admin/settings/organization', label: 'Setări' },

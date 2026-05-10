@@ -264,7 +264,7 @@ function label(map: Record<string, string>, value?: string | null, fallback = '-
 }
 
 function safeLocalizedLink(localizedPath: (href: string) => string, href?: string | null, fallback = '/admin') {
-  return localizedPath(href || fallback);
+  return localizedPath((href || fallback).replace('/admin/issues', '/admin/requests'));
 }
 
 export default function AdminPage() {
@@ -350,10 +350,10 @@ export default function AdminPage() {
         active: crm.kpis.totalDebt > 0,
       },
       {
-        title: 'Cereri urgente',
+        title: 'Solicitări urgente',
         value: String(crm.kpis.urgentIssues),
         description: 'Necesită răspuns rapid',
-        href: '/admin/issues',
+        href: '/admin/requests',
         active: crm.kpis.urgentIssues > 0,
       },
       {
@@ -608,17 +608,17 @@ export default function AdminPage() {
 
       <section className="grid gap-4 xl:grid-cols-2">
         <Card>
-          <SectionHeader title="Cereri urgente" description="Solicitări care au prioritate mare sau urgentă." href={localizedPath('/admin/issues')} />
+          <SectionHeader title="Solicitări urgente" description="Solicitări care au prioritate mare sau urgentă." href={localizedPath('/admin/requests')} />
           <div className="mt-4 space-y-2">
             {crm.urgentIssues.map((issue) => (
-              <Link key={issue.id} href={safeLocalizedLink(localizedPath, issue.link, '/admin/issues')} className="block rounded-2xl border border-border/70 bg-white px-4 py-3 hover:bg-muted/40">
+              <Link key={issue.id} href={safeLocalizedLink(localizedPath, issue.link, '/admin/requests')} className="block rounded-2xl border border-border/70 bg-white px-4 py-3 hover:bg-muted/40">
                 <p className="font-semibold text-foreground">{issue.title || 'Cerere'}</p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   Apt. {issue.apartmentNumber || '-'} · {issue.residentName || 'locatar neindicat'} · {label(issuePriorityLabels, issue.priority, 'Normal')} · {label(issueStatusLabels, issue.status, 'Status')}
                 </p>
               </Link>
             ))}
-            {!crm.urgentIssues.length ? <p className="text-sm text-muted-foreground">Nu există cereri urgente.</p> : null}
+            {!crm.urgentIssues.length ? <p className="text-sm text-muted-foreground">Nu există solicitări urgente.</p> : null}
           </div>
         </Card>
 
@@ -660,10 +660,10 @@ export default function AdminPage() {
         </Card>
 
         <Card>
-          <SectionHeader title="Sarcini / follow-up" description="Sarcini operaționale legate de locatari, apartamente sau cereri." href={localizedPath('/admin/issues')} />
+          <SectionHeader title="Sarcini / follow-up" description="Sarcini operaționale legate de locatari, apartamente sau solicitări." href={localizedPath('/admin/requests')} />
           <div className="mt-4 space-y-2">
             {crm.tasks.map((task) => (
-              <Link key={task.id} href={safeLocalizedLink(localizedPath, task.link, '/admin/issues')} className="block rounded-2xl border border-border/70 bg-white px-4 py-3 hover:bg-muted/40">
+              <Link key={task.id} href={safeLocalizedLink(localizedPath, task.link, '/admin/requests')} className="block rounded-2xl border border-border/70 bg-white px-4 py-3 hover:bg-muted/40">
                 <p className="font-semibold text-foreground">{task.title || 'Sarcină'}</p>
                 <p className="mt-1 text-sm text-muted-foreground">{task.message || label(issueStatusLabels, task.status, 'În lucru')}</p>
                 <p className="mt-1 text-xs text-muted-foreground">{label(issuePriorityLabels, task.priority, 'Normal')} · scadență {formatDate(task.dueDate)}</p>
@@ -686,8 +686,8 @@ export default function AdminPage() {
           <ButtonLink href={localizedPath('/admin/payments')} variant="secondary">
             <Banknote className="h-4 w-4" /> Înregistrează plată
           </ButtonLink>
-          <ButtonLink href={localizedPath('/admin/issues')} variant="secondary">
-            <MessageCircle className="h-4 w-4" /> Creează cerere
+          <ButtonLink href={localizedPath('/admin/requests')} variant="secondary">
+            <MessageCircle className="h-4 w-4" /> Vezi solicitări
           </ButtonLink>
           <ButtonLink href={localizedPath('/admin/meters')} variant="secondary">
             <Gauge className="h-4 w-4" /> Adaugă contor
@@ -851,8 +851,8 @@ function ResidentCard({ resident, localizedPath }: { resident: PriorityResident;
         <Link href={safeLocalizedLink(localizedPath, resident.paymentLink, '/admin/payments')} className="rounded-xl border border-border/70 px-3 py-2 text-xs font-semibold hover:bg-muted/60">
           Înregistrează plată
         </Link>
-        <Link href={safeLocalizedLink(localizedPath, resident.issueLink, '/admin/issues')} className="rounded-xl border border-border/70 px-3 py-2 text-xs font-semibold hover:bg-muted/60">
-          Creează cerere
+        <Link href={safeLocalizedLink(localizedPath, resident.issueLink, '/admin/requests')} className="rounded-xl border border-border/70 px-3 py-2 text-xs font-semibold hover:bg-muted/60">
+          Solicitări
         </Link>
       </div>
     </div>

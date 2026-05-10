@@ -537,10 +537,13 @@ export default function AdminResidentDetailPage() {
           <Card>
             <h2 className="text-lg font-semibold text-foreground">Operațiuni asociate</h2>
             <div className="mt-4 grid gap-2 text-sm">
-              <InfoLine label="Cereri" value={String(resident.issues.length)} />
+              <InfoLine label="Solicitări" value={String(resident.issues.length)} />
               <InfoLine label="Mesaje" value={String(resident.messages.length)} />
               <InfoLine label="Apartamente" value={String(resident.apartments.length)} />
             </div>
+            <Link href={localizedPath(`/admin/requests?residentId=${resident.id}`)} className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-2xl border border-border/70 px-4 text-sm font-semibold hover:bg-muted/60">
+              Vezi solicitările locatarului
+            </Link>
           </Card>
         </aside>
       </div>

@@ -4,6 +4,8 @@ import {
   AnnouncementStatus,
   ContentImportance,
   ContentTargetType,
+  IssueCategory,
+  IssuePriority,
   IssueStatus,
   NotificationType,
   Prisma,
@@ -19,6 +21,11 @@ const ANNOUNCEMENT_PRIORITIES = ['LOW', 'NORMAL', 'HIGH', 'URGENT'] as const;
 const ANNOUNCEMENT_STATUSES = ['DRAFT', 'SCHEDULED', 'PUBLISHED', 'ARCHIVED'] as const;
 const ANNOUNCEMENT_VISIBILITY_TYPES = ['ALL_RESIDENTS', 'BY_STAIRCASE', 'BY_APARTMENTS', 'BY_ROLE'] as const;
 const ANNOUNCEMENT_ROLES = ['OWNER', 'TENANT', 'RESIDENT', 'REPRESENTATIVE'] as const;
+const REQUEST_METADATA_TITLE = 'Resident request module metadata';
+const REQUEST_CATEGORIES = ['MAINTENANCE', 'CLEANING', 'PAYMENTS', 'DOCUMENTS', 'ACCESS', 'NOISE', 'COMMON_AREA', 'TECHNICAL', 'OTHER'] as const;
+const REQUEST_PRIORITIES = ['LOW', 'NORMAL', 'HIGH', 'URGENT'] as const;
+const REQUEST_STATUSES = ['NEW', 'IN_REVIEW', 'IN_PROGRESS', 'WAITING_FOR_RESIDENT', 'RESOLVED', 'CLOSED', 'CANCELLED'] as const;
+const REQUEST_MESSAGE_TYPES = ['PUBLIC_COMMENT', 'INTERNAL_NOTE', 'STATUS_CHANGE'] as const;
 
 type AnnouncementCategoryValue = (typeof ANNOUNCEMENT_CATEGORIES)[number];
 type AnnouncementPriorityValue = (typeof ANNOUNCEMENT_PRIORITIES)[number];
@@ -55,6 +62,35 @@ type ResidentAnnouncementScope = {
   buildingIds: string[];
   roles: string[];
 };
+type RequestCategoryValue = (typeof REQUEST_CATEGORIES)[number];
+type RequestPriorityValue = (typeof REQUEST_PRIORITIES)[number];
+type RequestStatusValue = (typeof REQUEST_STATUSES)[number];
+type RequestMessageTypeValue = (typeof REQUEST_MESSAGE_TYPES)[number];
+type RequestMetadata = {
+  requestNumber: string;
+  category: RequestCategoryValue;
+  priority: RequestPriorityValue;
+  status: RequestStatusValue;
+  locationDetails: string | null;
+  preferredContactMethod: string | null;
+  createdByResidentId: string | null;
+  resolvedAt: string | null;
+  closedAt: string | null;
+  cancelledAt: string | null;
+  assignedToId?: string | null;
+  timeline: Array<{
+    type: RequestMessageTypeValue;
+    oldStatus?: string | null;
+    newStatus?: string | null;
+    message: string;
+    createdAt: string;
+    authorUserId?: string | null;
+  }>;
+};
+type RequestMetadataStore = {
+  items: Record<string, RequestMetadata>;
+  counters: Record<string, number>;
+};
 
 @Injectable()
 export class CommunityReadService {
@@ -69,13 +105,21 @@ export class CommunityReadService {
       organizationId: true,
       apartmentId: true,
       residentId: true,
+      buildingId: true,
+      staircaseId: true,
+      assignedToUserId: true,
+      createdByUserId: true,
       category: true,
       priority: true,
       status: true,
+      locationType: true,
       title: true,
       description: true,
+      resolvedAt: true,
       createdAt: true,
       updatedAt: true,
+      building: { select: { id: true, name: true } },
+      staircase: { select: { id: true, name: true } },
       apartment: {
         select: {
           id: true,
@@ -94,6 +138,41 @@ export class CommunityReadService {
           phone: true,
           email: true,
         },
+      },
+      assignedTo: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+        },
+      },
+      createdBy: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          role: true,
+        },
+      },
+      comments: {
+        select: {
+          id: true,
+          message: true,
+          isInternal: true,
+          createdAt: true,
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              role: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'asc' },
       },
     };
   }
@@ -167,6 +246,229 @@ export class CommunityReadService {
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     };
+  }
+
+  private toRequest(row: any, store?: RequestMetadataStore, includeInternal = false) {
+    const meta = this.requestMeta(row, store);
+    const publicComments = (row.comments || []).filter((comment: any) => !comment.isInternal);
+    const visibleComments = (row.comments || []).filter((comment: any) => includeInternal || !comment.isInternal);
+    const lastMessage = publicComments[publicComments.length - 1];
+    const apartment = row.apartment
+      ? {
+          id: row.apartment.id,
+          apartmentNumber: row.apartment.number,
+          number: row.apartment.number,
+          staircase: row.apartment.staircase?.name || row.staircase?.name || null,
+          floor: row.apartment.floor,
+        }
+      : null;
+    const resident = row.resident
+      ? {
+          id: row.resident.id,
+          fullName: this.fullName(row.resident),
+          phone: row.resident.phone,
+          email: row.resident.email,
+        }
+      : null;
+    const assignedTo = row.assignedTo
+      ? {
+          id: row.assignedTo.id,
+          fullName: this.fullName(row.assignedTo),
+          email: row.assignedTo.email,
+        }
+      : null;
+    return {
+      id: row.id,
+      organizationId: row.organizationId,
+      requestNumber: meta.requestNumber,
+      title: row.title,
+      description: row.description,
+      category: meta.category,
+      priority: meta.priority,
+      status: meta.status,
+      locationDetails: meta.locationDetails,
+      preferredContactMethod: meta.preferredContactMethod,
+      apartmentId: row.apartmentId,
+      residentId: row.residentId,
+      createdByUserId: row.createdByUserId,
+      assignedToId: row.assignedToUserId || meta.assignedToId || null,
+      apartment,
+      building: row.building ? { id: row.building.id, name: row.building.name } : row.apartment?.building || null,
+      staircase: row.staircase ? { id: row.staircase.id, name: row.staircase.name } : row.apartment?.staircase || null,
+      resident,
+      assignedTo,
+      lastMessagePreview: lastMessage?.message ? this.preview(lastMessage.message, 120) : null,
+      messages: visibleComments.map((comment: any) => ({
+        id: comment.id,
+        messageType: comment.isInternal ? 'INTERNAL_NOTE' : 'PUBLIC_COMMENT',
+        message: comment.message,
+        author: {
+          id: comment.user?.id || null,
+          name: this.fullName(comment.user) || (comment.user?.role === Role.ADMIN ? 'Administrator' : 'Locatar'),
+          role: comment.user?.role || null,
+        },
+        createdAt: comment.createdAt,
+      })),
+      timeline: [
+        {
+          type: 'STATUS_CHANGE',
+          oldStatus: null,
+          newStatus: 'NEW',
+          message: 'Solicitarea a fost creată.',
+          createdAt: row.createdAt,
+          authorUserId: row.createdByUserId,
+        },
+        ...(meta.timeline || []),
+      ],
+      resolvedAt: meta.resolvedAt || row.resolvedAt || null,
+      closedAt: meta.closedAt,
+      cancelledAt: meta.cancelledAt,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    };
+  }
+
+  private emptyRequestMetadataStore(): RequestMetadataStore {
+    return { items: {}, counters: {} };
+  }
+
+  private async readRequestMetadata(organizationId: string): Promise<RequestMetadataStore> {
+    const note = await this.prisma.clientNote.findFirst({
+      where: { organizationId, title: REQUEST_METADATA_TITLE },
+      orderBy: { updatedAt: 'desc' },
+      select: { content: true },
+    });
+    if (!note?.content) return this.emptyRequestMetadataStore();
+    try {
+      const parsed = JSON.parse(note.content);
+      return {
+        items: parsed?.items && typeof parsed.items === 'object' ? parsed.items : {},
+        counters: parsed?.counters && typeof parsed.counters === 'object' ? parsed.counters : {},
+      };
+    } catch {
+      return this.emptyRequestMetadataStore();
+    }
+  }
+
+  private async writeRequestMetadata(organizationId: string, userId: string, store: RequestMetadataStore) {
+    const existing = await this.prisma.clientNote.findFirst({
+      where: { organizationId, title: REQUEST_METADATA_TITLE },
+      select: { id: true },
+    });
+    const content = JSON.stringify(store);
+    if (existing) {
+      await this.prisma.clientNote.update({ where: { id: existing.id }, data: { content } });
+      return;
+    }
+    await this.prisma.clientNote.create({
+      data: {
+        organizationId,
+        createdByUserId: userId,
+        title: REQUEST_METADATA_TITLE,
+        content,
+      },
+    });
+  }
+
+  private requestMeta(row: any, store?: RequestMetadataStore): RequestMetadata {
+    const existing = (store?.items?.[row.id] || {}) as Partial<RequestMetadata>;
+    return {
+      requestNumber: typeof existing.requestNumber === 'string' && existing.requestNumber ? existing.requestNumber : this.fallbackRequestNumber(row),
+      category: this.normalizeRequestCategory(existing.category || this.requestCategoryFromPrisma(row.category)),
+      priority: this.normalizeRequestPriority(existing.priority || this.requestPriorityFromPrisma(row.priority)),
+      status: this.normalizeRequestStatus(existing.status || this.requestStatusFromPrisma(row.status)),
+      locationDetails: typeof existing.locationDetails === 'string' && existing.locationDetails ? existing.locationDetails : null,
+      preferredContactMethod: typeof existing.preferredContactMethod === 'string' && existing.preferredContactMethod ? existing.preferredContactMethod : null,
+      createdByResidentId: typeof existing.createdByResidentId === 'string' ? existing.createdByResidentId : row.residentId || null,
+      resolvedAt: typeof existing.resolvedAt === 'string' ? existing.resolvedAt : row.resolvedAt?.toISOString?.() || null,
+      closedAt: typeof existing.closedAt === 'string' ? existing.closedAt : null,
+      cancelledAt: typeof existing.cancelledAt === 'string' ? existing.cancelledAt : null,
+      assignedToId: typeof existing.assignedToId === 'string' ? existing.assignedToId : row.assignedToUserId || null,
+      timeline: Array.isArray(existing.timeline) ? existing.timeline : [],
+    };
+  }
+
+  private fallbackRequestNumber(row: any) {
+    const date = new Date(row.createdAt || Date.now());
+    const yearMonth = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}`;
+    const hash = String(row.id || '')
+      .split('')
+      .reduce((sum, char) => sum + char.charCodeAt(0), 0);
+    return `REQ-${yearMonth}-${String((hash % 9999) + 1).padStart(4, '0')}`;
+  }
+
+  private nextRequestNumber(store: RequestMetadataStore) {
+    const now = new Date();
+    const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const next = Number(store.counters[yearMonth] || 0) + 1;
+    store.counters[yearMonth] = next;
+    return `REQ-${yearMonth}-${String(next).padStart(4, '0')}`;
+  }
+
+  private normalizeRequestCategory(value: unknown): RequestCategoryValue {
+    const normalized = typeof value === 'string' ? value.trim().toUpperCase() : 'OTHER';
+    if (REQUEST_CATEGORIES.includes(normalized as RequestCategoryValue)) return normalized as RequestCategoryValue;
+    if (normalized === 'REPAIR' || normalized === 'WATER' || normalized === 'HEATING' || normalized === 'ELEVATOR' || normalized === 'ELECTRICITY') return 'MAINTENANCE';
+    if (normalized === 'SECURITY') return 'ACCESS';
+    throw new BadRequestException('Categoria solicitării nu este validă.');
+  }
+
+  private normalizeRequestPriority(value: unknown): RequestPriorityValue {
+    const normalized = typeof value === 'string' ? value.trim().toUpperCase() : 'NORMAL';
+    if (REQUEST_PRIORITIES.includes(normalized as RequestPriorityValue)) return normalized as RequestPriorityValue;
+    if (normalized === 'MEDIUM' || normalized === 'IMPORTANT') return 'NORMAL';
+    throw new BadRequestException('Prioritatea solicitării nu este validă.');
+  }
+
+  private normalizeRequestStatus(value: unknown): RequestStatusValue {
+    const normalized = typeof value === 'string' ? value.trim().toUpperCase() : 'NEW';
+    if (REQUEST_STATUSES.includes(normalized as RequestStatusValue)) return normalized as RequestStatusValue;
+    if (normalized === 'WAITING') return 'WAITING_FOR_RESIDENT';
+    throw new BadRequestException('Statusul solicitării nu este valid.');
+  }
+
+  private requestCategoryFromPrisma(value?: string | null): RequestCategoryValue {
+    if (value === IssueCategory.CLEANING) return 'CLEANING';
+    if (value === IssueCategory.SECURITY) return 'ACCESS';
+    if (value && value !== IssueCategory.OTHER) return 'MAINTENANCE';
+    return 'OTHER';
+  }
+
+  private requestCategoryToPrisma(value: RequestCategoryValue): IssueCategory {
+    if (value === 'CLEANING') return IssueCategory.CLEANING;
+    if (value === 'ACCESS') return IssueCategory.SECURITY;
+    if (value === 'MAINTENANCE' || value === 'TECHNICAL' || value === 'COMMON_AREA') return IssueCategory.REPAIR;
+    return IssueCategory.OTHER;
+  }
+
+  private requestPriorityFromPrisma(value?: string | null): RequestPriorityValue {
+    if (value === IssuePriority.URGENT) return 'URGENT';
+    if (value === IssuePriority.HIGH) return 'HIGH';
+    if (value === IssuePriority.LOW) return 'LOW';
+    return 'NORMAL';
+  }
+
+  private requestPriorityToPrisma(value: RequestPriorityValue): IssuePriority {
+    if (value === 'URGENT') return IssuePriority.URGENT;
+    if (value === 'HIGH') return IssuePriority.HIGH;
+    if (value === 'LOW') return IssuePriority.LOW;
+    return IssuePriority.NORMAL;
+  }
+
+  private requestStatusFromPrisma(value?: string | null): RequestStatusValue {
+    if (value === IssueStatus.IN_PROGRESS) return 'IN_PROGRESS';
+    if (value === IssueStatus.WAITING) return 'WAITING_FOR_RESIDENT';
+    if (value === IssueStatus.RESOLVED) return 'RESOLVED';
+    if (value === IssueStatus.CLOSED) return 'CLOSED';
+    return 'NEW';
+  }
+
+  private requestStatusToPrisma(value: RequestStatusValue): IssueStatus {
+    if (value === 'IN_PROGRESS') return IssueStatus.IN_PROGRESS;
+    if (value === 'WAITING_FOR_RESIDENT') return IssueStatus.WAITING;
+    if (value === 'RESOLVED') return IssueStatus.RESOLVED;
+    if (value === 'CLOSED' || value === 'CANCELLED') return IssueStatus.CLOSED;
+    return IssueStatus.NEW;
   }
 
   private toAnnouncement(row: any, store?: AnnouncementMetadataStore, readAt?: string | null, targetedResidents = 0) {
@@ -558,6 +860,313 @@ export class CommunityReadService {
     return this.toIssue(issue);
   }
 
+  async listResidentRequests(user: MvpUser, query: Record<string, string | undefined>) {
+    const scope = await this.residentScope(user.organizationId, user.id);
+    const store = await this.readRequestMetadata(user.organizationId);
+    const rows = await this.prisma.issue.findMany({
+      where: {
+        organizationId: user.organizationId,
+        OR: [
+          { createdByUserId: user.id },
+          { residentId: { in: scope.residentIds.length ? scope.residentIds : ['__none__'] } },
+          { apartmentId: { in: scope.apartmentIds.length ? scope.apartmentIds : ['__none__'] } },
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
+      select: this.issueSelect(),
+    });
+    const association = await this.getOrganizationBadge(user.organizationId);
+    const allItems = rows.map((row) => this.toRequest(row, store, false));
+    const filtered = this.filterRequests(allItems, query, false);
+    const sorted = this.sortRequests(filtered, query.sortBy, query.sortDirection);
+    const page = this.positiveInt(query.page, 1);
+    const limit = Math.min(this.positiveInt(query.limit, 20), 100);
+    const start = (page - 1) * limit;
+    return {
+      items: sorted.slice(start, start + limit),
+      meta: { page, limit, total: sorted.length },
+      stats: this.requestStats(allItems),
+      association,
+      apartments: await this.residentRequestApartments(user.organizationId, scope),
+    };
+  }
+
+  async getResidentRequestStats(user: MvpUser) {
+    const result = await this.listResidentRequests(user, { limit: '1000' });
+    return result.stats;
+  }
+
+  async createResidentRequest(user: MvpUser, body: unknown) {
+    const payload = this.objectPayload(body);
+    const scope = await this.residentScope(user.organizationId, user.id);
+    if (!scope.apartmentIds.length) throw new BadRequestException('Contul tău nu este conectat încă la un apartament.');
+    const apartmentId = this.requiredString(payload.apartmentId || scope.apartmentIds[0], 'Apartamentul este obligatoriu.');
+    if (!scope.apartmentIds.includes(apartmentId)) throw new ForbiddenException('Nu ai acces la acest apartament.');
+    const apartment = await this.prisma.apartment.findFirst({
+      where: { id: apartmentId, organizationId: user.organizationId },
+      select: { id: true, buildingId: true, staircaseId: true },
+    });
+    if (!apartment) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    const title = this.requiredString(payload.title, 'Titlul solicitării este obligatoriu.');
+    if (title.length < 3) throw new BadRequestException('Titlul trebuie să aibă cel puțin 3 caractere.');
+    const description = this.requiredString(payload.description, 'Descrierea solicitării este obligatorie.');
+    if (description.length < 10) throw new BadRequestException('Descrierea trebuie să aibă cel puțin 10 caractere.');
+    const category = this.normalizeRequestCategory(payload.category);
+    const priority = payload.priority ? this.normalizeRequestPriority(payload.priority) : 'NORMAL';
+    const residentId = scope.residentIds[0] || null;
+    const store = await this.readRequestMetadata(user.organizationId);
+    const requestNumber = this.nextRequestNumber(store);
+
+    const issue = await this.prisma.issue.create({
+      data: {
+        organizationId: user.organizationId,
+        apartmentId,
+        buildingId: apartment.buildingId,
+        staircaseId: apartment.staircaseId,
+        residentId,
+        createdByUserId: user.id,
+        title,
+        description,
+        category: this.requestCategoryToPrisma(category),
+        priority: this.requestPriorityToPrisma(priority),
+        status: IssueStatus.NEW,
+        locationType: 'APARTMENT',
+      },
+      select: this.issueSelect(),
+    });
+    store.items[issue.id] = {
+      requestNumber,
+      category,
+      priority,
+      status: 'NEW',
+      locationDetails: typeof payload.locationDetails === 'string' && payload.locationDetails.trim() ? payload.locationDetails.trim() : null,
+      preferredContactMethod:
+        typeof payload.preferredContactMethod === 'string' && payload.preferredContactMethod.trim()
+          ? payload.preferredContactMethod.trim().toUpperCase()
+          : null,
+      createdByResidentId: residentId,
+      resolvedAt: null,
+      closedAt: null,
+      cancelledAt: null,
+      assignedToId: null,
+      timeline: [],
+    };
+    await this.writeRequestMetadata(user.organizationId, user.id, store);
+
+    await this.activity.createActivity({
+      organizationId: user.organizationId,
+      actorUserId: user.id,
+      type: 'ISSUE_CREATED',
+      title: 'Solicitare nouă',
+      message: `Solicitarea „${title}” a fost trimisă de locatar.`,
+      targetType: 'ISSUE',
+      targetId: issue.id,
+      link: `/admin/requests/${issue.id}`,
+    });
+
+    return this.toRequest(issue, store, false);
+  }
+
+  async getResidentRequest(user: MvpUser, id: string) {
+    const { row, store } = await this.findResidentRequest(user, id);
+    const association = await this.getOrganizationBadge(row.organizationId);
+    return {
+      request: this.toRequest(row, store, false),
+      association,
+    };
+  }
+
+  async addResidentRequestComment(user: MvpUser, id: string, body: unknown) {
+    const { row } = await this.findResidentRequest(user, id);
+    const message = this.requiredString(this.objectPayload(body).message, 'Comentariul este obligatoriu.');
+    const comment = await this.prisma.issueComment.create({
+      data: { issueId: row.id, userId: user.id, message, isInternal: false },
+    });
+    await this.activity.createActivity({
+      organizationId: row.organizationId,
+      actorUserId: user.id,
+      type: 'ISSUE_STATUS_UPDATED',
+      title: 'Comentariu nou la solicitare',
+      message: `Locatarul a adăugat un comentariu la „${row.title}”.`,
+      targetType: 'ISSUE',
+      targetId: row.id,
+      link: `/admin/requests/${row.id}`,
+    });
+    return comment;
+  }
+
+  async cancelResidentRequest(user: MvpUser, id: string) {
+    const { row, store } = await this.findResidentRequest(user, id);
+    const meta = this.requestMeta(row, store);
+    if (!['NEW', 'IN_REVIEW'].includes(meta.status)) throw new BadRequestException('Solicitarea nu mai poate fi anulată.');
+    return this.changeRequestStatus(row, store, user.id, meta.status, 'CANCELLED', 'Solicitarea a fost anulată de locatar.');
+  }
+
+  async closeResidentRequest(user: MvpUser, id: string) {
+    const { row, store } = await this.findResidentRequest(user, id);
+    const meta = this.requestMeta(row, store);
+    if (meta.status !== 'RESOLVED') throw new BadRequestException('Poți închide doar o solicitare rezolvată.');
+    return this.changeRequestStatus(row, store, user.id, meta.status, 'CLOSED', 'Solicitarea a fost închisă de locatar.');
+  }
+
+  async markResidentRequestResolved(user: MvpUser, id: string) {
+    const { row, store } = await this.findResidentRequest(user, id);
+    const meta = this.requestMeta(row, store);
+    if (!['WAITING_FOR_RESIDENT', 'IN_PROGRESS'].includes(meta.status)) {
+      throw new BadRequestException('Solicitarea nu poate fi marcată ca rezolvată în acest status.');
+    }
+    return this.changeRequestStatus(row, store, user.id, meta.status, 'RESOLVED', 'Locatarul a confirmat rezolvarea solicitării.');
+  }
+
+  async listAdminRequests(user: MvpUser, query: Record<string, string | undefined>) {
+    const organizationId = this.adminOrganizationId(user, query);
+    this.assertOrganizationAccess(user, organizationId);
+    const store = await this.readRequestMetadata(organizationId);
+    const rows = await this.prisma.issue.findMany({
+      where: { organizationId },
+      orderBy: { createdAt: 'desc' },
+      select: this.issueSelect(),
+    });
+    const allItems = rows.map((row) => this.toRequest(row, store, true));
+    const filtered = this.filterRequests(allItems, query, true);
+    const sorted = this.sortRequests(filtered, query.sortBy, query.sortDirection);
+    const page = this.positiveInt(query.page, 1);
+    const limit = Math.min(this.positiveInt(query.limit, 20), 100);
+    const start = (page - 1) * limit;
+    return {
+      items: sorted.slice(start, start + limit),
+      meta: { page, limit, total: sorted.length },
+      stats: this.requestStats(allItems),
+      association: await this.getOrganizationBadge(organizationId),
+    };
+  }
+
+  async getAdminRequestStats(user: MvpUser) {
+    const result = await this.listAdminRequests(user, { limit: '1000' });
+    return result.stats;
+  }
+
+  async getAdminRequest(user: MvpUser, id: string) {
+    const row = await this.findAdminRequest(user, id);
+    const store = await this.readRequestMetadata(row.organizationId);
+    return {
+      request: this.toRequest(row, store, true),
+      association: await this.getOrganizationBadge(row.organizationId),
+    };
+  }
+
+  async updateAdminRequestStatus(user: MvpUser, id: string, body: unknown) {
+    const row = await this.findAdminRequest(user, id);
+    const store = await this.readRequestMetadata(row.organizationId);
+    const meta = this.requestMeta(row, store);
+    const nextStatus = this.normalizeRequestStatus(this.objectPayload(body).status);
+    return this.changeRequestStatus(row, store, user.id, meta.status, nextStatus, `Status schimbat la ${nextStatus}.`);
+  }
+
+  async updateAdminRequestPriority(user: MvpUser, id: string, body: unknown) {
+    const row = await this.findAdminRequest(user, id);
+    const store = await this.readRequestMetadata(row.organizationId);
+    const meta = this.requestMeta(row, store);
+    const nextPriority = this.normalizeRequestPriority(this.objectPayload(body).priority);
+    store.items[row.id] = { ...meta, priority: nextPriority };
+    const updated = await this.prisma.issue.update({
+      where: { id: row.id },
+      data: { priority: this.requestPriorityToPrisma(nextPriority) },
+      select: this.issueSelect(),
+    });
+    await this.writeRequestMetadata(row.organizationId, user.id, store);
+    return this.toRequest(updated, store, true);
+  }
+
+  async assignAdminRequest(user: MvpUser, id: string, body: unknown) {
+    const row = await this.findAdminRequest(user, id);
+    const payload = this.objectPayload(body);
+    const assignedToId =
+      typeof payload.assignedToId === 'string'
+        ? payload.assignedToId.trim()
+        : typeof payload.assignedToUserId === 'string'
+          ? payload.assignedToUserId.trim()
+          : user.id;
+    if (assignedToId) {
+      const assignee = await this.prisma.user.findFirst({
+        where: { id: assignedToId, organizationId: row.organizationId, role: Role.ADMIN, deletedAt: null },
+        select: { id: true },
+      });
+      if (!assignee) throw new BadRequestException('Administratorul selectat nu este valid.');
+    }
+    const store = await this.readRequestMetadata(row.organizationId);
+    const meta = this.requestMeta(row, store);
+    store.items[row.id] = { ...meta, assignedToId: assignedToId || null };
+    const updated = await this.prisma.issue.update({
+      where: { id: row.id },
+      data: { assignedToUserId: assignedToId || null },
+      select: this.issueSelect(),
+    });
+    await this.writeRequestMetadata(row.organizationId, user.id, store);
+    return this.toRequest(updated, store, true);
+  }
+
+  async addAdminRequestComment(user: MvpUser, id: string, body: unknown) {
+    const row = await this.findAdminRequest(user, id);
+    const message = this.requiredString(this.objectPayload(body).message, 'Comentariul este obligatoriu.');
+    return this.prisma.issueComment.create({
+      data: { issueId: row.id, userId: user.id, message, isInternal: false },
+    });
+  }
+
+  async addAdminRequestInternalNote(user: MvpUser, id: string, body: unknown) {
+    const row = await this.findAdminRequest(user, id);
+    const message = this.requiredString(this.objectPayload(body).message, 'Nota internă este obligatorie.');
+    return this.prisma.issueComment.create({
+      data: { issueId: row.id, userId: user.id, message, isInternal: true },
+    });
+  }
+
+  async resolveAdminRequest(user: MvpUser, id: string) {
+    const row = await this.findAdminRequest(user, id);
+    const store = await this.readRequestMetadata(row.organizationId);
+    const meta = this.requestMeta(row, store);
+    return this.changeRequestStatus(row, store, user.id, meta.status, 'RESOLVED', 'Solicitarea a fost marcată ca rezolvată.');
+  }
+
+  async closeAdminRequest(user: MvpUser, id: string) {
+    const row = await this.findAdminRequest(user, id);
+    const store = await this.readRequestMetadata(row.organizationId);
+    const meta = this.requestMeta(row, store);
+    return this.changeRequestStatus(row, store, user.id, meta.status, 'CLOSED', 'Solicitarea a fost închisă.');
+  }
+
+  async reopenAdminRequest(user: MvpUser, id: string) {
+    const row = await this.findAdminRequest(user, id);
+    const store = await this.readRequestMetadata(row.organizationId);
+    const meta = this.requestMeta(row, store);
+    return this.changeRequestStatus(row, store, user.id, meta.status, 'IN_PROGRESS', 'Solicitarea a fost redeschisă.');
+  }
+
+  async listAdminResidentRequests(user: MvpUser, residentId: string) {
+    const organizationId = this.adminOrganizationId(user);
+    this.assertOrganizationAccess(user, organizationId);
+    const store = await this.readRequestMetadata(organizationId);
+    const rows = await this.prisma.issue.findMany({
+      where: { organizationId, residentId },
+      orderBy: { createdAt: 'desc' },
+      select: this.issueSelect(),
+    });
+    return { items: rows.map((row) => this.toRequest(row, store, true)), meta: { total: rows.length } };
+  }
+
+  async listAdminApartmentRequests(user: MvpUser, apartmentId: string) {
+    const organizationId = this.adminOrganizationId(user);
+    this.assertOrganizationAccess(user, organizationId);
+    const store = await this.readRequestMetadata(organizationId);
+    const rows = await this.prisma.issue.findMany({
+      where: { organizationId, apartmentId },
+      orderBy: { createdAt: 'desc' },
+      select: this.issueSelect(),
+    });
+    return { items: rows.map((row) => this.toRequest(row, store, true)), meta: { total: rows.length } };
+  }
+
   async listAnnouncements(user: MvpUser) {
     const result = await this.listAdminAnnouncements(user, {});
     return result.items;
@@ -848,6 +1457,179 @@ export class CommunityReadService {
     store.reads[id] = { ...(store.reads[id] || {}), [readKey]: now };
     await this.writeAnnouncementMetadata(announcement.organizationId, user.id, store);
     return { success: true, readAt: now };
+  }
+
+  private async residentRequestApartments(organizationId: string, scope: ResidentAnnouncementScope) {
+    if (!scope.apartmentIds.length) return [];
+    const apartments = await this.prisma.apartment.findMany({
+      where: { organizationId, id: { in: scope.apartmentIds } },
+      select: { id: true, number: true, floor: true, staircase: { select: { id: true, name: true } } },
+      orderBy: { number: 'asc' },
+    });
+    return apartments.map((apartment) => ({
+      id: apartment.id,
+      apartmentNumber: apartment.number,
+      staircase: apartment.staircase?.name || null,
+      floor: apartment.floor,
+    }));
+  }
+
+  private filterRequests(items: any[], query: Record<string, string | undefined>, admin: boolean) {
+    const search = (query.search || '').trim().toLowerCase();
+    const status = query.status ? this.normalizeRequestStatus(query.status) : null;
+    const category = query.category ? this.normalizeRequestCategory(query.category) : null;
+    const priority = query.priority ? this.normalizeRequestPriority(query.priority) : null;
+    const openOnly = query.openOnly === 'true' || query.unresolvedOnly === 'true';
+    const resolvedOnly = query.resolvedOnly === 'true';
+    const dateFrom = query.dateFrom ? new Date(query.dateFrom) : null;
+    const dateTo = query.dateTo ? new Date(query.dateTo) : null;
+    return items.filter((item) => {
+      if (status && item.status !== status) return false;
+      if (category && item.category !== category) return false;
+      if (priority && item.priority !== priority) return false;
+      if (query.apartmentId && item.apartment?.id !== query.apartmentId) return false;
+      if (query.residentId && item.resident?.id !== query.residentId) return false;
+      if (query.assignedToId && item.assignedTo?.id !== query.assignedToId) return false;
+      if (query.staircase && String(item.apartment?.staircase || item.staircase?.name || '').toLowerCase() !== String(query.staircase).toLowerCase()) return false;
+      if (openOnly && ['RESOLVED', 'CLOSED', 'CANCELLED'].includes(item.status)) return false;
+      if (resolvedOnly && item.status !== 'RESOLVED' && item.status !== 'CLOSED') return false;
+      if (dateFrom && new Date(item.createdAt) < dateFrom) return false;
+      if (dateTo && new Date(item.createdAt) > dateTo) return false;
+      if (search) {
+        const haystack = [
+          item.requestNumber,
+          item.title,
+          item.description,
+          item.resident?.fullName,
+          item.resident?.phone,
+          item.apartment?.apartmentNumber,
+          item.locationDetails,
+          admin ? item.assignedTo?.fullName : '',
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        if (!haystack.includes(search)) return false;
+      }
+      return true;
+    });
+  }
+
+  private sortRequests(items: any[], sortBy?: string, sortDirection?: string) {
+    const direction = sortDirection === 'asc' || sortBy === 'oldest' ? 1 : -1;
+    const priorityWeight: Record<string, number> = { URGENT: 4, HIGH: 3, NORMAL: 2, LOW: 1 };
+    return [...items].sort((a, b) => {
+      if (sortBy === 'priority') {
+        const diff = (priorityWeight[b.priority] || 0) - (priorityWeight[a.priority] || 0);
+        if (diff !== 0) return diff;
+      }
+      if (sortBy === 'status') return String(a.status).localeCompare(String(b.status)) * direction;
+      if (sortBy === 'updatedAt') return (new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime()) * direction;
+      return (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) * direction;
+    });
+  }
+
+  private requestStats(items: any[]) {
+    const openStatuses = ['NEW', 'IN_REVIEW', 'IN_PROGRESS', 'WAITING_FOR_RESIDENT'];
+    const last = [...items].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+    const resolved = items.filter((item) => item.status === 'RESOLVED');
+    const resolutionHours = resolved
+      .map((item) => {
+        const end = item.resolvedAt ? new Date(item.resolvedAt).getTime() : 0;
+        const start = item.createdAt ? new Date(item.createdAt).getTime() : 0;
+        return end && start ? (end - start) / 36e5 : 0;
+      })
+      .filter((value) => value > 0);
+    return {
+      total: items.length,
+      open: items.filter((item) => openStatuses.includes(item.status)).length,
+      new: items.filter((item) => item.status === 'NEW').length,
+      inReview: items.filter((item) => item.status === 'IN_REVIEW').length,
+      inProgress: items.filter((item) => item.status === 'IN_PROGRESS').length,
+      waitingForResident: items.filter((item) => item.status === 'WAITING_FOR_RESIDENT').length,
+      resolved: items.filter((item) => item.status === 'RESOLVED').length,
+      closed: items.filter((item) => item.status === 'CLOSED').length,
+      cancelled: items.filter((item) => item.status === 'CANCELLED').length,
+      urgent: items.filter((item) => item.priority === 'URGENT').length,
+      currentMonth: items.filter((item) => {
+        const date = new Date(item.createdAt);
+        const now = new Date();
+        return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+      }).length,
+      lastRequestAt: last?.createdAt || null,
+      averageResolutionHours: resolutionHours.length
+        ? Math.round((resolutionHours.reduce((sum, value) => sum + value, 0) / resolutionHours.length) * 10) / 10
+        : null,
+    };
+  }
+
+  private async findResidentRequest(user: MvpUser, id: string) {
+    const scope = await this.residentScope(user.organizationId, user.id);
+    const row = await this.prisma.issue.findFirst({
+      where: {
+        id,
+        organizationId: user.organizationId,
+        OR: [
+          { createdByUserId: user.id },
+          { residentId: { in: scope.residentIds.length ? scope.residentIds : ['__none__'] } },
+          { apartmentId: { in: scope.apartmentIds.length ? scope.apartmentIds : ['__none__'] } },
+        ],
+      },
+      select: this.issueSelect(),
+    });
+    if (!row) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    return { row, store: await this.readRequestMetadata(user.organizationId), scope };
+  }
+
+  private async findAdminRequest(user: MvpUser, id: string) {
+    const row = await this.prisma.issue.findFirst({
+      where: { id, ...this.organizationWhere(user) },
+      select: this.issueSelect(),
+    });
+    if (!row) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    this.assertOrganizationAccess(user, row.organizationId);
+    return row;
+  }
+
+  private async changeRequestStatus(
+    row: any,
+    store: RequestMetadataStore,
+    userId: string,
+    oldStatus: RequestStatusValue,
+    newStatus: RequestStatusValue,
+    message: string,
+  ) {
+    const now = new Date().toISOString();
+    const meta = this.requestMeta(row, store);
+    const nextMeta: RequestMetadata = {
+      ...meta,
+      status: newStatus,
+      resolvedAt: newStatus === 'RESOLVED' ? now : meta.resolvedAt,
+      closedAt: newStatus === 'CLOSED' ? now : meta.closedAt,
+      cancelledAt: newStatus === 'CANCELLED' ? now : meta.cancelledAt,
+      timeline: [
+        ...(meta.timeline || []),
+        {
+          type: 'STATUS_CHANGE',
+          oldStatus,
+          newStatus,
+          message,
+          createdAt: now,
+          authorUserId: userId,
+        },
+      ],
+    };
+    store.items[row.id] = nextMeta;
+    const updated = await this.prisma.issue.update({
+      where: { id: row.id },
+      data: {
+        status: this.requestStatusToPrisma(newStatus),
+        resolvedAt: newStatus === 'RESOLVED' ? new Date(now) : newStatus === 'IN_PROGRESS' ? null : row.resolvedAt || null,
+      },
+      select: this.issueSelect(),
+    });
+    await this.writeRequestMetadata(row.organizationId, userId, store);
+    return this.toRequest(updated, store, true);
   }
 
   private parseIssueStatus(body: unknown) {

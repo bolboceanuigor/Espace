@@ -1149,6 +1149,40 @@ export const issuesApi = {
   superadminOverview: () => apiRequest<any>('/api/superadmin/issues/overview'),
 };
 
+export const requestsApi = {
+  residentList: (params?: Record<string, string | number | boolean | undefined | null>) =>
+    apiRequest<any>('/api/resident/requests', { params }),
+  residentStats: () => apiRequest<any>('/api/resident/requests/stats'),
+  residentCreate: (data: Record<string, unknown>) =>
+    apiRequest<any>('/api/resident/requests', { method: 'POST', body: data }),
+  residentGet: (id: string) => apiRequest<any>(`/api/resident/requests/${id}`),
+  residentAddComment: (id: string, data: { message: string }) =>
+    apiRequest<any>(`/api/resident/requests/${id}/comments`, { method: 'POST', body: data }),
+  residentCancel: (id: string) => apiRequest<any>(`/api/resident/requests/${id}/cancel`, { method: 'PATCH' }),
+  residentClose: (id: string) => apiRequest<any>(`/api/resident/requests/${id}/close`, { method: 'PATCH' }),
+  residentMarkResolved: (id: string) => apiRequest<any>(`/api/resident/requests/${id}/mark-resolved`, { method: 'PATCH' }),
+
+  adminList: (params?: Record<string, string | number | boolean | undefined | null>) =>
+    apiRequest<any>('/api/admin/requests', { params }),
+  adminStats: () => apiRequest<any>('/api/admin/requests/stats'),
+  adminGet: (id: string) => apiRequest<any>(`/api/admin/requests/${id}`),
+  adminUpdateStatus: (id: string, status: string) =>
+    apiRequest<any>(`/api/admin/requests/${id}/status`, { method: 'PATCH', body: { status } }),
+  adminUpdatePriority: (id: string, priority: string) =>
+    apiRequest<any>(`/api/admin/requests/${id}/priority`, { method: 'PATCH', body: { priority } }),
+  adminAssign: (id: string, assignedToId?: string | null) =>
+    apiRequest<any>(`/api/admin/requests/${id}/assign`, { method: 'PATCH', body: { assignedToId } }),
+  adminAddComment: (id: string, data: { message: string }) =>
+    apiRequest<any>(`/api/admin/requests/${id}/comments`, { method: 'POST', body: data }),
+  adminAddInternalNote: (id: string, data: { message: string }) =>
+    apiRequest<any>(`/api/admin/requests/${id}/internal-notes`, { method: 'POST', body: data }),
+  adminResolve: (id: string) => apiRequest<any>(`/api/admin/requests/${id}/resolve`, { method: 'PATCH' }),
+  adminClose: (id: string) => apiRequest<any>(`/api/admin/requests/${id}/close`, { method: 'PATCH' }),
+  adminReopen: (id: string) => apiRequest<any>(`/api/admin/requests/${id}/reopen`, { method: 'PATCH' }),
+  adminResidentRequests: (residentId: string) => apiRequest<any>(`/api/admin/residents/${residentId}/requests`),
+  adminApartmentRequests: (apartmentId: string) => apiRequest<any>(`/api/admin/apartments/${apartmentId}/requests`),
+};
+
 export const announcementsApi = {
   list: () => apiRequest<any[]>('/announcements'),
   get: (id: string) => apiRequest<any>(`/announcements/${id}`),

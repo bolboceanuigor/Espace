@@ -12,12 +12,13 @@ import {
   CreditCard,
   FileText,
   Home,
+  MessageCircle,
   Megaphone,
   ReceiptText,
   Wallet,
 } from 'lucide-react';
 import { Badge, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
-import { communicationsApi, residentDemoApi } from '@/lib/api';
+import { communicationsApi, requestsApi, residentDemoApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
@@ -97,6 +98,18 @@ type RecentAnnouncement = {
   publishedAt?: string | null;
   createdAt?: string | null;
   isRead?: boolean;
+};
+
+type RecentRequest = {
+  id: string;
+  requestNumber: string;
+  title: string;
+  status: string;
+  priority: string;
+  category: string;
+  apartment?: { apartmentNumber?: string | null } | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
 };
 
 type ResidentDashboard = {
@@ -203,6 +216,23 @@ const announcementCategoryLabels: Record<string, string> = {
   OTHER: 'Altul',
 };
 
+const requestStatusLabels: Record<string, string> = {
+  NEW: 'Nouă',
+  IN_REVIEW: 'În verificare',
+  IN_PROGRESS: 'În lucru',
+  WAITING_FOR_RESIDENT: 'Așteaptă răspunsul tău',
+  RESOLVED: 'Rezolvată',
+  CLOSED: 'Închisă',
+  CANCELLED: 'Anulată',
+};
+
+const requestPriorityLabels: Record<string, string> = {
+  LOW: 'Scăzută',
+  NORMAL: 'Normală',
+  HIGH: 'Înaltă',
+  URGENT: 'Urgentă',
+};
+
 function formatDate(value?: string | null) {
   if (!value) return '-';
   const date = new Date(value);
@@ -258,6 +288,8 @@ export default function ResidentDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [recentAnnouncements, setRecentAnnouncements] = useState<RecentAnnouncement[]>([]);
+  const [recentRequests, setRecentRequests] = useState<RecentRequest[]>([]);
+  const [requestStats, setRequestStats] = useState<any>({});
 
   useEffect(() => {
     let active = true;
@@ -293,6 +325,25 @@ export default function ResidentDashboardPage() {
       .catch(() => {
         if (!active) return;
         setRecentAnnouncements([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    requestsApi
+      .residentList({ limit: 3, sortBy: 'updatedAt' })
+      .then((response) => {
+        if (!active) return;
+        setRecentRequests(response.data?.items || []);
+        setRequestStats(response.data?.stats || {});
+      })
+      .catch(() => {
+        if (!active) return;
+        setRecentRequests([]);
+        setRequestStats({});
       });
     return () => {
       active = false;
@@ -415,6 +466,7 @@ export default function ResidentDashboardPage() {
         <StatCard label="Ultima plată" value={summary.lastPayment ? formatMdl(summary.lastPayment.amount) : '-'} description={formatDate(summary.lastPayment?.paymentDate)} icon={<CreditCard className="h-5 w-5" />} />
         <StatCard label="Achitate" value={String(summary.paidInvoices)} description="Facturi fără sold" icon={<CheckCircle2 className="h-5 w-5" />} tone="success" />
         <StatCard label="Parțial achitate" value={String(summary.partiallyPaidInvoices)} description="Facturi cu sold rămas" icon={<AlertCircle className="h-5 w-5" />} tone={summary.partiallyPaidInvoices > 0 ? 'warning' : 'neutral'} />
+        <StatCard label="Solicitări deschise" value={String(requestStats.open || 0)} description="Către administrație" icon={<MessageCircle className="h-5 w-5" />} tone={Number(requestStats.open || 0) > 0 ? 'warning' : 'neutral'} />
       </section>
 
       <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
@@ -498,6 +550,40 @@ export default function ResidentDashboardPage() {
           ))}
           {!recentAnnouncements.length ? (
             <EmptyBlock title="Nu există anunțuri" text="Anunțurile publicate de administrator vor apărea aici." />
+          ) : null}
+        </div>
+      </Card>
+
+      <Card>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-foreground">Solicitări recente</h2>
+            <p className="text-sm text-muted-foreground">Ultimele cereri trimise către administrație.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <ButtonLink href="/resident/requests/new" variant="secondary" size="sm">Creează solicitare</ButtonLink>
+            <ButtonLink href="/resident/requests" variant="secondary" size="sm">Vezi toate</ButtonLink>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {recentRequests.map((request) => (
+            <Link key={request.id} href={localizedPath(`/resident/requests/${request.id}`)} className="rounded-2xl border border-border/70 bg-muted/25 p-4 transition hover:bg-white">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-muted-foreground">{request.requestNumber}</p>
+                  <h3 className="mt-2 line-clamp-2 text-sm font-semibold text-foreground">{request.title}</h3>
+                </div>
+                <Badge variant={request.status === 'RESOLVED' || request.status === 'CLOSED' ? 'success' : 'warning'}>
+                  {requestStatusLabels[request.status] || request.status}
+                </Badge>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Apt. {request.apartment?.apartmentNumber || '-'} · {requestPriorityLabels[request.priority] || request.priority} · {formatDate(request.updatedAt || request.createdAt)}
+              </p>
+            </Link>
+          ))}
+          {!recentRequests.length ? (
+            <EmptyBlock title="Nu ai solicitări trimise" text="Solicitările către administrație vor apărea aici după ce le creezi." />
           ) : null}
         </div>
       </Card>
