@@ -1350,6 +1350,21 @@ export const votesApi = {
 };
 
 export const reportsApi = {
+  adminOverview: () => apiRequest<any>('/api/admin/reports'),
+  adminFinancialOverview: (params?: Record<string, string | number | boolean | undefined>) =>
+    apiRequest<any>('/api/admin/reports/financial/overview', { params }),
+  adminFinancialStatusBreakdown: (params?: Record<string, string | number | boolean | undefined>) =>
+    apiRequest<any>('/api/admin/reports/financial/status-breakdown', { params }),
+  adminFinancialMonthlyTrend: (params?: Record<string, string | number | boolean | undefined>) =>
+    apiRequest<any>('/api/admin/reports/financial/monthly-trend', { params }),
+  adminFinancialApartments: (params?: Record<string, string | number | boolean | undefined>) =>
+    apiRequest<any>('/api/admin/reports/financial/apartments', { params }),
+  adminFinancialAging: (params?: Record<string, string | number | boolean | undefined>) =>
+    apiRequest<any>('/api/admin/reports/financial/aging', { params }),
+  adminFinancialRecentInvoices: (params?: Record<string, string | number | boolean | undefined>) =>
+    apiRequest<any>('/api/admin/reports/financial/recent-invoices', { params }),
+  adminFinancialRecentPayments: (params?: Record<string, string | number | boolean | undefined>) =>
+    apiRequest<any>('/api/admin/reports/financial/recent-payments', { params }),
   adminMonthly: (params?: { month?: number; year?: number }) => apiRequest<any>('/api/admin/reports/monthly', { params }),
   adminDebts: (params?: { buildingId?: string; staircaseId?: string; floor?: number; minDebt?: number; onlyOverdue?: boolean; search?: string }) =>
     apiRequest<any>('/api/admin/reports/debts', { params }),

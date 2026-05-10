@@ -322,6 +322,7 @@ export function AdminBillingOverviewPage() {
             <ButtonLink href={localizedPath('/admin/billing/runs')} variant="secondary">Vezi procese anterioare</ButtonLink>
             <ButtonLink href={localizedPath('/admin/invoices/draft')} variant="secondary">Calculează draft</ButtonLink>
             <ButtonLink href={localizedPath('/admin/invoices')} variant="secondary">Vezi facturi</ButtonLink>
+            <ButtonLink href={localizedPath(`/admin/reports/financial/monthly?billingMonth=${billingMonth}`)} variant="secondary">Raport financiar lunar</ButtonLink>
             <ButtonLink href={localizedPath('/admin/payments/reconciliation')} variant="secondary">Reconciliere plăți</ButtonLink>
           </div>
         }
@@ -649,6 +650,13 @@ export function BillingRunDetailPage() {
                 <p className="mt-1 text-sm font-semibold text-foreground">{formatMdl(data.finalInvoices?.totalAmount || 0)}</p>
                 <ButtonLink href={localizedPath(`/admin/invoices?billingMonth=${run.billingMonth}`)} className="mt-4" variant="secondary">
                   Vezi facturi finale
+                </ButtonLink>
+              </Card>
+              <Card className="p-5">
+                <h3 className="text-sm font-semibold text-foreground">Raport financiar</h3>
+                <p className="mt-2 text-sm text-muted-foreground">După finalizare, raportul lunar agregă facturile, plățile și soldurile pentru această lună.</p>
+                <ButtonLink href={localizedPath(`/admin/reports/financial/monthly?billingMonth=${run.billingMonth}`)} className="mt-4" variant="secondary">
+                  Vezi raport financiar
                 </ButtonLink>
               </Card>
               <Card className="p-5">

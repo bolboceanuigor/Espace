@@ -6,6 +6,7 @@ import {
   AlertCircle,
   ArrowRight,
   Banknote,
+  BarChart3,
   Building2,
   CheckCircle2,
   CreditCard,
@@ -579,6 +580,9 @@ export default function AdminPage() {
             </div>
             <ButtonLink href={localizedPath('/admin/billing')} variant="secondary">
               <ListChecks className="h-4 w-4" /> Deschide facturarea
+            </ButtonLink>
+            <ButtonLink href={localizedPath('/admin/reports/financial')} variant="secondary">
+              <BarChart3 className="h-4 w-4" /> Vezi rapoarte financiare
             </ButtonLink>
           </div>
         </div>

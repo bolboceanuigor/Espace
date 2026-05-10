@@ -31,6 +31,46 @@ export class BillingReadController {
     return this.billingReadService.getAdminAuditLog(user, id);
   }
 
+  @Get(['admin/reports', 'api/admin/reports'])
+  getAdminReportsSummary(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.billingReadService.getAdminReportsSummary(user, query);
+  }
+
+  @Get(['admin/reports/financial/overview', 'api/admin/reports/financial/overview'])
+  getAdminFinancialOverview(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.billingReadService.getAdminFinancialOverview(user, query);
+  }
+
+  @Get(['admin/reports/financial/status-breakdown', 'api/admin/reports/financial/status-breakdown'])
+  getAdminFinancialStatusBreakdown(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.billingReadService.getAdminFinancialStatusBreakdown(user, query);
+  }
+
+  @Get(['admin/reports/financial/monthly-trend', 'api/admin/reports/financial/monthly-trend'])
+  getAdminFinancialMonthlyTrend(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.billingReadService.getAdminFinancialMonthlyTrend(user, query);
+  }
+
+  @Get(['admin/reports/financial/apartments', 'api/admin/reports/financial/apartments'])
+  getAdminFinancialApartments(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.billingReadService.getAdminFinancialApartments(user, query);
+  }
+
+  @Get(['admin/reports/financial/aging', 'api/admin/reports/financial/aging'])
+  getAdminFinancialAging(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.billingReadService.getAdminFinancialAging(user, query);
+  }
+
+  @Get(['admin/reports/financial/recent-invoices', 'api/admin/reports/financial/recent-invoices'])
+  getAdminFinancialRecentInvoices(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.billingReadService.getAdminFinancialRecentInvoices(user, query);
+  }
+
+  @Get(['admin/reports/financial/recent-payments', 'api/admin/reports/financial/recent-payments'])
+  getAdminFinancialRecentPayments(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.billingReadService.getAdminFinancialRecentPayments(user, query);
+  }
+
   @Get(['admin/billing', 'api/admin/billing'])
   getBillingOverview(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
     return this.billingReadService.getBillingOverview(user, query);

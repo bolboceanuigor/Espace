@@ -246,6 +246,9 @@ export default function AdminPaymentsReconciliationPage() {
               <RefreshCw className="h-4 w-4" />
               Actualizează
             </Button>
+            <ButtonLink href={`/admin/reports/financial${billingMonth ? `?billingMonth=${billingMonth}` : ''}`} variant="secondary">
+              Vezi raport financiar
+            </ButtonLink>
             <Button type="button" variant="secondary" onClick={() => window.alert('Exportul raportului va fi disponibil ulterior.')}>
               Export raport
             </Button>

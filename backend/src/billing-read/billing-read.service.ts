@@ -4878,6 +4878,428 @@ export class BillingReadService {
     };
   }
 
+  private parseFinancialPeriod(query: Record<string, unknown>) {
+    const mode = String(query.periodMode || (query.dateFrom || query.dateTo ? 'RANGE' : 'MONTH')).toUpperCase() === 'RANGE' ? 'RANGE' : 'MONTH';
+    if (mode === 'RANGE') {
+      const dateFrom = typeof query.dateFrom === 'string' && query.dateFrom.trim() ? new Date(query.dateFrom) : null;
+      const dateTo = typeof query.dateTo === 'string' && query.dateTo.trim() ? new Date(query.dateTo) : null;
+      if (!dateFrom || Number.isNaN(dateFrom.getTime()) || !dateTo || Number.isNaN(dateTo.getTime())) {
+        throw new BadRequestException('Intervalul raportului nu este valid.');
+      }
+      dateFrom.setHours(0, 0, 0, 0);
+      dateTo.setHours(23, 59, 59, 999);
+      if (dateFrom > dateTo) throw new BadRequestException('Data de început nu poate fi după data de sfârșit.');
+      return { mode, billingMonth: null as string | null, dateFrom, dateTo };
+    }
+    return {
+      mode,
+      billingMonth: this.parseBillingMonth(query.billingMonth || this.currentBillingMonth()),
+      dateFrom: null as Date | null,
+      dateTo: null as Date | null,
+    };
+  }
+
+  private invoiceInFinancialPeriod(invoice: InternalInvoiceMetadata, period: ReturnType<BillingReadService['parseFinancialPeriod']>) {
+    if (period.mode === 'MONTH') return invoice.billingMonth === period.billingMonth;
+    const issuedAt = new Date(invoice.issueDate || invoice.createdAt || 0);
+    return issuedAt >= period.dateFrom! && issuedAt <= period.dateTo!;
+  }
+
+  private filterFinancialInvoices(metadata: InternalInvoiceMetadata[], query: Record<string, unknown>) {
+    const period = this.parseFinancialPeriod(query);
+    const invoiceStatus = typeof query.invoiceStatus === 'string' ? query.invoiceStatus.trim().toUpperCase() : 'ALL';
+    const includeCancelled = String(query.includeCancelled || '').toLowerCase() === 'true';
+    const includeVoid = String(query.includeVoid || '').toLowerCase() === 'true';
+    const staircase = typeof query.staircase === 'string' ? query.staircase.trim().toLowerCase() : '';
+    const apartmentNumber = typeof query.apartmentNumber === 'string' ? query.apartmentNumber.trim().toLowerCase() : '';
+    const invoices = metadata.filter((invoice) => {
+      if (!this.invoiceInFinancialPeriod(invoice, period)) return false;
+      if (!includeCancelled && invoice.status === 'CANCELLED') return false;
+      if (!includeVoid && invoice.status === 'VOID') return false;
+      if (invoiceStatus && invoiceStatus !== 'ALL' && invoice.status !== invoiceStatus) return false;
+      if (staircase && !String(invoice.apartment.staircase || '').toLowerCase().includes(staircase)) return false;
+      if (apartmentNumber && !String(invoice.apartment.apartmentNumber || '').toLowerCase().includes(apartmentNumber)) return false;
+      return true;
+    });
+    return { invoices, period };
+  }
+
+  private financialSummary(invoices: InternalInvoiceMetadata[], paymentRows: any[]) {
+    const collectable = invoices.filter((invoice) => this.isCollectableInternalInvoice(invoice));
+    const totalInvoiced = this.money(collectable.reduce((sum, invoice) => sum + Number(invoice.totalAmount || 0), 0));
+    const totalPaid = this.money(collectable.reduce((sum, invoice) => sum + Number(invoice.paidAmount || 0), 0));
+    const outstandingBalance = this.money(collectable.reduce((sum, invoice) => sum + Number(invoice.balanceAmount || 0), 0));
+    const invoiceIds = new Set(invoices.map((invoice) => invoice.invoiceId));
+    const confirmedPayments = paymentRows.filter((payment) => {
+      const note = this.parseInternalPaymentNote(payment.note);
+      return payment.status === PaymentStatus.CONFIRMED && note?.invoiceId && invoiceIds.has(note.invoiceId);
+    });
+    const invoiceDate = (invoice: InternalInvoiceMetadata) => new Date(invoice.issueDate || invoice.createdAt || 0).getTime();
+    const sortedInvoices = [...invoices].sort((a, b) => invoiceDate(b) - invoiceDate(a));
+    return {
+      currency: 'MDL',
+      totalInvoiced,
+      totalPaid,
+      outstandingBalance,
+      collectionRate: totalInvoiced > 0 ? this.money((totalPaid / totalInvoiced) * 100) : 0,
+      totalInvoices: invoices.length,
+      paidInvoices: collectable.filter((invoice) => invoice.status === 'PAID').length,
+      partiallyPaidInvoices: collectable.filter((invoice) => invoice.status === 'PARTIALLY_PAID').length,
+      unpaidInvoices: collectable.filter((invoice) => Number(invoice.balanceAmount || 0) > 0).length,
+      overdueInvoices: collectable.filter((invoice) => this.internalInvoiceOverdueDays(invoice) > 0).length,
+      confirmedPayments: confirmedPayments.length,
+      lastPaymentAt: this.latestInternalPaymentDate(confirmedPayments),
+      lastInvoiceAt: sortedInvoices[0]?.issueDate || sortedInvoices[0]?.createdAt || null,
+    };
+  }
+
+  private latestInternalPaymentDate(paymentRows: any[]) {
+    const timestamps = paymentRows
+      .map((row) => row.paidAt || row.confirmedAt || row.createdAt)
+      .filter(Boolean)
+      .map((date) => new Date(date).getTime())
+      .filter((time) => Number.isFinite(time));
+    return timestamps.length ? new Date(Math.max(...timestamps)).toISOString() : null;
+  }
+
+  private financialStatusBreakdown(invoices: InternalInvoiceMetadata[]) {
+    const statuses: InternalInvoiceStatus[] = ['ISSUED', 'PARTIALLY_PAID', 'PAID', 'CANCELLED', 'VOID'];
+    return statuses.map((status) => {
+      const rows = invoices.filter((invoice) => invoice.status === status);
+      return {
+        status,
+        count: rows.length,
+        totalInvoiced: this.money(rows.reduce((sum, invoice) => sum + Number(invoice.totalAmount || 0), 0)),
+        totalPaid: this.money(rows.reduce((sum, invoice) => sum + Number(invoice.paidAmount || 0), 0)),
+        outstandingBalance: this.money(rows.reduce((sum, invoice) => sum + Number(invoice.balanceAmount || 0), 0)),
+      };
+    });
+  }
+
+  private monthShift(month: string, offset: number) {
+    const [year, value] = month.split('-').map(Number);
+    const date = new Date(Date.UTC(year, value - 1 + offset, 1));
+    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+  }
+
+  private financialStatusForApartment(invoices: InternalInvoiceMetadata[]) {
+    if (!invoices.length) return 'FARA_FACTURI';
+    const outstanding = invoices.reduce((sum, invoice) => sum + Number(invoice.balanceAmount || 0), 0);
+    if (outstanding <= 0) return 'LA_ZI';
+    if (invoices.some((invoice) => this.internalInvoiceOverdueDays(invoice) > 0)) return 'INTARZIAT';
+    if (invoices.some((invoice) => Number(invoice.paidAmount || 0) > 0 && Number(invoice.balanceAmount || 0) > 0)) return 'PARTIAL';
+    return 'SOLD_RESTANT';
+  }
+
+  private async financialApartments(organizationId: string) {
+    return this.prisma.apartment.findMany({
+      where: { organizationId },
+      orderBy: [{ staircase: { name: 'asc' } }, { number: 'asc' }],
+      include: {
+        staircase: { select: { id: true, name: true } },
+        apartmentResidents: {
+          include: { resident: { select: { id: true, firstName: true, lastName: true, phone: true, email: true } } },
+        },
+        ownerResident: { select: { id: true, firstName: true, lastName: true, phone: true, email: true } },
+      },
+    });
+  }
+
+  private financialPrimaryContact(apartment: any, invoice?: InternalInvoiceMetadata) {
+    if (invoice?.primaryContact) return invoice.primaryContact;
+    const relation =
+      apartment.apartmentResidents?.find((item: any) => item.isPrimary) ||
+      apartment.apartmentResidents?.find((item: any) => item.role === 'OWNER') ||
+      apartment.apartmentResidents?.[0];
+    const resident = relation?.resident || apartment.ownerResident || null;
+    return resident
+      ? {
+          id: resident.id,
+          fullName: this.residentFullName(resident),
+          phone: resident.phone || null,
+        }
+      : null;
+  }
+
+  private async financialReportContext(user: MvpUser, query: Record<string, unknown> = {}) {
+    const organizationId = this.resolveOrganizationId(user, query);
+    this.assertOrganizationAccess(user, organizationId);
+    const [metadata, paymentRows, organization, runs] = await Promise.all([
+      this.readInternalInvoiceMetadata(organizationId),
+      this.internalPaymentRows(organizationId),
+      this.prisma.organization.findUnique({
+        where: { id: organizationId },
+        select: { id: true, name: true, legalName: true, fiscalCode: true },
+      }),
+      this.readBillingRuns(organizationId),
+    ]);
+    if (!organization) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    return {
+      organizationId,
+      metadata,
+      paymentRows,
+      billingRuns: runs,
+      association: {
+        id: organization.id,
+        shortName: organization.name,
+        legalName: organization.legalName || organization.name,
+        associationCode: this.normalizeInvoiceCode(organization.fiscalCode || organization.name),
+        currency: 'MDL',
+      },
+    };
+  }
+
+  async getAdminReportsSummary(user: MvpUser, query: Record<string, unknown> = {}) {
+    const { metadata, paymentRows, association } = await this.financialReportContext(user, query);
+    const billingMonth = this.currentBillingMonth();
+    const invoices = metadata.filter((invoice) => invoice.billingMonth === billingMonth && this.isCollectableInternalInvoice(invoice));
+    const financial = this.financialSummary(invoices, paymentRows);
+    return {
+      association,
+      billingMonth,
+      financial,
+      cards: [
+        { key: 'financial', title: 'Rapoarte financiare', href: '/admin/reports/financial', description: 'Facturi, încasări, solduri și evoluții lunare.' },
+        { key: 'reconciliation', title: 'Reconciliere plăți', href: '/admin/payments/reconciliation', description: 'Compară facturile emise cu plățile înregistrate.' },
+        { key: 'meterReports', title: 'Rapoarte consum contoare', href: '/admin/meter-readings/reports', description: 'Analizează consumul aprobat pe contoare.' },
+        { key: 'audit', title: 'Istoric activitate', href: '/admin/audit-log', description: 'Urmărește acțiunile importante din asociație.' },
+        { key: 'billingRuns', title: 'Procese facturare lunară', href: '/admin/billing/runs', description: 'Vezi starea proceselor lunare de facturare.' },
+      ],
+    };
+  }
+
+  async getAdminFinancialOverview(user: MvpUser, query: Record<string, unknown>) {
+    const { metadata, paymentRows, association, billingRuns } = await this.financialReportContext(user, query);
+    const { invoices, period } = this.filterFinancialInvoices(metadata, query);
+    const billingRun = period.billingMonth ? this.findActiveBillingRun(billingRuns, period.billingMonth) : null;
+    return {
+      association,
+      period: {
+        mode: period.mode,
+        billingMonth: period.billingMonth,
+        dateFrom: period.dateFrom?.toISOString() || null,
+        dateTo: period.dateTo?.toISOString() || null,
+      },
+      summary: this.financialSummary(invoices, paymentRows),
+      statusBreakdown: this.financialStatusBreakdown(invoices),
+      billingRun: billingRun
+        ? {
+            id: billingRun.id,
+            status: billingRun.status,
+            draftId: billingRun.draftId,
+            finalizedAt: billingRun.finalizedAt,
+            invoicesCount: billingRun.invoicesCount,
+          }
+        : null,
+    };
+  }
+
+  async getAdminFinancialStatusBreakdown(user: MvpUser, query: Record<string, unknown>) {
+    const { metadata } = await this.financialReportContext(user, query);
+    return { items: this.financialStatusBreakdown(this.filterFinancialInvoices(metadata, query).invoices) };
+  }
+
+  async getAdminFinancialMonthlyTrend(user: MvpUser, query: Record<string, unknown>) {
+    const { metadata, paymentRows } = await this.financialReportContext(user, query);
+    const includeCancelled = String(query.includeCancelled || '').toLowerCase() === 'true';
+    const includeVoid = String(query.includeVoid || '').toLowerCase() === 'true';
+    const monthsCount = Math.min(12, Math.max(1, Number(query.months || 6)));
+    const toMonth = typeof query.toMonth === 'string' && query.toMonth.trim() ? this.parseBillingMonth(query.toMonth) : this.currentBillingMonth();
+    const fromMonth = typeof query.fromMonth === 'string' && query.fromMonth.trim() ? this.parseBillingMonth(query.fromMonth) : this.monthShift(toMonth, -(monthsCount - 1));
+    const months: string[] = [];
+    for (let month = fromMonth; month <= toMonth; month = this.monthShift(month, 1)) {
+      months.push(month);
+      if (months.length > 24) break;
+    }
+    return {
+      items: months.map((billingMonth) => {
+        const rows = metadata.filter((invoice) => {
+          if (invoice.billingMonth !== billingMonth) return false;
+          if (!includeCancelled && invoice.status === 'CANCELLED') return false;
+          if (!includeVoid && invoice.status === 'VOID') return false;
+          return true;
+        });
+        const summary = this.financialSummary(rows, paymentRows);
+        return {
+          billingMonth,
+          totalInvoiced: summary.totalInvoiced,
+          totalPaid: summary.totalPaid,
+          outstandingBalance: summary.outstandingBalance,
+          collectionRate: summary.collectionRate,
+          totalInvoices: summary.totalInvoices,
+          confirmedPayments: summary.confirmedPayments,
+        };
+      }),
+    };
+  }
+
+  private async buildFinancialApartmentRows(user: MvpUser, query: Record<string, unknown>) {
+    const { organizationId, metadata, paymentRows } = await this.financialReportContext(user, query);
+    const { invoices } = this.filterFinancialInvoices(metadata, query);
+    const apartments = await this.financialApartments(organizationId);
+    const invoicesByApartment = this.groupBy(invoices, (invoice) => invoice.apartment.id);
+    return apartments.map((apartment) => {
+      const apartmentInvoices = invoicesByApartment.get(apartment.id) || [];
+      const invoiceIds = new Set(apartmentInvoices.map((invoice) => invoice.invoiceId));
+      const apartmentPayments = paymentRows.filter((payment) => payment.status === PaymentStatus.CONFIRMED && invoiceIds.has(this.parseInternalPaymentNote(payment.note)?.invoiceId || ''));
+      const contact = this.financialPrimaryContact(apartment, apartmentInvoices[0]);
+      const collectable = apartmentInvoices.filter((invoice) => this.isCollectableInternalInvoice(invoice));
+      const totalInvoiced = this.money(collectable.reduce((sum, invoice) => sum + Number(invoice.totalAmount || 0), 0));
+      const totalPaid = this.money(collectable.reduce((sum, invoice) => sum + Number(invoice.paidAmount || 0), 0));
+      const outstandingBalance = this.money(collectable.reduce((sum, invoice) => sum + Number(invoice.balanceAmount || 0), 0));
+      const sortedInvoices = [...apartmentInvoices].sort((a, b) => String(b.billingMonth).localeCompare(String(a.billingMonth)));
+      return {
+        apartment: {
+          id: apartment.id,
+          apartmentNumber: apartment.number,
+          staircase: apartment.staircase?.name || '',
+          floor: apartment.floor === null || apartment.floor === undefined ? null : String(apartment.floor),
+        },
+        primaryContact: contact,
+        summary: {
+          currency: 'MDL',
+          totalInvoices: apartmentInvoices.length,
+          totalInvoiced,
+          totalPaid,
+          outstandingBalance,
+          unpaidInvoices: collectable.filter((invoice) => Number(invoice.balanceAmount || 0) > 0).length,
+          overdueInvoices: collectable.filter((invoice) => this.internalInvoiceOverdueDays(invoice) > 0).length,
+          lastInvoiceBillingMonth: sortedInvoices[0]?.billingMonth || null,
+          lastPaymentDate: this.latestInternalPaymentDate(apartmentPayments),
+          financialStatus: this.financialStatusForApartment(collectable),
+        },
+      };
+    });
+  }
+
+  private filterFinancialApartmentRows(rows: any[], query: Record<string, unknown>) {
+    const financialStatus = typeof query.financialStatus === 'string' ? query.financialStatus.trim().toUpperCase() : '';
+    const minBalance = query.minBalance !== undefined && query.minBalance !== '' ? Number(query.minBalance) : null;
+    const maxBalance = query.maxBalance !== undefined && query.maxBalance !== '' ? Number(query.maxBalance) : null;
+    const staircase = typeof query.staircase === 'string' ? query.staircase.trim().toLowerCase() : '';
+    const search = typeof query.search === 'string' ? query.search.trim().toLowerCase() : '';
+    return rows.filter((row) => {
+      if (financialStatus && row.summary.financialStatus !== financialStatus) return false;
+      if (minBalance !== null && row.summary.outstandingBalance < minBalance) return false;
+      if (maxBalance !== null && row.summary.outstandingBalance > maxBalance) return false;
+      if (staircase && !String(row.apartment.staircase || '').toLowerCase().includes(staircase)) return false;
+      const haystack = `${row.apartment.apartmentNumber} ${row.apartment.staircase} ${row.primaryContact?.fullName || ''} ${row.primaryContact?.phone || ''} ${row.summary.lastInvoiceBillingMonth || ''}`.toLowerCase();
+      return !search || haystack.includes(search);
+    });
+  }
+
+  private sortFinancialApartmentRows(rows: any[], query: Record<string, unknown>) {
+    const sortBy = typeof query.sortBy === 'string' ? query.sortBy : 'outstandingBalance';
+    const direction = String(query.sortDirection || 'desc').toLowerCase() === 'asc' ? 1 : -1;
+    return rows.sort((a, b) => {
+      if (sortBy === 'totalInvoiced') return (a.summary.totalInvoiced - b.summary.totalInvoiced) * direction;
+      if (sortBy === 'totalPaid') return (a.summary.totalPaid - b.summary.totalPaid) * direction;
+      if (sortBy === 'apartmentNumber') return String(a.apartment.apartmentNumber || '').localeCompare(String(b.apartment.apartmentNumber || ''), 'ro', { numeric: true }) * direction;
+      if (sortBy === 'lastPaymentDate') return (new Date(a.summary.lastPaymentDate || 0).getTime() - new Date(b.summary.lastPaymentDate || 0).getTime()) * direction;
+      return (a.summary.outstandingBalance - b.summary.outstandingBalance) * direction;
+    });
+  }
+
+  async getAdminFinancialApartments(user: MvpUser, query: Record<string, unknown>) {
+    const page = Math.max(1, Number(query.page || 1));
+    const limit = Math.min(100, Math.max(1, Number(query.limit || 20)));
+    const rows = this.sortFinancialApartmentRows(this.filterFinancialApartmentRows(await this.buildFinancialApartmentRows(user, query), query), query);
+    const start = (page - 1) * limit;
+    return {
+      items: rows.slice(start, start + limit),
+      meta: { page, limit, total: rows.length },
+    };
+  }
+
+  private agingBucket(days: number) {
+    if (days <= 30) return { key: '0_30', label: '0-30 zile' };
+    if (days <= 60) return { key: '31_60', label: '31-60 zile' };
+    if (days <= 90) return { key: '61_90', label: '61-90 zile' };
+    return { key: '90_PLUS', label: '90+ zile' };
+  }
+
+  async getAdminFinancialAging(user: MvpUser, query: Record<string, unknown>) {
+    const { metadata, association } = await this.financialReportContext(user, query);
+    const { invoices } = this.filterFinancialInvoices(metadata, query);
+    const minDaysOverdue = Math.max(0, Number(query.minDaysOverdue || 0));
+    const page = Math.max(1, Number(query.page || 1));
+    const limit = Math.min(100, Math.max(1, Number(query.limit || 20)));
+    const items = invoices
+      .filter((invoice) => this.isCollectableInternalInvoice(invoice) && Number(invoice.balanceAmount || 0) > 0)
+      .map((invoice) => {
+        const daysOverdue = this.internalInvoiceOverdueDays(invoice);
+        const bucket = this.agingBucket(daysOverdue);
+        return {
+          invoiceId: invoice.invoiceId,
+          invoiceNumber: invoice.invoiceNumber,
+          billingMonth: invoice.billingMonth,
+          apartment: invoice.apartment,
+          primaryContact: invoice.primaryContact,
+          dueDate: invoice.dueDate,
+          daysOverdue,
+          balanceAmount: Number(invoice.balanceAmount || 0),
+          bucket: bucket.key,
+          bucketLabel: bucket.label,
+        };
+      })
+      .filter((item) => item.daysOverdue >= minDaysOverdue)
+      .sort((a, b) => b.daysOverdue - a.daysOverdue || b.balanceAmount - a.balanceAmount);
+    const bucketMap = new Map<string, { key: string; label: string; invoicesCount: number; amount: number; apartments: Set<string> }>();
+    ['0_30', '31_60', '61_90', '90_PLUS'].forEach((key) => {
+      const label = key === '0_30' ? '0-30 zile' : key === '31_60' ? '31-60 zile' : key === '61_90' ? '61-90 zile' : '90+ zile';
+      bucketMap.set(key, { key, label, invoicesCount: 0, amount: 0, apartments: new Set() });
+    });
+    items.forEach((item) => {
+      const bucket = bucketMap.get(item.bucket)!;
+      bucket.invoicesCount += 1;
+      bucket.amount = this.money(bucket.amount + item.balanceAmount);
+      bucket.apartments.add(item.apartment.id);
+    });
+    const totalOutstanding = this.money(items.reduce((sum, item) => sum + item.balanceAmount, 0));
+    const start = (page - 1) * limit;
+    return {
+      association,
+      summary: {
+        currency: 'MDL',
+        totalOutstanding,
+        totalOverdueInvoices: items.length,
+        affectedApartments: new Set(items.map((item) => item.apartment.id)).size,
+      },
+      buckets: [...bucketMap.values()].map((bucket) => ({
+        key: bucket.key,
+        label: bucket.label,
+        invoicesCount: bucket.invoicesCount,
+        amount: bucket.amount,
+        apartmentsCount: bucket.apartments.size,
+        percentage: totalOutstanding > 0 ? this.money((bucket.amount / totalOutstanding) * 100) : 0,
+      })),
+      items: items.slice(start, start + limit),
+      meta: { page, limit, total: items.length },
+    };
+  }
+
+  async getAdminFinancialRecentInvoices(user: MvpUser, query: Record<string, unknown>) {
+    const { metadata } = await this.financialReportContext(user, query);
+    const limit = Math.min(50, Math.max(1, Number(query.limit || 10)));
+    return {
+      items: [...metadata]
+        .sort((a, b) => new Date(b.issueDate || b.createdAt || 0).getTime() - new Date(a.issueDate || a.createdAt || 0).getTime())
+        .slice(0, limit),
+    };
+  }
+
+  async getAdminFinancialRecentPayments(user: MvpUser, query: Record<string, unknown>) {
+    const { metadata, paymentRows } = await this.financialReportContext(user, query);
+    const invoiceById = new Map(metadata.map((invoice) => [invoice.invoiceId, invoice]));
+    const limit = Math.min(50, Math.max(1, Number(query.limit || 10)));
+    return {
+      items: paymentRows
+        .filter((row) => row.status === PaymentStatus.CONFIRMED)
+        .slice(0, limit)
+        .map((row) => this.toAdminInternalPayment(row, invoiceById.get(this.parseInternalPaymentNote(row.note)?.invoiceId || '') || null)),
+    };
+  }
+
   async generateMonthlyInvoices(user: MvpUser, body: unknown) {
     const input = this.parseGenerateMonthlyBody(body);
     const organizationId = this.resolveOrganizationId(user, body && typeof body === 'object' ? (body as Record<string, unknown>) : {});
@@ -5741,6 +6163,15 @@ export class BillingReadService {
 
   private money(value: number) {
     return Math.round((Number(value) + Number.EPSILON) * 100) / 100;
+  }
+
+  private groupBy<T>(items: T[], keyFn: (item: T) => string) {
+    const grouped = new Map<string, T[]>();
+    items.forEach((item) => {
+      const key = keyFn(item);
+      grouped.set(key, [...(grouped.get(key) || []), item]);
+    });
+    return grouped;
   }
 
   private requiredString(value: unknown, message: string) {
