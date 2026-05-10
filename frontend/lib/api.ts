@@ -1162,6 +1162,7 @@ export const messagesMvpApi = {
 
 export const residentDemoApi = {
   home: () => apiRequest<any>('/resident/home'),
+  dashboard: (params?: { apartmentId?: string; includeRecent?: boolean }) => apiRequest<any>('/resident/dashboard', { params }),
   context: () => apiRequest<any>('/resident/me'),
   financeSummary: () => apiRequest<any>('/resident/finance-summary'),
   invoices: (params?: {

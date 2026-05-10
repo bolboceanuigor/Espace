@@ -21,6 +21,11 @@ export class ResidentDemoController {
     return this.residentDemoService.getResidentHome(user);
   }
 
+  @Get(['resident/dashboard', 'api/resident/dashboard'])
+  getDashboard(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.residentDemoService.getDashboard(user, query);
+  }
+
   @Get(['resident/invoices', 'api/resident/invoices'])
   listInvoices(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
     return this.residentDemoService.listInternalInvoices(user, query);
