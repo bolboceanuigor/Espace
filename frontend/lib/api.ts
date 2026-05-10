@@ -1443,16 +1443,36 @@ export const paymentsApi = {
     paidAt?: string;
   }) => apiRequest<any>('/payments', { method: 'POST', body: data }),
   adminList: (params?: {
-    buildingId?: string;
-    staircaseId?: string;
     apartmentId?: string;
+    search?: string;
     method?: string;
     status?: string;
-    from?: string;
-    to?: string;
+    invoiceStatus?: string;
+    billingMonth?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    sortBy?: string;
+    sortDirection?: 'asc' | 'desc';
     page?: number;
     limit?: number;
   }) => apiRequest<any>('/api/admin/payments', { params }),
+  adminStats: (params?: { billingMonth?: string; dateFrom?: string; dateTo?: string }) =>
+    apiRequest<any>('/api/admin/payments/stats', { params }),
+  adminCreate: (data: {
+    invoiceId: string;
+    amount: number;
+    paymentDate: string;
+    method: 'CASH' | 'BANK_TRANSFER' | 'CARD_TERMINAL' | 'INFOCOM' | 'OPLATA' | 'OTHER';
+    referenceNumber?: string;
+    payerName?: string;
+    notes?: string;
+  }) => apiRequest<any>('/api/admin/payments', { method: 'POST', body: data }),
+  adminGetOne: (id: string) => apiRequest<any>(`/api/admin/payments/${id}`),
+  adminCancelManual: (id: string, data: { reason: string }) =>
+    apiRequest<any>(`/api/admin/payments/${id}/cancel`, { method: 'PATCH', body: data }),
+  adminInvoiceSearch: (params?: { search?: string; unpaidOnly?: boolean }) =>
+    apiRequest<any>('/api/admin/payments/invoice-search', { params }),
+  adminInvoicePayments: (invoiceId: string) => apiRequest<any>(`/api/admin/invoices/${invoiceId}/payments`),
   adminManual: (data: {
     apartmentId: string;
     invoiceId?: string;

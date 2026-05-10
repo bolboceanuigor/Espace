@@ -62,6 +62,15 @@ type InvoiceDetails = {
     currency: 'MDL';
     formulaLabel?: string;
   }>;
+  payments?: Array<{
+    id: string;
+    amount: number;
+    method: string;
+    paidAt?: string | null;
+    paymentDate?: string | null;
+    referenceNumber?: string;
+    status: string;
+  }>;
 };
 
 const statusLabels: Record<ResidentInvoiceStatus, string> = {
@@ -79,6 +88,15 @@ const statusVariant = {
   CANCELLED: 'neutral',
   VOID: 'neutral',
 } as const;
+
+const paymentMethodLabels: Record<string, string> = {
+  CASH: 'Numerar',
+  BANK_TRANSFER: 'Transfer bancar',
+  CARD_TERMINAL: 'Terminal card',
+  INFOCOM: 'InfoCom',
+  OPLATA: 'Oplata',
+  OTHER: 'Altă metodă',
+};
 
 export default function ResidentInvoiceDetailsPage() {
   const params = useParams<{ id: string }>();
@@ -220,6 +238,24 @@ export default function ResidentInvoiceDetailsPage() {
               </div>
             </Card>
           </div>
+
+          <Card>
+            <h2 className="text-base font-semibold text-foreground">Plăți înregistrate</h2>
+            <div className="mt-4 grid gap-2">
+              {(data.payments || []).map((payment) => (
+                <div key={payment.id} className="grid gap-2 rounded-2xl border border-border/70 bg-white px-4 py-3 text-sm sm:grid-cols-[0.9fr_0.9fr_1fr_0.9fr] sm:items-center">
+                  <span className="text-muted-foreground">{formatDate(payment.paymentDate || payment.paidAt)}</span>
+                  <strong className="text-foreground">{formatMdl(payment.amount)}</strong>
+                  <span className="text-muted-foreground">{paymentMethodLabels[payment.method] || payment.method}</span>
+                  <Badge variant={payment.status === 'CANCELLED' ? 'neutral' : 'success'}>{payment.status === 'CANCELLED' ? 'Anulată' : 'Confirmată'}</Badge>
+                  {payment.referenceNumber ? <p className="sm:col-span-4 text-xs text-muted-foreground">Referință: {payment.referenceNumber}</p> : null}
+                </div>
+              ))}
+              {!data.payments?.length ? (
+                <p className="rounded-2xl bg-muted/35 px-4 py-3 text-sm text-muted-foreground">Nu există plăți înregistrate pentru această factură.</p>
+              ) : null}
+            </div>
+          </Card>
 
           <Card>
             <h2 className="text-base font-semibold text-foreground">Linii factură</h2>

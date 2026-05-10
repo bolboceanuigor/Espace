@@ -61,8 +61,22 @@ type InternalInvoiceMetadata = {
   createdAt: string;
   updatedAt: string;
 };
+type InternalPaymentNote = {
+  version: 1;
+  kind: 'INTERNAL_INVOICE_PAYMENT';
+  invoiceId: string;
+  invoiceMetadataId: string;
+  invoiceNumber: string;
+  billingMonth: string;
+  method: string;
+  referenceNumber: string;
+  payerName: string;
+  notes: string;
+  cancellationReason?: string;
+};
 
 const INTERNAL_INVOICE_NOTE_TITLE = 'Internal invoices metadata';
+const INTERNAL_PAYMENT_NOTE_PREFIX = 'INTERNAL_INVOICE_PAYMENT:';
 
 @Injectable()
 export class ResidentDemoService {
@@ -400,6 +414,29 @@ export class ResidentDemoService {
     return `Invoice ${invoiceId}`;
   }
 
+  private parseInternalPaymentNote(note?: string | null): InternalPaymentNote | null {
+    if (!note || !note.startsWith(INTERNAL_PAYMENT_NOTE_PREFIX)) return null;
+    try {
+      const parsed = JSON.parse(note.slice(INTERNAL_PAYMENT_NOTE_PREFIX.length));
+      if (parsed?.kind !== 'INTERNAL_INVOICE_PAYMENT' || !parsed.invoiceId) return null;
+      return {
+        version: 1,
+        kind: 'INTERNAL_INVOICE_PAYMENT',
+        invoiceId: String(parsed.invoiceId),
+        invoiceMetadataId: String(parsed.invoiceMetadataId || parsed.invoiceId),
+        invoiceNumber: String(parsed.invoiceNumber || ''),
+        billingMonth: String(parsed.billingMonth || ''),
+        method: String(parsed.method || ''),
+        referenceNumber: String(parsed.referenceNumber || ''),
+        payerName: String(parsed.payerName || ''),
+        notes: String(parsed.notes || ''),
+        cancellationReason: parsed.cancellationReason ? String(parsed.cancellationReason) : undefined,
+      };
+    } catch {
+      return null;
+    }
+  }
+
   private money(value: number) {
     return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
   }
@@ -457,6 +494,7 @@ export class ResidentDemoService {
   }
 
   private toPayment(row: any) {
+    const internalNote = this.parseInternalPaymentNote(row.note);
     const noteInvoiceId =
       typeof row.note === 'string' && row.note.startsWith('Invoice ')
         ? row.note.replace('Invoice ', '').trim()
@@ -476,19 +514,22 @@ export class ResidentDemoService {
       id: row.id,
       organizationId: row.organizationId,
       apartmentId: row.apartmentId,
-      invoiceId: row.invoiceId ?? noteInvoiceId,
-      invoiceNumber: linkedInvoice?.invoiceNumber ?? null,
+      invoiceId: row.invoiceId ?? internalNote?.invoiceId ?? noteInvoiceId,
+      invoiceNumber: internalNote?.invoiceNumber ?? linkedInvoice?.invoiceNumber ?? null,
+      billingMonth: internalNote?.billingMonth ?? null,
       invoiceMonth: linkedInvoice?.month ?? null,
       invoiceYear: linkedInvoice?.year ?? null,
       invoice: linkedInvoice,
       apartmentNumber: row.apartment?.number ?? null,
       amount: Number(row.amount || 0),
       currency: row.currency,
-      method: row.method,
+      method: internalNote?.method ?? row.method,
       status: row.status,
       paidAt: row.paidAt ?? row.confirmedAt,
       month: row.month,
-      note: row.note,
+      note: internalNote?.notes || row.note,
+      referenceNumber: internalNote?.referenceNumber || '',
+      payerName: internalNote?.payerName || '',
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     };
@@ -875,6 +916,18 @@ export class ResidentDemoService {
     const invoice = metadata.find((item) => (item.invoiceId === id || item.id === id) && scope.apartmentIds.includes(item.apartmentId));
     if (!invoice) throw new NotFoundException('Înregistrarea nu a fost găsită.');
     const apartment = apartmentDetails.find((item) => item.id === invoice.apartmentId);
+    const payments = await this.prisma.payment.findMany({
+      where: {
+        organizationId: user.organizationId,
+        apartmentId: invoice.apartmentId,
+        note: { startsWith: INTERNAL_PAYMENT_NOTE_PREFIX },
+      },
+      orderBy: [{ paidAt: 'desc' }, { createdAt: 'desc' }],
+      select: this.paymentSelect(),
+    });
+    const invoicePayments = payments
+      .filter((payment) => this.parseInternalPaymentNote(payment.note)?.invoiceId === invoice.invoiceId)
+      .map((payment) => this.toPayment(payment));
 
     return {
       invoice: {
@@ -919,6 +972,7 @@ export class ResidentDemoService {
         currency: line.currency,
         formulaLabel: line.formulaLabel,
       })),
+      payments: invoicePayments,
       actions: {
         pdfAvailable: false,
         onlinePaymentsAvailable: false,

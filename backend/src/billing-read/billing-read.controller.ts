@@ -176,6 +176,11 @@ export class BillingReadController {
     return this.billingReadService.listAdminInternalInvoices(user, query);
   }
 
+  @Get(['admin/invoices/:id/payments', 'api/admin/invoices/:id/payments'])
+  listAdminInvoicePayments(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.billingReadService.listAdminInvoicePayments(user, id);
+  }
+
   @Get(['admin/invoices/:id', 'api/admin/invoices/:id'])
   getAdminInternalInvoice(@CurrentUser() user: MvpUser, @Param('id') id: string) {
     return this.billingReadService.getAdminInternalInvoice(user, id);
@@ -189,6 +194,36 @@ export class BillingReadController {
   @Get(['admin/finance-overview', 'api/admin/finance-overview'])
   getFinanceOverview(@CurrentUser() user: MvpUser) {
     return this.billingReadService.getFinanceOverview(user);
+  }
+
+  @Get(['admin/payments/stats', 'api/admin/payments/stats'])
+  getAdminPaymentStats(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.billingReadService.getAdminPaymentStats(user, query);
+  }
+
+  @Get(['admin/payments/invoice-search', 'api/admin/payments/invoice-search'])
+  searchAdminPaymentInvoices(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.billingReadService.searchAdminPaymentInvoices(user, query);
+  }
+
+  @Get(['admin/payments', 'api/admin/payments'])
+  listAdminPayments(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.billingReadService.listAdminPayments(user, query);
+  }
+
+  @Post(['admin/payments', 'api/admin/payments'])
+  createAdminPayment(@CurrentUser() user: MvpUser, @Body() body: unknown) {
+    return this.billingReadService.createAdminPayment(user, body);
+  }
+
+  @Get(['admin/payments/:id', 'api/admin/payments/:id'])
+  getAdminPayment(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.billingReadService.getAdminPayment(user, id);
+  }
+
+  @Patch(['admin/payments/:id/cancel', 'api/admin/payments/:id/cancel'])
+  cancelAdminPayment(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.billingReadService.cancelAdminPayment(user, id, body);
   }
 
   @Post(['invoices', 'api/invoices'])

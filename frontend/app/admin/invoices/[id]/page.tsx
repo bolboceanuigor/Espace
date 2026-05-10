@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, FileText, Home, ReceiptText, UserRound, WalletCards, XCircle } from 'lucide-react';
 import { Badge, Button, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
-import { invoicesApi } from '@/lib/api';
+import { invoicesApi, paymentsApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
@@ -43,6 +43,17 @@ type InternalInvoice = {
   lines: InternalInvoiceLine[];
 };
 
+type InvoicePayment = {
+  id: string;
+  amount: number;
+  paymentDate?: string | null;
+  method: string;
+  referenceNumber?: string;
+  notes?: string;
+  status: 'CONFIRMED' | 'CANCELLED';
+  createdBy?: { fullName?: string | null; email?: string | null } | null;
+};
+
 const statusLabels: Record<InternalInvoiceStatus, string> = {
   ISSUED: 'Emisă',
   PARTIALLY_PAID: 'Achitată parțial',
@@ -59,11 +70,21 @@ const statusVariant = {
   VOID: 'neutral',
 } as const;
 
+const paymentMethodLabels: Record<string, string> = {
+  CASH: 'Numerar',
+  BANK_TRANSFER: 'Transfer bancar',
+  CARD_TERMINAL: 'Terminal card',
+  INFOCOM: 'InfoCom',
+  OPLATA: 'Oplata',
+  OTHER: 'Altă metodă',
+};
+
 export default function AdminInvoiceDetailsPage() {
   const params = useParams<{ id: string }>();
   const localizedPath = useLocalizedPath();
   const invoiceId = String(params?.id || '');
   const [invoice, setInvoice] = useState<InternalInvoice | null>(null);
+  const [payments, setPayments] = useState<InvoicePayment[]>([]);
   const [association, setAssociation] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
@@ -78,8 +99,11 @@ export default function AdminInvoiceDetailsPage() {
       const res = await invoicesApi.adminGetOne(invoiceId);
       setInvoice(res.data?.invoice || null);
       setAssociation(res.data?.association || null);
+      const paymentsRes = await paymentsApi.adminInvoicePayments(invoiceId).catch(() => ({ data: { items: [] } }));
+      setPayments(paymentsRes.data?.items || []);
     } catch (err: any) {
       setInvoice(null);
+      setPayments([]);
       setError(String(err?.message || 'Nu am putut încărca factura internă.'));
     } finally {
       setLoading(false);
@@ -118,7 +142,8 @@ export default function AdminInvoiceDetailsPage() {
     );
   }
 
-  const isClosed = invoice?.status === 'CANCELLED' || invoice?.status === 'VOID' || invoice?.status === 'PAID' || invoice?.status === 'PARTIALLY_PAID';
+  const canRegisterPayment = invoice ? (invoice.status === 'ISSUED' || invoice.status === 'PARTIALLY_PAID') && Number(invoice.balanceAmount || 0) > 0 : false;
+  const canCancel = invoice?.status === 'ISSUED';
 
   return (
     <div className="space-y-5 pb-8">
@@ -147,7 +172,7 @@ export default function AdminInvoiceDetailsPage() {
           <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             <StatCard label="Apartament" value={`Apt. ${invoice.apartment.apartmentNumber}`} description={invoice.apartment.staircase ? `Scara ${invoice.apartment.staircase}` : 'Scară nespecificată'} icon={<Home className="h-5 w-5" />} />
             <StatCard label="Total" value={formatMdl(invoice.totalAmount)} description="Total factură" icon={<WalletCards className="h-5 w-5" />} />
-            <StatCard label="Achitat" value={formatMdl(invoice.paidAmount)} description="Plăți conectate ulterior" icon={<WalletCards className="h-5 w-5" />} tone="success" />
+            <StatCard label="Achitat" value={formatMdl(invoice.paidAmount)} description="Plăți înregistrate" icon={<WalletCards className="h-5 w-5" />} tone="success" />
             <StatCard label="Sold" value={formatMdl(invoice.balanceAmount)} description="De urmărit manual" icon={<ReceiptText className="h-5 w-5" />} tone={invoice.balanceAmount > 0 ? 'warning' : 'success'} />
             <StatCard label="Status" value={statusLabels[invoice.status]} description={invoice.billingMonth} icon={<FileText className="h-5 w-5" />} />
           </section>
@@ -183,8 +208,15 @@ export default function AdminInvoiceDetailsPage() {
                 <ButtonLink href={localizedPath(`/admin/invoices/draft/${invoice.sourceDraftId}/review`)} variant="secondary">
                   Vezi draft
                 </ButtonLink>
+                {canRegisterPayment ? (
+                  <ButtonLink href={localizedPath(`/admin/payments?invoiceId=${invoice.invoiceId || invoice.id}`)} variant="primary">
+                    Înregistrează plată
+                  </ButtonLink>
+                ) : invoice.status === 'PAID' ? (
+                  <Badge variant="success">Achitată</Badge>
+                ) : null}
                 <Button type="button" variant="secondary" disabled>PDF în curând</Button>
-                {!isClosed ? (
+                {canCancel ? (
                   <>
                     <Button type="button" variant="secondary" onClick={() => updateStatus('CANCELLED')} isLoading={busy === 'CANCELLED'}>
                       <XCircle className="h-4 w-4" />
@@ -211,6 +243,26 @@ export default function AdminInvoiceDetailsPage() {
               <p className="mt-4 text-xs text-muted-foreground">Factura este internă. Trimiterea către locatari și PDF-ul final vor fi conectate ulterior.</p>
             </Card>
           </div>
+
+          <Card>
+            <h2 className="text-base font-semibold text-foreground">Istoric plăți</h2>
+            <div className="mt-4 grid gap-2">
+              {payments.map((payment) => (
+                <div key={payment.id} className="grid gap-3 rounded-2xl border border-border/70 bg-white px-4 py-3 text-sm md:grid-cols-[0.8fr_0.8fr_0.9fr_0.8fr_0.9fr_1fr] md:items-center">
+                  <span className="text-muted-foreground">{formatDate(payment.paymentDate)}</span>
+                  <strong className="text-foreground">{formatMdl(payment.amount)}</strong>
+                  <span className="text-muted-foreground">{paymentMethodLabels[payment.method] || payment.method}</span>
+                  <span className="text-muted-foreground">{payment.referenceNumber || '-'}</span>
+                  <Badge variant={payment.status === 'CANCELLED' ? 'neutral' : 'success'}>{payment.status === 'CANCELLED' ? 'Anulată' : 'Confirmată'}</Badge>
+                  <span className="text-muted-foreground">{payment.createdBy?.fullName || payment.createdBy?.email || '-'}</span>
+                  {payment.notes ? <p className="md:col-span-6 text-xs text-muted-foreground">{payment.notes}</p> : null}
+                </div>
+              ))}
+              {!payments.length ? (
+                <p className="rounded-2xl bg-muted/35 px-4 py-4 text-sm text-muted-foreground">Nu există plăți înregistrate pentru această factură.</p>
+              ) : null}
+            </div>
+          </Card>
 
           <Card>
             <h2 className="text-base font-semibold text-foreground">Linii factură</h2>

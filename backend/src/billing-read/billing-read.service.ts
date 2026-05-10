@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { ApartmentStatus, InvoiceStatus, NotificationType, PaymentMethod, PaymentStatus, Prisma, Role } from '@prisma/client';
+import { ApartmentStatus, BillingCurrency, InvoiceStatus, NotificationType, PaymentMethod, PaymentStatus, Prisma, Role } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { ActivityMvpService } from '../activity-mvp/activity-mvp.service';
@@ -158,10 +158,27 @@ type InternalInvoiceMetadata = {
   createdAt: string;
   updatedAt: string;
 };
+type ManualPaymentMethod = 'CASH' | 'BANK_TRANSFER' | 'CARD_TERMINAL' | 'INFOCOM' | 'OPLATA' | 'OTHER';
+type InternalPaymentNote = {
+  version: 1;
+  kind: 'INTERNAL_INVOICE_PAYMENT';
+  invoiceId: string;
+  invoiceMetadataId: string;
+  invoiceNumber: string;
+  billingMonth: string;
+  method: ManualPaymentMethod;
+  referenceNumber: string;
+  payerName: string;
+  notes: string;
+  cancellationReason?: string;
+  cancelledAt?: string;
+  cancelledById?: string;
+};
 
 const TARIFF_METADATA_NOTE_TITLE = 'Tariff settings metadata';
 const BILLING_DRAFT_NOTE_TITLE = 'Internal invoice draft metadata';
 const INTERNAL_INVOICE_NOTE_TITLE = 'Internal invoices metadata';
+const INTERNAL_PAYMENT_NOTE_PREFIX = 'INTERNAL_INVOICE_PAYMENT:';
 
 const SUPPORTED_TARIFFS: Record<
   SupportedTariffId,
@@ -307,6 +324,15 @@ export class BillingReadService {
           dueDate: true,
         },
       },
+      createdBy: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          fullName: true,
+          email: true,
+        },
+      },
     };
   }
 
@@ -388,11 +414,14 @@ export class BillingReadService {
 
   private toPayment(row: any) {
     const method = row.method === PaymentMethod.BANK ? 'OTHER' : row.method;
+    const internalNote = this.parseInternalPaymentNote(row.note);
     return {
       id: row.id,
       organizationId: row.organizationId,
       apartmentId: row.apartmentId,
-      invoiceId: row.invoiceId,
+      invoiceId: row.invoiceId ?? internalNote?.invoiceId ?? null,
+      invoiceNumber: internalNote?.invoiceNumber ?? row.invoice?.invoiceNumber ?? null,
+      billingMonth: internalNote?.billingMonth ?? (row.invoice?.month && row.invoice?.year ? `${row.invoice.year}-${String(row.invoice.month).padStart(2, '0')}` : row.month),
       apartment: row.apartment
         ? {
             id: row.apartment.id,
@@ -406,14 +435,76 @@ export class BillingReadService {
       invoice: row.invoice ?? null,
       amount: Number(row.amount || 0),
       currency: row.currency,
-      method,
+      method: internalNote?.method ?? method,
+      referenceNumber: internalNote?.referenceNumber ?? '',
+      payerName: internalNote?.payerName ?? '',
+      notes: internalNote?.notes ?? '',
+      cancellationReason: internalNote?.cancellationReason ?? '',
       status: row.status,
       paidAt: row.paidAt ?? row.confirmedAt,
+      paymentDate: row.paidAt ?? row.confirmedAt,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
       month: row.month,
       note: row.note,
+      createdBy: row.createdBy
+        ? {
+            id: row.createdBy.id,
+            fullName: this.userDisplayName(row.createdBy),
+            email: row.createdBy.email,
+          }
+        : null,
     };
+  }
+
+  private userDisplayName(user?: { firstName?: string | null; lastName?: string | null; fullName?: string | null; email?: string | null } | null) {
+    return user?.fullName || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.email || null;
+  }
+
+  private parseInternalPaymentNote(note?: string | null): InternalPaymentNote | null {
+    if (!note || !note.startsWith(INTERNAL_PAYMENT_NOTE_PREFIX)) return null;
+    try {
+      const parsed = JSON.parse(note.slice(INTERNAL_PAYMENT_NOTE_PREFIX.length));
+      if (parsed?.kind !== 'INTERNAL_INVOICE_PAYMENT' || !parsed.invoiceId) return null;
+      return {
+        version: 1,
+        kind: 'INTERNAL_INVOICE_PAYMENT',
+        invoiceId: String(parsed.invoiceId),
+        invoiceMetadataId: String(parsed.invoiceMetadataId || parsed.invoiceId),
+        invoiceNumber: String(parsed.invoiceNumber || ''),
+        billingMonth: String(parsed.billingMonth || ''),
+        method: this.parseManualPaymentMethod(parsed.method, true),
+        referenceNumber: String(parsed.referenceNumber || ''),
+        payerName: String(parsed.payerName || ''),
+        notes: String(parsed.notes || ''),
+        cancellationReason: parsed.cancellationReason ? String(parsed.cancellationReason) : undefined,
+        cancelledAt: parsed.cancelledAt ? String(parsed.cancelledAt) : undefined,
+        cancelledById: parsed.cancelledById ? String(parsed.cancelledById) : undefined,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  private buildInternalPaymentNote(note: InternalPaymentNote) {
+    return `${INTERNAL_PAYMENT_NOTE_PREFIX}${JSON.stringify(note)}`;
+  }
+
+  private parseManualPaymentMethod(value: unknown, fallbackToCash = false): ManualPaymentMethod {
+    const normalized = typeof value === 'string' && value.trim() ? value.trim().toUpperCase() : '';
+    if (!normalized && fallbackToCash) return 'CASH';
+    if (['CASH', 'BANK_TRANSFER', 'CARD_TERMINAL', 'INFOCOM', 'OPLATA', 'OTHER'].includes(normalized)) {
+      return normalized as ManualPaymentMethod;
+    }
+    throw new BadRequestException('Metoda de plată nu este validă.');
+  }
+
+  private paymentMethodForDb(method: ManualPaymentMethod): PaymentMethod {
+    if (method === 'BANK_TRANSFER') return PaymentMethod.BANK_TRANSFER;
+    if (method === 'CARD_TERMINAL') return PaymentMethod.CARD;
+    if (method === 'INFOCOM' || method === 'OPLATA') return PaymentMethod.ONLINE;
+    if (method === 'OTHER') return PaymentMethod.BANK;
+    return PaymentMethod.CASH;
   }
 
   private isSuperadmin(user: MvpUser) {
@@ -1828,6 +1919,159 @@ export class BillingReadService {
     };
   }
 
+  private findInternalInvoice(metadata: InternalInvoiceMetadata[], id: string) {
+    return metadata.find((item) => item.id === id || item.invoiceId === id);
+  }
+
+  private isInternalInvoicePayable(invoice: InternalInvoiceMetadata) {
+    return invoice.status === 'ISSUED' || invoice.status === 'PARTIALLY_PAID';
+  }
+
+  private async internalPaymentRows(
+    organizationId: string,
+    invoiceIds?: string[],
+    client: any = this.prisma,
+  ) {
+    const rows = await client.payment.findMany({
+      where: {
+        organizationId,
+        note: { startsWith: INTERNAL_PAYMENT_NOTE_PREFIX },
+      },
+      orderBy: [{ paidAt: 'desc' }, { createdAt: 'desc' }],
+      select: this.paymentSelect(),
+    });
+    if (!invoiceIds?.length) return rows;
+    const allowed = new Set(invoiceIds);
+    return rows.filter((row) => {
+      const note = this.parseInternalPaymentNote(row.note);
+      return note?.invoiceId && allowed.has(note.invoiceId);
+    });
+  }
+
+  private toAdminInternalPayment(row: any, invoice?: InternalInvoiceMetadata | null) {
+    const note = this.parseInternalPaymentNote(row.note);
+    const paymentDate = row.paidAt ?? row.confirmedAt ?? row.createdAt;
+    const resolvedInvoice = invoice || null;
+    return {
+      id: row.id,
+      invoiceId: note?.invoiceId ?? resolvedInvoice?.invoiceId ?? null,
+      invoiceNumber: note?.invoiceNumber || resolvedInvoice?.invoiceNumber || row.invoice?.invoiceNumber || null,
+      billingMonth: note?.billingMonth || resolvedInvoice?.billingMonth || row.month,
+      apartment: resolvedInvoice?.apartment
+        ? {
+            id: resolvedInvoice.apartment.id,
+            apartmentNumber: resolvedInvoice.apartment.apartmentNumber,
+            staircase: resolvedInvoice.apartment.staircase,
+            floor: resolvedInvoice.apartment.floor,
+          }
+        : row.apartment
+          ? {
+              id: row.apartment.id,
+              apartmentNumber: row.apartment.number,
+              staircase: row.apartment.staircase?.name ?? null,
+              floor: row.apartment.floor === null || row.apartment.floor === undefined ? null : String(row.apartment.floor),
+            }
+          : null,
+      resident: resolvedInvoice?.primaryContact
+        ? {
+            id: resolvedInvoice.primaryContact.id,
+            fullName: resolvedInvoice.primaryContact.fullName,
+            phone: resolvedInvoice.primaryContact.phone,
+          }
+        : null,
+      amount: Number(row.amount || 0),
+      currency: row.currency || 'MDL',
+      paymentDate,
+      method: note?.method ?? (row.method === PaymentMethod.BANK ? 'OTHER' : row.method),
+      referenceNumber: note?.referenceNumber || '',
+      payerName: note?.payerName || '',
+      notes: note?.notes || '',
+      cancellationReason: note?.cancellationReason || '',
+      status: row.status,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      createdBy: row.createdBy
+        ? {
+            id: row.createdBy.id,
+            fullName: this.userDisplayName(row.createdBy),
+            email: row.createdBy.email,
+          }
+        : null,
+    };
+  }
+
+  private internalPaymentStats(invoices: InternalInvoiceMetadata[], payments: any[]) {
+    const confirmed = payments.filter((payment) => payment.status === PaymentStatus.CONFIRMED);
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const paymentMonth = (payment: any) => {
+      const date = payment.paidAt ?? payment.confirmedAt ?? payment.createdAt;
+      return date ? new Date(date).toISOString().slice(0, 7) : '';
+    };
+    const lastPayment = [...confirmed].sort((a, b) => {
+      const left = new Date(a.paidAt ?? a.confirmedAt ?? a.createdAt).getTime();
+      const right = new Date(b.paidAt ?? b.confirmedAt ?? b.createdAt).getTime();
+      return right - left;
+    })[0];
+    return {
+      totalCollected: this.money(confirmed.reduce((sum, payment) => sum + Number(payment.amount || 0), 0)),
+      totalUnpaidBalance: this.money(
+        invoices
+          .filter((invoice) => invoice.status !== 'CANCELLED' && invoice.status !== 'VOID')
+          .reduce((sum, invoice) => sum + Number(invoice.balanceAmount || 0), 0),
+      ),
+      currentMonthPayments: this.money(
+        confirmed
+          .filter((payment) => paymentMonth(payment) === currentMonth)
+          .reduce((sum, payment) => sum + Number(payment.amount || 0), 0),
+      ),
+      unpaidInvoices: invoices.filter((invoice) => invoice.status === 'ISSUED' && Number(invoice.balanceAmount || 0) > 0).length,
+      partiallyPaidInvoices: invoices.filter((invoice) => invoice.status === 'PARTIALLY_PAID').length,
+      paidInvoices: invoices.filter((invoice) => invoice.status === 'PAID').length,
+      lastPaymentDate: lastPayment?.paidAt ?? lastPayment?.confirmedAt ?? lastPayment?.createdAt ?? null,
+      totalPayments: payments.length,
+      confirmedPayments: confirmed.length,
+      cancelledPayments: payments.filter((payment) => payment.status === PaymentStatus.CANCELLED).length,
+    };
+  }
+
+  private async recalculateInternalInvoicePaymentState(
+    organizationId: string,
+    invoiceId: string,
+    actorUserId: string,
+    client: any = this.prisma,
+  ) {
+    const metadata = await this.readInternalInvoiceMetadata(organizationId, client);
+    const index = metadata.findIndex((item) => item.id === invoiceId || item.invoiceId === invoiceId);
+    if (index === -1) throw new NotFoundException('Factura selectată nu există.');
+    const invoice = metadata[index];
+    const payments = await this.internalPaymentRows(organizationId, [invoice.invoiceId], client);
+    const confirmed = payments.filter((payment) => payment.status === PaymentStatus.CONFIRMED);
+    const paidAmount = this.money(confirmed.reduce((sum, payment) => sum + Number(payment.amount || 0), 0));
+    const balanceAmount = this.money(Math.max(Number(invoice.totalAmount || 0) - paidAmount, 0));
+    let status: InternalInvoiceStatus = invoice.status;
+    if (invoice.status !== 'CANCELLED' && invoice.status !== 'VOID') {
+      status = paidAmount <= 0 ? 'ISSUED' : paidAmount >= Number(invoice.totalAmount || 0) ? 'PAID' : 'PARTIALLY_PAID';
+    }
+    const updated: InternalInvoiceMetadata = {
+      ...invoice,
+      paidAmount,
+      balanceAmount,
+      status,
+      updatedAt: new Date().toISOString(),
+    };
+    const next = metadata.map((item, itemIndex) => (itemIndex === index ? updated : item));
+    await this.writeInternalInvoiceMetadata(organizationId, actorUserId, next, client);
+    await client.invoice.update({
+      where: { id: invoice.invoiceId },
+      data: {
+        status: status === 'PAID' ? InvoiceStatus.PAID : invoice.dueDate && new Date(invoice.dueDate) < new Date() ? InvoiceStatus.OVERDUE : InvoiceStatus.UNPAID,
+        paidAt: status === 'PAID' ? new Date() : null,
+      },
+    }).catch(() => undefined);
+    return { invoice: updated, payments };
+  }
+
   private async finalizationContext(user: MvpUser, draftId: string) {
     const organizationId = this.resolveOrganizationId(user);
     this.assertOrganizationAccess(user, organizationId);
@@ -2170,6 +2414,265 @@ export class BillingReadService {
     const nextItems = metadata.map((item, itemIndex) => (itemIndex === index ? updated : item));
     await this.writeInternalInvoiceMetadata(organizationId, user.id, nextItems);
     return { invoice: updated, message: nextStatus === 'VOID' ? 'Factura a fost marcată VOID.' : 'Factura a fost anulată.' };
+  }
+
+  async listAdminPayments(user: MvpUser, query: Record<string, unknown>) {
+    const organizationId = this.resolveOrganizationId(user, query);
+    this.assertOrganizationAccess(user, organizationId);
+    const [metadata, paymentRows, organization] = await Promise.all([
+      this.readInternalInvoiceMetadata(organizationId),
+      this.internalPaymentRows(organizationId),
+      this.prisma.organization.findUnique({
+        where: { id: organizationId },
+        select: { id: true, name: true, legalName: true, fiscalCode: true },
+      }),
+    ]);
+    const invoiceById = new Map(metadata.map((invoice) => [invoice.invoiceId, invoice]));
+    const search = typeof query.search === 'string' ? query.search.trim().toLowerCase() : '';
+    const method = typeof query.method === 'string' ? query.method.trim().toUpperCase() : '';
+    const status = typeof query.status === 'string' ? query.status.trim().toUpperCase() : '';
+    const invoiceStatus = typeof query.invoiceStatus === 'string' ? query.invoiceStatus.trim().toUpperCase() : '';
+    const billingMonth = typeof query.billingMonth === 'string' && query.billingMonth.trim() ? this.parseBillingMonth(query.billingMonth) : '';
+    const dateFrom = typeof query.dateFrom === 'string' && query.dateFrom.trim() ? new Date(query.dateFrom) : null;
+    const dateTo = typeof query.dateTo === 'string' && query.dateTo.trim() ? new Date(query.dateTo) : null;
+    if (dateTo) dateTo.setHours(23, 59, 59, 999);
+    const page = Math.max(1, Number(query.page || 1));
+    const limit = Math.min(100, Math.max(1, Number(query.limit || 20)));
+    const sortBy = typeof query.sortBy === 'string' ? query.sortBy : 'paymentDate';
+    const sortDirection = String(query.sortDirection || 'desc').toLowerCase() === 'asc' ? 'asc' : 'desc';
+
+    const payments = paymentRows
+      .map((row) => this.toAdminInternalPayment(row, invoiceById.get(this.parseInternalPaymentNote(row.note)?.invoiceId || '') || null))
+      .filter((payment) => {
+        const paymentDate = payment.paymentDate ? new Date(payment.paymentDate) : null;
+        const matchesDateFrom = !dateFrom || (paymentDate && paymentDate >= dateFrom);
+        const matchesDateTo = !dateTo || (paymentDate && paymentDate <= dateTo);
+        const matchesMethod = !method || payment.method === method;
+        const matchesStatus = !status || payment.status === status;
+        const linkedInvoice = payment.invoiceId ? invoiceById.get(payment.invoiceId) : null;
+        const matchesInvoiceStatus = !invoiceStatus || linkedInvoice?.status === invoiceStatus;
+        const matchesBillingMonth = !billingMonth || payment.billingMonth === billingMonth;
+        const haystack = `${payment.invoiceNumber || ''} ${payment.apartment?.apartmentNumber || ''} ${payment.apartment?.staircase || ''} ${payment.resident?.fullName || ''} ${payment.resident?.phone || ''} ${payment.referenceNumber || ''} ${payment.payerName || ''}`.toLowerCase();
+        return matchesDateFrom && matchesDateTo && matchesMethod && matchesStatus && matchesInvoiceStatus && matchesBillingMonth && (!search || haystack.includes(search));
+      });
+
+    payments.sort((a, b) => {
+      const direction = sortDirection === 'asc' ? 1 : -1;
+      if (sortBy === 'amount') return (Number(a.amount || 0) - Number(b.amount || 0)) * direction;
+      if (sortBy === 'invoiceNumber') return String(a.invoiceNumber || '').localeCompare(String(b.invoiceNumber || ''), 'ro', { numeric: true }) * direction;
+      if (sortBy === 'apartmentNumber') return String(a.apartment?.apartmentNumber || '').localeCompare(String(b.apartment?.apartmentNumber || ''), 'ro', { numeric: true }) * direction;
+      return (new Date(a.paymentDate || 0).getTime() - new Date(b.paymentDate || 0).getTime()) * direction;
+    });
+
+    const start = (page - 1) * limit;
+    return {
+      items: payments.slice(start, start + limit),
+      meta: { page, limit, total: payments.length },
+      stats: this.internalPaymentStats(metadata, paymentRows),
+      association: organization
+        ? {
+            id: organization.id,
+            shortName: organization.name,
+            legalName: organization.legalName || organization.name,
+            associationCode: this.normalizeInvoiceCode(organization.fiscalCode || organization.name),
+            currency: 'MDL',
+          }
+        : null,
+    };
+  }
+
+  async getAdminPaymentStats(user: MvpUser, query: Record<string, unknown> = {}) {
+    const organizationId = this.resolveOrganizationId(user, query);
+    this.assertOrganizationAccess(user, organizationId);
+    const [metadata, paymentRows] = await Promise.all([
+      this.readInternalInvoiceMetadata(organizationId),
+      this.internalPaymentRows(organizationId),
+    ]);
+    return this.internalPaymentStats(metadata, paymentRows);
+  }
+
+  async searchAdminPaymentInvoices(user: MvpUser, query: Record<string, unknown>) {
+    const organizationId = this.resolveOrganizationId(user, query);
+    this.assertOrganizationAccess(user, organizationId);
+    const metadata = await this.readInternalInvoiceMetadata(organizationId);
+    const search = typeof query.search === 'string' ? query.search.trim().toLowerCase() : '';
+    const unpaidOnly = query.unpaidOnly === true || String(query.unpaidOnly ?? 'true').toLowerCase() === 'true';
+    const items = metadata
+      .filter((invoice) => {
+        if (invoice.status === 'CANCELLED' || invoice.status === 'VOID') return false;
+        if (unpaidOnly && (invoice.status === 'PAID' || Number(invoice.balanceAmount || 0) <= 0)) return false;
+        const haystack = `${invoice.id} ${invoice.invoiceId} ${invoice.invoiceNumber} ${invoice.billingMonth} ${invoice.apartment.apartmentNumber} ${invoice.apartment.staircase} ${invoice.primaryContact?.fullName || ''} ${invoice.primaryContact?.phone || ''}`.toLowerCase();
+        return !search || haystack.includes(search);
+      })
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 20)
+      .map((invoice) => ({
+        id: invoice.invoiceId,
+        metadataId: invoice.id,
+        invoiceNumber: invoice.invoiceNumber,
+        billingMonth: invoice.billingMonth,
+        apartment: invoice.apartment,
+        resident: invoice.primaryContact,
+        status: invoice.status,
+        totalAmount: Number(invoice.totalAmount || 0),
+        paidAmount: Number(invoice.paidAmount || 0),
+        balanceAmount: Number(invoice.balanceAmount || 0),
+        dueDate: invoice.dueDate,
+      }));
+    return { items };
+  }
+
+  async createAdminPayment(user: MvpUser, body: unknown) {
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const organizationId = this.resolveOrganizationId(user, payload);
+    this.assertOrganizationAccess(user, organizationId);
+    const invoiceId = this.requiredString(payload.invoiceId, 'Factura este obligatorie.');
+    const amount = this.requiredNumber(payload.amount, 'Suma plății trebuie să fie mai mare decât 0.');
+    const paymentDate = this.requiredDate(payload.paymentDate || payload.paidAt, 'Data plății nu este validă.');
+    const method = this.parseManualPaymentMethod(payload.method);
+    if (amount <= 0) throw new BadRequestException('Suma plății trebuie să fie mai mare decât 0.');
+
+    const metadata = await this.readInternalInvoiceMetadata(organizationId);
+    const invoice = this.findInternalInvoice(metadata, invoiceId);
+    if (!invoice) throw new NotFoundException('Factura selectată nu există.');
+    if (!this.isInternalInvoicePayable(invoice)) {
+      if (invoice.status === 'PAID') throw new BadRequestException('Factura este deja achitată.');
+      throw new BadRequestException('Nu se poate înregistra plată pentru facturi anulate sau VOID.');
+    }
+    if (amount > Number(invoice.balanceAmount || 0) + 0.001) {
+      throw new BadRequestException('Suma nu poate depăși soldul facturii.');
+    }
+
+    const referenceNumber = typeof payload.referenceNumber === 'string' ? payload.referenceNumber.trim() : '';
+    const payerName = typeof payload.payerName === 'string' ? payload.payerName.trim() : '';
+    const notes = typeof payload.notes === 'string' ? payload.notes.trim() : '';
+    const payment = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.payment.create({
+        data: {
+          organizationId,
+          apartmentId: invoice.apartmentId,
+          amount: this.money(amount),
+          currency: BillingCurrency.MDL,
+          method: this.paymentMethodForDb(method),
+          status: PaymentStatus.CONFIRMED,
+          paidAt: paymentDate,
+          confirmedAt: paymentDate,
+          month: invoice.billingMonth,
+          createdByUserId: user.id,
+          note: this.buildInternalPaymentNote({
+            version: 1,
+            kind: 'INTERNAL_INVOICE_PAYMENT',
+            invoiceId: invoice.invoiceId,
+            invoiceMetadataId: invoice.id,
+            invoiceNumber: invoice.invoiceNumber,
+            billingMonth: invoice.billingMonth,
+            method,
+            referenceNumber,
+            payerName,
+            notes,
+          }),
+        },
+        select: this.paymentSelect(),
+      });
+      const recalculated = await this.recalculateInternalInvoicePaymentState(organizationId, invoice.invoiceId, user.id, tx);
+      return { created, updatedInvoice: recalculated.invoice };
+    });
+
+    await this.activity.createActivity({
+      organizationId,
+      actorUserId: user.id,
+      type: 'PAYMENT_REGISTERED',
+      title: 'Plată înregistrată',
+      message: `Plata de ${this.money(amount).toLocaleString('ro-RO')} MDL a fost înregistrată pentru factura ${invoice.invoiceNumber}.`,
+      targetType: 'PAYMENT',
+      targetId: payment.created.id,
+      link: '/admin/payments',
+    }).catch(() => undefined);
+
+    await this.activity.notifyApartmentResidents({
+      organizationId,
+      apartmentId: invoice.apartmentId,
+      type: NotificationType.PAYMENT,
+      title: 'Plată înregistrată',
+      message: `A fost înregistrată o plată de ${this.money(amount).toLocaleString('ro-RO')} MDL pentru factura ${invoice.invoiceNumber}.`,
+      link: `/resident/invoices/${invoice.invoiceId}`,
+    }).catch(() => undefined);
+
+    return {
+      payment: this.toAdminInternalPayment(payment.created, payment.updatedInvoice),
+      invoice: payment.updatedInvoice,
+      message: 'Plata a fost înregistrată.',
+    };
+  }
+
+  async getAdminPayment(user: MvpUser, id: string) {
+    const organizationId = this.resolveOrganizationId(user);
+    this.assertOrganizationAccess(user, organizationId);
+    const row = await this.prisma.payment.findFirst({
+      where: { id, organizationId, note: { startsWith: INTERNAL_PAYMENT_NOTE_PREFIX } },
+      select: this.paymentSelect(),
+    });
+    if (!row) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    const note = this.parseInternalPaymentNote(row.note);
+    const invoice = note ? this.findInternalInvoice(await this.readInternalInvoiceMetadata(organizationId), note.invoiceId) : null;
+    return this.toAdminInternalPayment(row, invoice);
+  }
+
+  async cancelAdminPayment(user: MvpUser, id: string, body: unknown) {
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const reason = this.requiredString(payload.reason || payload.cancellationReason, 'Motivul anulării este obligatoriu.');
+    const organizationId = this.resolveOrganizationId(user, payload);
+    this.assertOrganizationAccess(user, organizationId);
+    const row = await this.prisma.payment.findFirst({
+      where: { id, organizationId, note: { startsWith: INTERNAL_PAYMENT_NOTE_PREFIX } },
+      select: this.paymentSelect(),
+    });
+    if (!row) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    if (row.status === PaymentStatus.CANCELLED) throw new BadRequestException('Plata este deja anulată.');
+    const note = this.parseInternalPaymentNote(row.note);
+    if (!note) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.payment.update({
+        where: { id: row.id },
+        data: {
+          status: PaymentStatus.CANCELLED,
+          note: this.buildInternalPaymentNote({
+            ...note,
+            cancellationReason: reason,
+            cancelledAt: new Date().toISOString(),
+            cancelledById: user.id,
+          }),
+        },
+        select: this.paymentSelect(),
+      });
+      const recalculated = await this.recalculateInternalInvoicePaymentState(organizationId, note.invoiceId, user.id, tx);
+      return { updated, updatedInvoice: recalculated.invoice };
+    });
+
+    return {
+      payment: this.toAdminInternalPayment(result.updated, result.updatedInvoice),
+      invoice: result.updatedInvoice,
+      message: 'Plata a fost anulată.',
+    };
+  }
+
+  async listAdminInvoicePayments(user: MvpUser, id: string) {
+    const organizationId = this.resolveOrganizationId(user);
+    this.assertOrganizationAccess(user, organizationId);
+    const metadata = await this.readInternalInvoiceMetadata(organizationId);
+    const invoice = this.findInternalInvoice(metadata, id);
+    if (!invoice) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    const rows = await this.internalPaymentRows(organizationId, [invoice.invoiceId]);
+    const items = rows.map((row) => this.toAdminInternalPayment(row, invoice));
+    return {
+      items,
+      stats: {
+        totalPaid: this.money(items.filter((item) => item.status === PaymentStatus.CONFIRMED).reduce((sum, item) => sum + Number(item.amount || 0), 0)),
+        confirmedCount: items.filter((item) => item.status === PaymentStatus.CONFIRMED).length,
+        cancelledCount: items.filter((item) => item.status === PaymentStatus.CANCELLED).length,
+      },
+    };
   }
 
   async generateMonthlyInvoices(user: MvpUser, body: unknown) {

@@ -283,13 +283,19 @@ function RowActions({
   localizedPath: (path: string) => string;
   onStatus: (invoice: InternalInvoice, status: 'CANCELLED' | 'VOID') => void;
 }) {
-  const isFinalClosed = invoice.status === 'CANCELLED' || invoice.status === 'VOID' || invoice.status === 'PAID' || invoice.status === 'PARTIALLY_PAID';
+  const canRegisterPayment = (invoice.status === 'ISSUED' || invoice.status === 'PARTIALLY_PAID') && Number(invoice.balanceAmount || 0) > 0;
+  const canCancel = invoice.status === 'ISSUED';
   return (
     <div className="flex flex-wrap gap-1.5">
       <ButtonLink href={localizedPath(`/admin/invoices/${invoice.invoiceId || invoice.id}`)} size="sm" variant="secondary">
         <Eye className="h-3.5 w-3.5" />
         Deschide
       </ButtonLink>
+      {canRegisterPayment ? (
+        <ButtonLink href={localizedPath(`/admin/payments?invoiceId=${invoice.invoiceId || invoice.id}`)} size="sm" variant="secondary">
+          Înregistrează plată
+        </ButtonLink>
+      ) : null}
       <ButtonLink href={localizedPath(`/admin/apartments/${invoice.apartment.id}`)} size="sm" variant="secondary">
         <Home className="h-3.5 w-3.5" />
         Apartament
@@ -299,7 +305,7 @@ function RowActions({
           Locatar
         </ButtonLink>
       ) : null}
-      {!isFinalClosed ? (
+      {canCancel ? (
         <>
           <Button type="button" size="sm" variant="secondary" onClick={() => onStatus(invoice, 'CANCELLED')} isLoading={busy === `${invoice.id}:CANCELLED`}>
             Anulează
