@@ -14,7 +14,8 @@ export type NavigationIconKey =
   | 'wrench'
   | 'settings'
   | 'sparkles'
-  | 'chartColumnBig';
+  | 'chartColumnBig'
+  | 'listChecks';
 
 export type NavigationItem = {
   label: string;
@@ -53,6 +54,7 @@ export const NAVIGATION_CONFIG: NavigationItem[] = [
   { label: 'Solicitări date', href: '/admin/resident-update-requests', icon: 'users', allowedRoles: ['ADMIN'], mobileVisible: false, moreMenu: true },
   { label: 'Avizier', href: '/admin/announcements', icon: 'megaphone', allowedRoles: ['ADMIN'], mobileVisible: false, moreMenu: true },
   { label: 'Notificări', href: '/admin/notifications', icon: 'circleAlert', allowedRoles: ['ADMIN'], mobileVisible: false, moreMenu: true },
+  { label: 'Istoric activitate', href: '/admin/audit-log', icon: 'listChecks', allowedRoles: ['ADMIN'], mobileVisible: false, moreMenu: true },
   { label: 'Documente', href: '/admin/documents', icon: 'fileText', allowedRoles: ['ADMIN'], mobileVisible: false, moreMenu: true },
   { label: 'Rapoarte', href: '/admin/reports', icon: 'chartColumnBig', allowedRoles: ['ADMIN'], mobileVisible: false, moreMenu: true },
   { label: 'Setări', href: '/admin/settings/organization', icon: 'settings', allowedRoles: ['ADMIN'], mobileVisible: false, moreMenu: true },

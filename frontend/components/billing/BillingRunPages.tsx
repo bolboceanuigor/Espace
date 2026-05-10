@@ -9,6 +9,7 @@ import {
   CalendarDays,
   CheckCircle2,
   FileText,
+  History,
   LockKeyhole,
   Play,
   ReceiptText,
@@ -18,7 +19,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { Badge, Button, ButtonLink, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard, Table, TableBody, TableCell, TableEmpty, TableHead, TableHeaderCell, TableRow, TableWrapper } from '@/components/ui';
-import { billingApi } from '@/lib/api';
+import { auditLogsApi, billingApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
@@ -74,6 +75,16 @@ type BillingOverview = {
   nextAction: { key: string; label: string; description: string; actionUrl: string };
 };
 
+type RecentActivity = {
+  id: string;
+  title: string;
+  message: string;
+  severity: 'INFO' | 'SUCCESS' | 'WARNING' | 'ERROR';
+  actionUrl?: string | null;
+  actor?: { fullName?: string | null } | null;
+  createdAt: string;
+};
+
 const statusLabel: Record<BillingRunStatus, string> = {
   NOT_STARTED: 'Nepornit',
   PRECHECK: 'Verificări inițiale',
@@ -120,6 +131,11 @@ const timelineIcon = {
 function currentMonth() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function formatActivityDate(value?: string | null) {
+  if (!value) return '—';
+  return new Intl.DateTimeFormat('ro-MD', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
 }
 
 function localizeAction(localizedPath: (path: string) => string, path?: string | null) {
@@ -507,6 +523,7 @@ export function BillingRunDetailPage() {
   const localizedPath = useLocalizedPath();
   const id = String(params?.id || '');
   const [data, setData] = useState<BillingOverview | null>(null);
+  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
@@ -521,10 +538,15 @@ export function BillingRunDetailPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await billingApi.getRun(id);
+      const [res, activityRes] = await Promise.all([
+        billingApi.getRun(id),
+        auditLogsApi.billingRunActivityRecent(id).catch(() => null),
+      ]);
       setData(res.data || res);
+      setRecentActivity((activityRes?.data || activityRes)?.items || []);
     } catch (err: any) {
       setData(null);
+      setRecentActivity([]);
       setError(String(err?.message || 'Nu am putut încărca procesul lunar.'));
     } finally {
       setLoading(false);
@@ -565,6 +587,9 @@ export function BillingRunDetailPage() {
             <Button variant="secondary" onClick={() => runAction('preflight', () => billingApi.preflight(id).then(() => undefined), 'Verificările au fost actualizate.')} disabled={busy === 'preflight'}>
               <RefreshCw className="h-4 w-4" /> Rulează verificări
             </Button>
+            <ButtonLink href={localizedPath(`/admin/billing/runs/${id}/activity`)} variant="secondary">
+              <History className="h-4 w-4" /> Vezi activitatea
+            </ButtonLink>
             <Button onClick={() => setCalculateOpen(true)} disabled={!run || run.status === 'CANCELLED' || run.status === 'FINALIZED'}>
               <Play className="h-4 w-4" /> Calculează draft
             </Button>
@@ -625,6 +650,28 @@ export function BillingRunDetailPage() {
                 <ButtonLink href={localizedPath(`/admin/invoices?billingMonth=${run.billingMonth}`)} className="mt-4" variant="secondary">
                   Vezi facturi finale
                 </ButtonLink>
+              </Card>
+              <Card className="p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-sm font-semibold text-foreground">Activitate recentă</h3>
+                  <ButtonLink href={localizedPath(`/admin/billing/runs/${run.id}/activity`)} size="sm" variant="secondary">
+                    Vezi tot istoricul
+                  </ButtonLink>
+                </div>
+                <div className="mt-4 space-y-3">
+                  {recentActivity.length ? recentActivity.map((item) => (
+                    <div key={item.id} className="rounded-md border border-border p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-medium text-foreground">{item.title}</p>
+                        <Badge variant={item.severity === 'SUCCESS' ? 'success' : item.severity === 'WARNING' ? 'warning' : item.severity === 'ERROR' ? 'error' : 'neutral'}>{item.severity}</Badge>
+                      </div>
+                      <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{item.message}</p>
+                      <p className="mt-2 text-xs text-muted-foreground">{item.actor?.fullName || 'Sistem'} · {formatActivityDate(item.createdAt)}</p>
+                    </div>
+                  )) : (
+                    <p className="text-sm text-muted-foreground">Nu există activitate înregistrată încă.</p>
+                  )}
+                </div>
               </Card>
             </aside>
           </div>

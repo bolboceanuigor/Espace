@@ -3,6 +3,7 @@ import { ApartmentStatus, BillingCurrency, InvoiceStatus, NotificationType, Paym
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { ActivityMvpService } from '../activity-mvp/activity-mvp.service';
+import { AuditService } from '../audit/audit.service';
 import type { MvpUser } from '../security/mvp-auth.guard';
 
 type SupportedTariffId = 'DESERVIRE_BLOC_PER_M2' | 'FOND_REPARATIE_PER_M2' | 'FOND_DEZVOLTARE_FIXED';
@@ -316,6 +317,7 @@ export class BillingReadService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly activity: ActivityMvpService,
+    private readonly audit: AuditService,
   ) {}
 
   private invoiceSelect(): Prisma.InvoiceSelect {
@@ -951,6 +953,20 @@ export class BillingReadService {
     );
     const nextRows = existingIndex >= 0 ? rows.map((row, index) => (index === existingIndex ? next : row)) : [...rows, next];
     await this.writeTariffRows(organizationId, user.id, nextRows);
+    await this.audit
+      .logTariffChanged({
+        associationId: organizationId,
+        actorUserId: user.id,
+        actorRole: user.role,
+        action: existingIndex >= 0 ? 'TARIFF_UPDATED' : 'TARIFF_CREATED',
+        entityId: next.id,
+        message: existingIndex >= 0 ? `Tariful "${next.name}" a fost actualizat.` : `Tariful "${next.name}" a fost creat.`,
+        actionUrl: `/admin/tariffs/${next.id}`,
+        metadata: { name: next.name, internalCode: next.internalCode, calculationType: next.calculationType, status: next.status },
+        beforeSnapshot: existingIndex >= 0 ? rows[existingIndex] : null,
+        afterSnapshot: next,
+      })
+      .catch(() => undefined);
     return next;
   }
 
@@ -971,6 +987,20 @@ export class BillingReadService {
     const updated = this.normalizeTariffRow({ ...rows[index], status, updatedAt: new Date().toISOString(), updatedById: user.id }, organizationId, apartments);
     const nextRows = rows.map((row, rowIndex) => (rowIndex === index ? updated : row));
     await this.writeTariffRows(organizationId, user.id, nextRows);
+    await this.audit
+      .logTariffChanged({
+        associationId: organizationId,
+        actorUserId: user.id,
+        actorRole: user.role,
+        action: 'TARIFF_STATUS_CHANGED',
+        entityId: updated.id,
+        message: `Statusul tarifului "${updated.name}" a fost schimbat din ${rows[index].status} în ${status}.`,
+        actionUrl: `/admin/tariffs/${updated.id}`,
+        metadata: { name: updated.name, internalCode: updated.internalCode, oldStatus: rows[index].status, newStatus: status },
+        beforeSnapshot: { status: rows[index].status },
+        afterSnapshot: { status },
+      })
+      .catch(() => undefined);
     return updated;
   }
 
@@ -2151,6 +2181,70 @@ export class BillingReadService {
     return record;
   }
 
+  private async billingRunForDraftAudit(organizationId: string, draft: BillingDraftRecord, client: any = this.prisma) {
+    const runs = await this.readBillingRuns(organizationId, client);
+    return runs.find((run) => run.draftId === draft.id) || this.findActiveBillingRun(runs, draft.billingMonth);
+  }
+
+  private draftAuditMetadata(draft: BillingDraftRecord, includeMeterCharges?: boolean) {
+    return {
+      billingMonth: draft.billingMonth,
+      totalApartments: Number(draft.apartmentsCount || draft.items?.length || 0),
+      totalAmount: Number(draft.totalAmount || 0),
+      warningsCount: Number(draft.warningsCount || 0),
+      errorsCount: Number(draft.errorsCount || 0),
+      activeTariffsUsed: Array.isArray(draft.tariffsUsed) ? draft.tariffsUsed.length : 0,
+      includeMeterCharges,
+    };
+  }
+
+  private async auditDraftCalculated(
+    organizationId: string,
+    user: MvpUser,
+    draft: BillingDraftRecord,
+    billingRun: BillingRunRecord | null,
+    recalculated: boolean,
+    before?: BillingDraftRecord | null,
+    includeMeterCharges?: boolean,
+  ) {
+    await this.audit
+      .logDraftCalculated(
+        {
+          associationId: organizationId,
+          actorUserId: user.id,
+          actorRole: user.role,
+          entityId: draft.id,
+          billingRunId: billingRun?.id || null,
+          invoiceDraftId: draft.id,
+          message: recalculated
+            ? `Draftul pentru ${draft.billingMonth} a fost recalculat: ${Number(draft.totalAmount || 0).toLocaleString('ro-RO')} MDL.`
+            : `Draftul pentru ${draft.billingMonth} a fost calculat: ${Number(draft.totalAmount || 0).toLocaleString('ro-RO')} MDL.`,
+          actionUrl: `/admin/invoices/draft/${draft.id}/review`,
+          metadata: this.draftAuditMetadata(draft, includeMeterCharges),
+          beforeSnapshot: before
+            ? {
+                oldTotalAmount: Number(before.totalAmount || 0),
+                oldWarningsCount: Number(before.warningsCount || 0),
+                oldErrorsCount: Number(before.errorsCount || 0),
+              }
+            : null,
+          afterSnapshot: {
+            newTotalAmount: Number(draft.totalAmount || 0),
+            newWarningsCount: Number(draft.warningsCount || 0),
+            newErrorsCount: Number(draft.errorsCount || 0),
+          },
+        },
+        recalculated,
+      )
+      .catch(() => undefined);
+  }
+
+  private preflightAuditSeverity(warningsCount: number, errorsCount: number) {
+    if (errorsCount > 0) return 'ERROR' as const;
+    if (warningsCount > 0) return 'WARNING' as const;
+    return 'SUCCESS' as const;
+  }
+
   private async readInternalInvoiceMetadata(organizationId: string, client: any = this.prisma): Promise<InternalInvoiceMetadata[]> {
     const note = await client.clientNote.findFirst({
       where: { organizationId, title: INTERNAL_INVOICE_NOTE_TITLE },
@@ -2870,6 +2964,18 @@ export class BillingReadService {
       updatedAt: now,
     };
     await this.writeBillingRuns(organizationId, user.id, [...runs, run]);
+    await this.audit
+      .logBillingRunCreated({
+        associationId: organizationId,
+        actorUserId: user.id,
+        actorRole: user.role,
+        entityId: run.id,
+        billingRunId: run.id,
+        message: `Procesul de facturare pentru ${billingMonth} a fost pornit.`,
+        actionUrl: `/admin/billing/runs/${run.id}`,
+        metadata: { billingMonth, status: run.status },
+      })
+      .catch(() => undefined);
     return this.runBillingRunPreflight(user, run.id);
   }
 
@@ -2922,6 +3028,28 @@ export class BillingReadService {
       updatedAt: new Date().toISOString(),
     };
     await this.writeBillingRuns(organizationId, user.id, runs.map((item) => (item.id === id ? updated : item)));
+    await this.audit
+      .logBillingRunPrecheckRun({
+        associationId: organizationId,
+        actorUserId: user.id,
+        actorRole: user.role,
+        entityId: updated.id,
+        billingRunId: updated.id,
+        severity: this.preflightAuditSeverity(warningsCount, errorsCount),
+        message: `Verificările inițiale pentru ${updated.billingMonth} au fost rulate: ${warningsCount} warnings, ${errorsCount} errors.`,
+        actionUrl: `/admin/billing/runs/${updated.id}`,
+        metadata: {
+          billingMonth: updated.billingMonth,
+          warningsCount,
+          errorsCount,
+          checks: preflight.checks.map((check) => ({
+            key: check.key,
+            status: check.status,
+            severity: check.severity,
+          })),
+        },
+      })
+      .catch(() => undefined);
     return this.billingRunDetailPayload(updated, preflight.association, preflight.summary, preflight.draft, preflight.finalInvoices);
   }
 
@@ -2949,6 +3077,7 @@ export class BillingReadService {
     const nextDrafts = existing ? drafts.map((draft) => (draft.id === existing.id ? calculated : draft)) : [...drafts, calculated];
     await this.writeBillingDrafts(organizationId, user.id, nextDrafts);
     const syncedRun = await this.syncBillingRunForDraft(organizationId, user.id, calculated, 'DRAFT_CALCULATED');
+    await this.auditDraftCalculated(organizationId, user, calculated, syncedRun, Boolean(existing), existing, input.includeMeterCharges);
     const freshPreflight = await this.buildBillingRunPreflight(user, run.billingMonth, syncedRun);
     return this.billingRunDetailPayload(syncedRun, freshPreflight.association, freshPreflight.summary, freshPreflight.draft, freshPreflight.finalInvoices);
   }
@@ -2983,6 +3112,21 @@ export class BillingReadService {
     if (run.status === 'CANCELLED' || run.status === 'FINALIZED') throw new BadRequestException('Procesul nu mai poate fi modificat.');
     const updated = { ...run, status: requestedStatus, updatedAt: new Date().toISOString() };
     await this.writeBillingRuns(organizationId, user.id, runs.map((item) => (item.id === id ? updated : item)));
+    await this.audit
+      .logBillingRunStatusChanged({
+        associationId: organizationId,
+        actorUserId: user.id,
+        actorRole: user.role,
+        entityId: updated.id,
+        billingRunId: updated.id,
+        severity: 'INFO',
+        message: `Statusul procesului ${updated.billingMonth} a fost schimbat din ${run.status} în ${requestedStatus}.`,
+        actionUrl: `/admin/billing/runs/${updated.id}`,
+        metadata: { billingMonth: updated.billingMonth, oldStatus: run.status, newStatus: requestedStatus },
+        beforeSnapshot: { status: run.status },
+        afterSnapshot: { status: requestedStatus },
+      })
+      .catch(() => undefined);
     return this.getBillingRun(user, id);
   }
 
@@ -3004,12 +3148,86 @@ export class BillingReadService {
       updatedAt: new Date().toISOString(),
     };
     await this.writeBillingRuns(organizationId, user.id, runs.map((item) => (item.id === id ? updated : item)));
+    await this.audit
+      .createLog({
+        associationId: organizationId,
+        actorUserId: user.id,
+        actorRole: user.role,
+        action: 'BILLING_RUN_CANCELLED',
+        entityType: 'BILLING_RUN',
+        entityId: updated.id,
+        billingRunId: updated.id,
+        severity: 'WARNING',
+        title: 'Proces lunar anulat',
+        message: `Procesul de facturare pentru ${updated.billingMonth} a fost anulat.`,
+        actionUrl: `/admin/billing/runs/${updated.id}`,
+        metadata: { billingMonth: updated.billingMonth, cancellationReason: reason },
+        beforeSnapshot: { status: run.status },
+        afterSnapshot: { status: updated.status, cancellationReason: reason },
+      })
+      .catch(() => undefined);
     return { success: true, billingRun: updated, message: 'Procesul lunar a fost anulat.' };
   }
 
   async getBillingRunChecks(user: MvpUser, id: string) {
     const detail = await this.getBillingRun(user, id);
     return { items: detail.checks || [] };
+  }
+
+  private async auditAssociationPayload(organizationId: string) {
+    const organization = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { id: true, name: true, legalName: true, fiscalCode: true, address: true },
+    });
+    return organization
+      ? {
+          id: organization.id,
+          shortName: organization.name,
+          legalName: organization.legalName || organization.name,
+          associationCode: organization.fiscalCode || '',
+          address: organization.address || '',
+        }
+      : null;
+  }
+
+  async listAdminAuditLog(user: MvpUser, query: Record<string, unknown>) {
+    const organizationId = this.resolveOrganizationId(user, query);
+    this.assertOrganizationAccess(user, organizationId);
+    const [result, association] = await Promise.all([this.audit.listAdminAuditLog(organizationId, query), this.auditAssociationPayload(organizationId)]);
+    return { ...result, association };
+  }
+
+  async getAdminAuditLog(user: MvpUser, id: string) {
+    const organizationId = this.resolveOrganizationId(user);
+    this.assertOrganizationAccess(user, organizationId);
+    return this.audit.getAdminAuditLog(organizationId, id);
+  }
+
+  async getAdminAuditLogStats(user: MvpUser, query: Record<string, unknown>) {
+    const organizationId = this.resolveOrganizationId(user, query);
+    this.assertOrganizationAccess(user, organizationId);
+    return this.audit.getAdminAuditLogStats(organizationId, query);
+  }
+
+  async getBillingRunActivity(user: MvpUser, id: string, query: Record<string, unknown>, recentLimit?: number) {
+    const organizationId = this.resolveOrganizationId(user, query);
+    this.assertOrganizationAccess(user, organizationId);
+    const runs = await this.readBillingRuns(organizationId);
+    const run = runs.find((item) => item.id === id);
+    if (!run) throw new NotFoundException('Procesul de facturare nu a fost găsit.');
+    const [result, association] = await Promise.all([this.audit.listBillingRunActivity(organizationId, id, query, recentLimit), this.auditAssociationPayload(organizationId)]);
+    return {
+      ...result,
+      association,
+      billingRun: {
+        id: run.id,
+        billingMonth: run.billingMonth,
+        status: run.status,
+        warningsCount: run.warningsCount,
+        errorsCount: run.errorsCount,
+        updatedAt: run.updatedAt,
+      },
+    };
   }
 
   async getInvoiceDraft(user: MvpUser, query: Record<string, unknown>) {
@@ -3056,7 +3274,8 @@ export class BillingReadService {
     const calculated = await this.calculateDraftRecord(user, input, existing);
     const nextDrafts = existing ? drafts.map((draft) => (draft.id === existing.id ? calculated : draft)) : [...drafts, calculated];
     await this.writeBillingDrafts(organizationId, user.id, nextDrafts);
-    await this.syncBillingRunForDraft(organizationId, user.id, calculated, 'DRAFT_CALCULATED');
+    const syncedRun = await this.syncBillingRunForDraft(organizationId, user.id, calculated, 'DRAFT_CALCULATED');
+    await this.auditDraftCalculated(organizationId, user, calculated, syncedRun, Boolean(existing), existing, input.includeMeterCharges);
     return this.draftResponse(calculated);
   }
 
@@ -3076,7 +3295,8 @@ export class BillingReadService {
     const calculated = await this.calculateDraftRecord(user, input, existing);
     const nextDrafts = drafts.map((draft) => (draft.id === id ? calculated : draft));
     await this.writeBillingDrafts(organizationId, user.id, nextDrafts);
-    await this.syncBillingRunForDraft(organizationId, user.id, calculated, 'DRAFT_CALCULATED');
+    const syncedRun = await this.syncBillingRunForDraft(organizationId, user.id, calculated, 'DRAFT_CALCULATED');
+    await this.auditDraftCalculated(organizationId, user, calculated, syncedRun, true, existing, input.includeMeterCharges);
     return this.draftResponse(calculated);
   }
 
@@ -3117,6 +3337,24 @@ export class BillingReadService {
     const updatedDraft = this.draftResponse({ ...draft, items: updatedItems, updatedAt: new Date().toISOString() }) as BillingDraftRecord;
     const nextDrafts = drafts.map((item) => (item.id === id ? updatedDraft : item));
     await this.writeBillingDrafts(organizationId, user.id, nextDrafts);
+    const billingRun = await this.billingRunForDraftAudit(organizationId, updatedDraft);
+    await this.audit
+      .createLog({
+        associationId: organizationId,
+        actorUserId: user.id,
+        actorRole: user.role,
+        action: statusValue === 'EXCLUDED' ? 'DRAFT_LINE_EXCLUDED' : 'DRAFT_LINE_INCLUDED',
+        entityType: 'INVOICE_DRAFT_LINE',
+        entityId: lineId,
+        billingRunId: billingRun?.id || null,
+        invoiceDraftId: updatedDraft.id,
+        title: statusValue === 'EXCLUDED' ? 'Linie draft exclusă' : 'Linie draft inclusă',
+        message: statusValue === 'EXCLUDED' ? 'O linie din draft a fost exclusă din calcul.' : 'O linie din draft a fost inclusă în calcul.',
+        severity: statusValue === 'EXCLUDED' ? 'WARNING' : 'INFO',
+        actionUrl: `/admin/invoices/draft/${updatedDraft.id}/review`,
+        metadata: { billingMonth: updatedDraft.billingMonth, lineId, status: statusValue, scope: 'LINE_OR_ITEM' },
+      })
+      .catch(() => undefined);
     return this.draftResponse(updatedDraft);
   }
 
@@ -3145,6 +3383,25 @@ export class BillingReadService {
     const updatedDraft = this.draftResponse({ ...draft, items: updatedItems, updatedAt: new Date().toISOString() }) as BillingDraftRecord;
     const nextDrafts = drafts.map((item) => (item.id === id ? updatedDraft : item));
     await this.writeBillingDrafts(organizationId, user.id, nextDrafts);
+    const billingRun = await this.billingRunForDraftAudit(organizationId, updatedDraft);
+    await this.audit
+      .createLog({
+        associationId: organizationId,
+        actorUserId: user.id,
+        actorRole: user.role,
+        action: statusValue === 'EXCLUDED' ? 'DRAFT_LINE_EXCLUDED' : 'DRAFT_LINE_INCLUDED',
+        entityType: 'INVOICE_DRAFT_LINE',
+        entityId: apartmentId,
+        billingRunId: billingRun?.id || null,
+        invoiceDraftId: updatedDraft.id,
+        apartmentId,
+        title: statusValue === 'EXCLUDED' ? 'Apartament exclus din draft' : 'Apartament inclus în draft',
+        message: statusValue === 'EXCLUDED' ? 'Liniile apartamentului au fost excluse din calcul.' : 'Liniile apartamentului au fost incluse în calcul.',
+        severity: statusValue === 'EXCLUDED' ? 'WARNING' : 'INFO',
+        actionUrl: `/admin/invoices/draft/${updatedDraft.id}/review`,
+        metadata: { billingMonth: updatedDraft.billingMonth, apartmentId, status: statusValue, scope: 'APARTMENT' },
+      })
+      .catch(() => undefined);
     return this.reviewPayload(updatedDraft);
   }
 
@@ -3185,6 +3442,25 @@ export class BillingReadService {
     if (!changed) throw new NotFoundException('Înregistrarea nu a fost găsită.');
     const updatedDraft = this.draftResponse({ ...draft, items: updatedItems, updatedAt: new Date().toISOString() }) as BillingDraftRecord;
     await this.writeBillingDrafts(organizationId, user.id, drafts.map((item) => (item.id === id ? updatedDraft : item)));
+    const billingRun = await this.billingRunForDraftAudit(organizationId, updatedDraft);
+    await this.audit
+      .createLog({
+        associationId: organizationId,
+        actorUserId: user.id,
+        actorRole: user.role,
+        action: 'DRAFT_MANUAL_ADJUSTMENT_ADDED',
+        entityType: 'INVOICE_DRAFT_LINE',
+        entityId: line.id,
+        billingRunId: billingRun?.id || null,
+        invoiceDraftId: updatedDraft.id,
+        apartmentId,
+        title: 'Ajustare manuală adăugată',
+        message: `A fost adăugată ajustarea manuală "${line.name}" în valoare de ${this.money(line.amount).toLocaleString('ro-RO')} MDL.`,
+        severity: 'INFO',
+        actionUrl: `/admin/invoices/draft/${updatedDraft.id}/review`,
+        metadata: { billingMonth: updatedDraft.billingMonth, lineId: line.id, apartmentId, amount: line.amount, type: line.manualType, name: line.name },
+      })
+      .catch(() => undefined);
     return this.reviewPayload(updatedDraft);
   }
 
@@ -3197,14 +3473,17 @@ export class BillingReadService {
     if (!draft) throw new NotFoundException('Înregistrarea nu a fost găsită.');
     this.assertDraftMutable(draft);
     let changed = false;
+    let beforeLine: BillingDraftLine | null = null;
+    let afterLine: BillingDraftLine | null = null;
     const updatedItems = draft.items.map((item) => {
       const updatedLines = item.lines.map((line) => {
         if (line.id !== lineId) return line;
         if (!line.isManual) throw new BadRequestException('Doar ajustările manuale pot fi editate.');
         changed = true;
+        beforeLine = { ...line };
         const amount = input.amount === null ? line.amount : input.amount;
         const status = input.status || line.status;
-        return {
+        afterLine = {
           ...line,
           name: input.name || line.name,
           description: input.description === undefined ? line.description : input.description,
@@ -3216,12 +3495,33 @@ export class BillingReadService {
           excludedAt: status === 'EXCLUDED' ? (line.excludedAt || new Date().toISOString()) : null,
           excludedById: status === 'EXCLUDED' ? (line.excludedById || user.id) : null,
         };
+        return afterLine;
       });
       return this.recomputeDraftItem({ ...item, lines: updatedLines });
     });
     if (!changed) throw new NotFoundException('Înregistrarea nu a fost găsită.');
     const updatedDraft = this.draftResponse({ ...draft, items: updatedItems, updatedAt: new Date().toISOString() }) as BillingDraftRecord;
     await this.writeBillingDrafts(organizationId, user.id, drafts.map((item) => (item.id === id ? updatedDraft : item)));
+    const billingRun = await this.billingRunForDraftAudit(organizationId, updatedDraft);
+    await this.audit
+      .createLog({
+        associationId: organizationId,
+        actorUserId: user.id,
+        actorRole: user.role,
+        action: 'DRAFT_MANUAL_ADJUSTMENT_UPDATED',
+        entityType: 'INVOICE_DRAFT_LINE',
+        entityId: lineId,
+        billingRunId: billingRun?.id || null,
+        invoiceDraftId: updatedDraft.id,
+        title: 'Ajustare manuală actualizată',
+        message: 'O ajustare manuală din draft a fost actualizată.',
+        severity: 'INFO',
+        actionUrl: `/admin/invoices/draft/${updatedDraft.id}/review`,
+        metadata: { billingMonth: updatedDraft.billingMonth, lineId, amount: afterLine?.amount },
+        beforeSnapshot: beforeLine,
+        afterSnapshot: afterLine,
+      })
+      .catch(() => undefined);
     return this.reviewPayload(updatedDraft);
   }
 
@@ -3233,16 +3533,40 @@ export class BillingReadService {
     if (!draft) throw new NotFoundException('Înregistrarea nu a fost găsită.');
     this.assertDraftMutable(draft);
     let found = false;
+    let removedLine: BillingDraftLine | null = null;
+    let removedApartmentId: string | null = null;
     const updatedItems = draft.items.map((item) => {
       const line = item.lines.find((candidate) => candidate.id === lineId);
       if (!line) return item;
       if (!line.isManual) throw new BadRequestException('Liniile generate din tarife nu pot fi șterse.');
       found = true;
+      removedLine = line;
+      removedApartmentId = item.apartmentId;
       return this.recomputeDraftItem({ ...item, lines: item.lines.filter((candidate) => candidate.id !== lineId) });
     });
     if (!found) throw new NotFoundException('Înregistrarea nu a fost găsită.');
     const updatedDraft = this.draftResponse({ ...draft, items: updatedItems, updatedAt: new Date().toISOString() }) as BillingDraftRecord;
     await this.writeBillingDrafts(organizationId, user.id, drafts.map((item) => (item.id === id ? updatedDraft : item)));
+    const billingRun = await this.billingRunForDraftAudit(organizationId, updatedDraft);
+    await this.audit
+      .createLog({
+        associationId: organizationId,
+        actorUserId: user.id,
+        actorRole: user.role,
+        action: 'DRAFT_MANUAL_ADJUSTMENT_REMOVED',
+        entityType: 'INVOICE_DRAFT_LINE',
+        entityId: lineId,
+        billingRunId: billingRun?.id || null,
+        invoiceDraftId: updatedDraft.id,
+        apartmentId: removedApartmentId,
+        title: 'Ajustare manuală eliminată',
+        message: 'O ajustare manuală din draft a fost eliminată.',
+        severity: 'WARNING',
+        actionUrl: `/admin/invoices/draft/${updatedDraft.id}/review`,
+        metadata: { billingMonth: updatedDraft.billingMonth, lineId, apartmentId: removedApartmentId, amount: removedLine?.amount, name: removedLine?.name },
+        beforeSnapshot: removedLine,
+      })
+      .catch(() => undefined);
     return this.reviewPayload(updatedDraft);
   }
 
@@ -3299,7 +3623,28 @@ export class BillingReadService {
       updatedAt: new Date().toISOString(),
     } as BillingDraftRecord) as BillingDraftRecord;
     await this.writeBillingDrafts(organizationId, user.id, drafts.map((item) => (item.id === id ? locked : item)));
-    await this.syncBillingRunForDraft(organizationId, user.id, locked, 'DRAFT_LOCKED');
+    const syncedRun = await this.syncBillingRunForDraft(organizationId, user.id, locked, 'DRAFT_LOCKED');
+    await this.audit
+      .logDraftLocked({
+        associationId: organizationId,
+        actorUserId: user.id,
+        actorRole: user.role,
+        entityId: locked.id,
+        billingRunId: syncedRun?.id || null,
+        invoiceDraftId: locked.id,
+        message: `Draftul pentru ${locked.billingMonth} a fost blocat.`,
+        actionUrl: `/admin/invoices/draft/${locked.id}/review`,
+        metadata: {
+          billingMonth: locked.billingMonth,
+          includedApartments: locked.includedApartments || totals.includedApartments,
+          includedAmount: locked.includedAmount || totals.totalAmount,
+          warningsCount: locked.warningsCount || totals.warningsCount,
+          errorsCount: locked.errorsCount || totals.errorsCount,
+        },
+        beforeSnapshot: { status: response.status },
+        afterSnapshot: { status: locked.status, lockedAt: locked.lockedAt },
+      })
+      .catch(() => undefined);
     return this.reviewPayload(locked);
   }
 
@@ -3319,6 +3664,26 @@ export class BillingReadService {
     };
     const nextDrafts = drafts.map((item) => (item.id === id ? cancelled : item));
     await this.writeBillingDrafts(organizationId, user.id, nextDrafts);
+    const billingRun = await this.billingRunForDraftAudit(organizationId, cancelled);
+    await this.audit
+      .createLog({
+        associationId: organizationId,
+        actorUserId: user.id,
+        actorRole: user.role,
+        action: 'DRAFT_CANCELLED',
+        entityType: 'INVOICE_DRAFT',
+        entityId: cancelled.id,
+        billingRunId: billingRun?.id || null,
+        invoiceDraftId: cancelled.id,
+        title: 'Draft anulat',
+        message: `Draftul pentru ${cancelled.billingMonth} a fost anulat.`,
+        severity: 'WARNING',
+        actionUrl: `/admin/invoices/draft/${cancelled.id}/review`,
+        metadata: { billingMonth: cancelled.billingMonth },
+        beforeSnapshot: { status: draft.status },
+        afterSnapshot: { status: cancelled.status },
+      })
+      .catch(() => undefined);
     return { id, status: 'CANCELLED', message: 'Draftul a fost anulat.' };
   }
 
@@ -3622,6 +3987,7 @@ export class BillingReadService {
     const { month, year } = this.billingMonthWindow(response.billingMonth);
     const dueDate = response.dueDate ? this.requiredDate(response.dueDate, 'Data scadentă nu este validă.') : new Date(year, month - 1, 25);
     const now = new Date().toISOString();
+    const billingRun = await this.billingRunForDraftAudit(organizationId, response);
     const existingMonthSequences = metadata
       .filter((item) => item.billingMonth === response.billingMonth && item.invoiceNumber.startsWith(`${associationCode}-${response.billingMonth.replace('-', '')}-`))
       .map((item) => Number(item.invoiceNumber.split('-').pop()))
@@ -3742,6 +4108,29 @@ export class BillingReadService {
         updatedAt: now,
       } as BillingDraftRecord) as BillingDraftRecord;
       await this.writeBillingDrafts(organizationId, user.id, drafts.map((item) => (item.id === response.id ? finalizedDraft : item)), tx);
+      await this.audit.logInvoicesFinalized(
+        {
+          associationId: organizationId,
+          actorUserId: user.id,
+          actorRole: user.role,
+          entityId: response.id,
+          billingRunId: billingRun?.id || null,
+          invoiceDraftId: response.id,
+          message: `Au fost generate ${createdMetadata.length} facturi pentru ${response.billingMonth}.`,
+          actionUrl: `/admin/invoices?billingMonth=${response.billingMonth}`,
+          metadata: {
+            sourceDraftId: response.id,
+            billingMonth: response.billingMonth,
+            createdInvoices: createdMetadata.length,
+            totalAmount,
+            firstInvoiceNumber: createdMetadata[0]?.invoiceNumber || null,
+            lastInvoiceNumber: createdMetadata[createdMetadata.length - 1]?.invoiceNumber || null,
+          },
+          beforeSnapshot: { draftStatus: response.status },
+          afterSnapshot: { draftStatus: finalizedDraft.status, invoicesGenerated: true, invoicesCount: createdMetadata.length, finalizedAmount: totalAmount },
+        },
+        tx,
+      );
       return { createdMetadata, totalAmount };
     });
 
@@ -4057,6 +4446,26 @@ export class BillingReadService {
         select: this.paymentSelect(),
       });
       const recalculated = await this.recalculateInternalInvoicePaymentState(organizationId, invoice.invoiceId, user.id, tx);
+      await this.audit.logPaymentRecorded(
+        {
+          associationId: organizationId,
+          actorUserId: user.id,
+          actorRole: user.role,
+          entityId: created.id,
+          invoiceId: invoice.invoiceId,
+          apartmentId: invoice.apartmentId,
+          message: `Plata de ${this.money(amount).toLocaleString('ro-RO')} MDL a fost înregistrată pentru factura ${invoice.invoiceNumber}.`,
+          actionUrl: `/admin/payments/${created.id}`,
+          metadata: {
+            invoiceId: invoice.invoiceId,
+            invoiceNumber: invoice.invoiceNumber,
+            amount: this.money(amount),
+            method,
+            paymentDate: paymentDate.toISOString(),
+          },
+        },
+        tx,
+      );
       return { created, updatedInvoice: recalculated.invoice };
     });
 
@@ -4129,6 +4538,25 @@ export class BillingReadService {
         select: this.paymentSelect(),
       });
       const recalculated = await this.recalculateInternalInvoicePaymentState(organizationId, note.invoiceId, user.id, tx);
+      await this.audit.logPaymentCancelled(
+        {
+          associationId: organizationId,
+          actorUserId: user.id,
+          actorRole: user.role,
+          entityId: updated.id,
+          invoiceId: note.invoiceId,
+          message: `Plata pentru factura ${note.invoiceNumber} a fost anulată.`,
+          actionUrl: `/admin/payments/${updated.id}`,
+          metadata: {
+            paymentId: updated.id,
+            amount: Number(updated.amount || 0),
+            invoiceId: note.invoiceId,
+            invoiceNumber: note.invoiceNumber,
+            cancellationReason: reason,
+          },
+        },
+        tx,
+      );
       return { updated, updatedInvoice: recalculated.invoice };
     });
     if (result.updatedInvoice?.apartmentId) {

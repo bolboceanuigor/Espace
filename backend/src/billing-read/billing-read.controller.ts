@@ -16,6 +16,21 @@ export class BillingReadController {
     return this.billingReadService.listInvoices(user);
   }
 
+  @Get(['admin/audit-log/stats', 'api/admin/audit-log/stats'])
+  getAdminAuditLogStats(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.billingReadService.getAdminAuditLogStats(user, query);
+  }
+
+  @Get(['admin/audit-log', 'api/admin/audit-log'])
+  listAdminAuditLog(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.billingReadService.listAdminAuditLog(user, query);
+  }
+
+  @Get(['admin/audit-log/:id', 'api/admin/audit-log/:id'])
+  getAdminAuditLog(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.billingReadService.getAdminAuditLog(user, id);
+  }
+
   @Get(['admin/billing', 'api/admin/billing'])
   getBillingOverview(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
     return this.billingReadService.getBillingOverview(user, query);
@@ -29,6 +44,16 @@ export class BillingReadController {
   @Post(['admin/billing/runs', 'api/admin/billing/runs'])
   createBillingRun(@CurrentUser() user: MvpUser, @Body() body: unknown) {
     return this.billingReadService.createBillingRun(user, body);
+  }
+
+  @Get(['admin/billing/runs/:id/activity/recent', 'api/admin/billing/runs/:id/activity/recent'])
+  getBillingRunActivityRecent(@CurrentUser() user: MvpUser, @Param('id') id: string, @Query() query: Record<string, unknown>) {
+    return this.billingReadService.getBillingRunActivity(user, id, query, 5);
+  }
+
+  @Get(['admin/billing/runs/:id/activity', 'api/admin/billing/runs/:id/activity'])
+  getBillingRunActivity(@CurrentUser() user: MvpUser, @Param('id') id: string, @Query() query: Record<string, unknown>) {
+    return this.billingReadService.getBillingRunActivity(user, id, query);
   }
 
   @Get(['admin/billing/runs/:id/checks', 'api/admin/billing/runs/:id/checks'])

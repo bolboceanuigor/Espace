@@ -7,6 +7,7 @@ import {
   CreditCard,
   FileText,
   Home,
+  ListChecks,
   Megaphone,
   MessageCircle,
   Settings,
@@ -33,4 +34,5 @@ export const NAVIGATION_ICON_MAP: Record<NavigationIconKey, React.ComponentType<
   settings: Settings,
   sparkles: Sparkles,
   chartColumnBig: ChartColumnBig,
+  listChecks: ListChecks,
 };

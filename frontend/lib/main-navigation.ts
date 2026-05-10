@@ -21,6 +21,7 @@ export type MainNavigationKey =
   | 'issues'
   | 'residentUpdateRequests'
   | 'notifications'
+  | 'auditLog'
   | 'documents'
   | 'chat'
   | 'imports'
@@ -71,6 +72,7 @@ export const ADMIN_NAVIGATION_ITEMS: MainNavigationItem[] = [
   { key: 'residentUpdateRequests', label: 'Solicitări date', href: '/admin/resident-update-requests' },
   { key: 'announcements', label: 'Avizier', href: '/admin/announcements' },
   { key: 'notifications', label: 'Notificări', href: '/admin/notifications' },
+  { key: 'auditLog', label: 'Istoric activitate', href: '/admin/audit-log' },
   { key: 'documents', label: 'Documente', href: '/admin/documents' },
   { key: 'imports', label: 'Import date', href: '/admin/imports' },
   { key: 'reports', label: 'Rapoarte', href: '/admin/reports' },

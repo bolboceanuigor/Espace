@@ -1528,6 +1528,9 @@ export const billingApi = {
   cancel: (id: string, cancellationReason: string) =>
     apiRequest<any>(`/api/admin/billing/runs/${id}/cancel`, { method: 'PATCH', body: { cancellationReason } }),
   checks: (id: string) => apiRequest<any>(`/api/admin/billing/runs/${id}/checks`),
+  activity: (id: string, params?: Record<string, string | number | boolean | undefined>) =>
+    apiRequest<any>(`/api/admin/billing/runs/${id}/activity`, { params }),
+  recentActivity: (id: string) => apiRequest<any>(`/api/admin/billing/runs/${id}/activity/recent`),
 };
 
 export const tariffsApi = {
@@ -1894,6 +1897,14 @@ export const notificationsApi = {
 export const auditLogsApi = {
   adminList: (params?: { action?: string; entityType?: string; userId?: string; from?: string; to?: string }) =>
     apiRequest<any[]>('/api/admin/audit-logs', { params }),
+  adminActivityList: (params?: Record<string, string | number | boolean | undefined>) =>
+    apiRequest<any>('/api/admin/audit-log', { params }),
+  adminActivityStats: (params?: Record<string, string | number | boolean | undefined>) =>
+    apiRequest<any>('/api/admin/audit-log/stats', { params }),
+  adminActivityGet: (id: string) => apiRequest<any>(`/api/admin/audit-log/${id}`),
+  billingRunActivity: (id: string, params?: Record<string, string | number | boolean | undefined>) =>
+    apiRequest<any>(`/api/admin/billing/runs/${id}/activity`, { params }),
+  billingRunActivityRecent: (id: string) => apiRequest<any>(`/api/admin/billing/runs/${id}/activity/recent`),
   superadminList: (params?: {
     organizationId?: string;
     action?: string;

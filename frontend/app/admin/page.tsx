@@ -744,6 +744,9 @@ export default function AdminPage() {
           <ButtonLink href={localizedPath('/admin/billing')} variant="secondary">
             <ListChecks className="h-4 w-4" /> Facturare lunară
           </ButtonLink>
+          <ButtonLink href={localizedPath('/admin/audit-log')} variant="secondary">
+            <ListChecks className="h-4 w-4" /> Istoric activitate
+          </ButtonLink>
           <ButtonLink href={localizedPath('/admin/invoices')} variant="secondary">
             <FileText className="h-4 w-4" /> Emite facturi
           </ButtonLink>
