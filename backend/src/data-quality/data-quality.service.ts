@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import {
+  ApartmentResidentRole,
   ApartmentStatus,
   DataQualityBillingImpact,
   DataQualityCategory,
@@ -7,9 +8,12 @@ import {
   DataQualityIssueStatus,
   DataQualityRunStatus,
   DataQualitySeverity,
+  MeterReadingSource,
   MeterStatus,
+  MeterType,
   PaymentStatus,
   Prisma,
+  ResidentAccountStatus,
   ResidentInvoiceStatus,
   Role,
 } from '@prisma/client';
@@ -43,6 +47,7 @@ type TariffRow = {
   fixedAmount?: number | null;
   pricePerUnit?: number | null;
   meterType?: string | null;
+  unit?: string | null;
   startsAt?: string | null;
   endsAt?: string | null;
 };
@@ -53,11 +58,76 @@ type ReadingMetadata = {
   previousReadingValue?: number | null;
   consumptionValue?: number | null;
   unit?: string | null;
+  adminComment?: string | null;
+  rejectionReason?: string | null;
+  reviewedAt?: string | null;
+  rejectedAt?: string | null;
+  reviewedByUserId?: string | null;
 };
 
 type MeterMetadataStore = {
   meters: Record<string, Record<string, unknown>>;
   readings: Record<string, ReadingMetadata>;
+};
+
+type DataQualityFixType =
+  | 'SET_APARTMENT_AREA'
+  | 'SET_APARTMENT_STATUS'
+  | 'SET_APARTMENT_STAIRCASE'
+  | 'SET_APARTMENT_FLOOR'
+  | 'SET_PRIMARY_CONTACT'
+  | 'LINK_RESIDENT_TO_APARTMENT'
+  | 'RESOLVE_MULTIPLE_PRIMARY_CONTACTS'
+  | 'SET_RESIDENT_STATUS'
+  | 'SET_TARIFF_PRICE'
+  | 'SET_METER_UNIT'
+  | 'SET_METER_NUMBER'
+  | 'SET_METER_STATUS'
+  | 'MARK_READING_NEEDS_REVIEW'
+  | 'REJECT_METER_READING'
+  | 'START_BILLING_RUN'
+  | 'RUN_DATA_QUALITY'
+  | 'MARK_ISSUE_RESOLVED'
+  | 'MARK_ISSUE_IGNORED'
+  | 'REOPEN_ISSUE';
+
+type FixOption = {
+  type: DataQualityFixType;
+  key: DataQualityFixType;
+  label: string;
+  description?: string;
+  requiresInput?: boolean;
+  actionUrl?: string | null;
+  available?: boolean;
+};
+
+type FixChange = {
+  field: string;
+  currentValue: unknown;
+  newValue: unknown;
+};
+
+type FixPreview = {
+  issue: Record<string, unknown>;
+  fix: {
+    type: DataQualityFixType;
+    label: string;
+    canApply: boolean;
+    requiresConfirmation: boolean;
+  };
+  entity: {
+    type: string;
+    id?: string | null;
+    label?: string | null;
+    actionUrl?: string | null;
+  };
+  changes: FixChange[];
+  warnings: string[];
+  impact: {
+    billingImpact: DataQualityBillingImpact;
+    message: string;
+  };
+  options?: Record<string, unknown>;
 };
 
 const TARIFF_METADATA_NOTE_TITLE = 'Tariff settings metadata';
@@ -128,6 +198,28 @@ function countBy<T extends string>(items: T[]) {
   }, {} as Record<T, number>);
 }
 
+function optionalNumber(value: unknown) {
+  if (value === null || value === undefined || value === '') return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function parsePositiveNumber(value: unknown, message: string) {
+  const number = optionalNumber(value);
+  if (number === null || number <= 0) throw new BadRequestException(message);
+  return number;
+}
+
+function parseNonEmpty(value: unknown, message: string) {
+  const text = optionalString(value);
+  if (!text) throw new BadRequestException(message);
+  return text;
+}
+
+function nowIso() {
+  return new Date().toISOString();
+}
+
 @Injectable()
 export class DataQualityService {
   constructor(
@@ -187,12 +279,168 @@ export class DataQualityService {
     }
   }
 
+  private async writeJsonNote(associationId: string, actorUserId: string, title: string, payload: unknown, client: any = this.prisma) {
+    const existing = await client.clientNote.findFirst({
+      where: { organizationId: associationId, title },
+      select: { id: true },
+    });
+    const content = JSON.stringify(payload);
+    if (existing) {
+      await client.clientNote.update({ where: { id: existing.id }, data: { content } });
+      return;
+    }
+    await client.clientNote.create({
+      data: {
+        organizationId: associationId,
+        createdByUserId: actorUserId,
+        title,
+        content,
+      },
+    });
+  }
+
+  private async readMeterWorkflow(associationId: string, client: any = this.prisma): Promise<MeterMetadataStore> {
+    const note = await client.clientNote.findFirst({
+      where: { organizationId: associationId, title: METER_WORKFLOW_METADATA_NOTE_TITLE },
+      orderBy: { updatedAt: 'desc' },
+      select: { content: true },
+    });
+    if (!note?.content) return { meters: {}, readings: {} };
+    try {
+      const parsed = JSON.parse(note.content);
+      return {
+        meters: isRecord(parsed?.meters) ? parsed.meters : {},
+        readings: isRecord(parsed?.readings) ? parsed.readings : {},
+      };
+    } catch {
+      return { meters: {}, readings: {} };
+    }
+  }
+
+  private async writeMeterWorkflow(associationId: string, actorUserId: string, store: MeterMetadataStore, client: any = this.prisma) {
+    await this.writeJsonNote(
+      associationId,
+      actorUserId,
+      METER_WORKFLOW_METADATA_NOTE_TITLE,
+      { version: 1, meters: store.meters || {}, readings: store.readings || {} },
+      client,
+    );
+  }
+
+  private async readRawTariffPayload(associationId: string, client: any = this.prisma): Promise<{ noteExists: boolean; items: any[] }> {
+    const note = await client.clientNote.findFirst({
+      where: { organizationId: associationId, title: TARIFF_METADATA_NOTE_TITLE },
+      orderBy: { updatedAt: 'desc' },
+      select: { content: true },
+    });
+    if (!note?.content) return { noteExists: false, items: [] };
+    try {
+      const parsed = JSON.parse(note.content);
+      const items = Array.isArray(parsed?.items) ? parsed.items : Array.isArray(parsed) ? parsed : [];
+      return { noteExists: true, items };
+    } catch {
+      return { noteExists: true, items: [] };
+    }
+  }
+
+  private async writeRawTariffPayload(associationId: string, actorUserId: string, items: any[], client: any = this.prisma) {
+    await this.writeJsonNote(associationId, actorUserId, TARIFF_METADATA_NOTE_TITLE, { version: 1, items }, client);
+    const activeByCode = new Map(
+      items
+        .filter((row) => String(row?.status || '').toUpperCase() === 'ACTIVE')
+        .map((row) => [String(row?.internalCode || '').toUpperCase(), row]),
+    );
+    const maintenance = activeByCode.get('BUILDING_SERVICE') || activeByCode.get('DESERVIRE_BLOC_PER_M2');
+    const repair = activeByCode.get('REPAIR_FUND') || activeByCode.get('FOND_REPARATIE_PER_M2');
+    const investment = activeByCode.get('INVESTMENT_FUND') || activeByCode.get('FOND_DEZVOLTARE_FIXED');
+    await client.organizationSetting.upsert({
+      where: { organizationId: associationId },
+      update: {
+        maintenanceFeePerM2: String(maintenance?.calculationType || '').toUpperCase() === 'PER_M2' ? Number(maintenance?.pricePerM2 || 0) : 0,
+        repairFundPerM2: String(repair?.calculationType || '').toUpperCase() === 'PER_M2' ? Number(repair?.pricePerM2 || 0) : 0,
+        developmentFundFixed: String(investment?.calculationType || '').toUpperCase() === 'FIXED_PER_APARTMENT' ? Number(investment?.fixedAmount || 0) : 0,
+      },
+      create: {
+        organizationId: associationId,
+        maintenanceFeePerM2: String(maintenance?.calculationType || '').toUpperCase() === 'PER_M2' ? Number(maintenance?.pricePerM2 || 0) : 0,
+        repairFundPerM2: String(repair?.calculationType || '').toUpperCase() === 'PER_M2' ? Number(repair?.pricePerM2 || 0) : 0,
+        developmentFundFixed: String(investment?.calculationType || '').toUpperCase() === 'FIXED_PER_APARTMENT' ? Number(investment?.fixedAmount || 0) : 0,
+      },
+    });
+  }
+
+  private async readBillingRuns(associationId: string, client: any = this.prisma): Promise<any[]> {
+    const note = await client.clientNote.findFirst({
+      where: { organizationId: associationId, title: BILLING_RUN_NOTE_TITLE },
+      orderBy: { updatedAt: 'desc' },
+      select: { content: true },
+    });
+    if (!note?.content) return [];
+    try {
+      const parsed = JSON.parse(note.content);
+      return Array.isArray(parsed?.items) ? parsed.items : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private async writeBillingRuns(associationId: string, actorUserId: string, runs: any[], client: any = this.prisma) {
+    await this.writeJsonNote(associationId, actorUserId, BILLING_RUN_NOTE_TITLE, { version: 1, items: runs }, client);
+  }
+
   private defaultMeterUnit(type: string | null | undefined) {
     const normalized = String(type || '').toUpperCase();
     if (normalized === 'ELECTRICITY') return 'kWh';
     if (normalized === 'HEATING' || normalized === 'HEAT') return 'Gcal';
     if (normalized === 'OTHER') return 'unit';
     return 'm³';
+  }
+
+  private parseApartmentStatus(value: unknown) {
+    const normalized = optionalString(value).toUpperCase();
+    if (normalized === 'OCCUPIED' || normalized === 'ACTIVE') return ApartmentStatus.OCCUPIED;
+    if (normalized === 'VACANT' || normalized === 'EMPTY') return ApartmentStatus.EMPTY;
+    if (normalized === 'UNKNOWN') return ApartmentStatus.EMPTY;
+    if (normalized === 'DEBTOR') return ApartmentStatus.DEBTOR;
+    if (normalized === 'PROBLEM') return ApartmentStatus.PROBLEM;
+    throw new BadRequestException('Statusul apartamentului trebuie să fie OCCUPIED, VACANT sau UNKNOWN.');
+  }
+
+  private parseResidentStatus(value: unknown) {
+    const normalized = optionalString(value).toUpperCase();
+    if (normalized === 'ACTIVE' || normalized === 'CREATED') return ResidentAccountStatus.CREATED;
+    if (normalized === 'INVITED') return ResidentAccountStatus.INVITED;
+    if (normalized === 'NOT_INVITED' || normalized === 'INACTIVE' || normalized === 'NO_ACCOUNT') return ResidentAccountStatus.NO_ACCOUNT;
+    throw new BadRequestException('Statusul locatarului trebuie să fie ACTIVE, INVITED, NOT_INVITED sau INACTIVE.');
+  }
+
+  private parseApartmentResidentRole(value: unknown) {
+    const normalized = optionalString(value).toUpperCase();
+    if (!normalized || normalized === 'OWNER') return ApartmentResidentRole.OWNER;
+    if (normalized === 'TENANT') return ApartmentResidentRole.TENANT;
+    if (normalized === 'REPRESENTATIVE') return ApartmentResidentRole.REPRESENTATIVE;
+    if (normalized === 'RESIDENT') return ApartmentResidentRole.RESIDENT;
+    if (normalized === 'FAMILY_MEMBER') return ApartmentResidentRole.FAMILY_MEMBER;
+    throw new BadRequestException('Rolul relației trebuie să fie OWNER, TENANT sau REPRESENTATIVE.');
+  }
+
+  private parseMeterStatus(value: unknown) {
+    const normalized = optionalString(value).toUpperCase();
+    if (normalized === 'ACTIVE') return { status: MeterStatus.ACTIVE, statusAlias: 'ACTIVE' };
+    if (normalized === 'INACTIVE') return { status: MeterStatus.INACTIVE, statusAlias: 'INACTIVE' };
+    if (normalized === 'REPLACED' || normalized === 'ARCHIVED') return { status: MeterStatus.INACTIVE, statusAlias: normalized };
+    throw new BadRequestException('Statusul contorului trebuie să fie ACTIVE, INACTIVE, REPLACED sau ARCHIVED.');
+  }
+
+  private parseMeterType(value: unknown) {
+    const normalized = optionalString(value).toUpperCase();
+    if (normalized === 'HEAT') return MeterType.HEATING;
+    if (normalized in MeterType) return normalized as MeterType;
+    throw new BadRequestException('Tipul contorului nu este valid.');
+  }
+
+  private fixOption(type: DataQualityFixType, label: string, description?: string, requiresInput = true, actionUrl?: string | null): FixOption {
+    return { type, key: type, label, description, requiresInput, actionUrl, available: true };
   }
 
   private async readTariffs(associationId: string, apartments: Array<{ areaM2?: number | null }>): Promise<TariffRow[]> {
@@ -209,6 +457,7 @@ export class DataQualityService {
         fixedAmount: row.fixedAmount === null || row.fixedAmount === undefined ? null : Number(row.fixedAmount),
         pricePerUnit: row.pricePerUnit === null || row.pricePerUnit === undefined ? null : Number(row.pricePerUnit),
         meterType: row.meterType ? String(row.meterType).toUpperCase() : null,
+        unit: row.unit ? String(row.unit) : null,
         startsAt: row.startsAt || null,
         endsAt: row.endsAt || null,
       }));
@@ -1320,13 +1569,46 @@ export class DataQualityService {
   }
 
   private quickFixes(issue: any) {
-    if (issue.key?.startsWith('METER_MISSING_UNIT')) {
-      return [{ key: 'OPEN_METER', label: 'Completează unitatea contorului', actionUrl: issue.actionUrl }];
+    const key = String(issue.key || '');
+    const status = String(issue.status || 'OPEN');
+    if (status !== DataQualityIssueStatus.OPEN) {
+      return [this.fixOption('REOPEN_ISSUE', 'Redeschide problema', 'Readuce problema în lista activă.', false)];
     }
-    return [
-      { key: 'RESOLVE_MANUAL', label: 'Marchează ca rezolvată' },
-      { key: 'IGNORE', label: 'Ignoră temporar' },
-    ];
+    const options: FixOption[] = [];
+    if (key.startsWith('APARTMENT_MISSING_AREA')) options.push(this.fixOption('SET_APARTMENT_AREA', 'Completează suprafața', 'Setează areaM2 pentru apartament.'));
+    if (key.startsWith('APARTMENT_UNKNOWN_STATUS')) options.push(this.fixOption('SET_APARTMENT_STATUS', 'Setează status apartament', 'Confirmă dacă apartamentul este ocupat, vacant sau necunoscut.'));
+    if (key.startsWith('APARTMENT_WITHOUT_STAIRCASE')) options.push(this.fixOption('SET_APARTMENT_STAIRCASE', 'Completează scara', 'Leagă apartamentul la o scară existentă sau nouă.'));
+    if (key.startsWith('APARTMENT_WITHOUT_PRIMARY_CONTACT') || key.startsWith('INACTIVE_PRIMARY_CONTACT')) {
+      options.push(this.fixOption('SET_PRIMARY_CONTACT', 'Alege contact principal', 'Setează un locatar existent ca primary contact.'));
+    }
+    if (key.startsWith('APARTMENT_MULTIPLE_PRIMARY_CONTACTS')) {
+      options.push(this.fixOption('RESOLVE_MULTIPLE_PRIMARY_CONTACTS', 'Păstrează un singur contact principal', 'Alege contactul principal corect.'));
+    }
+    if (key.startsWith('RESIDENT_WITHOUT_APARTMENT') || key.startsWith('APARTMENT_WITHOUT_RESIDENTS')) {
+      options.push(this.fixOption('LINK_RESIDENT_TO_APARTMENT', 'Leagă locatar de apartament', 'Creează o relație apartment-resident fără a șterge relații existente.'));
+    }
+    if (key.startsWith('RESIDENT_WITHOUT_CONTACT')) {
+      options.push(this.fixOption('SET_RESIDENT_STATUS', 'Setează status locatar', 'Ajustează statusul contului fără a crea date de contact fictive.'));
+    }
+    if (key.startsWith('TARIFF_MISSING_PRICE') || key.startsWith('METER_TARIFF_WITHOUT_PRICE_PER_UNIT') || key.startsWith('METER_TARIFF_WITHOUT_METER_TYPE')) {
+      options.push(this.fixOption('SET_TARIFF_PRICE', 'Completează tariful', 'Setează prețul și câmpurile obligatorii pentru tarif.'));
+    }
+    if (key.startsWith('METER_MISSING_UNIT')) options.push(this.fixOption('SET_METER_UNIT', 'Completează unitatea contorului', 'Setează unitatea pe baza tipului de contor.'));
+    if (key.startsWith('METER_MISSING_NUMBER')) options.push(this.fixOption('SET_METER_NUMBER', 'Completează numărul contorului', 'Setează numărul/seria contorului.'));
+    if (key.startsWith('ACTIVE_METER_WITHOUT_APPROVED_READINGS') || key.startsWith('MISSING_READING_FOR_CURRENT_MONTH')) {
+      options.push(this.fixOption('SET_METER_STATUS', 'Actualizează status contor', 'Marchează contorul inactiv, înlocuit sau arhivat dacă nu mai este folosit.'));
+    }
+    if (key.startsWith('READING_SUBMITTED_PENDING') || key.startsWith('READING_NEEDS_REVIEW') || key.startsWith('READING_NEGATIVE_CONSUMPTION') || key.startsWith('READING_LOWER_THAN_PREVIOUS')) {
+      options.push(this.fixOption('MARK_READING_NEEDS_REVIEW', 'Marchează indice needs review', 'Semnalează indicele pentru verificare manuală.'));
+      options.push(this.fixOption('REJECT_METER_READING', 'Respinge indicele cu motiv', 'Respinge indicele fără a modifica facturi.'));
+    }
+    if (key.startsWith('NO_BILLING_RUN_CURRENT_MONTH')) options.push(this.fixOption('START_BILLING_RUN', 'Pornește BillingRun', 'Creează procesul lunar fără a calcula draftul.'));
+    if (key.startsWith('BILLING_RUN_HAS_CRITICAL_CHECKS') || key.startsWith('DRAFT_HAS_ERRORS')) {
+      options.push(this.fixOption('RUN_DATA_QUALITY', 'Rulează verificările din nou', 'Actualizează lista de probleme după corecții.', false));
+    }
+    options.push(this.fixOption('MARK_ISSUE_RESOLVED', 'Marchează rezolvată manual', 'Folosește doar dacă problema a fost rezolvată în afara quick fix-ului.'));
+    options.push(this.fixOption('MARK_ISSUE_IGNORED', 'Ignoră cu motiv', 'Ignorarea ascunde problema din lista activă, dar nu o rezolvă.'));
+    return options;
   }
 
   private async categories(associationId: string) {
@@ -1362,6 +1644,925 @@ export class DataQualityService {
       return { key: 'REVIEW_WARNINGS', label: 'Revizuiește warnings', actionUrl: '/admin/data-quality/issues?severity=WARNING&status=OPEN', description: 'Warnings pot afecta comunicarea sau rapoartele.' };
     }
     return { key: 'GO_BILLING', label: 'Mergi la facturare', actionUrl: '/admin/billing', description: 'Datele arată bine pentru pașii următori.' };
+  }
+
+  private isActionableFix(option: FixOption) {
+    return !['MARK_ISSUE_RESOLVED', 'MARK_ISSUE_IGNORED', 'REOPEN_ISSUE', 'RUN_DATA_QUALITY'].includes(option.type);
+  }
+
+  private async requireIssue(associationId: string, id: string) {
+    const issue = await this.prisma.dataQualityIssue.findFirst({ where: { id, associationId } });
+    if (!issue) throw new NotFoundException('Problema nu a fost găsită.');
+    return issue;
+  }
+
+  private resolveRequestedFix(issue: any, requested?: unknown): DataQualityFixType {
+    const options = this.quickFixes(issue);
+    const fallback = options.find((option) => this.isActionableFix(option)) || options[0];
+    const raw = optionalString(requested) || fallback?.type;
+    const selected = options.find((option) => option.type === raw || option.key === raw);
+    if (!selected) throw new BadRequestException('Remedierea selectată nu este disponibilă pentru această problemă.');
+    return selected.type;
+  }
+
+  private async quickFixContext(associationId: string, issue: any) {
+    const apartmentId = this.issueApartmentId(issue);
+    const [apartments, residents, apartmentRelations, buildings, staircases] = await Promise.all([
+      this.prisma.apartment.findMany({
+        where: { organizationId: associationId },
+        orderBy: [{ number: 'asc' }],
+        take: 200,
+        select: { id: true, number: true, floor: true, status: true, areaM2: true, building: { select: { id: true, name: true } }, staircase: { select: { id: true, name: true } } },
+      }),
+      this.prisma.residentProfile.findMany({
+        where: { organizationId: associationId },
+        orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+        take: 200,
+        select: { id: true, firstName: true, lastName: true, phone: true, email: true, accountStatus: true },
+      }),
+      apartmentId
+        ? this.prisma.apartmentResident.findMany({
+            where: { apartmentId },
+            include: { resident: { select: { id: true, firstName: true, lastName: true, phone: true, email: true, accountStatus: true } } },
+            orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+          })
+        : Promise.resolve([]),
+      this.prisma.building.findMany({
+        where: { organizationId: associationId },
+        orderBy: { name: 'asc' },
+        select: { id: true, name: true },
+      }),
+      this.prisma.staircase.findMany({
+        where: { organizationId: associationId },
+        orderBy: { name: 'asc' },
+        select: { id: true, name: true, buildingId: true, building: { select: { name: true } } },
+      }),
+    ]);
+    return {
+      apartments: apartments.map((apartment) => ({
+        id: apartment.id,
+        label: `Ap. ${apartment.number || '-'}${apartment.staircase?.name ? `, sc. ${apartment.staircase.name}` : ''}`,
+        number: apartment.number,
+        areaM2: apartment.areaM2,
+        floor: apartment.floor,
+        status: apartment.status,
+        buildingId: apartment.building?.id || null,
+        staircaseId: apartment.staircase?.id || null,
+      })),
+      buildings: buildings.map((building) => ({ id: building.id, label: building.name || 'Bloc', name: building.name })),
+      staircases: staircases.map((staircase) => ({
+        id: staircase.id,
+        label: `${staircase.name || 'Fără nume'}${staircase.building?.name ? ` · ${staircase.building.name}` : ''}`,
+        name: staircase.name,
+        buildingId: staircase.buildingId,
+      })),
+      residents: residents.map((resident) => ({
+        id: resident.id,
+        label: `${fullName(resident)}${resident.phone ? ` · ${resident.phone}` : ''}`,
+        fullName: fullName(resident),
+        phone: resident.phone,
+        email: resident.email,
+        status: resident.accountStatus,
+      })),
+      apartmentResidents: apartmentRelations.map((relation) => ({
+        residentId: relation.residentId,
+        role: relation.role,
+        isPrimary: relation.isPrimary,
+        label: `${fullName(relation.resident)} · ${relation.role}${relation.isPrimary ? ' · primary' : ''}`,
+        resident: {
+          id: relation.resident.id,
+          fullName: fullName(relation.resident),
+          phone: relation.resident.phone,
+          email: relation.resident.email,
+          status: relation.resident.accountStatus,
+        },
+      })),
+    };
+  }
+
+  private issueApartmentId(issue: any) {
+    if (issue.entityType === DataQualityEntityType.APARTMENT && issue.entityId) return String(issue.entityId);
+    const key = String(issue.key || '');
+    if (key.startsWith('INACTIVE_PRIMARY_CONTACT:')) return key.split(':')[1] || null;
+    return null;
+  }
+
+  private issueResidentId(issue: any) {
+    if (issue.entityType === DataQualityEntityType.RESIDENT && issue.entityId) return String(issue.entityId);
+    const key = String(issue.key || '');
+    if (key.startsWith('INACTIVE_PRIMARY_CONTACT:')) return key.split(':')[2] || null;
+    return null;
+  }
+
+  async listFixes(user: MvpUser, query: Record<string, unknown> = {}, activeOrganizationId?: string) {
+    const { associationId } = this.assertAdmin(user, activeOrganizationId);
+    const { page, limit, skip } = resolvePagination(query);
+    const where: Prisma.DataQualityIssueWhereInput = {
+      associationId,
+      status: DataQualityIssueStatus.OPEN,
+      ...(optionalString(query.category) ? { category: optionalString(query.category) as DataQualityCategory } : {}),
+      ...(optionalString(query.severity) ? { severity: optionalString(query.severity) as DataQualitySeverity } : {}),
+    };
+    const fixType = optionalString(query.fixType);
+    const [allOpen, todaysFixes] = await Promise.all([
+      this.prisma.dataQualityIssue.findMany({ where, orderBy: [{ severity: 'asc' }, { detectedAt: 'desc' }], take: 1000 }),
+      this.prisma.auditLog.count({
+        where: {
+          organizationId: associationId,
+          action: { in: ['DATA_QUALITY_FIX_APPLIED', 'DATA_QUALITY_BULK_FIX_APPLIED'] },
+          createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
+        },
+      }).catch(() => 0),
+    ]);
+    const withOptions = allOpen
+      .map((issue) => ({ issue, options: this.quickFixes(issue) }))
+      .filter((row) => row.options.some((option) => this.isActionableFix(option)))
+      .filter((row) => !fixType || row.options.some((option) => option.type === fixType));
+    const total = withOptions.length;
+    const items = withOptions.slice(skip, skip + limit).map((row) => ({
+      ...this.serializeIssue(row.issue),
+      availableFixes: row.options.filter((option) => this.isActionableFix(option)),
+    }));
+    return {
+      items,
+      meta: buildPaginationMeta(page, limit, total),
+      stats: {
+        withQuickFix: total,
+        withoutQuickFix: Math.max(0, allOpen.length - total),
+        criticalFixable: withOptions.filter((row) => row.issue.severity === DataQualitySeverity.CRITICAL).length,
+        warningFixable: withOptions.filter((row) => row.issue.severity === DataQualitySeverity.WARNING).length,
+        ignoredIssues: await this.prisma.dataQualityIssue.count({ where: { associationId, status: DataQualityIssueStatus.IGNORED } }),
+        fixesAppliedToday: todaysFixes,
+        lastFixAt:
+          (await this.prisma.auditLog.findFirst({
+            where: { organizationId: associationId, action: { in: ['DATA_QUALITY_FIX_APPLIED', 'DATA_QUALITY_BULK_FIX_APPLIED'] } },
+            orderBy: { createdAt: 'desc' },
+            select: { createdAt: true },
+          }).catch(() => null))?.createdAt?.toISOString?.() || null,
+      },
+    };
+  }
+
+  async fixOptions(user: MvpUser, id: string, activeOrganizationId?: string) {
+    const { associationId } = this.assertAdmin(user, activeOrganizationId);
+    const issue = await this.requireIssue(associationId, id);
+    return {
+      issue: this.serializeIssue(issue),
+      options: this.quickFixes(issue),
+      context: await this.quickFixContext(associationId, issue),
+    };
+  }
+
+  async previewFix(user: MvpUser, id: string, body: Record<string, unknown> = {}, activeOrganizationId?: string) {
+    const { associationId } = this.assertAdmin(user, activeOrganizationId);
+    const issue = await this.requireIssue(associationId, id);
+    const fixType = this.resolveRequestedFix(issue, body.fixType);
+    const payload = isRecord(body.payload) ? body.payload : {};
+    return this.buildFixPreview(associationId, issue, fixType, payload);
+  }
+
+  private async buildFixPreview(associationId: string, issue: any, fixType: DataQualityFixType, payload: Record<string, unknown>): Promise<FixPreview> {
+    const serializedIssue = this.serializeIssue(issue) as Record<string, unknown>;
+    const option = this.quickFixes(issue).find((item) => item.type === fixType);
+    const base = {
+      issue: serializedIssue,
+      fix: {
+        type: fixType,
+        label: option?.label || fixType,
+        canApply: true,
+        requiresConfirmation: true,
+      },
+      entity: {
+        type: issue.entityType,
+        id: issue.entityId || null,
+        label: issue.title,
+        actionUrl: issue.actionUrl || null,
+      },
+      changes: [] as FixChange[],
+      warnings: [] as string[],
+      impact: {
+        billingImpact: issue.billingImpact as DataQualityBillingImpact,
+        message: this.fixImpactMessage(issue.billingImpact),
+      },
+      options: await this.quickFixContext(associationId, issue),
+    };
+
+    if (fixType === 'MARK_ISSUE_RESOLVED') {
+      const note = optionalString(payload.note) || optionalString(payload.reason);
+      return { ...base, changes: [{ field: 'status', currentValue: issue.status, newValue: DataQualityIssueStatus.RESOLVED }], warnings: note ? [] : ['Adaugă o notă dacă problema a fost rezolvată manual.'] };
+    }
+    if (fixType === 'MARK_ISSUE_IGNORED') {
+      const reason = optionalString(payload.reason);
+      return { ...base, changes: [{ field: 'status', currentValue: issue.status, newValue: DataQualityIssueStatus.IGNORED }], warnings: reason ? ['Ignorarea nu modifică datele sursă.'] : ['Motivul ignorării este obligatoriu.'] };
+    }
+    if (fixType === 'REOPEN_ISSUE') {
+      return { ...base, changes: [{ field: 'status', currentValue: issue.status, newValue: DataQualityIssueStatus.OPEN }] };
+    }
+    if (fixType === 'RUN_DATA_QUALITY') {
+      const billingMonth = parseBillingMonth(payload.billingMonth || currentBillingMonth());
+      return { ...base, entity: { type: 'SYSTEM', id: issue.id, label: 'Data Quality' }, changes: [{ field: 'billingMonth', currentValue: null, newValue: billingMonth }] };
+    }
+    if (fixType === 'START_BILLING_RUN') {
+      const billingMonth = parseBillingMonth(payload.billingMonth || String(issue.key || '').split(':')[1] || currentBillingMonth());
+      return { ...base, entity: { type: 'BILLING_RUN', id: null, label: `BillingRun ${billingMonth}` }, changes: [{ field: 'billingMonth', currentValue: null, newValue: billingMonth }, { field: 'status', currentValue: null, newValue: 'PRECHECK' }] };
+    }
+
+    if (fixType.startsWith('SET_APARTMENT') || ['SET_PRIMARY_CONTACT', 'LINK_RESIDENT_TO_APARTMENT', 'RESOLVE_MULTIPLE_PRIMARY_CONTACTS'].includes(fixType)) {
+      return this.previewApartmentResidentFix(associationId, issue, fixType, payload, base);
+    }
+    if (fixType === 'SET_RESIDENT_STATUS') return this.previewResidentFix(associationId, issue, payload, base);
+    if (fixType === 'SET_TARIFF_PRICE') return this.previewTariffFix(associationId, issue, payload, base);
+    if (fixType.startsWith('SET_METER')) return this.previewMeterFix(associationId, issue, fixType, payload, base);
+    if (fixType === 'MARK_READING_NEEDS_REVIEW' || fixType === 'REJECT_METER_READING') {
+      return this.previewReadingFix(associationId, issue, fixType, payload, base);
+    }
+    throw new BadRequestException('Remedierea selectată nu este disponibilă.');
+  }
+
+  private fixImpactMessage(impact: DataQualityBillingImpact | string) {
+    if (impact === DataQualityBillingImpact.BLOCKS_BILLING) return 'Această remediere poate debloca pașii de facturare după rerularea verificărilor.';
+    if (impact === DataQualityBillingImpact.AFFECTS_BILLING) return 'Modificarea poate influența drafturi, rapoarte sau comunicarea cu locatarii.';
+    return 'Modificarea nu are impact direct asupra facturării.';
+  }
+
+  private async previewApartmentResidentFix(
+    associationId: string,
+    issue: any,
+    fixType: DataQualityFixType,
+    payload: Record<string, unknown>,
+    base: FixPreview,
+  ): Promise<FixPreview> {
+    const apartmentId = optionalString(payload.apartmentId) || this.issueApartmentId(issue);
+    const residentId = optionalString(payload.residentId) || this.issueResidentId(issue);
+    const apartment = apartmentId
+      ? await this.prisma.apartment.findFirst({
+          where: { id: apartmentId, organizationId: associationId },
+          include: {
+            building: { select: { id: true, name: true } },
+            staircase: { select: { id: true, name: true } },
+            apartmentResidents: { include: { resident: { select: { id: true, firstName: true, lastName: true, phone: true, email: true, accountStatus: true } } } },
+          },
+        })
+      : null;
+    if (['SET_APARTMENT_AREA', 'SET_APARTMENT_STATUS', 'SET_APARTMENT_STAIRCASE', 'SET_APARTMENT_FLOOR', 'SET_PRIMARY_CONTACT', 'RESOLVE_MULTIPLE_PRIMARY_CONTACTS'].includes(fixType) && !apartment) {
+      throw new NotFoundException('Apartamentul nu a fost găsit în asociația curentă.');
+    }
+
+    if (fixType === 'SET_APARTMENT_AREA') {
+      const areaM2 = parsePositiveNumber(payload.areaM2, 'Suprafața trebuie să fie un număr pozitiv.');
+      return { ...base, entity: { type: 'APARTMENT', id: apartment!.id, label: `Ap. ${apartment!.number || '-'}`, actionUrl: issue.actionUrl }, changes: [{ field: 'areaM2', currentValue: apartment!.areaM2, newValue: areaM2 }] };
+    }
+    if (fixType === 'SET_APARTMENT_STATUS') {
+      const status = this.parseApartmentStatus(payload.status || 'OCCUPIED');
+      return { ...base, entity: { type: 'APARTMENT', id: apartment!.id, label: `Ap. ${apartment!.number || '-'}`, actionUrl: issue.actionUrl }, changes: [{ field: 'status', currentValue: apartment!.status, newValue: status }] };
+    }
+    if (fixType === 'SET_APARTMENT_STAIRCASE') {
+      const staircaseId = optionalString(payload.staircaseId);
+      const staircaseName = optionalString(payload.staircaseName);
+      const buildingName = optionalString(payload.buildingName);
+      if (!staircaseId && !staircaseName) throw new BadRequestException('Alege o scară existentă sau completează numele scării.');
+      const target = staircaseId
+        ? await this.prisma.staircase.findFirst({ where: { id: staircaseId, organizationId: associationId }, include: { building: { select: { name: true } } } })
+        : null;
+      if (staircaseId && !target) throw new NotFoundException('Scara nu a fost găsită.');
+      return {
+        ...base,
+        entity: { type: 'APARTMENT', id: apartment!.id, label: `Ap. ${apartment!.number || '-'}`, actionUrl: issue.actionUrl },
+        changes: [
+          { field: 'staircaseId', currentValue: apartment!.staircaseId, newValue: target?.id || 'new' },
+          { field: 'staircaseName', currentValue: apartment!.staircase?.name || null, newValue: target?.name || staircaseName },
+          { field: 'buildingName', currentValue: apartment!.building?.name || null, newValue: target?.building?.name || buildingName || apartment!.building?.name || 'Bloc' },
+        ],
+        warnings: target ? [] : ['Dacă scara nu există, va fi creată fără a șterge sau muta alte apartamente.'],
+      };
+    }
+    if (fixType === 'SET_APARTMENT_FLOOR') {
+      const floor = optionalNumber(payload.floor);
+      if (floor === null || !Number.isInteger(floor)) throw new BadRequestException('Etajul trebuie să fie număr întreg.');
+      return { ...base, entity: { type: 'APARTMENT', id: apartment!.id, label: `Ap. ${apartment!.number || '-'}`, actionUrl: issue.actionUrl }, changes: [{ field: 'floor', currentValue: apartment!.floor, newValue: floor }] };
+    }
+
+    if (fixType === 'LINK_RESIDENT_TO_APARTMENT') {
+      const targetApartmentId = apartmentId || parseNonEmpty(payload.apartmentId, 'Apartamentul este obligatoriu.');
+      const targetResidentId = residentId || parseNonEmpty(payload.residentId, 'Locatarul este obligatoriu.');
+      const [targetApartment, resident] = await Promise.all([
+        this.prisma.apartment.findFirst({ where: { id: targetApartmentId, organizationId: associationId }, select: { id: true, number: true } }),
+        this.prisma.residentProfile.findFirst({ where: { id: targetResidentId, organizationId: associationId }, select: { id: true, firstName: true, lastName: true, phone: true, email: true } }),
+      ]);
+      if (!targetApartment) throw new NotFoundException('Apartamentul nu a fost găsit.');
+      if (!resident) throw new NotFoundException('Locatarul nu a fost găsit.');
+      const isPrimary = payload.isPrimaryContact === true || payload.isPrimaryContact === 'true';
+      const role = this.parseApartmentResidentRole(payload.role || 'OWNER');
+      return {
+        ...base,
+        entity: { type: 'APARTMENT_RESIDENT', id: `${targetApartment.id}:${resident.id}`, label: `${fullName(resident)} · Ap. ${targetApartment.number}` },
+        changes: [
+          { field: 'apartmentId', currentValue: null, newValue: targetApartment.id },
+          { field: 'residentId', currentValue: null, newValue: resident.id },
+          { field: 'role', currentValue: null, newValue: role },
+          { field: 'isPrimaryContact', currentValue: null, newValue: isPrimary },
+        ],
+        warnings: isPrimary ? ['Dacă alegi primary contact, ceilalți primary contacts ai apartamentului vor fi debifați.'] : [],
+      };
+    }
+
+    const targetResidentId = residentId || parseNonEmpty(payload.residentId, 'Alege locatarul care trebuie să rămână contact principal.');
+    const relation = apartment!.apartmentResidents.find((item) => item.residentId === targetResidentId);
+    const resident =
+      relation?.resident ||
+      (await this.prisma.residentProfile.findFirst({
+        where: { id: targetResidentId, organizationId: associationId },
+        select: { id: true, firstName: true, lastName: true, phone: true, email: true, accountStatus: true },
+      }));
+    if (!resident) throw new NotFoundException('Locatarul nu a fost găsit.');
+    const warnings = [];
+    if (resident.accountStatus === ResidentAccountStatus.NO_ACCOUNT) warnings.push('Locatarul nu are cont activ; verifică dacă este contactul potrivit.');
+    return {
+      ...base,
+      entity: { type: 'APARTMENT_RESIDENT', id: `${apartment!.id}:${resident.id}`, label: `${fullName(resident)} · Ap. ${apartment!.number || '-'}` },
+      changes: [
+        { field: 'isPrimaryContact', currentValue: relation?.isPrimary || false, newValue: true },
+        { field: 'otherPrimaryContacts', currentValue: apartment!.apartmentResidents.filter((item) => item.isPrimary && item.residentId !== resident.id).length, newValue: 0 },
+      ],
+      warnings,
+    };
+  }
+
+  private async previewResidentFix(associationId: string, issue: any, payload: Record<string, unknown>, base: FixPreview): Promise<FixPreview> {
+    const residentId = this.issueResidentId(issue) || parseNonEmpty(payload.residentId, 'Locatarul este obligatoriu.');
+    const resident = await this.prisma.residentProfile.findFirst({
+      where: { id: residentId, organizationId: associationId },
+      select: { id: true, firstName: true, lastName: true, phone: true, email: true, accountStatus: true },
+    });
+    if (!resident) throw new NotFoundException('Locatarul nu a fost găsit.');
+    const status = this.parseResidentStatus(payload.status || 'ACTIVE');
+    return {
+      ...base,
+      entity: { type: 'RESIDENT', id: resident.id, label: fullName(resident), actionUrl: issue.actionUrl },
+      changes: [{ field: 'accountStatus', currentValue: resident.accountStatus, newValue: status }],
+    };
+  }
+
+  private async previewTariffFix(associationId: string, issue: any, payload: Record<string, unknown>, base: FixPreview): Promise<FixPreview> {
+    const tariffId = parseNonEmpty(issue.entityId || payload.tariffId, 'Tariful este obligatoriu.');
+    const tariffs = await this.readTariffs(associationId, []);
+    const tariff = tariffs.find((item) => item.id === tariffId);
+    if (!tariff) throw new NotFoundException('Tariful nu a fost găsit.');
+    const changes: FixChange[] = [];
+    if (tariff.calculationType === 'PER_M2') {
+      const pricePerM2 = parsePositiveNumber(payload.pricePerM2 ?? payload.amount, 'Valoarea per m² trebuie să fie pozitivă.');
+      changes.push({ field: 'pricePerM2', currentValue: tariff.pricePerM2 ?? null, newValue: pricePerM2 });
+    } else if (tariff.calculationType === 'FIXED_PER_APARTMENT') {
+      const fixedAmount = parsePositiveNumber(payload.fixedAmount ?? payload.amount, 'Suma fixă trebuie să fie pozitivă.');
+      changes.push({ field: 'fixedAmount', currentValue: tariff.fixedAmount ?? null, newValue: fixedAmount });
+    } else if (tariff.calculationType === 'PER_METER_CONSUMPTION') {
+      const pricePerUnit = parsePositiveNumber(payload.pricePerUnit ?? payload.amount, 'Prețul per unitate trebuie să fie pozitiv.');
+      const meterType = payload.meterType ? this.parseMeterType(payload.meterType) : tariff.meterType ? this.parseMeterType(tariff.meterType) : null;
+      const unit = optionalString(payload.unit) || tariff.unit || this.defaultMeterUnit(meterType);
+      if (!meterType) throw new BadRequestException('Tipul de contor este obligatoriu pentru tarife pe consum.');
+      changes.push({ field: 'pricePerUnit', currentValue: tariff.pricePerUnit ?? null, newValue: pricePerUnit });
+      changes.push({ field: 'meterType', currentValue: tariff.meterType ?? null, newValue: meterType });
+      changes.push({ field: 'unit', currentValue: tariff.unit ?? null, newValue: unit });
+    } else {
+      throw new BadRequestException('Acest tip de tarif necesită editare manuală.');
+    }
+    if (payload.status) changes.push({ field: 'status', currentValue: tariff.status, newValue: optionalString(payload.status).toUpperCase() });
+    return { ...base, entity: { type: 'TARIFF', id: tariff.id, label: tariff.name, actionUrl: issue.actionUrl }, changes };
+  }
+
+  private async previewMeterFix(
+    associationId: string,
+    issue: any,
+    fixType: DataQualityFixType,
+    payload: Record<string, unknown>,
+    base: FixPreview,
+  ): Promise<FixPreview> {
+    const meterId = parseNonEmpty(issue.entityId || payload.meterId, 'Contorul este obligatoriu.');
+    const [meter, store] = await Promise.all([
+      this.prisma.meter.findFirst({
+        where: { id: meterId, organizationId: associationId },
+        include: { apartment: { select: { number: true } } },
+      }),
+      this.readMeterWorkflow(associationId),
+    ]);
+    if (!meter) throw new NotFoundException('Contorul nu a fost găsit.');
+    const meta = store.meters[meter.id] || {};
+    if (fixType === 'SET_METER_UNIT') {
+      const unit = optionalString(payload.unit) || optionalString(issue.metadata?.suggestedUnit) || this.defaultMeterUnit(String(meter.type));
+      if (!unit) throw new BadRequestException('Unitatea este obligatorie.');
+      return { ...base, entity: { type: 'METER', id: meter.id, label: meter.serialNumber || `Contor ap. ${meter.apartment?.number || '-'}`, actionUrl: issue.actionUrl }, changes: [{ field: 'unit', currentValue: meta.unit || null, newValue: unit }] };
+    }
+    if (fixType === 'SET_METER_NUMBER') {
+      const meterNumber = parseNonEmpty(payload.meterNumber, 'Numărul contorului este obligatoriu.');
+      const duplicate = await this.prisma.meter.findFirst({
+        where: { organizationId: associationId, id: { not: meter.id }, serialNumber: meterNumber },
+        select: { id: true },
+      });
+      if (duplicate) throw new BadRequestException('Există deja un contor cu acest număr în asociație.');
+      return { ...base, entity: { type: 'METER', id: meter.id, label: meter.serialNumber || meter.id, actionUrl: issue.actionUrl }, changes: [{ field: 'serialNumber', currentValue: meter.serialNumber, newValue: meterNumber }] };
+    }
+    const mapped = this.parseMeterStatus(payload.status || 'INACTIVE');
+    return {
+      ...base,
+      entity: { type: 'METER', id: meter.id, label: meter.serialNumber || meter.id, actionUrl: issue.actionUrl },
+      changes: [
+        { field: 'status', currentValue: meter.status, newValue: mapped.status },
+        { field: 'statusAlias', currentValue: meta.statusAlias || null, newValue: mapped.statusAlias },
+      ],
+      warnings: mapped.status !== MeterStatus.ACTIVE ? ['Contorul nu va mai fi tratat ca activ în verificările Data Quality.'] : [],
+    };
+  }
+
+  private async previewReadingFix(
+    associationId: string,
+    issue: any,
+    fixType: DataQualityFixType,
+    payload: Record<string, unknown>,
+    base: FixPreview,
+  ): Promise<FixPreview> {
+    const readingId = parseNonEmpty(issue.entityId || payload.readingId, 'Indicele este obligatoriu.');
+    const [reading, store] = await Promise.all([
+      this.prisma.meterReading.findFirst({
+        where: { id: readingId, organizationId: associationId },
+        include: { meter: { select: { serialNumber: true, type: true } }, apartment: { select: { number: true } } },
+      }),
+      this.readMeterWorkflow(associationId),
+    ]);
+    if (!reading) throw new NotFoundException('Indicele nu a fost găsit.');
+    const meta = this.readingMeta(store, reading);
+    if (fixType === 'REJECT_METER_READING') {
+      const reason = parseNonEmpty(payload.rejectionReason || payload.reason, 'Motivul respingerii este obligatoriu.');
+      return {
+        ...base,
+        entity: { type: 'METER_READING', id: reading.id, label: `${reading.meter?.serialNumber || reading.id} · ${meta.periodMonth}`, actionUrl: issue.actionUrl },
+        changes: [
+          { field: 'status', currentValue: meta.status, newValue: 'REJECTED' },
+          { field: 'rejectionReason', currentValue: null, newValue: reason },
+        ],
+      };
+    }
+    const adminComment = optionalString(payload.adminComment) || 'Marcat needs review din Data Quality.';
+    return {
+      ...base,
+      entity: { type: 'METER_READING', id: reading.id, label: `${reading.meter?.serialNumber || reading.id} · ${meta.periodMonth}`, actionUrl: issue.actionUrl },
+      changes: [
+        { field: 'status', currentValue: meta.status, newValue: 'NEEDS_REVIEW' },
+        { field: 'adminComment', currentValue: null, newValue: adminComment },
+      ],
+    };
+  }
+
+  async applyFix(user: MvpUser, id: string, body: Record<string, unknown> = {}, activeOrganizationId?: string) {
+    const { associationId, actorUserId } = this.assertAdmin(user, activeOrganizationId);
+    if (body.confirm !== true) throw new BadRequestException('Confirmarea este obligatorie pentru aplicarea remedierii.');
+    const issue = await this.requireIssue(associationId, id);
+    const fixType = this.resolveRequestedFix(issue, body.fixType);
+    const payload = isRecord(body.payload) ? body.payload : {};
+    const preview = await this.buildFixPreview(associationId, issue, fixType, payload);
+    const beforeSnapshot = {
+      issue: this.serializeIssue(issue),
+      changes: preview.changes.map((change) => ({ field: change.field, oldValue: change.currentValue })),
+    };
+
+    if (fixType === 'RUN_DATA_QUALITY') {
+      const result = await this.run(user, { billingMonth: payload.billingMonth || currentBillingMonth() }, activeOrganizationId);
+      await this.auditFix(associationId, actorUserId, issue, fixType, beforeSnapshot, { rerun: true }, payload, 'SUCCESS');
+      return {
+        success: true,
+        issue: this.serializeIssue(issue),
+        fix: { type: fixType, message: 'Verificările Data Quality au fost rulate din nou.' },
+        changes: preview.changes,
+        nextAction: { label: 'Vezi rezultatul verificărilor', actionUrl: '/admin/data-quality' },
+        result,
+      };
+    }
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      if (fixType === 'MARK_ISSUE_RESOLVED') {
+        return this.updateIssueResolved(tx, issue, actorUserId, optionalString(payload.note || payload.reason), fixType);
+      }
+      if (fixType === 'MARK_ISSUE_IGNORED') {
+        const reason = parseNonEmpty(payload.reason, 'Motivul ignorării este obligatoriu.');
+        return tx.dataQualityIssue.update({
+          where: { id: issue.id },
+          data: {
+            status: DataQualityIssueStatus.IGNORED,
+            ignoredAt: new Date(),
+            ignoredById: actorUserId,
+            ignoreReason: reason,
+            metadata: { ...(isRecord(issue.metadata) ? issue.metadata : {}), quickFix: { type: fixType, at: nowIso() } } as Prisma.InputJsonValue,
+          },
+        });
+      }
+      if (fixType === 'REOPEN_ISSUE') {
+        return tx.dataQualityIssue.update({
+          where: { id: issue.id },
+          data: {
+            status: DataQualityIssueStatus.OPEN,
+            resolvedAt: null,
+            resolvedById: null,
+            ignoredAt: null,
+            ignoredById: null,
+            ignoreReason: null,
+            detectedAt: new Date(),
+          },
+        });
+      }
+
+      await this.applyEntityFix(tx, associationId, actorUserId, issue, fixType, payload);
+      return this.updateIssueResolved(tx, issue, actorUserId, 'Remediere rapidă aplicată.', fixType);
+    });
+
+    await this.auditFix(associationId, actorUserId, issue, fixType, beforeSnapshot, { issue: this.serializeIssue(result), changes: preview.changes }, payload, 'SUCCESS');
+    return {
+      success: true,
+      issue: this.serializeIssue(result),
+      fix: { type: fixType, message: this.fixAppliedMessage(fixType) },
+      changes: preview.changes.map((change) => ({ field: change.field, oldValue: change.currentValue, newValue: change.newValue })),
+      nextAction: { label: 'Rulează verificările din nou', actionUrl: '/admin/data-quality' },
+    };
+  }
+
+  private async updateIssueResolved(tx: any, issue: any, actorUserId: string, note: string, fixType: DataQualityFixType) {
+    return tx.dataQualityIssue.update({
+      where: { id: issue.id },
+      data: {
+        status: DataQualityIssueStatus.RESOLVED,
+        resolvedAt: new Date(),
+        resolvedById: actorUserId,
+        ignoredAt: null,
+        ignoredById: null,
+        ignoreReason: null,
+        metadata: {
+          ...(isRecord(issue.metadata) ? issue.metadata : {}),
+          resolutionNote: note,
+          quickFix: { type: fixType, at: nowIso() },
+        } as Prisma.InputJsonValue,
+      },
+    });
+  }
+
+  private async applyEntityFix(tx: any, associationId: string, actorUserId: string, issue: any, fixType: DataQualityFixType, payload: Record<string, unknown>) {
+    if (fixType === 'SET_APARTMENT_AREA') {
+      const apartmentId = parseNonEmpty(this.issueApartmentId(issue), 'Apartamentul este obligatoriu.');
+      const areaM2 = parsePositiveNumber(payload.areaM2, 'Suprafața trebuie să fie un număr pozitiv.');
+      await tx.apartment.update({ where: { id: apartmentId }, data: { areaM2 } });
+      return;
+    }
+    if (fixType === 'SET_APARTMENT_STATUS') {
+      const apartmentId = parseNonEmpty(this.issueApartmentId(issue), 'Apartamentul este obligatoriu.');
+      await tx.apartment.update({ where: { id: apartmentId }, data: { status: this.parseApartmentStatus(payload.status || 'OCCUPIED') } });
+      return;
+    }
+    if (fixType === 'SET_APARTMENT_STAIRCASE') {
+      const apartmentId = parseNonEmpty(this.issueApartmentId(issue), 'Apartamentul este obligatoriu.');
+      const apartment = await tx.apartment.findFirst({
+        where: { id: apartmentId, organizationId: associationId },
+        include: { building: { select: { id: true, name: true } } },
+      });
+      if (!apartment) throw new NotFoundException('Apartamentul nu a fost găsit.');
+      let staircaseId = optionalString(payload.staircaseId);
+      if (staircaseId) {
+        const staircase = await tx.staircase.findFirst({ where: { id: staircaseId, organizationId: associationId }, select: { id: true, buildingId: true } });
+        if (!staircase) throw new NotFoundException('Scara nu a fost găsită.');
+        await tx.apartment.update({ where: { id: apartmentId }, data: { staircaseId, buildingId: staircase.buildingId } });
+        return;
+      }
+      const staircaseName = parseNonEmpty(payload.staircaseName, 'Numele scării este obligatoriu.');
+      const buildingName = optionalString(payload.buildingName) || apartment.building?.name || 'Bloc';
+      const building =
+        (await tx.building.findFirst({ where: { organizationId: associationId, name: buildingName }, select: { id: true } })) ||
+        (await tx.building.create({ data: { organizationId: associationId, name: buildingName }, select: { id: true } }));
+      const staircase =
+        (await tx.staircase.findFirst({ where: { organizationId: associationId, buildingId: building.id, name: staircaseName }, select: { id: true } })) ||
+        (await tx.staircase.create({ data: { organizationId: associationId, buildingId: building.id, name: staircaseName }, select: { id: true } }));
+      await tx.apartment.update({ where: { id: apartmentId }, data: { buildingId: building.id, staircaseId: staircase.id } });
+      return;
+    }
+    if (fixType === 'SET_APARTMENT_FLOOR') {
+      const apartmentId = parseNonEmpty(this.issueApartmentId(issue), 'Apartamentul este obligatoriu.');
+      const floor = optionalNumber(payload.floor);
+      if (floor === null || !Number.isInteger(floor)) throw new BadRequestException('Etajul trebuie să fie număr întreg.');
+      await tx.apartment.update({ where: { id: apartmentId }, data: { floor } });
+      return;
+    }
+    if (fixType === 'SET_PRIMARY_CONTACT' || fixType === 'RESOLVE_MULTIPLE_PRIMARY_CONTACTS') {
+      const apartmentId = parseNonEmpty(this.issueApartmentId(issue), 'Apartamentul este obligatoriu.');
+      const residentId = optionalString(payload.residentId) || this.issueResidentId(issue);
+      await this.setPrimaryContact(tx, associationId, apartmentId, parseNonEmpty(residentId, 'Locatarul este obligatoriu.'), payload.role);
+      return;
+    }
+    if (fixType === 'LINK_RESIDENT_TO_APARTMENT') {
+      const apartmentId = optionalString(payload.apartmentId) || this.issueApartmentId(issue);
+      const residentId = optionalString(payload.residentId) || this.issueResidentId(issue);
+      await this.linkResidentToApartment(
+        tx,
+        associationId,
+        parseNonEmpty(apartmentId, 'Apartamentul este obligatoriu.'),
+        parseNonEmpty(residentId, 'Locatarul este obligatoriu.'),
+        payload.role,
+        payload.isPrimaryContact === true || payload.isPrimaryContact === 'true',
+      );
+      return;
+    }
+    if (fixType === 'SET_RESIDENT_STATUS') {
+      const residentId = parseNonEmpty(this.issueResidentId(issue) || payload.residentId, 'Locatarul este obligatoriu.');
+      await tx.residentProfile.update({ where: { id: residentId }, data: { accountStatus: this.parseResidentStatus(payload.status || 'ACTIVE') } });
+      return;
+    }
+    if (fixType === 'SET_TARIFF_PRICE') {
+      await this.applyTariffFix(tx, associationId, actorUserId, issue, payload);
+      return;
+    }
+    if (fixType === 'SET_METER_UNIT' || fixType === 'SET_METER_NUMBER' || fixType === 'SET_METER_STATUS') {
+      await this.applyMeterFix(tx, associationId, actorUserId, issue, fixType, payload);
+      return;
+    }
+    if (fixType === 'MARK_READING_NEEDS_REVIEW' || fixType === 'REJECT_METER_READING') {
+      await this.applyReadingFix(tx, associationId, actorUserId, issue, fixType, payload);
+      return;
+    }
+    if (fixType === 'START_BILLING_RUN') {
+      await this.applyStartBillingRun(tx, associationId, actorUserId, issue, payload);
+      return;
+    }
+    throw new BadRequestException('Remedierea selectată nu poate fi aplicată automat.');
+  }
+
+  private async linkResidentToApartment(tx: any, associationId: string, apartmentId: string, residentId: string, rawRole: unknown, isPrimary: boolean) {
+    const [apartment, resident] = await Promise.all([
+      tx.apartment.findFirst({ where: { id: apartmentId, organizationId: associationId }, select: { id: true } }),
+      tx.residentProfile.findFirst({ where: { id: residentId, organizationId: associationId }, select: { id: true } }),
+    ]);
+    if (!apartment) throw new NotFoundException('Apartamentul nu a fost găsit.');
+    if (!resident) throw new NotFoundException('Locatarul nu a fost găsit.');
+    const role = this.parseApartmentResidentRole(rawRole || 'OWNER');
+    if (isPrimary) await tx.apartmentResident.updateMany({ where: { apartmentId, isPrimary: true }, data: { isPrimary: false } });
+    await tx.apartmentResident.upsert({
+      where: { apartmentId_residentId_role: { apartmentId, residentId, role } },
+      update: { isPrimary },
+      create: { apartmentId, residentId, role, isPrimary },
+    });
+    await tx.residentProfile.update({ where: { id: residentId }, data: { apartmentId, isPrimary } });
+  }
+
+  private async setPrimaryContact(tx: any, associationId: string, apartmentId: string, residentId: string, rawRole: unknown) {
+    await this.linkResidentToApartment(tx, associationId, apartmentId, residentId, rawRole || 'OWNER', true);
+  }
+
+  private async applyTariffFix(tx: any, associationId: string, actorUserId: string, issue: any, payload: Record<string, unknown>) {
+    const tariffId = parseNonEmpty(issue.entityId || payload.tariffId, 'Tariful este obligatoriu.');
+    const raw = await this.readRawTariffPayload(associationId, tx);
+    if (raw.noteExists && raw.items.length) {
+      const index = raw.items.findIndex((item) => String(item?.id || item?.internalCode) === tariffId);
+      if (index < 0) throw new NotFoundException('Tariful nu a fost găsit.');
+      const row = { ...raw.items[index] };
+      const calculationType = String(row.calculationType || '').toUpperCase();
+      if (calculationType === 'PER_M2') row.pricePerM2 = parsePositiveNumber(payload.pricePerM2 ?? payload.amount, 'Valoarea per m² trebuie să fie pozitivă.');
+      else if (calculationType === 'FIXED_PER_APARTMENT') row.fixedAmount = parsePositiveNumber(payload.fixedAmount ?? payload.amount, 'Suma fixă trebuie să fie pozitivă.');
+      else if (calculationType === 'PER_METER_CONSUMPTION') {
+        row.pricePerUnit = parsePositiveNumber(payload.pricePerUnit ?? payload.amount, 'Prețul per unitate trebuie să fie pozitiv.');
+        row.meterType = payload.meterType ? this.parseMeterType(payload.meterType) : row.meterType || null;
+        if (!row.meterType) throw new BadRequestException('Tipul de contor este obligatoriu.');
+        row.unit = optionalString(payload.unit) || row.unit || this.defaultMeterUnit(row.meterType);
+      } else {
+        throw new BadRequestException('Acest tip de tarif necesită editare manuală.');
+      }
+      if (payload.status) row.status = optionalString(payload.status).toUpperCase();
+      row.updatedAt = nowIso();
+      row.updatedById = actorUserId;
+      raw.items[index] = row;
+      await this.writeRawTariffPayload(associationId, actorUserId, raw.items, tx);
+      return;
+    }
+    const settings = await tx.organizationSetting.upsert({
+      where: { organizationId: associationId },
+      update: {},
+      create: { organizationId: associationId },
+    });
+    if (tariffId === 'BUILDING_SERVICE') await tx.organizationSetting.update({ where: { id: settings.id }, data: { maintenanceFeePerM2: parsePositiveNumber(payload.pricePerM2 ?? payload.amount, 'Valoarea per m² trebuie să fie pozitivă.') } });
+    else if (tariffId === 'REPAIR_FUND') await tx.organizationSetting.update({ where: { id: settings.id }, data: { repairFundPerM2: parsePositiveNumber(payload.pricePerM2 ?? payload.amount, 'Valoarea per m² trebuie să fie pozitivă.') } });
+    else if (tariffId === 'INVESTMENT_FUND') await tx.organizationSetting.update({ where: { id: settings.id }, data: { developmentFundFixed: parsePositiveNumber(payload.fixedAmount ?? payload.amount, 'Suma fixă trebuie să fie pozitivă.') } });
+    else throw new NotFoundException('Tariful nu a fost găsit.');
+  }
+
+  private async applyMeterFix(tx: any, associationId: string, actorUserId: string, issue: any, fixType: DataQualityFixType, payload: Record<string, unknown>) {
+    const meterId = parseNonEmpty(issue.entityId || payload.meterId, 'Contorul este obligatoriu.');
+    const meter = await tx.meter.findFirst({ where: { id: meterId, organizationId: associationId } });
+    if (!meter) throw new NotFoundException('Contorul nu a fost găsit.');
+    if (fixType === 'SET_METER_NUMBER') {
+      const meterNumber = parseNonEmpty(payload.meterNumber, 'Numărul contorului este obligatoriu.');
+      const duplicate = await tx.meter.findFirst({ where: { organizationId: associationId, id: { not: meter.id }, serialNumber: meterNumber }, select: { id: true } });
+      if (duplicate) throw new BadRequestException('Există deja un contor cu acest număr în asociație.');
+      await tx.meter.update({ where: { id: meter.id }, data: { serialNumber: meterNumber } });
+      return;
+    }
+    const store = await this.readMeterWorkflow(associationId, tx);
+    store.meters[meter.id] = { ...(store.meters[meter.id] || {}) };
+    if (fixType === 'SET_METER_UNIT') {
+      store.meters[meter.id].unit = optionalString(payload.unit) || optionalString(issue.metadata?.suggestedUnit) || this.defaultMeterUnit(String(meter.type));
+      await this.writeMeterWorkflow(associationId, actorUserId, store, tx);
+      return;
+    }
+    const mapped = this.parseMeterStatus(payload.status || 'INACTIVE');
+    store.meters[meter.id].statusAlias = mapped.statusAlias;
+    await tx.meter.update({ where: { id: meter.id }, data: { status: mapped.status } });
+    await this.writeMeterWorkflow(associationId, actorUserId, store, tx);
+  }
+
+  private async applyReadingFix(tx: any, associationId: string, actorUserId: string, issue: any, fixType: DataQualityFixType, payload: Record<string, unknown>) {
+    const readingId = parseNonEmpty(issue.entityId || payload.readingId, 'Indicele este obligatoriu.');
+    const reading = await tx.meterReading.findFirst({ where: { id: readingId, organizationId: associationId }, include: { meter: { select: { type: true } } } });
+    if (!reading) throw new NotFoundException('Indicele nu a fost găsit.');
+    const store = await this.readMeterWorkflow(associationId, tx);
+    const current = store.readings[reading.id] || {};
+    if (fixType === 'REJECT_METER_READING') {
+      const reason = parseNonEmpty(payload.rejectionReason || payload.reason, 'Motivul respingerii este obligatoriu.');
+      store.readings[reading.id] = {
+        ...current,
+        status: 'REJECTED',
+        rejectionReason: reason,
+        adminComment: optionalString(payload.adminComment) || reason,
+        reviewedAt: nowIso(),
+        rejectedAt: nowIso(),
+        reviewedByUserId: actorUserId,
+        unit: current.unit || this.defaultMeterUnit(String(reading.meter?.type)),
+        periodMonth: current.periodMonth || monthFromDate(reading.readingDate),
+      };
+    } else {
+      store.readings[reading.id] = {
+        ...current,
+        status: 'NEEDS_REVIEW',
+        adminComment: optionalString(payload.adminComment) || 'Marcat needs review din Data Quality.',
+        reviewedAt: nowIso(),
+        reviewedByUserId: actorUserId,
+        unit: current.unit || this.defaultMeterUnit(String(reading.meter?.type)),
+        periodMonth: current.periodMonth || monthFromDate(reading.readingDate),
+      };
+    }
+    await this.writeMeterWorkflow(associationId, actorUserId, store, tx);
+  }
+
+  private async applyStartBillingRun(tx: any, associationId: string, actorUserId: string, issue: any, payload: Record<string, unknown>) {
+    const billingMonth = parseBillingMonth(payload.billingMonth || String(issue.key || '').split(':')[1] || currentBillingMonth());
+    const runs = await this.readBillingRuns(associationId, tx);
+    const active = runs.find((run) => run?.billingMonth === billingMonth && run?.status !== 'CANCELLED');
+    if (active) throw new BadRequestException('Există deja un proces lunar pentru această lună.');
+    const now = nowIso();
+    const run = {
+      id: randomUUID(),
+      associationId,
+      organizationId: associationId,
+      billingMonth,
+      status: 'PRECHECK',
+      currency: 'MDL',
+      draftId: null,
+      finalizedAt: null,
+      finalizedById: null,
+      invoicesCount: 0,
+      totalAmount: 0,
+      warningsCount: 0,
+      errorsCount: 0,
+      startedById: actorUserId,
+      cancelledAt: null,
+      cancelledById: null,
+      cancellationReason: null,
+      checks: [],
+      createdAt: now,
+      updatedAt: now,
+    };
+    await this.writeBillingRuns(associationId, actorUserId, [run, ...runs], tx);
+  }
+
+  private fixAppliedMessage(fixType: DataQualityFixType) {
+    const messages: Record<DataQualityFixType, string> = {
+      SET_APARTMENT_AREA: 'Suprafața apartamentului a fost completată.',
+      SET_APARTMENT_STATUS: 'Statusul apartamentului a fost actualizat.',
+      SET_APARTMENT_STAIRCASE: 'Scara apartamentului a fost completată.',
+      SET_APARTMENT_FLOOR: 'Etajul apartamentului a fost completat.',
+      SET_PRIMARY_CONTACT: 'Contactul principal a fost setat.',
+      LINK_RESIDENT_TO_APARTMENT: 'Locatarul a fost legat de apartament.',
+      RESOLVE_MULTIPLE_PRIMARY_CONTACTS: 'A fost păstrat un singur contact principal.',
+      SET_RESIDENT_STATUS: 'Statusul locatarului a fost actualizat.',
+      SET_TARIFF_PRICE: 'Tariful a fost completat.',
+      SET_METER_UNIT: 'Unitatea contorului a fost completată.',
+      SET_METER_NUMBER: 'Numărul contorului a fost completat.',
+      SET_METER_STATUS: 'Statusul contorului a fost actualizat.',
+      MARK_READING_NEEDS_REVIEW: 'Indicele a fost marcat needs review.',
+      REJECT_METER_READING: 'Indicele a fost respins.',
+      START_BILLING_RUN: 'Procesul lunar a fost pornit.',
+      RUN_DATA_QUALITY: 'Verificările au fost rulate.',
+      MARK_ISSUE_RESOLVED: 'Problema a fost marcată rezolvată.',
+      MARK_ISSUE_IGNORED: 'Problema a fost ignorată.',
+      REOPEN_ISSUE: 'Problema a fost redeschisă.',
+    };
+    return messages[fixType];
+  }
+
+  private async auditFix(
+    associationId: string,
+    actorUserId: string,
+    issue: any,
+    fixType: DataQualityFixType,
+    beforeSnapshot: unknown,
+    afterSnapshot: unknown,
+    payload: Record<string, unknown>,
+    severity: 'SUCCESS' | 'ERROR' = 'SUCCESS',
+  ) {
+    await this.audit.createLog({
+      associationId,
+      actorUserId,
+      actorRole: 'ADMIN',
+      action: severity === 'SUCCESS' ? 'DATA_QUALITY_FIX_APPLIED' : 'DATA_QUALITY_FIX_FAILED',
+      entityType: 'SYSTEM',
+      entityId: issue.id,
+      title: severity === 'SUCCESS' ? 'Remediere Data Quality aplicată' : 'Remediere Data Quality eșuată',
+      message: `${this.fixAppliedMessage(fixType)} ${issue.title}`,
+      severity,
+      metadata: {
+        issueId: issue.id,
+        issueKey: issue.key,
+        fixType,
+        entityType: issue.entityType,
+        entityId: issue.entityId,
+        payload,
+      },
+      beforeSnapshot,
+      afterSnapshot,
+      actionUrl: `/admin/data-quality/issues/${issue.id}`,
+    }).catch(() => null);
+  }
+
+  async previewBulkFix(user: MvpUser, body: Record<string, unknown> = {}, activeOrganizationId?: string) {
+    const { associationId } = this.assertAdmin(user, activeOrganizationId);
+    const fixType = optionalString(body.fixType) as DataQualityFixType;
+    const issueIds = Array.isArray(body.issueIds) ? body.issueIds.map((item) => String(item)).filter(Boolean) : [];
+    const payload = isRecord(body.payload) ? body.payload : {};
+    if (!issueIds.length) throw new BadRequestException('Selectează cel puțin o problemă.');
+    if (!['SET_METER_UNIT', 'MARK_ISSUE_RESOLVED', 'MARK_ISSUE_IGNORED', 'RUN_DATA_QUALITY'].includes(fixType)) {
+      throw new BadRequestException('Această remediere nu este disponibilă bulk.');
+    }
+    const issues = await this.prisma.dataQualityIssue.findMany({
+      where: { associationId, id: { in: issueIds } },
+      orderBy: [{ severity: 'asc' }, { detectedAt: 'desc' }],
+    });
+    const previews = [];
+    const errors = [];
+    for (const issue of issues) {
+      try {
+        const selectedFix = fixType === 'SET_METER_UNIT' ? this.resolveRequestedFix(issue, fixType) : fixType;
+        previews.push(await this.buildFixPreview(associationId, issue, selectedFix, payload));
+      } catch (error) {
+        errors.push({ issueId: issue.id, message: error instanceof Error ? error.message : String(error) });
+      }
+    }
+    return {
+      fixType,
+      totalSelected: issueIds.length,
+      previewed: previews.length,
+      errorsCount: errors.length,
+      previews,
+      errors,
+      canApply: previews.length > 0 && errors.length === 0,
+    };
+  }
+
+  async applyBulkFix(user: MvpUser, body: Record<string, unknown> = {}, activeOrganizationId?: string) {
+    const { associationId, actorUserId } = this.assertAdmin(user, activeOrganizationId);
+    if (body.confirm !== true) throw new BadRequestException('Confirmarea este obligatorie pentru remedieri bulk.');
+    const preview = await this.previewBulkFix(user, body, activeOrganizationId);
+    if (!preview.canApply) throw new BadRequestException('Remedierea bulk are erori în preview.');
+    const fixType = preview.fixType as DataQualityFixType;
+    const issueIds = Array.isArray(body.issueIds) ? body.issueIds.map((item) => String(item)).filter(Boolean) : [];
+    const payload = isRecord(body.payload) ? body.payload : {};
+    if (fixType === 'RUN_DATA_QUALITY') {
+      const result = await this.run(user, { billingMonth: payload.billingMonth || currentBillingMonth() }, activeOrganizationId);
+      return { success: true, fixType, appliedCount: 1, result };
+    }
+    const results = [];
+    for (const issueId of issueIds) {
+      const result = await this.applyFix(user, issueId, { fixType, payload, confirm: true }, activeOrganizationId);
+      results.push(result);
+    }
+    await this.audit.createLog({
+      associationId,
+      actorUserId,
+      actorRole: 'ADMIN',
+      action: 'DATA_QUALITY_BULK_FIX_APPLIED',
+      entityType: 'SYSTEM',
+      title: 'Remediere Data Quality bulk aplicată',
+      message: `Au fost aplicate ${results.length} remedieri bulk.`,
+      severity: 'SUCCESS',
+      metadata: { fixType, issueIds, appliedCount: results.length },
+      actionUrl: '/admin/data-quality/fixes',
+    }).catch(() => null);
+    return {
+      success: true,
+      fixType,
+      appliedCount: results.length,
+      results,
+      nextAction: { label: 'Rulează verificările din nou', actionUrl: '/admin/data-quality' },
+    };
   }
 
   async overview(user: MvpUser, query: Record<string, unknown> = {}, activeOrganizationId?: string) {

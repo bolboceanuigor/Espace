@@ -1984,7 +1984,18 @@ export const dataQualityApi = {
   getRun: (id: string) => apiRequest<any>(`/api/admin/data-quality/runs/${id}`),
   issues: (params?: Record<string, string | number | boolean | undefined>) =>
     apiRequest<any>('/api/admin/data-quality/issues', { params }),
+  fixes: (params?: Record<string, string | number | boolean | undefined>) =>
+    apiRequest<any>('/api/admin/data-quality/fixes', { params }),
   getIssue: (id: string) => apiRequest<any>(`/api/admin/data-quality/issues/${id}`),
+  fixOptions: (id: string) => apiRequest<any>(`/api/admin/data-quality/issues/${id}/fix-options`),
+  previewFix: (id: string, data: { fixType: string; payload?: Record<string, unknown> }) =>
+    apiRequest<any>(`/api/admin/data-quality/issues/${id}/fix/preview`, { method: 'POST', body: data }),
+  applyFix: (id: string, data: { fixType: string; payload?: Record<string, unknown>; confirm: boolean }) =>
+    apiRequest<any>(`/api/admin/data-quality/issues/${id}/fix/apply`, { method: 'POST', body: data }),
+  previewBulkFix: (data: { fixType: string; issueIds: string[]; payload?: Record<string, unknown> }) =>
+    apiRequest<any>('/api/admin/data-quality/fixes/bulk/preview', { method: 'POST', body: data }),
+  applyBulkFix: (data: { fixType: string; issueIds: string[]; payload?: Record<string, unknown>; confirm: boolean }) =>
+    apiRequest<any>('/api/admin/data-quality/fixes/bulk/apply', { method: 'POST', body: data }),
   resolveIssue: (id: string, note?: string) =>
     apiRequest<any>(`/api/admin/data-quality/issues/${id}/resolve`, { method: 'PATCH', body: { note } }),
   ignoreIssue: (id: string, reason: string) =>

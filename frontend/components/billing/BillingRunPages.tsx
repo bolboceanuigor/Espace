@@ -363,9 +363,12 @@ export function AdminBillingOverviewPage() {
                 Scor {dataQuality.score}/100 · {dataQuality.criticalCount} critice · {dataQuality.warningCount} warnings · {dataQuality.blocksBillingCount} blochează facturarea
               </p>
             </div>
-            <ButtonLink href={localizedPath(`/admin/data-quality?billingMonth=${billingMonth}`)} variant="secondary">
-              <ListChecks className="h-4 w-4" /> Deschide Data Quality
-            </ButtonLink>
+            <div className="flex flex-wrap gap-2">
+              <ButtonLink href={localizedPath(`/admin/data-quality?billingMonth=${billingMonth}`)} variant="secondary">
+                <ListChecks className="h-4 w-4" /> Deschide Data Quality
+              </ButtonLink>
+              <ButtonLink href={localizedPath('/admin/data-quality/fixes')} variant="secondary">Remediază în Data Quality</ButtonLink>
+            </div>
           </div>
         </Card>
       ) : null}
@@ -672,9 +675,12 @@ export function BillingRunDetailPage() {
                     Scor {dataQuality.score}/100 · {dataQuality.criticalCount} critice · {dataQuality.warningCount} warnings · {dataQuality.blocksBillingCount} blochează facturarea
                   </p>
                 </div>
-                <ButtonLink href={localizedPath(`/admin/data-quality?billingMonth=${run.billingMonth}`)} variant="secondary">
-                  <ListChecks className="h-4 w-4" /> Deschide Data Quality
-                </ButtonLink>
+                <div className="flex flex-wrap gap-2">
+                  <ButtonLink href={localizedPath(`/admin/data-quality?billingMonth=${run.billingMonth}`)} variant="secondary">
+                    <ListChecks className="h-4 w-4" /> Deschide Data Quality
+                  </ButtonLink>
+                  <ButtonLink href={localizedPath('/admin/data-quality/fixes')} variant="secondary">Remediază</ButtonLink>
+                </div>
               </div>
             </Card>
           ) : null}

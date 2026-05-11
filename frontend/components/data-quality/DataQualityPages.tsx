@@ -62,7 +62,7 @@ type DataQualityIssue = {
   resolvedAt?: string | null;
   ignoredAt?: string | null;
   ignoreReason?: string | null;
-  quickFixes?: Array<{ key: string; label: string; actionUrl?: string | null }>;
+  quickFixes?: Array<{ type?: string; key: string; label: string; actionUrl?: string | null }>;
 };
 
 type Overview = {
@@ -154,6 +154,10 @@ function localizeAction(localizedPath: (path: string) => string, url?: string | 
   return localizedPath(url);
 }
 
+function hasQuickFix(issue: DataQualityIssue) {
+  return Boolean(issue.quickFixes?.some((fix) => !['MARK_ISSUE_RESOLVED', 'MARK_ISSUE_IGNORED', 'REOPEN_ISSUE', 'RUN_DATA_QUALITY'].includes(fix.type || fix.key)));
+}
+
 function scoreTone(score: number, criticalCount = 0) {
   if (criticalCount > 0 || score < 70) return 'danger' as const;
   if (score < 90) return 'warning' as const;
@@ -227,6 +231,7 @@ export function AdminDataQualityOverviewPage() {
             <Button onClick={runChecks} disabled={busy}>
               <RefreshCw className="h-4 w-4" /> Rulează verificări
             </Button>
+            <ButtonLink href={localizedPath('/admin/data-quality/fixes')} variant="secondary">Remedieri rapide</ButtonLink>
             <ButtonLink href={localizedPath('/admin/data-quality/issues')} variant="secondary">Vezi toate problemele</ButtonLink>
             <ButtonLink href={localizedPath('/admin/data-quality/runs')} variant="secondary">Rulări</ButtonLink>
             <ButtonLink href={localizedPath('/admin/billing')} variant="secondary">Mergi la facturare</ButtonLink>
@@ -358,6 +363,7 @@ function IssueCards({ items }: { items: DataQualityIssue[] }) {
           <p className="mt-1 text-sm text-muted-foreground">{issue.description}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             <ButtonLink href={localizedPath(`/admin/data-quality/issues/${issue.id}`)} size="sm">Deschide</ButtonLink>
+            {hasQuickFix(issue) ? <ButtonLink href={localizedPath(`/admin/data-quality/issues/${issue.id}/fix`)} variant="secondary" size="sm">Remediază</ButtonLink> : null}
             {issue.actionUrl ? <ButtonLink href={localizeAction(localizedPath, issue.actionUrl)} variant="secondary" size="sm">Rezolvă</ButtonLink> : null}
           </div>
         </div>
@@ -465,12 +471,13 @@ export function AdminDataQualityIssuesPage() {
               <TableHeaderCell>Impact</TableHeaderCell>
               <TableHeaderCell>Entitate</TableHeaderCell>
               <TableHeaderCell>Status</TableHeaderCell>
+              <TableHeaderCell>Quick fix</TableHeaderCell>
               <TableHeaderCell>Detectată</TableHeaderCell>
               <TableHeaderCell>Acțiuni</TableHeaderCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {!loading && !items.length ? <TableEmpty colSpan={8}>Nu există probleme pentru filtrele selectate.</TableEmpty> : null}
+            {!loading && !items.length ? <TableEmpty colSpan={9}>Nu există probleme pentru filtrele selectate.</TableEmpty> : null}
             {items.map((issue) => (
               <TableRow key={issue.id}>
                 <TableCell>
@@ -482,10 +489,14 @@ export function AdminDataQualityIssuesPage() {
                 <TableCell>{impactLabel[issue.billingImpact]}</TableCell>
                 <TableCell><span className="font-mono text-xs">{issue.entityType}</span></TableCell>
                 <TableCell><Badge variant={statusVariant[issue.status]}>{statusLabel[issue.status]}</Badge></TableCell>
+                <TableCell>
+                  {hasQuickFix(issue) ? <Badge variant="success">Disponibil</Badge> : issue.quickFixes?.length ? <Badge variant="neutral">Manual</Badge> : <Badge variant="neutral">Indisponibil</Badge>}
+                </TableCell>
                 <TableCell>{formatDateTime(issue.detectedAt)}</TableCell>
                 <TableCell>
                   <div className="flex flex-wrap gap-2">
                     <ButtonLink href={localizedPath(`/admin/data-quality/issues/${issue.id}`)} size="sm">Deschide</ButtonLink>
+                    {hasQuickFix(issue) ? <ButtonLink href={localizedPath(`/admin/data-quality/issues/${issue.id}/fix`)} variant="secondary" size="sm">Remediază</ButtonLink> : null}
                     {issue.actionUrl ? <ButtonLink href={localizeAction(localizedPath, issue.actionUrl)} variant="secondary" size="sm">Entitate</ButtonLink> : null}
                     {issue.status === 'OPEN' ? (
                       <>
@@ -568,6 +579,7 @@ export function AdminDataQualityIssueDetailPage() {
             rightSlot={
               <div className="flex flex-wrap gap-2">
                 {issue.actionUrl ? <ButtonLink href={localizeAction(localizedPath, issue.actionUrl)}>Mergi la entitate</ButtonLink> : null}
+                {hasQuickFix(issue) ? <ButtonLink href={localizedPath(`/admin/data-quality/issues/${issue.id}/fix`)} variant="secondary">Aplică remediere</ButtonLink> : null}
                 {issue.status === 'OPEN' ? (
                   <>
                     <Button variant="secondary" onClick={resolve}>Marchează ca rezolvată</Button>
@@ -592,6 +604,25 @@ export function AdminDataQualityIssueDetailPage() {
               <InfoLine label="Recomandare" value={issue.recommendation} />
               <InfoLine label="Key" value={issue.key} />
             </div>
+          </Card>
+          <Card className="p-5">
+            <h2 className="text-base font-semibold text-foreground">Remediere recomandată</h2>
+            {hasQuickFix(issue) ? (
+              <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Această problemă are remedieri rapide cu preview, confirmare și audit.</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {issue.quickFixes?.map((fix) => <Badge key={fix.type || fix.key} variant="neutral">{fix.label}</Badge>)}
+                  </div>
+                </div>
+                <ButtonLink href={localizedPath(`/admin/data-quality/issues/${issue.id}/fix`)}>Aplică remediere</ButtonLink>
+              </div>
+            ) : (
+              <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <p className="text-sm text-muted-foreground">Această problemă trebuie rezolvată din pagina entității afectate sau marcată manual după verificare.</p>
+                {issue.actionUrl ? <ButtonLink href={localizeAction(localizedPath, issue.actionUrl)} variant="secondary">Deschide entitatea</ButtonLink> : null}
+              </div>
+            )}
           </Card>
           <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
             <Card className="p-5">

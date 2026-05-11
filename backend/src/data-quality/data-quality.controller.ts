@@ -61,6 +61,15 @@ export class DataQualityController {
     return this.dataQualityService.listIssues(user, query, activeOrganizationId);
   }
 
+  @Get(['admin/data-quality/fixes', 'api/admin/data-quality/fixes'])
+  listFixes(
+    @CurrentUser() user: MvpUser,
+    @Query() query: Record<string, unknown>,
+    @Headers('x-org-id') activeOrganizationId?: string,
+  ) {
+    return this.dataQualityService.listFixes(user, query, activeOrganizationId);
+  }
+
   @Get(['admin/data-quality/issues/:id', 'api/admin/data-quality/issues/:id'])
   getIssue(
     @CurrentUser() user: MvpUser,
@@ -68,6 +77,53 @@ export class DataQualityController {
     @Headers('x-org-id') activeOrganizationId?: string,
   ) {
     return this.dataQualityService.getIssue(user, id, activeOrganizationId);
+  }
+
+  @Get(['admin/data-quality/issues/:id/fix-options', 'api/admin/data-quality/issues/:id/fix-options'])
+  fixOptions(
+    @CurrentUser() user: MvpUser,
+    @Param('id') id: string,
+    @Headers('x-org-id') activeOrganizationId?: string,
+  ) {
+    return this.dataQualityService.fixOptions(user, id, activeOrganizationId);
+  }
+
+  @Post(['admin/data-quality/issues/:id/fix/preview', 'api/admin/data-quality/issues/:id/fix/preview'])
+  previewFix(
+    @CurrentUser() user: MvpUser,
+    @Param('id') id: string,
+    @Body() body: Record<string, unknown>,
+    @Headers('x-org-id') activeOrganizationId?: string,
+  ) {
+    return this.dataQualityService.previewFix(user, id, body, activeOrganizationId);
+  }
+
+  @Post(['admin/data-quality/issues/:id/fix/apply', 'api/admin/data-quality/issues/:id/fix/apply'])
+  applyFix(
+    @CurrentUser() user: MvpUser,
+    @Param('id') id: string,
+    @Body() body: Record<string, unknown>,
+    @Headers('x-org-id') activeOrganizationId?: string,
+  ) {
+    return this.dataQualityService.applyFix(user, id, body, activeOrganizationId);
+  }
+
+  @Post(['admin/data-quality/fixes/bulk/preview', 'api/admin/data-quality/fixes/bulk/preview'])
+  previewBulkFix(
+    @CurrentUser() user: MvpUser,
+    @Body() body: Record<string, unknown>,
+    @Headers('x-org-id') activeOrganizationId?: string,
+  ) {
+    return this.dataQualityService.previewBulkFix(user, body, activeOrganizationId);
+  }
+
+  @Post(['admin/data-quality/fixes/bulk/apply', 'api/admin/data-quality/fixes/bulk/apply'])
+  applyBulkFix(
+    @CurrentUser() user: MvpUser,
+    @Body() body: Record<string, unknown>,
+    @Headers('x-org-id') activeOrganizationId?: string,
+  ) {
+    return this.dataQualityService.applyBulkFix(user, body, activeOrganizationId);
   }
 
   @Patch(['admin/data-quality/issues/:id/resolve', 'api/admin/data-quality/issues/:id/resolve'])
