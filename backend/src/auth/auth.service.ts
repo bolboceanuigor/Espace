@@ -7,9 +7,18 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
-import { AuthProvider, PlanCode, PlatformRole, Role } from '@prisma/client';
+import {
+  AuthProvider,
+  AuthSecurityEventSeverity,
+  AuthSecurityEventType,
+  PasswordResetRequestStatus,
+  PlanCode,
+  PlatformRole,
+  Role,
+} from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes } from 'crypto';
+import { AuthSecurityService } from './auth-security.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
@@ -25,6 +34,7 @@ export class AuthService {
     private jwtService: JwtService,
     private emailService: EmailService,
     private emailTemplateService: EmailTemplateService,
+    private authSecurity: AuthSecurityService,
   ) {}
 
   private requiresEmailVerification() {
@@ -150,19 +160,37 @@ export class AuthService {
     loginDto: LoginDto,
     context?: { ip?: string; userAgent?: string | string[] | undefined },
   ) {
+    const normalizedEmail = this.authSecurity.normalizeEmail(loginDto.email);
     const userByEmail = await this.prisma.user.findFirst({
-      where: { email: loginDto.email, deletedAt: null },
+      where: { email: normalizedEmail, deletedAt: null },
       select: { id: true, organizationId: true, isActive: true, passwordHash: true },
     });
 
     if (!userByEmail) {
+      await this.authSecurity.recordEvent({
+        email: normalizedEmail,
+        eventType: AuthSecurityEventType.LOGIN_FAILED,
+        severity: AuthSecurityEventSeverity.WARNING,
+        ipAddress: context?.ip || null,
+        userAgent: context?.userAgent || null,
+        metadata: { reason: 'invalid_credentials' },
+      });
       throw new UnauthorizedException({
-        code: 'ACCOUNT_NOT_FOUND',
-        message: 'Account not found',
+        code: 'INVALID_CREDENTIALS',
+        message: 'Invalid email or password',
       });
     }
 
     if (!userByEmail.isActive || !userByEmail.passwordHash) {
+      await this.authSecurity.recordEvent({
+        userId: userByEmail.id,
+        email: normalizedEmail,
+        eventType: AuthSecurityEventType.LOGIN_FAILED,
+        severity: AuthSecurityEventSeverity.WARNING,
+        ipAddress: context?.ip || null,
+        userAgent: context?.userAgent || null,
+        metadata: { reason: userByEmail.isActive ? 'password_login_unavailable' : 'inactive_user' },
+      });
       throw new UnauthorizedException({
         code: 'INVALID_CREDENTIALS',
         message: 'Invalid email or password',
@@ -171,11 +199,11 @@ export class AuthService {
 
     let user: Awaited<ReturnType<AuthService['validateUser']>> = null;
     try {
-      user = await this.validateUser(loginDto.email, loginDto.password);
+      user = await this.validateUser(normalizedEmail, loginDto.password);
     } catch (error) {
       if (process.env.NODE_ENV !== 'production') {
         console.error('[auth:login] validateUser failed', {
-          email: loginDto.email,
+          email: normalizedEmail,
           error: error instanceof Error ? error.message : String(error),
         });
       }
@@ -195,8 +223,17 @@ export class AuthService {
           userAgent: Array.isArray(context?.userAgent) ? context?.userAgent[0] : context?.userAgent || null,
         },
       });
+      await this.authSecurity.recordEvent({
+        userId: userByEmail.id,
+        email: normalizedEmail,
+        eventType: AuthSecurityEventType.LOGIN_FAILED,
+        severity: AuthSecurityEventSeverity.WARNING,
+        ipAddress: context?.ip || null,
+        userAgent: context?.userAgent || null,
+        metadata: { reason: 'invalid_credentials' },
+      });
       throw new UnauthorizedException({
-        code: 'WRONG_PASSWORD',
+        code: 'INVALID_CREDENTIALS',
         message: 'Invalid email or password',
       });
     }
@@ -217,8 +254,17 @@ export class AuthService {
           userAgent: Array.isArray(context?.userAgent) ? context?.userAgent[0] : context?.userAgent || null,
         },
       });
+      await this.authSecurity.recordEvent({
+        userId: userByEmail.id,
+        email: normalizedEmail,
+        eventType: AuthSecurityEventType.LOGIN_FAILED,
+        severity: AuthSecurityEventSeverity.WARNING,
+        ipAddress: context?.ip || null,
+        userAgent: context?.userAgent || null,
+        metadata: { reason: 'invalid_credentials' },
+      });
       throw new UnauthorizedException({
-        code: 'WRONG_PASSWORD',
+        code: 'INVALID_CREDENTIALS',
         message: 'Invalid email or password',
       });
     }
@@ -250,7 +296,36 @@ export class AuthService {
       },
     });
 
-    return this.buildAuthResponse(user as any);
+    const payload = await this.buildAuthResponse(user as any);
+    await this.authSecurity.recordEvent({
+      userId: user.id,
+      email: user.email,
+      eventType: AuthSecurityEventType.LOGIN_SUCCESS,
+      severity: AuthSecurityEventSeverity.INFO,
+      ipAddress: context?.ip || null,
+      userAgent: context?.userAgent || null,
+      metadata: {
+        role: user.role,
+        redirectTarget: payload.redirectTarget,
+        residentPortalAccessStatus: payload.residentContext?.portalAccessStatus || null,
+      },
+    });
+    if (user.role === Role.RESIDENT && !payload.residentContext?.accessReady) {
+      await this.authSecurity.recordEvent({
+        userId: user.id,
+        email: user.email,
+        eventType: this.authSecurity.blockedEventType(payload.residentContext),
+        severity: AuthSecurityEventSeverity.WARNING,
+        ipAddress: context?.ip || null,
+        userAgent: context?.userAgent || null,
+        metadata: {
+          residentPortalAccessStatus: payload.residentContext?.portalAccessStatus || null,
+          apartmentsCount: payload.residentContext?.apartmentsCount || 0,
+          warningCode: payload.warning?.code || null,
+        },
+      });
+    }
+    return payload;
   }
 
   async validateUser(email: string, password: string) {
@@ -368,46 +443,89 @@ export class AuthService {
     return { ok: true, message: 'VERIFY_EMAIL_SENT' as const };
   }
 
-  async requestPasswordReset(email: string, locale?: string) {
-    const user = await this.prisma.user.findFirst({
-      where: {
-        email,
-        deletedAt: null,
-      },
-      select: { id: true, email: true },
-    });
-    if (!user) {
-      return { ok: true, message: 'RESET_EMAIL_SENT' as const };
-    }
-
-    const resetTokenRaw = this.generateToken();
-    const resetTokenHash = this.hashToken(resetTokenRaw);
-    const resetExpiry = this.futureDateMinutes(30);
-
-    await this.prisma.$transaction([
-      this.prisma.passwordResetToken.deleteMany({
-        where: { userId: user.id },
-      }),
-      this.prisma.passwordResetToken.create({
-        data: {
-          userId: user.id,
-          tokenHash: resetTokenHash,
-          expiresAt: resetExpiry,
-        },
-      }),
-    ]);
-
-    await this.emailService.sendPasswordResetEmail({
-      email: user.email,
+  async requestPasswordReset(
+    email: string,
+    locale?: string,
+    context?: { ip?: string; userAgent?: string | string[] | undefined },
+  ) {
+    return this.authSecurity.createPasswordResetRequest({
+      email: this.authSecurity.normalizeEmail(email),
       locale: this.normalizeLocale(locale),
-      token: resetTokenRaw,
+      requestedIp: context?.ip || null,
+      requestedUserAgent: context?.userAgent || null,
+      expiresInMinutes: 60,
     });
-
-    return { ok: true, message: 'RESET_EMAIL_SENT' as const };
   }
 
-  async resetPassword(token: string, password: string) {
+  async validatePasswordResetToken(token: string) {
+    const resetRequest = await this.authSecurity.findPasswordResetRequest(token);
+    const valid =
+      !!resetRequest &&
+      resetRequest.status === PasswordResetRequestStatus.PENDING &&
+      !!resetRequest.user &&
+      resetRequest.expiresAt.getTime() >= Date.now();
+    return {
+      valid,
+      status: resetRequest?.status || 'INVALID',
+      expiresAt: resetRequest?.expiresAt || null,
+    };
+  }
+
+  async resetPassword(
+    token: string,
+    password: string,
+    context?: { ip?: string; userAgent?: string | string[] | undefined },
+  ) {
     this.assertPasswordStrength(password);
+    const resetRequest = await this.authSecurity.findPasswordResetRequest(token);
+    if (resetRequest) {
+      if (
+        resetRequest.status !== PasswordResetRequestStatus.PENDING ||
+        !resetRequest.user ||
+        resetRequest.user.deletedAt ||
+        !resetRequest.user.isActive ||
+        resetRequest.expiresAt.getTime() < Date.now()
+      ) {
+        await this.authSecurity.recordEvent({
+          userId: resetRequest.userId,
+          email: resetRequest.email,
+          eventType: AuthSecurityEventType.PASSWORD_RESET_FAILED,
+          severity: AuthSecurityEventSeverity.WARNING,
+          ipAddress: context?.ip || null,
+          userAgent: context?.userAgent || null,
+          metadata: { reason: 'request_not_usable' },
+        });
+        throw new BadRequestException({
+          code: 'INVALID_TOKEN',
+          message: 'Invalid token',
+        });
+      }
+
+      const hashedPassword = await bcrypt.hash(password, this.passwordSaltRounds);
+      await this.prisma.$transaction([
+        this.prisma.user.update({
+          where: { id: resetRequest.userId! },
+          data: {
+            passwordHash: hashedPassword,
+            authProvider: AuthProvider.LOCAL,
+          },
+        }),
+        this.prisma.passwordResetRequest.update({
+          where: { id: resetRequest.id },
+          data: { status: PasswordResetRequestStatus.USED, usedAt: new Date() },
+        }),
+      ]);
+      await this.authSecurity.recordEvent({
+        userId: resetRequest.userId,
+        email: resetRequest.email,
+        eventType: AuthSecurityEventType.PASSWORD_RESET_USED,
+        severity: AuthSecurityEventSeverity.INFO,
+        ipAddress: context?.ip || null,
+        userAgent: context?.userAgent || null,
+      });
+      return { ok: true, message: 'PASSWORD_UPDATED' as const };
+    }
+
     const tokenHash = this.hashToken(token);
     const resetToken = await this.prisma.passwordResetToken.findFirst({
       where: {
@@ -417,6 +535,13 @@ export class AuthService {
     });
 
     if (!resetToken) {
+      await this.authSecurity.recordEvent({
+        eventType: AuthSecurityEventType.PASSWORD_RESET_FAILED,
+        severity: AuthSecurityEventSeverity.WARNING,
+        ipAddress: context?.ip || null,
+        userAgent: context?.userAgent || null,
+        metadata: { reason: 'request_not_found' },
+      });
       throw new BadRequestException({
         code: 'INVALID_TOKEN',
         message: 'Invalid token',
@@ -690,6 +815,7 @@ export class AuthService {
     if (!organization) {
       throw new UnauthorizedException('Organization not found');
     }
+    const residentContext = await this.authSecurity.buildResidentContext(user as any);
 
     return {
       user: {
@@ -732,6 +858,9 @@ export class AuthService {
       system: {
         maintenanceMode: !!launchConfig?.maintenanceMode,
       },
+      residentContext,
+      redirectTarget: this.authSecurity.redirectTarget(user.role, residentContext, 'ro'),
+      warning: this.authSecurity.warningForResidentContext(residentContext),
     };
   }
 
@@ -826,7 +955,7 @@ export class AuthService {
     };
   }
 
-  private buildAuthResponse(user: {
+  private async buildAuthResponse(user: {
     id: string;
     email: string;
     firstName: string | null;
@@ -846,9 +975,14 @@ export class AuthService {
       platformRole: user.platformRole ?? PlatformRole.ORGANIZATION_USER,
       organizationId: user.organizationId,
     };
+    const residentContext = await this.authSecurity.buildResidentContext(user as any);
+    const warning = this.authSecurity.warningForResidentContext(residentContext);
     return {
       accessToken: this.jwtService.sign(payload, { expiresIn: '7d' }),
       user: this.userResponse(user),
+      residentContext,
+      redirectTarget: this.authSecurity.redirectTarget(user.role, residentContext, 'ro'),
+      ...(warning ? { warning } : {}),
     };
   }
 
@@ -903,12 +1037,10 @@ export class AuthService {
   }
 
   private assertPasswordStrength(password: string) {
-    const hasLetter = /[A-Za-z]/.test(password);
-    const hasDigit = /\d/.test(password);
-    if (password.length < 10 || !hasLetter || !hasDigit) {
+    if (password.length < 8) {
       throw new BadRequestException({
         code: 'WEAK_PASSWORD',
-        message: 'Password must be at least 10 characters and include letters and numbers',
+        message: 'Password must be at least 8 characters',
       });
     }
   }

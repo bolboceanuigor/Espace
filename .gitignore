@@ -39,3 +39,4 @@ yarn-error.log*
 # Prisma
 *.db
 *.db-journal
+.deploy.env

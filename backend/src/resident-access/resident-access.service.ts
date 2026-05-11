@@ -10,6 +10,8 @@ import { JwtService } from '@nestjs/jwt';
 import {
   ApartmentResidentRole,
   AuthProvider,
+  AuthSecurityEventSeverity,
+  AuthSecurityEventType,
   PlatformRole,
   Prisma,
   ResidentAccountStatus,
@@ -21,6 +23,7 @@ import {
 import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes } from 'crypto';
 import { AuditService } from '../audit/audit.service';
+import { AuthSecurityService } from '../auth/auth-security.service';
 import { buildPaginationMeta, resolvePagination } from '../common/pagination';
 import { PrismaService } from '../prisma/prisma.service';
 import type { MvpUser } from '../security/mvp-auth.guard';
@@ -86,6 +89,7 @@ export class ResidentAccessService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly audit: AuditService,
+    private readonly authSecurity: AuthSecurityService,
   ) {}
 
   private isSuperadmin(user: MvpUser) {
@@ -562,10 +566,30 @@ export class ResidentAccessService {
       },
     });
     if (!resident) throw new NotFoundException('Locatarul nu a fost găsit.');
+    const [lastLogin, lastResetRequest] = await Promise.all([
+      resident.userId
+        ? this.prisma.authSecurityEvent.findFirst({
+            where: { userId: resident.userId, eventType: AuthSecurityEventType.LOGIN_SUCCESS },
+            orderBy: { createdAt: 'desc' },
+            select: { createdAt: true },
+          })
+        : null,
+      resident.userId
+        ? this.prisma.passwordResetRequest.findFirst({
+            where: { userId: resident.userId },
+            orderBy: { createdAt: 'desc' },
+            select: { id: true, status: true, expiresAt: true, createdAt: true },
+          })
+        : null,
+    ]);
     return {
       association: this.serializeAssociation(resident.organization),
       ...this.serializeResidentAccessRow({ ...resident, portalInvitations: resident.portalInvitations.slice(0, 1) }),
       invitations: resident.portalInvitations.map((invitation) => this.serializeInvitation(invitation)),
+      auth: {
+        lastLoginAt: lastLogin?.createdAt || null,
+        lastPasswordResetRequest: lastResetRequest || null,
+      },
     };
   }
 
@@ -974,6 +998,56 @@ export class ResidentAccessService {
     return this.serializeResidentAccessRow(updated);
   }
 
+  async preparePasswordReset(user: MvpUser, residentId: string, body: unknown) {
+    this.assertAdmin(user);
+    const payload = this.parseBody(body);
+    const resident = await this.findResidentForAdmin(user, residentId);
+    if (!resident.userId) {
+      throw new BadRequestException('Locatarul nu are user legat.');
+    }
+    const portalUser = await this.prisma.user.findFirst({
+      where: {
+        id: resident.userId,
+        organizationId: this.associationId(user),
+        deletedAt: null,
+      },
+      select: { id: true, email: true, role: true },
+    });
+    if (!portalUser || String(portalUser.role).toUpperCase() !== Role.RESIDENT) {
+      throw new BadRequestException('Userul legat nu este un cont de locatar valid.');
+    }
+
+    const reset = await this.authSecurity.createPasswordResetRequest({
+      email: portalUser.email,
+      locale: stringValue(payload.locale) || 'ro',
+      expiresInMinutes: 60,
+    });
+    await this.audit.createLog({
+      associationId: resident.organizationId,
+      actorUserId: user.id,
+      actorRole: user.role,
+      action: 'RESIDENT_PASSWORD_RESET_PREPARED',
+      entityType: 'RESIDENT',
+      entityId: resident.id,
+      residentId: resident.id,
+      title: 'Resetare parolă pregătită',
+      message: `Resetarea parolei pentru ${fullName(resident)} a fost pregătită.`,
+      severity: 'INFO',
+      metadata: {
+        residentId: resident.id,
+        userId: portalUser.id,
+        resetRequestId: reset.resetRequest?.id || null,
+        expiresAt: reset.resetRequest?.expiresAt || null,
+      },
+    });
+    return {
+      success: true,
+      message: 'Resetarea parolei a fost pregătită.',
+      resetRequest: reset.resetRequest || null,
+      ...(reset.devResetLink ? { devResetLink: reset.devResetLink } : {}),
+    };
+  }
+
   async suspendAccess(user: MvpUser, residentId: string, body: unknown) {
     return this.changeAccessStatus(user, residentId, body, ResidentPortalAccessStatus.SUSPENDED);
   }
@@ -1251,6 +1325,13 @@ export class ResidentAccessService {
       email: user.email,
       role: user.role,
       organizationId: user.organizationId,
+    });
+    await this.authSecurity.recordEvent({
+      userId: user.id,
+      email: user.email,
+      eventType: AuthSecurityEventType.INVITATION_ACCEPTED_LOGIN_READY,
+      severity: AuthSecurityEventSeverity.INFO,
+      metadata: { invitationId: invitation.id, residentId: invitation.residentId },
     });
 
     return {

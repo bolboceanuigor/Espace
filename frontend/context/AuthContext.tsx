@@ -91,8 +91,11 @@ function isPublicRoute(pathname: string): boolean {
     '/verify-email',
     '/forgot-password',
     '/reset-password',
+    '/account-status',
+    '/resident/session-expired',
     '/accept-invite',
     '/accept-invitation',
+    '/invite',
     '/terms',
     '/privacy',
     '/403',
@@ -161,6 +164,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (payload?.org) setOrg(payload.org);
           if (payload?.prefs) setPrefs(payload.prefs);
           if (payload?.system) setSystem(payload.system);
+          if (
+            typeof window !== 'undefined' &&
+            String(serverUser?.role || '').toUpperCase() === 'RESIDENT' &&
+            payload?.residentContext &&
+            !payload.residentContext.accessReady
+          ) {
+            const maybeLocale = window.location.pathname.split('/').filter(Boolean)[0];
+            const locale = maybeLocale && isLocale(maybeLocale) ? maybeLocale : defaultLocale;
+            const withoutLocale = maybeLocale && isLocale(maybeLocale)
+              ? `/${window.location.pathname.split('/').filter(Boolean).slice(1).join('/')}`
+              : window.location.pathname;
+            if (withoutLocale.startsWith('/resident') && withoutLocale !== '/resident/session-expired') {
+              window.location.href = `/${locale}/account-status`;
+            }
+          }
         }
       } catch (err: any) {
         removeToken();
@@ -177,7 +195,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const maybeLocale = window.location.pathname.split('/').filter(Boolean)[0];
           const locale = maybeLocale && isLocale(maybeLocale) ? maybeLocale : defaultLocale;
           if (!isPublicRoute(window.location.pathname)) {
-            window.location.href = `/${locale}/login?expired=1`;
+            const withoutLocale = maybeLocale && isLocale(maybeLocale)
+              ? `/${window.location.pathname.split('/').filter(Boolean).slice(1).join('/')}`
+              : window.location.pathname;
+            window.location.href = withoutLocale.startsWith('/resident')
+              ? `/${locale}/resident/session-expired`
+              : `/${locale}/login?expired=1`;
           }
         }
       } finally {

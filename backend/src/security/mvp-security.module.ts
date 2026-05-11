@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PrismaModule } from '../prisma/prisma.module';
 import { MvpAuthGuard, MvpRolesGuard } from './mvp-auth.guard';
+import { ResidentPortalGuard } from './resident-portal.guard';
 
 @Global()
 @Module({
@@ -18,7 +19,7 @@ import { MvpAuthGuard, MvpRolesGuard } from './mvp-auth.guard';
       }),
     }),
   ],
-  providers: [MvpAuthGuard, MvpRolesGuard],
-  exports: [JwtModule, MvpAuthGuard, MvpRolesGuard],
+  providers: [MvpAuthGuard, MvpRolesGuard, ResidentPortalGuard],
+  exports: [JwtModule, MvpAuthGuard, MvpRolesGuard, ResidentPortalGuard],
 })
 export class MvpSecurityModule {}

@@ -92,27 +92,46 @@ export class MvpAuthGuard implements CanActivate {
           },
           select: {
             id: true,
+            apartmentId: true,
             accountStatus: true,
             portalAccessStatus: true,
+            _count: { select: { apartmentResidents: true } },
           },
         });
         if (!residentProfile) {
           throw new ForbiddenException({
-            code: 'RESIDENT_PORTAL_ACCESS_NOT_ACTIVE',
-            message: 'Accesul la portal nu este activ. Contactează administratorul.',
+            code: 'RESIDENT_PORTAL_NOT_LINKED',
+            message: 'Contul tău nu este încă legat de un locatar din asociație.',
           });
         }
         const explicitStatus = residentProfile.portalAccessStatus;
+        if (explicitStatus === ResidentPortalAccessStatus.SUSPENDED) {
+          throw new ForbiddenException({
+            code: 'RESIDENT_PORTAL_ACCESS_SUSPENDED',
+            message: 'Accesul la portal este suspendat. Contactează administratorul asociației.',
+          });
+        }
+        if (explicitStatus === ResidentPortalAccessStatus.REVOKED) {
+          throw new ForbiddenException({
+            code: 'RESIDENT_PORTAL_ACCESS_REVOKED',
+            message: 'Accesul la portal a fost revocat. Contactează administratorul asociației.',
+          });
+        }
         if (
-          explicitStatus === ResidentPortalAccessStatus.SUSPENDED ||
-          explicitStatus === ResidentPortalAccessStatus.REVOKED ||
           explicitStatus === ResidentPortalAccessStatus.NO_ACCESS ||
           explicitStatus === ResidentPortalAccessStatus.INVITED ||
           (!explicitStatus && residentProfile.accountStatus !== ResidentAccountStatus.CREATED)
         ) {
           throw new ForbiddenException({
-            code: 'RESIDENT_PORTAL_ACCESS_SUSPENDED',
-            message: 'Accesul la portal este suspendat. Contactează administratorul.',
+            code: 'RESIDENT_PORTAL_ACCESS_NOT_ACTIVE',
+            message: 'Accesul la portal nu este activ. Contactează administratorul asociației.',
+          });
+        }
+        const apartmentsCount = Number(residentProfile._count?.apartmentResidents || 0) || (residentProfile.apartmentId ? 1 : 0);
+        if (apartmentsCount < 1) {
+          throw new ForbiddenException({
+            code: 'RESIDENT_APARTMENT_LINK_MISSING',
+            message: 'Contul tău nu este legat de niciun apartament.',
           });
         }
       }
