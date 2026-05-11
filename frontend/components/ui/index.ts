@@ -67,3 +67,7 @@ export { default as Timeline, Stepper } from './Timeline';
 export type { TimelineItem, TimelineItemStatus, TimelineProps } from './Timeline';
 export { default as ProgressScore, ProgressBar } from './ProgressScore';
 export type { ProgressScoreProps, ProgressBarProps } from './ProgressScore';
+
+// Actions
+export { default as QuickActionCard } from './QuickActionCard';
+export type { QuickActionCardProps } from './QuickActionCard';
