@@ -401,10 +401,10 @@ export default function AdminPage() {
         active: true,
       },
       {
-        title: 'Locatari fără cont',
+        title: 'Acces portal locatari',
         value: String(crm.kpis.residentsWithoutAccount),
-        description: 'Trimite invitații de activare',
-        href: '/admin/residents',
+        description: 'Fără cont activ sau invitație',
+        href: '/admin/resident-access',
         active: crm.kpis.residentsWithoutAccount > 0,
       },
       {

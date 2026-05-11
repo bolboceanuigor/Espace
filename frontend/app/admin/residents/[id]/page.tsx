@@ -40,6 +40,12 @@ type ResidentDetail = {
   email: string;
   preferredContactMethod: ContactMethod;
   status: ResidentStatus;
+  portalAccess?: {
+    status: 'NO_ACCESS' | 'INVITED' | 'ACTIVE' | 'SUSPENDED' | 'REVOKED';
+    activatedAt?: string | null;
+    latestInvitation?: { status: string; expiresAt?: string | null } | null;
+    user?: { email?: string; fullName?: string } | null;
+  };
   role: ContactRole;
   apartments: ApartmentLink[];
   apartmentsCount: number;
@@ -141,6 +147,27 @@ const updateRequestStatusVariant = {
   REJECTED: 'error',
   CANCELLED: 'neutral',
 } as const;
+
+const portalAccessLabels = {
+  NO_ACCESS: 'Fără acces',
+  INVITED: 'Invitat',
+  ACTIVE: 'Activ',
+  SUSPENDED: 'Suspendat',
+  REVOKED: 'Revocat',
+} as const;
+
+const portalAccessVariant = {
+  NO_ACCESS: 'neutral',
+  INVITED: 'warning',
+  ACTIVE: 'success',
+  SUSPENDED: 'error',
+  REVOKED: 'error',
+} as const;
+
+function portalAccessTone(status?: keyof typeof portalAccessLabels): 'neutral' | 'success' | 'warning' | 'danger' {
+  const variant = portalAccessVariant[status || 'NO_ACCESS'];
+  return variant === 'error' ? 'danger' : variant;
+}
 
 export default function AdminResidentDetailPage() {
   const params = useParams<{ id?: string }>();
@@ -361,6 +388,10 @@ export default function AdminResidentDetailPage() {
         rightSlot={
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant={completenessVariant[resident.completenessStatus]}>{completenessLabels[resident.completenessStatus]}</Badge>
+            <Link href={localizedPath(`/admin/residents/${resident.id}/access`)} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl border border-border/70 bg-white px-4 text-sm font-semibold text-foreground shadow-sm hover:bg-muted/70">
+              <UserCheck className="h-4 w-4" />
+              Acces portal
+            </Link>
             <Button variant="secondary" onClick={openLinkModal}>
               <Plus className="h-4 w-4" />
               Leagă apartament
@@ -376,8 +407,9 @@ export default function AdminResidentDetailPage() {
       {success ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">{success}</div> : null}
       {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</div> : null}
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard label="Status" value={statusLabels[resident.status]} description="Status CRM persoană" icon={<UserRound className="h-5 w-5" />} tone={resident.status === 'INACTIVE' ? 'danger' : statusVariant[resident.status]} />
+        <StatCard label="Acces portal" value={portalAccessLabels[resident.portalAccess?.status || 'NO_ACCESS']} description={resident.portalAccess?.user?.email || 'User portal'} icon={<UserCheck className="h-5 w-5" />} tone={portalAccessTone(resident.portalAccess?.status)} />
         <StatCard label="Telefon" value={resident.phone || 'Lipsă'} description={resident.email || 'Email necompletat'} icon={<Phone className="h-5 w-5" />} tone={resident.phone ? 'neutral' : 'warning'} />
         <StatCard label="Apartamente" value={resident.apartmentsCount} description="Relații apartament-persoană" icon={<Building2 className="h-5 w-5" />} />
         <StatCard label="Contact principal" value={resident.isPrimaryContactSomewhere ? 'Da' : 'Nu'} description={methodLabels[resident.preferredContactMethod]} icon={<UserCheck className="h-5 w-5" />} tone={resident.isPrimaryContactSomewhere ? 'success' : 'warning'} />

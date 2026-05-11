@@ -1,5 +1,15 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { ApartmentResidentRole, InvoiceStatus, NotificationType, PlatformRole, Prisma, ResidentAccountStatus, Role } from '@prisma/client';
+import {
+  ApartmentResidentRole,
+  InvoiceStatus,
+  NotificationType,
+  PlatformRole,
+  Prisma,
+  ResidentAccountStatus,
+  ResidentPortalAccessStatus,
+  ResidentPortalInvitationStatus,
+  Role,
+} from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { ActivityMvpService } from '../activity-mvp/activity-mvp.service';
@@ -65,7 +75,20 @@ export class ResidentsService {
       phone: true,
       email: true,
       accountStatus: true,
+      portalAccessStatus: true,
+      portalAccessActivatedAt: true,
+      portalAccessRevokedAt: true,
       userId: true,
+      user: {
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          isActive: true,
+        },
+      },
       type: true,
       isPrimary: true,
       createdAt: true,
@@ -134,6 +157,18 @@ export class ResidentsService {
           subject: true,
           updatedAt: true,
           apartment: { select: { id: true, number: true } },
+        },
+      },
+      portalInvitations: {
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+        select: {
+          id: true,
+          status: true,
+          expiresAt: true,
+          lastSentAt: true,
+          acceptedAt: true,
+          createdAt: true,
         },
       },
     };
@@ -991,6 +1026,18 @@ export class ResidentsService {
     const primaryRelation = apartments.find((item) => item.isPrimaryContact) || apartments[0];
     const status = this.toAdminResidentStatus(row, rowMetadata);
     const preferredContactMethod = rowMetadata.preferredContactMethod || 'PHONE';
+    const latestInvitation = row.portalInvitations?.[0] || null;
+    const portalAccessStatus =
+      row.portalAccessStatus === ResidentPortalAccessStatus.SUSPENDED ||
+      row.portalAccessStatus === ResidentPortalAccessStatus.REVOKED
+        ? row.portalAccessStatus
+        : row.userId || row.accountStatus === ResidentAccountStatus.CREATED
+          ? ResidentPortalAccessStatus.ACTIVE
+          : latestInvitation &&
+              [ResidentPortalInvitationStatus.PENDING, ResidentPortalInvitationStatus.SENT].includes(latestInvitation.status) &&
+              new Date(latestInvitation.expiresAt).getTime() >= Date.now()
+            ? ResidentPortalAccessStatus.INVITED
+            : ResidentPortalAccessStatus.NO_ACCESS;
     const resident = {
       id: row.id,
       organizationId: row.organizationId,
@@ -1002,6 +1049,21 @@ export class ResidentsService {
       preferredContactMethod,
       status,
       accountStatus: row.accountStatus,
+      portalAccess: {
+        status: portalAccessStatus,
+        activatedAt: row.portalAccessActivatedAt || null,
+        revokedAt: row.portalAccessRevokedAt || null,
+        user: row.user
+          ? {
+              id: row.user.id,
+              email: row.user.email,
+              fullName: `${row.user.firstName || ''} ${row.user.lastName || ''}`.trim() || row.user.email,
+              role: row.user.role,
+              isActive: row.user.isActive,
+            }
+          : null,
+        latestInvitation,
+      },
       role: primaryRelation?.role || row.type || 'OWNER',
       apartments,
       apartmentsCount: apartments.length,

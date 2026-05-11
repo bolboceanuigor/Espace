@@ -43,6 +43,7 @@ export const NAVIGATION_CONFIG: NavigationItem[] = [
   { label: 'Acasă', href: '/admin', icon: 'home', allowedRoles: ['ADMIN'], mobileVisible: true, moreMenu: false },
   { label: 'Apartamente', href: '/admin/apartments', icon: 'home', allowedRoles: ['ADMIN'], mobileVisible: true, moreMenu: false },
   { label: 'Locatari', href: '/admin/residents', icon: 'users', allowedRoles: ['ADMIN'], mobileVisible: true, moreMenu: false },
+  { label: 'Acces portal', href: '/admin/resident-access', icon: 'users', allowedRoles: ['ADMIN'], mobileVisible: false, moreMenu: true },
   { label: 'Contoare', href: '/admin/meters', icon: 'chartColumnBig', allowedRoles: ['ADMIN'], mobileVisible: false, moreMenu: true },
   { label: 'Rapoarte consum', href: '/admin/meter-readings/reports', icon: 'chartColumnBig', allowedRoles: ['ADMIN'], mobileVisible: false, moreMenu: true },
   { label: 'Facturare', href: '/admin/billing', icon: 'fileText', allowedRoles: ['ADMIN'], mobileVisible: false, moreMenu: true },

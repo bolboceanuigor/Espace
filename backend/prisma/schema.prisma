@@ -738,6 +738,31 @@ enum ResidentAccountStatus {
   NO_ACCOUNT
 }
 
+enum ResidentPortalAccessStatus {
+  NO_ACCESS
+  INVITED
+  ACTIVE
+  SUSPENDED
+  REVOKED
+}
+
+enum ResidentPortalInvitationStatus {
+  DRAFT
+  PENDING
+  SENT
+  ACCEPTED
+  EXPIRED
+  CANCELLED
+  REVOKED
+}
+
+enum ResidentPortalInvitationDeliveryMethod {
+  COPY_LINK
+  EMAIL_PLACEHOLDER
+  SMS_PLACEHOLDER
+  MANUAL
+}
+
 enum ApartmentResidentRole {
   OWNER
   RESIDENT
@@ -858,6 +883,7 @@ model Organization {
   staircases         Staircase[]
   apartments         Apartment[]
   residentProfiles   ResidentProfile[]
+  residentPortalInvitations ResidentPortalInvitation[]
   meters             Meter[]
   meterReadings      MeterReading[]
   payments           Payment[]
@@ -1452,6 +1478,11 @@ model User {
   leadActivities     LeadActivity[]
   chatMessages       AssociationChatMessage[]
   invitationsCreated Invitation[] @relation("UserInvitations")
+  residentPortalInvitationsCreated ResidentPortalInvitation[] @relation("ResidentPortalInvitationCreatedBy")
+  residentPortalInvitationsAccepted ResidentPortalInvitation[] @relation("ResidentPortalInvitationAcceptedBy")
+  residentPortalInvitationsCancelled ResidentPortalInvitation[] @relation("ResidentPortalInvitationCancelledBy")
+  residentPortalInvitationsRevoked ResidentPortalInvitation[] @relation("ResidentPortalInvitationRevokedBy")
+  residentPortalAccessRevocations ResidentProfile[] @relation("ResidentPortalAccessRevokedBy")
   emailVerificationTokens EmailVerificationToken[]
   passwordResetTokens PasswordResetToken[]
   messagesSent       Message[]
@@ -1655,6 +1686,7 @@ model Apartment {
   votes        Vote[]
   initialBalances InitialBalance[]
   invitations  Invitation[]
+  residentPortalInvitations ResidentPortalInvitation[]
   announcements Announcement[]
   documents    Document[]
   maintenanceEvents MaintenanceEvent[]
@@ -1680,6 +1712,10 @@ model ResidentProfile {
   phone          String?
   email          String?
   accountStatus  ResidentAccountStatus @default(NO_ACCOUNT)
+  portalAccessStatus ResidentPortalAccessStatus?
+  portalAccessActivatedAt DateTime?
+  portalAccessRevokedAt DateTime?
+  portalAccessRevokedById String?
   type           ResidentType @default(OWNER)
   isPrimary      Boolean  @default(false)
   createdAt      DateTime @default(now())
@@ -1688,6 +1724,8 @@ model ResidentProfile {
   user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
   apartment    Apartment?   @relation(fields: [apartmentId], references: [id], onDelete: SetNull)
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  portalAccessRevokedBy User? @relation("ResidentPortalAccessRevokedBy", fields: [portalAccessRevokedById], references: [id], onDelete: SetNull)
+  portalInvitations ResidentPortalInvitation[]
   apartmentResidents ApartmentResident[]
   ownedApartments Apartment[] @relation("ApartmentOwnerResident")
   issues       Issue[]
@@ -1696,10 +1734,54 @@ model ResidentProfile {
   @@index([organizationId])
   @@index([userId])
   @@index([apartmentId])
+  @@index([portalAccessStatus])
+  @@index([portalAccessRevokedById])
   @@unique([userId, apartmentId])
   @@index([organizationId, isPrimary])
   @@index([organizationId, createdAt])
   @@map("resident_profiles")
+}
+
+model ResidentPortalInvitation {
+  id                 String   @id @default(uuid())
+  associationId      String
+  residentId         String
+  apartmentId        String?
+  invitedEmail       String?
+  invitedPhone       String?
+  tokenHash          String   @unique
+  tokenPreview       String?
+  status             ResidentPortalInvitationStatus @default(PENDING)
+  expiresAt          DateTime
+  acceptedAt         DateTime?
+  acceptedByUserId   String?
+  cancelledAt        DateTime?
+  cancelledById      String?
+  cancellationReason String?
+  revokedAt          DateTime?
+  revokedById        String?
+  revokeReason       String?
+  createdById        String
+  lastSentAt         DateTime?
+  sendCount          Int      @default(0)
+  deliveryMethod     ResidentPortalInvitationDeliveryMethod @default(COPY_LINK)
+  metadata           Json?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  association Organization @relation(fields: [associationId], references: [id], onDelete: Cascade)
+  resident    ResidentProfile @relation(fields: [residentId], references: [id], onDelete: Cascade)
+  apartment   Apartment? @relation(fields: [apartmentId], references: [id], onDelete: SetNull)
+  acceptedBy  User? @relation("ResidentPortalInvitationAcceptedBy", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
+  cancelledBy User? @relation("ResidentPortalInvitationCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
+  revokedBy   User? @relation("ResidentPortalInvitationRevokedBy", fields: [revokedById], references: [id], onDelete: SetNull)
+  createdBy   User  @relation("ResidentPortalInvitationCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([associationId, status, expiresAt])
+  @@index([residentId, createdAt])
+  @@index([apartmentId])
+  @@index([createdById, createdAt])
+  @@map("resident_portal_invitations")
 }
 
 model ApartmentResident {

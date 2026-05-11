@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
-import { Role } from '@prisma/client';
+import { ResidentAccountStatus, ResidentPortalAccessStatus, Role } from '@prisma/client';
 import { IS_PUBLIC_KEY } from '../auth/decorators/public.decorator';
 import { ROLES_KEY } from '../auth/decorators/roles.decorator';
 import { PrismaService } from '../prisma/prisma.service';
@@ -84,6 +84,39 @@ export class MvpAuthGuard implements CanActivate {
         });
       }
 
+      if (user.role === Role.RESIDENT) {
+        const residentProfile = await this.prisma.residentProfile.findFirst({
+          where: {
+            userId: user.id,
+            organizationId: user.organizationId,
+          },
+          select: {
+            id: true,
+            accountStatus: true,
+            portalAccessStatus: true,
+          },
+        });
+        if (!residentProfile) {
+          throw new ForbiddenException({
+            code: 'RESIDENT_PORTAL_ACCESS_NOT_ACTIVE',
+            message: 'Accesul la portal nu este activ. Contactează administratorul.',
+          });
+        }
+        const explicitStatus = residentProfile.portalAccessStatus;
+        if (
+          explicitStatus === ResidentPortalAccessStatus.SUSPENDED ||
+          explicitStatus === ResidentPortalAccessStatus.REVOKED ||
+          explicitStatus === ResidentPortalAccessStatus.NO_ACCESS ||
+          explicitStatus === ResidentPortalAccessStatus.INVITED ||
+          (!explicitStatus && residentProfile.accountStatus !== ResidentAccountStatus.CREATED)
+        ) {
+          throw new ForbiddenException({
+            code: 'RESIDENT_PORTAL_ACCESS_SUSPENDED',
+            message: 'Accesul la portal este suspendat. Contactează administratorul.',
+          });
+        }
+      }
+
       request.user = {
         ...user,
         sub: user.id,
@@ -91,7 +124,7 @@ export class MvpAuthGuard implements CanActivate {
 
       return true;
     } catch (error) {
-      if (error instanceof UnauthorizedException) throw error;
+      if (error instanceof UnauthorizedException || error instanceof ForbiddenException) throw error;
       throw new UnauthorizedException({
         code: 'SESSION_EXPIRED',
         message: 'Sesiunea a expirat. Te rugăm să te autentifici din nou.',

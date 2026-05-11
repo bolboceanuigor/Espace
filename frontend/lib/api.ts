@@ -922,6 +922,46 @@ export const adminResidentsCrmApi = {
   updateRequests: (id: string) => apiRequest<any>(`/api/admin/residents/${id}/update-requests`),
 };
 
+export const residentAccessApi = {
+  list: (params?: Record<string, string | number | boolean | undefined | null>) =>
+    apiRequest<any>('/api/admin/resident-access', { params }),
+  stats: () => apiRequest<any>('/api/admin/resident-access/stats'),
+  getResidentAccess: (residentId: string) => apiRequest<any>(`/api/admin/residents/${residentId}/access`),
+  createInvitation: (
+    residentId: string,
+    data: {
+      apartmentId?: string;
+      invitedEmail?: string;
+      invitedPhone?: string;
+      deliveryMethod?: 'COPY_LINK' | 'EMAIL_PLACEHOLDER' | 'SMS_PLACEHOLDER' | 'MANUAL';
+      expiresInDays?: number;
+      message?: string;
+      replaceActiveInvitation?: boolean;
+    },
+  ) => apiRequest<any>(`/api/admin/residents/${residentId}/invitations`, { method: 'POST', body: data }),
+  listInvitations: (params?: Record<string, string | number | boolean | undefined | null>) =>
+    apiRequest<any>('/api/admin/resident-access/invitations', { params }),
+  getInvitation: (id: string) => apiRequest<any>(`/api/admin/resident-access/invitations/${id}`),
+  regenerateInvitation: (id: string, data?: { expiresInDays?: number }) =>
+    apiRequest<any>(`/api/admin/resident-access/invitations/${id}/regenerate`, { method: 'POST', body: data || {} }),
+  markSent: (id: string) => apiRequest<any>(`/api/admin/resident-access/invitations/${id}/mark-sent`, { method: 'PATCH' }),
+  cancelInvitation: (id: string, reason: string) =>
+    apiRequest<any>(`/api/admin/resident-access/invitations/${id}/cancel`, { method: 'PATCH', body: { reason } }),
+  linkUser: (residentId: string, data: { userId?: string; userEmail?: string; confirm: boolean }) =>
+    apiRequest<any>(`/api/admin/residents/${residentId}/portal-access/link-user`, { method: 'POST', body: data }),
+  suspend: (residentId: string, reason: string) =>
+    apiRequest<any>(`/api/admin/residents/${residentId}/portal-access/suspend`, { method: 'PATCH', body: { reason } }),
+  reactivate: (residentId: string, note?: string) =>
+    apiRequest<any>(`/api/admin/residents/${residentId}/portal-access/reactivate`, { method: 'PATCH', body: { note } }),
+  revoke: (residentId: string, reason: string) =>
+    apiRequest<any>(`/api/admin/residents/${residentId}/portal-access/revoke`, { method: 'PATCH', body: { reason } }),
+  publicInvitation: (token: string) => apiRequest<any>(`/api/invitations/${encodeURIComponent(token)}`),
+  acceptInvitation: (
+    token: string,
+    data: { fullName: string; email: string; phone?: string; password: string; confirmPassword: string },
+  ) => apiRequest<any>(`/api/invitations/${encodeURIComponent(token)}/accept`, { method: 'POST', body: data }),
+};
+
 export const adminResidentUpdateRequestsApi = {
   list: (params?: {
     status?: string;

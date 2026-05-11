@@ -14,6 +14,8 @@ import {
   PaymentStatus,
   Prisma,
   ResidentAccountStatus,
+  ResidentPortalAccessStatus,
+  ResidentPortalInvitationStatus,
   ResidentInvoiceStatus,
   Role,
 } from '@prisma/client';
@@ -554,9 +556,16 @@ export class DataQualityService {
           phone: true,
           email: true,
           accountStatus: true,
+          portalAccessStatus: true,
+          userId: true,
           apartmentId: true,
           isPrimary: true,
           user: { select: { isActive: true } },
+          portalInvitations: {
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+            select: { id: true, status: true, expiresAt: true },
+          },
           apartmentResidents: { select: { apartmentId: true, role: true, isPrimary: true } },
         },
       }),
@@ -899,6 +908,51 @@ export class DataQualityService {
           description: `${fullName(resident)} nu este legat de niciun apartament.`,
           recommendation: 'Leagă locatarul de apartamentul corect.',
           actionUrl: `/admin/residents/${resident.id}`,
+          billingImpact: DataQualityBillingImpact.AFFECTS_BILLING,
+        });
+      }
+      const latestInvitation = resident.portalInvitations?.[0];
+      const hasActivePortal =
+        resident.userId &&
+        (resident.portalAccessStatus === ResidentPortalAccessStatus.ACTIVE ||
+          (!resident.portalAccessStatus && resident.accountStatus === ResidentAccountStatus.CREATED));
+      if (!hasActivePortal) {
+        this.issue(issues, {
+          key: `RESIDENT_WITHOUT_PORTAL_ACCESS:${resident.id}`,
+          category: DataQualityCategory.RESIDENTS,
+          severity: DataQualitySeverity.INFO,
+          entityType: DataQualityEntityType.RESIDENT,
+          entityId: resident.id,
+          title: 'Locatar fără acces portal',
+          description: `${fullName(resident)} nu are încă acces activ în portal.`,
+          recommendation: 'Creează o invitație sau leagă un user existent.',
+          actionUrl: `/admin/residents/${resident.id}/access`,
+        });
+      }
+      if (latestInvitation?.status === ResidentPortalInvitationStatus.EXPIRED) {
+        this.issue(issues, {
+          key: `RESIDENT_PORTAL_INVITATION_EXPIRED:${resident.id}:${latestInvitation.id}`,
+          category: DataQualityCategory.RESIDENTS,
+          severity: DataQualitySeverity.WARNING,
+          entityType: DataQualityEntityType.RESIDENT,
+          entityId: resident.id,
+          title: 'Invitație portal expirată',
+          description: `Invitația portal pentru ${fullName(resident)} a expirat.`,
+          recommendation: 'Regenerază invitația sau creează una nouă.',
+          actionUrl: `/admin/residents/${resident.id}/access`,
+        });
+      }
+      if (resident.userId && resident.portalAccessStatus === ResidentPortalAccessStatus.NO_ACCESS) {
+        this.issue(issues, {
+          key: `RESIDENT_PORTAL_STATUS_INCONSISTENT:${resident.id}`,
+          category: DataQualityCategory.RESIDENTS,
+          severity: DataQualitySeverity.WARNING,
+          entityType: DataQualityEntityType.RESIDENT,
+          entityId: resident.id,
+          title: 'Status portal inconsistent',
+          description: `${fullName(resident)} are user legat, dar statusul portal este fără acces.`,
+          recommendation: 'Verifică și reactivează sau revocă accesul explicit.',
+          actionUrl: `/admin/residents/${resident.id}/access`,
           billingImpact: DataQualityBillingImpact.AFFECTS_BILLING,
         });
       }

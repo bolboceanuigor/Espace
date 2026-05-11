@@ -32,6 +32,11 @@ type ResidentRow = {
   email: string;
   preferredContactMethod: ContactMethod;
   status: ResidentStatus;
+  portalAccess?: {
+    status: 'NO_ACCESS' | 'INVITED' | 'ACTIVE' | 'SUSPENDED' | 'REVOKED';
+    activatedAt?: string | null;
+    latestInvitation?: { status: string; expiresAt?: string | null } | null;
+  };
   role: ContactRole;
   apartments: ApartmentLink[];
   apartmentsCount: number;
@@ -148,6 +153,22 @@ const completenessVariant = {
   NO_PHONE: 'warning',
   NO_EMAIL: 'neutral',
   INACTIVE: 'error',
+} as const;
+
+const portalAccessLabels = {
+  NO_ACCESS: 'Fără acces',
+  INVITED: 'Invitat',
+  ACTIVE: 'Activ',
+  SUSPENDED: 'Suspendat',
+  REVOKED: 'Revocat',
+} as const;
+
+const portalAccessVariant = {
+  NO_ACCESS: 'neutral',
+  INVITED: 'warning',
+  ACTIVE: 'success',
+  SUSPENDED: 'error',
+  REVOKED: 'error',
 } as const;
 
 export default function AdminResidentsPage() {
@@ -351,6 +372,10 @@ export default function AdminResidentsPage() {
               <FileUp className="h-4 w-4" />
               Importă persoane
             </Link>
+            <Link href={localizedPath('/admin/resident-access')} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl border border-border/70 bg-white px-4 text-sm font-semibold text-foreground shadow-sm hover:bg-muted/70">
+              <UserCheck className="h-4 w-4" />
+              Acces portal
+            </Link>
             <Button variant="secondary" onClick={exportCsv}>
               <Download className="h-4 w-4" />
               Export CSV
@@ -433,7 +458,7 @@ export default function AdminResidentsPage() {
           </section>
 
           <section className="hidden overflow-hidden rounded-[1.35rem] border border-border/70 bg-white shadow-[0_14px_40px_rgba(15,23,42,0.045)] md:block">
-            <div className="grid grid-cols-[1.15fr_0.9fr_1.15fr_1.05fr_0.8fr_0.9fr_0.95fr_0.8fr_0.9fr_1.4fr] gap-3 border-b border-border/70 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <div className="grid grid-cols-[1.1fr_0.85fr_1.1fr_1fr_0.75fr_0.85fr_0.9fr_0.75fr_0.8fr_0.85fr_1.55fr] gap-3 border-b border-border/70 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <span>Nume</span>
               <span>Telefon</span>
               <span>Email</span>
@@ -442,11 +467,12 @@ export default function AdminResidentsPage() {
               <span>Contact principal</span>
               <span>Metodă contact</span>
               <span>Status</span>
+              <span>Acces portal</span>
               <span>Actualizat</span>
               <span>Acțiuni</span>
             </div>
             {data.items.map((row) => (
-              <div key={row.id} className="grid grid-cols-[1.15fr_0.9fr_1.15fr_1.05fr_0.8fr_0.9fr_0.95fr_0.8fr_0.9fr_1.4fr] items-center gap-3 border-b border-border/50 px-4 py-4 text-sm last:border-b-0">
+              <div key={row.id} className="grid grid-cols-[1.1fr_0.85fr_1.1fr_1fr_0.75fr_0.85fr_0.9fr_0.75fr_0.8fr_0.85fr_1.55fr] items-center gap-3 border-b border-border/50 px-4 py-4 text-sm last:border-b-0">
                 <strong className="truncate text-foreground">{row.fullName}</strong>
                 <span className="truncate text-muted-foreground">{row.phone || '-'}</span>
                 <span className="truncate text-muted-foreground">{row.email || '-'}</span>
@@ -455,9 +481,11 @@ export default function AdminResidentsPage() {
                 <span className="text-muted-foreground">{row.isPrimaryContactSomewhere ? 'Da' : 'Nu'}</span>
                 <span className="text-muted-foreground">{methodLabels[row.preferredContactMethod]}</span>
                 <Badge variant={statusVariant[row.status]}>{statusLabels[row.status]}</Badge>
+                <Badge variant={portalAccessVariant[row.portalAccess?.status || 'NO_ACCESS']}>{portalAccessLabels[row.portalAccess?.status || 'NO_ACCESS']}</Badge>
                 <span className="text-muted-foreground">{formatDate(row.updatedAt)}</span>
                 <div className="flex flex-wrap gap-1.5">
                   <Link href={localizedPath(`/admin/residents/${row.id}`)} className="rounded-xl border border-border/70 px-2.5 py-1.5 text-xs font-semibold hover:bg-muted/60">Deschide</Link>
+                  <Link href={localizedPath(`/admin/residents/${row.id}/access`)} className="rounded-xl border border-border/70 px-2.5 py-1.5 text-xs font-semibold hover:bg-muted/60">Acces</Link>
                   <button type="button" onClick={() => openEditModal(row)} className="rounded-xl border border-border/70 px-2.5 py-1.5 text-xs font-semibold hover:bg-muted/60">Editează</button>
                   <button type="button" onClick={() => openRelationModal(row)} className="rounded-xl border border-border/70 px-2.5 py-1.5 text-xs font-semibold hover:bg-muted/60">Leagă apartament</button>
                   {row.apartments.length ? <button type="button" onClick={() => setPrimary(row)} className="rounded-xl border border-border/70 px-2.5 py-1.5 text-xs font-semibold hover:bg-muted/60">Setează primary</button> : null}
@@ -516,10 +544,12 @@ function ResidentMobileCard({ row, onEdit, onLink }: { row: ResidentRow; onEdit:
         <InfoLine label="Telefon" value={row.phone || '-'} />
         <InfoLine label="Email" value={row.email || '-'} />
         <InfoLine label="Rol" value={roleLabels[row.role] || row.role} />
+        <InfoLine label="Acces portal" value={portalAccessLabels[row.portalAccess?.status || 'NO_ACCESS']} />
         <InfoLine label="Metodă contact" value={methodLabels[row.preferredContactMethod]} />
       </div>
       <div className="mt-4 grid gap-2 sm:grid-cols-3">
         <Link href={localizedPath(`/admin/residents/${row.id}`)} className="inline-flex min-h-10 items-center justify-center rounded-2xl bg-foreground px-3 text-sm font-semibold text-background">Deschide</Link>
+        <Link href={localizedPath(`/admin/residents/${row.id}/access`)} className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-border/70 px-3 text-sm font-semibold">Acces portal</Link>
         <button type="button" onClick={onEdit} className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-border/70 px-3 text-sm font-semibold">Editează</button>
         <button type="button" onClick={onLink} className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-border/70 px-3 text-sm font-semibold">Leagă apartament</button>
       </div>
