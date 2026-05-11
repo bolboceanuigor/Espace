@@ -25,6 +25,7 @@ export type MainNavigationKey =
   | 'documents'
   | 'chat'
   | 'imports'
+  | 'exports'
   | 'meterReports'
   | 'buildingSettings'
   | 'home'
@@ -76,6 +77,7 @@ export const ADMIN_NAVIGATION_ITEMS: MainNavigationItem[] = [
   { key: 'documents', label: 'Documente', href: '/admin/documents' },
   { key: 'imports', label: 'Import date', href: '/admin/imports' },
   { key: 'reports', label: 'Rapoarte', href: '/admin/reports' },
+  { key: 'exports', label: 'Exporturi', href: '/admin/exports' },
   { key: 'buildingSettings', label: 'Setări', href: '/admin/settings/organization' },
 ];
 

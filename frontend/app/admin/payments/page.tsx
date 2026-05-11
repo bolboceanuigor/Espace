@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Banknote, CalendarDays, CheckCircle2, CreditCard, FileText, ReceiptText, Search, UserRound, XCircle } from 'lucide-react';
+import { Banknote, CalendarDays, CheckCircle2, CreditCard, Download, FileText, ReceiptText, Search, UserRound, XCircle } from 'lucide-react';
 import { Badge, Button, ButtonLink, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
-import { paymentsApi } from '@/lib/api';
+import { exportsApi, paymentsApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
+import { downloadBlob } from '@/lib/download';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 type PaymentStatus = 'CONFIRMED' | 'CANCELLED';
@@ -253,6 +254,22 @@ export default function AdminPaymentsPage() {
 
   const canReset = Boolean(query || method || status || billingMonth);
 
+  async function exportCsv() {
+    setError('');
+    setMessage('');
+    try {
+      const res = await exportsApi.adminPaymentsCsv({
+        billingMonth: billingMonth || undefined,
+        status: status || undefined,
+        method: method || undefined,
+      });
+      downloadBlob(res.data, `plati-${billingMonth || 'toate'}.csv`);
+      setMessage('Exportul CSV pentru plăți a fost generat.');
+    } catch (err: any) {
+      setError(String(err?.message || 'Nu am putut genera exportul CSV.'));
+    }
+  }
+
   return (
     <div className="space-y-5 pb-8">
       <PageHeader
@@ -265,6 +282,10 @@ export default function AdminPaymentsPage() {
             <ButtonLink href="/admin/payments/reconciliation" variant="secondary">
               Vezi reconciliere
             </ButtonLink>
+            <Button type="button" variant="secondary" onClick={exportCsv}>
+              <Download className="h-4 w-4" />
+              Export CSV
+            </Button>
             <Button type="button" onClick={() => openPaymentModal()}>
               <Banknote className="h-4 w-4" />
               Înregistrează plată

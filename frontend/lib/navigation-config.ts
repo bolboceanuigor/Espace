@@ -57,6 +57,7 @@ export const NAVIGATION_CONFIG: NavigationItem[] = [
   { label: 'Istoric activitate', href: '/admin/audit-log', icon: 'listChecks', allowedRoles: ['ADMIN'], mobileVisible: false, moreMenu: true },
   { label: 'Documente', href: '/admin/documents', icon: 'fileText', allowedRoles: ['ADMIN'], mobileVisible: false, moreMenu: true },
   { label: 'Rapoarte', href: '/admin/reports', icon: 'chartColumnBig', allowedRoles: ['ADMIN'], mobileVisible: false, moreMenu: true },
+  { label: 'Exporturi', href: '/admin/exports', icon: 'fileText', allowedRoles: ['ADMIN'], mobileVisible: false, moreMenu: true },
   { label: 'Setări', href: '/admin/settings/organization', icon: 'settings', allowedRoles: ['ADMIN'], mobileVisible: false, moreMenu: true },
 
   { label: 'Acasă', href: '/resident', icon: 'home', allowedRoles: ['RESIDENT'], mobileVisible: true, moreMenu: false },

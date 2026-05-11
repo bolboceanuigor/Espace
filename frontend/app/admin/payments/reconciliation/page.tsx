@@ -6,6 +6,7 @@ import {
   Banknote,
   CheckCircle2,
   Clock3,
+  Download,
   FileText,
   Home,
   Percent,
@@ -14,8 +15,9 @@ import {
   WalletCards,
 } from 'lucide-react';
 import { Badge, Button, ButtonLink, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
-import { paymentsApi } from '@/lib/api';
+import { exportsApi, paymentsApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
+import { downloadBlob } from '@/lib/download';
 
 type InvoiceStatus = 'ISSUED' | 'PARTIALLY_PAID' | 'PAID' | 'CANCELLED' | 'VOID';
 type PaymentMethod = 'CASH' | 'BANK_TRANSFER' | 'CARD_TERMINAL' | 'INFOCOM' | 'OPLATA' | 'OTHER';
@@ -233,6 +235,24 @@ export default function AdminPaymentsReconciliationPage() {
     setSortDirection('desc');
   }
 
+  async function exportCsv() {
+    setError('');
+    try {
+      const res = await exportsApi.adminApartmentBalancesCsv({
+        billingMonth: billingMonth || undefined,
+        staircase: staircase || undefined,
+        apartmentNumber: apartmentNumber || undefined,
+        minBalance: minBalance || undefined,
+        maxBalance: maxBalance || undefined,
+        unpaidOnly: unpaidOnly || undefined,
+        overdueOnly: overdueOnly || undefined,
+      });
+      downloadBlob(res.data, `solduri-apartamente-${billingMonth || 'toate'}.csv`);
+    } catch (err: any) {
+      setError(String(err?.message || 'Nu am putut genera exportul CSV.'));
+    }
+  }
+
   return (
     <div className="space-y-5 pb-8">
       <PageHeader
@@ -249,8 +269,9 @@ export default function AdminPaymentsReconciliationPage() {
             <ButtonLink href={`/admin/reports/financial${billingMonth ? `?billingMonth=${billingMonth}` : ''}`} variant="secondary">
               Vezi raport financiar
             </ButtonLink>
-            <Button type="button" variant="secondary" onClick={() => window.alert('Exportul raportului va fi disponibil ulterior.')}>
-              Export raport
+            <Button type="button" variant="secondary" onClick={exportCsv}>
+              <Download className="h-4 w-4" />
+              Export CSV
             </Button>
           </div>
         }

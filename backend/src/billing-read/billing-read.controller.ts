@@ -1,5 +1,6 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
 import { Role } from '@prisma/client';
+import { Response } from 'express';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { MvpAuthGuard, MvpRolesGuard, MvpUser } from '../security/mvp-auth.guard';
@@ -10,6 +11,12 @@ import { BillingReadService } from './billing-read.service';
 @Roles(Role.ADMIN, Role.SUPERADMIN)
 export class BillingReadController {
   constructor(private readonly billingReadService: BillingReadService) {}
+
+  private sendCsv(res: Response, payload: { csv: string; fileName: string }) {
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${payload.fileName}"`);
+    res.send(payload.csv);
+  }
 
   @Get(['invoices', 'api/invoices'])
   listInvoices(@CurrentUser() user: MvpUser) {
@@ -69,6 +76,56 @@ export class BillingReadController {
   @Get(['admin/reports/financial/recent-payments', 'api/admin/reports/financial/recent-payments'])
   getAdminFinancialRecentPayments(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
     return this.billingReadService.getAdminFinancialRecentPayments(user, query);
+  }
+
+  @Get(['admin/exports/invoices.csv', 'api/admin/exports/invoices.csv'])
+  async exportAdminInvoicesCsv(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>, @Res() res: Response) {
+    this.sendCsv(res, await this.billingReadService.exportAdminInvoicesCsv(user, query));
+  }
+
+  @Get(['admin/exports/payments.csv', 'api/admin/exports/payments.csv'])
+  async exportAdminPaymentsCsv(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>, @Res() res: Response) {
+    this.sendCsv(res, await this.billingReadService.exportAdminPaymentsCsv(user, query));
+  }
+
+  @Get(['admin/exports/apartment-balances.csv', 'api/admin/exports/apartment-balances.csv'])
+  async exportAdminApartmentBalancesCsv(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>, @Res() res: Response) {
+    this.sendCsv(res, await this.billingReadService.exportAdminApartmentBalancesCsv(user, query));
+  }
+
+  @Get(['admin/exports/financial-monthly.csv', 'api/admin/exports/financial-monthly.csv'])
+  async exportAdminFinancialMonthlyCsv(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>, @Res() res: Response) {
+    this.sendCsv(res, await this.billingReadService.exportAdminFinancialMonthlyCsv(user, query));
+  }
+
+  @Get(['admin/exports/aging.csv', 'api/admin/exports/aging.csv'])
+  async exportAdminAgingCsv(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>, @Res() res: Response) {
+    this.sendCsv(res, await this.billingReadService.exportAdminAgingCsv(user, query));
+  }
+
+  @Get(['admin/exports/meter-consumption.csv', 'api/admin/exports/meter-consumption.csv'])
+  async exportAdminMeterConsumptionCsv(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>, @Res() res: Response) {
+    this.sendCsv(res, await this.billingReadService.exportAdminMeterConsumptionCsv(user, query));
+  }
+
+  @Get(['admin/exports/apartments.csv', 'api/admin/exports/apartments.csv'])
+  async exportAdminApartmentsCsv(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>, @Res() res: Response) {
+    this.sendCsv(res, await this.billingReadService.exportAdminApartmentsCsv(user, query));
+  }
+
+  @Get(['admin/exports/residents.csv', 'api/admin/exports/residents.csv'])
+  async exportAdminResidentsCsv(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>, @Res() res: Response) {
+    this.sendCsv(res, await this.billingReadService.exportAdminResidentsCsv(user, query));
+  }
+
+  @Get(['admin/exports/history', 'api/admin/exports/history'])
+  getAdminExportHistory(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.billingReadService.getAdminExportHistory(user, query);
+  }
+
+  @Get(['admin/exports/options', 'api/admin/exports/options'])
+  getAdminExportOptions(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.billingReadService.getAdminExportOptions(user, query);
   }
 
   @Get(['admin/billing', 'api/admin/billing'])

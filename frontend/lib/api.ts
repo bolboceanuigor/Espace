@@ -506,6 +506,25 @@ export const exportsApi = {
       params: { includeAuditLogs },
       responseType: 'blob',
     }),
+  adminInvoicesCsv: (params?: Record<string, string | number | boolean | undefined | null>) =>
+    apiRequest<Blob>('/api/admin/exports/invoices.csv', { params, responseType: 'blob' }),
+  adminPaymentsCsv: (params?: Record<string, string | number | boolean | undefined | null>) =>
+    apiRequest<Blob>('/api/admin/exports/payments.csv', { params, responseType: 'blob' }),
+  adminApartmentBalancesCsv: (params?: Record<string, string | number | boolean | undefined | null>) =>
+    apiRequest<Blob>('/api/admin/exports/apartment-balances.csv', { params, responseType: 'blob' }),
+  adminFinancialMonthlyCsv: (params?: Record<string, string | number | boolean | undefined | null>) =>
+    apiRequest<Blob>('/api/admin/exports/financial-monthly.csv', { params, responseType: 'blob' }),
+  adminAgingCsv: (params?: Record<string, string | number | boolean | undefined | null>) =>
+    apiRequest<Blob>('/api/admin/exports/aging.csv', { params, responseType: 'blob' }),
+  adminMeterConsumptionCsv: (params?: Record<string, string | number | boolean | undefined | null>) =>
+    apiRequest<Blob>('/api/admin/exports/meter-consumption.csv', { params, responseType: 'blob' }),
+  adminApartmentsCsv: (params?: Record<string, string | number | boolean | undefined | null>) =>
+    apiRequest<Blob>('/api/admin/exports/apartments.csv', { params, responseType: 'blob' }),
+  adminResidentsCsv: (params?: Record<string, string | number | boolean | undefined | null>) =>
+    apiRequest<Blob>('/api/admin/exports/residents.csv', { params, responseType: 'blob' }),
+  adminExportHistory: (params?: Record<string, string | number | boolean | undefined | null>) =>
+    apiRequest<any>('/api/admin/exports/history', { params }),
+  adminExportOptions: () => apiRequest<any>('/api/admin/exports/options'),
 };
 
 export const activityApi = {

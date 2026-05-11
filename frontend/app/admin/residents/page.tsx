@@ -2,9 +2,10 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FileUp, Mail, Pencil, Phone, Plus, Search, UserCheck, UserPlus, Users, UserX } from 'lucide-react';
+import { Download, FileUp, Mail, Pencil, Phone, Plus, Search, UserCheck, UserPlus, Users, UserX } from 'lucide-react';
 import { Badge, Button, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
-import { adminResidentsCrmApi } from '@/lib/api';
+import { adminResidentsCrmApi, exportsApi } from '@/lib/api';
+import { downloadBlob } from '@/lib/download';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 type ResidentStatus = 'ACTIVE' | 'INVITED' | 'NOT_INVITED' | 'INACTIVE';
@@ -320,6 +321,25 @@ export default function AdminResidentsPage() {
     }
   }
 
+  async function exportCsv() {
+    setError('');
+    setSuccess('');
+    try {
+      const res = await exportsApi.adminResidentsCsv({
+        role: filters.role === 'ALL' ? undefined : filters.role,
+        status: filters.status === 'ALL' ? undefined : filters.status,
+        hasApartment: filters.hasApartment === 'ALL' ? undefined : filters.hasApartment,
+        isPrimaryContact: filters.isPrimaryContact === 'ALL' ? undefined : filters.isPrimaryContact,
+        preferredContactMethod: filters.preferredContactMethod === 'ALL' ? undefined : filters.preferredContactMethod,
+        search: filters.search || undefined,
+      });
+      downloadBlob(res.data, 'locatari-proprietari.csv');
+      setSuccess('Exportul CSV pentru locatari a fost generat.');
+    } catch (err: any) {
+      setError(String(err?.message || 'Nu am putut genera exportul CSV.'));
+    }
+  }
+
   return (
     <div className="space-y-5 pb-8">
       <PageHeader
@@ -331,6 +351,10 @@ export default function AdminResidentsPage() {
             <Button variant="secondary" onClick={() => setImportModalOpen(true)}>
               <FileUp className="h-4 w-4" />
               Importă persoane
+            </Button>
+            <Button variant="secondary" onClick={exportCsv}>
+              <Download className="h-4 w-4" />
+              Export CSV
             </Button>
             <Button onClick={openCreateModal}>
               <Plus className="h-4 w-4" />

@@ -44,6 +44,7 @@ const ICONS: Record<MainNavigationKey, React.ComponentType<{ className?: string 
   home: Home,
   chat: MessageCircle,
   imports: FileText,
+  exports: FileText,
   buildingSettings: Settings,
   account: UserRound,
 };

@@ -1,10 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowUpDown, Eye, FileText, Home, Search, WalletCards, XCircle } from 'lucide-react';
+import { ArrowUpDown, Download, Eye, FileText, Home, Search, WalletCards, XCircle } from 'lucide-react';
 import { Badge, Button, ButtonLink, Card, Input, PageHeader, StatCard } from '@/components/ui';
-import { invoicesApi } from '@/lib/api';
+import { exportsApi, invoicesApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
+import { downloadBlob } from '@/lib/download';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 type InternalInvoiceStatus = 'ISSUED' | 'PARTIALLY_PAID' | 'PAID' | 'CANCELLED' | 'VOID';
@@ -151,6 +152,22 @@ export default function AdminInvoicesPage() {
 
   const toggleSortDirection = () => setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'));
 
+  async function exportCsv() {
+    setError('');
+    setMessage('');
+    try {
+      const res = await exportsApi.adminInvoicesCsv({
+        billingMonth: billingMonth || undefined,
+        status: status || undefined,
+        apartmentNumber: query || undefined,
+      });
+      downloadBlob(res.data, `facturi-interne-${billingMonth || 'toate'}.csv`);
+      setMessage('Exportul CSV pentru facturi a fost generat.');
+    } catch (err: any) {
+      setError(String(err?.message || 'Nu am putut genera exportul CSV.'));
+    }
+  }
+
   return (
     <div className="space-y-5 pb-8">
       <PageHeader
@@ -163,6 +180,10 @@ export default function AdminInvoicesPage() {
             ) : null}
             <ButtonLink href={localizedPath('/admin/payments/reconciliation')} variant="secondary">Reconciliere plăți</ButtonLink>
             <ButtonLink href={localizedPath('/admin/invoices/draft')} variant="secondary">Mergi la calcul draft</ButtonLink>
+            <Button type="button" variant="secondary" onClick={exportCsv}>
+              <Download className="h-4 w-4" />
+              Export CSV
+            </Button>
           </div>
         }
       />

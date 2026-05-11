@@ -230,6 +230,16 @@ type InternalPaymentNote = {
   cancelledAt?: string;
   cancelledById?: string;
 };
+type CsvColumn = {
+  key: string;
+  header: string;
+  value?: (row: any) => unknown;
+};
+type CsvExportResult = {
+  csv: string;
+  fileName: string;
+  rowsCount: number;
+};
 
 const TARIFF_METADATA_NOTE_TITLE = 'Tariff settings metadata';
 const BILLING_DRAFT_NOTE_TITLE = 'Internal invoice draft metadata';
@@ -3802,6 +3812,7 @@ export class BillingReadService {
       payerName: note?.payerName || '',
       notes: note?.notes || '',
       cancellationReason: note?.cancellationReason || '',
+      cancelledAt: note?.cancelledAt || null,
       status: row.status,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
@@ -5064,6 +5075,7 @@ export class BillingReadService {
         { key: 'meterReports', title: 'Rapoarte consum contoare', href: '/admin/meter-readings/reports', description: 'Analizează consumul aprobat pe contoare.' },
         { key: 'audit', title: 'Istoric activitate', href: '/admin/audit-log', description: 'Urmărește acțiunile importante din asociație.' },
         { key: 'billingRuns', title: 'Procese facturare lunară', href: '/admin/billing/runs', description: 'Vezi starea proceselor lunare de facturare.' },
+        { key: 'exports', title: 'Exporturi CSV', href: '/admin/exports', description: 'Descarcă facturi, plăți, solduri și rapoarte în format CSV.' },
       ],
     };
   }
@@ -5297,6 +5309,719 @@ export class BillingReadService {
         .filter((row) => row.status === PaymentStatus.CONFIRMED)
         .slice(0, limit)
         .map((row) => this.toAdminInternalPayment(row, invoiceById.get(this.parseInternalPaymentNote(row.note)?.invoiceId || '') || null)),
+    };
+  }
+
+  private exportQuery(query: Record<string, unknown>, overrides: Record<string, unknown> = {}) {
+    const result = { ...query, ...overrides };
+    delete result.organizationId;
+    delete result.associationId;
+    return result;
+  }
+
+  private sanitizeExportFilters(query: Record<string, unknown>) {
+    return Object.fromEntries(
+      Object.entries(query)
+        .filter(([key, value]) => !['organizationId', 'associationId'].includes(key) && ['string', 'number', 'boolean'].includes(typeof value))
+        .map(([key, value]) => [key, value]),
+    );
+  }
+
+  private exportDateRange(query: Record<string, unknown>) {
+    const dateFrom = typeof query.dateFrom === 'string' && query.dateFrom.trim() ? new Date(query.dateFrom) : null;
+    const dateTo = typeof query.dateTo === 'string' && query.dateTo.trim() ? new Date(query.dateTo) : null;
+    if (dateFrom && Number.isNaN(dateFrom.getTime())) throw new BadRequestException('Data de început nu este validă.');
+    if (dateTo && Number.isNaN(dateTo.getTime())) throw new BadRequestException('Data de sfârșit nu este validă.');
+    if (dateFrom) dateFrom.setHours(0, 0, 0, 0);
+    if (dateTo) dateTo.setHours(23, 59, 59, 999);
+    if (dateFrom && dateTo && dateFrom > dateTo) throw new BadRequestException('Data de început nu poate fi după data de sfârșit.');
+    return { dateFrom, dateTo };
+  }
+
+  private csvValue(value: unknown) {
+    if (value === null || value === undefined) return '';
+    if (value instanceof Date) return value.toISOString().slice(0, 10);
+    if (Array.isArray(value)) return value.join(', ');
+    if (typeof value === 'number') return Number.isFinite(value) ? String(this.money(value)) : '';
+    return String(value);
+  }
+
+  private csvCell(value: unknown) {
+    const text = this.csvValue(value).replace(/"/g, '""');
+    return /[;\n\r"]/.test(text) ? `"${text}"` : text;
+  }
+
+  private buildCsv(columns: CsvColumn[], rows: any[]) {
+    const header = columns.map((column) => this.csvCell(column.header)).join(';');
+    const body = rows.map((row) => columns.map((column) => this.csvCell(column.value ? column.value(row) : row[column.key])).join(';'));
+    return `\uFEFF${[header, ...body].join('\n')}`;
+  }
+
+  private formatExportDate(value: unknown, mode: 'date' | 'datetime' = 'date') {
+    if (!value) return '';
+    const date = new Date(value as any);
+    if (Number.isNaN(date.getTime())) return '';
+    return mode === 'datetime' ? date.toISOString() : date.toISOString().slice(0, 10);
+  }
+
+  private sanitizeFileName(value: string) {
+    return value
+      .trim()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-zA-Z0-9._-]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+  }
+
+  private exportFileName(slug: string, associationCode: string, query: Record<string, unknown>) {
+    const suffix =
+      (typeof query.billingMonth === 'string' && query.billingMonth) ||
+      (typeof query.periodMonth === 'string' && query.periodMonth) ||
+      (typeof query.toMonth === 'string' && query.toMonth) ||
+      new Date().toISOString().slice(0, 10);
+    return this.sanitizeFileName(`espace-${slug}-${associationCode}-${suffix}.csv`);
+  }
+
+  private async logAdminExport(
+    user: MvpUser,
+    organizationId: string,
+    exportType: string,
+    filters: Record<string, unknown>,
+    rowsCount: number,
+    fileName: string,
+    status: 'GENERATED' | 'FAILED' = 'GENERATED',
+    error?: string,
+  ) {
+    await this.audit
+      .createLog({
+        associationId: organizationId,
+        actorUserId: user.id,
+        actorRole: user.role,
+        action: status === 'GENERATED' ? 'EXPORT_GENERATED' : 'EXPORT_FAILED',
+        entityType: 'SYSTEM',
+        title: status === 'GENERATED' ? 'Export CSV generat' : 'Export CSV eșuat',
+        message:
+          status === 'GENERATED'
+            ? `Exportul ${exportType} a fost generat cu ${rowsCount} rânduri.`
+            : `Exportul ${exportType} nu a putut fi generat.`,
+        severity: status === 'GENERATED' ? 'SUCCESS' : 'ERROR',
+        actionUrl: '/admin/exports/history',
+        metadata: {
+          exportType,
+          format: 'CSV',
+          filters,
+          rowsCount,
+          status,
+          fileName,
+          error: error || null,
+        },
+      })
+      .catch(() => undefined);
+  }
+
+  private async csvExportResult(
+    user: MvpUser,
+    organizationId: string,
+    associationCode: string,
+    exportType: string,
+    slug: string,
+    query: Record<string, unknown>,
+    rows: any[],
+    columns: CsvColumn[],
+  ): Promise<CsvExportResult> {
+    const filters = this.sanitizeExportFilters(query);
+    const fileName = this.exportFileName(slug, associationCode, query);
+    if (rows.length > 10_000) {
+      await this.logAdminExport(user, organizationId, exportType, filters, rows.length, fileName, 'FAILED', 'Exportul depășește limita MVP de 10.000 rânduri.');
+      throw new BadRequestException('Exportul este prea mare. Rafinează filtrele.');
+    }
+    const csv = this.buildCsv(columns, rows);
+    await this.logAdminExport(user, organizationId, exportType, filters, rows.length, fileName);
+    return { csv, fileName, rowsCount: rows.length };
+  }
+
+  async exportAdminInvoicesCsv(user: MvpUser, query: Record<string, unknown>) {
+    const effectiveQuery = this.exportQuery(query, { invoiceStatus: query.invoiceStatus || query.status });
+    const { organizationId, metadata, association } = await this.financialReportContext(user, effectiveQuery);
+    const { invoices } = this.filterFinancialInvoices(metadata, effectiveQuery);
+    const rows = invoices.map((invoice) => ({
+      invoiceNumber: invoice.invoiceNumber,
+      billingMonth: invoice.billingMonth,
+      apartmentNumber: invoice.apartment.apartmentNumber,
+      staircase: invoice.apartment.staircase,
+      floor: invoice.apartment.floor,
+      primaryContactName: invoice.primaryContact?.fullName || '',
+      primaryContactPhone: invoice.primaryContact?.phone || '',
+      status: invoice.status,
+      currency: invoice.currency || 'MDL',
+      totalAmount: Number(invoice.totalAmount || 0),
+      paidAmount: Number(invoice.paidAmount || 0),
+      balanceAmount: Number(invoice.balanceAmount || 0),
+      issueDate: this.formatExportDate(invoice.issueDate),
+      dueDate: this.formatExportDate(invoice.dueDate),
+      createdAt: this.formatExportDate(invoice.createdAt, 'datetime'),
+    }));
+    return this.csvExportResult(user, organizationId, association.associationCode, 'INVOICES', 'invoices', effectiveQuery, rows, [
+      { key: 'invoiceNumber', header: 'invoiceNumber' },
+      { key: 'billingMonth', header: 'billingMonth' },
+      { key: 'apartmentNumber', header: 'apartmentNumber' },
+      { key: 'staircase', header: 'staircase' },
+      { key: 'floor', header: 'floor' },
+      { key: 'primaryContactName', header: 'primaryContactName' },
+      { key: 'primaryContactPhone', header: 'primaryContactPhone' },
+      { key: 'status', header: 'status' },
+      { key: 'currency', header: 'currency' },
+      { key: 'totalAmount', header: 'totalAmount' },
+      { key: 'paidAmount', header: 'paidAmount' },
+      { key: 'balanceAmount', header: 'balanceAmount' },
+      { key: 'issueDate', header: 'issueDate' },
+      { key: 'dueDate', header: 'dueDate' },
+      { key: 'createdAt', header: 'createdAt' },
+    ]);
+  }
+
+  private filterExportPayments(metadata: InternalInvoiceMetadata[], paymentRows: any[], query: Record<string, unknown>) {
+    const invoiceById = new Map(metadata.map((invoice) => [invoice.invoiceId, invoice]));
+    const { dateFrom, dateTo } = this.exportDateRange(query);
+    const method = typeof query.method === 'string' ? query.method.trim().toUpperCase() : '';
+    const rawStatus = typeof query.status === 'string' && query.status.trim() ? query.status.trim().toUpperCase() : 'CONFIRMED';
+    const status = rawStatus === 'ALL' ? '' : rawStatus;
+    const billingMonth = typeof query.billingMonth === 'string' && query.billingMonth.trim() ? this.parseBillingMonth(query.billingMonth) : '';
+    const staircase = typeof query.staircase === 'string' ? query.staircase.trim().toLowerCase() : '';
+    const apartmentNumber = typeof query.apartmentNumber === 'string' ? query.apartmentNumber.trim().toLowerCase() : '';
+    return paymentRows
+      .map((row) => this.toAdminInternalPayment(row, invoiceById.get(this.parseInternalPaymentNote(row.note)?.invoiceId || '') || null))
+      .filter((payment) => {
+        const paymentDate = payment.paymentDate ? new Date(payment.paymentDate) : null;
+        if (dateFrom && (!paymentDate || paymentDate < dateFrom)) return false;
+        if (dateTo && (!paymentDate || paymentDate > dateTo)) return false;
+        if (method && payment.method !== method) return false;
+        if (status && payment.status !== status) return false;
+        if (billingMonth && payment.billingMonth !== billingMonth) return false;
+        if (staircase && !String(payment.apartment?.staircase || '').toLowerCase().includes(staircase)) return false;
+        if (apartmentNumber && !String(payment.apartment?.apartmentNumber || '').toLowerCase().includes(apartmentNumber)) return false;
+        return true;
+      });
+  }
+
+  async exportAdminPaymentsCsv(user: MvpUser, query: Record<string, unknown>) {
+    const { organizationId, metadata, paymentRows, association } = await this.financialReportContext(user, query);
+    const rows = this.filterExportPayments(metadata, paymentRows, query).map((payment) => ({
+      paymentDate: this.formatExportDate(payment.paymentDate),
+      invoiceNumber: payment.invoiceNumber || '',
+      billingMonth: payment.billingMonth || '',
+      apartmentNumber: payment.apartment?.apartmentNumber || '',
+      staircase: payment.apartment?.staircase || '',
+      residentName: payment.resident?.fullName || '',
+      residentPhone: payment.resident?.phone || '',
+      amount: Number(payment.amount || 0),
+      currency: payment.currency || 'MDL',
+      method: payment.method || '',
+      referenceNumber: payment.referenceNumber || '',
+      payerName: payment.payerName || '',
+      status: payment.status,
+      createdBy: payment.createdBy?.fullName || payment.createdBy?.email || '',
+      createdAt: this.formatExportDate(payment.createdAt, 'datetime'),
+      cancelledAt: this.formatExportDate(payment.cancelledAt),
+      cancellationReason: payment.cancellationReason || '',
+    }));
+    return this.csvExportResult(user, organizationId, association.associationCode, 'PAYMENTS', 'payments', query, rows, [
+      { key: 'paymentDate', header: 'paymentDate' },
+      { key: 'invoiceNumber', header: 'invoiceNumber' },
+      { key: 'billingMonth', header: 'billingMonth' },
+      { key: 'apartmentNumber', header: 'apartmentNumber' },
+      { key: 'staircase', header: 'staircase' },
+      { key: 'residentName', header: 'residentName' },
+      { key: 'residentPhone', header: 'residentPhone' },
+      { key: 'amount', header: 'amount' },
+      { key: 'currency', header: 'currency' },
+      { key: 'method', header: 'method' },
+      { key: 'referenceNumber', header: 'referenceNumber' },
+      { key: 'payerName', header: 'payerName' },
+      { key: 'status', header: 'status' },
+      { key: 'createdBy', header: 'createdBy' },
+      { key: 'createdAt', header: 'createdAt' },
+      { key: 'cancelledAt', header: 'cancelledAt' },
+      { key: 'cancellationReason', header: 'cancellationReason' },
+    ]);
+  }
+
+  async exportAdminApartmentBalancesCsv(user: MvpUser, query: Record<string, unknown>) {
+    let rows = this.sortFinancialApartmentRows(this.filterFinancialApartmentRows(await this.buildFinancialApartmentRows(user, query), query), query);
+    if (query.overdueOnly === true || query.overdueOnly === 'true') rows = rows.filter((row) => Number(row.summary.overdueInvoices || 0) > 0);
+    if (query.unpaidOnly === true || query.unpaidOnly === 'true') rows = rows.filter((row) => Number(row.summary.unpaidInvoices || 0) > 0);
+    const { organizationId, association, metadata } = await this.financialReportContext(user, query);
+    const invoicesByApartment = this.groupBy(this.filterFinancialInvoices(metadata, query).invoices, (invoice) => invoice.apartment.id);
+    const exportRows = rows.map((row) => {
+      const apartmentInvoices = invoicesByApartment.get(row.apartment.id) || [];
+      const oldestUnpaid = apartmentInvoices
+        .filter((invoice) => Number(invoice.balanceAmount || 0) > 0 && this.isCollectableInternalInvoice(invoice))
+        .sort((a, b) => String(a.billingMonth).localeCompare(String(b.billingMonth)))[0];
+      return {
+        apartmentNumber: row.apartment.apartmentNumber,
+        staircase: row.apartment.staircase,
+        floor: row.apartment.floor,
+        primaryContactName: row.primaryContact?.fullName || '',
+        primaryContactPhone: row.primaryContact?.phone || '',
+        totalInvoices: row.summary.totalInvoices,
+        totalInvoiced: row.summary.totalInvoiced,
+        totalPaid: row.summary.totalPaid,
+        outstandingBalance: row.summary.outstandingBalance,
+        unpaidInvoices: row.summary.unpaidInvoices,
+        overdueInvoices: row.summary.overdueInvoices,
+        oldestUnpaidBillingMonth: oldestUnpaid?.billingMonth || '',
+        lastInvoiceBillingMonth: row.summary.lastInvoiceBillingMonth || '',
+        lastPaymentDate: this.formatExportDate(row.summary.lastPaymentDate),
+        financialStatus: row.summary.financialStatus,
+      };
+    });
+    return this.csvExportResult(user, organizationId, association.associationCode, 'APARTMENT_BALANCES', 'apartment-balances', query, exportRows, [
+      { key: 'apartmentNumber', header: 'apartmentNumber' },
+      { key: 'staircase', header: 'staircase' },
+      { key: 'floor', header: 'floor' },
+      { key: 'primaryContactName', header: 'primaryContactName' },
+      { key: 'primaryContactPhone', header: 'primaryContactPhone' },
+      { key: 'totalInvoices', header: 'totalInvoices' },
+      { key: 'totalInvoiced', header: 'totalInvoiced' },
+      { key: 'totalPaid', header: 'totalPaid' },
+      { key: 'outstandingBalance', header: 'outstandingBalance' },
+      { key: 'unpaidInvoices', header: 'unpaidInvoices' },
+      { key: 'overdueInvoices', header: 'overdueInvoices' },
+      { key: 'oldestUnpaidBillingMonth', header: 'oldestUnpaidBillingMonth' },
+      { key: 'lastInvoiceBillingMonth', header: 'lastInvoiceBillingMonth' },
+      { key: 'lastPaymentDate', header: 'lastPaymentDate' },
+      { key: 'financialStatus', header: 'financialStatus' },
+    ]);
+  }
+
+  async exportAdminFinancialMonthlyCsv(user: MvpUser, query: Record<string, unknown>) {
+    const { organizationId, metadata, paymentRows, association } = await this.financialReportContext(user, query);
+    const includeCancelled = String(query.includeCancelled || '').toLowerCase() === 'true';
+    const includeVoid = String(query.includeVoid || '').toLowerCase() === 'true';
+    const toMonth = typeof query.toMonth === 'string' && query.toMonth.trim() ? this.parseBillingMonth(query.toMonth) : this.currentBillingMonth();
+    const fromMonth = typeof query.fromMonth === 'string' && query.fromMonth.trim() ? this.parseBillingMonth(query.fromMonth) : this.monthShift(toMonth, -11);
+    if (fromMonth > toMonth) throw new BadRequestException('Luna de început nu poate fi după luna de sfârșit.');
+    const rows: any[] = [];
+    for (let billingMonth = fromMonth; billingMonth <= toMonth; billingMonth = this.monthShift(billingMonth, 1)) {
+      const invoices = metadata.filter((invoice) => {
+        if (invoice.billingMonth !== billingMonth) return false;
+        if (!includeCancelled && invoice.status === 'CANCELLED') return false;
+        if (!includeVoid && invoice.status === 'VOID') return false;
+        return true;
+      });
+      const summary = this.financialSummary(invoices, paymentRows);
+      const statusCounts = this.financialStatusBreakdown(invoices).reduce<Record<string, number>>((acc, item) => {
+        acc[item.status] = item.count;
+        return acc;
+      }, {});
+      rows.push({
+        billingMonth,
+        totalInvoices: summary.totalInvoices,
+        issuedInvoices: statusCounts.ISSUED || 0,
+        partiallyPaidInvoices: statusCounts.PARTIALLY_PAID || 0,
+        paidInvoices: statusCounts.PAID || 0,
+        cancelledInvoices: statusCounts.CANCELLED || 0,
+        voidInvoices: statusCounts.VOID || 0,
+        totalInvoiced: summary.totalInvoiced,
+        totalPaid: summary.totalPaid,
+        outstandingBalance: summary.outstandingBalance,
+        collectionRate: summary.collectionRate,
+        confirmedPayments: summary.confirmedPayments,
+        lastInvoiceAt: this.formatExportDate(summary.lastInvoiceAt),
+        lastPaymentAt: this.formatExportDate(summary.lastPaymentAt),
+      });
+      if (rows.length > 24) break;
+    }
+    return this.csvExportResult(user, organizationId, association.associationCode, 'FINANCIAL_MONTHLY', 'financial-monthly', { ...query, toMonth }, rows, [
+      { key: 'billingMonth', header: 'billingMonth' },
+      { key: 'totalInvoices', header: 'totalInvoices' },
+      { key: 'issuedInvoices', header: 'issuedInvoices' },
+      { key: 'partiallyPaidInvoices', header: 'partiallyPaidInvoices' },
+      { key: 'paidInvoices', header: 'paidInvoices' },
+      { key: 'cancelledInvoices', header: 'cancelledInvoices' },
+      { key: 'voidInvoices', header: 'voidInvoices' },
+      { key: 'totalInvoiced', header: 'totalInvoiced' },
+      { key: 'totalPaid', header: 'totalPaid' },
+      { key: 'outstandingBalance', header: 'outstandingBalance' },
+      { key: 'collectionRate', header: 'collectionRate' },
+      { key: 'confirmedPayments', header: 'confirmedPayments' },
+      { key: 'lastInvoiceAt', header: 'lastInvoiceAt' },
+      { key: 'lastPaymentAt', header: 'lastPaymentAt' },
+    ]);
+  }
+
+  async exportAdminAgingCsv(user: MvpUser, query: Record<string, unknown>) {
+    const effectiveQuery = this.exportQuery(query);
+    const { organizationId, metadata, association } = await this.financialReportContext(user, effectiveQuery);
+    const { invoices } = this.filterFinancialInvoices(metadata, effectiveQuery);
+    const minDaysOverdue = Math.max(0, Number(query.minDaysOverdue || 0));
+    const bucketFilter = typeof query.bucket === 'string' && query.bucket.trim() ? query.bucket.trim().toUpperCase() : '';
+    const rows = invoices
+      .filter((invoice) => this.isCollectableInternalInvoice(invoice) && Number(invoice.balanceAmount || 0) > 0)
+      .map((invoice) => {
+        const daysOverdue = this.internalInvoiceOverdueDays(invoice);
+        const bucket = this.agingBucket(daysOverdue);
+        return {
+          bucket: bucket.key,
+          invoiceNumber: invoice.invoiceNumber,
+          billingMonth: invoice.billingMonth,
+          apartmentNumber: invoice.apartment.apartmentNumber,
+          staircase: invoice.apartment.staircase,
+          primaryContactName: invoice.primaryContact?.fullName || '',
+          primaryContactPhone: invoice.primaryContact?.phone || '',
+          dueDate: this.formatExportDate(invoice.dueDate),
+          daysOverdue,
+          totalAmount: Number(invoice.totalAmount || 0),
+          paidAmount: Number(invoice.paidAmount || 0),
+          balanceAmount: Number(invoice.balanceAmount || 0),
+          status: invoice.status,
+        };
+      })
+      .filter((row) => row.daysOverdue >= minDaysOverdue)
+      .filter((row) => !bucketFilter || row.bucket === bucketFilter)
+      .sort((a, b) => b.daysOverdue - a.daysOverdue || b.balanceAmount - a.balanceAmount);
+    return this.csvExportResult(user, organizationId, association.associationCode, 'AGING', 'aging', effectiveQuery, rows, [
+      { key: 'bucket', header: 'bucket' },
+      { key: 'invoiceNumber', header: 'invoiceNumber' },
+      { key: 'billingMonth', header: 'billingMonth' },
+      { key: 'apartmentNumber', header: 'apartmentNumber' },
+      { key: 'staircase', header: 'staircase' },
+      { key: 'primaryContactName', header: 'primaryContactName' },
+      { key: 'primaryContactPhone', header: 'primaryContactPhone' },
+      { key: 'dueDate', header: 'dueDate' },
+      { key: 'daysOverdue', header: 'daysOverdue' },
+      { key: 'totalAmount', header: 'totalAmount' },
+      { key: 'paidAmount', header: 'paidAmount' },
+      { key: 'balanceAmount', header: 'balanceAmount' },
+      { key: 'status', header: 'status' },
+    ]);
+  }
+
+  async exportAdminMeterConsumptionCsv(user: MvpUser, query: Record<string, unknown>) {
+    const organizationId = this.resolveOrganizationId(user, query);
+    this.assertOrganizationAccess(user, organizationId);
+    const periodMonth = this.parseBillingMonth(query.periodMonth || query.billingMonth || this.currentBillingMonth());
+    const meterType = typeof query.meterType === 'string' && query.meterType.trim().toUpperCase() !== 'ALL' ? query.meterType.trim().toUpperCase() : '';
+    const status = typeof query.status === 'string' && query.status.trim().toUpperCase() !== 'ALL' ? this.normalizeMeterReadingStatus(query.status) : null;
+    const source = typeof query.source === 'string' && query.source.trim().toUpperCase() !== 'ALL' ? query.source.trim().toUpperCase() : '';
+    const staircase = typeof query.staircase === 'string' ? query.staircase.trim().toLowerCase() : '';
+    const apartmentNumber = typeof query.apartmentNumber === 'string' ? query.apartmentNumber.trim().toLowerCase() : '';
+    const [organization, store, readings] = await Promise.all([
+      this.prisma.organization.findUnique({ where: { id: organizationId }, select: { id: true, name: true, legalName: true, fiscalCode: true } }),
+      this.readMeterWorkflowMetadata(organizationId),
+      this.prisma.meterReading.findMany({
+        where: { organizationId },
+        orderBy: [{ readingDate: 'desc' }, { createdAt: 'desc' }],
+        select: {
+          id: true,
+          meterId: true,
+          apartmentId: true,
+          value: true,
+          readingDate: true,
+          source: true,
+          createdAt: true,
+          meter: { select: { id: true, type: true, serialNumber: true } },
+          apartment: {
+            select: {
+              id: true,
+              number: true,
+              floor: true,
+              staircase: { select: { id: true, name: true } },
+              ownerResident: { select: { id: true, firstName: true, lastName: true, phone: true } },
+              apartmentResidents: {
+                orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+                select: {
+                  role: true,
+                  isPrimary: true,
+                  resident: { select: { id: true, firstName: true, lastName: true, phone: true } },
+                },
+              },
+            },
+          },
+        },
+      }),
+    ]);
+    if (!organization) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    const mapped = readings
+      .map((reading: any) => {
+        const meta = this.readingMetadataForCharge(store, reading);
+        const type = this.meterTypeExternal(reading.meter?.type);
+        const contact = this.primaryContactFromApartment(reading.apartment);
+        return {
+          id: reading.id,
+          periodMonth: meta.periodMonth,
+          apartmentNumber: reading.apartment?.number || '',
+          staircase: reading.apartment?.staircase?.name || '',
+          floor: reading.apartment?.floor === null || reading.apartment?.floor === undefined ? '' : String(reading.apartment.floor),
+          primaryContactName: contact?.fullName || '',
+          meterType: type,
+          meterNumber: reading.meter?.serialNumber || '',
+          unit: meta.unit || this.defaultMeterUnit(type),
+          previousReadingValue: meta.previousReadingValue ?? '',
+          readingValue: Number(reading.value || 0),
+          consumptionValue: meta.consumptionValue ?? '',
+          readingStatus: meta.status,
+          source: meta.source || String(reading.source || ''),
+          submittedAt: this.formatExportDate(meta.submittedAt || reading.createdAt, 'datetime'),
+          reviewedAt: this.formatExportDate(meta.reviewedAt, 'datetime'),
+          reviewedById: meta.reviewedByUserId || '',
+        };
+      })
+      .filter((row) => row.periodMonth === periodMonth)
+      .filter((row) => !meterType || row.meterType === meterType || (meterType === 'HEAT' && row.meterType === 'HEATING'))
+      .filter((row) => !status || row.readingStatus === status)
+      .filter((row) => !source || row.source === source)
+      .filter((row) => !staircase || row.staircase.toLowerCase().includes(staircase))
+      .filter((row) => !apartmentNumber || row.apartmentNumber.toLowerCase().includes(apartmentNumber));
+    const reviewerIds = [...new Set(mapped.map((row) => row.reviewedById).filter(Boolean))];
+    const reviewers = reviewerIds.length
+      ? await this.prisma.user.findMany({ where: { id: { in: reviewerIds } }, select: { id: true, firstName: true, lastName: true, fullName: true, email: true } })
+      : [];
+    const reviewerMap = new Map(reviewers.map((reviewer) => [reviewer.id, this.userDisplayName(reviewer)]));
+    const rows = mapped.map((row) => ({ ...row, reviewedBy: reviewerMap.get(row.reviewedById) || row.reviewedById || '' }));
+    const associationCode = this.normalizeInvoiceCode(organization.fiscalCode || organization.name);
+    return this.csvExportResult(user, organizationId, associationCode, 'METER_CONSUMPTION', 'meter-consumption', { ...query, periodMonth }, rows, [
+      { key: 'periodMonth', header: 'periodMonth' },
+      { key: 'apartmentNumber', header: 'apartmentNumber' },
+      { key: 'staircase', header: 'staircase' },
+      { key: 'floor', header: 'floor' },
+      { key: 'primaryContactName', header: 'primaryContactName' },
+      { key: 'meterType', header: 'meterType' },
+      { key: 'meterNumber', header: 'meterNumber' },
+      { key: 'unit', header: 'unit' },
+      { key: 'previousReadingValue', header: 'previousReadingValue' },
+      { key: 'readingValue', header: 'readingValue' },
+      { key: 'consumptionValue', header: 'consumptionValue' },
+      { key: 'readingStatus', header: 'readingStatus' },
+      { key: 'source', header: 'source' },
+      { key: 'submittedAt', header: 'submittedAt' },
+      { key: 'reviewedAt', header: 'reviewedAt' },
+      { key: 'reviewedBy', header: 'reviewedBy' },
+    ]);
+  }
+
+  async exportAdminApartmentsCsv(user: MvpUser, query: Record<string, unknown>) {
+    const organizationId = this.resolveOrganizationId(user, query);
+    this.assertOrganizationAccess(user, organizationId);
+    const [organization, apartments] = await Promise.all([
+      this.prisma.organization.findUnique({ where: { id: organizationId }, select: { id: true, name: true, fiscalCode: true } }),
+      this.prisma.apartment.findMany({
+        where: { organizationId },
+        orderBy: [{ staircase: { name: 'asc' } }, { number: 'asc' }],
+        include: {
+          building: { select: { id: true, name: true } },
+          staircase: { select: { id: true, name: true } },
+          ownerResident: { select: { id: true, firstName: true, lastName: true, phone: true } },
+          apartmentResidents: {
+            include: { resident: { select: { id: true, firstName: true, lastName: true, phone: true } } },
+          },
+        },
+      }),
+    ]);
+    if (!organization) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    const staircase = typeof query.staircase === 'string' ? query.staircase.trim().toLowerCase() : '';
+    const status = typeof query.status === 'string' && query.status.trim().toUpperCase() !== 'ALL' ? query.status.trim().toUpperCase() : '';
+    const hasPrimaryContact = typeof query.hasPrimaryContact === 'string' ? query.hasPrimaryContact : '';
+    const hasArea = typeof query.hasArea === 'string' ? query.hasArea : '';
+    const rows = apartments
+      .filter((apartment: any) => !staircase || String(apartment.staircase?.name || '').toLowerCase().includes(staircase))
+      .filter((apartment: any) => !status || String(apartment.status || '').toUpperCase() === status)
+      .filter((apartment: any) => {
+        const contact = this.financialPrimaryContact(apartment);
+        if (hasPrimaryContact === 'true') return Boolean(contact);
+        if (hasPrimaryContact === 'false') return !contact;
+        return true;
+      })
+      .filter((apartment: any) => {
+        if (hasArea === 'true') return Number(apartment.areaM2 || 0) > 0;
+        if (hasArea === 'false') return !apartment.areaM2;
+        return true;
+      })
+      .map((apartment: any) => {
+        const contact = this.financialPrimaryContact(apartment);
+        return {
+          apartmentNumber: apartment.number,
+          building: apartment.building?.name || '',
+          staircase: apartment.staircase?.name || '',
+          floor: apartment.floor === null || apartment.floor === undefined ? '' : String(apartment.floor),
+          areaM2: apartment.areaM2 ?? '',
+          cadastralNumber: '',
+          status: apartment.status,
+          primaryContactName: contact?.fullName || '',
+          primaryContactPhone: contact?.phone || '',
+          residentsCount: apartment.apartmentResidents?.length || 0,
+          createdAt: this.formatExportDate(apartment.createdAt, 'datetime'),
+          updatedAt: this.formatExportDate(apartment.updatedAt, 'datetime'),
+        };
+      });
+    const associationCode = this.normalizeInvoiceCode(organization.fiscalCode || organization.name);
+    return this.csvExportResult(user, organizationId, associationCode, 'APARTMENTS', 'apartments', query, rows, [
+      { key: 'apartmentNumber', header: 'apartmentNumber' },
+      { key: 'building', header: 'building' },
+      { key: 'staircase', header: 'staircase' },
+      { key: 'floor', header: 'floor' },
+      { key: 'areaM2', header: 'areaM2' },
+      { key: 'cadastralNumber', header: 'cadastralNumber' },
+      { key: 'status', header: 'status' },
+      { key: 'primaryContactName', header: 'primaryContactName' },
+      { key: 'primaryContactPhone', header: 'primaryContactPhone' },
+      { key: 'residentsCount', header: 'residentsCount' },
+      { key: 'createdAt', header: 'createdAt' },
+      { key: 'updatedAt', header: 'updatedAt' },
+    ]);
+  }
+
+  private async readResidentCrmMetadata(organizationId: string): Promise<Record<string, any>> {
+    const note = await this.prisma.clientNote.findFirst({
+      where: { organizationId, title: 'Resident CRM metadata' },
+      orderBy: { updatedAt: 'desc' },
+      select: { content: true },
+    });
+    if (!note?.content) return {};
+    try {
+      const parsed = JSON.parse(note.content);
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+
+  private adminResidentStatus(row: any, metadata: Record<string, any>) {
+    const status = typeof metadata.status === 'string' ? metadata.status.toUpperCase() : '';
+    if (['ACTIVE', 'INVITED', 'NOT_INVITED', 'INACTIVE'].includes(status)) return status;
+    if (row.accountStatus === 'CREATED') return 'ACTIVE';
+    if (row.accountStatus === 'INVITED') return 'INVITED';
+    return 'NOT_INVITED';
+  }
+
+  async exportAdminResidentsCsv(user: MvpUser, query: Record<string, unknown>) {
+    const organizationId = this.resolveOrganizationId(user, query);
+    this.assertOrganizationAccess(user, organizationId);
+    const [organization, metadata, residents] = await Promise.all([
+      this.prisma.organization.findUnique({ where: { id: organizationId }, select: { id: true, name: true, fiscalCode: true } }),
+      this.readResidentCrmMetadata(organizationId),
+      this.prisma.residentProfile.findMany({
+        where: { organizationId },
+        orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+        include: {
+          apartmentResidents: {
+            include: { apartment: { select: { id: true, number: true, staircase: { select: { id: true, name: true } } } } },
+          },
+        },
+      }),
+    ]);
+    if (!organization) throw new NotFoundException('Înregistrarea nu a fost găsită.');
+    const search = typeof query.search === 'string' ? query.search.trim().toLowerCase() : '';
+    const role = typeof query.role === 'string' && query.role.trim().toUpperCase() !== 'ALL' ? query.role.trim().toUpperCase() : '';
+    const status = typeof query.status === 'string' && query.status.trim().toUpperCase() !== 'ALL' ? query.status.trim().toUpperCase() : '';
+    const preferredContactMethod =
+      typeof query.preferredContactMethod === 'string' && query.preferredContactMethod.trim().toUpperCase() !== 'ALL'
+        ? query.preferredContactMethod.trim().toUpperCase()
+        : '';
+    const hasApartment = typeof query.hasApartment === 'string' ? query.hasApartment : '';
+    const isPrimaryContact = typeof query.isPrimaryContact === 'string' ? query.isPrimaryContact : '';
+    const rows = residents
+      .map((resident: any) => {
+        const rowMetadata = metadata[resident.id] || {};
+        const apartments = resident.apartmentResidents || [];
+        const fullName = this.residentFullName(resident);
+        return {
+          fullName,
+          phone: resident.phone || '',
+          email: resident.email || '',
+          status: this.adminResidentStatus(resident, rowMetadata),
+          preferredContactMethod: rowMetadata.preferredContactMethod || 'PHONE',
+          apartmentNumbers: apartments.map((item: any) => item.apartment?.number).filter(Boolean).join(', '),
+          roles: apartments.map((item: any) => item.role).filter(Boolean).join(', '),
+          isPrimaryContactSomewhere: apartments.some((item: any) => item.isPrimary) ? 'da' : 'nu',
+          createdAt: this.formatExportDate(resident.createdAt, 'datetime'),
+          updatedAt: this.formatExportDate(resident.updatedAt, 'datetime'),
+        };
+      })
+      .filter((row) => !search || `${row.fullName} ${row.phone} ${row.email} ${row.apartmentNumbers}`.toLowerCase().includes(search))
+      .filter((row) => !role || row.roles.split(', ').includes(role) || (role === 'TENANT' && row.roles.includes('RESIDENT')))
+      .filter((row) => !status || row.status === status)
+      .filter((row) => !preferredContactMethod || row.preferredContactMethod === preferredContactMethod)
+      .filter((row) => {
+        if (hasApartment === 'true') return Boolean(row.apartmentNumbers);
+        if (hasApartment === 'false') return !row.apartmentNumbers;
+        return true;
+      })
+      .filter((row) => {
+        if (isPrimaryContact === 'true') return row.isPrimaryContactSomewhere === 'da';
+        if (isPrimaryContact === 'false') return row.isPrimaryContactSomewhere === 'nu';
+        return true;
+      });
+    const associationCode = this.normalizeInvoiceCode(organization.fiscalCode || organization.name);
+    return this.csvExportResult(user, organizationId, associationCode, 'RESIDENTS', 'residents', query, rows, [
+      { key: 'fullName', header: 'fullName' },
+      { key: 'phone', header: 'phone' },
+      { key: 'email', header: 'email' },
+      { key: 'status', header: 'status' },
+      { key: 'preferredContactMethod', header: 'preferredContactMethod' },
+      { key: 'apartmentNumbers', header: 'apartmentNumbers' },
+      { key: 'roles', header: 'roles' },
+      { key: 'isPrimaryContactSomewhere', header: 'isPrimaryContactSomewhere' },
+      { key: 'createdAt', header: 'createdAt' },
+      { key: 'updatedAt', header: 'updatedAt' },
+    ]);
+  }
+
+  async getAdminExportHistory(user: MvpUser, query: Record<string, unknown>) {
+    const organizationId = this.resolveOrganizationId(user, query);
+    this.assertOrganizationAccess(user, organizationId);
+    const page = Math.max(1, Number(query.page || 1));
+    const limit = Math.min(100, Math.max(1, Number(query.limit || 20)));
+    const exportType = typeof query.exportType === 'string' && query.exportType.trim() ? query.exportType.trim().toUpperCase() : '';
+    const { dateFrom, dateTo } = this.exportDateRange(query);
+    const where: Prisma.AuditLogWhereInput = {
+      organizationId,
+      action: { in: ['EXPORT_GENERATED', 'EXPORT_FAILED'] },
+      ...(dateFrom || dateTo ? { createdAt: { ...(dateFrom ? { gte: dateFrom } : {}), ...(dateTo ? { lte: dateTo } : {}) } } : {}),
+    };
+    const [rows, total] = await Promise.all([
+      this.prisma.auditLog.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+        include: { user: { select: { id: true, firstName: true, lastName: true, fullName: true, email: true } } },
+      }),
+      this.prisma.auditLog.count({ where }),
+    ]);
+    const items = rows
+      .map((row: any) => {
+        const payload = row.newValuesJson && typeof row.newValuesJson === 'object' ? row.newValuesJson : {};
+        const metadata = payload.metadata && typeof payload.metadata === 'object' ? payload.metadata : {};
+        return {
+          id: row.id,
+          exportType: metadata.exportType || '',
+          format: metadata.format || 'CSV',
+          filters: metadata.filters || {},
+          rowsCount: metadata.rowsCount || 0,
+          status: metadata.status || (row.action === 'EXPORT_FAILED' ? 'FAILED' : 'GENERATED'),
+          fileName: metadata.fileName || '',
+          actor: row.user ? { id: row.user.id, fullName: this.userDisplayName(row.user), email: row.user.email } : null,
+          createdAt: row.createdAt,
+        };
+      })
+      .filter((item) => !exportType || item.exportType === exportType);
+    return { items, meta: { page, limit, total: exportType ? items.length : total } };
+  }
+
+  async getAdminExportOptions(user: MvpUser, query: Record<string, unknown>) {
+    const { organizationId, metadata } = await this.financialReportContext(user, query);
+    const [staircases] = await Promise.all([
+      this.prisma.staircase.findMany({ where: { organizationId }, orderBy: { name: 'asc' }, select: { name: true } }),
+    ]);
+    const months = [...new Set(metadata.map((invoice) => invoice.billingMonth).filter(Boolean))].sort().reverse();
+    return {
+      availableBillingMonths: months,
+      staircases: staircases.map((item) => item.name).filter(Boolean),
+      invoiceStatuses: ['ISSUED', 'PARTIALLY_PAID', 'PAID', 'CANCELLED', 'VOID'],
+      paymentMethods: ['CASH', 'BANK_TRANSFER', 'CARD_TERMINAL', 'INFOCOM', 'OPLATA', 'OTHER'],
+      meterTypes: ['COLD_WATER', 'HOT_WATER', 'ELECTRICITY', 'GAS', 'HEAT', 'HEATING', 'OTHER'],
+      residentRoles: ['OWNER', 'TENANT', 'RESIDENT', 'REPRESENTATIVE', 'FAMILY_MEMBER'],
     };
   }
 

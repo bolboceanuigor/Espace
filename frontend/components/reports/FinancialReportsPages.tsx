@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { ArrowRight, BarChart3, FileText, History, RefreshCw, WalletCards } from 'lucide-react';
+import { ArrowRight, BarChart3, Download, FileText, History, RefreshCw, WalletCards } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -21,7 +21,8 @@ import {
   TableRow,
   TableWrapper,
 } from '@/components/ui';
-import { reportsApi } from '@/lib/api';
+import { exportsApi, reportsApi } from '@/lib/api';
+import { downloadBlob } from '@/lib/download';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 const mdl = new Intl.NumberFormat('ro-MD', { style: 'currency', currency: 'MDL', maximumFractionDigits: 2 });
@@ -358,6 +359,18 @@ export function FinancialOverviewPage() {
   }, [load]);
 
   const periodLabel = filters.periodMode === 'MONTH' ? filters.billingMonth : `${filters.dateFrom || '—'} - ${filters.dateTo || '—'}`;
+  const exportMonthly = async () => {
+    const res = await exportsApi.adminFinancialMonthlyCsv({ fromMonth: filters.billingMonth, toMonth: filters.billingMonth, includeCancelled: filters.includeCancelled, includeVoid: filters.includeVoid });
+    downloadBlob(res.data, `raport-financiar-${filters.billingMonth}.csv`);
+  };
+  const exportBalances = async () => {
+    const res = await exportsApi.adminApartmentBalancesCsv({ ...params, staircase: filters.staircase || undefined, apartmentNumber: filters.apartmentNumber || undefined });
+    downloadBlob(res.data, `solduri-apartamente-${filters.billingMonth}.csv`);
+  };
+  const exportAging = async () => {
+    const res = await exportsApi.adminAgingCsv({ ...params, staircase: filters.staircase || undefined, apartmentNumber: filters.apartmentNumber || undefined });
+    downloadBlob(res.data, `aging-${filters.billingMonth}.csv`);
+  };
 
   return (
     <div className="space-y-6">
@@ -371,7 +384,9 @@ export function FinancialOverviewPage() {
             <ButtonLink href={localizedPath('/admin/payments')} variant="secondary">Vezi plăți</ButtonLink>
             <ButtonLink href={localizedPath(`/admin/payments/reconciliation?billingMonth=${filters.billingMonth}`)} variant="secondary">Reconciliere</ButtonLink>
             <ButtonLink href={localizedPath(`/admin/billing?billingMonth=${filters.billingMonth}`)} variant="secondary">Proces facturare</ButtonLink>
-            <Button variant="secondary" disabled>Export raport</Button>
+            <Button variant="secondary" onClick={exportMonthly}><Download className="h-4 w-4" /> Export lunar</Button>
+            <Button variant="secondary" onClick={exportBalances}>Export solduri</Button>
+            <Button variant="secondary" onClick={exportAging}>Export aging</Button>
           </div>
         }
       />
@@ -456,12 +471,22 @@ export function MonthlyFinancialReportPage() {
     load();
   }, [load]);
 
+  const exportCsv = async () => {
+    const res = await exportsApi.adminFinancialMonthlyCsv({ fromMonth: billingMonth, toMonth: billingMonth });
+    downloadBlob(res.data, `raport-financiar-${billingMonth}.csv`);
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Raport financiar lunar"
         description="Raport detaliat pentru luna selectată."
-        rightSlot={<Button onClick={load} variant="secondary"><RefreshCw className="h-4 w-4" /> Actualizează</Button>}
+        rightSlot={
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={load} variant="secondary"><RefreshCw className="h-4 w-4" /> Actualizează</Button>
+            <Button onClick={exportCsv} variant="secondary"><Download className="h-4 w-4" /> Export CSV</Button>
+          </div>
+        }
       />
       <Card className="p-4">
         <div className="grid gap-3 md:grid-cols-[220px_auto]">
@@ -509,9 +534,23 @@ export function ApartmentsFinancialReportPage() {
     load();
   }, [load]);
 
+  const exportCsv = async () => {
+    const res = await exportsApi.adminApartmentBalancesCsv(filters);
+    downloadBlob(res.data, `raport-apartamente-${filters.billingMonth}.csv`);
+  };
+
   return (
     <div className="space-y-6">
-      <PageHeader title="Raport financiar pe apartamente" description="Analizează soldurile, încasările și facturile pe fiecare apartament." rightSlot={<Button onClick={load} variant="secondary"><RefreshCw className="h-4 w-4" /> Actualizează</Button>} />
+      <PageHeader
+        title="Raport financiar pe apartamente"
+        description="Analizează soldurile, încasările și facturile pe fiecare apartament."
+        rightSlot={
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={load} variant="secondary"><RefreshCw className="h-4 w-4" /> Actualizează</Button>
+            <Button onClick={exportCsv} variant="secondary"><Download className="h-4 w-4" /> Export CSV</Button>
+          </div>
+        }
+      />
       <Card className="p-4">
         <div className="grid gap-3 md:grid-cols-6">
           <Input label="Luna" type="month" value={filters.billingMonth} onChange={(event) => setFilters((current) => ({ ...current, billingMonth: event.target.value }))} />
@@ -554,9 +593,23 @@ export function AgingFinancialReportPage() {
     load();
   }, [load]);
 
+  const exportCsv = async () => {
+    const res = await exportsApi.adminAgingCsv(filters);
+    downloadBlob(res.data, `aging-${filters.billingMonth}.csv`);
+  };
+
   return (
     <div className="space-y-6">
-      <PageHeader title="Aging solduri restante" description="Vezi soldurile restante pe vechime, fără penalități automate." rightSlot={<Button onClick={load} variant="secondary"><RefreshCw className="h-4 w-4" /> Actualizează</Button>} />
+      <PageHeader
+        title="Aging solduri restante"
+        description="Vezi soldurile restante pe vechime, fără penalități automate."
+        rightSlot={
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={load} variant="secondary"><RefreshCw className="h-4 w-4" /> Actualizează</Button>
+            <Button onClick={exportCsv} variant="secondary"><Download className="h-4 w-4" /> Export CSV</Button>
+          </div>
+        }
+      />
       <Card className="p-4">
         <div className="grid gap-3 md:grid-cols-[220px_160px_180px_auto]">
           <Input label="Luna" type="month" value={filters.billingMonth} onChange={(event) => setFilters((current) => ({ ...current, billingMonth: event.target.value }))} />

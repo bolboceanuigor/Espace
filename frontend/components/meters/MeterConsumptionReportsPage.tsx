@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
   AlertTriangle,
   BarChart3,
+  Download,
   Droplets,
   Gauge,
   ListChecks,
@@ -21,7 +22,8 @@ import {
   PageHeader,
   StatCard,
 } from '@/components/ui';
-import { metersApi } from '@/lib/api';
+import { exportsApi, metersApi } from '@/lib/api';
+import { downloadBlob } from '@/lib/download';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 const meterTypes = [
@@ -470,6 +472,16 @@ export function MeterConsumptionReportsPage() {
     setFilters((current) => ({ ...current, [key]: value }));
   };
 
+  const exportCsv = async () => {
+    setError('');
+    try {
+      const res = await exportsApi.adminMeterConsumptionCsv(filters);
+      downloadBlob(res.data, `consum-contoare-${filters.periodMonth}.csv`);
+    } catch (err: any) {
+      setError(err?.message || 'Exportul CSV nu a putut fi generat.');
+    }
+  };
+
   const summary = data?.summary || {};
   const totalConsumptionByType = summary.totalConsumptionByType || {};
   const hasMeters = Number(summary.apartmentsWithMeters || 0) > 0;
@@ -497,8 +509,9 @@ export function MeterConsumptionReportsPage() {
               <Gauge className="h-4 w-4" />
               Configurează tarife pe consum
             </ButtonLink>
-            <Button variant="outline" onClick={() => window.alert('Exportul raportului va fi disponibil ulterior.')}>
-              Export raport
+            <Button variant="outline" onClick={exportCsv}>
+              <Download className="h-4 w-4" />
+              Export CSV
             </Button>
           </div>
         }

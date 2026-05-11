@@ -2,9 +2,10 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Building2, FileUp, Home, Pencil, Plus, Search, UserPlus } from 'lucide-react';
+import { Building2, Download, FileUp, Home, Pencil, Plus, Search, UserPlus } from 'lucide-react';
 import { Badge, Button, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
-import { adminApartmentsCrmApi } from '@/lib/api';
+import { adminApartmentsCrmApi, exportsApi } from '@/lib/api';
+import { downloadBlob } from '@/lib/download';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 type ApartmentStatus = 'OCCUPIED' | 'VACANT' | 'UNKNOWN';
@@ -274,6 +275,23 @@ export default function AdminApartmentsPage() {
     }
   }
 
+  async function exportCsv() {
+    setError('');
+    setSuccess('');
+    try {
+      const res = await exportsApi.adminApartmentsCsv({
+        staircase: filters.staircase === 'ALL' ? undefined : filters.staircase,
+        status: filters.status === 'ALL' ? undefined : filters.status,
+        hasPrimaryContact: filters.hasPrimaryContact === 'ALL' ? undefined : filters.hasPrimaryContact,
+        hasArea: filters.hasArea === 'ALL' ? undefined : filters.hasArea,
+      });
+      downloadBlob(res.data, 'apartamente.csv');
+      setSuccess('Exportul CSV pentru apartamente a fost generat.');
+    } catch (err: any) {
+      setError(String(err?.message || 'Nu am putut genera exportul CSV.'));
+    }
+  }
+
   return (
     <div className="space-y-5 pb-8">
       <PageHeader
@@ -286,6 +304,10 @@ export default function AdminApartmentsPage() {
               <FileUp className="h-4 w-4" />
               Importă apartamente
             </Link>
+            <Button variant="secondary" onClick={exportCsv}>
+              <Download className="h-4 w-4" />
+              Export CSV
+            </Button>
             <Button onClick={openCreateModal}>
               <Plus className="h-4 w-4" />
               Adaugă apartament
