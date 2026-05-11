@@ -1411,11 +1411,25 @@ export const reportsApi = {
 };
 
 export const importsApi = {
-  list: () => apiRequest<any[]>('/api/admin/imports'),
+  list: (params?: Record<string, string | number | boolean | undefined | null>) => apiRequest<any>('/api/admin/imports', { params }),
+  get: (id: string) => apiRequest<any>(`/api/admin/imports/${id}`),
+  rows: (id: string, params?: Record<string, string | number | boolean | undefined | null>) =>
+    apiRequest<any>(`/api/admin/imports/${id}/rows`, { params }),
   preview: (id: string) => apiRequest<any>(`/api/admin/imports/${id}/preview`),
-  confirm: (id: string) => apiRequest<any>(`/api/admin/imports/${id}/confirm`, { method: 'POST' }),
+  confirm: (id: string) => apiRequest<any>(`/api/admin/imports/${id}/confirm`, { method: 'POST', body: { confirm: true } }),
+  cancel: (id: string) => apiRequest<any>(`/api/admin/imports/${id}/cancel`, { method: 'PATCH' }),
+  confirmApartments: (id: string) =>
+    apiRequest<any>(`/api/admin/imports/apartments/${id}/confirm`, { method: 'POST', body: { confirm: true } }),
+  confirmResidents: (id: string) =>
+    apiRequest<any>(`/api/admin/imports/residents/${id}/confirm`, { method: 'POST', body: { confirm: true } }),
+  apartmentsTemplateCsv: () => apiRequest<Blob>('/api/admin/imports/templates/apartments.csv', { responseType: 'blob' }),
+  residentsTemplateCsv: () => apiRequest<Blob>('/api/admin/imports/templates/residents.csv', { responseType: 'blob' }),
   downloadTemplate: (type: 'BUILDINGS' | 'STAIRCASES' | 'APARTMENTS' | 'RESIDENTS' | 'INITIAL_BALANCES') =>
     apiRequest<Blob>(`/api/admin/imports/templates/${type}`, { responseType: 'blob' }),
+  previewApartments: (data: FormData) =>
+    apiRequest<any>('/api/admin/imports/apartments/preview', { method: 'POST', body: data }),
+  previewResidents: (data: FormData) =>
+    apiRequest<any>('/api/admin/imports/residents/preview', { method: 'POST', body: data }),
   upload: async (type: 'BUILDINGS' | 'STAIRCASES' | 'APARTMENTS' | 'RESIDENTS' | 'INITIAL_BALANCES', file: File) => {
     const apiUrl = requireApiUrl();
     const formData = new FormData();

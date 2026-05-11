@@ -174,7 +174,6 @@ export default function AdminResidentsPage() {
   const [relationModalOpen, setRelationModalOpen] = useState(false);
   const [relationResident, setRelationResident] = useState<ResidentRow | null>(null);
   const [relationForm, setRelationForm] = useState(emptyRelationForm);
-  const [importModalOpen, setImportModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
 
@@ -348,10 +347,10 @@ export default function AdminResidentsPage() {
         rightSlot={
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="neutral">{badgeText}</Badge>
-            <Button variant="secondary" onClick={() => setImportModalOpen(true)}>
+            <Link href={localizedPath('/admin/imports/residents')} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl border border-border/70 bg-white px-4 text-sm font-semibold text-foreground shadow-sm hover:bg-muted/70">
               <FileUp className="h-4 w-4" />
               Importă persoane
-            </Button>
+            </Link>
             <Button variant="secondary" onClick={exportCsv}>
               <Download className="h-4 w-4" />
               Export CSV
@@ -418,7 +417,9 @@ export default function AdminResidentsPage() {
           </p>
           <div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row">
             <Button onClick={openCreateModal}>Adaugă persoană</Button>
-            <Button variant="secondary" onClick={() => setImportModalOpen(true)}>Importă persoane</Button>
+            <Link href={localizedPath('/admin/imports/residents')} className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-border/70 px-4 text-sm font-semibold">
+              Importă persoane
+            </Link>
           </div>
         </Card>
       ) : null}
@@ -496,7 +497,6 @@ export default function AdminResidentsPage() {
         onChange={setRelationForm}
         onSave={saveRelation}
       />
-      <ImportPlaceholder open={importModalOpen} onClose={() => setImportModalOpen(false)} />
     </div>
   );
 }
@@ -629,20 +629,6 @@ function RelationModal({
       <ModalFooter>
         <Button variant="secondary" disabled={saving} onClick={onClose}>Anulează</Button>
         <Button isLoading={saving} onClick={onSave}>Salvează legătura</Button>
-      </ModalFooter>
-    </Modal>
-  );
-}
-
-function ImportPlaceholder({ open, onClose }: { open: boolean; onClose: () => void }) {
-  return (
-    <Modal isOpen={open} onClose={onClose} maxWidth="lg">
-      <ModalHeader title="Importă persoane" onClose={onClose} />
-      <ModalBody>
-        <p className="text-sm text-muted-foreground">Importul din Excel/CSV va fi disponibil într-un pas următor.</p>
-      </ModalBody>
-      <ModalFooter>
-        <Button onClick={onClose}>Am înțeles</Button>
       </ModalFooter>
     </Modal>
   );

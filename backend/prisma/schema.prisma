@@ -318,9 +318,35 @@ enum ImportType {
 
 enum ImportJobStatus {
   UPLOADED
+  PARSED
   VALIDATED
+  CONFIRMED
+  PROCESSING
+  COMPLETED
+  CANCELLED
   FAILED
   IMPORTED
+}
+
+enum ImportMode {
+  CREATE_ONLY
+  UPSERT_SAFE
+}
+
+enum ImportRowStatus {
+  VALID
+  WARNING
+  ERROR
+  SKIPPED
+  IMPORTED
+}
+
+enum ImportRowOperation {
+  CREATE
+  UPDATE
+  LINK
+  SKIP
+  NONE
 }
 
 enum ImportedPaymentSource {
@@ -751,6 +777,7 @@ model Organization {
   voteSessions       VoteSession[]
   votes              Vote[]
   importJobs         ImportJob[]
+  importRows         ImportRow[]
   importedPaymentBatches ImportedPaymentBatch[]
   importedPayments      ImportedPayment[]
   paymentMatches        PaymentMatch[]
@@ -2078,22 +2105,63 @@ model ImportJob {
   id           String          @id @default(uuid())
   organizationId String
   type         ImportType
+  mode         ImportMode      @default(CREATE_ONLY)
   fileName     String
   status       ImportJobStatus @default(UPLOADED)
+  delimiter    String          @default(";")
   totalRows    Int             @default(0)
   validRows    Int             @default(0)
   invalidRows  Int             @default(0)
+  warningRows  Int             @default(0)
+  errorRows    Int             @default(0)
+  createdCount Int             @default(0)
+  updatedCount Int             @default(0)
+  skippedCount Int             @default(0)
+  errorsCount  Int             @default(0)
+  warningsCount Int            @default(0)
   errorsJson   Json?
+  options      Json?
+  summary      Json?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  cancelledAt  DateTime?
   createdByUserId String
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdBy    User         @relation("ImportJobCreatedByUser", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  rows         ImportRow[]
 
   @@index([organizationId, createdAt])
+  @@index([organizationId, type, status, createdAt])
   @@index([createdByUserId])
   @@map("import_jobs")
+}
+
+model ImportRow {
+  id              String             @id @default(uuid())
+  organizationId  String
+  importJobId     String
+  rowNumber       Int
+  status          ImportRowStatus
+  operation       ImportRowOperation @default(NONE)
+  rawData         Json
+  normalizedData  Json?
+  errors          Json?
+  warnings        Json?
+  createdEntityId String?
+  updatedEntityId String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  importJob    ImportJob    @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@index([importJobId, rowNumber])
+  @@index([importJobId, status])
+  @@map("import_rows")
 }
 
 model InitialBalance {
