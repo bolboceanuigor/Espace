@@ -2,22 +2,21 @@
 
 import { forwardRef } from 'react';
 
-const cardBase =
-  'rounded-2xl border border-border/70 bg-white shadow-[0_2px_10px_rgba(15,23,42,0.04)]';
-
 export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
-  /** No padding (e.g. for tables). Default: p-6 */
+  /** No padding (e.g. for tables). Default: p-5 */
   noPadding?: boolean;
+  /** Add hover effect */
+  hoverable?: boolean;
 }
 
 const Card = forwardRef<HTMLDivElement, CardProps>(function Card(
-  { className = '', noPadding, children, ...props },
+  { className = '', noPadding, hoverable, children, ...props },
   ref
 ) {
   return (
     <div
       ref={ref}
-      className={`${cardBase} ${noPadding ? '' : 'p-6'} ${className}`.trim()}
+      className={`rounded-xl border border-border bg-card shadow-sm ${hoverable ? 'transition-all duration-200 hover:shadow-md hover:border-primary/20' : ''} ${noPadding ? '' : 'p-5'} ${className}`.trim()}
       {...props}
     >
       {children}
@@ -33,7 +32,7 @@ export function CardHeader({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={`mb-4 border-b border-border/70 pb-4 ${className}`.trim()} {...props}>
+    <div className={`flex items-center justify-between pb-4 border-b border-border ${className}`.trim()} {...props}>
       {children}
     </div>
   );
@@ -45,4 +44,20 @@ export function CardTitle({ className = '', ...props }: React.HTMLAttributes<HTM
 
 export function CardDescription({ className = '', ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
   return <p className={`mt-0.5 text-sm text-muted-foreground ${className}`.trim()} {...props} />;
+}
+
+export function CardContent({ className = '', children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div className={`pt-4 ${className}`.trim()} {...props}>
+      {children}
+    </div>
+  );
+}
+
+export function CardFooter({ className = '', children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div className={`pt-4 mt-4 border-t border-border ${className}`.trim()} {...props}>
+      {children}
+    </div>
+  );
 }

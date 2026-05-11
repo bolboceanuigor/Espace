@@ -3,24 +3,70 @@
 @tailwind utilities;
 
 :root {
-  --background: 220 20% 97%;
-  --foreground: 222 32% 14%;
+  /* Espace Premium Design System - Light Mode */
+  --background: 220 14% 96%;
+  --foreground: 224 71% 4%;
   --card: 0 0% 100%;
-  --muted: 220 20% 94%;
-  --muted-foreground: 220 10% 40%;
-  --border: 220 18% 87%;
-  --primary: 222 32% 14%;
-  --secondary: 220 22% 92%;
-  --sidebar-bg: #ffffff;
-  --brand-primary-hex: #111827;
+  --card-foreground: 224 71% 4%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 224 71% 4%;
+  --muted: 220 14% 92%;
+  --muted-foreground: 220 9% 46%;
+  --border: 220 13% 90%;
+  --input: 220 13% 90%;
+  --primary: 220 91% 48%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 220 14% 96%;
+  --secondary-foreground: 224 71% 4%;
+  --accent: 162 94% 36%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --ring: 220 91% 48%;
+  --radius: 0.625rem;
+  
+  /* Sidebar */
+  --sidebar-bg: 224 71% 4%;
+  --sidebar-foreground: 210 20% 98%;
+  --sidebar-muted: 220 9% 20%;
+  --sidebar-accent: 162 94% 36%;
+  --sidebar-border: 220 9% 16%;
+  
+  /* Semantic Status Colors */
+  --success: 162 94% 36%;
+  --success-foreground: 0 0% 100%;
+  --warning: 38 92% 50%;
+  --warning-foreground: 38 92% 14%;
+  --info: 220 91% 48%;
+  --info-foreground: 0 0% 100%;
+  --critical: 0 84% 60%;
+  --critical-foreground: 0 0% 100%;
 
-  /* Neutral gray scale - Fresha-like */
-  --gray-50: #F9FAFB;
-  --gray-100: #F3F4F6;
-  --gray-200: #E5E7EB;
-  --gray-400: #9CA3AF;
-  --gray-600: #4B5563;
-  --gray-800: #1F2937;
+  /* Status Badge Specific */
+  --status-active: 162 94% 36%;
+  --status-draft: 220 9% 46%;
+  --status-pending: 38 92% 50%;
+  --status-sent: 220 91% 48%;
+  --status-paid: 162 94% 36%;
+  --status-partial: 38 92% 50%;
+  --status-overdue: 0 84% 60%;
+  --status-cancelled: 220 9% 46%;
+
+  /* Brand Primary Hex for Direct Use */
+  --brand-primary-hex: #2563eb;
+  --brand-accent-hex: #0d9488;
+
+  /* Neutral gray scale for legacy compatibility */
+  --gray-50: #F8FAFC;
+  --gray-100: #F1F5F9;
+  --gray-200: #E2E8F0;
+  --gray-300: #CBD5E1;
+  --gray-400: #94A3B8;
+  --gray-500: #64748B;
+  --gray-600: #475569;
+  --gray-700: #334155;
+  --gray-800: #1E293B;
+  --gray-900: #0F172A;
 
   /* Reservation block colors - status (muted) */
   --reservation-confirmed: #374151;
@@ -29,13 +75,23 @@
 }
 
 html[data-theme='dark'] {
-  --background: 250 36% 9%;
-  --foreground: 236 30% 94%;
-  --card: 246 34% 13%;
-  --muted: 247 22% 19%;
-  --muted-foreground: 238 13% 68%;
-  --border: 247 20% 27%;
-  --secondary: 247 18% 22%;
+  --background: 224 71% 4%;
+  --foreground: 210 20% 98%;
+  --card: 222 47% 9%;
+  --card-foreground: 210 20% 98%;
+  --popover: 222 47% 9%;
+  --popover-foreground: 210 20% 98%;
+  --muted: 220 9% 14%;
+  --muted-foreground: 220 9% 60%;
+  --border: 220 9% 18%;
+  --input: 220 9% 18%;
+  --primary: 220 91% 54%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 220 9% 14%;
+  --secondary-foreground: 210 20% 98%;
+  --accent: 162 94% 40%;
+  --accent-foreground: 0 0% 100%;
+  --sidebar-bg: 224 71% 4%;
 }
 
 * {
@@ -68,7 +124,7 @@ html {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--gray-200);
+  background: var(--gray-300);
   border-radius: 4px;
 }
 
@@ -76,18 +132,18 @@ html {
   background: var(--gray-400);
 }
 
-/* Form input / label / error - single source of truth (use with ui Card, Button, Modal) */
+/* Form input / label / error - single source of truth */
 .input {
-  @apply w-full rounded-xl border border-border/80 bg-white px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/80 shadow-[0_1px_2px_rgba(16,24,40,0.03)] transition duration-150 ease-out focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50;
+  @apply w-full rounded-lg border border-border bg-white px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground shadow-sm transition-all duration-150 ease-out focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary;
 }
 .select {
-  @apply w-full rounded-xl border border-border/80 bg-white px-4 py-2.5 text-sm text-foreground shadow-[0_1px_2px_rgba(16,24,40,0.03)] transition duration-150 ease-out focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50;
+  @apply w-full rounded-lg border border-border bg-white px-3.5 py-2.5 text-sm text-foreground shadow-sm transition-all duration-150 ease-out focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary;
 }
 .label {
-  @apply mb-1.5 block text-sm font-medium text-foreground/85;
+  @apply mb-1.5 block text-sm font-medium text-foreground;
 }
 .error-box {
-  @apply rounded-2xl border border-red-200 bg-red-50/90 px-4 py-3 text-sm text-red-700;
+  @apply rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive;
 }
 
 /* Reservation blocks - neutral status */
@@ -127,10 +183,10 @@ html {
   @apply top-0.5 right-0.5 w-1.5 h-1.5 border-0;
 }
 .cleaning-badge.done {
-  @apply bg-green-500;
+  @apply bg-emerald-500;
 }
 .cleaning-badge.in-progress {
-  @apply bg-orange-500;
+  @apply bg-amber-500;
 }
 .cleaning-badge.pending {
   @apply bg-gray-400;
@@ -140,13 +196,88 @@ html {
 @keyframes modal-fade-in {
   from {
     opacity: 0;
-    transform: scale(0.98);
+    transform: scale(0.97) translateY(4px);
   }
   to {
     opacity: 1;
-    transform: scale(1);
+    transform: scale(1) translateY(0);
   }
 }
 .animate-modal-in {
   animation: modal-fade-in 0.2s ease-out;
+}
+
+/* Premium Card Styles */
+@layer components {
+  .card-premium {
+    @apply rounded-xl border border-border bg-card shadow-sm;
+  }
+  
+  .card-premium-hover {
+    @apply transition-all duration-200 hover:shadow-md hover:border-border/80;
+  }
+  
+  .stat-card-premium {
+    @apply relative overflow-hidden rounded-xl border border-border bg-card p-5;
+  }
+  
+  .stat-card-premium::before {
+    content: '';
+    @apply absolute inset-0 bg-gradient-to-br from-primary/[0.02] to-transparent;
+  }
+  
+  .kanban-column {
+    @apply rounded-xl bg-muted/50 p-3;
+  }
+  
+  .kanban-card {
+    @apply rounded-lg border border-border bg-card p-3 shadow-sm transition-all duration-200 hover:shadow-md hover:border-primary/20;
+  }
+  
+  .btn-primary-gradient {
+    @apply bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-sm hover:shadow-md transition-all duration-200;
+  }
+  
+  .section-header {
+    @apply flex items-center justify-between pb-4 border-b border-border;
+  }
+  
+  .data-grid {
+    @apply grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4;
+  }
+  
+  .quick-stat {
+    @apply flex items-center gap-3 rounded-lg bg-muted/50 px-4 py-3;
+  }
+}
+
+/* Animation utilities */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.3s ease-out forwards;
+}
+
+.animate-fade-up-delay-1 {
+  animation: fade-up 0.3s ease-out 0.05s forwards;
+  opacity: 0;
+}
+
+.animate-fade-up-delay-2 {
+  animation: fade-up 0.3s ease-out 0.1s forwards;
+  opacity: 0;
+}
+
+.animate-fade-up-delay-3 {
+  animation: fade-up 0.3s ease-out 0.15s forwards;
+  opacity: 0;
 }
