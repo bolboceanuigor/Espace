@@ -4,12 +4,16 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { MvpAuthGuard, MvpRolesGuard, MvpUser } from '../security/mvp-auth.guard';
 import { DataQualityService } from './data-quality.service';
+import { DuplicateDetectionService } from './duplicates.service';
 
 @Controller()
 @UseGuards(MvpAuthGuard, MvpRolesGuard)
 @Roles(Role.ADMIN, Role.SUPERADMIN)
 export class DataQualityController {
-  constructor(private readonly dataQualityService: DataQualityService) {}
+  constructor(
+    private readonly dataQualityService: DataQualityService,
+    private readonly duplicateDetectionService: DuplicateDetectionService,
+  ) {}
 
   @Get(['admin/data-quality', 'api/admin/data-quality'])
   overview(
@@ -32,6 +36,106 @@ export class DataQualityController {
   @Get(['admin/data-quality/stats', 'api/admin/data-quality/stats'])
   stats(@CurrentUser() user: MvpUser, @Headers('x-org-id') activeOrganizationId?: string) {
     return this.dataQualityService.stats(user, activeOrganizationId);
+  }
+
+  @Get(['admin/data-quality/duplicates', 'api/admin/data-quality/duplicates'])
+  duplicateOverview(
+    @CurrentUser() user: MvpUser,
+    @Query() query: Record<string, unknown>,
+    @Headers('x-org-id') activeOrganizationId?: string,
+  ) {
+    return this.duplicateDetectionService.overview(user, query, activeOrganizationId);
+  }
+
+  @Get(['admin/data-quality/duplicates/groups', 'api/admin/data-quality/duplicates/groups'])
+  duplicateGroups(
+    @CurrentUser() user: MvpUser,
+    @Query() query: Record<string, unknown>,
+    @Headers('x-org-id') activeOrganizationId?: string,
+  ) {
+    return this.duplicateDetectionService.listGroups(user, query, activeOrganizationId);
+  }
+
+  @Post(['admin/data-quality/duplicates/scan', 'api/admin/data-quality/duplicates/scan'])
+  scanDuplicates(
+    @CurrentUser() user: MvpUser,
+    @Body() body: Record<string, unknown>,
+    @Headers('x-org-id') activeOrganizationId?: string,
+  ) {
+    return this.duplicateDetectionService.scan(user, body, activeOrganizationId);
+  }
+
+  @Get(['admin/data-quality/duplicates/stats', 'api/admin/data-quality/duplicates/stats'])
+  duplicateStats(@CurrentUser() user: MvpUser, @Headers('x-org-id') activeOrganizationId?: string) {
+    return this.duplicateDetectionService.stats(user, activeOrganizationId);
+  }
+
+  @Get(['admin/data-quality/duplicates/groups/:id', 'api/admin/data-quality/duplicates/groups/:id'])
+  duplicateGroup(
+    @CurrentUser() user: MvpUser,
+    @Param('id') id: string,
+    @Headers('x-org-id') activeOrganizationId?: string,
+  ) {
+    return this.duplicateDetectionService.getGroup(user, id, activeOrganizationId);
+  }
+
+  @Post(['admin/data-quality/duplicates/groups/:id/merge/preview', 'api/admin/data-quality/duplicates/groups/:id/merge/preview'])
+  previewDuplicateMerge(
+    @CurrentUser() user: MvpUser,
+    @Param('id') id: string,
+    @Body() body: Record<string, unknown>,
+    @Headers('x-org-id') activeOrganizationId?: string,
+  ) {
+    return this.duplicateDetectionService.mergePreview(user, id, body, activeOrganizationId);
+  }
+
+  @Post(['admin/data-quality/duplicates/groups/:id/merge/apply', 'api/admin/data-quality/duplicates/groups/:id/merge/apply'])
+  applyDuplicateMerge(
+    @CurrentUser() user: MvpUser,
+    @Param('id') id: string,
+    @Body() body: Record<string, unknown>,
+    @Headers('x-org-id') activeOrganizationId?: string,
+  ) {
+    return this.duplicateDetectionService.mergeApply(user, id, body, activeOrganizationId);
+  }
+
+  @Patch(['admin/data-quality/duplicates/groups/:id/not-duplicate', 'api/admin/data-quality/duplicates/groups/:id/not-duplicate'])
+  markDuplicateGroupNotDuplicate(
+    @CurrentUser() user: MvpUser,
+    @Param('id') id: string,
+    @Body() body: Record<string, unknown>,
+    @Headers('x-org-id') activeOrganizationId?: string,
+  ) {
+    return this.duplicateDetectionService.markNotDuplicate(user, id, body, activeOrganizationId);
+  }
+
+  @Patch(['admin/data-quality/duplicates/groups/:id/reviewed', 'api/admin/data-quality/duplicates/groups/:id/reviewed'])
+  markDuplicateGroupReviewed(
+    @CurrentUser() user: MvpUser,
+    @Param('id') id: string,
+    @Body() body: Record<string, unknown>,
+    @Headers('x-org-id') activeOrganizationId?: string,
+  ) {
+    return this.duplicateDetectionService.markReviewed(user, id, body, activeOrganizationId);
+  }
+
+  @Patch(['admin/data-quality/duplicates/groups/:id/ignore', 'api/admin/data-quality/duplicates/groups/:id/ignore'])
+  ignoreDuplicateGroup(
+    @CurrentUser() user: MvpUser,
+    @Param('id') id: string,
+    @Body() body: Record<string, unknown>,
+    @Headers('x-org-id') activeOrganizationId?: string,
+  ) {
+    return this.duplicateDetectionService.ignoreGroup(user, id, body, activeOrganizationId);
+  }
+
+  @Patch(['admin/data-quality/duplicates/groups/:id/reopen', 'api/admin/data-quality/duplicates/groups/:id/reopen'])
+  reopenDuplicateGroup(
+    @CurrentUser() user: MvpUser,
+    @Param('id') id: string,
+    @Headers('x-org-id') activeOrganizationId?: string,
+  ) {
+    return this.duplicateDetectionService.reopenGroup(user, id, activeOrganizationId);
   }
 
   @Get(['admin/data-quality/runs', 'api/admin/data-quality/runs'])

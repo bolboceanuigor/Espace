@@ -10,6 +10,7 @@ import {
   DatabaseZap,
   FileText,
   Gauge,
+  GitMerge,
   RefreshCw,
   Search,
   ShieldAlert,
@@ -37,7 +38,7 @@ import {
   TableWrapper,
 } from '@/components/ui';
 import EmptyState from '@/components/common/EmptyState';
-import { dataQualityApi } from '@/lib/api';
+import { dataQualityApi, dataQualityDuplicatesApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 type Severity = 'CRITICAL' | 'WARNING' | 'INFO';
@@ -102,6 +103,15 @@ type RunItem = {
   startedAt: string;
   completedAt?: string | null;
   actor?: { fullName?: string | null; email?: string | null } | null;
+};
+
+type DuplicateStats = {
+  openGroups: number;
+  highConfidence: number;
+  residentGroups: number;
+  apartmentGroups: number;
+  meterGroups: number;
+  lastScanAt?: string | null;
 };
 
 const severityLabel: Record<Severity, string> = {
@@ -184,6 +194,7 @@ export function AdminDataQualityOverviewPage() {
   const localizedPath = useLocalizedPath();
   const [billingMonth, setBillingMonth] = useState(currentMonth());
   const [data, setData] = useState<Overview | null>(null);
+  const [duplicateStats, setDuplicateStats] = useState<DuplicateStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -192,10 +203,16 @@ export function AdminDataQualityOverviewPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await dataQualityApi.overview({ billingMonth });
+      const [res, duplicateRes] = await Promise.all([
+        dataQualityApi.overview({ billingMonth }),
+        dataQualityDuplicatesApi.stats().catch(() => null),
+      ]);
       setData(unwrap<Overview>(res));
+      const duplicatePayload = duplicateRes ? unwrap<any>(duplicateRes) : null;
+      setDuplicateStats(duplicatePayload?.summary || duplicatePayload || null);
     } catch (err: any) {
       setData(null);
+      setDuplicateStats(null);
       setError(String(err?.message || 'Nu am putut încărca verificările.'));
     } finally {
       setLoading(false);
@@ -231,6 +248,7 @@ export function AdminDataQualityOverviewPage() {
             <Button onClick={runChecks} disabled={busy}>
               <RefreshCw className="h-4 w-4" /> Rulează verificări
             </Button>
+            <ButtonLink href={localizedPath('/admin/data-quality/duplicates')} variant="secondary">Duplicate</ButtonLink>
             <ButtonLink href={localizedPath('/admin/data-quality/fixes')} variant="secondary">Remedieri rapide</ButtonLink>
             <ButtonLink href={localizedPath('/admin/data-quality/issues')} variant="secondary">Vezi toate problemele</ButtonLink>
             <ButtonLink href={localizedPath('/admin/data-quality/runs')} variant="secondary">Rulări</ButtonLink>
@@ -295,6 +313,28 @@ export function AdminDataQualityOverviewPage() {
             <StatCard label="Contoare afectate" value={String(summary.affectedMeters)} icon={<Gauge className="h-5 w-5" />} />
             <StatCard label="Blochează facturarea" value={String(summary.blocksBillingCount)} tone={summary.blocksBillingCount ? 'danger' : 'success'} icon={<FileText className="h-5 w-5" />} />
           </div>
+
+          <Card className="p-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex items-start gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-muted/45 text-foreground">
+                  <GitMerge className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-semibold text-foreground">Duplicate detectate</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {duplicateStats?.openGroups
+                      ? `${duplicateStats.openGroups} grupuri deschise · ${duplicateStats.highConfidence || 0} cu încredere mare`
+                      : 'Nu există grupuri deschise sau nu a fost rulată scanarea.'}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Locatari {duplicateStats?.residentGroups || 0} · Apartamente {duplicateStats?.apartmentGroups || 0} · Contoare {duplicateStats?.meterGroups || 0} · Ultima scanare {formatDateTime(duplicateStats?.lastScanAt)}
+                  </p>
+                </div>
+              </div>
+              <ButtonLink href={localizedPath('/admin/data-quality/duplicates')} variant="secondary">Verifică duplicatele</ButtonLink>
+            </div>
+          </Card>
 
           <section className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
             <Card className="p-5">

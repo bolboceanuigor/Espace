@@ -2004,6 +2004,29 @@ export const dataQualityApi = {
     apiRequest<any>(`/api/admin/data-quality/issues/${id}/reopen`, { method: 'PATCH' }),
 };
 
+export const dataQualityDuplicatesApi = {
+  overview: (params?: Record<string, string | number | boolean | undefined>) =>
+    apiRequest<any>('/api/admin/data-quality/duplicates', { params }),
+  groups: (params?: Record<string, string | number | boolean | undefined>) =>
+    apiRequest<any>('/api/admin/data-quality/duplicates/groups', { params }),
+  scan: (data?: { entityTypes?: string[] }) =>
+    apiRequest<any>('/api/admin/data-quality/duplicates/scan', { method: 'POST', body: data || {} }),
+  stats: () => apiRequest<any>('/api/admin/data-quality/duplicates/stats'),
+  getGroup: (id: string) => apiRequest<any>(`/api/admin/data-quality/duplicates/groups/${id}`),
+  mergePreview: (id: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/admin/data-quality/duplicates/groups/${id}/merge/preview`, { method: 'POST', body: data }),
+  mergeApply: (id: string, data: { mergePlanId: string; confirm: boolean }) =>
+    apiRequest<any>(`/api/admin/data-quality/duplicates/groups/${id}/merge/apply`, { method: 'POST', body: data }),
+  markNotDuplicate: (id: string, reason: string) =>
+    apiRequest<any>(`/api/admin/data-quality/duplicates/groups/${id}/not-duplicate`, { method: 'PATCH', body: { reason } }),
+  markReviewed: (id: string, reason?: string) =>
+    apiRequest<any>(`/api/admin/data-quality/duplicates/groups/${id}/reviewed`, { method: 'PATCH', body: { reason } }),
+  ignore: (id: string, reason: string) =>
+    apiRequest<any>(`/api/admin/data-quality/duplicates/groups/${id}/ignore`, { method: 'PATCH', body: { reason } }),
+  reopen: (id: string) =>
+    apiRequest<any>(`/api/admin/data-quality/duplicates/groups/${id}/reopen`, { method: 'PATCH' }),
+};
+
 export const systemMonitoringApi = {
   reportClientError: (data: { message: string; stack?: string; metadataJson?: Record<string, any> }) =>
     apiRequest<any>('/api/system/errors/client', { method: 'POST', body: data }),

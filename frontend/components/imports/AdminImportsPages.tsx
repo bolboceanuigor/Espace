@@ -400,6 +400,9 @@ export function AdminCsvImportPage({ type }: { type: ImportType }) {
             <Link href={localizedPath('/admin/data-quality/fixes')} className="inline-flex min-h-9 items-center justify-center rounded-2xl border border-emerald-300 bg-white px-3 text-xs font-semibold text-emerald-800 hover:bg-emerald-50">
               Vezi probleme remediabile
             </Link>
+            <Link href={localizedPath('/admin/data-quality/duplicates')} className="inline-flex min-h-9 items-center justify-center rounded-2xl border border-emerald-300 bg-white px-3 text-xs font-semibold text-emerald-800 hover:bg-emerald-50">
+              Detectează duplicate
+            </Link>
           </div>
         </div>
       ) : null}

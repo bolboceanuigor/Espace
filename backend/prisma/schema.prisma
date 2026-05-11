@@ -405,6 +405,40 @@ enum DataQualityBillingImpact {
   NO_BILLING_IMPACT
 }
 
+enum DuplicateScanRunStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum DuplicateEntityType {
+  RESIDENT
+  APARTMENT
+  METER
+  TARIFF
+}
+
+enum DuplicateGroupStatus {
+  OPEN
+  REVIEWED
+  MERGED
+  IGNORED
+  NOT_DUPLICATE
+}
+
+enum DuplicateConfidence {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum DuplicateMergePlanStatus {
+  DRAFT
+  APPLIED
+  CANCELLED
+}
+
 enum ImportedPaymentSource {
   INFOCOM
   BANK_STATEMENT
@@ -842,6 +876,9 @@ model Organization {
   importMappingTemplates ImportMappingTemplate[]
   dataQualityRuns   DataQualityRun[]
   dataQualityIssues DataQualityIssue[]
+  duplicateScanRuns DuplicateScanRun[]
+  duplicateGroups   DuplicateGroup[]
+  duplicateMergePlans DuplicateMergePlan[]
   initialBalances    InitialBalance[]
   monthlyCharges     MonthlyCharge[]
   residentInvoices   ResidentInvoice[]
@@ -1444,6 +1481,12 @@ model User {
   dataQualityRunsCreated DataQualityRun[] @relation("DataQualityRunActor")
   dataQualityIssuesResolved DataQualityIssue[] @relation("DataQualityIssueResolvedBy")
   dataQualityIssuesIgnored DataQualityIssue[] @relation("DataQualityIssueIgnoredBy")
+  duplicateScanRunsCreated DuplicateScanRun[] @relation("DuplicateScanRunActor")
+  duplicateGroupsReviewed DuplicateGroup[] @relation("DuplicateGroupReviewedBy")
+  duplicateGroupsMerged DuplicateGroup[] @relation("DuplicateGroupMergedBy")
+  duplicateGroupsIgnored DuplicateGroup[] @relation("DuplicateGroupIgnoredBy")
+  duplicateMergePlansCreated DuplicateMergePlan[] @relation("DuplicateMergePlanCreatedBy")
+  duplicateMergePlansApplied DuplicateMergePlan[] @relation("DuplicateMergePlanAppliedBy")
   monthlyChargesCreated MonthlyCharge[] @relation("MonthlyChargeCreatedByUser")
   paymentsCreated      Payment[]     @relation("PaymentCreatedByUser")
   auditLogs            AuditLog[]    @relation("AuditLogUser")
@@ -2289,6 +2332,113 @@ model DataQualityIssue {
   @@index([runId])
   @@index([entityType, entityId])
   @@map("data_quality_issues")
+}
+
+model DuplicateScanRun {
+  id                   String                 @id @default(uuid())
+  associationId        String
+  actorUserId          String?
+  status               DuplicateScanRunStatus @default(RUNNING)
+  residentsGroupsFound Int                    @default(0)
+  apartmentsGroupsFound Int                   @default(0)
+  metersGroupsFound    Int                    @default(0)
+  totalGroupsFound     Int                    @default(0)
+  startedAt            DateTime               @default(now())
+  completedAt          DateTime?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+
+  association Organization @relation(fields: [associationId], references: [id], onDelete: Cascade)
+  actor       User?        @relation("DuplicateScanRunActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  groups      DuplicateGroup[]
+
+  @@index([associationId, createdAt])
+  @@index([associationId, status, createdAt])
+  @@map("duplicate_scan_runs")
+}
+
+model DuplicateGroup {
+  id                String                 @id @default(uuid())
+  associationId     String
+  scanRunId         String?
+  dedupeKey         String
+  entityType        DuplicateEntityType
+  status            DuplicateGroupStatus   @default(OPEN)
+  confidence        DuplicateConfidence
+  reason            String
+  score             Int                    @default(0)
+  canonicalEntityId String?
+  reviewedById      String?
+  reviewedAt        DateTime?
+  mergedById        String?
+  mergedAt          DateTime?
+  ignoredById       String?
+  ignoredAt         DateTime?
+  ignoreReason      String?
+  metadata          Json?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  association Organization       @relation(fields: [associationId], references: [id], onDelete: Cascade)
+  scanRun     DuplicateScanRun?  @relation(fields: [scanRunId], references: [id], onDelete: SetNull)
+  reviewedBy  User?              @relation("DuplicateGroupReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+  mergedBy    User?              @relation("DuplicateGroupMergedBy", fields: [mergedById], references: [id], onDelete: SetNull)
+  ignoredBy   User?              @relation("DuplicateGroupIgnoredBy", fields: [ignoredById], references: [id], onDelete: SetNull)
+  candidates  DuplicateCandidate[]
+  mergePlans  DuplicateMergePlan[]
+
+  @@unique([associationId, entityType, dedupeKey])
+  @@index([associationId, status, confidence, createdAt])
+  @@index([associationId, entityType, status])
+  @@index([scanRunId])
+  @@map("duplicate_groups")
+}
+
+model DuplicateCandidate {
+  id           String              @id @default(uuid())
+  groupId      String
+  entityId     String
+  entityType   DuplicateEntityType
+  displayName  String
+  matchReason  String
+  matchScore   Int                 @default(0)
+  snapshot     Json?
+  isCanonical  Boolean             @default(false)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  group DuplicateGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, entityId])
+  @@index([groupId])
+  @@index([entityType, entityId])
+  @@map("duplicate_candidates")
+}
+
+model DuplicateMergePlan {
+  id                String                   @id @default(uuid())
+  groupId           String
+  associationId     String
+  entityType        DuplicateEntityType
+  canonicalEntityId String
+  mergeStrategy     String
+  plan              Json
+  warnings          Json?
+  status            DuplicateMergePlanStatus @default(DRAFT)
+  createdById       String
+  appliedById       String?
+  appliedAt         DateTime?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+
+  group       DuplicateGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  association Organization   @relation(fields: [associationId], references: [id], onDelete: Cascade)
+  createdBy   User           @relation("DuplicateMergePlanCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  appliedBy   User?          @relation("DuplicateMergePlanAppliedBy", fields: [appliedById], references: [id], onDelete: SetNull)
+
+  @@index([associationId, entityType, status, createdAt])
+  @@index([groupId, status])
+  @@map("duplicate_merge_plans")
 }
 
 model InitialBalance {
