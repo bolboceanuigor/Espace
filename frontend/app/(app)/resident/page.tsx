@@ -18,7 +18,7 @@ import {
   ReceiptText,
   Wallet,
 } from 'lucide-react';
-import { Badge, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
+import { Badge, ButtonLink, Card, PageHeader, QuickActionCard, ResidentFinancialCard, StatCard } from '@/components/ui';
 import { communicationsApi, metersApi, requestsApi, residentDemoApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { useLocalizedPath } from '@/lib/use-localized-path';
@@ -450,31 +450,22 @@ export default function ResidentDashboardPage() {
         </div>
       </Card>
 
-      <Card className="overflow-hidden p-0">
-        <div className="grid gap-4 bg-foreground p-5 text-background lg:grid-cols-[1fr_auto] lg:items-center">
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-sm opacity-75">Sold curent</p>
-              <Badge variant={currentStatus.badge}>{currentStatus.label}</Badge>
-            </div>
-            <h1 className="mt-3 text-4xl font-semibold tracking-normal">{formatMdl(summary.currentBalance)}</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 opacity-80">
-              {summary.unpaidInvoices > 0 && summary.nextDueDate
-                ? `Ai ${summary.unpaidInvoices} facturi neachitate, cea mai apropiată scadență este ${formatDate(summary.nextDueDate)}.`
-                : currentStatus.text}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <ButtonLink href="/resident/invoices" variant="secondary">Vezi facturi</ButtonLink>
-            <ButtonLink href="/resident/payments" variant="secondary">Vezi plăți</ButtonLink>
-          </div>
-        </div>
-        <div className="grid gap-3 p-4 md:grid-cols-3">
-          <MiniInfo label="Următoarea scadență" value={formatDate(summary.nextDueDate)} />
-          <MiniInfo label="Facturi neachitate" value={String(summary.unpaidInvoices)} />
-          <MiniInfo label="Ultima plată" value={formatDate(summary.lastPayment?.paymentDate)} />
-        </div>
-      </Card>
+      <ResidentFinancialCard
+        balance={formatMdl(summary.currentBalance)}
+        statusLabel={currentStatus.label}
+        statusVariant={currentStatus.badge}
+        unpaidInvoices={summary.unpaidInvoices}
+        nextDueDate={formatDate(summary.nextDueDate)}
+        lastInvoice={summary.lastInvoice ? monthLabel(summary.lastInvoice.billingMonth) : '-'}
+        href={localizedPath('/resident/invoices')}
+      />
+
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <QuickActionCard title="Vezi facturi" description="Facturi, solduri și scadențe" href={localizedPath('/resident/invoices')} icon={FileText} variant="primary" badge={summary.unpaidInvoices || undefined} />
+        <QuickActionCard title="Vezi plăți" description="Plăți confirmate de admin" href={localizedPath('/resident/payments')} icon={CreditCard} variant="success" />
+        <QuickActionCard title="Transmite indice" description="Apă, gaz, electricitate" href={localizedPath('/resident/meter-readings')} icon={Gauge} variant="default" />
+        <QuickActionCard title="Creează solicitare" description="Trimite o cerere administrației" href={localizedPath('/resident/requests/new')} icon={MessageCircle} variant="warning" />
+      </section>
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Sold curent" value={formatMdl(summary.currentBalance)} description="Facturi active" icon={<Wallet className="h-5 w-5" />} tone={summary.currentBalance > 0 ? 'warning' : 'success'} />

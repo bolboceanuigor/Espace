@@ -21,6 +21,7 @@ import {
   Button,
   ButtonLink,
   Card,
+  DataQualityScore,
   Input,
   Modal,
   ModalBody,
@@ -288,9 +289,7 @@ export function AdminDataQualityOverviewPage() {
           <Card className="p-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex items-center gap-4">
-                <div className={`flex h-20 w-20 items-center justify-center rounded-2xl text-2xl font-bold ${scoreClass(summary.score, summary.criticalCount)}`}>
-                  {summary.score}
-                </div>
+                <DataQualityScore score={summary.score} criticalCount={summary.criticalCount} />
                 <div>
                   <p className="text-sm font-semibold text-muted-foreground">Data Quality Score</p>
                   <h2 className="mt-1 text-xl font-semibold text-foreground">{data.nextAction.label}</h2>
@@ -372,12 +371,6 @@ function severityStatusVariant(score: number, criticalCount: number): 'success' 
   if (criticalCount > 0 || score < 70) return 'error';
   if (score < 90) return 'warning';
   return 'success';
-}
-
-function scoreClass(score: number, criticalCount: number) {
-  if (scoreTone(score, criticalCount) === 'danger') return 'bg-red-50 text-red-700 border border-red-200';
-  if (scoreTone(score, criticalCount) === 'warning') return 'bg-amber-50 text-amber-700 border border-amber-200';
-  return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
 }
 
 function IssueCards({ items }: { items: DataQualityIssue[] }) {

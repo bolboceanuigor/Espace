@@ -1,3 +1,5 @@
+import AdminAppShell from '@/components/layout/AdminAppShell';
+
 export default function AdminSegmentLayout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+  return <AdminAppShell>{children}</AdminAppShell>;
 }

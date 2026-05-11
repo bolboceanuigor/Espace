@@ -1,0 +1,35 @@
+'use client';
+
+import { X } from 'lucide-react';
+
+type DetailDrawerProps = {
+  open: boolean;
+  title: string;
+  description?: string;
+  onClose: () => void;
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+};
+
+export default function DetailDrawer({ open, title, description, onClose, children, footer }: DetailDrawerProps) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50">
+      <button className="absolute inset-0 bg-slate-950/25 backdrop-blur-sm" aria-label="Închide detaliile" onClick={onClose} />
+      <aside className="absolute inset-y-0 right-0 flex w-full max-w-xl flex-col border-l border-slate-200 bg-white shadow-2xl">
+        <header className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+          <div>
+            <h2 className="text-base font-semibold text-slate-950">{title}</h2>
+            {description ? <p className="mt-1 text-sm text-slate-500">{description}</p> : null}
+          </div>
+          <button type="button" onClick={onClose} className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:text-slate-950">
+            <X className="h-4 w-4" />
+          </button>
+        </header>
+        <div className="min-h-0 flex-1 overflow-y-auto p-5">{children}</div>
+        {footer ? <footer className="border-t border-slate-200 p-4">{footer}</footer> : null}
+      </aside>
+    </div>
+  );
+}
