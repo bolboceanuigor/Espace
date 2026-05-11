@@ -76,12 +76,6 @@ function redirectToExpiredLogin() {
   if (pathname.includes('/login') || pathname.includes('/register') || pathname.includes('/signup')) return;
   const parts = pathname.split('/').filter(Boolean);
   const locale = ['ro', 'ru', 'en'].includes(parts[0] || '') ? parts[0] : '';
-  const pathWithoutLocale = locale ? `/${parts.slice(1).join('/')}` : pathname;
-  if (pathWithoutLocale.startsWith('/resident') && pathWithoutLocale !== '/resident/session-expired') {
-    const expiredPath = locale ? `/${locale}/resident/session-expired` : '/resident/session-expired';
-    window.location.href = expiredPath;
-    return;
-  }
   const loginPath = locale ? `/${locale}/login?expired=1` : '/login?expired=1';
   window.location.href = loginPath;
 }
@@ -248,15 +242,17 @@ export const authApi = {
     apiRequest<any>('/auth/resend-verification', { method: 'POST', body: data }),
   forgotPassword: (data: { email: string; locale?: string }) =>
     apiRequest<any>('/auth/forgot-password', { method: 'POST', body: data }),
-  validateResetToken: (token: string) => apiRequest<any>(`/auth/reset-password/${encodeURIComponent(token)}`),
-  resetPasswordWithToken: (token: string, data: { password?: string; newPassword?: string; confirmPassword?: string }) =>
-    apiRequest<any>(`/auth/reset-password/${encodeURIComponent(token)}`, { method: 'POST', body: data }),
-  resetPassword: (data: { token: string; newPassword: string }) =>
-    apiRequest<any>('/auth/reset-password', { method: 'POST', body: data }),
+resetPassword: (data: { token: string; newPassword: string }) =>
+  apiRequest<any>('/auth/reset-password', { method: 'POST', body: data }),
+  validateResetToken: (token: string) =>
+  apiRequest<{ valid: boolean }>('/auth/validate-reset-token', { method: 'POST', body: { token } }),
+  resetPasswordWithToken: (token: string, data: { password: string; confirmPassword: string }) =>
+  apiRequest<any>('/auth/reset-password', { method: 'POST', body: { token, newPassword: data.password } }),
+  accountStatus: () =>
+  apiRequest<any>('/auth/me'),
   changePassword: (data: { oldPassword: string; newPassword: string }) =>
     apiRequest<any>('/auth/change-password', { method: 'POST', body: data }),
   getMe: () => apiRequest<any>('/auth/me'),
-  accountStatus: () => apiRequest<any>('/auth/account-status'),
   getNavigation: () => apiRequest<any[]>('/api/me/navigation'),
   updatePreferences: (data: {
     locale?: 'ro' | 'ru' | 'en';
@@ -959,8 +955,6 @@ export const residentAccessApi = {
     apiRequest<any>(`/api/admin/resident-access/invitations/${id}/cancel`, { method: 'PATCH', body: { reason } }),
   linkUser: (residentId: string, data: { userId?: string; userEmail?: string; confirm: boolean }) =>
     apiRequest<any>(`/api/admin/residents/${residentId}/portal-access/link-user`, { method: 'POST', body: data }),
-  preparePasswordReset: (residentId: string, data?: { locale?: string }) =>
-    apiRequest<any>(`/api/admin/residents/${residentId}/portal-access/password-reset`, { method: 'POST', body: data || {} }),
   suspend: (residentId: string, reason: string) =>
     apiRequest<any>(`/api/admin/residents/${residentId}/portal-access/suspend`, { method: 'PATCH', body: { reason } }),
   reactivate: (residentId: string, note?: string) =>

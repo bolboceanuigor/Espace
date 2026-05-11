@@ -11,7 +11,7 @@ export interface PageHeaderProps extends React.HTMLAttributes<HTMLDivElement> {
   backHref?: string;
   backLabel?: string;
   actions?: ReactNode;
-  rightSlot?: ReactNode;
+  rightSlot?: ReactNode; // Alias for actions - backwards compatibility
   tabs?: ReactNode;
   variant?: 'default' | 'transparent' | 'compact';
 }
@@ -26,8 +26,8 @@ const PageHeader = forwardRef<HTMLDivElement, PageHeaderProps>(function PageHead
   { title, description, badge, backHref, backLabel, actions, rightSlot, tabs, variant = 'default', className = '', ...props },
   ref
 ) {
-  const headerActions = actions ?? rightSlot;
-
+  // Support both actions and rightSlot for backwards compatibility
+  const actionsContent = actions || rightSlot;
   return (
     <div ref={ref} className={`${variantStyles[variant]} ${className}`.trim()} {...props}>
       {backHref && (
@@ -53,7 +53,7 @@ const PageHeader = forwardRef<HTMLDivElement, PageHeaderProps>(function PageHead
             </p>
           )}
         </div>
-        {headerActions && <div className="flex items-center gap-2 flex-shrink-0">{headerActions}</div>}
+        {actionsContent && <div className="flex items-center gap-2 flex-shrink-0">{actionsContent}</div>}
       </div>
       {tabs && <div className="mt-5 -mb-5 border-t border-border/60 pt-4">{tabs}</div>}
     </div>

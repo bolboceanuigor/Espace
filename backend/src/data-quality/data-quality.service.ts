@@ -12,7 +12,6 @@ import {
   MeterStatus,
   MeterType,
   PaymentStatus,
-  PasswordResetRequestStatus,
   Prisma,
   ResidentAccountStatus,
   ResidentPortalAccessStatus,
@@ -515,7 +514,6 @@ export class DataQualityService {
       draftNote,
       internalInvoiceNote,
       runsCount,
-      expiredPasswordResetRequests,
     ] = await Promise.all([
       this.organizationHeader(associationId),
       this.prisma.apartment.findMany({
@@ -631,16 +629,6 @@ export class DataQualityService {
       this.readJsonNote<any>(associationId, BILLING_DRAFT_NOTE_TITLE, { items: [] }),
       this.readJsonNote<any>(associationId, INTERNAL_INVOICE_NOTE_TITLE, { items: [] }),
       this.prisma.dataQualityRun.count({ where: { associationId } }).catch(() => 0),
-      this.prisma.passwordResetRequest.findMany({
-        where: {
-          status: PasswordResetRequestStatus.PENDING,
-          expiresAt: { lt: new Date() },
-          user: { organizationId: associationId },
-        },
-        select: { id: true, userId: true, email: true, expiresAt: true, createdAt: true },
-        take: 50,
-        orderBy: { expiresAt: 'desc' },
-      }).catch(() => []),
     ]);
     return {
       organization,
@@ -659,7 +647,6 @@ export class DataQualityService {
       drafts: Array.isArray(draftNote?.items) ? draftNote.items : [],
       internalInvoices: Array.isArray(internalInvoiceNote?.items) ? internalInvoiceNote.items : [],
       runsCount,
-      expiredPasswordResetRequests,
     };
   }
 
@@ -969,54 +956,6 @@ export class DataQualityService {
           billingImpact: DataQualityBillingImpact.AFFECTS_BILLING,
         });
       }
-      if (!resident.userId && resident.portalAccessStatus === ResidentPortalAccessStatus.ACTIVE) {
-        this.issue(issues, {
-          key: `RESIDENT_PORTAL_ACTIVE_WITHOUT_USER:${resident.id}`,
-          category: DataQualityCategory.RESIDENTS,
-          severity: DataQualitySeverity.WARNING,
-          entityType: DataQualityEntityType.RESIDENT,
-          entityId: resident.id,
-          title: 'Acces portal activ fără user',
-          description: `${fullName(resident)} are status portal activ, dar nu are user legat.`,
-          recommendation: 'Leagă userul existent sau creează o invitație nouă.',
-          actionUrl: `/admin/residents/${resident.id}/access`,
-          billingImpact: DataQualityBillingImpact.AFFECTS_BILLING,
-        });
-      }
-      if (
-        resident.userId &&
-        (resident.portalAccessStatus === ResidentPortalAccessStatus.SUSPENDED ||
-          resident.portalAccessStatus === ResidentPortalAccessStatus.REVOKED) &&
-        latestInvitation &&
-        (latestInvitation.status === ResidentPortalInvitationStatus.PENDING ||
-          latestInvitation.status === ResidentPortalInvitationStatus.SENT)
-      ) {
-        this.issue(issues, {
-          key: `RESIDENT_BLOCKED_WITH_ACTIVE_INVITATION:${resident.id}:${latestInvitation.id}`,
-          category: DataQualityCategory.RESIDENTS,
-          severity: DataQualitySeverity.WARNING,
-          entityType: DataQualityEntityType.RESIDENT,
-          entityId: resident.id,
-          title: 'Invitație activă pentru acces blocat',
-          description: `${fullName(resident)} are acces ${String(resident.portalAccessStatus).toLowerCase()}, dar există o invitație activă.`,
-          recommendation: 'Anulează invitația activă sau reactivează accesul după verificare.',
-          actionUrl: `/admin/residents/${resident.id}/access`,
-        });
-      }
-    });
-
-    ctx.expiredPasswordResetRequests.forEach((request) => {
-      this.issue(issues, {
-        key: `PASSWORD_RESET_PENDING_EXPIRED:${request.id}`,
-        category: DataQualityCategory.SYSTEM,
-        severity: DataQualitySeverity.INFO,
-        entityType: DataQualityEntityType.SYSTEM,
-        title: 'Resetare parolă expirată',
-        description: `Cererea de resetare pentru ${request.email} a expirat și este încă în așteptare.`,
-        recommendation: 'Creează o cerere nouă dacă locatarul mai are nevoie de resetare.',
-        actionUrl: '/admin/resident-access',
-        metadata: { resetRequestId: request.id, userId: request.userId, expiresAt: request.expiresAt },
-      });
     });
 
     const activeTariffs = ctx.tariffs.filter((tariff) => tariff.status === 'ACTIVE');

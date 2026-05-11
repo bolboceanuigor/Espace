@@ -3,22 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Clock3, CreditCard, FileText, Home, ReceiptText, Search, WalletCards } from 'lucide-react';
-import {
-  Badge,
-  Button,
-  Card,
-  Input,
-  PageHeader,
-  StatCard,
-  StatusBadge,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeaderCell,
-  TableRow,
-  TableWrapper,
-} from '@/components/ui';
+import { Badge, Button, Card, Input, PageHeader, StatCard, StatusBadge } from '@/components/ui';
 import { residentDemoApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { useLocalizedPath } from '@/lib/use-localized-path';
@@ -241,55 +226,7 @@ export default function ResidentInvoicesPage() {
         </Card>
       ) : null}
 
-      {!loading && rows.length ? (
-        <TableWrapper className="hidden md:block">
-          <Table>
-            <TableHead>
-              <TableRow hover={false}>
-                <TableHeaderCell>Factură</TableHeaderCell>
-                <TableHeaderCell>Luna</TableHeaderCell>
-                <TableHeaderCell>Apartament</TableHeaderCell>
-                <TableHeaderCell>Status</TableHeaderCell>
-                <TableHeaderCell className="text-right">Total</TableHeaderCell>
-                <TableHeaderCell className="text-right">Achitat</TableHeaderCell>
-                <TableHeaderCell className="text-right">Sold</TableHeaderCell>
-                <TableHeaderCell>Scadență</TableHeaderCell>
-                <TableHeaderCell>Acțiuni</TableHeaderCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {rows.map((invoice) => (
-                <TableRow key={invoice.id}>
-                  <TableCell className="font-semibold">{invoice.invoiceNumber}</TableCell>
-                  <TableCell className="text-muted-foreground">{monthLabel(invoice.billingMonth)}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    Apt. {invoice.apartment.apartmentNumber}
-                    {invoice.apartment.staircase ? ` · sc. ${invoice.apartment.staircase}` : ''}
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge status={invoice.isOverdue ? 'overdue' : statusToStatusBadge[invoice.status]}>
-                      {invoice.isOverdue ? 'Întârziată' : statusLabels[invoice.status]}
-                    </StatusBadge>
-                  </TableCell>
-                  <TableCell className="text-right font-semibold">{formatMdl(invoice.totalAmount)}</TableCell>
-                  <TableCell className="text-right text-muted-foreground">{formatMdl(invoice.paidAmount)}</TableCell>
-                  <TableCell className={`text-right font-semibold ${invoice.balanceAmount > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
-                    {formatMdl(invoice.balanceAmount)}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{formatDate(invoice.dueDate)}</TableCell>
-                  <TableCell>
-                    <Link href={localizedPath(`/resident/invoices/${invoice.id}`)} className="inline-flex min-h-9 items-center rounded-xl border border-border/70 px-3 text-xs font-semibold hover:bg-muted/60">
-                      Deschide
-                    </Link>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableWrapper>
-      ) : null}
-
-      <section className="grid gap-3 md:hidden">
+      <section className="grid gap-3">
         {rows.map((invoice) => (
           <Card key={invoice.id} className="p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -301,9 +238,10 @@ export default function ResidentInvoicesPage() {
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <StatusBadge status={invoice.isOverdue ? 'overdue' : statusToStatusBadge[invoice.status]}>
-                  {invoice.isOverdue ? 'Scadentă / întârziată' : statusLabels[invoice.status]}
-                </StatusBadge>
+                <StatusBadge 
+                  status={invoice.isOverdue ? 'OVERDUE' : invoice.status} 
+                  label={invoice.isOverdue ? 'Scadentă / întârziată' : statusLabels[invoice.status]}
+                />
               </div>
             </div>
 

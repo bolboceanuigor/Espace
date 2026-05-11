@@ -5,10 +5,8 @@ import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { Bell } from 'lucide-react';
-import AdminAppShell from './AdminAppShell';
 import MainNavigation from './MainNavigation';
 import OrgSwitcher from './OrgSwitcher';
-import ResidentAppShell from './ResidentAppShell';
 import { useAuth } from '@/context/AuthContext';
 import { ManagerUiProvider } from '@/context/ManagerUiContext';
 import { defaultLocale, isLocale } from '@/i18n';
@@ -497,11 +495,24 @@ function AppShellContent({ children }: AppShellProps) {
       );
     }
     return (
-      <ResidentAppShell
-        userName={`${activeUser.firstName || ''} ${activeUser.lastName || ''}`.trim() || activeUser.email}
-        apartmentLabel="Portal locatar"
-        organizationName={activeOrg?.name || 'A.P.C. A0123-0940'}
-        notificationsSlot={
+      <div className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,hsl(var(--muted))_0,transparent_34rem),linear-gradient(180deg,#fbfaf7_0%,hsl(var(--background))_48rem)] text-foreground md:pl-0">
+        <header className="sticky top-0 z-30 hidden border-b border-border/60 bg-background/82 px-4 py-3 backdrop-blur-xl md:block">
+          <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
+            <MainNavigation role={normalizedRole} variant="desktop" />
+            <NotificationButton
+              mode="resident"
+              notifications={notifications}
+              unreadCount={notificationsUnreadCount}
+              open={notificationsOpen}
+              setOpen={setNotificationsOpen}
+              setNotifications={setNotifications}
+              setUnreadCount={setNotificationsUnreadCount}
+              router={router}
+              locale={locale}
+            />
+          </div>
+        </header>
+        <div className="fixed right-4 top-4 z-40 md:hidden">
           <NotificationButton
             mode="resident"
             notifications={notifications}
@@ -513,20 +524,18 @@ function AppShellContent({ children }: AppShellProps) {
             router={router}
             locale={locale}
           />
-        }
-        floatingAction={
-          <button
-            type="button"
-            className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.75rem)] right-4 z-40 rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white shadow-lg md:bottom-5"
-            onClick={() => setFeedbackOpen(true)}
-          >
-            Trimite feedback
-          </button>
-        }
-      >
-        {children}
+        </div>
+        <main className="mx-auto w-full max-w-5xl px-4 py-5 pb-[calc(env(safe-area-inset-bottom)+8.75rem)] md:py-8 md:pb-[calc(env(safe-area-inset-bottom)+8.75rem)]">{children}</main>
+        <button
+          type="button"
+          className="fixed bottom-[calc(env(safe-area-inset-bottom)+8.25rem)] right-4 z-40 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-white shadow-md"
+          onClick={() => setFeedbackOpen(true)}
+        >
+          Trimite feedback
+        </button>
+        <MainNavigation role={normalizedRole} variant="mobile" />
         <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} pageUrl={pathname || '/'} />
-      </ResidentAppShell>
+      </div>
     );
   }
 
@@ -546,132 +555,6 @@ function AppShellContent({ children }: AppShellProps) {
           Aplicatia este in mentenanta.
         </p>
       </div>
-    );
-  }
-
-  if (normalizedRole === 'ADMIN') {
-    const adminTopContent = (
-      <div className="space-y-3">
-        {(normalizeRole(activeUser.role) === 'ADMIN' || normalizeRole(activeUser.role) === 'SUPER_ADMIN') &&
-        !prefs?.welcomeDismissed &&
-        activeUser.createdAt &&
-        Date.now() - new Date(activeUser.createdAt).getTime() < 24 * 60 * 60 * 1000 ? (
-          <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="font-medium text-slate-950">Bun venit în Espace</p>
-              <button
-                type="button"
-                className="text-xs font-semibold text-slate-500 underline"
-                onClick={() => {
-                  updatePreferences({ welcomeDismissed: true }).catch(() => undefined);
-                }}
-              >
-                Închide
-              </button>
-            </div>
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-              <Link href={`/${locale}/admin/apartments`} className="rounded-xl border border-slate-200 px-2 py-1 hover:bg-slate-50">
-                Apartamente
-              </Link>
-              <Link href={`/${locale}/admin/residents`} className="rounded-xl border border-slate-200 px-2 py-1 hover:bg-slate-50">
-                Locatari
-              </Link>
-              <Link href={`/${locale}/admin/billing`} className="rounded-xl border border-slate-200 px-2 py-1 hover:bg-slate-50">
-                Facturare
-              </Link>
-            </div>
-          </div>
-        ) : null}
-        {trialInfo?.status === 'TRIAL' ? (
-          <div className="rounded-2xl border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-900">
-            <span className="inline-flex items-center rounded-md border border-teal-200 bg-white px-2 py-0.5 text-xs font-medium">
-              Trial
-            </span>{' '}
-            — {trialInfo.daysRemaining} zile rămase
-          </div>
-        ) : null}
-        {trialInfo?.status === 'EXPIRED' || trialInfo?.status === 'PAST_DUE' ? (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            Trial expirat — contactează-ne
-          </div>
-        ) : null}
-        {planLimitWarning ? (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            {planLimitWarning}
-          </div>
-        ) : null}
-        {activeUser?.isDemoUser || activeOrg?.isDemo ? (
-          <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm">
-            Mod demo activ — datele sunt demonstrative.
-          </div>
-        ) : null}
-        <SubscriptionStatusBanner status={adminSubscription?.status} trialEndDate={adminSubscription?.trialEndDate} />
-        {showOnboardingTips ? (
-          <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm">
-            <p className="font-medium text-slate-950">Pași recomandați pentru lansare</p>
-            <div className="mt-2 flex flex-wrap gap-2 text-xs">
-              <Link href={`/${locale}/admin/apartments`} className="rounded-xl border border-slate-200 px-2 py-1 hover:bg-slate-50">
-                Adaugă apartamente
-              </Link>
-              <Link href={`/${locale}/admin/residents`} className="rounded-xl border border-slate-200 px-2 py-1 hover:bg-slate-50">
-                Adaugă locatari
-              </Link>
-              <Link href={`/${locale}/admin/billing`} className="rounded-xl border border-slate-200 px-2 py-1 hover:bg-slate-50">
-                Pornește facturarea
-              </Link>
-            </div>
-          </div>
-        ) : null}
-      </div>
-    );
-
-    return (
-      <AdminAppShell
-        organizationName={activeOrg?.name || 'A.P.C. A0123-0940'}
-        organizationCode="A0123-0940"
-        userName={`${activeUser.firstName || ''} ${activeUser.lastName || ''}`.trim() || activeUser.email}
-        userEmail={activeUser.email}
-        searchValue={search}
-        searchPlaceholder={searchPlaceholder}
-        onSearchChange={setSearch}
-        onSearchSubmit={() => {
-          const query = search.trim();
-          router.push(`/${locale}${searchTarget}${query ? `?query=${encodeURIComponent(query)}` : ''}`);
-        }}
-        notificationsSlot={
-          <NotificationButton
-            mode="admin"
-            notifications={notifications}
-            unreadCount={notificationsUnreadCount}
-            open={notificationsOpen}
-            setOpen={setNotificationsOpen}
-            setNotifications={setNotifications}
-            setUnreadCount={setNotificationsUnreadCount}
-            router={router}
-            locale={locale}
-          />
-        }
-        topContent={adminTopContent}
-        floatingAction={
-          <button
-            type="button"
-            className="fixed bottom-5 right-5 z-40 rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white shadow-lg"
-            onClick={() => setFeedbackOpen(true)}
-          >
-            Trimite feedback
-          </button>
-        }
-        footerSlot={
-          <div className="flex items-center justify-end gap-3 text-xs text-slate-500">
-            <span>v{process.env.NEXT_PUBLIC_APP_VERSION || '0.1.0-beta'}</span>
-            <Link href={`/${locale}/pricing`} className="hover:text-slate-950">Prețuri</Link>
-            <Link href={`/${locale}/privacy`} className="hover:text-slate-950">Confidențialitate</Link>
-          </div>
-        }
-      >
-        {children}
-        <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} pageUrl={pathname || '/'} />
-      </AdminAppShell>
     );
   }
 

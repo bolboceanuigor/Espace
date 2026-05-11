@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { Building2, LockKeyhole, Mail, ShieldCheck, UserRound } from 'lucide-react';
 import { defaultLocale, isLocale } from '@/i18n';
 import { saveRealSession } from '@/lib/auth';
@@ -43,7 +43,6 @@ const demoRoles: Array<{
 
 export default function LoginPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const params = useParams<{ locale?: string }>();
   const localeParam = typeof params?.locale === 'string' ? params.locale : defaultLocale;
   const locale = isLocale(localeParam) ? localeParam : defaultLocale;
@@ -52,13 +51,11 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const invitationAccepted = searchParams.get('invitationAccepted') === '1';
 
-  const rolePath = (role?: string, redirectTarget?: string) => {
-    if (redirectTarget && redirectTarget.startsWith(`/${locale}/`)) return redirectTarget;
+  const rolePath = (role?: string) => {
     const normalized = String(role || '').toUpperCase();
     if (normalized === 'SUPERADMIN' || normalized === 'SUPER_ADMIN') return `/${locale}/superadmin`;
-    if (normalized === 'RESIDENT') return `/${locale}/account-status`;
+    if (normalized === 'RESIDENT') return `/${locale}/resident`;
     return `/${locale}/admin`;
   };
 
@@ -69,7 +66,7 @@ export default function LoginPage() {
 
   const submitRealLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedEmail = email.trim();
     if (!normalizedEmail || !password) {
       setError('Emailul și parola sunt obligatorii.');
       return;
@@ -99,16 +96,15 @@ export default function LoginPage() {
 
       const accessToken = payload?.accessToken || payload?.data?.accessToken;
       const user = payload?.user || payload?.data?.user;
-      const redirectTarget = payload?.redirectTarget || payload?.data?.redirectTarget;
       if (!accessToken || !user) {
         throw new Error('A apărut o eroare. Încearcă din nou.');
       }
       clearDemoRole();
       saveRealSession(accessToken, user);
-      router.replace(rolePath(user.role, redirectTarget));
+      router.replace(rolePath(user.role));
     } catch (loginError) {
       const message = loginError instanceof Error ? loginError.message : '';
-      if (message === 'Nu există cont cu acest email.' || message === 'Parola nu este corectă.' || message === 'Emailul sau parola nu sunt corecte.' || message === 'Emailul și parola sunt obligatorii.') {
+      if (message === 'Nu există cont cu acest email.' || message === 'Parola nu este corectă.' || message === 'Emailul și parola sunt obligatorii.') {
         setError(message);
       } else if (!apiBaseUrl || message.includes('fetch')) {
         setError('API-ul nu este disponibil temporar.');
@@ -143,11 +139,6 @@ export default function LoginPage() {
                 <p className="text-sm font-semibold text-muted-foreground">Intră în platformă</p>
                 <h2 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">Autentificare</h2>
               </div>
-              {invitationAccepted ? (
-                <p className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">
-                  Contul a fost activat. Autentifică-te pentru a continua.
-                </p>
-              ) : null}
 
               <form onSubmit={submitRealLogin} className="space-y-4">
                 <label className="grid gap-1.5">
@@ -195,11 +186,6 @@ export default function LoginPage() {
                 >
                   {isSubmitting ? 'Se autentifică...' : 'Autentificare'}
                 </button>
-                <div className="flex justify-end">
-                  <Link href={`/${locale}/forgot-password`} className="text-sm font-semibold text-foreground underline underline-offset-4">
-                    Am uitat parola
-                  </Link>
-                </div>
               </form>
 
               {ENABLE_DEMO_LOGIN ? (

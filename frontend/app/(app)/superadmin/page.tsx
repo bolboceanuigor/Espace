@@ -2,33 +2,35 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import type { ReactNode } from 'react';
 import { 
   Activity, 
   ArrowRight, 
   ArrowUpRight, 
   Building2, 
-  Calendar, 
+  Calendar,
   CheckCircle2, 
   ChevronRight, 
+  Clock,
   CreditCard, 
   ExternalLink,
+  Home,
   LayoutGrid,
   Plus, 
-  Settings2, 
+  Settings, 
   ShieldCheck, 
   Sparkles,
   Timer, 
   TrendingUp, 
   UserCog,
-  Users2,
+  Users,
   Zap
 } from 'lucide-react';
-import Card from '@/components/ui/Card';
-import { PageHeader, StatCard } from '@/components/ui';
 import { superadminApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
+// ============================================================================
+// TYPES
+// ============================================================================
 type OrganizationCard = {
   id: string;
   shortName: string;
@@ -124,48 +126,16 @@ const emptyWorkbench: SuperadminWorkbench = {
     totalApartments: 0,
     estimatedMonthlyRevenue: 0,
   },
-  pipeline: {
-    lead: [],
-    onboarding: [],
-    trial: [],
-    active: [],
-    inactive: [],
-  },
+  pipeline: { lead: [], onboarding: [], trial: [], active: [], inactive: [] },
   recentOrganizations: [],
   recentAdmins: [],
-  tasks: {
-    dueToday: [],
-    overdue: [],
-    upcoming: [],
-  },
-  activity: {
-    recent: [],
-  },
+  tasks: { dueToday: [], overdue: [], upcoming: [] },
+  activity: { recent: [] },
 };
 
-const pipelineStatusConfig: Record<string, { label: string; color: string; bg: string }> = {
-  LEAD: { label: 'Lead', color: 'text-gray-600', bg: 'bg-gray-100' },
-  ONBOARDING: { label: 'Onboarding', color: 'text-amber-600', bg: 'bg-amber-50' },
-  TRIAL: { label: 'Trial', color: 'text-blue-600', bg: 'bg-blue-50' },
-  ACTIVE: { label: 'Activ', color: 'text-emerald-600', bg: 'bg-emerald-50' },
-  INACTIVE: { label: 'Inactiv', color: 'text-gray-500', bg: 'bg-gray-100' },
-};
-
-const missingLabels: Record<string, string> = {
-  admin: 'Administrator',
-  building: 'Bloc',
-  apartments: 'Apartamente',
-  tariff: 'Tarife',
-  invoice: 'Facturi',
-};
-
-function formatDate(value?: string | null) {
-  if (!value) return '-';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleDateString('ro-RO', { day: '2-digit', month: 'short', year: 'numeric' });
-}
-
+// ============================================================================
+// HELPERS
+// ============================================================================
 function formatRelativeDate(value?: string | null) {
   if (!value) return 'Niciodată';
   const date = new Date(value);
@@ -177,10 +147,6 @@ function formatRelativeDate(value?: string | null) {
   if (days === 1) return 'Ieri';
   if (days < 7) return `Acum ${days} zile`;
   return date.toLocaleDateString('ro-RO', { day: '2-digit', month: 'short' });
-}
-
-function adminName(admin: WorkbenchAdmin) {
-  return `${admin.firstName || ''} ${admin.lastName || ''}`.trim() || admin.email;
 }
 
 function normalizeWorkbench(data: Partial<SuperadminWorkbench> | undefined): SuperadminWorkbench {
@@ -196,6 +162,155 @@ function normalizeWorkbench(data: Partial<SuperadminWorkbench> | undefined): Sup
   };
 }
 
+const missingLabels: Record<string, string> = {
+  admin: 'Administrator',
+  building: 'Bloc',
+  apartments: 'Apartamente',
+  tariff: 'Tarife',
+  invoice: 'Facturi',
+};
+
+// ============================================================================
+// COMPONENTS
+// ============================================================================
+function KpiCard({ 
+  label, 
+  value, 
+  icon: Icon, 
+  trend,
+  color = 'emerald' 
+}: { 
+  label: string; 
+  value: string | number; 
+  icon: React.ElementType;
+  trend?: string;
+  color?: 'emerald' | 'blue' | 'amber' | 'slate';
+}) {
+  const colorClasses = {
+    emerald: 'bg-emerald-50 text-emerald-600',
+    blue: 'bg-blue-50 text-blue-600',
+    amber: 'bg-amber-50 text-amber-600',
+    slate: 'bg-slate-100 text-slate-600',
+  };
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-6 transition-all hover:shadow-md hover:border-slate-300">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium text-slate-500">{label}</span>
+        <div className={`flex size-10 items-center justify-center rounded-xl ${colorClasses[color]}`}>
+          <Icon className="size-5" />
+        </div>
+      </div>
+      <div className="mt-4">
+        <span className="text-3xl font-semibold text-slate-900">{value}</span>
+        {trend && (
+          <span className="ml-2 text-sm text-emerald-600">{trend}</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PipelineColumn({ 
+  title, 
+  count, 
+  items, 
+  dotColor,
+  localizedPath 
+}: { 
+  title: string; 
+  count: number; 
+  items: OrganizationCard[];
+  dotColor: string;
+  localizedPath: (path: string) => string;
+}) {
+  return (
+    <div className="rounded-2xl bg-slate-50 p-4">
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className={`size-2.5 rounded-full ${dotColor}`} />
+          <span className="text-sm font-semibold text-slate-700">{title}</span>
+        </div>
+        <span className="rounded-full bg-white px-2.5 py-0.5 text-xs font-medium text-slate-600 shadow-sm">
+          {count}
+        </span>
+      </div>
+      
+      <div className="space-y-3">
+        {items.length === 0 ? (
+          <div className="rounded-xl bg-white p-4 text-center text-sm text-slate-400">
+            Nu există asociații
+          </div>
+        ) : (
+          items.slice(0, 3).map((org) => (
+            <Link
+              key={org.id}
+              href={localizedPath(`/superadmin/organizations/${org.id}`)}
+              className="block rounded-xl bg-white p-4 shadow-sm transition-all hover:shadow-md hover:border-emerald-200 border border-transparent"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-slate-900">{org.shortName}</p>
+                  {org.associationCode && (
+                    <p className="mt-0.5 truncate text-xs text-slate-500">{org.associationCode}</p>
+                  )}
+                </div>
+                {org.onboardingMissing && Object.keys(org.onboardingMissing).length > 0 && (
+                  <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+                    {Object.keys(org.onboardingMissing).length} lipsă
+                  </span>
+                )}
+              </div>
+              
+              <div className="mt-3 flex items-center gap-4 text-xs text-slate-500">
+                <span className="flex items-center gap-1">
+                  <Building2 className="size-3.5" />
+                  {org.apartmentsCount}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Users className="size-3.5" />
+                  {org.residentsCount}
+                </span>
+              </div>
+            </Link>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function QuickActionCard({ 
+  icon: Icon, 
+  title, 
+  description, 
+  href 
+}: { 
+  icon: React.ElementType; 
+  title: string; 
+  description: string; 
+  href: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 transition-all hover:shadow-md hover:border-emerald-200"
+    >
+      <div className="flex size-12 items-center justify-center rounded-xl bg-slate-100 transition-colors group-hover:bg-emerald-50">
+        <Icon className="size-6 text-slate-600 transition-colors group-hover:text-emerald-600" />
+      </div>
+      <div className="flex-1">
+        <p className="font-medium text-slate-900">{title}</p>
+        <p className="mt-0.5 text-sm text-slate-500">{description}</p>
+      </div>
+      <ChevronRight className="size-5 text-slate-400 transition-transform group-hover:translate-x-1" />
+    </Link>
+  );
+}
+
+// ============================================================================
+// MAIN PAGE
+// ============================================================================
 export default function SuperadminPage() {
   const localizedPath = useLocalizedPath();
   const [source, setSource] = useState<'loading' | 'api' | 'error'>('loading');
@@ -221,56 +336,53 @@ export default function SuperadminPage() {
         setSource('error');
       });
 
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, []);
 
   const pipelineColumns = [
-    { key: 'lead', title: 'Lead', items: workbench.pipeline.lead, dotColor: 'bg-gray-400' },
+    { key: 'lead', title: 'Lead', items: workbench.pipeline.lead, dotColor: 'bg-slate-400' },
     { key: 'onboarding', title: 'Onboarding', items: workbench.pipeline.onboarding, dotColor: 'bg-amber-400' },
     { key: 'trial', title: 'Trial', items: workbench.pipeline.trial, dotColor: 'bg-blue-400' },
     { key: 'active', title: 'Activ', items: workbench.pipeline.active, dotColor: 'bg-emerald-400' },
-    { key: 'inactive', title: 'Inactiv', items: workbench.pipeline.inactive, dotColor: 'bg-gray-300' },
+    { key: 'inactive', title: 'Inactiv', items: workbench.pipeline.inactive, dotColor: 'bg-slate-300' },
   ];
 
-  const onboardingItems = workbench.pipeline.onboarding.slice(0, 4);
-  const taskItems = [...workbench.tasks.overdue, ...workbench.tasks.dueToday, ...workbench.tasks.upcoming].slice(0, 5);
-  const totalPipelineCount = pipelineColumns.reduce((acc, col) => acc + col.items.length, 0);
+  const allTasks = [...workbench.tasks.overdue, ...workbench.tasks.dueToday, ...workbench.tasks.upcoming];
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header Section */}
-      <div className="border-b border-border bg-card">
-        <div className="px-6 py-6">
+    <div className="min-h-screen bg-slate-50">
+      {/* Header */}
+      <header className="border-b border-slate-200 bg-white">
+        <div className="mx-auto max-w-7xl px-6 py-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <div className="flex items-center gap-3">
-                <div className="flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                  <Sparkles className="size-5" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-semibold text-foreground">Platformă Espace</h1>
-                  <p className="text-sm text-muted-foreground">CRM pentru gestionarea asociațiilor de proprietari</p>
-                </div>
+            <div className="flex items-center gap-4">
+              <div className="flex size-12 items-center justify-center rounded-2xl bg-emerald-600 text-white">
+                <Home className="size-6" />
+              </div>
+              <div>
+                <h1 className="text-xl font-semibold text-slate-900">Platformă Espace</h1>
+                <p className="text-sm text-slate-500">CRM pentru gestionarea A.P.C.-urilor din Republica Moldova</p>
               </div>
             </div>
+            
             <div className="flex items-center gap-3">
+              {/* Status badge */}
               <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium ${
-                source === 'loading' ? 'bg-muted text-muted-foreground' : 
-                source === 'api' ? 'bg-emerald-50 text-emerald-700' : 
-                'bg-amber-50 text-amber-700'
+                source === 'loading' ? 'bg-slate-100 text-slate-600' : 
+                source === 'api' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 
+                'bg-amber-50 text-amber-700 border border-amber-200'
               }`}>
                 <span className={`size-1.5 rounded-full ${
-                  source === 'loading' ? 'bg-muted-foreground animate-pulse' : 
+                  source === 'loading' ? 'bg-slate-400 animate-pulse' : 
                   source === 'api' ? 'bg-emerald-500' : 
                   'bg-amber-500'
                 }`} />
-                {source === 'loading' ? 'Se încarcă...' : source === 'api' ? 'Date live' : 'Offline'}
+                {source === 'loading' ? 'Se încarcă...' : source === 'api' ? 'Date reale' : 'Offline'}
               </div>
+              
               <Link 
                 href={localizedPath('/superadmin/organizations')} 
-                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow-md"
+                className="btn-primary"
               >
                 <Plus className="size-4" />
                 Adaugă A.P.C.
@@ -278,12 +390,12 @@ export default function SuperadminPage() {
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
-      <div className="px-6 py-6 space-y-6">
-        {/* Error State */}
+      <main className="mx-auto max-w-7xl px-6 py-8">
+        {/* Error */}
         {error && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
             <div className="flex items-center gap-2">
               <Activity className="size-4" />
               {error}
@@ -291,451 +403,170 @@ export default function SuperadminPage() {
           </div>
         )}
 
-        {/* KPI Grid */}
-        <section className="animate-fade-up">
+        {/* KPIs */}
+        <section className="mb-8">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard 
-              label="Total Asociații" 
+            <KpiCard 
+              label="Total A.P.C." 
               value={workbench.kpis.totalOrganizations} 
-              description="Clienți în platformă"
-              icon={<Building2 className="size-5" />}
-              tone="neutral"
+              icon={Building2}
+              color="slate"
             />
-            <StatCard 
+            <KpiCard 
               label="Active" 
               value={workbench.kpis.activeOrganizations} 
-              description="Cu acces complet"
-              icon={<CheckCircle2 className="size-5" />}
-              tone="success"
+              icon={CheckCircle2}
+              color="emerald"
             />
-            <StatCard 
-              label="În Trial" 
-              value={workbench.kpis.trialOrganizations} 
-              description="Perioadă de evaluare"
-              icon={<Timer className="size-5" />}
-              tone="warning"
+            <KpiCard 
+              label="În onboarding" 
+              value={workbench.kpis.onboardingOrganizations} 
+              icon={Zap}
+              color="amber"
             />
-            <StatCard 
-              label="Venit Lunar" 
-              value={`${workbench.kpis.estimatedMonthlyRevenue.toLocaleString('ro-RO')} MDL`} 
-              description="Abonamente active"
-              icon={<TrendingUp className="size-5" />}
-              tone="neutral"
+            <KpiCard 
+              label="Apartamente totale" 
+              value={workbench.kpis.totalApartments} 
+              icon={LayoutGrid}
+              color="blue"
             />
           </div>
         </section>
 
         {/* Secondary Stats */}
-        <section className="animate-fade-up-delay-1">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-4">
-              <div className="flex size-9 items-center justify-center rounded-lg bg-muted">
-                <UserCog className="size-4 text-muted-foreground" />
+        <section className="mb-8">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { label: 'Administratori', value: workbench.kpis.totalAdmins, icon: UserCog },
+              { label: 'Locatari', value: workbench.kpis.totalResidents, icon: Users },
+              { label: 'Trial', value: workbench.kpis.trialOrganizations, icon: Timer },
+              { label: 'Venit lunar estimat', value: `${workbench.kpis.estimatedMonthlyRevenue.toLocaleString('ro-RO')} MDL`, icon: CreditCard },
+            ].map((stat) => (
+              <div key={stat.label} className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="flex size-10 items-center justify-center rounded-xl bg-slate-100">
+                  <stat.icon className="size-5 text-slate-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-slate-500">{stat.label}</p>
+                  <p className="text-lg font-semibold text-slate-900">{stat.value}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-lg font-semibold text-foreground">{workbench.kpis.totalAdmins}</p>
-                <p className="text-xs text-muted-foreground">Administratori</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-4">
-              <div className="flex size-9 items-center justify-center rounded-lg bg-muted">
-                <LayoutGrid className="size-4 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="text-lg font-semibold text-foreground">{workbench.kpis.totalApartments.toLocaleString('ro-RO')}</p>
-                <p className="text-xs text-muted-foreground">Apartamente</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-4">
-              <div className="flex size-9 items-center justify-center rounded-lg bg-muted">
-                <Users2 className="size-4 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="text-lg font-semibold text-foreground">{workbench.kpis.totalResidents.toLocaleString('ro-RO')}</p>
-                <p className="text-xs text-muted-foreground">Locatari</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-4">
-              <div className="flex size-9 items-center justify-center rounded-lg bg-amber-50">
-                <Zap className="size-4 text-amber-600" />
-              </div>
-              <div>
-                <p className="text-lg font-semibold text-foreground">{workbench.kpis.onboardingOrganizations}</p>
-                <p className="text-xs text-muted-foreground">În onboarding</p>
-              </div>
-            </div>
+            ))}
           </div>
         </section>
 
-        {/* Pipeline Section */}
-        <section className="animate-fade-up-delay-2">
-          <Card>
-            <div className="flex items-center justify-between pb-4">
-              <div className="flex items-center gap-3">
-                <h2 className="text-base font-semibold text-foreground">Pipeline Asociații</h2>
-                <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                  {totalPipelineCount} total
-                </span>
-              </div>
-              <Link 
-                href={localizedPath('/superadmin/organizations')} 
-                className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
-              >
-                Vezi toate
-                <ChevronRight className="size-4" />
-              </Link>
-            </div>
-            
-            <div className="grid gap-3 lg:grid-cols-5">
-              {pipelineColumns.map((column) => (
-                <div key={column.key} className="rounded-lg bg-muted/40 p-3">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <span className={`size-2 rounded-full ${column.dotColor}`} />
-                      <span className="text-sm font-medium text-foreground">{column.title}</span>
-                    </div>
-                    <span className="text-xs font-medium text-muted-foreground">{column.items.length}</span>
-                  </div>
-                  <div className="space-y-2">
-                    {column.items.slice(0, 3).map((org) => (
-                      <PipelineCard key={org.id} organization={org} href={localizedPath(`/superadmin/organizations/${org.id}`)} />
-                    ))}
-                    {column.items.length === 0 && (
-                      <div className="rounded-lg border border-dashed border-border bg-card/50 p-3 text-center">
-                        <p className="text-xs text-muted-foreground">Nicio asociație</p>
-                      </div>
-                    )}
-                    {column.items.length > 3 && (
-                      <Link 
-                        href={localizedPath('/superadmin/organizations')} 
-                        className="block rounded-lg bg-card/50 p-2 text-center text-xs font-medium text-muted-foreground hover:bg-card hover:text-foreground transition-colors"
-                      >
-                        +{column.items.length - 3} mai multe
-                      </Link>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        </section>
-
-        {/* Two Column Layout */}
-        <div className="grid gap-6 lg:grid-cols-5">
-          {/* Onboarding Section */}
-          <section className="lg:col-span-3 animate-fade-up-delay-3">
-            <Card>
-              <div className="flex items-center justify-between pb-4">
-                <div>
-                  <h2 className="text-base font-semibold text-foreground">Asociații în Onboarding</h2>
-                  <p className="text-sm text-muted-foreground">Necesită configurare pentru activare</p>
-                </div>
-                <Link 
-                  href={localizedPath('/superadmin/organizations')} 
-                  className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
-                >
-                  Deschide
-                  <ArrowUpRight className="size-4" />
-                </Link>
-              </div>
-              
-              {onboardingItems.length > 0 ? (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {onboardingItems.map((org) => (
-                    <OnboardingCard key={org.id} organization={org} href={localizedPath(`/superadmin/organizations/${org.id}`)} />
-                  ))}
-                </div>
-              ) : (
-                <EmptyState 
-                  icon={<CheckCircle2 className="size-5" />}
-                  title="Totul e configurat"
-                  description="Nu există asociații care necesită onboarding"
-                />
-              )}
-            </Card>
-          </section>
-
-          {/* Quick Actions */}
-          <section className="lg:col-span-2 animate-fade-up-delay-3">
-            <Card>
-              <h2 className="text-base font-semibold text-foreground pb-4">Acțiuni rapide</h2>
-              <div className="space-y-2">
-                <QuickAction 
-                  href={localizedPath('/superadmin/organizations')} 
-                  icon={<Plus className="size-4" />} 
-                  title="Adaugă asociație" 
-                  description="Creează un client nou"
-                />
-                <QuickAction 
-                  href={localizedPath('/superadmin/admins')} 
-                  icon={<UserCog className="size-4" />} 
-                  title="Gestionează admini" 
-                  description="Utilizatori responsabili"
-                />
-                <QuickAction 
-                  href={localizedPath('/superadmin/subscriptions')} 
-                  icon={<CreditCard className="size-4" />} 
-                  title="Abonamente" 
-                  description="Planuri și facturare"
-                />
-                <QuickAction 
-                  href={localizedPath('/superadmin/system/status')} 
-                  icon={<Activity className="size-4" />} 
-                  title="Status sistem" 
-                  description="Monitorizare platformă"
-                />
-                <QuickAction 
-                  href={localizedPath('/superadmin/audit-logs')} 
-                  icon={<Settings2 className="size-4" />} 
-                  title="Jurnal activitate" 
-                  description="Evenimente și loguri"
-                />
-              </div>
-            </Card>
-          </section>
-        </div>
-
-        {/* Bottom Grid */}
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Tasks */}
-          <Card>
-            <div className="flex items-center justify-between pb-4">
-              <div>
-                <h2 className="text-base font-semibold text-foreground">Sarcini & Follow-up</h2>
-                <p className="text-sm text-muted-foreground">Activități programate</p>
-              </div>
-              <Link 
-                href={localizedPath('/superadmin/tasks')} 
-                className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
-              >
-                Vezi toate
-                <ChevronRight className="size-4" />
-              </Link>
-            </div>
-            
-            {taskItems.length > 0 ? (
-              <div className="space-y-2">
-                {taskItems.map((task) => (
-                  <TaskCard key={task.id} task={task} href={task.relatedId ? localizedPath(`/superadmin/organizations/${task.relatedId}`) : localizedPath('/superadmin/tasks')} />
-                ))}
-              </div>
-            ) : (
-              <EmptyState 
-                icon={<CheckCircle2 className="size-5" />}
-                title="Nicio sarcină"
-                description="Nu ai sarcini active momentan"
-              />
-            )}
-          </Card>
-
-          {/* Recent Admins */}
-          <Card>
-            <div className="flex items-center justify-between pb-4">
-              <div>
-                <h2 className="text-base font-semibold text-foreground">Administratori recenți</h2>
-                <p className="text-sm text-muted-foreground">Conturi nou create</p>
-              </div>
-              <Link 
-                href={localizedPath('/superadmin/admins')} 
-                className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
-              >
-                Vezi toți
-                <ChevronRight className="size-4" />
-              </Link>
-            </div>
-            
-            {workbench.recentAdmins.length > 0 ? (
-              <div className="space-y-2">
-                {workbench.recentAdmins.slice(0, 5).map((admin) => (
-                  <AdminCard key={admin.id} admin={admin} />
-                ))}
-              </div>
-            ) : (
-              <EmptyState 
-                icon={<Users2 className="size-5" />}
-                title="Niciun administrator"
-                description="Nu există administratori înregistrați"
-              />
-            )}
-          </Card>
-        </div>
-
-        {/* Activity Section */}
-        <Card>
-          <div className="flex items-center justify-between pb-4">
+        {/* Pipeline */}
+        <section className="mb-8">
+          <div className="mb-4 flex items-center justify-between">
             <div>
-              <h2 className="text-base font-semibold text-foreground">Activitate recentă</h2>
-              <p className="text-sm text-muted-foreground">Evenimente din platformă</p>
+              <h2 className="text-lg font-semibold text-slate-900">Pipeline A.P.C.</h2>
+              <p className="text-sm text-slate-500">Asociații urmărite ca profiluri CRM</p>
             </div>
             <Link 
-              href={localizedPath('/superadmin/audit-logs')} 
-              className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+              href={localizedPath('/superadmin/organizations')}
+              className="text-sm font-medium text-emerald-600 hover:text-emerald-700"
             >
-              Jurnal complet
-              <ExternalLink className="size-4" />
+              Vezi toate asociațiile
             </Link>
           </div>
           
-          {workbench.activity.recent.length > 0 ? (
-            <div className="space-y-1">
-              {workbench.activity.recent.slice(0, 8).map((item) => (
-                <ActivityItem key={item.id} activity={item} />
-              ))}
-            </div>
-          ) : (
-            <EmptyState 
-              icon={<Activity className="size-5" />}
-              title="Nicio activitate"
-              description="Nu există evenimente recente"
-            />
-          )}
-        </Card>
-      </div>
-    </div>
-  );
-}
-
-function PipelineCard({ organization, href }: { organization: OrganizationCard; href: string }) {
-  const statusConfig = pipelineStatusConfig[organization.pipelineStatus] || pipelineStatusConfig.LEAD;
-  
-  return (
-    <Link 
-      href={href} 
-      className="block rounded-lg border border-border bg-card p-3 transition-all hover:shadow-sm hover:border-primary/20"
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-foreground truncate">{organization.shortName}</p>
-          <p className="text-xs text-muted-foreground truncate">{organization.city || 'Oraș nespecificat'}</p>
-        </div>
-        <ArrowRight className="size-4 text-muted-foreground shrink-0" />
-      </div>
-      <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-        <span>{organization.apartmentsCount} apt.</span>
-        <span>·</span>
-        <span>{organization.adminsCount} admin</span>
-      </div>
-    </Link>
-  );
-}
-
-function OnboardingCard({ organization, href }: { organization: OrganizationCard; href: string }) {
-  const missingItems = Object.entries(organization.onboardingMissing || {})
-    .filter(([, missing]) => missing)
-    .map(([key]) => missingLabels[key] || key);
-  
-  return (
-    <Link 
-      href={href} 
-      className="block rounded-lg border border-border bg-card p-4 transition-all hover:shadow-sm hover:border-primary/20"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="font-medium text-foreground">{organization.shortName}</p>
-          <p className="text-sm text-muted-foreground">{organization.city || 'Oraș nespecificat'}</p>
-        </div>
-        <ArrowUpRight className="size-4 text-muted-foreground shrink-0" />
-      </div>
-      {missingItems.length > 0 && (
-        <div className="mt-3">
-          <p className="text-xs font-medium text-muted-foreground mb-2">Necesită configurare:</p>
-          <div className="flex flex-wrap gap-1.5">
-            {missingItems.map((item) => (
-              <span 
-                key={item} 
-                className="inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700"
-              >
-                {item}
-              </span>
+          <div className="grid gap-4 lg:grid-cols-5">
+            {pipelineColumns.map((col) => (
+              <PipelineColumn
+                key={col.key}
+                title={col.title}
+                count={col.items.length}
+                items={col.items}
+                dotColor={col.dotColor}
+                localizedPath={localizedPath}
+              />
             ))}
           </div>
+        </section>
+
+        {/* Bottom Grid */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Quick Actions */}
+          <section>
+            <h2 className="mb-4 text-lg font-semibold text-slate-900">Acțiuni rapide</h2>
+            <div className="space-y-3">
+              <QuickActionCard
+                icon={Plus}
+                title="Adaugă asociație nouă"
+                description="Creează o nouă A.P.C. în sistem"
+                href={localizedPath('/superadmin/organizations')}
+              />
+              <QuickActionCard
+                icon={UserCog}
+                title="Gestionează administratori"
+                description="Vezi și editează conturile admin"
+                href={localizedPath('/superadmin/administrators')}
+              />
+              <QuickActionCard
+                icon={Settings}
+                title="Setări platformă"
+                description="Configurează opțiunile globale"
+                href={localizedPath('/superadmin/settings')}
+              />
+            </div>
+          </section>
+
+          {/* Tasks & Activity */}
+          <section>
+            <h2 className="mb-4 text-lg font-semibold text-slate-900">Sarcini și activitate</h2>
+            
+            {allTasks.length > 0 ? (
+              <div className="rounded-2xl border border-slate-200 bg-white">
+                {allTasks.slice(0, 5).map((task, idx) => (
+                  <div 
+                    key={task.id} 
+                    className={`flex items-center gap-4 p-4 ${idx < allTasks.length - 1 ? 'border-b border-slate-100' : ''}`}
+                  >
+                    <div className={`flex size-8 items-center justify-center rounded-full ${
+                      task.priority === 'HIGH' ? 'bg-red-50' : 'bg-slate-100'
+                    }`}>
+                      <Clock className={`size-4 ${task.priority === 'HIGH' ? 'text-red-500' : 'text-slate-500'}`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="truncate text-sm font-medium text-slate-900">{task.title}</p>
+                      {task.dueDate && (
+                        <p className="text-xs text-slate-500">{formatRelativeDate(task.dueDate)}</p>
+                      )}
+                    </div>
+                    <ChevronRight className="size-4 text-slate-400" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center">
+                <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-full bg-slate-100">
+                  <CheckCircle2 className="size-6 text-slate-400" />
+                </div>
+                <p className="text-sm font-medium text-slate-900">Nicio sarcină activă</p>
+                <p className="mt-1 text-sm text-slate-500">Toate sarcinile au fost finalizate</p>
+              </div>
+            )}
+
+            {/* Recent Activity */}
+            {workbench.activity.recent.length > 0 && (
+              <div className="mt-6">
+                <h3 className="mb-3 text-sm font-medium text-slate-700">Activitate recentă</h3>
+                <div className="space-y-2">
+                  {workbench.activity.recent.slice(0, 3).map((activity) => (
+                    <div key={activity.id} className="flex items-center gap-3 rounded-xl bg-slate-50 p-3">
+                      <span className="size-2 rounded-full bg-emerald-400" />
+                      <p className="flex-1 truncate text-sm text-slate-600">
+                        {activity.title || activity.message}
+                      </p>
+                      <span className="text-xs text-slate-400">{formatRelativeDate(activity.createdAt)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
         </div>
-      )}
-    </Link>
-  );
-}
-
-function QuickAction({ href, icon, title, description }: { href: string; icon: ReactNode; title: string; description: string }) {
-  return (
-    <Link 
-      href={href} 
-      className="flex items-center gap-3 rounded-lg border border-border bg-card p-3 transition-all hover:shadow-sm hover:border-primary/20 group"
-    >
-      <div className="flex size-9 items-center justify-center rounded-lg bg-muted group-hover:bg-primary/10 transition-colors">
-        <span className="text-muted-foreground group-hover:text-primary transition-colors">{icon}</span>
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-foreground">{title}</p>
-        <p className="text-xs text-muted-foreground">{description}</p>
-      </div>
-      <ChevronRight className="size-4 text-muted-foreground group-hover:text-primary transition-colors" />
-    </Link>
-  );
-}
-
-function TaskCard({ task, href }: { task: WorkbenchTask; href: string }) {
-  const isOverdue = task.dueDate && new Date(task.dueDate) < new Date();
-  
-  return (
-    <Link 
-      href={href} 
-      className="flex items-center gap-3 rounded-lg border border-border bg-card p-3 transition-all hover:shadow-sm hover:border-primary/20"
-    >
-      <div className={`flex size-8 items-center justify-center rounded-lg ${isOverdue ? 'bg-rose-50' : 'bg-muted'}`}>
-        <Calendar className={`size-4 ${isOverdue ? 'text-rose-600' : 'text-muted-foreground'}`} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-foreground truncate">{task.title}</p>
-        <p className="text-xs text-muted-foreground">
-          Scadență: {formatDate(task.dueDate)}
-          {isOverdue && <span className="text-rose-600 ml-1">• Întârziată</span>}
-        </p>
-      </div>
-      <ChevronRight className="size-4 text-muted-foreground shrink-0" />
-    </Link>
-  );
-}
-
-function AdminCard({ admin }: { admin: WorkbenchAdmin }) {
-  return (
-    <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-3">
-      <div className="flex size-9 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary">
-        {adminName(admin).charAt(0).toUpperCase()}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-foreground truncate">{adminName(admin)}</p>
-        <p className="text-xs text-muted-foreground truncate">
-          {admin.organization?.shortName || 'Neatribuit'} • {formatRelativeDate(admin.createdAt)}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function ActivityItem({ activity }: { activity: WorkbenchActivity }) {
-  return (
-    <div className="flex items-start gap-3 rounded-lg p-2 hover:bg-muted/50 transition-colors">
-      <div className="flex size-8 items-center justify-center rounded-lg bg-muted mt-0.5">
-        <Activity className="size-3.5 text-muted-foreground" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm text-foreground">{activity.title || activity.type || 'Activitate'}</p>
-        <p className="text-xs text-muted-foreground">
-          {activity.organization?.shortName || 'Platformă'} • {formatRelativeDate(activity.createdAt)}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function EmptyState({ icon, title, description }: { icon: ReactNode; title: string; description: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-8 text-center">
-      <div className="flex size-12 items-center justify-center rounded-full bg-muted mb-3">
-        <span className="text-muted-foreground">{icon}</span>
-      </div>
-      <p className="text-sm font-medium text-foreground">{title}</p>
-      <p className="text-xs text-muted-foreground">{description}</p>
+      </main>
     </div>
   );
 }

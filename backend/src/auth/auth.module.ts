@@ -3,7 +3,6 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
-import { AuthSecurityService } from './auth-security.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
 import { JwtAuthGuard } from './jwt-auth.guard';
@@ -30,7 +29,6 @@ import { PermissionGuard } from './permission.guard';
   controllers: [AuthController],
   providers: [
     AuthService,
-    AuthSecurityService,
     JwtStrategy,
     GoogleStrategy,
     JwtAuthGuard,
@@ -38,6 +36,6 @@ import { PermissionGuard } from './permission.guard';
     RolesGuard,
     PermissionGuard,
   ],
-  exports: [AuthService, AuthSecurityService, JwtAuthGuard, GoogleAuthGuard, RolesGuard, PermissionGuard],
+  exports: [AuthService, JwtAuthGuard, GoogleAuthGuard, RolesGuard, PermissionGuard],
 })
 export class AuthModule {}

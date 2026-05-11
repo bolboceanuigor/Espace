@@ -19,7 +19,7 @@ import {
   WalletCards,
   XCircle,
 } from 'lucide-react';
-import { Badge, BillingTimeline, Button, ButtonLink, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard, Table, TableBody, TableCell, TableEmpty, TableHead, TableHeaderCell, TableRow, TableWrapper } from '@/components/ui';
+import { Badge, Button, ButtonLink, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard, Table, TableBody, TableCell, TableEmpty, TableHead, TableHeaderCell, TableRow, TableWrapper } from '@/components/ui';
 import { auditLogsApi, billingApi, dataQualityApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { useLocalizedPath } from '@/lib/use-localized-path';
@@ -130,6 +130,13 @@ const checkLabel: Record<CheckStatus, string> = {
   NOT_APPLICABLE: 'N/A',
 };
 
+const timelineIcon = {
+  COMPLETE: CheckCircle2,
+  WARNING: TriangleAlert,
+  ERROR: XCircle,
+  PENDING: CalendarDays,
+} as const;
+
 function currentMonth() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -204,6 +211,34 @@ function CheckList({ checks, limit }: { checks: BillingCheck[]; limit?: number }
           </div>
         </Card>
       ))}
+    </div>
+  );
+}
+
+function Timeline({ items }: { items: BillingOverview['timeline'] }) {
+  const localizedPath = useLocalizedPath();
+  return (
+    <div className="grid gap-3 lg:grid-cols-4">
+      {items.map((item) => {
+        const Icon = timelineIcon[item.status] || CalendarDays;
+        const tone =
+          item.status === 'COMPLETE'
+            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+            : item.status === 'ERROR'
+              ? 'border-red-200 bg-red-50 text-red-700'
+              : item.status === 'WARNING'
+                ? 'border-amber-200 bg-amber-50 text-amber-700'
+                : 'border-border bg-muted/20 text-muted-foreground';
+        return (
+          <Link key={item.key} href={localizeAction(localizedPath, item.actionUrl)} className={`rounded-2xl border p-4 transition hover:shadow-sm ${tone}`}>
+            <div className="flex items-center gap-2">
+              <Icon className="h-4 w-4" />
+              <span className="text-sm font-semibold">{item.label}</span>
+            </div>
+            <p className="mt-2 text-sm opacity-90">{item.description}</p>
+          </Link>
+        );
+      })}
     </div>
   );
 }
@@ -376,7 +411,7 @@ export function AdminBillingOverviewPage() {
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold text-foreground">Timeline proces</h2>
             </div>
-            <BillingTimeline items={(data.timeline || []).map((item) => ({ ...item, actionUrl: localizeAction(localizedPath, item.actionUrl) }))} />
+            <Timeline items={data.timeline || []} />
           </section>
 
           <section className="space-y-3">
@@ -649,7 +684,7 @@ export function BillingRunDetailPage() {
               </div>
             </Card>
           ) : null}
-          <BillingTimeline items={(data.timeline || []).map((item) => ({ ...item, actionUrl: localizeAction(localizedPath, item.actionUrl) }))} />
+          <Timeline items={data.timeline || []} />
           <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
             <section className="space-y-3">
               <h2 className="text-base font-semibold text-foreground">Verificări</h2>

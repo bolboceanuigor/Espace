@@ -167,36 +167,10 @@ npm run dev:clean
 - Backend build: `cd backend && npm run build`
 - Production compose: `docker compose -f docker-compose.prod.yml up -d --build`
 
-## Deployment
+## Deployment Targets
 
-Espace production deploys from the `main` branch.
-
-- Package manager: npm. Keep `package-lock.json`; remove `pnpm-lock.yaml` if it appears accidentally.
-- Frontend: Vercel, branch `main`, root directory `frontend`, framework preset `Next.js`.
-- Backend: Render, branch `main`, root directory `backend`.
-- Frontend build settings:
-  - Install Command: `npm install`
-  - Build Command: `npm run build`
-  - Output Directory: `.next`
-- Backend build settings:
-  - Build Command: `npm install && npx prisma generate && npm run build`
-  - Start Command: `npm run start:prod`
-- Vercel environment variables:
-  - `NEXT_PUBLIC_API_URL`
-  - `NEXT_PUBLIC_SOCKET_URL`
-- Render environment variables:
-  - `DATABASE_URL`
-  - `JWT_SECRET`
-  - `JWT_EXPIRES_IN`
-  - `PORT`
-  - `CORS_ORIGIN`
-
-`CORS_ORIGIN` should be the Vercel frontend production URL. Do not commit real secrets or deployment credentials.
-
-### Deployment Targets
-
-- Option A: Vercel (frontend) + Render (backend) **[production target]**
-- Option B: VPS full Docker (frontend + backend + db + Caddy) **[self-hosted fallback]**
+- Option A: Vercel (frontend) + VPS Docker (backend + db)
+- Option B: VPS full Docker (frontend + backend + db + Caddy) **[baseline configured]**
 - Step-by-step runbook: `docs/DEPLOYMENT.md`
 - Go-live checklist: `docs/DEPLOY.md`
 - Caddy config source: `deploy/Caddyfile`

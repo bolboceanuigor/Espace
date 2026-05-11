@@ -71,10 +71,6 @@ type ResidentAccessItem = {
     activatedAt?: string | null;
     latestInvitation?: InvitationItem | null;
   };
-  auth?: {
-    lastLoginAt?: string | null;
-    lastPasswordResetRequest?: { id: string; status: string; expiresAt: string; createdAt: string } | null;
-  };
 };
 
 type InvitationItem = {
@@ -514,24 +510,6 @@ export function AdminResidentAccessDetailPage() {
     }
   }
 
-  async function preparePasswordReset() {
-    setError('');
-    setNotice('');
-    try {
-      const response = await residentAccessApi.preparePasswordReset(item.resident.id);
-      const payload = unwrap<any>(response);
-      if (payload?.devResetLink) {
-        await copyText(payload.devResetLink);
-        setNotice('Resetarea parolei a fost pregătită. Linkul development a fost copiat.');
-      } else {
-        setNotice(payload?.message || 'Resetarea parolei a fost pregătită.');
-      }
-      await load();
-    } catch (err: any) {
-      setError(String(err?.message || 'Resetarea parolei nu a putut fi pregătită.'));
-    }
-  }
-
   if (loading) return <Card className="h-40 animate-pulse bg-muted/40" />;
   if (error && !item?.resident) return <EmptyState title="Nu am putut încărca accesul" description={error} />;
 
@@ -559,15 +537,12 @@ export function AdminResidentAccessDetailPage() {
             <Info label="User legat" value={item.portalAccess.user?.email || '—'} />
             <Info label="Activat la" value={formatDate(item.portalAccess.activatedAt)} />
             <Info label="Ultima invitație" value={item.portalAccess.latestInvitation ? invitationLabel[item.portalAccess.latestInvitation.status] : '—'} />
-            <Info label="Ultimul login" value={formatDate(item.auth?.lastLoginAt)} />
-            <Info label="Reset parolă" value={item.auth?.lastPasswordResetRequest ? `${item.auth.lastPasswordResetRequest.status} · ${formatDate(item.auth.lastPasswordResetRequest.createdAt)}` : '—'} />
           </div>
           <div className="flex flex-wrap gap-2">
             <Button onClick={() => setInviteOpen(true)}><UserPlus className="h-4 w-4" /> Creează invitație</Button>
             <Button variant="secondary" onClick={() => run('Accesul a fost suspendat.', () => residentAccessApi.suspend(item.resident.id, 'Suspendat din pagina de acces.'))}>Suspendă</Button>
             <Button variant="secondary" onClick={() => run('Accesul a fost reactivat.', () => residentAccessApi.reactivate(item.resident.id))}>Reactivează</Button>
             <Button variant="secondary" onClick={() => run('Accesul a fost revocat.', () => residentAccessApi.revoke(item.resident.id, 'Revocat din pagina de acces.'))}>Revocă</Button>
-            <Button variant="secondary" onClick={preparePasswordReset}><KeyRound className="h-4 w-4" /> Pregătește resetare parolă</Button>
           </div>
         </Card>
         <Card className="space-y-3">

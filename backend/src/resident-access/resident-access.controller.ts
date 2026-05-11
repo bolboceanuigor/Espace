@@ -79,13 +79,6 @@ export class ResidentAccessController {
     return this.residentAccess.linkUser(user, id, body);
   }
 
-  @Post(['admin/residents/:id/portal-access/password-reset', 'api/admin/residents/:id/portal-access/password-reset'])
-  @UseGuards(MvpAuthGuard, MvpRolesGuard)
-  @Roles(Role.ADMIN, Role.SUPERADMIN)
-  preparePasswordReset(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
-    return this.residentAccess.preparePasswordReset(user, id, body);
-  }
-
   @Patch(['admin/residents/:id/portal-access/suspend', 'api/admin/residents/:id/portal-access/suspend'])
   @UseGuards(MvpAuthGuard, MvpRolesGuard)
   @Roles(Role.ADMIN, Role.SUPERADMIN)

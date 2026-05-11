@@ -96,11 +96,11 @@ function IssueCard({ request }: { request: (typeof residentIssues)[number] }) {
           <h3 className="font-semibold text-foreground">{request.title}</h3>
           <p className="mt-1 text-sm text-muted-foreground">{request.category} · {request.date}</p>
         </div>
-        <StatusBadge status={issueStatusToStatusBadge[request.status]}>{request.status}</StatusBadge>
+        <StatusBadge status={request.status === 'Rezolvată' ? 'RESOLVED' : request.status === 'În lucru' ? 'IN_PROGRESS' : 'NEW'} label={request.status} />
       </div>
       <p className="mt-3 text-sm leading-6 text-muted-foreground">{request.message}</p>
       <div className="mt-3 flex flex-wrap gap-2">
-        <StatusBadge status={issuePriorityToStatusBadge[request.priority]}>{request.priority}</StatusBadge>
+        <StatusBadge status={request.priority === 'Urgent' ? 'URGENT' : request.priority === 'Important' ? 'WARNING' : 'INFO'} label={request.priority} />
       </div>
     </Card>
   );

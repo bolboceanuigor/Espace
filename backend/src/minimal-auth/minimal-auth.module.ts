@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
-import { AuthSecurityService } from '../auth/auth-security.service';
 import { MinimalAuthController } from './minimal-auth.controller';
 import { MinimalAuthService } from './minimal-auth.service';
 
@@ -18,6 +17,6 @@ import { MinimalAuthService } from './minimal-auth.service';
     }),
   ],
   controllers: [MinimalAuthController],
-  providers: [MinimalAuthService, AuthSecurityService],
+  providers: [MinimalAuthService],
 })
 export class MinimalAuthModule {}

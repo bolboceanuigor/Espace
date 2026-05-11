@@ -17,6 +17,7 @@ import {
   MessageCircle,
   PlusCircle,
   UserPlus,
+  UserX,
   Users,
 } from 'lucide-react';
 import { ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
@@ -442,7 +443,7 @@ export default function AdminPage() {
 
   const kpiCards = [
     {
-      label: 'Total apartamente',
+      label: 'Apartamente',
       value: String(crm.kpis.totalApartments),
       description: 'Unități în asociație',
       icon: <Building2 className="h-5 w-5" />,
@@ -454,39 +455,84 @@ export default function AdminPage() {
       icon: <Users className="h-5 w-5" />,
     },
     {
-      label: 'Facturi emise',
+      label: 'Fără cont',
+      value: String(crm.kpis.residentsWithoutAccount),
+      description: 'Necesită invitație',
+      icon: <UserX className="h-5 w-5" />,
+      tone: crm.kpis.residentsWithoutAccount > 0 ? ('warning' as const) : ('success' as const),
+    },
+    {
+      label: 'Apartamente cu datorii',
+      value: String(crm.kpis.apartmentsWithDebt),
+      description: formatMdl(crm.kpis.totalDebt),
+      icon: <CreditCard className="h-5 w-5" />,
+      tone: crm.kpis.apartmentsWithDebt > 0 ? ('danger' as const) : ('success' as const),
+    },
+    {
+      label: 'Cereri urgente',
+      value: String(crm.kpis.urgentIssues),
+      description: `${crm.kpis.openIssues} cereri active`,
+      icon: <MessageCircle className="h-5 w-5" />,
+      tone: crm.kpis.urgentIssues > 0 ? ('warning' as const) : ('success' as const),
+    },
+    {
+      label: 'Citiri lipsă',
+      value: String(crm.kpis.missingMeterReadings),
+      description: 'De colectat luna curentă',
+      icon: <Gauge className="h-5 w-5" />,
+      tone: crm.kpis.missingMeterReadings > 0 ? ('warning' as const) : ('success' as const),
+    },
+  ];
+
+  const financeKpiCards = [
+    {
+      label: 'Total emis',
       value: formatMdl(crm.kpis.totalIssued),
-      description: 'Total facturat intern',
+      description: 'Facturi emise',
       icon: <FileText className="h-5 w-5" />,
     },
     {
-      label: 'Sold restant',
+      label: 'Total achitat',
+      value: formatMdl(crm.kpis.totalPaid),
+      description: 'Plăți confirmate',
+      icon: <CheckCircle2 className="h-5 w-5" />,
+      tone: 'success' as const,
+    },
+    {
+      label: 'Restanțe',
       value: formatMdl(crm.kpis.totalDebt),
-      description: `${crm.kpis.apartmentsWithDebt} apartamente afectate`,
+      description: 'Solduri neachitate',
       icon: <CreditCard className="h-5 w-5" />,
       tone: crm.kpis.totalDebt > 0 ? ('danger' as const) : ('success' as const),
     },
     {
-      label: 'Plăți încasate',
-      value: formatMdl(crm.kpis.totalPaid),
-      description: `${Number(crm.kpis.collectionRate || 0).toLocaleString('ro-RO')}% rată colectare`,
-      icon: <Banknote className="h-5 w-5" />,
-      tone: 'success' as const,
+      label: 'Facturi întârziate',
+      value: String(crm.kpis.overdueInvoices),
+      description: 'Scadență depășită',
+      icon: <AlertCircle className="h-5 w-5" />,
+      tone: crm.kpis.overdueInvoices > 0 ? ('warning' as const) : ('success' as const),
     },
     {
-      label: 'Solicitări deschise',
-      value: String(crm.kpis.openIssues),
-      description: `${crm.kpis.urgentIssues} urgente`,
-      icon: <MessageCircle className="h-5 w-5" />,
-      tone: crm.kpis.urgentIssues > 0 ? ('warning' as const) : ('success' as const),
+      label: 'Apartamente cu datorii',
+      value: String(crm.kpis.apartmentsWithDebt),
+      description: formatMdl(crm.kpis.totalDebt),
+      icon: <Building2 className="h-5 w-5" />,
+      tone: crm.kpis.apartmentsWithDebt > 0 ? ('danger' as const) : ('success' as const),
+    },
+    {
+      label: 'Rata de colectare',
+      value: `${Number(crm.kpis.collectionRate || 0).toLocaleString('ro-RO')}%`,
+      description: 'Achitat din total emis',
+      icon: <Banknote className="h-5 w-5" />,
+      tone: crm.kpis.collectionRate >= 90 ? ('success' as const) : ('warning' as const),
     },
   ];
 
   return (
     <div className="space-y-5 pb-4">
       <PageHeader
-        title="Dashboard admin"
-        description={`Administrarea asociației ${crm.organization.shortName || 'A.P.C.'}, cu facturare, locatari și operațiuni zilnice într-un singur loc.`}
+        title="CRM locatari"
+        description={`Gestionarea locatarilor, apartamentelor și acțiunilor zilnice pentru ${crm.organization.shortName || 'A.P.C.'}`}
         rightSlot={
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
@@ -527,27 +573,21 @@ export default function AdminPage() {
             <span className="rounded-2xl border border-border/70 bg-muted/25 px-3 py-2 font-medium text-foreground">
               Nr. intern: {crm.organization.associationNumber || '-'}
             </span>
-            <span className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 font-medium text-emerald-700">
-              Status ACTIVE
-            </span>
           </div>
         </div>
       </Card>
 
       <SetupChecklistCard setup={setup} setupError={setupError} localizedPath={localizedPath} />
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {kpiCards.map((card) => (
-          <StatCard key={card.label} {...card} />
-        ))}
-      </section>
-
       <Card>
         <div className="flex flex-col gap-1">
-          <p className="text-sm font-semibold text-foreground">Următoarea acțiune</p>
-          <p className="text-sm text-muted-foreground">
-            {billingOverview?.nextAction?.label || setup?.nextStep?.title || 'Continuă configurarea asociației'}
-          </p>
+          <p className="text-sm font-semibold text-foreground">Financiar</p>
+          <p className="text-sm text-muted-foreground">Facturi, plăți și restanțe calculate din datele reale ale A.P.C.</p>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {financeKpiCards.map((card) => (
+            <StatCard key={card.label} {...card} />
+          ))}
         </div>
         <div className="mt-4 rounded-2xl border border-border/70 bg-muted/25 p-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -581,6 +621,12 @@ export default function AdminPage() {
           </div>
         </div>
       </Card>
+
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {kpiCards.map((card) => (
+          <StatCard key={card.label} {...card} />
+        ))}
+      </section>
 
       <Card>
         <div className="flex items-center justify-between gap-3">

@@ -3,7 +3,6 @@ import {
   Get,
   Post,
   Body,
-  Param,
   UseGuards,
   Res,
   Req,
@@ -134,48 +133,15 @@ export class AuthController {
   @UseGuards(ThrottlerGuard)
   @Throttle({ default: { limit: 3, ttl: 60000 } })
   @Post('forgot-password')
-  forgotPassword(@Body() dto: ForgotPasswordDto, @Req() request: Request) {
-    return this.authService.requestPasswordReset(dto.email, dto.locale, {
-      ip: request.ip,
-      userAgent: request.headers['user-agent'],
-    });
-  }
-
-  @Public()
-  @UseGuards(ThrottlerGuard)
-  @Throttle({ default: { limit: 10, ttl: 60000 } })
-  @Get('reset-password/:token')
-  validateResetPassword(@Param('token') token: string) {
-    return this.authService.validatePasswordResetToken(token);
-  }
-
-  @Public()
-  @UseGuards(ThrottlerGuard)
-  @Throttle({ default: { limit: 5, ttl: 60000 } })
-  @Post('reset-password/:token')
-  resetPasswordByToken(
-    @Param('token') token: string,
-    @Body() dto: Omit<ResetPasswordDto, 'token'>,
-    @Req() request: Request,
-  ) {
-    const nextPassword = dto.newPassword || dto.password;
-    if (!nextPassword) {
-      throw new BadRequestException({
-        code: 'VALIDATION_ERROR',
-        message: 'newPassword is required',
-      });
-    }
-    return this.authService.resetPassword(token, nextPassword, {
-      ip: request.ip,
-      userAgent: request.headers['user-agent'],
-    });
+  forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.requestPasswordReset(dto.email, dto.locale);
   }
 
   @Public()
   @UseGuards(ThrottlerGuard)
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('reset-password')
-  resetPassword(@Body() dto: ResetPasswordDto, @Req() request: Request) {
+  resetPassword(@Body() dto: ResetPasswordDto) {
     const nextPassword = dto.newPassword || dto.password;
     if (!nextPassword) {
       throw new BadRequestException({
@@ -183,10 +149,7 @@ export class AuthController {
         message: 'newPassword is required',
       });
     }
-    return this.authService.resetPassword(dto.token, nextPassword, {
-      ip: request.ip,
-      userAgent: request.headers['user-agent'],
-    });
+    return this.authService.resetPassword(dto.token, nextPassword);
   }
 
   @Public()

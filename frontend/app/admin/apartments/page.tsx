@@ -302,7 +302,7 @@ export default function AdminApartmentsPage() {
             <Badge variant="neutral">{badgeText}</Badge>
             <Link href={localizedPath('/admin/imports/apartments')} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl border border-border/70 bg-white px-4 text-sm font-semibold text-foreground shadow-sm hover:bg-muted/70">
               <FileUp className="h-4 w-4" />
-              Importă CSV
+              Importă apartamente
             </Link>
             <Button variant="secondary" onClick={exportCsv}>
               <Download className="h-4 w-4" />
@@ -319,11 +319,13 @@ export default function AdminApartmentsPage() {
       {success ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">{success}</div> : null}
       {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</div> : null}
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
         <StatCard label="Total apartamente" value={data.stats.totalApartments} description="În asociația curentă" icon={<Home className="h-5 w-5" />} />
+        <StatCard label="Total m²" value={data.stats.totalAreaM2.toFixed(1)} description="Suprafață declarată" icon={<Building2 className="h-5 w-5" />} />
+        <StatCard label="Cu contact principal" value={data.stats.withPrimaryContact} description="Apartamente complete" icon={<UserPlus className="h-5 w-5" />} tone="success" />
         <StatCard label="Fără contact principal" value={data.stats.withoutPrimaryContact} description="Necesită completare" icon={<UserPlus className="h-5 w-5" />} tone="warning" />
         <StatCard label="Fără suprafață" value={data.stats.withoutArea} description="Necesită m²" icon={<Building2 className="h-5 w-5" />} tone="warning" />
-        <StatCard label="Ocupate" value={data.stats.occupied} description={`${data.stats.vacant} libere · ${data.stats.unknown} necunoscute`} icon={<Home className="h-5 w-5" />} />
+        <StatCard label="Ocupate / necunoscute" value={`${data.stats.occupied}/${data.stats.unknown}`} description={`${data.stats.vacant} libere`} icon={<Home className="h-5 w-5" />} />
       </section>
 
       <Card>

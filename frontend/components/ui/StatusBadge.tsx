@@ -1,6 +1,6 @@
 'use client';
 
-import { forwardRef, type ReactNode } from 'react';
+import { forwardRef } from 'react';
 
 const statusConfig = {
   // General statuses
@@ -69,21 +69,20 @@ export type StatusType = keyof typeof statusConfig;
 export type StatusVariant = keyof typeof variants;
 export type StatusSize = keyof typeof sizes;
 
-export interface StatusBadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
+export interface StatusBadgeProps extends Omit<React.HTMLAttributes<HTMLSpanElement>, 'children'> {
   status: StatusType | string;
   size?: StatusSize;
   label?: string;
   dot?: boolean;
-  children?: ReactNode;
 }
 
 const StatusBadge = forwardRef<HTMLSpanElement, StatusBadgeProps>(function StatusBadge(
-  { status, size = 'default', label, dot = false, className = '', children, ...props },
+  { status, size = 'default', label, dot = false, className = '', ...props },
   ref
 ) {
   const normalizedStatus = String(status || '').toUpperCase().replace(/-/g, '_');
   const config = statusConfig[normalizedStatus as StatusType] || { label: status, variant: 'neutral' as const };
-  const displayLabel = children ?? label ?? config.label;
+  const displayLabel = label || config.label;
   const variant = config.variant as StatusVariant;
 
   return (

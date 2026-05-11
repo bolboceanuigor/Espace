@@ -10,18 +10,14 @@ import { JwtService } from '@nestjs/jwt';
 import {
   ApartmentResidentRole,
   AuthProvider,
-  AuthSecurityEventSeverity,
-  AuthSecurityEventType,
   InvitationStatus,
   PlatformRole,
   ResidentAccountStatus,
-  ResidentPortalAccessStatus,
   ResidentType,
   Role,
 } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
-import { AuthSecurityService } from '../auth/auth-security.service';
 import { EmailService } from '../email/email.service';
 import { PrismaService } from '../prisma/prisma.service';
 import type { MvpUser } from '../security/mvp-auth.guard';
@@ -32,7 +28,6 @@ export class InvitationsMvpService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly emailService: EmailService,
-    private readonly authSecurity: AuthSecurityService,
   ) {}
 
   private isSuperadmin(user: MvpUser) {
@@ -431,15 +426,6 @@ export class InvitationsMvpService {
       role: user.role,
       organizationId: user.organizationId,
     });
-    if (user.role === Role.RESIDENT) {
-      await this.authSecurity.recordEvent({
-        userId: user.id,
-        email: user.email,
-        eventType: AuthSecurityEventType.INVITATION_ACCEPTED_LOGIN_READY,
-        severity: AuthSecurityEventSeverity.INFO,
-        metadata: { legacyInvitationId: invitation.id },
-      });
-    }
 
     return {
       success: true,
@@ -497,8 +483,6 @@ export class InvitationsMvpService {
             email: invitation.email,
             phone: invitation.phone || undefined,
             accountStatus: ResidentAccountStatus.CREATED,
-            portalAccessStatus: ResidentPortalAccessStatus.ACTIVE,
-            portalAccessActivatedAt: new Date(),
           },
           select: { id: true, type: true },
         })
@@ -509,8 +493,6 @@ export class InvitationsMvpService {
             email: invitation.email,
             phone: invitation.phone || null,
             accountStatus: ResidentAccountStatus.CREATED,
-            portalAccessStatus: ResidentPortalAccessStatus.ACTIVE,
-            portalAccessActivatedAt: new Date(),
             type: invitation.residentType || ResidentType.OWNER,
           },
           select: { id: true, type: true },

@@ -7,11 +7,11 @@ export class ResetPasswordDto {
 
   @IsString()
   @IsOptional()
-  @MinLength(8)
+  @MinLength(10)
   password?: string;
 
   @IsString()
   @IsOptional()
-  @MinLength(8)
+  @MinLength(10)
   newPassword?: string;
 }
