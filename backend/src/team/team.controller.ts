@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Patch, Post, Req, Res, UseGuards } from '
 import { Role } from '@prisma/client';
 import type { Request, Response } from 'express';
 import { AuthService } from '../auth/auth.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionGuard } from '../auth/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
@@ -48,7 +49,7 @@ export class TeamController {
   }
 
   @Get('admin/team')
-  @UseGuards(RolesGuard, PermissionGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(Role.ADMIN)
   @RequiresPermissions('team.view')
   list(@CurrentUser() user: any) {
@@ -56,7 +57,7 @@ export class TeamController {
   }
 
   @Post('admin/team/invite')
-  @UseGuards(RolesGuard, PermissionGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(Role.ADMIN)
   @RequiresPermissions('team.manage')
   invite(@CurrentUser() user: any, @Body() dto: CreateTeamUserDto) {
@@ -64,7 +65,7 @@ export class TeamController {
   }
 
   @Patch('admin/team/:memberId')
-  @UseGuards(RolesGuard, PermissionGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(Role.ADMIN)
   @RequiresPermissions('team.manage')
   update(
@@ -76,7 +77,7 @@ export class TeamController {
   }
 
   @Patch('admin/team/:memberId/disable')
-  @UseGuards(RolesGuard, PermissionGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(Role.ADMIN)
   @RequiresPermissions('team.manage')
   disable(@CurrentUser() user: any, @Param('memberId') memberId: string) {
@@ -84,7 +85,7 @@ export class TeamController {
   }
 
   @Patch('admin/team/:memberId/permissions')
-  @UseGuards(RolesGuard, PermissionGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(Role.ADMIN)
   @RequiresPermissions('team.manage')
   permissions(
@@ -113,15 +114,15 @@ export class TeamController {
   }
 
   @Get('superadmin/organizations/:organizationId/team')
-  @UseGuards(RolesGuard)
-  @Roles(Role.SUPERADMIN, Role.SUPER_ADMIN)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERADMIN)
   superadminList(@Param('organizationId') organizationId: string) {
     return this.teamService.superadminList(organizationId);
   }
 
   @Post('superadmin/organizations/:organizationId/team/invite')
-  @UseGuards(RolesGuard)
-  @Roles(Role.SUPERADMIN, Role.SUPER_ADMIN)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERADMIN)
   superadminInvite(
     @CurrentUser() user: any,
     @Param('organizationId') organizationId: string,
@@ -131,8 +132,8 @@ export class TeamController {
   }
 
   @Patch('superadmin/organizations/:organizationId/team/:memberId')
-  @UseGuards(RolesGuard)
-  @Roles(Role.SUPERADMIN, Role.SUPER_ADMIN)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERADMIN)
   superadminUpdate(
     @Param('organizationId') organizationId: string,
     @Param('memberId') memberId: string,
@@ -142,15 +143,15 @@ export class TeamController {
   }
 
   @Patch('superadmin/organizations/:organizationId/team/:memberId/disable')
-  @UseGuards(RolesGuard)
-  @Roles(Role.SUPERADMIN, Role.SUPER_ADMIN)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERADMIN)
   superadminDisable(@Param('organizationId') organizationId: string, @Param('memberId') memberId: string) {
     return this.teamService.superadminDisableMember(organizationId, memberId);
   }
 
   @Patch('superadmin/organizations/:organizationId/team/:memberId/permissions')
-  @UseGuards(RolesGuard)
-  @Roles(Role.SUPERADMIN, Role.SUPER_ADMIN)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERADMIN)
   superadminPermissions(
     @Param('organizationId') organizationId: string,
     @Param('memberId') memberId: string,

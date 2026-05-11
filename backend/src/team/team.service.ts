@@ -1,11 +1,11 @@
 import { BadRequestException, ConflictException, ForbiddenException, GoneException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { AuthProvider, OrganizationMemberRole, OrganizationMemberStatus, PlatformRole, Role } from '@prisma/client';
+import { AssociationRoleType, AuthProvider, OrganizationMemberRole, OrganizationMemberStatus, PlatformRole, Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
 import { CreateTeamUserDto } from './dto/create-team-user.dto';
 import { UpdateTeamUserDto } from './dto/update-team-user.dto';
-import { normalizePermissionOverrides, resolvePermissions } from './team-permissions';
+import { normalizePermissionOverrides, permissionKey, resolvePermissions, type PermissionActionKey, type PermissionModuleKey } from './team-permissions';
 import { LimitsService } from '../limits/limits.service';
 import { EmailTemplateService } from '../email/email-template.service';
 
@@ -36,14 +36,29 @@ export class TeamService {
     const actorId = this.userId(user);
     if (!actorId) throw new ForbiddenException('Missing actor');
 
-    if (String(user.role || '').toUpperCase() === Role.ADMIN) return { organizationId, actorId };
     const member = await this.prisma.organizationMember.findFirst({
       where: { organizationId, userId: actorId, status: OrganizationMemberStatus.ACTIVE },
-      select: { role: true, permissionsJson: true },
+      include: {
+        associationRole: {
+          include: { rolePermissions: { include: { permission: true } } },
+        },
+      },
     });
+    if (!member && String(user.role || '').toUpperCase() === Role.ADMIN) return { organizationId, actorId };
     if (!member) throw new ForbiddenException('Active organization membership required');
-    if (member.role === OrganizationMemberRole.ORG_ADMIN) return { organizationId, actorId };
-    const permissions = resolvePermissions(member.role, member.permissionsJson);
+    if (
+      member.associationRole?.type === AssociationRoleType.ASSOCIATION_OWNER ||
+      member.associationRole?.type === AssociationRoleType.ASSOCIATION_ADMIN ||
+      (!member.associationRole && member.role === OrganizationMemberRole.ORG_ADMIN)
+    ) {
+      return { organizationId, actorId };
+    }
+    const permissions = member.associationRole
+      ? member.associationRole.rolePermissions.reduce<Record<string, boolean>>((acc, item) => {
+          acc[permissionKey(item.permission.module as PermissionModuleKey, item.permission.action as PermissionActionKey)] = item.allowed;
+          return acc;
+        }, {})
+      : resolvePermissions(member.role, member.permissionsJson);
     if (!permissions['team.manage']) throw new ForbiddenException('Missing team.manage permission');
     return { organizationId, actorId };
   }
@@ -64,6 +79,8 @@ export class TeamService {
       select: {
         id: true,
         role: true,
+        associationRoleId: true,
+        associationRole: { select: { id: true, name: true, type: true, isSystem: true } },
         status: true,
         permissionsJson: true,
         createdAt: true,
@@ -86,6 +103,8 @@ export class TeamService {
         email: member.user.email,
         fullName: [member.user.firstName, member.user.lastName].filter(Boolean).join(' ') || null,
         role: member.role,
+        associationRoleId: member.associationRoleId,
+        associationRole: member.associationRole,
         status: member.status,
         permissions: resolvePermissions(member.role, member.permissionsJson),
         createdAt: member.createdAt,
@@ -288,7 +307,7 @@ export class TeamService {
             passwordHash,
             authProvider: AuthProvider.LOCAL,
             emailVerifiedAt: new Date(),
-            role: Role.MANAGER,
+            role: Role.ADMIN,
             platformRole: PlatformRole.ORGANIZATION_USER,
             organizationId: invitation.organizationId,
           },

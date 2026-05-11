@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import {
   ApartmentResidentRole,
   ApartmentStatus,
+  AssociationRoleType,
   DataQualityBillingImpact,
   DataQualityCategory,
   DataQualityEntityType,
@@ -11,6 +12,7 @@ import {
   MeterReadingSource,
   MeterStatus,
   MeterType,
+  OrganizationMemberStatus,
   PaymentStatus,
   Prisma,
   ResidentAccountStatus,
@@ -718,6 +720,92 @@ export class DataQualityService {
         description: 'Adresa completă ajută la documente și comunicare.',
         recommendation: 'Completează adresa în profilul asociației.',
         actionUrl: '/admin/settings/organization',
+      });
+    }
+
+    const [ownerMembers, activeStaffWithoutRole, customRolesWithoutPermissions] = await Promise.all([
+      this.prisma.organizationMember.findMany({
+        where: { organizationId: associationId, associationRole: { type: AssociationRoleType.ASSOCIATION_OWNER } },
+        select: { id: true, status: true, userId: true },
+      }),
+      this.prisma.organizationMember.findMany({
+        where: { organizationId: associationId, status: OrganizationMemberStatus.ACTIVE, associationRoleId: null },
+        select: { id: true, userId: true },
+        take: 25,
+      }),
+      this.prisma.associationRole.findMany({
+        where: {
+          organizationId: associationId,
+          type: AssociationRoleType.CUSTOM,
+          rolePermissions: { none: { allowed: true } },
+        },
+        select: { id: true, name: true },
+        take: 25,
+      }),
+    ]);
+    const activeOwners = ownerMembers.filter((member) => member.status === OrganizationMemberStatus.ACTIVE);
+    if (ownerMembers.length === 0) {
+      this.issue(issues, {
+        key: `RBAC_NO_ASSOCIATION_OWNER:${associationId}`,
+        category: DataQualityCategory.SYSTEM,
+        severity: DataQualitySeverity.CRITICAL,
+        entityType: DataQualityEntityType.SYSTEM,
+        entityId: associationId,
+        title: 'Nu există Administrator principal',
+        description: 'Asociația trebuie să aibă cel puțin un membru cu rolul Administrator principal.',
+        recommendation: 'Deschide rolurile echipei și asignează un Administrator principal.',
+        actionUrl: '/admin/settings/roles',
+      });
+    } else if (activeOwners.length === 0) {
+      this.issue(issues, {
+        key: `RBAC_LAST_OWNER_DISABLED:${associationId}`,
+        category: DataQualityCategory.SYSTEM,
+        severity: DataQualitySeverity.WARNING,
+        entityType: DataQualityEntityType.SYSTEM,
+        entityId: associationId,
+        title: 'Administratorul principal nu este activ',
+        description: 'Există rol de Administrator principal, dar niciun membru activ nu îl folosește.',
+        recommendation: 'Reactivează ownerul sau asignează rolul unui membru activ.',
+        actionUrl: '/admin/settings/roles',
+      });
+    } else if (activeOwners.length > 1) {
+      this.issue(issues, {
+        key: `RBAC_MULTIPLE_ASSOCIATION_OWNERS:${associationId}`,
+        category: DataQualityCategory.SYSTEM,
+        severity: DataQualitySeverity.INFO,
+        entityType: DataQualityEntityType.SYSTEM,
+        entityId: associationId,
+        title: 'Mai mulți administratori principali',
+        description: 'Mai mulți membri au acces complet ca Administrator principal.',
+        recommendation: 'Verifică dacă această configurație este intenționată.',
+        actionUrl: '/admin/settings/roles',
+        metadata: { ownersCount: activeOwners.length },
+      });
+    }
+    for (const member of activeStaffWithoutRole) {
+      this.issue(issues, {
+        key: `RBAC_ACTIVE_STAFF_WITHOUT_ROLE:${member.id}`,
+        category: DataQualityCategory.SYSTEM,
+        severity: DataQualitySeverity.WARNING,
+        entityType: DataQualityEntityType.SYSTEM,
+        entityId: member.id,
+        title: 'Membru activ fără rol RBAC',
+        description: 'Un membru activ al echipei nu are rol RBAC asignat.',
+        recommendation: 'Asignează un rol din pagina de permisiuni a membrului.',
+        actionUrl: `/admin/team/${member.id}/permissions`,
+      });
+    }
+    for (const role of customRolesWithoutPermissions) {
+      this.issue(issues, {
+        key: `RBAC_CUSTOM_ROLE_WITHOUT_PERMISSIONS:${role.id}`,
+        category: DataQualityCategory.SYSTEM,
+        severity: DataQualitySeverity.INFO,
+        entityType: DataQualityEntityType.SYSTEM,
+        entityId: role.id,
+        title: 'Rol custom fără permisiuni',
+        description: `Rolul ${role.name} nu are permisiuni active.`,
+        recommendation: 'Adaugă permisiuni sau șterge rolul dacă nu mai este folosit.',
+        actionUrl: `/admin/settings/roles/${role.id}/edit`,
       });
     }
 

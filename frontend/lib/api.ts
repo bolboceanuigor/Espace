@@ -442,6 +442,36 @@ export const teamApi = {
     apiRequest<any>(`/api/auth/team-invitations/${token}/accept`, { method: 'POST', body: { password } }),
 };
 
+export const adminRbacApi = {
+  roles: () => apiRequest<any>('/api/admin/settings/roles'),
+  createRole: (data: { name: string; description?: string; permissions?: Record<string, boolean> }) =>
+    apiRequest<any>('/api/admin/settings/roles', { method: 'POST', body: data }),
+  role: (id: string) => apiRequest<any>(`/api/admin/settings/roles/${id}`),
+  updateRole: (id: string, data: { name?: string; description?: string }) =>
+    apiRequest<any>(`/api/admin/settings/roles/${id}`, { method: 'PATCH', body: data }),
+  deleteRole: (id: string) => apiRequest<any>(`/api/admin/settings/roles/${id}`, { method: 'DELETE' }),
+  duplicateRole: (id: string) => apiRequest<any>(`/api/admin/settings/roles/${id}/duplicate`, { method: 'POST' }),
+  updateRolePermissions: (id: string, permissions: Record<string, boolean>, confirmCritical = false) =>
+    apiRequest<any>(`/api/admin/settings/roles/${id}/permissions`, {
+      method: 'PATCH',
+      body: { permissions, confirmCritical },
+    }),
+  resetPreset: (id: string) => apiRequest<any>(`/api/admin/settings/roles/${id}/reset-preset`, { method: 'POST' }),
+  permissions: () => apiRequest<any>('/api/admin/settings/permissions'),
+  matrix: () => apiRequest<any>('/api/admin/settings/permissions/matrix'),
+  updateMatrix: (roleId: string, permissions: Record<string, boolean>, confirmCritical = false) =>
+    apiRequest<any>('/api/admin/settings/permissions/matrix', {
+      method: 'PATCH',
+      body: { roleId, permissions, confirmCritical },
+    }),
+  myPermissions: () => apiRequest<any>('/api/admin/settings/permissions/my'),
+  teamMembers: (params?: Record<string, string | number | boolean | undefined | null>) =>
+    apiRequest<any>('/api/admin/team/permissions-members', { params }),
+  teamMemberPermissions: (memberId: string) => apiRequest<any>(`/api/admin/team/${memberId}/permissions`),
+  updateTeamMemberRole: (memberId: string, roleId: string, confirm = true) =>
+    apiRequest<any>(`/api/admin/team/${memberId}/role`, { method: 'PATCH', body: { roleId, confirm } }),
+};
+
 export const dashboardApi = {
   getMetrics: () => apiRequest<any>('/dashboard/metrics'),
 };

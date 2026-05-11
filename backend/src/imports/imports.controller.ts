@@ -3,7 +3,9 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { Role } from '@prisma/client';
 import { Response } from 'express';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { PermissionGuard } from '../auth/permission.guard';
 import { MvpAuthGuard, MvpRolesGuard, MvpUser } from '../security/mvp-auth.guard';
 import { UploadImportDto } from './dto/imports.dto';
 import { ImportsService } from './imports.service';
@@ -11,8 +13,9 @@ import { ImportsService } from './imports.service';
 const CSV_FILE_LIMIT_BYTES = 5 * 1024 * 1024;
 
 @Controller()
-@UseGuards(MvpAuthGuard, MvpRolesGuard)
+@UseGuards(MvpAuthGuard, MvpRolesGuard, PermissionGuard)
 @Roles(Role.ADMIN, Role.SUPERADMIN)
+@RequirePermission('IMPORTS', 'VIEW')
 export class ImportsController {
   constructor(private readonly importsService: ImportsService) {}
 
@@ -80,6 +83,7 @@ export class ImportsController {
   }
 
   @Patch(['admin/imports/:id/cancel', 'api/admin/imports/:id/cancel'])
+  @RequirePermission('IMPORTS', 'MANAGE')
   cancelImport(
     @CurrentUser() user: MvpUser,
     @Param('id') id: string,
@@ -89,6 +93,7 @@ export class ImportsController {
   }
 
   @Post(['admin/imports/apartments/preview', 'api/admin/imports/apartments/preview'])
+  @RequirePermission('IMPORTS', 'IMPORT')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: CSV_FILE_LIMIT_BYTES } }))
   previewApartments(
     @CurrentUser() user: MvpUser,
@@ -100,6 +105,7 @@ export class ImportsController {
   }
 
   @Post(['admin/imports/apartments/:id/confirm', 'api/admin/imports/apartments/:id/confirm'])
+  @RequirePermission('IMPORTS', 'IMPORT')
   confirmApartments(
     @CurrentUser() user: MvpUser,
     @Param('id') id: string,
@@ -110,6 +116,7 @@ export class ImportsController {
   }
 
   @Post(['admin/imports/residents/preview', 'api/admin/imports/residents/preview'])
+  @RequirePermission('IMPORTS', 'IMPORT')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: CSV_FILE_LIMIT_BYTES } }))
   previewResidents(
     @CurrentUser() user: MvpUser,
@@ -121,6 +128,7 @@ export class ImportsController {
   }
 
   @Post(['admin/imports/residents/:id/confirm', 'api/admin/imports/residents/:id/confirm'])
+  @RequirePermission('IMPORTS', 'IMPORT')
   confirmResidents(
     @CurrentUser() user: MvpUser,
     @Param('id') id: string,
@@ -131,6 +139,7 @@ export class ImportsController {
   }
 
   @Post(['admin/imports/meters/preview', 'api/admin/imports/meters/preview'])
+  @RequirePermission('IMPORTS', 'IMPORT')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: CSV_FILE_LIMIT_BYTES } }))
   previewMeters(
     @CurrentUser() user: MvpUser,
@@ -142,6 +151,7 @@ export class ImportsController {
   }
 
   @Post(['admin/imports/meters/:id/confirm', 'api/admin/imports/meters/:id/confirm'])
+  @RequirePermission('IMPORTS', 'IMPORT')
   confirmMeters(
     @CurrentUser() user: MvpUser,
     @Param('id') id: string,
@@ -152,6 +162,7 @@ export class ImportsController {
   }
 
   @Post(['admin/imports/meter-readings/preview', 'api/admin/imports/meter-readings/preview'])
+  @RequirePermission('IMPORTS', 'IMPORT')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: CSV_FILE_LIMIT_BYTES } }))
   previewMeterReadings(
     @CurrentUser() user: MvpUser,
@@ -163,6 +174,7 @@ export class ImportsController {
   }
 
   @Post(['admin/imports/meter-readings/:id/confirm', 'api/admin/imports/meter-readings/:id/confirm'])
+  @RequirePermission('IMPORTS', 'IMPORT')
   confirmMeterReadings(
     @CurrentUser() user: MvpUser,
     @Param('id') id: string,
@@ -173,6 +185,7 @@ export class ImportsController {
   }
 
   @Post(['admin/imports/:id/confirm', 'api/admin/imports/:id/confirm'])
+  @RequirePermission('IMPORTS', 'IMPORT')
   confirmImport(
     @CurrentUser() user: MvpUser,
     @Param('id') id: string,
@@ -183,6 +196,7 @@ export class ImportsController {
   }
 
   @Post(['admin/imports/upload', 'api/admin/imports/upload'])
+  @RequirePermission('IMPORTS', 'IMPORT')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: CSV_FILE_LIMIT_BYTES } }))
   legacyUpload(
     @CurrentUser() user: MvpUser,

@@ -40,6 +40,55 @@ enum OrganizationMemberStatus {
   DISABLED
 }
 
+enum AssociationRoleType {
+  ASSOCIATION_OWNER
+  ASSOCIATION_ADMIN
+  FINANCE_OPERATOR
+  METER_OPERATOR
+  SUPPORT_OPERATOR
+  READ_ONLY
+  CUSTOM
+}
+
+enum PermissionModule {
+  DASHBOARD
+  APARTMENTS
+  RESIDENTS
+  TARIFFS
+  METERS
+  METER_READINGS
+  BILLING
+  INVOICES
+  PAYMENTS
+  RECONCILIATION
+  REPORTS
+  ANNOUNCEMENTS
+  REQUESTS
+  IMPORTS
+  EXPORTS
+  DATA_QUALITY
+  TEAM
+  SETTINGS
+  AUDIT_LOG
+  NOTIFICATIONS
+}
+
+enum PermissionAction {
+  VIEW
+  CREATE
+  UPDATE
+  DELETE
+  APPROVE
+  CANCEL
+  EXPORT
+  IMPORT
+  MANAGE
+  FINALIZE
+  LOCK
+  ASSIGN
+  INVITE
+}
+
 enum AuthProvider {
   LOCAL
   GOOGLE
@@ -884,6 +933,7 @@ model Organization {
   apartments         Apartment[]
   residentProfiles   ResidentProfile[]
   residentPortalInvitations ResidentPortalInvitation[]
+  associationRoles AssociationRole[]
   meters             Meter[]
   meterReadings      MeterReading[]
   payments           Payment[]
@@ -1521,6 +1571,8 @@ model User {
   monthlyChargesCreated MonthlyCharge[] @relation("MonthlyChargeCreatedByUser")
   paymentsCreated      Payment[]     @relation("PaymentCreatedByUser")
   auditLogs            AuditLog[]    @relation("AuditLogUser")
+  associationRolesCreated AssociationRole[] @relation("AssociationRoleCreatedBy")
+  associationRolesUpdated AssociationRole[] @relation("AssociationRoleUpdatedBy")
   organizationMember   OrganizationMember?
   teamInvitations      TeamInvitation[]
   maintenanceTasksAssigned MaintenanceTask[] @relation("MaintenanceTaskAssignedTo")
@@ -1563,6 +1615,7 @@ model OrganizationMember {
   organizationId  String
   userId          String                 @unique
   role            OrganizationMemberRole
+  associationRoleId String?
   permissionsJson Json?
   status          OrganizationMemberStatus @default(ACTIVE)
   createdAt       DateTime               @default(now())
@@ -1570,10 +1623,67 @@ model OrganizationMember {
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  associationRole AssociationRole? @relation(fields: [associationRoleId], references: [id], onDelete: SetNull)
 
   @@index([organizationId, role])
+  @@index([organizationId, associationRoleId])
   @@index([organizationId, status])
   @@map("organization_members")
+}
+
+model AssociationRole {
+  id             String              @id @default(uuid())
+  organizationId String
+  name           String
+  description    String?
+  type           AssociationRoleType @default(CUSTOM)
+  isSystem       Boolean             @default(false)
+  isDefault      Boolean             @default(false)
+  createdById    String?
+  updatedById    String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  organization    Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy       User?                       @relation("AssociationRoleCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy       User?                       @relation("AssociationRoleUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  rolePermissions AssociationRolePermission[]
+  members         OrganizationMember[]
+
+  @@index([organizationId, type])
+  @@index([organizationId, isSystem])
+  @@map("association_roles")
+}
+
+model AssociationPermission {
+  id          String           @id @default(uuid())
+  module      PermissionModule
+  action      PermissionAction
+  label       String
+  description String?
+  isCritical  Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  rolePermissions AssociationRolePermission[]
+
+  @@unique([module, action])
+  @@map("association_permissions")
+}
+
+model AssociationRolePermission {
+  id           String   @id @default(uuid())
+  roleId       String
+  permissionId String
+  allowed      Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  role       AssociationRole       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission AssociationPermission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("association_role_permissions")
 }
 
 model TeamInvitation {

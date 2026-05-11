@@ -21,6 +21,8 @@ import { AdminWorkbenchModule } from './admin-workbench/admin-workbench.module';
 import { ImportsModule } from './imports/imports.module';
 import { DataQualityModule } from './data-quality/data-quality.module';
 import { ResidentAccessModule } from './resident-access/resident-access.module';
+import { TeamModule } from './team/team.module';
+import { AdminRbacModule } from './rbac/admin-rbac.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -49,6 +51,8 @@ import { AppController } from './app.controller';
     ImportsModule,
     DataQualityModule,
     ResidentAccessModule,
+    TeamModule,
+    AdminRbacModule,
   ],
   controllers: [AppController],
   providers: [],

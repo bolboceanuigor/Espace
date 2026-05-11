@@ -17,11 +17,13 @@ import {
   Megaphone,
   Receipt,
   Settings,
+  ShieldCheck,
   Upload,
   Users,
   type LucideIcon,
 } from 'lucide-react';
 import { defaultLocale, isLocale } from '@/i18n';
+import { usePermissions, type PermissionAction, type PermissionModule } from '@/hooks/usePermissions';
 
 type AppSidebarProps = {
   organizationName?: string;
@@ -33,43 +35,46 @@ type AppSidebarProps = {
 
 const sections: Array<{
   title: string;
-  items: Array<{ label: string; href: string; icon: LucideIcon }>;
+  items: Array<{ label: string; href: string; icon: LucideIcon; permission?: [PermissionModule, PermissionAction] }>;
 }> = [
   {
     title: 'Administrare',
     items: [
-      { label: 'Dashboard', href: '/admin', icon: Home },
-      { label: 'Apartamente', href: '/admin/apartments', icon: Building2 },
-      { label: 'Locatari', href: '/admin/residents', icon: Users },
-      { label: 'Tarife', href: '/admin/tariffs', icon: Calculator },
-      { label: 'Contoare', href: '/admin/meters', icon: Gauge },
+      { label: 'Dashboard', href: '/admin', icon: Home, permission: ['DASHBOARD', 'VIEW'] },
+      { label: 'Apartamente', href: '/admin/apartments', icon: Building2, permission: ['APARTMENTS', 'VIEW'] },
+      { label: 'Locatari', href: '/admin/residents', icon: Users, permission: ['RESIDENTS', 'VIEW'] },
+      { label: 'Tarife', href: '/admin/tariffs', icon: Calculator, permission: ['TARIFFS', 'VIEW'] },
+      { label: 'Contoare', href: '/admin/meters', icon: Gauge, permission: ['METERS', 'VIEW'] },
     ],
   },
   {
     title: 'Financiar',
     items: [
-      { label: 'Facturare lunară', href: '/admin/billing', icon: Receipt },
-      { label: 'Facturi interne', href: '/admin/invoices', icon: FileText },
-      { label: 'Plăți', href: '/admin/payments', icon: CreditCard },
-      { label: 'Reconciliere', href: '/admin/payments/reconciliation', icon: ListChecks },
-      { label: 'Rapoarte', href: '/admin/reports', icon: BarChart3 },
+      { label: 'Facturare lunară', href: '/admin/billing', icon: Receipt, permission: ['BILLING', 'VIEW'] },
+      { label: 'Facturi interne', href: '/admin/invoices', icon: FileText, permission: ['INVOICES', 'VIEW'] },
+      { label: 'Plăți', href: '/admin/payments', icon: CreditCard, permission: ['PAYMENTS', 'VIEW'] },
+      { label: 'Reconciliere', href: '/admin/payments/reconciliation', icon: ListChecks, permission: ['RECONCILIATION', 'VIEW'] },
+      { label: 'Rapoarte', href: '/admin/reports', icon: BarChart3, permission: ['REPORTS', 'VIEW'] },
     ],
   },
   {
     title: 'Operațional',
     items: [
-      { label: 'Anunțuri', href: '/admin/announcements', icon: Megaphone },
-      { label: 'Solicitări', href: '/admin/requests', icon: CircleAlert },
-      { label: 'Importuri', href: '/admin/imports', icon: Upload },
-      { label: 'Exporturi', href: '/admin/exports', icon: Download },
-      { label: 'Calitatea datelor', href: '/admin/data-quality', icon: ListChecks },
+      { label: 'Anunțuri', href: '/admin/announcements', icon: Megaphone, permission: ['ANNOUNCEMENTS', 'VIEW'] },
+      { label: 'Solicitări', href: '/admin/requests', icon: CircleAlert, permission: ['REQUESTS', 'VIEW'] },
+      { label: 'Importuri', href: '/admin/imports', icon: Upload, permission: ['IMPORTS', 'VIEW'] },
+      { label: 'Exporturi', href: '/admin/exports', icon: Download, permission: ['EXPORTS', 'VIEW'] },
+      { label: 'Calitatea datelor', href: '/admin/data-quality', icon: ListChecks, permission: ['DATA_QUALITY', 'VIEW'] },
     ],
   },
   {
     title: 'Sistem',
     items: [
-      { label: 'Notificări', href: '/admin/notifications', icon: Bell },
-      { label: 'Setări', href: '/admin/settings/organization', icon: Settings },
+      { label: 'Notificări', href: '/admin/notifications', icon: Bell, permission: ['NOTIFICATIONS', 'VIEW'] },
+      { label: 'Echipă', href: '/admin/team', icon: Users, permission: ['TEAM', 'VIEW'] },
+      { label: 'Roluri', href: '/admin/settings/roles', icon: ShieldCheck, permission: ['TEAM', 'VIEW'] },
+      { label: 'Permisiuni', href: '/admin/settings/permissions', icon: ShieldCheck, permission: ['TEAM', 'MANAGE'] },
+      { label: 'Setări', href: '/admin/settings/organization', icon: Settings, permission: ['SETTINGS', 'VIEW'] },
     ],
   },
 ];
@@ -83,6 +88,7 @@ export default function AppSidebar({
 }: AppSidebarProps) {
   const pathname = usePathname();
   const params = useParams<{ locale?: string }>();
+  const { can } = usePermissions();
   const localeParam = typeof params?.locale === 'string' ? params.locale : defaultLocale;
   const locale = isLocale(localeParam) ? localeParam : defaultLocale;
   const localePrefix = `/${locale}`;
@@ -110,11 +116,14 @@ export default function AppSidebar({
 
       <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
         <div className="space-y-5">
-          {sections.map((section) => (
+          {sections.map((section) => {
+            const visibleItems = section.items.filter((item) => !item.permission || can(item.permission[0], item.permission[1]));
+            if (visibleItems.length === 0) return null;
+            return (
             <div key={section.title}>
               <p className="px-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">{section.title}</p>
               <div className="mt-2 space-y-1">
-                {section.items.map((item) => {
+                {visibleItems.map((item) => {
                   const Icon = item.icon;
                   const active = isActive(item.href);
                   return (
@@ -135,7 +144,8 @@ export default function AppSidebar({
                 })}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </nav>
 

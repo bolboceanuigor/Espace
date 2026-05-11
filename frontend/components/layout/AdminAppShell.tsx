@@ -3,6 +3,7 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { Bell, Menu, Search, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { PermissionsProvider } from '@/hooks/usePermissions';
 import AppSidebar from './AppSidebar';
 
 type AdminAppShellProps = {
@@ -73,6 +74,7 @@ export default function AdminAppShell({
   );
 
   return (
+    <PermissionsProvider>
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <div className="fixed inset-y-0 left-0 z-40 hidden lg:block">
         <AppSidebar
@@ -161,5 +163,6 @@ export default function AdminAppShell({
 
       {floatingAction}
     </div>
+    </PermissionsProvider>
   );
 }
