@@ -11,6 +11,7 @@ export interface PageHeaderProps extends React.HTMLAttributes<HTMLDivElement> {
   backHref?: string;
   backLabel?: string;
   actions?: ReactNode;
+  rightSlot?: ReactNode;
   tabs?: ReactNode;
   variant?: 'default' | 'transparent' | 'compact';
 }
@@ -22,9 +23,11 @@ const variantStyles = {
 } as const;
 
 const PageHeader = forwardRef<HTMLDivElement, PageHeaderProps>(function PageHeader(
-  { title, description, badge, backHref, backLabel, actions, tabs, variant = 'default', className = '', ...props },
+  { title, description, badge, backHref, backLabel, actions, rightSlot, tabs, variant = 'default', className = '', ...props },
   ref
 ) {
+  const headerActions = actions ?? rightSlot;
+
   return (
     <div ref={ref} className={`${variantStyles[variant]} ${className}`.trim()} {...props}>
       {backHref && (
@@ -50,7 +53,7 @@ const PageHeader = forwardRef<HTMLDivElement, PageHeaderProps>(function PageHead
             </p>
           )}
         </div>
-        {actions && <div className="flex items-center gap-2 flex-shrink-0">{actions}</div>}
+        {headerActions && <div className="flex items-center gap-2 flex-shrink-0">{headerActions}</div>}
       </div>
       {tabs && <div className="mt-5 -mb-5 border-t border-border/60 pt-4">{tabs}</div>}
     </div>
