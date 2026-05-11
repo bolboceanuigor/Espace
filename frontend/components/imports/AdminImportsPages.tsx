@@ -2,15 +2,16 @@
 
 import { ChangeEvent, ReactNode, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { AlertTriangle, CheckCircle2, Download, FileSpreadsheet, History, RotateCcw, UploadCloud, Users, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Download, FileSpreadsheet, Gauge, History, ListChecks, RotateCcw, UploadCloud, Users, XCircle } from 'lucide-react';
 import { Badge, Button, Card, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
 import EmptyState from '@/components/common/EmptyState';
 import { importsApi } from '@/lib/api';
 import { downloadBlob } from '@/lib/download';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
-type ImportType = 'APARTMENTS' | 'RESIDENTS';
+type ImportType = 'APARTMENTS' | 'RESIDENTS' | 'METERS' | 'METER_READINGS';
 type ImportMode = 'CREATE_ONLY' | 'UPSERT_SAFE';
+type TemplateType = 'apartments' | 'residents' | 'meters' | 'meter-readings';
 type ImportRow = {
   id: string;
   rowNumber: number;
@@ -94,7 +95,7 @@ export function AdminImportsPage() {
         }
       />
 
-      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         <ImportCard
           title="Import apartamente"
           description="Încarcă numere, scări, etaje, suprafețe și statusuri pentru apartamente."
@@ -110,6 +111,22 @@ export function AdminImportsPage() {
           template="residents"
           action="Importă persoane"
           icon={<Users className="h-5 w-5" />}
+        />
+        <ImportCard
+          title="Import contoare"
+          description="Importă contoarele apartamentelor dintr-un fișier CSV."
+          href="/admin/imports/meters"
+          template="meters"
+          action="Importă contoare"
+          icon={<Gauge className="h-5 w-5" />}
+        />
+        <ImportCard
+          title="Import indici contoare"
+          description="Importă indicii inițiali sau lunari pentru contoarele existente."
+          href="/admin/imports/meter-readings"
+          template="meter-readings"
+          action="Importă indici"
+          icon={<ListChecks className="h-5 w-5" />}
         />
         <Card className="p-4">
           <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-muted/45">
@@ -130,6 +147,8 @@ export function AdminImportsPage() {
           <div className="mt-5 grid gap-2">
             <TemplateButton type="apartments" label="Template apartamente" />
             <TemplateButton type="residents" label="Template locatari" />
+            <TemplateButton type="meters" label="Template contoare" />
+            <TemplateButton type="meter-readings" label="Template indici" />
           </div>
         </Card>
       </section>
@@ -172,7 +191,7 @@ export function AdminImportsPage() {
   );
 }
 
-function ImportCard({ title, description, href, template, action, icon }: { title: string; description: string; href: string; template: 'apartments' | 'residents'; action: string; icon: ReactNode }) {
+function ImportCard({ title, description, href, template, action, icon }: { title: string; description: string; href: string; template: TemplateType; action: string; icon: ReactNode }) {
   const localizedPath = useLocalizedPath();
   return (
     <Card className="flex h-full flex-col justify-between p-4">
@@ -198,16 +217,22 @@ function ImportCard({ title, description, href, template, action, icon }: { titl
 export function AdminCsvImportPage({ type }: { type: ImportType }) {
   const localizedPath = useLocalizedPath();
   const isResidents = type === 'RESIDENTS';
+  const isMeters = type === 'METERS';
+  const isMeterReadings = type === 'METER_READINGS';
   const [file, setFile] = useState<File | null>(null);
   const [mode, setMode] = useState<ImportMode>('CREATE_ONLY');
   const [delimiter, setDelimiter] = useState(';');
   const [primaryContactStrategy, setPrimaryContactStrategy] = useState('KEEP_FIRST');
   const [defaultRole, setDefaultRole] = useState('OWNER');
   const [defaultStatus, setDefaultStatus] = useState(isResidents ? 'ACTIVE' : '');
+  const [duplicateApprovedPolicy, setDuplicateApprovedPolicy] = useState('ERROR');
+  const [lowerThanPreviousPolicy, setLowerThanPreviousPolicy] = useState('MARK_NEEDS_REVIEW');
+  const [createMissingMeters, setCreateMissingMeters] = useState(false);
   const [detail, setDetail] = useState<ImportDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [checked, setChecked] = useState(false);
+  const [approvedChecked, setApprovedChecked] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -215,7 +240,17 @@ export function AdminCsvImportPage({ type }: { type: ImportType }) {
   const rows = detail?.previewRows || [];
   const hasErrors = Boolean(job && Number(job.errorRows || 0) > 0);
   const isCompleted = job?.status === 'COMPLETED' || job?.status === 'IMPORTED';
-  const sourceHref = isResidents ? '/admin/residents' : '/admin/apartments';
+  const hasApprovedReadings = isMeterReadings && rows.some((row) => String(row.normalizedData?.status || '').toUpperCase() === 'APPROVED');
+  const sourceHref = isResidents ? '/admin/residents' : isMeters ? '/admin/meters' : isMeterReadings ? '/admin/meter-readings' : '/admin/apartments';
+  const templateType: TemplateType = isResidents ? 'residents' : isMeters ? 'meters' : isMeterReadings ? 'meter-readings' : 'apartments';
+  const pageTitle = isResidents ? 'Import locatari/proprietari' : isMeters ? 'Import contoare' : isMeterReadings ? 'Import indici contoare' : 'Import apartamente';
+  const pageDescription = isResidents
+    ? 'Încarcă persoane și relații apartament-locatar din CSV.'
+    : isMeters
+      ? 'Încarcă contoarele apartamentelor din CSV.'
+      : isMeterReadings
+        ? 'Încarcă indici inițiali sau lunari pentru contoarele existente.'
+        : 'Încarcă apartamentele asociației din CSV.';
 
   function onFileChange(event: ChangeEvent<HTMLInputElement>) {
     setFile(event.target.files?.[0] || null);
@@ -240,9 +275,21 @@ export function AdminCsvImportPage({ type }: { type: ImportType }) {
       formData.set('defaultRole', defaultRole);
       formData.set('defaultStatus', defaultStatus);
     }
+    if (isMeterReadings) {
+      formData.set('defaultStatus', defaultStatus || 'APPROVED');
+      formData.set('duplicateApprovedPolicy', duplicateApprovedPolicy);
+      formData.set('lowerThanPreviousPolicy', lowerThanPreviousPolicy);
+      formData.set('createMissingMeters', String(createMissingMeters));
+    }
     setLoading(true);
     try {
-      const response = isResidents ? await importsApi.previewResidents(formData) : await importsApi.previewApartments(formData);
+      const response = isResidents
+        ? await importsApi.previewResidents(formData)
+        : isMeters
+          ? await importsApi.previewMeters(formData)
+          : isMeterReadings
+            ? await importsApi.previewMeterReadings(formData)
+            : await importsApi.previewApartments(formData);
       setDetail(response.data);
       setSuccess('Preview-ul a fost generat. Verifică rândurile înainte de confirmare.');
     } catch (err: any) {
@@ -258,10 +305,17 @@ export function AdminCsvImportPage({ type }: { type: ImportType }) {
     setError('');
     setSuccess('');
     try {
-      const response = isResidents ? await importsApi.confirmResidents(job.id) : await importsApi.confirmApartments(job.id);
+      const response = isResidents
+        ? await importsApi.confirmResidents(job.id)
+        : isMeters
+          ? await importsApi.confirmMeters(job.id)
+          : isMeterReadings
+            ? await importsApi.confirmMeterReadings(job.id)
+            : await importsApi.confirmApartments(job.id);
       setDetail(response.data);
       setConfirmOpen(false);
       setChecked(false);
+      setApprovedChecked(false);
       setSuccess('Importul a fost finalizat. Verifică datele importate înainte de facturare.');
     } catch (err: any) {
       setError(String(err?.message || 'Nu am putut confirma importul.'));
@@ -273,11 +327,11 @@ export function AdminCsvImportPage({ type }: { type: ImportType }) {
   return (
     <div className="space-y-5 pb-8">
       <PageHeader
-        title={isResidents ? 'Import locatari/proprietari' : 'Import apartamente'}
-        description={isResidents ? 'Încarcă persoane și relații apartament-locatar din CSV.' : 'Încarcă apartamentele asociației din CSV.'}
+        title={pageTitle}
+        description={pageDescription}
         rightSlot={
           <div className="flex flex-wrap items-center gap-2">
-            <TemplateButton type={isResidents ? 'residents' : 'apartments'} label="Descarcă template CSV" />
+            <TemplateButton type={templateType} label="Descarcă template CSV" />
             <Link href={localizedPath(sourceHref)} className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-border/70 px-4 text-sm font-semibold hover:bg-muted/60">
               Înapoi
             </Link>
@@ -316,6 +370,17 @@ export function AdminCsvImportPage({ type }: { type: ImportType }) {
                 <Select label="Contact principal" value={primaryContactStrategy} onChange={setPrimaryContactStrategy} options={['KEEP_FIRST', 'LAST_WINS', 'ERROR']} labels={{ KEEP_FIRST: 'Păstrează primul', LAST_WINS: 'Ultimul câștigă', ERROR: 'Blochează duplicatul' }} />
                 <Select label="Rol implicit" value={defaultRole} onChange={setDefaultRole} options={['OWNER', 'TENANT', 'REPRESENTATIVE']} labels={{ OWNER: 'Proprietar', TENANT: 'Chiriaș', REPRESENTATIVE: 'Reprezentant' }} />
                 <Select label="Status implicit" value={defaultStatus} onChange={setDefaultStatus} options={['ACTIVE', 'INVITED', 'NOT_INVITED', 'INACTIVE']} labels={{ ACTIVE: 'Activ', INVITED: 'Invitat', NOT_INVITED: 'Neinvitat', INACTIVE: 'Inactiv' }} />
+              </>
+            ) : null}
+            {isMeterReadings ? (
+              <>
+                <Select label="Status implicit indici" value={defaultStatus || 'APPROVED'} onChange={setDefaultStatus} options={['APPROVED', 'SUBMITTED', 'NEEDS_REVIEW']} labels={{ APPROVED: 'Aprobat', SUBMITTED: 'În așteptare', NEEDS_REVIEW: 'Needs review' }} />
+                <Select label="Duplicate APPROVED" value={duplicateApprovedPolicy} onChange={setDuplicateApprovedPolicy} options={['ERROR', 'SKIP', 'UPDATE_ONLY_IF_NOT_FINAL']} labels={{ ERROR: 'Blochează', SKIP: 'Omite rândul', UPDATE_ONLY_IF_NOT_FINAL: 'Update doar nefinalizat' }} />
+                <Select label="Valoare sub precedent" value={lowerThanPreviousPolicy} onChange={setLowerThanPreviousPolicy} options={['MARK_NEEDS_REVIEW', 'ERROR']} labels={{ MARK_NEEDS_REVIEW: 'Marchează needs review', ERROR: 'Blochează' }} />
+                <label className="flex min-h-11 items-center gap-2 rounded-2xl border border-border/70 px-3 text-sm font-medium text-foreground">
+                  <input type="checkbox" checked={createMissingMeters} onChange={(event) => setCreateMissingMeters(event.target.checked)} />
+                  Creează contoare lipsă
+                </label>
               </>
             ) : null}
             <Button onClick={previewImport} isLoading={loading}>
@@ -375,19 +440,33 @@ export function AdminCsvImportPage({ type }: { type: ImportType }) {
           <div className="space-y-3 text-sm text-muted-foreground">
             <p>Vor fi procesate rândurile valide și cele cu warnings. Rândurile cu erori nu pot fi importate.</p>
             <div className="rounded-2xl border border-border/70 bg-muted/25 p-3">
-              <p>Apartamente/persoane de creat: <strong>{job?.createdCount || 0}</strong></p>
-              <p>Apartamente/persoane de actualizat: <strong>{job?.updatedCount || 0}</strong></p>
+              <p>{isMeterReadings ? 'Indici' : isMeters ? 'Contoare' : 'Apartamente/persoane'} de creat: <strong>{job?.createdCount || 0}</strong></p>
+              <p>{isMeterReadings ? 'Indici' : isMeters ? 'Contoare' : 'Apartamente/persoane'} de actualizat: <strong>{job?.updatedCount || 0}</strong></p>
+              {isMeterReadings ? (
+                <>
+                  <p>Indici APPROVED: <strong>{detail?.summary?.approvedReadingsCount || rows.filter((row) => row.normalizedData?.status === 'APPROVED').length}</strong></p>
+                  <p>Indici SUBMITTED: <strong>{detail?.summary?.submittedReadingsCount || rows.filter((row) => row.normalizedData?.status === 'SUBMITTED').length}</strong></p>
+                  <p>NEEDS_REVIEW: <strong>{detail?.summary?.needsReviewReadingsCount || rows.filter((row) => row.normalizedData?.status === 'NEEDS_REVIEW').length}</strong></p>
+                  <p>Contoare lipsă de creat: <strong>{detail?.summary?.createdMetersCount || rows.filter((row) => row.normalizedData?.createMissingMeter).length}</strong></p>
+                </>
+              ) : null}
               <p>Warnings: <strong>{job?.warningRows || 0}</strong></p>
             </div>
             <label className="flex items-start gap-2 rounded-2xl border border-border/70 p-3 text-foreground">
               <input className="mt-1" type="checkbox" checked={checked} onChange={(event) => setChecked(event.target.checked)} />
-              <span>Confirm că am verificat datele și vreau să aplic importul.</span>
+              <span>{isMeterReadings ? 'Confirm că am verificat datele și vreau să aplic importul indicilor.' : isMeters ? 'Confirm că am verificat datele și vreau să aplic importul contoarelor.' : 'Confirm că am verificat datele și vreau să aplic importul.'}</span>
             </label>
+            {hasApprovedReadings ? (
+              <label className="flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-amber-900">
+                <input className="mt-1" type="checkbox" checked={approvedChecked} onChange={(event) => setApprovedChecked(event.target.checked)} />
+                <span>Înțeleg că indicii aprobați pot fi folosiți ulterior la calculul tarifelor pe consum.</span>
+              </label>
+            ) : null}
           </div>
         </ModalBody>
         <ModalFooter>
           <Button variant="secondary" onClick={() => setConfirmOpen(false)} disabled={loading}>Anulează</Button>
-          <Button onClick={confirmImport} disabled={!checked || loading} isLoading={loading}>Aplică importul</Button>
+          <Button onClick={confirmImport} disabled={!checked || (hasApprovedReadings && !approvedChecked) || loading} isLoading={loading}>Aplică importul</Button>
         </ModalFooter>
       </Modal>
     </div>
@@ -418,7 +497,7 @@ export function AdminImportHistoryPage() {
         rightSlot={<Link href={localizedPath('/admin/imports')} className="rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold hover:bg-muted/60">Înapoi la importuri</Link>}
       />
       <Card className="grid gap-3 md:grid-cols-2">
-        <Select label="Tip import" value={type} onChange={setType} options={['ALL', 'APARTMENTS', 'RESIDENTS']} labels={{ ALL: 'Toate tipurile', APARTMENTS: 'Apartamente', RESIDENTS: 'Locatari' }} />
+          <Select label="Tip import" value={type} onChange={setType} options={['ALL', 'APARTMENTS', 'RESIDENTS', 'METERS', 'METER_READINGS']} labels={{ ALL: 'Toate tipurile', APARTMENTS: 'Apartamente', RESIDENTS: 'Locatari', METERS: 'Contoare', METER_READINGS: 'Indici contoare' }} />
         <Select label="Status" value={status} onChange={setStatus} options={['ALL', 'VALIDATED', 'COMPLETED', 'FAILED', 'CANCELLED']} labels={{ ALL: 'Toate statusurile', VALIDATED: 'Validat', COMPLETED: 'Finalizat', FAILED: 'Eșuat', CANCELLED: 'Anulat' }} />
       </Card>
       {loading ? <Card className="h-32 animate-pulse bg-muted/35" /> : null}
@@ -545,13 +624,28 @@ function PreviewTable({ rows }: { rows: ImportRow[] }) {
   );
 }
 
-function TemplateButton({ type, label, compact = false }: { type: 'apartments' | 'residents'; label: string; compact?: boolean }) {
+function TemplateButton({ type, label, compact = false }: { type: TemplateType; label: string; compact?: boolean }) {
   const [loading, setLoading] = useState(false);
   async function download() {
     setLoading(true);
     try {
-      const response = type === 'apartments' ? await importsApi.apartmentsTemplateCsv() : await importsApi.residentsTemplateCsv();
-      downloadBlob(response.data, type === 'apartments' ? 'template-apartamente.csv' : 'template-locatari.csv');
+      const response =
+        type === 'apartments'
+          ? await importsApi.apartmentsTemplateCsv()
+          : type === 'residents'
+            ? await importsApi.residentsTemplateCsv()
+            : type === 'meters'
+              ? await importsApi.metersTemplateCsv()
+              : await importsApi.meterReadingsTemplateCsv();
+      const fileName =
+        type === 'apartments'
+          ? 'template-apartamente.csv'
+          : type === 'residents'
+            ? 'template-locatari.csv'
+            : type === 'meters'
+              ? 'template-contoare.csv'
+              : 'template-indici-contoare.csv';
+      downloadBlob(response.data, fileName);
     } finally {
       setLoading(false);
     }
@@ -588,7 +682,7 @@ function activeStep(job: ImportJob | undefined, rowsCount: number) {
 }
 
 function compactRow(value: Record<string, unknown>) {
-  const picked = ['apartmentNumber', 'fullName', 'phone', 'email', 'building', 'staircase', 'floor', 'areaM2', 'role', 'status']
+  const picked = ['apartmentNumber', 'fullName', 'phone', 'email', 'building', 'staircase', 'floor', 'areaM2', 'role', 'meterType', 'meterNumber', 'periodMonth', 'readingValue', 'previousReadingValue', 'consumptionValue', 'unit', 'status']
     .map((key) => {
       const entry = value?.[key];
       return entry === undefined || entry === null || entry === '' ? '' : `${key}: ${entry}`;

@@ -14,6 +14,7 @@ import {
   Plus,
   RefreshCw,
   Send,
+  UploadCloud,
   XCircle,
 } from 'lucide-react';
 import {
@@ -38,6 +39,7 @@ const meterTypes = [
   { value: 'ELECTRICITY', label: 'Electricitate', unit: 'kWh' },
   { value: 'GAS', label: 'Gaz', unit: 'm³' },
   { value: 'HEAT', label: 'Căldură', unit: 'Gcal' },
+  { value: 'OTHER', label: 'Altul', unit: 'unit' },
 ];
 
 const readingStatuses: Record<string, { label: string; variant: 'default' | 'success' | 'warning' | 'error' | 'neutral' }> = {
@@ -311,9 +313,10 @@ export function AdminMetersPage() {
               <ListChecks className="h-4 w-4" />
               Vezi indici transmiși
             </ButtonLink>
-            <Button variant="secondary" onClick={() => alert('Importul contoarelor va fi disponibil într-un pas următor.')}>
-              Import contoare
-            </Button>
+            <ButtonLink href="/admin/imports/meters" variant="secondary">
+              <UploadCloud className="h-4 w-4" />
+              Importă contoare
+            </ButtonLink>
             <Button onClick={() => setModalOpen(true)}>
               <Plus className="h-4 w-4" />
               Adaugă contor
@@ -385,7 +388,12 @@ export function AdminMetersPage() {
         <EmptyState
           title="Nu există contoare"
           text="Adaugă contoarele apartamentelor pentru a putea colecta indicii lunar."
-          action={<Button onClick={() => setModalOpen(true)}>Adaugă contor</Button>}
+          action={
+            <div className="flex flex-wrap justify-center gap-2">
+              <ButtonLink href="/admin/imports/meters" variant="secondary">Importă contoare</ButtonLink>
+              <Button onClick={() => setModalOpen(true)}>Adaugă contor</Button>
+            </div>
+          }
         />
       )}
 
@@ -630,6 +638,10 @@ export function AdminMeterReadingsPage() {
               <Gauge className="h-4 w-4" />
               Contoare
             </ButtonLink>
+            <ButtonLink href="/admin/imports/meter-readings" variant="secondary">
+              <UploadCloud className="h-4 w-4" />
+              Importă indici
+            </ButtonLink>
           </div>
         }
       />
@@ -687,7 +699,11 @@ export function AdminMeterReadingsPage() {
           ))}
         </Card>
       ) : (
-        <EmptyState title="Nu există indici transmiși" text="Indicii trimiși de locatari vor apărea aici." />
+        <EmptyState
+          title="Nu există indici transmiși"
+          text="Indicii trimiși de locatari sau importați de administrator vor apărea aici."
+          action={<ButtonLink href="/admin/imports/meter-readings" variant="secondary">Importă indici</ButtonLink>}
+        />
       )}
     </div>
   );

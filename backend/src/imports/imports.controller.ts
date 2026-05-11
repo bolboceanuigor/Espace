@@ -32,6 +32,16 @@ export class ImportsController {
     this.sendCsv(res, this.importsService.templateResidentsCsv());
   }
 
+  @Get(['admin/imports/templates/meters.csv', 'api/admin/imports/templates/meters.csv'])
+  templateMetersCsv(@Res() res: Response) {
+    this.sendCsv(res, this.importsService.templateMetersCsv());
+  }
+
+  @Get(['admin/imports/templates/meter-readings.csv', 'api/admin/imports/templates/meter-readings.csv'])
+  templateMeterReadingsCsv(@Res() res: Response) {
+    this.sendCsv(res, this.importsService.templateMeterReadingsCsv());
+  }
+
   @Get(['admin/imports', 'api/admin/imports'])
   listImports(
     @CurrentUser() user: MvpUser,
@@ -118,6 +128,48 @@ export class ImportsController {
     @Headers('x-org-id') activeOrganizationId?: string,
   ) {
     return this.importsService.confirmResidentsCsv(user, id, body, activeOrganizationId);
+  }
+
+  @Post(['admin/imports/meters/preview', 'api/admin/imports/meters/preview'])
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: CSV_FILE_LIMIT_BYTES } }))
+  previewMeters(
+    @CurrentUser() user: MvpUser,
+    @Body() body: Record<string, unknown>,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Headers('x-org-id') activeOrganizationId?: string,
+  ) {
+    return this.importsService.previewMetersCsv(user, body, file, activeOrganizationId);
+  }
+
+  @Post(['admin/imports/meters/:id/confirm', 'api/admin/imports/meters/:id/confirm'])
+  confirmMeters(
+    @CurrentUser() user: MvpUser,
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Headers('x-org-id') activeOrganizationId?: string,
+  ) {
+    return this.importsService.confirmMetersCsv(user, id, body, activeOrganizationId);
+  }
+
+  @Post(['admin/imports/meter-readings/preview', 'api/admin/imports/meter-readings/preview'])
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: CSV_FILE_LIMIT_BYTES } }))
+  previewMeterReadings(
+    @CurrentUser() user: MvpUser,
+    @Body() body: Record<string, unknown>,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Headers('x-org-id') activeOrganizationId?: string,
+  ) {
+    return this.importsService.previewMeterReadingsCsv(user, body, file, activeOrganizationId);
+  }
+
+  @Post(['admin/imports/meter-readings/:id/confirm', 'api/admin/imports/meter-readings/:id/confirm'])
+  confirmMeterReadings(
+    @CurrentUser() user: MvpUser,
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Headers('x-org-id') activeOrganizationId?: string,
+  ) {
+    return this.importsService.confirmMeterReadingsCsv(user, id, body, activeOrganizationId);
   }
 
   @Post(['admin/imports/:id/confirm', 'api/admin/imports/:id/confirm'])

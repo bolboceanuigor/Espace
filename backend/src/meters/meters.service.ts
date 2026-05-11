@@ -2230,9 +2230,6 @@ export class MetersService {
   private normalizeMeterType(value: unknown): MeterType {
     const normalized = this.requiredString(value, 'Tipul contorului este obligatoriu.').toUpperCase();
     const mapped = normalized === 'HEAT' ? 'HEATING' : normalized;
-    if (mapped === 'OTHER') {
-      throw new BadRequestException('Tipul OTHER va fi disponibil după extinderea schemei de contoare.');
-    }
     const allowed = Object.values(MeterType) as string[];
     if (!allowed.includes(mapped)) throw new BadRequestException('Tipul contorului nu este valid.');
     return mapped as MeterType;

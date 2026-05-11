@@ -1422,15 +1422,25 @@ export const importsApi = {
     apiRequest<any>(`/api/admin/imports/apartments/${id}/confirm`, { method: 'POST', body: { confirm: true } }),
   confirmResidents: (id: string) =>
     apiRequest<any>(`/api/admin/imports/residents/${id}/confirm`, { method: 'POST', body: { confirm: true } }),
+  confirmMeters: (id: string) =>
+    apiRequest<any>(`/api/admin/imports/meters/${id}/confirm`, { method: 'POST', body: { confirm: true } }),
+  confirmMeterReadings: (id: string) =>
+    apiRequest<any>(`/api/admin/imports/meter-readings/${id}/confirm`, { method: 'POST', body: { confirm: true } }),
   apartmentsTemplateCsv: () => apiRequest<Blob>('/api/admin/imports/templates/apartments.csv', { responseType: 'blob' }),
   residentsTemplateCsv: () => apiRequest<Blob>('/api/admin/imports/templates/residents.csv', { responseType: 'blob' }),
-  downloadTemplate: (type: 'BUILDINGS' | 'STAIRCASES' | 'APARTMENTS' | 'RESIDENTS' | 'INITIAL_BALANCES') =>
+  metersTemplateCsv: () => apiRequest<Blob>('/api/admin/imports/templates/meters.csv', { responseType: 'blob' }),
+  meterReadingsTemplateCsv: () => apiRequest<Blob>('/api/admin/imports/templates/meter-readings.csv', { responseType: 'blob' }),
+  downloadTemplate: (type: 'BUILDINGS' | 'STAIRCASES' | 'APARTMENTS' | 'RESIDENTS' | 'METERS' | 'METER_READINGS' | 'INITIAL_BALANCES') =>
     apiRequest<Blob>(`/api/admin/imports/templates/${type}`, { responseType: 'blob' }),
   previewApartments: (data: FormData) =>
     apiRequest<any>('/api/admin/imports/apartments/preview', { method: 'POST', body: data }),
   previewResidents: (data: FormData) =>
     apiRequest<any>('/api/admin/imports/residents/preview', { method: 'POST', body: data }),
-  upload: async (type: 'BUILDINGS' | 'STAIRCASES' | 'APARTMENTS' | 'RESIDENTS' | 'INITIAL_BALANCES', file: File) => {
+  previewMeters: (data: FormData) =>
+    apiRequest<any>('/api/admin/imports/meters/preview', { method: 'POST', body: data }),
+  previewMeterReadings: (data: FormData) =>
+    apiRequest<any>('/api/admin/imports/meter-readings/preview', { method: 'POST', body: data }),
+  upload: async (type: 'BUILDINGS' | 'STAIRCASES' | 'APARTMENTS' | 'RESIDENTS' | 'METERS' | 'METER_READINGS' | 'INITIAL_BALANCES', file: File) => {
     const apiUrl = requireApiUrl();
     const formData = new FormData();
     formData.append('type', type);

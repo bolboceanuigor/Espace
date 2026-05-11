@@ -313,6 +313,8 @@ enum ImportType {
   STAIRCASES
   APARTMENTS
   RESIDENTS
+  METERS
+  METER_READINGS
   INITIAL_BALANCES
 }
 
@@ -662,6 +664,7 @@ enum MeterType {
   GAS
   ELECTRICITY
   HEATING
+  OTHER
 }
 
 enum MeterStatus {
@@ -674,6 +677,7 @@ enum MeterStatus {
 enum MeterReadingSource {
   ADMIN
   RESIDENT
+  SYSTEM
 }
 
 enum InvoiceStatus {

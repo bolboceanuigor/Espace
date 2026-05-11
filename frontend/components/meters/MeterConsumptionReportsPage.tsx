@@ -566,7 +566,12 @@ export function MeterConsumptionReportsPage() {
         <EmptyState
           title="Nu există contoare configurate"
           text="Adaugă contoarele apartamentelor pentru a putea genera rapoarte de consum."
-          action={<ButtonLink href="/admin/meters">Adaugă contoare</ButtonLink>}
+          action={
+            <div className="flex flex-wrap justify-center gap-2">
+              <ButtonLink href="/admin/imports/meters" variant="secondary">Importă contoare</ButtonLink>
+              <ButtonLink href="/admin/meters">Adaugă contoare</ButtonLink>
+            </div>
+          }
         />
       ) : (
         <>
