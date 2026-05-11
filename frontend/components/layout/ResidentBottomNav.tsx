@@ -13,21 +13,6 @@ const ITEMS = [
   { href: '/resident/profile', label: 'Cont', icon: Menu },
 ];
 
-export function ResidentProfileShortcut() {
-  const params = useParams<{ locale?: string }>();
-  const localeParam = typeof params?.locale === 'string' ? params.locale : defaultLocale;
-  const locale = isLocale(localeParam) ? localeParam : defaultLocale;
-
-  return (
-    <Link
-      href={`/${locale}/resident/profile`}
-      className="flex items-center justify-center size-9 rounded-full bg-muted hover:bg-muted/80 transition-colors"
-    >
-      <Menu className="size-4" />
-    </Link>
-  );
-}
-
 export default function ResidentBottomNav() {
   const pathname = usePathname();
   const params = useParams<{ locale?: string }>();
@@ -56,5 +41,21 @@ export default function ResidentBottomNav() {
         })}
       </div>
     </nav>
+  );
+}
+
+export function ResidentProfileShortcut() {
+  const params = useParams<{ locale?: string }>();
+  const localeParam = typeof params?.locale === 'string' ? params.locale : defaultLocale;
+  const locale = isLocale(localeParam) ? localeParam : defaultLocale;
+
+  return (
+    <Link
+      href={`/${locale}/resident/profile`}
+      className="hidden min-h-10 items-center gap-2 rounded-2xl border border-border/70 bg-white px-3 text-sm font-semibold text-foreground shadow-sm transition hover:bg-muted/60 md:inline-flex"
+    >
+      <Menu className="h-4 w-4" />
+      Cont
+    </Link>
   );
 }
