@@ -13,6 +13,21 @@ const ITEMS = [
   { href: '/resident/profile', label: 'Cont', icon: Menu },
 ];
 
+export function ResidentProfileShortcut() {
+  const params = useParams<{ locale?: string }>();
+  const localeParam = typeof params?.locale === 'string' ? params.locale : defaultLocale;
+  const locale = isLocale(localeParam) ? localeParam : defaultLocale;
+
+  return (
+    <Link
+      href={`/${locale}/resident/profile`}
+      className="flex items-center justify-center size-9 rounded-full bg-muted hover:bg-muted/80 transition-colors"
+    >
+      <Menu className="size-4" />
+    </Link>
+  );
+}
+
 export default function ResidentBottomNav() {
   const pathname = usePathname();
   const params = useParams<{ locale?: string }>();
