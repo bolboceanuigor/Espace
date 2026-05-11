@@ -23,21 +23,21 @@ const demoRoles: Array<{
     title: 'Superadmin',
     description: 'Gestionează asociații, administratori și configurarea platformei.',
     button: 'Intră ca Superadmin de test',
-    icon: <ShieldCheck className="h-5 w-5" />,
+    icon: <ShieldCheck className="size-5" />,
   },
   {
     role: 'ADMIN',
     title: 'Administrator APC',
     description: 'Administrează apartamente, locatari, contoare, plăți și cereri.',
     button: 'Intră ca Administrator de test',
-    icon: <Building2 className="h-5 w-5" />,
+    icon: <Building2 className="size-5" />,
   },
   {
     role: 'RESIDENT',
     title: 'Locatar',
     description: 'Vezi facturi, transmite citiri, urmărește cereri și mesaje.',
     button: 'Intră ca Locatar de test',
-    icon: <UserRound className="h-5 w-5" />,
+    icon: <UserRound className="size-5" />,
   },
 ];
 
@@ -117,38 +117,40 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(15,23,42,0.08),transparent_34%),linear-gradient(180deg,#f8fafc_0%,#eef2f7_100%)] px-4 py-8">
+    <main className="min-h-screen bg-background px-4 py-8">
       <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-5xl items-center justify-center">
-        <section className="w-full overflow-hidden rounded-[2rem] border border-border/70 bg-white/92 shadow-[0_28px_90px_rgba(15,23,42,0.12)]">
+        <section className="w-full overflow-hidden rounded-2xl border border-border bg-card shadow-card-hover">
           <div className="grid lg:grid-cols-[0.9fr_1.1fr]">
+            {/* Left Panel - Branding */}
             <div className="bg-foreground p-6 text-background md:p-8">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-xl font-semibold text-foreground">E</div>
+              <div className="flex size-12 items-center justify-center rounded-xl bg-accent text-xl font-bold text-accent-foreground">E</div>
               <h1 className="mt-8 text-3xl font-semibold tracking-tight md:text-4xl">Espace</h1>
               <p className="mt-4 max-w-sm text-sm leading-6 text-background/75">
                 Intră în platforma pentru condominii și A.P.C. din Republica Moldova.
               </p>
-              <div className="mt-8 rounded-2xl border border-white/15 bg-white/10 p-4 text-sm text-background/80">
+              <div className="mt-8 rounded-xl border border-white/15 bg-white/10 p-4 text-sm text-background/80">
                 Autentificarea reală folosește backend-ul Espace și datele A.P.C. din Supabase.
               </div>
             </div>
 
+            {/* Right Panel - Form */}
             <div className="p-5 md:p-8">
               <div className="mb-6">
                 <p className="text-sm font-semibold text-muted-foreground">Intră în platformă</p>
                 <h2 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">Autentificare</h2>
               </div>
 
-              <form onSubmit={submitRealLogin} className="space-y-3">
+              <form onSubmit={submitRealLogin} className="space-y-4">
                 <label className="grid gap-1.5">
                   <span className="text-sm font-medium text-foreground">Email</span>
                   <span className="relative">
-                    <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                     <input
                       type="email"
                       value={email}
                       onChange={(event) => setEmail(event.target.value)}
                       autoComplete="email"
-                      className="h-12 w-full rounded-2xl border border-border/70 bg-white pl-10 pr-3 text-sm text-foreground outline-none transition focus:ring-2 focus:ring-foreground/10"
+                      className="h-12 w-full rounded-xl border border-border bg-background pl-10 pr-3 text-sm text-foreground outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
                       placeholder="email@espace.md"
                     />
                   </span>
@@ -156,23 +158,23 @@ export default function LoginPage() {
                 <label className="grid gap-1.5">
                   <span className="text-sm font-medium text-foreground">Parolă</span>
                   <span className="relative">
-                    <LockKeyhole className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <LockKeyhole className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                     <input
                       type="password"
                       value={password}
                       onChange={(event) => setPassword(event.target.value)}
                       autoComplete="current-password"
-                      className="h-12 w-full rounded-2xl border border-border/70 bg-white pl-10 pr-3 text-sm text-foreground outline-none transition focus:ring-2 focus:ring-foreground/10"
+                      className="h-12 w-full rounded-xl border border-border bg-background pl-10 pr-3 text-sm text-foreground outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
                       placeholder="Parola contului"
                     />
                   </span>
                 </label>
 
                 {error ? (
-                  <p className="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">{error}</p>
+                  <p className="rounded-xl border border-critical/30 bg-critical/10 px-3 py-2 text-sm font-medium text-critical">{error}</p>
                 ) : null}
                 {!apiBaseUrl ? (
-                  <p className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
+                  <p className="rounded-xl border border-warning/30 bg-warning/10 px-3 py-2 text-sm font-medium text-warning">
                     API-ul nu este disponibil temporar.
                   </p>
                 ) : null}
@@ -180,7 +182,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-foreground px-4 text-sm font-semibold text-background transition hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-12 w-full items-center justify-center rounded-xl bg-accent px-4 text-sm font-semibold text-accent-foreground shadow-button transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSubmitting ? 'Se autentifică...' : 'Autentificare'}
                 </button>
@@ -189,12 +191,12 @@ export default function LoginPage() {
               {ENABLE_DEMO_LOGIN ? (
                 <>
                   <div className="my-6 flex items-center gap-3">
-                    <span className="h-px flex-1 bg-border/70" />
+                    <span className="h-px flex-1 bg-border" />
                     <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Acces temporar de test</span>
-                    <span className="h-px flex-1 bg-border/70" />
+                    <span className="h-px flex-1 bg-border" />
                   </div>
 
-                  <details className="rounded-[1.35rem] border border-dashed border-border/80 bg-muted/20 p-4">
+                  <details className="rounded-xl border border-dashed border-border bg-muted/30 p-4">
                     <summary className="cursor-pointer text-sm font-semibold text-foreground">
                       Acces temporar de test
                       <span className="ml-2 font-normal text-muted-foreground">pentru fallback și prezentări controlate</span>
@@ -205,9 +207,9 @@ export default function LoginPage() {
                           key={item.role}
                           type="button"
                           onClick={() => enterAs(item.role)}
-                          className="group flex min-h-14 items-center gap-3 rounded-2xl border border-border/70 bg-white/70 p-3 text-left transition hover:border-foreground/20 hover:bg-white"
+                          className="group flex min-h-14 items-center gap-3 rounded-xl border border-border bg-card p-3 text-left transition hover:border-accent/40 hover:bg-accent/5"
                         >
-                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground group-hover:bg-foreground group-hover:text-background">
+                          <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground group-hover:bg-accent group-hover:text-accent-foreground">
                             {item.icon}
                           </span>
                           <span className="min-w-0 flex-1">
@@ -222,7 +224,7 @@ export default function LoginPage() {
               ) : null}
 
               <div className="mt-6 flex flex-col gap-2 text-center text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:text-left">
-                <Link href={`/${locale}`} className="font-semibold text-foreground underline underline-offset-4">
+                <Link href={`/${locale}`} className="font-semibold text-accent underline underline-offset-4 hover:text-accent/80">
                   Înapoi la prezentare
                 </Link>
                 <span>Login real pentru administratorii și locatarii A.P.C.</span>

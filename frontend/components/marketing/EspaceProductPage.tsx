@@ -81,11 +81,11 @@ const roleCards = [
 
 function Header({ active }: { active: ProductPageProps['active'] }) {
   return (
-    <header className="sticky top-0 z-30 border-b border-white/10 bg-[#0d1211]/90 backdrop-blur-xl">
+    <header className="sticky top-0 z-30 border-b border-white/10 bg-foreground/95 backdrop-blur-xl">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
         <Link href="/ro" className="flex items-center gap-3 text-white">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-[#0d1211]">
-            <Home className="h-4 w-4" />
+          <span className="flex size-9 items-center justify-center rounded-lg bg-white text-foreground">
+            <Home className="size-4" />
           </span>
           <span className="text-base font-semibold">Espace</span>
         </Link>
@@ -105,7 +105,7 @@ function Header({ active }: { active: ProductPageProps['active'] }) {
         </nav>
         <Link
           href="/ro/login"
-          className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-[#0d1211] shadow-sm transition hover:bg-teal-50"
+          className="rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-foreground shadow-sm transition hover:bg-accent hover:text-accent-foreground"
         >
           Intră în platformă
         </Link>
@@ -116,49 +116,49 @@ function Header({ active }: { active: ProductPageProps['active'] }) {
 
 function DashboardMockup() {
   return (
-    <div className="rounded-lg border border-white/12 bg-white/[0.07] p-3 shadow-2xl shadow-black/30">
-      <div className="overflow-hidden rounded-md border border-white/10 bg-[#f7f5f0] text-slate-950">
-        <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
+    <div className="rounded-xl border border-white/12 bg-white/[0.07] p-3 shadow-2xl shadow-black/30">
+      <div className="overflow-hidden rounded-lg border border-white/10 bg-background text-foreground">
+        <div className="flex items-center justify-between border-b border-border bg-card px-4 py-3">
           <div>
-            <p className="text-xs text-slate-500">A.P.C. configurată · Chișinău</p>
+            <p className="text-xs text-muted-foreground">A.P.C. configurată · Chișinău</p>
             <p className="text-sm font-semibold">Panou administrator</p>
           </div>
-          <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-medium text-teal-800">Mai 2026</span>
+          <span className="rounded-full bg-accent/10 px-3 py-1 text-xs font-medium text-accent">Mai 2026</span>
         </div>
         <div className="grid gap-3 p-4 sm:grid-cols-2">
           {dashboardStats.map(([label, value]) => (
-            <div key={label} className="rounded-md border border-slate-200 bg-white p-3">
-              <p className="text-xs text-slate-500">{label}</p>
+            <div key={label} className="rounded-lg border border-border bg-card p-3 shadow-card">
+              <p className="text-xs text-muted-foreground">{label}</p>
               <p className="mt-1 text-xl font-semibold">{value}</p>
             </div>
           ))}
         </div>
         <div className="grid gap-3 px-4 pb-4 lg:grid-cols-[1fr_0.8fr]">
-          <div className="rounded-md border border-slate-200 bg-white p-4">
+          <div className="rounded-lg border border-border bg-card p-4 shadow-card">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="font-semibold">Apartament conectat</p>
-                <p className="mt-1 text-sm text-slate-500">Scara 2 · Etaj 6 · 72.4 m²</p>
+                <p className="mt-1 text-sm text-muted-foreground">Scara 2 · Etaj 6 · 72.4 m²</p>
               </div>
-              <span className="rounded-full bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700">1,240 MDL</span>
+              <span className="rounded-full bg-critical/10 px-2.5 py-1 text-xs font-medium text-critical">1,240 MDL</span>
             </div>
             <div className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
-              <div className="rounded-md bg-slate-50 p-3">
-                <p className="text-slate-500">Proprietar</p>
+              <div className="rounded-lg bg-muted p-3">
+                <p className="text-muted-foreground">Proprietar</p>
                 <p className="font-medium">Locatar conectat</p>
               </div>
-              <div className="rounded-md bg-slate-50 p-3">
-                <p className="text-slate-500">Contoare</p>
+              <div className="rounded-lg bg-muted p-3">
+                <p className="text-muted-foreground">Contoare</p>
                 <p className="font-medium">2 actualizate, 1 lipsă</p>
               </div>
             </div>
           </div>
-          <div className="rounded-md border border-slate-200 bg-white p-4">
+          <div className="rounded-lg border border-border bg-card p-4 shadow-card">
             <p className="font-semibold">Cereri active</p>
             <div className="mt-3 space-y-2">
               {['Presiune scazuta la apa', 'Bec ars in hol', 'Curatenie parter'].map((item) => (
-                <div key={item} className="flex items-center gap-2 rounded-md bg-slate-50 p-2 text-sm">
-                  <span className="h-2 w-2 rounded-full bg-teal-600" />
+                <div key={item} className="flex items-center gap-2 rounded-lg bg-muted p-2 text-sm">
+                  <span className="size-2 rounded-full bg-accent" />
                   {item}
                 </div>
               ))}
@@ -172,12 +172,12 @@ function DashboardMockup() {
 
 function Hero({ active }: { active: ProductPageProps['active'] }) {
   return (
-    <section className="relative overflow-hidden bg-[#0d1211] text-white">
+    <section className="relative overflow-hidden bg-foreground text-white">
       <Header active={active} />
       <div className="mx-auto grid max-w-7xl gap-10 px-4 pb-14 pt-14 sm:px-6 md:pt-20 lg:grid-cols-[0.9fr_1.1fr] lg:px-8 lg:pb-20">
         <div className="flex flex-col justify-center">
           <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/12 bg-white/[0.06] px-3 py-1 text-sm text-white/78">
-            <ShieldCheck className="h-4 w-4 text-teal-300" />
+            <ShieldCheck className="size-4 text-accent" />
             Platformă pentru administrarea A.P.C. și condominiilor din Republica Moldova
           </div>
           <h1 className="mt-6 max-w-3xl text-4xl font-semibold leading-[1.04] text-white sm:text-5xl lg:text-6xl">
@@ -190,14 +190,14 @@ function Hero({ active }: { active: ProductPageProps['active'] }) {
           <div className="mt-7 flex flex-col gap-3 sm:flex-row">
             <Link
               href="/ro/contact"
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-white px-4 py-3 text-sm font-semibold text-[#0d1211] shadow-lg shadow-black/20 transition hover:bg-teal-50"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-5 py-3 text-sm font-semibold text-accent-foreground shadow-lg shadow-accent/20 transition hover:bg-accent/90"
             >
               Contact
-              <ArrowRight className="h-4 w-4" />
+              <ArrowRight className="size-4" />
             </Link>
             <Link
               href="/ro/login"
-              className="inline-flex items-center justify-center rounded-md border border-white/16 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
+              className="inline-flex items-center justify-center rounded-lg border border-white/16 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
             >
               Intră în platformă
             </Link>
@@ -211,12 +211,12 @@ function Hero({ active }: { active: ProductPageProps['active'] }) {
 
 function RoleSection() {
   return (
-    <section className="bg-white px-4 py-16 sm:px-6 lg:px-8">
+    <section className="bg-card px-4 py-16 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
         <div className="max-w-2xl">
-          <p className="text-sm font-semibold uppercase tracking-[0.14em] text-teal-700">Roluri</p>
-          <h2 className="mt-3 text-3xl font-semibold text-slate-950 sm:text-4xl">Un produs pentru fiecare parte din asociație.</h2>
-          <p className="mt-4 text-base leading-7 text-slate-600">
+          <p className="text-sm font-semibold uppercase tracking-[0.14em] text-accent">Roluri</p>
+          <h2 className="mt-3 text-3xl font-semibold text-foreground sm:text-4xl">Un produs pentru fiecare parte din asociație.</h2>
+          <p className="mt-4 text-base leading-7 text-muted-foreground">
             Administrația lucrează eficient, locatarii au informațiile la îndemână, iar platforma poate fi urmărită la nivel global.
           </p>
         </div>
@@ -225,14 +225,14 @@ function RoleSection() {
             <Link
               key={role.title}
               href={role.href}
-              className="group rounded-lg border border-slate-200 bg-[#f7f5f0] p-5 shadow-sm transition hover:-translate-y-0.5 hover:bg-white hover:shadow-md"
+              className="group rounded-xl border border-border bg-background p-5 shadow-card transition hover:-translate-y-0.5 hover:bg-card hover:shadow-card-hover"
             >
-              <p className="text-sm font-medium text-teal-700">{role.metric}</p>
-              <h3 className="mt-3 text-xl font-semibold text-slate-950">{role.title}</h3>
-              <p className="mt-2 text-sm leading-6 text-slate-600">{role.text}</p>
-              <span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-slate-950">
+              <p className="text-sm font-medium text-accent">{role.metric}</p>
+              <h3 className="mt-3 text-xl font-semibold text-foreground">{role.title}</h3>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">{role.text}</p>
+              <span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-foreground">
                 Deschide
-                <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
+                <ArrowRight className="size-4 transition group-hover:translate-x-0.5" />
               </span>
             </Link>
           ))}
@@ -244,27 +244,27 @@ function RoleSection() {
 
 function FeatureGrid() {
   return (
-    <section className="bg-[#f7f5f0] px-4 py-16 sm:px-6 lg:px-8">
+    <section className="bg-background px-4 py-16 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
         <div className="max-w-2xl">
-          <p className="text-sm font-semibold uppercase tracking-[0.14em] text-teal-700">Funcționalități</p>
-          <h2 className="mt-3 text-3xl font-semibold text-slate-950 sm:text-4xl">
+          <p className="text-sm font-semibold uppercase tracking-[0.14em] text-accent">Funcționalități</p>
+          <h2 className="mt-3 text-3xl font-semibold text-foreground sm:text-4xl">
             Tot fluxul unei asociații, fără improvizații.
           </h2>
-          <p className="mt-4 text-base leading-7 text-slate-600">
+          <p className="mt-4 text-base leading-7 text-muted-foreground">
             Funcționalități de bază pentru administratori: apartamente, locatari, contoare, facturi și datorii, cereri și avizier.
           </p>
         </div>
-        <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {featureCards.map((feature) => {
             const Icon = feature.icon;
             return (
-              <article key={feature.title} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="flex h-10 w-10 items-center justify-center rounded-md bg-slate-950 text-white">
-                  <Icon className="h-5 w-5" />
+              <article key={feature.title} className="rounded-xl border border-border bg-card p-5 shadow-card">
+                <div className="flex size-11 items-center justify-center rounded-lg bg-foreground text-background">
+                  <Icon className="size-5" />
                 </div>
-                <h3 className="mt-4 text-base font-semibold text-slate-950">{feature.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-600">{feature.text}</p>
+                <h3 className="mt-4 text-base font-semibold text-foreground">{feature.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">{feature.text}</p>
               </article>
             );
           })}
@@ -277,25 +277,25 @@ function FeatureGrid() {
 function WorkflowSection() {
   const steps = ['Importă apartamentele', 'Colectează citiri', 'Emite solduri', 'Comunică transparent'];
   return (
-    <section className="bg-white px-4 py-16 sm:px-6 lg:px-8">
+    <section className="bg-card px-4 py-16 sm:px-6 lg:px-8">
       <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.8fr_1fr]">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.14em] text-teal-700">Flux operațional</p>
-          <h2 className="mt-3 text-3xl font-semibold text-slate-950">Construit pentru lucru repetat, nu pentru prezentări.</h2>
-          <p className="mt-4 text-base leading-7 text-slate-600">
+          <p className="text-sm font-semibold uppercase tracking-[0.14em] text-accent">Flux operațional</p>
+          <h2 className="mt-3 text-3xl font-semibold text-foreground">Construit pentru lucru repetat, nu pentru prezentări.</h2>
+          <p className="mt-4 text-base leading-7 text-muted-foreground">
             Interfața pune informația importantă în fața administratorului: restanțe, citiri lipsă, cereri deschise și
             comunicări care trebuie trimise locatarilor.
           </p>
         </div>
-        <div className="rounded-lg border border-slate-200 bg-[#f7f5f0] p-5">
+        <div className="rounded-xl border border-border bg-background p-5 shadow-card">
           <div className="grid gap-3">
             {steps.map((step, index) => (
-              <div key={step} className="flex items-center gap-3 rounded-md bg-white p-4">
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-teal-700 text-sm font-semibold text-white">
+              <div key={step} className="flex items-center gap-3 rounded-lg bg-card p-4 shadow-card">
+                <span className="flex size-8 items-center justify-center rounded-full bg-accent text-sm font-semibold text-accent-foreground">
                   {index + 1}
                 </span>
-                <span className="font-medium text-slate-900">{step}</span>
-                <CheckCircle2 className="ml-auto h-5 w-5 text-teal-700" />
+                <span className="font-medium text-foreground">{step}</span>
+                <CheckCircle2 className="ml-auto size-5 text-accent" />
               </div>
             ))}
           </div>
@@ -307,8 +307,8 @@ function WorkflowSection() {
 
 function CtaSection() {
   return (
-    <section className="bg-[#0d1211] px-4 py-14 text-white sm:px-6 lg:px-8">
-      <div className="mx-auto flex max-w-7xl flex-col gap-6 rounded-lg border border-white/10 bg-white/[0.06] p-6 md:flex-row md:items-center md:justify-between">
+    <section className="bg-foreground px-4 py-14 text-white sm:px-6 lg:px-8">
+      <div className="mx-auto flex max-w-7xl flex-col gap-6 rounded-xl border border-white/10 bg-white/[0.06] p-6 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="text-2xl font-semibold">Pregătit pentru primele asociații din Republica Moldova.</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-white/68">
@@ -317,7 +317,7 @@ function CtaSection() {
         </div>
         <Link
           href="/ro/login"
-          className="inline-flex items-center justify-center rounded-md bg-white px-4 py-3 text-sm font-semibold text-[#0d1211]"
+          className="inline-flex items-center justify-center rounded-lg bg-accent px-5 py-3 text-sm font-semibold text-accent-foreground transition hover:bg-accent/90"
         >
           Intră în platformă
         </Link>
@@ -328,7 +328,7 @@ function CtaSection() {
 
 export default function EspaceProductPage({ active = 'home' }: ProductPageProps) {
   return (
-    <main className="min-h-screen bg-[#f7f5f0]">
+    <main className="min-h-screen bg-background">
       <Hero active={active} />
       <RoleSection />
       <FeatureGrid />
