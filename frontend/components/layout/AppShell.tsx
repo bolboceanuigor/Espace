@@ -4,8 +4,11 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
-import { Bell } from 'lucide-react';
-import MainNavigation from './MainNavigation';
+import { 
+  Bell, Building2, ChevronLeft, CreditCard, FileText, 
+  HelpCircle, Home, LogOut, Search, Settings, Shield, 
+  Users, X, Menu, BarChart3
+} from 'lucide-react';
 import OrgSwitcher from './OrgSwitcher';
 import { useAuth } from '@/context/AuthContext';
 import { ManagerUiProvider } from '@/context/ManagerUiContext';
@@ -14,8 +17,6 @@ import { featureFlags } from '@/lib/featureFlags';
 import { authApi, billingSaasApi, notificationsApi, onboardingApi, subscriptionApi, superadminApi, usageApi } from '@/lib/api';
 import { normalizeRole, roleHomePath } from '@/lib/role-routing';
 import { isAdminHardBlocked } from '@/lib/subscription-access';
-import { NAVIGATION_CONFIG, type NavigationItem } from '@/lib/navigation-config';
-import SubscriptionStatusBanner from '@/components/subscription/SubscriptionStatusBanner';
 import FeedbackModal from '@/components/feedback/FeedbackModal';
 
 type AppShellProps = { children: React.ReactNode };
@@ -28,105 +29,25 @@ export default function AppShell({ children }: AppShellProps) {
   );
 }
 
-function notificationTarget(locale: string, url?: string | null) {
-  if (!url) return '';
-  if (/^https?:\/\//i.test(url)) return url;
-  if (url.startsWith(`/${locale}/`)) return url;
-  return `/${locale}${url.startsWith('/') ? url : `/${url}`}`;
-}
+// Sidebar navigation items per role
+const SUPER_ADMIN_NAV = [
+  { key: 'platform', label: 'Platformă', href: '/superadmin', icon: Home },
+  { key: 'organizations', label: 'Asociații', href: '/superadmin/organizations', icon: Building2 },
+  { key: 'administrators', label: 'Administratori', href: '/superadmin/administrators', icon: Users },
+  { key: 'subscriptions', label: 'Abonamente', href: '/superadmin/subscriptions', icon: CreditCard },
+  { key: 'reports', label: 'Rapoarte', href: '/superadmin/reports', icon: BarChart3 },
+  { key: 'settings', label: 'Setări', href: '/superadmin/settings', icon: Settings },
+];
 
-function NotificationButton({
-  mode,
-  notifications,
-  unreadCount,
-  open,
-  setOpen,
-  setNotifications,
-  setUnreadCount,
-  router,
-  locale,
-}: {
-  mode: 'admin' | 'resident';
-  notifications: any[];
-  unreadCount: number;
-  open: boolean;
-  setOpen: (value: boolean | ((current: boolean) => boolean)) => void;
-  setNotifications: (value: any[] | ((current: any[]) => any[])) => void;
-  setUnreadCount: (value: number | ((current: number) => number)) => void;
-  router: { push: (href: string) => void };
-  locale: string;
-}) {
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        className="relative rounded-2xl border border-border/60 bg-white/90 p-2 text-muted-foreground shadow-sm hover:bg-white"
-        onClick={() => setOpen((value) => !value)}
-        aria-label="Notificări"
-      >
-        <Bell className="h-4 w-4" />
-        {unreadCount > 0 ? (
-          <span className="absolute -right-1 -top-1 inline-flex min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold text-white">
-            {unreadCount}
-          </span>
-        ) : null}
-      </button>
-      {open ? (
-        <div className="absolute right-0 z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-border/70 bg-card p-2 shadow-lg">
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <p className="text-xs font-semibold text-foreground">Notificări</p>
-            <button
-              className="text-[11px] font-semibold text-primary"
-              onClick={async () => {
-                if (mode === 'admin') await notificationsApi.adminReadAll();
-                else await notificationsApi.residentReadAll();
-                setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
-                setUnreadCount(0);
-              }}
-            >
-              Marchează tot ca citit
-            </button>
-          </div>
-          <div className="max-h-72 space-y-1 overflow-y-auto">
-            {notifications.slice(0, 5).map((item) => (
-              <button
-                key={item.id}
-                className={`w-full rounded-lg border px-2 py-1 text-left text-xs ${
-                  item.isRead ? 'border-border/60 text-muted-foreground' : 'border-primary/30 bg-primary/5 text-foreground'
-                }`}
-                onClick={async () => {
-                  if (!item.isRead) {
-                    if (mode === 'admin') await notificationsApi.adminRead(item.id);
-                    else await notificationsApi.residentRead(item.id);
-                    setNotifications((prev) => prev.map((entry) => (entry.id === item.id ? { ...entry, isRead: true } : entry)));
-                    setUnreadCount((current) => Math.max(0, current - 1));
-                  }
-                  const target = notificationTarget(locale, item.actionUrl || item.link);
-                  if (target) router.push(target);
-                  setOpen(false);
-                }}
-              >
-                <p className="font-medium">{item.title}</p>
-                <p className="line-clamp-2">{item.message}</p>
-              </button>
-            ))}
-            {!notifications.length ? <p className="p-2 text-xs text-muted-foreground">Nu ai notificări noi.</p> : null}
-          </div>
-          <button
-            type="button"
-            className="mt-2 w-full rounded-lg border border-border/60 px-2 py-1.5 text-xs font-semibold text-foreground"
-            onClick={() => {
-              router.push(`/${locale}${mode === 'admin' ? '/admin/notifications' : '/resident/notifications'}`);
-              setOpen(false);
-            }}
-          >
-            Vezi toate notificările
-          </button>
-        </div>
-      ) : null}
-    </div>
-  );
-}
+const ADMIN_NAV = [
+  { key: 'home', label: 'Acasă', href: '/admin', icon: Home },
+  { key: 'apartments', label: 'Apartamente', href: '/admin/apartments', icon: Building2 },
+  { key: 'residents', label: 'Locatari', href: '/admin/residents', icon: Users },
+  { key: 'invoices', label: 'Facturi', href: '/admin/invoices', icon: FileText },
+  { key: 'payments', label: 'Plăți', href: '/admin/payments', icon: CreditCard },
+  { key: 'reports', label: 'Rapoarte', href: '/admin/reports', icon: BarChart3 },
+  { key: 'settings', label: 'Setări', href: '/admin/settings', icon: Settings },
+];
 
 function AppShellContent({ children }: AppShellProps) {
   const router = useRouter();
@@ -134,21 +55,20 @@ function AppShellContent({ children }: AppShellProps) {
   const params = useParams<{ locale?: string }>();
   const c = useTranslations('common');
   const billingT = useTranslations('billing');
-  const { user, org, prefs, system, loading, isAuthenticated, isDemoAuthenticated, updatePreferences } = useAuth();
+  const { user, org, prefs, system, loading, isAuthenticated, isDemoAuthenticated, updatePreferences, logout } = useAuth();
   const [search, setSearch] = useState('');
-  const [planLimitWarning, setPlanLimitWarning] = useState<string | null>(null);
-  const [trialInfo, setTrialInfo] = useState<{ status: string; daysRemaining: number } | null>(null);
-  const [adminSubscription, setAdminSubscription] = useState<{ status: string; trialEndDate?: string | null } | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [notificationsUnreadCount, setNotificationsUnreadCount] = useState(0);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [supportSession, setSupportSession] = useState<any | null>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
-  const [navigationItems, setNavigationItems] = useState<NavigationItem[]>([]);
-  const [showOnboardingTips, setShowOnboardingTips] = useState(false);
+  const [adminSubscription, setAdminSubscription] = useState<{ status: string; trialEndDate?: string | null } | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  
   const localeParam = typeof params?.locale === 'string' ? params.locale : defaultLocale;
   const locale = isLocale(localeParam) ? localeParam : defaultLocale;
+  
   const previewRole = pathname.includes('/superadmin')
     ? 'SUPER_ADMIN'
     : pathname.includes('/resident')
@@ -172,7 +92,7 @@ function AppShellContent({ children }: AppShellProps) {
   const activeUser = user ?? previewUser;
   const activeOrg = org ?? {
     id: 'preview-org',
-    name: 'A.P.C. temporară',
+    name: 'A.P.C. Demo',
     weekStart: 'MONDAY' as const,
     defaultLocale: 'ro' as const,
     betaAccessEnabled: true,
@@ -181,17 +101,10 @@ function AppShellContent({ children }: AppShellProps) {
   const normalizedRole = normalizeRole(activeUser?.role);
   const homeRoute = `/${locale}${roleHomePath(normalizedRole)}`;
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      const isMetaF = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f';
-      if (!isMetaF) return;
-      event.preventDefault();
-      searchInputRef.current?.focus();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+  // Get nav items based on role
+  const navItems = normalizedRole === 'SUPER_ADMIN' ? SUPER_ADMIN_NAV : ADMIN_NAV;
 
+  // Auth redirect
   useEffect(() => {
     if (loading) return;
     if (isPreviewSession) return;
@@ -200,16 +113,12 @@ function AppShellContent({ children }: AppShellProps) {
     }
   }, [isAuthenticated, isPreviewSession, loading, locale, router]);
 
+  // Role-based route protection
   useEffect(() => {
     if (loading || !activeUser || isPreviewSession) return;
-    const isTeamRoute = pathname.includes('/team');
     const isSuperadminRoute = pathname.includes('/superadmin');
     const isAdminRoute = pathname.includes('/admin');
     const isResidentRoute = pathname.includes('/resident');
-    if (isTeamRoute && normalizedRole !== 'ADMIN' && normalizedRole !== 'SUPER_ADMIN') {
-      router.replace(homeRoute);
-      return;
-    }
     if (isSuperadminRoute && normalizedRole !== 'SUPER_ADMIN') {
       router.replace(homeRoute);
       return;
@@ -223,79 +132,43 @@ function AppShellContent({ children }: AppShellProps) {
     }
   }, [activeUser, homeRoute, isPreviewSession, loading, pathname, router, normalizedRole]);
 
+  // Fetch notifications
   useEffect(() => {
-    if (!featureFlags.softLimits || !isAuthenticated || !user?.organizationId) {
-      setPlanLimitWarning(null);
-      return;
-    }
-    let active = true;
-    Promise.all([subscriptionApi.get(), usageApi.today()])
-      .then(([subscriptionRes]) => {
-        if (!active) return;
-        const currentPropertyCount = Number(subscriptionRes.data?.currentPropertyCount ?? 0);
-        const propertyLimit = Number(subscriptionRes.data?.propertyLimit ?? -1);
-        if (propertyLimit >= 0 && currentPropertyCount > propertyLimit) {
-          setPlanLimitWarning(billingT('limitWarning'));
-          return;
-        }
-        setPlanLimitWarning(null);
-      })
-      .catch(() => {
-        if (!active) return;
-        setPlanLimitWarning(null);
-      });
-    return () => {
-      active = false;
+    if (!isAuthenticated || isPreviewSession) return;
+    const fetchNotifications = async () => {
+      try {
+        const mode = normalizedRole === 'RESIDENT' ? 'resident' : 'admin';
+        const res = mode === 'admin' 
+          ? await notificationsApi.adminList() 
+          : await notificationsApi.residentList();
+        const items = res.data?.items || [];
+        setNotifications(items);
+        setNotificationsUnreadCount(items.filter((n: any) => !n.isRead).length);
+      } catch {
+        // ignore
+      }
     };
-  }, [billingT, isAuthenticated, user?.organizationId]);
+    fetchNotifications();
+  }, [isAuthenticated, isPreviewSession, normalizedRole]);
 
-  useEffect(() => {
-    if (!isAuthenticated || !user?.organizationId) {
-      setTrialInfo(null);
-      return;
-    }
-    let active = true;
-    subscriptionApi
-      .get()
-      .then((res) => {
-        if (!active) return;
-        const status = String(res.data?.status || '').toUpperCase();
-        const daysRemaining = Number(res.data?.daysRemaining ?? 0);
-        setTrialInfo({ status, daysRemaining });
-      })
-      .catch(() => {
-        if (!active) return;
-        setTrialInfo(null);
-      });
-    return () => {
-      active = false;
-    };
-  }, [isAuthenticated, user?.organizationId]);
-
+  // Admin subscription status
   useEffect(() => {
     if (!isAuthenticated || normalizedRole !== 'ADMIN') {
       setAdminSubscription(null);
       return;
     }
-    let active = true;
     billingSaasApi
       .getAdminSubscription()
       .then((res) => {
-        if (!active) return;
         setAdminSubscription({
           status: String(res.data?.status || '').toUpperCase(),
           trialEndDate: res.data?.trialEndDate || null,
         });
       })
-      .catch(() => {
-        if (!active) return;
-        setAdminSubscription(null);
-      });
-    return () => {
-      active = false;
-    };
-  }, [isAuthenticated, normalizedRole, user?.organizationId]);
+      .catch(() => setAdminSubscription(null));
+  }, [isAuthenticated, normalizedRole]);
 
+  // Check for admin hard block
   useEffect(() => {
     if (isPreviewSession || normalizedRole !== 'ADMIN') return;
     if (!adminSubscription?.status) return;
@@ -306,438 +179,333 @@ function AppShellContent({ children }: AppShellProps) {
     }
   }, [adminSubscription?.status, isPreviewSession, locale, normalizedRole, pathname, router]);
 
+  // Keyboard shortcut for search
   useEffect(() => {
-    if (!navigationItems.length) return;
-    const currentPath = pathname.replace(`/${locale}`, '');
-    const matched = navigationItems.find((item) => currentPath === item.href || currentPath.startsWith(`${item.href}/`));
-    if (matched?.locked) {
-      router.replace(homeRoute);
-    }
-  }, [homeRoute, locale, navigationItems, pathname, router]);
-
-  useEffect(() => {
-    if (normalizedRole !== 'ADMIN') return;
-    const allowedDuringOnboarding = [
-      '/admin/onboarding',
-      '/admin/settings',
-      '/admin/buildings',
-      '/admin/staircases',
-      '/admin/apartments',
-      '/admin/residents',
-      '/admin/meters',
-      '/admin/tariffs',
-      '/admin/invoices',
-      '/admin/imports',
-      '/admin/subscription',
-    ];
-    const currentPath = pathname.replace(`/${locale}`, '');
-    const isAllowed = allowedDuringOnboarding.some((prefix) => currentPath.startsWith(prefix));
-    if (isAllowed) return;
-    let active = true;
-    onboardingApi
-      .adminGet()
-      .then((res) => {
-        if (!active) return;
-        const status = String(res.data?.organization?.onboardingStatus || '').toUpperCase();
-        if (status !== 'COMPLETED') {
-          router.replace(`/${locale}/admin/onboarding`);
-        }
-      })
-      .catch(() => undefined);
-    return () => {
-      active = false;
+    const onKeyDown = (event: KeyboardEvent) => {
+      const isMetaK = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k';
+      if (!isMetaK) return;
+      event.preventDefault();
+      searchInputRef.current?.focus();
     };
-  }, [isPreviewSession, locale, normalizedRole, pathname, router]);
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
-  useEffect(() => {
-    if (isPreviewSession || normalizedRole !== 'ADMIN') {
-      setShowOnboardingTips(false);
-      return;
-    }
-    let active = true;
-    onboardingApi
-      .adminGet()
-      .then((res) => {
-        if (!active) return;
-        const status = String(res.data?.organization?.onboardingStatus || '').toUpperCase();
-        setShowOnboardingTips(status === 'COMPLETED');
-      })
-      .catch(() => {
-        if (!active) return;
-        setShowOnboardingTips(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [isPreviewSession, normalizedRole, pathname]);
-
-  useEffect(() => {
-    if (isPreviewSession || normalizedRole !== 'SUPER_ADMIN') {
-      setSupportSession(null);
-      return;
-    }
-    let active = true;
-    superadminApi
-      .currentSupportSession()
-      .then((res) => {
-        if (!active) return;
-        setSupportSession(res.data || null);
-      })
-      .catch(() => {
-        if (!active) return;
-        setSupportSession(null);
-      });
-    return () => {
-      active = false;
-    };
-  }, [isPreviewSession, normalizedRole, pathname]);
-
-  useEffect(() => {
-    if (!isAuthenticated || !user?.id) {
-      setNavigationItems([]);
-      return;
-    }
-    let active = true;
-    authApi
-      .getNavigation()
-      .then((res) => {
-        if (!active) return;
-        const byHref = new Map((res.data || []).map((item: any) => [item.href, item]));
-        const merged = NAVIGATION_CONFIG
-          .filter((item) => byHref.has(item.href))
-          .map((item) => ({ ...item, ...(byHref.get(item.href) || {}) })) as NavigationItem[];
-        setNavigationItems(merged);
-      })
-      .catch(() => {
-        if (!active) return;
-        setNavigationItems([]);
-      });
-    return () => {
-      active = false;
-    };
-  }, [isAuthenticated, user?.id, normalizedRole]);
-
-  useEffect(() => {
-    if (isPreviewSession || !['ADMIN', 'RESIDENT', 'TENANT'].includes(normalizedRole)) {
-      setNotifications([]);
-      setNotificationsUnreadCount(0);
-      return;
-    }
-    let active = true;
-    const request = normalizedRole === 'ADMIN' ? notificationsApi.adminList({ limit: 5 }) : notificationsApi.residentList({ limit: 5 });
-    request
-      .then((res) => {
-        if (!active) return;
-        const data = res.data;
-        setNotifications(Array.isArray(data) ? data : data?.items || []);
-        setNotificationsUnreadCount(Array.isArray(data) ? data.filter((item: any) => !item.isRead).length : Number(data?.stats?.unread ?? 0));
-      })
-      .catch(() => {
-        if (!active) return;
-        setNotifications([]);
-        setNotificationsUnreadCount(0);
-      });
-    return () => {
-      active = false;
-    };
-  }, [isPreviewSession, normalizedRole, pathname]);
-
-  const searchPlaceholder =
-    normalizedRole === 'SUPER_ADMIN'
-      ? 'Caută asociații, contacte, follow-up...'
-      : normalizedRole === 'ADMIN'
-        ? 'Caută locatari, apartamente, datorii...'
-        : 'Caută facturi, avizier, cereri...';
-  const searchTarget =
-    normalizedRole === 'SUPER_ADMIN'
-      ? '/superadmin/organizations'
-      : normalizedRole === 'ADMIN'
-        ? '/admin/residents'
-        : '/resident/announcements';
+  const handleLogout = async () => {
+    await logout();
+    router.push(`/${locale}/login`);
+  };
 
   if (loading || !activeUser) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
-        Se verifică sesiunea...
+      <div className="flex min-h-screen items-center justify-center bg-white">
+        <div className="flex flex-col items-center gap-3">
+          <div className="size-8 animate-spin rounded-full border-2 border-neutral-200 border-t-neutral-900" />
+          <p className="text-sm text-neutral-500">Se încarcă...</p>
+        </div>
       </div>
     );
   }
+
   const betaBlocked =
     featureFlags.requireBetaAccess &&
     normalizedRole !== 'SUPER_ADMIN' &&
     ['ADMIN', 'RESIDENT', 'TENANT'].includes(normalizedRole) &&
     activeOrg?.betaAccessEnabled === false;
   const maintenanceBlocked = normalizedRole !== 'SUPER_ADMIN' && !!system?.maintenanceMode;
-  const providerLabel =
-    (activeUser.authProvider || 'LOCAL').toUpperCase() === 'GOOGLE'
-      ? c('providerGoogle')
-      : (activeUser.authProvider || 'LOCAL').toUpperCase() === 'BOTH'
-        ? c('providerBoth')
-        : c('providerLocal');
 
+  if (betaBlocked || maintenanceBlocked) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-white px-4 text-center">
+        <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+          <p className="text-sm text-neutral-600">
+            {maintenanceBlocked ? 'Aplicația este în mentenanță.' : 'Accesul beta nu este activ.'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Resident layout - simplified mobile-first
   if (['RESIDENT', 'TENANT'].includes(normalizedRole)) {
-    if (maintenanceBlocked) {
-      return (
-        <div className="flex min-h-screen items-center justify-center bg-background px-4 text-center">
-          <p className="rounded-xl border border-border/70 bg-card px-4 py-3 text-sm text-foreground">
-            Aplicatia este in mentenanta.
-          </p>
-        </div>
-      );
-    }
-    if (betaBlocked) {
-      return (
-        <div className="flex min-h-screen items-center justify-center bg-background px-4 text-center">
-          <p className="rounded-xl border border-border/70 bg-card px-4 py-3 text-sm text-foreground">
-            Accesul beta nu este activ pentru această organizație.
-          </p>
-        </div>
-      );
-    }
     return (
-      <div className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,hsl(var(--muted))_0,transparent_34rem),linear-gradient(180deg,#fbfaf7_0%,hsl(var(--background))_48rem)] text-foreground md:pl-0">
-        <header className="sticky top-0 z-30 hidden border-b border-border/60 bg-background/82 px-4 py-3 backdrop-blur-xl md:block">
-          <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
-            <MainNavigation role={normalizedRole} variant="desktop" />
-            <NotificationButton
-              mode="resident"
-              notifications={notifications}
-              unreadCount={notificationsUnreadCount}
-              open={notificationsOpen}
-              setOpen={setNotificationsOpen}
-              setNotifications={setNotifications}
-              setUnreadCount={setNotificationsUnreadCount}
-              router={router}
-              locale={locale}
-            />
-          </div>
-        </header>
-        <div className="fixed right-4 top-4 z-40 md:hidden">
-          <NotificationButton
-            mode="resident"
-            notifications={notifications}
-            unreadCount={notificationsUnreadCount}
-            open={notificationsOpen}
-            setOpen={setNotificationsOpen}
-            setNotifications={setNotifications}
-            setUnreadCount={setNotificationsUnreadCount}
-            router={router}
-            locale={locale}
-          />
-        </div>
-        <main className="mx-auto w-full max-w-5xl px-4 py-5 pb-[calc(env(safe-area-inset-bottom)+8.75rem)] md:py-8 md:pb-[calc(env(safe-area-inset-bottom)+8.75rem)]">{children}</main>
-        <button
-          type="button"
-          className="fixed bottom-[calc(env(safe-area-inset-bottom)+8.25rem)] right-4 z-40 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-white shadow-md"
-          onClick={() => setFeedbackOpen(true)}
-        >
-          Trimite feedback
-        </button>
-        <MainNavigation role={normalizedRole} variant="mobile" />
-        <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} pageUrl={pathname || '/'} />
-      </div>
-    );
-  }
-
-  if (betaBlocked) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4 text-center">
-        <p className="rounded-xl border border-border/70 bg-card px-4 py-3 text-sm text-foreground">
-          Accesul beta nu este activ pentru această organizație.
-        </p>
-      </div>
-    );
-  }
-  if (maintenanceBlocked) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4 text-center">
-        <p className="rounded-xl border border-border/70 bg-card px-4 py-3 text-sm text-foreground">
-          Aplicatia este in mentenanta.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,hsl(var(--muted))_0,transparent_36rem),linear-gradient(180deg,#fbfaf7_0%,hsl(var(--background))_46rem)] text-foreground">
-      <div className="min-h-screen">
-        <header className="sticky top-0 z-30 border-b border-border/60 bg-background/82 px-4 py-3 backdrop-blur-xl">
-          <div className="mx-auto max-w-6xl">
-          <div className="flex items-center justify-between gap-3">
+      <div className="min-h-screen bg-neutral-50">
+        <header className="sticky top-0 z-30 border-b border-neutral-200 bg-white">
+          <div className="mx-auto flex h-14 max-w-2xl items-center justify-between px-4">
+            <Link href={homeRoute} className="text-lg font-semibold text-neutral-900">
+              Espace
+            </Link>
             <button
               type="button"
-              onClick={() => router.push(homeRoute)}
-              className="inline-flex items-center gap-2 rounded-2xl px-2 py-2 text-sm font-semibold text-foreground transition duration-150 ease-out hover:bg-white/70"
+              onClick={() => setNotificationsOpen(!notificationsOpen)}
+              className="relative rounded-lg p-2 text-neutral-600 hover:bg-neutral-100"
             >
-              <span className="inline-block h-7 w-7 rounded-2xl bg-foreground shadow-sm" />
-              <span>Espace</span>
-              <span className="rounded-full border border-border/70 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Beta
-              </span>
+              <Bell className="size-5" />
+              {notificationsUnreadCount > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white">
+                  {notificationsUnreadCount}
+                </span>
+              )}
             </button>
-            <input
-              ref={searchInputRef}
-              type="text"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  const query = search.trim();
-                  router.push(`/${locale}${searchTarget}${query ? `?query=${encodeURIComponent(query)}` : ''}`);
-                }
-              }}
-              placeholder={searchPlaceholder}
-              className="hidden h-10 w-72 rounded-2xl border border-border/70 bg-white/85 px-4 text-sm text-foreground shadow-[0_10px_30px_rgba(15,23,42,0.04)] outline-none transition focus:border-foreground/20 focus:ring-2 focus:ring-foreground/10 lg:block"
-            />
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                className="hidden rounded-2xl border border-border/60 bg-white/85 px-3 py-2 text-xs font-medium text-foreground shadow-sm hover:bg-white sm:inline-flex"
-                onClick={() => setFeedbackOpen(true)}
-              >
-                Trimite feedback
-              </button>
-              {normalizedRole === 'SUPER_ADMIN' ? <OrgSwitcher /> : null}
-              {normalizedRole === 'ADMIN' ? (
-                <NotificationButton
-                  mode="admin"
-                  notifications={notifications}
-                  unreadCount={notificationsUnreadCount}
-                  open={notificationsOpen}
-                  setOpen={setNotificationsOpen}
-                  setNotifications={setNotifications}
-                  setUnreadCount={setNotificationsUnreadCount}
-                  router={router}
-                  locale={locale}
+          </div>
+        </header>
+        <main className="mx-auto max-w-2xl px-4 py-6">{children}</main>
+      </div>
+    );
+  }
+
+  // Admin & SuperAdmin layout - Fresha-style with sidebar
+  return (
+    <div className="flex min-h-screen bg-neutral-50">
+      {/* Sidebar - Desktop */}
+      <aside 
+        className={`fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-neutral-200 bg-white transition-all duration-200 lg:flex ${
+          sidebarCollapsed ? 'w-16' : 'w-56'
+        }`}
+      >
+        {/* Logo */}
+        <div className="flex h-14 items-center justify-between border-b border-neutral-200 px-4">
+          {!sidebarCollapsed && (
+            <Link href={homeRoute} className="text-lg font-semibold text-neutral-900">
+              Espace
+            </Link>
+          )}
+          <button
+            type="button"
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600"
+          >
+            <ChevronLeft className={`size-4 transition-transform ${sidebarCollapsed ? 'rotate-180' : ''}`} />
+          </button>
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto p-3">
+          <ul className="space-y-1">
+            {navItems.map((item) => {
+              const href = `/${locale}${item.href}`;
+              const isActive = pathname === href || 
+                (item.key !== 'platform' && item.key !== 'home' && pathname.startsWith(href + '/'));
+              const Icon = item.icon;
+              
+              return (
+                <li key={item.key}>
+                  <Link
+                    href={href}
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'bg-neutral-100 text-neutral-900'
+                        : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'
+                    }`}
+                    title={sidebarCollapsed ? item.label : undefined}
+                  >
+                    <Icon className="size-4 shrink-0" />
+                    {!sidebarCollapsed && <span>{item.label}</span>}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+
+        {/* Bottom section */}
+        <div className="border-t border-neutral-200 p-3">
+          <button
+            type="button"
+            onClick={() => setFeedbackOpen(true)}
+            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900 ${
+              sidebarCollapsed ? 'justify-center' : ''
+            }`}
+          >
+            <HelpCircle className="size-4" />
+            {!sidebarCollapsed && <span>Ajutor</span>}
+          </button>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-50 hover:text-red-600 ${
+              sidebarCollapsed ? 'justify-center' : ''
+            }`}
+          >
+            <LogOut className="size-4" />
+            {!sidebarCollapsed && <span>Ieșire</span>}
+          </button>
+        </div>
+      </aside>
+
+      {/* Mobile sidebar overlay */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 z-40 bg-black/20 lg:hidden" 
+          onClick={() => setSidebarOpen(false)} 
+        />
+      )}
+
+      {/* Mobile sidebar */}
+      <aside 
+        className={`fixed inset-y-0 left-0 z-50 w-64 transform bg-white shadow-xl transition-transform duration-200 lg:hidden ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="flex h-14 items-center justify-between border-b border-neutral-200 px-4">
+          <span className="text-lg font-semibold text-neutral-900">Espace</span>
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(false)}
+            className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-100"
+          >
+            <X className="size-5" />
+          </button>
+        </div>
+        <nav className="p-3">
+          <ul className="space-y-1">
+            {navItems.map((item) => {
+              const href = `/${locale}${item.href}`;
+              const isActive = pathname === href || pathname.startsWith(href + '/');
+              const Icon = item.icon;
+              
+              return (
+                <li key={item.key}>
+                  <Link
+                    href={href}
+                    onClick={() => setSidebarOpen(false)}
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'bg-neutral-100 text-neutral-900'
+                        : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'
+                    }`}
+                  >
+                    <Icon className="size-4" />
+                    <span>{item.label}</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+      </aside>
+
+      {/* Main content */}
+      <div className={`flex-1 ${sidebarCollapsed ? 'lg:pl-16' : 'lg:pl-56'}`}>
+        {/* Header */}
+        <header className="sticky top-0 z-30 border-b border-neutral-200 bg-white">
+          <div className="flex h-14 items-center justify-between gap-4 px-4 lg:px-6">
+            {/* Mobile menu button */}
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              className="rounded-lg p-2 text-neutral-600 hover:bg-neutral-100 lg:hidden"
+            >
+              <Menu className="size-5" />
+            </button>
+
+            {/* Search */}
+            <div className="hidden flex-1 lg:block lg:max-w-md">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Caută... (⌘K)"
+                  className="h-9 w-full rounded-lg border border-neutral-200 bg-neutral-50 pl-9 pr-3 text-sm text-neutral-900 placeholder-neutral-400 outline-none transition-colors focus:border-neutral-300 focus:bg-white focus:ring-1 focus:ring-neutral-200"
                 />
-              ) : null}
-              <div className="hidden text-right md:block">
-                <p className="text-sm font-medium text-foreground">
-                  {activeUser.firstName} {activeUser.lastName}
-                </p>
-                <p className="text-xs text-muted-foreground">{activeUser.email}</p>
-                <div className="mt-1 flex justify-end gap-1">
-                  <span className="rounded-md border border-border/60 bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                    {activeUser.emailVerifiedAt ? c('verified') : c('notVerified')}
-                  </span>
-                  <span className="rounded-md border border-border/60 bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                    {providerLabel}
-                  </span>
+              </div>
+            </div>
+
+            {/* Right side */}
+            <div className="flex items-center gap-2">
+              {normalizedRole === 'SUPER_ADMIN' && <OrgSwitcher />}
+              
+              {/* Demo badge */}
+              {(activeUser?.isDemoUser || activeOrg?.isDemo) && (
+                <span className="hidden rounded-md bg-amber-100 px-2 py-1 text-xs font-medium text-amber-700 sm:inline-flex">
+                  Demo
+                </span>
+              )}
+
+              {/* Notifications */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setNotificationsOpen(!notificationsOpen)}
+                  className="relative rounded-lg p-2 text-neutral-600 hover:bg-neutral-100"
+                >
+                  <Bell className="size-5" />
+                  {notificationsUnreadCount > 0 && (
+                    <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white">
+                      {notificationsUnreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {/* Notifications dropdown */}
+                {notificationsOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-80 rounded-lg border border-neutral-200 bg-white p-2 shadow-lg">
+                    <div className="mb-2 flex items-center justify-between px-2">
+                      <span className="text-sm font-medium text-neutral-900">Notificări</span>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (normalizedRole === 'ADMIN') await notificationsApi.adminReadAll();
+                          setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+                          setNotificationsUnreadCount(0);
+                        }}
+                        className="text-xs text-neutral-500 hover:text-neutral-700"
+                      >
+                        Marchează citite
+                      </button>
+                    </div>
+                    <div className="max-h-64 space-y-1 overflow-y-auto">
+                      {notifications.slice(0, 5).map((n) => (
+                        <button
+                          key={n.id}
+                          onClick={() => {
+                            setNotificationsOpen(false);
+                            if (n.actionUrl) router.push(n.actionUrl);
+                          }}
+                          className={`w-full rounded-lg px-2 py-2 text-left text-sm transition-colors ${
+                            n.isRead ? 'text-neutral-500' : 'bg-neutral-50 text-neutral-900'
+                          } hover:bg-neutral-100`}
+                        >
+                          <p className="font-medium">{n.title}</p>
+                          <p className="line-clamp-1 text-xs text-neutral-500">{n.message}</p>
+                        </button>
+                      ))}
+                      {!notifications.length && (
+                        <p className="px-2 py-4 text-center text-sm text-neutral-500">
+                          Nicio notificare
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* User menu */}
+              <div className="hidden items-center gap-2 lg:flex">
+                <div className="text-right">
+                  <p className="text-sm font-medium text-neutral-900">
+                    {activeUser.firstName} {activeUser.lastName}
+                  </p>
+                  <p className="text-xs text-neutral-500">{activeUser.email}</p>
+                </div>
+                <div className="flex size-8 items-center justify-center rounded-full bg-neutral-900 text-xs font-medium text-white">
+                  {activeUser.firstName?.[0]}{activeUser.lastName?.[0]}
                 </div>
               </div>
             </div>
           </div>
-          <div className="mt-3">
-            <MainNavigation role={normalizedRole} variant="desktop" />
-          </div>
-          {(normalizeRole(activeUser.role) === 'ADMIN' || normalizeRole(activeUser.role) === 'SUPER_ADMIN') &&
-          !prefs?.welcomeDismissed &&
-          activeUser.createdAt &&
-          Date.now() - new Date(activeUser.createdAt).getTime() < 24 * 60 * 60 * 1000 ? (
-            <div className="mt-3 rounded-2xl border border-border/60 bg-muted/40 px-3 py-2 text-sm text-foreground">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-              <p>Bun venit în Espace</p>
-                <button
-                  type="button"
-                  className="text-xs text-muted-foreground underline"
-                  onClick={() => {
-                    updatePreferences({ welcomeDismissed: true }).catch(() => undefined);
-                  }}
-                >
-                  Închide
-                </button>
-              </div>
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                <Link href={`/${locale}/admin/apartments`} className="rounded-xl border border-border/60 px-2 py-1 hover:bg-background">
-                  Apartamente
-                </Link>
-                <Link href={`/${locale}/admin/residents`} className="rounded-xl border border-border/60 px-2 py-1 hover:bg-background">
-                  Locatari
-                </Link>
-                <Link href={`/${locale}/admin/announcements`} className="rounded-xl border border-border/60 px-2 py-1 hover:bg-background">
-                  Avizier
-                </Link>
-              </div>
-            </div>
-          ) : null}
-          {trialInfo?.status === 'TRIAL' ? (
-            <div className="mt-3 rounded-2xl border border-border/60 bg-muted/50 px-3 py-2 text-sm text-foreground">
-              <span className="inline-flex items-center rounded-md border border-border/60 bg-background px-2 py-0.5 text-xs font-medium">
-                Trial
-              </span>{' '}
-              — {trialInfo.daysRemaining} zile rămase
-            </div>
-          ) : null}
-          {trialInfo?.status === 'EXPIRED' || trialInfo?.status === 'PAST_DUE' ? (
-            <div className="mt-3 rounded-2xl border border-border/60 bg-muted/50 px-3 py-2 text-sm text-foreground">
-              Trial expirat — contactează-ne
-            </div>
-          ) : null}
-          {planLimitWarning ? (
-            <div className="mt-3 rounded-2xl border border-border/60 bg-muted/50 px-3 py-2 text-sm text-foreground">
-              {planLimitWarning}
-            </div>
-          ) : null}
-          {normalizedRole === 'SUPER_ADMIN' && supportSession?.isActive ? (
-            <div className="mt-3 flex items-center justify-between gap-2 rounded-2xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-              <span>Mod suport activ: {supportSession.organization?.name || 'Asociație'}</span>
-              <div className="flex items-center gap-2">
-                <button
-                  className="rounded-md border border-amber-400 bg-white px-2 py-1 text-xs"
-                  onClick={async () => {
-                    await superadminApi.endSupportSession(supportSession.id);
-                    setSupportSession(null);
-                  }}
-                >
-                  Ieși din suport
-                </button>
-              </div>
-            </div>
-          ) : null}
-          {(activeUser?.isDemoUser || activeOrg?.isDemo) ? (
-            <div className="mt-3 rounded-2xl border border-indigo-300 bg-indigo-50 px-3 py-2 text-sm text-indigo-900">
-              Mod demo activ — datele sunt demonstrative.
-            </div>
-          ) : null}
-          {normalizedRole === 'ADMIN' ? (
-            <div className="mt-3">
-              <SubscriptionStatusBanner status={adminSubscription?.status} trialEndDate={adminSubscription?.trialEndDate} />
-            </div>
-          ) : null}
-          {showOnboardingTips ? (
-            <div className="mt-3 rounded-2xl border border-border/60 bg-card px-3 py-2 text-sm text-foreground">
-              <p className="font-medium">Pași recomandați pentru lansare</p>
-              <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                <Link href={`/${locale}/admin/apartments`} className="rounded-xl border border-border/60 px-2 py-1 hover:bg-background">
-                  Adaugă apartamente
-                </Link>
-                <Link href={`/${locale}/admin/residents`} className="rounded-xl border border-border/60 px-2 py-1 hover:bg-background">
-                  Adaugă locatari
-                </Link>
-                <Link href={`/${locale}/admin/invoices`} className="rounded-xl border border-border/60 px-2 py-1 hover:bg-background">
-                  Generează primele facturi
-                </Link>
-              </div>
-            </div>
-          ) : null}
-          </div>
         </header>
 
-        <main className="mx-auto w-full max-w-6xl px-4 py-5 pb-[calc(env(safe-area-inset-bottom)+8.75rem)] md:py-8 md:pb-[calc(env(safe-area-inset-bottom)+8.75rem)]">{children}</main>
-        <footer className="mx-auto flex w-full max-w-6xl items-center justify-end gap-3 px-5 pb-5 text-xs text-muted-foreground">
-          <span>v{process.env.NEXT_PUBLIC_APP_VERSION || '0.1.0-beta'}</span>
-          <Link href={`/${locale}/pricing`} className="hover:text-foreground">
-            Prețuri
-          </Link>
-          <Link href={`/${locale}/terms`} className="hover:text-foreground">
-            Termeni
-          </Link>
-          <Link href={`/${locale}/privacy`} className="hover:text-foreground">
-            Confidențialitate
-          </Link>
-        </footer>
+        {/* Page content */}
+        <main className="p-4 lg:p-6">
+          {children}
+        </main>
       </div>
-      <MainNavigation role={normalizedRole} variant="mobile" />
+
+      {/* Feedback modal */}
       <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} pageUrl={pathname || '/'} />
     </div>
   );
