@@ -19,6 +19,7 @@ import { ReportsModule } from './reports/reports.module';
 import { InvitationsMvpModule } from './invitations-mvp/invitations-mvp.module';
 import { AdminWorkbenchModule } from './admin-workbench/admin-workbench.module';
 import { ImportsModule } from './imports/imports.module';
+import { DataQualityModule } from './data-quality/data-quality.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -45,6 +46,7 @@ import { AppController } from './app.controller';
     InvitationsMvpModule,
     AdminWorkbenchModule,
     ImportsModule,
+    DataQualityModule,
   ],
   controllers: [AppController],
   providers: [],

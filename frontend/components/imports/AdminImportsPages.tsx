@@ -390,7 +390,16 @@ export function AdminCsvImportPage({ type }: { type: ImportType }) {
         </div>
       </Card>
 
-      {success ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">{success}</div> : null}
+      {success ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <span>{success}</span>
+            <Link href={localizedPath('/admin/data-quality')} className="inline-flex min-h-9 items-center justify-center rounded-2xl border border-emerald-300 bg-white px-3 text-xs font-semibold text-emerald-800 hover:bg-emerald-50">
+              Rulează verificări date
+            </Link>
+          </div>
+        </div>
+      ) : null}
       {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</div> : null}
 
       {job ? (

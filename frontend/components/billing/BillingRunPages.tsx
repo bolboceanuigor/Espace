@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   FileText,
   History,
+  ListChecks,
   LockKeyhole,
   Play,
   ReceiptText,
@@ -19,7 +20,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { Badge, Button, ButtonLink, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard, Table, TableBody, TableCell, TableEmpty, TableHead, TableHeaderCell, TableRow, TableWrapper } from '@/components/ui';
-import { auditLogsApi, billingApi } from '@/lib/api';
+import { auditLogsApi, billingApi, dataQualityApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
@@ -83,6 +84,14 @@ type RecentActivity = {
   actionUrl?: string | null;
   actor?: { fullName?: string | null } | null;
   createdAt: string;
+};
+
+type DataQualitySummary = {
+  score: number;
+  criticalCount: number;
+  warningCount: number;
+  blocksBillingCount: number;
+  lastRunAt?: string | null;
 };
 
 const statusLabel: Record<BillingRunStatus, string> = {
@@ -269,6 +278,7 @@ export function AdminBillingOverviewPage() {
   const router = useRouter();
   const [billingMonth, setBillingMonth] = useState(currentMonth());
   const [data, setData] = useState<BillingOverview | null>(null);
+  const [dataQuality, setDataQuality] = useState<DataQualitySummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
@@ -281,10 +291,15 @@ export function AdminBillingOverviewPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await billingApi.overview({ billingMonth });
+      const [res, qualityRes] = await Promise.all([
+        billingApi.overview({ billingMonth }),
+        dataQualityApi.overview({ billingMonth }).catch(() => null),
+      ]);
       setData(res.data || res);
+      setDataQuality((qualityRes?.data || qualityRes)?.summary || null);
     } catch (err: any) {
       setData(null);
+      setDataQuality(null);
       setError(String(err?.message || 'Nu am putut încărca procesul lunar.'));
     } finally {
       setLoading(false);
@@ -339,6 +354,21 @@ export function AdminBillingOverviewPage() {
       </Card>
 
       {error ? <Card className="border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</Card> : null}
+      {dataQuality ? (
+        <Card className="p-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Calitatea datelor</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Scor {dataQuality.score}/100 · {dataQuality.criticalCount} critice · {dataQuality.warningCount} warnings · {dataQuality.blocksBillingCount} blochează facturarea
+              </p>
+            </div>
+            <ButtonLink href={localizedPath(`/admin/data-quality?billingMonth=${billingMonth}`)} variant="secondary">
+              <ListChecks className="h-4 w-4" /> Deschide Data Quality
+            </ButtonLink>
+          </div>
+        </Card>
+      ) : null}
       {loading ? <LoadingState /> : null}
 
       {!loading && data && !data.billingRun ? (
@@ -525,6 +555,7 @@ export function BillingRunDetailPage() {
   const id = String(params?.id || '');
   const [data, setData] = useState<BillingOverview | null>(null);
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
+  const [dataQuality, setDataQuality] = useState<DataQualitySummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
@@ -543,11 +574,19 @@ export function BillingRunDetailPage() {
         billingApi.getRun(id),
         auditLogsApi.billingRunActivityRecent(id).catch(() => null),
       ]);
-      setData(res.data || res);
+      const payload = (res.data || res) as BillingOverview;
+      setData(payload);
       setRecentActivity((activityRes?.data || activityRes)?.items || []);
+      if (payload.billingRun?.billingMonth) {
+        const qualityRes = await dataQualityApi.overview({ billingMonth: payload.billingRun.billingMonth }).catch(() => null);
+        setDataQuality((qualityRes?.data || qualityRes)?.summary || null);
+      } else {
+        setDataQuality(null);
+      }
     } catch (err: any) {
       setData(null);
       setRecentActivity([]);
+      setDataQuality(null);
       setError(String(err?.message || 'Nu am putut încărca procesul lunar.'));
     } finally {
       setLoading(false);
@@ -624,6 +663,21 @@ export function BillingRunDetailPage() {
             </div>
           </Card>
           <Kpis data={data} />
+          {dataQuality ? (
+            <Card className="p-5">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Calitatea datelor</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Scor {dataQuality.score}/100 · {dataQuality.criticalCount} critice · {dataQuality.warningCount} warnings · {dataQuality.blocksBillingCount} blochează facturarea
+                  </p>
+                </div>
+                <ButtonLink href={localizedPath(`/admin/data-quality?billingMonth=${run.billingMonth}`)} variant="secondary">
+                  <ListChecks className="h-4 w-4" /> Deschide Data Quality
+                </ButtonLink>
+              </div>
+            </Card>
+          ) : null}
           <Timeline items={data.timeline || []} />
           <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
             <section className="space-y-3">

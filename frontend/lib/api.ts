@@ -1973,6 +1973,26 @@ export const auditLogsApi = {
   }) => apiRequest<any[]>('/api/superadmin/audit-logs', { params }),
 };
 
+export const dataQualityApi = {
+  overview: (params?: Record<string, string | number | boolean | undefined>) =>
+    apiRequest<any>('/api/admin/data-quality', { params }),
+  run: (data?: { billingMonth?: string }) =>
+    apiRequest<any>('/api/admin/data-quality/run', { method: 'POST', body: data || {} }),
+  stats: () => apiRequest<any>('/api/admin/data-quality/stats'),
+  runs: (params?: Record<string, string | number | boolean | undefined>) =>
+    apiRequest<any>('/api/admin/data-quality/runs', { params }),
+  getRun: (id: string) => apiRequest<any>(`/api/admin/data-quality/runs/${id}`),
+  issues: (params?: Record<string, string | number | boolean | undefined>) =>
+    apiRequest<any>('/api/admin/data-quality/issues', { params }),
+  getIssue: (id: string) => apiRequest<any>(`/api/admin/data-quality/issues/${id}`),
+  resolveIssue: (id: string, note?: string) =>
+    apiRequest<any>(`/api/admin/data-quality/issues/${id}/resolve`, { method: 'PATCH', body: { note } }),
+  ignoreIssue: (id: string, reason: string) =>
+    apiRequest<any>(`/api/admin/data-quality/issues/${id}/ignore`, { method: 'PATCH', body: { reason } }),
+  reopenIssue: (id: string) =>
+    apiRequest<any>(`/api/admin/data-quality/issues/${id}/reopen`, { method: 'PATCH' }),
+};
+
 export const systemMonitoringApi = {
   reportClientError: (data: { message: string; stack?: string; metadataJson?: Record<string, any> }) =>
     apiRequest<any>('/api/system/errors/client', { method: 'POST', body: data }),

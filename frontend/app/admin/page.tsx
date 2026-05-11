@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
 import { formatMdl } from '@/lib/condo-admin-fallback';
-import { adminResidentUpdateRequestsApi, billingApi, communicationsApi, onboardingApi, workbenchApi } from '@/lib/api';
+import { adminResidentUpdateRequestsApi, billingApi, communicationsApi, dataQualityApi, onboardingApi, workbenchApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 type CrmOrganization = {
@@ -283,6 +283,7 @@ export default function AdminPage() {
   const [pendingUpdateRequests, setPendingUpdateRequests] = useState(0);
   const [announcementStats, setAnnouncementStats] = useState<any>({});
   const [billingOverview, setBillingOverview] = useState<any>(null);
+  const [dataQualitySummary, setDataQualitySummary] = useState<any>(null);
 
   useEffect(() => {
     let active = true;
@@ -353,6 +354,17 @@ export default function AdminPage() {
         setBillingOverview(null);
       });
 
+    dataQualityApi
+      .stats()
+      .then((response) => {
+        if (!active) return;
+        setDataQualitySummary(response.data || null);
+      })
+      .catch(() => {
+        if (!active) return;
+        setDataQualitySummary(null);
+      });
+
     return () => {
       active = false;
     };
@@ -416,8 +428,17 @@ export default function AdminPage() {
         href: '/admin/billing',
         active: Boolean(billingOverview?.summary?.errorsCount || billingOverview?.summary?.warningsCount || !billingOverview?.billingRun),
       },
+      {
+        title: 'Calitatea datelor',
+        value: dataQualitySummary ? `${dataQualitySummary.score || 0}/100` : 'Verifică',
+        description: dataQualitySummary
+          ? `${dataQualitySummary.criticalCount || 0} critice · ${dataQualitySummary.warningCount || 0} warnings`
+          : 'Rulează verificările de date',
+        href: '/admin/data-quality',
+        active: Boolean(dataQualitySummary?.criticalCount || dataQualitySummary?.warningCount || !dataQualitySummary?.lastRunAt),
+      },
     ],
-    [announcementStats, billingOverview, crm, pendingUpdateRequests],
+    [announcementStats, billingOverview, crm, dataQualitySummary, pendingUpdateRequests],
   );
 
   const kpiCards = [
@@ -585,6 +606,19 @@ export default function AdminPage() {
               <BarChart3 className="h-4 w-4" /> Vezi rapoarte financiare
             </ButtonLink>
           </div>
+          <div className="mt-4 flex flex-col gap-3 border-t border-border/70 pt-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Calitatea datelor</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {dataQualitySummary?.lastRunAt
+                  ? `Scor ${dataQualitySummary.score}/100 · ${dataQualitySummary.criticalCount || 0} critice · ${dataQualitySummary.warningCount || 0} warnings`
+                  : 'Nu există încă o verificare Data Quality rulată.'}
+              </p>
+            </div>
+            <ButtonLink href={localizedPath('/admin/data-quality')} variant="secondary">
+              <ListChecks className="h-4 w-4" /> Verifică datele
+            </ButtonLink>
+          </div>
         </div>
       </Card>
 
@@ -747,6 +781,9 @@ export default function AdminPage() {
           </ButtonLink>
           <ButtonLink href={localizedPath('/admin/billing')} variant="secondary">
             <ListChecks className="h-4 w-4" /> Facturare lunară
+          </ButtonLink>
+          <ButtonLink href={localizedPath('/admin/data-quality')} variant="secondary">
+            <ListChecks className="h-4 w-4" /> Calitatea datelor
           </ButtonLink>
           <ButtonLink href={localizedPath('/admin/audit-log')} variant="secondary">
             <ListChecks className="h-4 w-4" /> Istoric activitate
