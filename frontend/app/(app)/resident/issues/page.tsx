@@ -2,9 +2,21 @@
 
 import { useEffect, useState } from 'react';
 import { PlusCircle, Wrench } from 'lucide-react';
-import { Badge, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
+import { Badge, ButtonLink, Card, PageHeader, StatCard, StatusBadge } from '@/components/ui';
 import { residentDemoApi } from '@/lib/api';
-import { normalizeResidentIssue, residentIssues, residentIssuePriorityVariant, residentIssueStatusVariant } from '@/lib/resident-mvp-data';
+import { normalizeResidentIssue, residentIssues, residentIssuePriorityVariant, ResidentIssueStatus, ResidentIssuePriority } from '@/lib/resident-mvp-data';
+
+const issueStatusToStatusBadge: Record<ResidentIssueStatus, 'pending' | 'active' | 'paid'> = {
+  'Nouă': 'pending',
+  'În lucru': 'active',
+  'Rezolvată': 'paid',
+};
+
+const issuePriorityToStatusBadge: Record<ResidentIssuePriority, 'draft' | 'partial' | 'overdue'> = {
+  'Normal': 'draft',
+  'Important': 'partial',
+  'Urgent': 'overdue',
+};
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 export default function ResidentIssuesPage() {
@@ -84,11 +96,11 @@ function IssueCard({ request }: { request: (typeof residentIssues)[number] }) {
           <h3 className="font-semibold text-foreground">{request.title}</h3>
           <p className="mt-1 text-sm text-muted-foreground">{request.category} · {request.date}</p>
         </div>
-        <Badge variant={residentIssueStatusVariant[request.status]}>{request.status}</Badge>
+        <StatusBadge status={issueStatusToStatusBadge[request.status]}>{request.status}</StatusBadge>
       </div>
       <p className="mt-3 text-sm leading-6 text-muted-foreground">{request.message}</p>
       <div className="mt-3 flex flex-wrap gap-2">
-        <Badge variant={residentIssuePriorityVariant[request.priority]}>{request.priority}</Badge>
+        <StatusBadge status={issuePriorityToStatusBadge[request.priority]}>{request.priority}</StatusBadge>
       </div>
     </Card>
   );

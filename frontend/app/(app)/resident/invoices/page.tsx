@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Clock3, CreditCard, FileText, Home, ReceiptText, Search, WalletCards } from 'lucide-react';
-import { Badge, Button, Card, Input, PageHeader, StatCard } from '@/components/ui';
+import { Badge, Button, Card, Input, PageHeader, StatCard, StatusBadge } from '@/components/ui';
 import { residentDemoApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { useLocalizedPath } from '@/lib/use-localized-path';
@@ -70,13 +70,13 @@ const statusLabels: Record<ResidentInvoiceStatus, string> = {
   VOID: 'Void',
 };
 
-const statusVariant = {
-  ISSUED: 'warning',
-  PARTIALLY_PAID: 'warning',
-  PAID: 'success',
-  CANCELLED: 'neutral',
-  VOID: 'neutral',
-} as const;
+const statusToStatusBadge: Record<ResidentInvoiceStatus, 'sent' | 'partial' | 'paid' | 'cancelled' | 'draft'> = {
+  ISSUED: 'sent',
+  PARTIALLY_PAID: 'partial',
+  PAID: 'paid',
+  CANCELLED: 'cancelled',
+  VOID: 'draft',
+};
 
 export default function ResidentInvoicesPage() {
   const localizedPath = useLocalizedPath();
@@ -238,9 +238,9 @@ export default function ResidentInvoicesPage() {
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <Badge variant={invoice.isOverdue ? 'error' : statusVariant[invoice.status]}>
+                <StatusBadge status={invoice.isOverdue ? 'overdue' : statusToStatusBadge[invoice.status]}>
                   {invoice.isOverdue ? 'Scadentă / întârziată' : statusLabels[invoice.status]}
-                </Badge>
+                </StatusBadge>
               </div>
             </div>
 
