@@ -3,39 +3,73 @@
 @tailwind utilities;
 
 :root {
-  --background: 220 20% 97%;
-  --foreground: 222 32% 14%;
+  /* Espace Premium Design System */
+  --background: 210 20% 98%;
+  --foreground: 222 47% 11%;
   --card: 0 0% 100%;
-  --muted: 220 20% 94%;
-  --muted-foreground: 220 10% 40%;
-  --border: 220 18% 87%;
-  --primary: 222 32% 14%;
-  --secondary: 220 22% 92%;
-  --sidebar-bg: #ffffff;
+  --card-foreground: 222 47% 11%;
+  --muted: 210 20% 96%;
+  --muted-foreground: 215 16% 47%;
+  --border: 214 20% 91%;
+  --input: 214 20% 91%;
+  --primary: 222 47% 11%;
+  --primary-foreground: 210 20% 98%;
+  --secondary: 210 20% 96%;
+  --secondary-foreground: 222 47% 11%;
+  --accent: 166 76% 35%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --ring: 222 47% 11%;
+  --radius: 0.75rem;
+  
+  /* Sidebar */
+  --sidebar-bg: 0 0% 100%;
+  --sidebar-foreground: 222 47% 11%;
+  --sidebar-muted: 210 20% 96%;
+  --sidebar-accent: 166 76% 35%;
+  
+  /* Semantic Status Colors */
+  --success: 166 76% 35%;
+  --success-foreground: 0 0% 100%;
+  --warning: 38 92% 50%;
+  --warning-foreground: 0 0% 0%;
+  --info: 214 100% 50%;
+  --info-foreground: 0 0% 100%;
+  --critical: 0 72% 51%;
+  --critical-foreground: 0 0% 100%;
+
+  /* Status Badge Specific */
+  --status-active: 166 76% 35%;
+  --status-draft: 215 16% 47%;
+  --status-pending: 38 92% 50%;
+  --status-sent: 214 100% 50%;
+  --status-paid: 166 76% 35%;
+  --status-partial: 38 92% 50%;
+  --status-overdue: 0 72% 51%;
+  --status-cancelled: 215 16% 47%;
+
+  /* Brand Primary Hex for Direct Use */
   --brand-primary-hex: #111827;
-
-  /* Neutral gray scale - Fresha-like */
-  --gray-50: #F9FAFB;
-  --gray-100: #F3F4F6;
-  --gray-200: #E5E7EB;
-  --gray-400: #9CA3AF;
-  --gray-600: #4B5563;
-  --gray-800: #1F2937;
-
-  /* Reservation block colors - status (muted) */
-  --reservation-confirmed: #374151;
-  --reservation-pending: #92400E;
-  --reservation-cancelled: #7F1D1D;
+  --brand-accent-hex: #0d9488;
 }
 
 html[data-theme='dark'] {
-  --background: 250 36% 9%;
-  --foreground: 236 30% 94%;
-  --card: 246 34% 13%;
-  --muted: 247 22% 19%;
-  --muted-foreground: 238 13% 68%;
-  --border: 247 20% 27%;
-  --secondary: 247 18% 22%;
+  --background: 222 47% 6%;
+  --foreground: 210 20% 98%;
+  --card: 222 47% 9%;
+  --card-foreground: 210 20% 98%;
+  --muted: 222 47% 12%;
+  --muted-foreground: 215 16% 65%;
+  --border: 222 30% 18%;
+  --input: 222 30% 18%;
+  --primary: 210 20% 98%;
+  --primary-foreground: 222 47% 11%;
+  --secondary: 222 47% 12%;
+  --secondary-foreground: 210 20% 98%;
+  --accent: 166 76% 35%;
+  --accent-foreground: 0 0% 100%;
+  --sidebar-bg: 222 47% 9%;
 }
 
 * {
