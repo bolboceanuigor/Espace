@@ -4,10 +4,11 @@ import { AuditModule } from '../audit/audit.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AdminRbacController } from './admin-rbac.controller';
 import { AdminRbacService } from './admin-rbac.service';
+import { StaffInvitationsPublicController } from './staff-invitations-public.controller';
 
 @Module({
   imports: [PrismaModule, AuthModule, AuditModule],
-  controllers: [AdminRbacController],
+  controllers: [AdminRbacController, StaffInvitationsPublicController],
   providers: [AdminRbacService],
   exports: [AdminRbacService],
 })

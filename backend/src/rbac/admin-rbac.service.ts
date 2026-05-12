@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   AssociationRoleType,
+  AuthProvider,
   OrganizationMemberRole,
   OrganizationMemberStatus,
   PermissionAction,
@@ -8,7 +9,11 @@ import {
   PlatformRole,
   Prisma,
   Role,
+  StaffInvitationDeliveryMethod,
+  StaffInvitationStatus,
 } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
+import { createHash, randomBytes } from 'crypto';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -46,6 +51,18 @@ type MatrixMutationPayload = {
   confirmCritical?: unknown;
 };
 
+type StaffInvitationPayload = {
+  invitedFullName?: unknown;
+  invitedEmail?: unknown;
+  invitedPhone?: unknown;
+  roleId?: unknown;
+  deliveryMethod?: unknown;
+  expiresInDays?: unknown;
+  message?: unknown;
+  confirmReplaceActive?: unknown;
+  confirmCritical?: unknown;
+};
+
 const PAGE_LIMIT_DEFAULT = 20;
 const PAGE_LIMIT_MAX = 100;
 
@@ -78,6 +95,46 @@ function parseLimit(value: unknown) {
 
 function normalizeText(value: unknown, fallback = '') {
   return typeof value === 'string' ? value.trim() : fallback;
+}
+
+function normalizeEmail(value: unknown) {
+  return normalizeText(value).toLowerCase();
+}
+
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function parseExpiresInDays(value: unknown) {
+  const days = Number(value || 7);
+  if (!Number.isFinite(days) || days < 1 || days > 30) {
+    throw new BadRequestException('expiresInDays must be between 1 and 30');
+  }
+  return Math.floor(days);
+}
+
+function tokenHash(token: string) {
+  return createHash('sha256').update(token).digest('hex');
+}
+
+function generateSecureToken() {
+  return randomBytes(32).toString('base64url');
+}
+
+function effectiveStaffInvitationStatus(status: StaffInvitationStatus, expiresAt: Date) {
+  if ((status === StaffInvitationStatus.PENDING || status === StaffInvitationStatus.SENT) && expiresAt.getTime() < Date.now()) {
+    return StaffInvitationStatus.EXPIRED;
+  }
+  return status;
+}
+
+function legacyRoleForAssociationRole(type: AssociationRoleType) {
+  if (type === AssociationRoleType.ASSOCIATION_OWNER || type === AssociationRoleType.ASSOCIATION_ADMIN) {
+    return OrganizationMemberRole.ORG_ADMIN;
+  }
+  if (type === AssociationRoleType.FINANCE_OPERATOR) return OrganizationMemberRole.ACCOUNTANT;
+  if (type === AssociationRoleType.METER_OPERATOR) return OrganizationMemberRole.TECHNICIAN;
+  return OrganizationMemberRole.OPERATOR;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -119,6 +176,31 @@ export class AdminRbacService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
   ) {}
+
+  private buildStaffInviteLink(token: string, locale = 'ro') {
+    const appUrl = (process.env.FRONTEND_URL || process.env.APP_URL || 'http://localhost:3001').replace(/\/+$/, '');
+    return `${appUrl}/${locale}/staff-invite/${token}`;
+  }
+
+  private serializeRoleForPreview(role: Prisma.AssociationRoleGetPayload<{ include: { rolePermissions: { include: { permission: true } } } }>) {
+    const grouped = new Map<string, string[]>();
+    const critical: string[] = [];
+    for (const item of role.rolePermissions || []) {
+      if (!item.allowed) continue;
+      const module = String(item.permission.module);
+      const action = String(item.permission.action);
+      grouped.set(module, [...(grouped.get(module) || []), action]);
+      if (item.permission.isCritical) critical.push(permissionKey(item.permission.module as PermissionModuleKey, item.permission.action as PermissionActionKey));
+    }
+    return {
+      id: role.id,
+      name: role.name,
+      type: role.type,
+      isSystem: role.isSystem,
+      permissionsPreview: Array.from(grouped.entries()).map(([module, actions]) => ({ module, actions })),
+      criticalPermissions: critical,
+    };
+  }
 
   private async auditAction(user: AuthUser, action: string, entityType: string, entityId: string | null, description: string, oldValues?: unknown, newValues?: unknown) {
     const actorId = userIdOf(user);
@@ -701,31 +783,660 @@ export class AdminRbacService {
     const organizationId = organizationIdOf(user);
     const page = parsePage(query.page);
     const limit = parseLimit(query.limit);
+    const status = normalizeText(query.status);
+    const roleId = normalizeText(query.roleId);
+    const search = normalizeText(query.search).toLowerCase();
+    const where: Prisma.OrganizationMemberWhereInput = {
+      organizationId,
+      ...(status ? { status: status as OrganizationMemberStatus } : {}),
+      ...(roleId ? { associationRoleId: roleId } : {}),
+      ...(search
+        ? {
+            OR: [
+              { user: { email: { contains: search, mode: 'insensitive' } } },
+              { user: { fullName: { contains: search, mode: 'insensitive' } } },
+              { user: { firstName: { contains: search, mode: 'insensitive' } } },
+              { user: { lastName: { contains: search, mode: 'insensitive' } } },
+            ],
+          }
+        : {}),
+    };
     const [items, total] = await Promise.all([
       this.prisma.organizationMember.findMany({
-        where: { organizationId },
+        where,
         include: {
-          user: { select: { id: true, email: true, firstName: true, lastName: true } },
+          user: { select: { id: true, email: true, fullName: true, firstName: true, lastName: true } },
           associationRole: true,
+          createdBy: { select: { id: true, email: true, fullName: true, firstName: true, lastName: true } },
         },
         orderBy: { updatedAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
       }),
-      this.prisma.organizationMember.count({ where: { organizationId } }),
+      this.prisma.organizationMember.count({ where }),
     ]);
+    const userIds = items.map((member) => member.userId);
+    const loginRows = userIds.length
+      ? await this.prisma.auditLog.findMany({
+          where: { organizationId, userId: { in: userIds }, action: 'LOGIN_SUCCESS' },
+          orderBy: { createdAt: 'desc' },
+          select: { userId: true, createdAt: true },
+        })
+      : [];
+    const lastLoginByUser = new Map<string, Date>();
+    for (const row of loginRows) {
+      if (!lastLoginByUser.has(row.userId)) lastLoginByUser.set(row.userId, row.createdAt);
+    }
     return {
       items: items.map((member) => ({
         id: member.id,
         userId: member.userId,
-        fullName: [member.user.firstName, member.user.lastName].filter(Boolean).join(' ').trim() || member.user.email,
+        fullName: member.user.fullName || [member.user.firstName, member.user.lastName].filter(Boolean).join(' ').trim() || member.user.email,
         email: member.user.email,
         status: member.status,
         roleId: member.associationRoleId,
         role: member.associationRole ? { id: member.associationRole.id, name: member.associationRole.name, type: member.associationRole.type } : null,
         legacyRole: member.role,
+        invitedAt: member.invitedAt,
+        activatedAt: member.activatedAt,
+        suspendedAt: member.suspendedAt,
+        revokedAt: member.revokedAt,
+        createdAt: member.createdAt,
+        updatedAt: member.updatedAt,
+        lastLoginAt: lastLoginByUser.get(member.userId) || null,
+        invitedBy: member.createdBy
+          ? {
+              id: member.createdBy.id,
+              fullName:
+                member.createdBy.fullName ||
+                [member.createdBy.firstName, member.createdBy.lastName].filter(Boolean).join(' ').trim() ||
+                member.createdBy.email,
+              email: member.createdBy.email,
+            }
+          : null,
       })),
-      meta: { page, limit, total },
+      meta: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
+      stats: await this.getTeamStats(user),
     };
+  }
+
+  async getTeamStats(user: AuthUser) {
+    await this.ensureOwnerMembership(user);
+    const organizationId = organizationIdOf(user);
+    const now = new Date();
+    const [active, invited, suspended, revoked, expiredInvitations, pendingInvitations, customRoles, lastInvitation] =
+      await Promise.all([
+        this.prisma.organizationMember.count({ where: { organizationId, status: OrganizationMemberStatus.ACTIVE } }),
+        this.prisma.organizationMember.count({ where: { organizationId, status: OrganizationMemberStatus.INVITED } }),
+        this.prisma.organizationMember.count({ where: { organizationId, status: OrganizationMemberStatus.SUSPENDED } }),
+        this.prisma.organizationMember.count({ where: { organizationId, status: OrganizationMemberStatus.REVOKED } }),
+        this.prisma.associationStaffInvitation.count({
+          where: {
+            associationId: organizationId,
+            OR: [
+              { status: StaffInvitationStatus.EXPIRED },
+              { status: { in: [StaffInvitationStatus.PENDING, StaffInvitationStatus.SENT] }, expiresAt: { lt: now } },
+            ],
+          },
+        }),
+        this.prisma.associationStaffInvitation.count({
+          where: { associationId: organizationId, status: { in: [StaffInvitationStatus.PENDING, StaffInvitationStatus.SENT] }, expiresAt: { gte: now } },
+        }),
+        this.prisma.associationRole.count({ where: { organizationId, type: AssociationRoleType.CUSTOM } }),
+        this.prisma.associationStaffInvitation.findFirst({
+          where: { associationId: organizationId },
+          orderBy: { createdAt: 'desc' },
+          select: { id: true, invitedEmail: true, status: true, expiresAt: true, createdAt: true },
+        }),
+      ]);
+    return {
+      active,
+      invited,
+      suspended,
+      revoked,
+      pendingInvitations,
+      expiredInvitations,
+      customRoles,
+      lastInvitation: lastInvitation
+        ? { ...lastInvitation, status: effectiveStaffInvitationStatus(lastInvitation.status, lastInvitation.expiresAt) }
+        : null,
+    };
+  }
+
+  private async assertOwnerCanBeInactive(organizationId: string, memberId: string) {
+    const member = await this.prisma.organizationMember.findFirst({
+      where: { id: memberId, organizationId },
+      include: { associationRole: true },
+    });
+    if (!member) throw new NotFoundException('Team member not found');
+    if (member.associationRole?.type !== AssociationRoleType.ASSOCIATION_OWNER) return member;
+    const otherOwners = await this.prisma.organizationMember.count({
+      where: {
+        organizationId,
+        id: { not: memberId },
+        status: OrganizationMemberStatus.ACTIVE,
+        associationRole: { type: AssociationRoleType.ASSOCIATION_OWNER },
+      },
+    });
+    if (otherOwners < 1) throw new BadRequestException('Cannot suspend or revoke the last association owner');
+    return member;
+  }
+
+  async getTeamMember(user: AuthUser, memberId: string) {
+    await this.ensureOwnerMembership(user);
+    const details = await this.getTeamMemberPermissions(user, memberId);
+    const activity = await this.listTeamMemberActivity(user, memberId, { limit: 5 });
+    return { ...details.member, permissions: details.permissions, availableRoles: details.availableRoles, activity: activity.items };
+  }
+
+  async suspendTeamMember(user: AuthUser, memberId: string, payload: { reason?: unknown }) {
+    await this.ensureOwnerMembership(user);
+    const organizationId = organizationIdOf(user);
+    const reason = normalizeText(payload.reason);
+    if (!reason) throw new BadRequestException('Suspension reason is required');
+    const before = await this.assertOwnerCanBeInactive(organizationId, memberId);
+    const updated = await this.prisma.organizationMember.update({
+      where: { id: before.id },
+      data: {
+        status: OrganizationMemberStatus.SUSPENDED,
+        suspendedAt: new Date(),
+        suspendedById: userIdOf(user) || null,
+        suspensionReason: reason,
+      },
+    });
+    await this.auditAction(user, 'STAFF_MEMBER_SUSPENDED', 'ORGANIZATION_MEMBER', memberId, 'Membru echipă suspendat', before, {
+      status: updated.status,
+      reason,
+    });
+    return this.getTeamMember(user, memberId);
+  }
+
+  async reactivateTeamMember(user: AuthUser, memberId: string, payload: { note?: unknown }) {
+    await this.ensureOwnerMembership(user);
+    const organizationId = organizationIdOf(user);
+    const before = await this.prisma.organizationMember.findFirst({ where: { id: memberId, organizationId } });
+    if (!before) throw new NotFoundException('Team member not found');
+    const updated = await this.prisma.organizationMember.update({
+      where: { id: before.id },
+      data: {
+        status: OrganizationMemberStatus.ACTIVE,
+        suspendedAt: null,
+        suspendedById: null,
+        suspensionReason: null,
+        revokedAt: null,
+        revokedById: null,
+        revokeReason: null,
+      },
+    });
+    await this.auditAction(user, 'STAFF_MEMBER_REACTIVATED', 'ORGANIZATION_MEMBER', memberId, 'Membru echipă reactivat', before, {
+      status: updated.status,
+      note: normalizeText(payload.note) || null,
+    });
+    return this.getTeamMember(user, memberId);
+  }
+
+  async revokeTeamMember(user: AuthUser, memberId: string, payload: { reason?: unknown }) {
+    await this.ensureOwnerMembership(user);
+    const organizationId = organizationIdOf(user);
+    const reason = normalizeText(payload.reason);
+    if (!reason) throw new BadRequestException('Revoke reason is required');
+    const before = await this.assertOwnerCanBeInactive(organizationId, memberId);
+    const updated = await this.prisma.organizationMember.update({
+      where: { id: before.id },
+      data: {
+        status: OrganizationMemberStatus.REVOKED,
+        revokedAt: new Date(),
+        revokedById: userIdOf(user) || null,
+        revokeReason: reason,
+      },
+    });
+    await this.auditAction(user, 'STAFF_MEMBER_REVOKED', 'ORGANIZATION_MEMBER', memberId, 'Acces membru echipă revocat', before, {
+      status: updated.status,
+      reason,
+    });
+    return this.getTeamMember(user, memberId);
+  }
+
+  async listTeamMemberActivity(user: AuthUser, memberId: string, query: Record<string, unknown>) {
+    await this.ensureOwnerMembership(user);
+    const organizationId = organizationIdOf(user);
+    const member = await this.prisma.organizationMember.findFirst({ where: { id: memberId, organizationId }, select: { userId: true } });
+    if (!member) throw new NotFoundException('Team member not found');
+    const limit = parseLimit(query.limit || 20);
+    const items = await this.prisma.auditLog.findMany({
+      where: { organizationId, userId: member.userId },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      select: { id: true, action: true, entityType: true, entityId: true, description: true, createdAt: true },
+    });
+    return { items };
+  }
+
+  private async getRoleWithPermissionsOrThrow(organizationId: string, roleId: string) {
+    const role = await this.prisma.associationRole.findFirst({
+      where: { id: roleId, organizationId },
+      include: { rolePermissions: { include: { permission: true } } },
+    });
+    if (!role) throw new NotFoundException('Role not found');
+    return role;
+  }
+
+  private serializeStaffInvitation(invitation: any, rawToken?: string) {
+    const effectiveStatus = effectiveStaffInvitationStatus(invitation.status, invitation.expiresAt);
+    return {
+      id: invitation.id,
+      invitedEmail: invitation.invitedEmail,
+      invitedFullName: invitation.invitedFullName,
+      invitedPhone: invitation.invitedPhone,
+      status: effectiveStatus,
+      storedStatus: invitation.status,
+      deliveryMethod: invitation.deliveryMethod,
+      expiresAt: invitation.expiresAt,
+      acceptedAt: invitation.acceptedAt,
+      cancelledAt: invitation.cancelledAt,
+      revokedAt: invitation.revokedAt,
+      cancellationReason: invitation.cancellationReason,
+      revokeReason: invitation.revokeReason,
+      tokenPreview: invitation.tokenPreview,
+      lastSentAt: invitation.lastSentAt,
+      sendCount: invitation.sendCount,
+      createdAt: invitation.createdAt,
+      updatedAt: invitation.updatedAt,
+      inviteLink: rawToken ? this.buildStaffInviteLink(rawToken) : undefined,
+      rawToken,
+      association: invitation.association
+        ? {
+            id: invitation.association.id,
+            shortName: invitation.association.name,
+            associationCode: invitation.association.fiscalCode || invitation.association.invoicePrefix || invitation.association.id.slice(0, 8),
+          }
+        : undefined,
+      role: invitation.role ? this.serializeRoleForPreview(invitation.role) : null,
+      createdBy: invitation.createdBy
+        ? { id: invitation.createdBy.id, fullName: invitation.createdBy.fullName || invitation.createdBy.email, email: invitation.createdBy.email }
+        : null,
+      acceptedBy: invitation.acceptedBy
+        ? { id: invitation.acceptedBy.id, fullName: invitation.acceptedBy.fullName || invitation.acceptedBy.email, email: invitation.acceptedBy.email }
+        : null,
+    };
+  }
+
+  private staffInvitationInclude() {
+    return {
+      association: { select: { id: true, name: true, fiscalCode: true, invoicePrefix: true } },
+      role: { include: { rolePermissions: { include: { permission: true } } } },
+      createdBy: { select: { id: true, email: true, fullName: true } },
+      acceptedBy: { select: { id: true, email: true, fullName: true } },
+      cancelledBy: { select: { id: true, email: true, fullName: true } },
+      revokedBy: { select: { id: true, email: true, fullName: true } },
+    } satisfies Prisma.AssociationStaffInvitationInclude;
+  }
+
+  async listStaffInvitations(user: AuthUser, query: Record<string, unknown>) {
+    await this.ensureOwnerMembership(user);
+    const associationId = organizationIdOf(user);
+    const page = parsePage(query.page);
+    const limit = parseLimit(query.limit);
+    const status = normalizeText(query.status);
+    const roleId = normalizeText(query.roleId);
+    const deliveryMethod = normalizeText(query.deliveryMethod);
+    const search = normalizeText(query.search).toLowerCase();
+    const expiredOnly = query.expiredOnly === true || query.expiredOnly === 'true';
+    const where: Prisma.AssociationStaffInvitationWhereInput = {
+      associationId,
+      ...(status ? { status: status as StaffInvitationStatus } : {}),
+      ...(roleId ? { roleId } : {}),
+      ...(deliveryMethod ? { deliveryMethod: deliveryMethod as StaffInvitationDeliveryMethod } : {}),
+      ...(search
+        ? {
+            OR: [
+              { invitedEmail: { contains: search, mode: 'insensitive' } },
+              { invitedFullName: { contains: search, mode: 'insensitive' } },
+              { invitedPhone: { contains: search, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+      ...(expiredOnly
+        ? {
+            OR: [
+              { status: StaffInvitationStatus.EXPIRED },
+              { status: { in: [StaffInvitationStatus.PENDING, StaffInvitationStatus.SENT] }, expiresAt: { lt: new Date() } },
+            ],
+          }
+        : {}),
+    };
+    const [items, total] = await Promise.all([
+      this.prisma.associationStaffInvitation.findMany({
+        where,
+        include: this.staffInvitationInclude(),
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.associationStaffInvitation.count({ where }),
+    ]);
+    return {
+      items: items.map((item) => this.serializeStaffInvitation(item)),
+      meta: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
+    };
+  }
+
+  async createStaffInvitation(user: AuthUser, payload: StaffInvitationPayload) {
+    await this.ensureOwnerMembership(user);
+    const associationId = organizationIdOf(user);
+    const actorId = userIdOf(user);
+    if (!actorId) throw new BadRequestException('Actor user is required');
+    const invitedEmail = normalizeEmail(payload.invitedEmail);
+    if (!invitedEmail || !isValidEmail(invitedEmail)) throw new BadRequestException('A valid invitedEmail is required');
+    const roleId = normalizeText(payload.roleId);
+    if (!roleId) throw new BadRequestException('roleId is required');
+    const role = await this.getRoleWithPermissionsOrThrow(associationId, roleId);
+    const rolePreview = this.serializeRoleForPreview(role);
+    if (rolePreview.criticalPermissions.length && payload.confirmCritical !== true) {
+      throw new BadRequestException('Critical role permissions require explicit confirmation');
+    }
+    const existingMember = await this.prisma.organizationMember.findFirst({
+      where: { organizationId: associationId, user: { email: invitedEmail, deletedAt: null }, status: OrganizationMemberStatus.ACTIVE },
+      select: { id: true },
+    });
+    if (existingMember) throw new BadRequestException('Acest user este deja membru activ în asociație.');
+    const activeInvitation = await this.prisma.associationStaffInvitation.findFirst({
+      where: {
+        associationId,
+        invitedEmail,
+        status: { in: [StaffInvitationStatus.PENDING, StaffInvitationStatus.SENT] },
+        expiresAt: { gt: new Date() },
+      },
+    });
+    if (activeInvitation && payload.confirmReplaceActive !== true) {
+      throw new BadRequestException('Există deja o invitație activă pentru acest email.');
+    }
+    const rawToken = generateSecureToken();
+    const expiresInDays = parseExpiresInDays(payload.expiresInDays);
+    const deliveryMethod = Object.values(StaffInvitationDeliveryMethod).includes(payload.deliveryMethod as StaffInvitationDeliveryMethod)
+      ? (payload.deliveryMethod as StaffInvitationDeliveryMethod)
+      : StaffInvitationDeliveryMethod.COPY_LINK;
+    const invitation = await this.prisma.$transaction(async (tx) => {
+      if (activeInvitation) {
+        await tx.associationStaffInvitation.update({
+          where: { id: activeInvitation.id },
+          data: {
+            status: StaffInvitationStatus.CANCELLED,
+            cancelledAt: new Date(),
+            cancelledById: actorId || null,
+            cancellationReason: 'Înlocuită cu o invitație nouă.',
+          },
+        });
+      }
+      return tx.associationStaffInvitation.create({
+        data: {
+          associationId,
+          invitedEmail,
+          invitedFullName: normalizeText(payload.invitedFullName) || null,
+          invitedPhone: normalizeText(payload.invitedPhone) || null,
+          roleId,
+          tokenHash: tokenHash(rawToken),
+          tokenPreview: rawToken.slice(-6),
+          expiresAt: new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000),
+          createdById: actorId,
+          deliveryMethod,
+          metadata: normalizeText(payload.message) ? { message: normalizeText(payload.message) } : undefined,
+        },
+        include: this.staffInvitationInclude(),
+      });
+    });
+    await this.auditAction(user, 'STAFF_INVITATION_CREATED', 'ASSOCIATION_STAFF_INVITATION', invitation.id, 'Invitație staff creată', null, {
+      invitedEmail,
+      roleId,
+      deliveryMethod,
+      expiresAt: invitation.expiresAt,
+    });
+    return this.serializeStaffInvitation(invitation, rawToken);
+  }
+
+  async getStaffInvitation(user: AuthUser, invitationId: string) {
+    await this.ensureOwnerMembership(user);
+    const invitation = await this.prisma.associationStaffInvitation.findFirst({
+      where: { id: invitationId, associationId: organizationIdOf(user) },
+      include: this.staffInvitationInclude(),
+    });
+    if (!invitation) throw new NotFoundException('Staff invitation not found');
+    return this.serializeStaffInvitation(invitation);
+  }
+
+  async regenerateStaffInvitation(user: AuthUser, invitationId: string) {
+    await this.ensureOwnerMembership(user);
+    const associationId = organizationIdOf(user);
+    const existing = await this.prisma.associationStaffInvitation.findFirst({ where: { id: invitationId, associationId } });
+    if (!existing) throw new NotFoundException('Staff invitation not found');
+    if (
+      new Set<StaffInvitationStatus>([
+        StaffInvitationStatus.ACCEPTED,
+        StaffInvitationStatus.CANCELLED,
+        StaffInvitationStatus.REVOKED,
+      ]).has(existing.status)
+    ) {
+      throw new BadRequestException('Invitation cannot be regenerated in its current status');
+    }
+    const rawToken = generateSecureToken();
+    const updated = await this.prisma.associationStaffInvitation.update({
+      where: { id: existing.id },
+      data: {
+        tokenHash: tokenHash(rawToken),
+        tokenPreview: rawToken.slice(-6),
+        status: StaffInvitationStatus.PENDING,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+      include: this.staffInvitationInclude(),
+    });
+    await this.auditAction(user, 'STAFF_INVITATION_REGENERATED', 'ASSOCIATION_STAFF_INVITATION', updated.id, 'Invitație staff regenerată', { status: existing.status }, { expiresAt: updated.expiresAt });
+    return this.serializeStaffInvitation(updated, rawToken);
+  }
+
+  async markStaffInvitationSent(user: AuthUser, invitationId: string) {
+    await this.ensureOwnerMembership(user);
+    const invitation = await this.prisma.associationStaffInvitation.findFirst({ where: { id: invitationId, associationId: organizationIdOf(user) } });
+    if (!invitation) throw new NotFoundException('Staff invitation not found');
+    if (!new Set<StaffInvitationStatus>([StaffInvitationStatus.PENDING, StaffInvitationStatus.SENT]).has(invitation.status)) {
+      throw new BadRequestException('Invitation cannot be marked as sent');
+    }
+    const updated = await this.prisma.associationStaffInvitation.update({
+      where: { id: invitation.id },
+      data: { status: StaffInvitationStatus.SENT, lastSentAt: new Date(), sendCount: { increment: 1 } },
+      include: this.staffInvitationInclude(),
+    });
+    await this.auditAction(user, 'STAFF_INVITATION_MARKED_SENT', 'ASSOCIATION_STAFF_INVITATION', updated.id, 'Invitație staff marcată ca trimisă', { sendCount: invitation.sendCount }, { sendCount: updated.sendCount });
+    return this.serializeStaffInvitation(updated);
+  }
+
+  async cancelStaffInvitation(user: AuthUser, invitationId: string, payload: { reason?: unknown }) {
+    await this.ensureOwnerMembership(user);
+    const reason = normalizeText(payload.reason) || 'Anulată de administrator.';
+    const invitation = await this.prisma.associationStaffInvitation.findFirst({ where: { id: invitationId, associationId: organizationIdOf(user) } });
+    if (!invitation) throw new NotFoundException('Staff invitation not found');
+    if (invitation.status === StaffInvitationStatus.ACCEPTED) throw new BadRequestException('Accepted invitations cannot be cancelled');
+    const updated = await this.prisma.associationStaffInvitation.update({
+      where: { id: invitation.id },
+      data: { status: StaffInvitationStatus.CANCELLED, cancelledAt: new Date(), cancelledById: userIdOf(user) || null, cancellationReason: reason },
+      include: this.staffInvitationInclude(),
+    });
+    await this.auditAction(user, 'STAFF_INVITATION_CANCELLED', 'ASSOCIATION_STAFF_INVITATION', updated.id, 'Invitație staff anulată', invitation, { reason });
+    return this.serializeStaffInvitation(updated);
+  }
+
+  async revokeStaffInvitation(user: AuthUser, invitationId: string, payload: { reason?: unknown }) {
+    await this.ensureOwnerMembership(user);
+    const reason = normalizeText(payload.reason) || 'Revocată de administrator.';
+    const invitation = await this.prisma.associationStaffInvitation.findFirst({ where: { id: invitationId, associationId: organizationIdOf(user) } });
+    if (!invitation) throw new NotFoundException('Staff invitation not found');
+    if (invitation.status === StaffInvitationStatus.ACCEPTED) throw new BadRequestException('Accepted invitations cannot be revoked');
+    const updated = await this.prisma.associationStaffInvitation.update({
+      where: { id: invitation.id },
+      data: { status: StaffInvitationStatus.REVOKED, revokedAt: new Date(), revokedById: userIdOf(user) || null, revokeReason: reason },
+      include: this.staffInvitationInclude(),
+    });
+    await this.auditAction(user, 'STAFF_INVITATION_REVOKED', 'ASSOCIATION_STAFF_INVITATION', updated.id, 'Invitație staff revocată', invitation, { reason });
+    return this.serializeStaffInvitation(updated);
+  }
+
+  async staffInvitationPermissionsPreview(user: AuthUser, invitationId: string) {
+    const invitation = await this.getStaffInvitation(user, invitationId);
+    return { role: invitation.role, permissionsPreview: invitation.role?.permissionsPreview || [], criticalPermissions: invitation.role?.criticalPermissions || [] };
+  }
+
+  async validatePublicStaffInvitation(rawToken: string) {
+    const invitation = await this.prisma.associationStaffInvitation.findFirst({
+      where: { tokenHash: tokenHash(rawToken) },
+      include: this.staffInvitationInclude(),
+    });
+    if (!invitation) return { valid: false, reason: 'INVALID' };
+    const status = effectiveStaffInvitationStatus(invitation.status, invitation.expiresAt);
+    const valid = status === StaffInvitationStatus.PENDING || status === StaffInvitationStatus.SENT;
+    return {
+      valid,
+      reason: valid ? null : status,
+      invitation: {
+        id: invitation.id,
+        status,
+        expiresAt: invitation.expiresAt,
+      },
+      association: {
+        id: invitation.association.id,
+        shortName: invitation.association.name,
+        associationCode: invitation.association.fiscalCode || invitation.association.invoicePrefix || invitation.association.id.slice(0, 8),
+      },
+      role: this.serializeRoleForPreview(invitation.role),
+      invitedEmail: invitation.invitedEmail,
+      invitedFullName: invitation.invitedFullName,
+      permissionsPreview: this.serializeRoleForPreview(invitation.role).permissionsPreview,
+    };
+  }
+
+  private async applyAcceptedStaffInvitation(invitationId: string, userId: string, tx: Prisma.TransactionClient) {
+    const invitation = await tx.associationStaffInvitation.findUnique({
+      where: { id: invitationId },
+      include: { role: true },
+    });
+    if (!invitation) throw new NotFoundException('Staff invitation not found');
+    const legacyRole = legacyRoleForAssociationRole(invitation.role.type);
+    const existingMembership = await tx.organizationMember.findFirst({ where: { userId } });
+    if (existingMembership && existingMembership.organizationId !== invitation.associationId) {
+      throw new BadRequestException('Userul este deja asociat cu altă organizație.');
+    }
+    if (existingMembership) {
+      return tx.organizationMember.update({
+        where: { id: existingMembership.id },
+        data: {
+          organizationId: invitation.associationId,
+          role: legacyRole,
+          associationRoleId: invitation.roleId,
+          status: OrganizationMemberStatus.ACTIVE,
+          invitedAt: invitation.createdAt,
+          activatedAt: new Date(),
+          createdById: invitation.createdById,
+          revokedAt: null,
+          revokedById: null,
+          revokeReason: null,
+          suspendedAt: null,
+          suspendedById: null,
+          suspensionReason: null,
+        },
+      });
+    }
+    return tx.organizationMember.create({
+      data: {
+        organizationId: invitation.associationId,
+        userId,
+        role: legacyRole,
+        associationRoleId: invitation.roleId,
+        status: OrganizationMemberStatus.ACTIVE,
+        invitedAt: invitation.createdAt,
+        activatedAt: new Date(),
+        createdById: invitation.createdById,
+      },
+    });
+  }
+
+  async acceptStaffInvitation(rawToken: string, payload: Record<string, unknown>, authenticatedUser?: AuthUser) {
+    const validation = await this.validatePublicStaffInvitation(rawToken);
+    if (!validation.valid) throw new BadRequestException('Invitația nu este validă sau a expirat.');
+    const email = normalizeEmail(payload.email || validation.invitedEmail);
+    if (email !== normalizeEmail(validation.invitedEmail)) {
+      throw new BadRequestException('Emailul trebuie să coincidă cu invitația.');
+    }
+    const fullName = normalizeText(payload.fullName || validation.invitedFullName || email);
+    const password = normalizeText(payload.password);
+    const confirmPassword = normalizeText(payload.confirmPassword);
+    const invitation = await this.prisma.associationStaffInvitation.findFirst({
+      where: { tokenHash: tokenHash(rawToken) },
+      include: this.staffInvitationInclude(),
+    });
+    if (!invitation) throw new NotFoundException('Staff invitation not found');
+
+    let targetUserId = authenticatedUser ? userIdOf(authenticatedUser) : '';
+    if (targetUserId) {
+      const current = await this.prisma.user.findUnique({ where: { id: targetUserId }, select: { email: true } });
+      if (!current || normalizeEmail(current.email) !== email) {
+        throw new BadRequestException('Contul autentificat nu coincide cu emailul invitației.');
+      }
+    } else {
+      if (!password || password.length < 8) throw new BadRequestException('Parola trebuie să aibă minimum 8 caractere.');
+      if (password !== confirmPassword) throw new BadRequestException('Confirmarea parolei nu coincide.');
+      const existingUser = await this.prisma.user.findFirst({ where: { email, deletedAt: null }, select: { id: true } });
+      if (existingUser) {
+        throw new BadRequestException('Există deja un cont cu acest email. Autentifică-te pentru a accepta invitația.');
+      }
+    }
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      if (!targetUserId) {
+        const [firstName, ...lastNameParts] = fullName.split(/\s+/).filter(Boolean);
+        const created = await tx.user.create({
+          data: {
+            email,
+            fullName,
+            firstName: firstName || fullName,
+            lastName: lastNameParts.join(' ') || null,
+            phone: normalizeText(payload.phone || invitation.invitedPhone) || null,
+            passwordHash: await bcrypt.hash(password, 12),
+            authProvider: AuthProvider.LOCAL,
+            emailVerifiedAt: new Date(),
+            role: Role.ADMIN,
+            platformRole: PlatformRole.ORGANIZATION_USER,
+            organizationId: invitation.associationId,
+          },
+          select: { id: true, email: true, fullName: true },
+        });
+        targetUserId = created.id;
+      }
+      const member = await this.applyAcceptedStaffInvitation(invitation.id, targetUserId, tx);
+      const updatedInvitation = await tx.associationStaffInvitation.update({
+        where: { id: invitation.id },
+        data: { status: StaffInvitationStatus.ACCEPTED, acceptedAt: new Date(), acceptedByUserId: targetUserId },
+        include: this.staffInvitationInclude(),
+      });
+      await tx.auditLog.create({
+        data: {
+          organizationId: invitation.associationId,
+          userId: targetUserId,
+          action: 'STAFF_INVITATION_ACCEPTED',
+          entityType: 'ASSOCIATION_STAFF_INVITATION',
+          entityId: invitation.id,
+          description: 'Invitație staff acceptată',
+          newValuesJson: { memberId: member.id, roleId: invitation.roleId },
+        },
+      });
+      return { member, invitation: updatedInvitation };
+    });
+    return {
+      success: true,
+      invitation: this.serializeStaffInvitation(result.invitation),
+      user: { id: targetUserId, email, fullName },
+      redirectTarget: '/ro/admin',
+    };
+  }
+
+  async linkExistingStaffInvitation(rawToken: string, user: AuthUser) {
+    return this.acceptStaffInvitation(rawToken, { email: undefined }, user);
   }
 }

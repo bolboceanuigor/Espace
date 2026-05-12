@@ -38,6 +38,24 @@ enum OrganizationMemberStatus {
   ACTIVE
   INVITED
   DISABLED
+  SUSPENDED
+  REVOKED
+}
+
+enum StaffInvitationStatus {
+  DRAFT
+  PENDING
+  SENT
+  ACCEPTED
+  EXPIRED
+  CANCELLED
+  REVOKED
+}
+
+enum StaffInvitationDeliveryMethod {
+  COPY_LINK
+  EMAIL_PLACEHOLDER
+  MANUAL
 }
 
 enum AssociationRoleType {
@@ -903,6 +921,7 @@ model Organization {
   users              User[]
   members            OrganizationMember[]
   teamInvitations    TeamInvitation[]
+  staffInvitations   AssociationStaffInvitation[]
   suppliers          Supplier[]
   maintenanceTasks   MaintenanceTask[]
   maintenanceEvents  MaintenanceEvent[]
@@ -1573,6 +1592,13 @@ model User {
   auditLogs            AuditLog[]    @relation("AuditLogUser")
   associationRolesCreated AssociationRole[] @relation("AssociationRoleCreatedBy")
   associationRolesUpdated AssociationRole[] @relation("AssociationRoleUpdatedBy")
+  staffInvitationsCreated AssociationStaffInvitation[] @relation("StaffInvitationCreatedBy")
+  staffInvitationsAccepted AssociationStaffInvitation[] @relation("StaffInvitationAcceptedBy")
+  staffInvitationsCancelled AssociationStaffInvitation[] @relation("StaffInvitationCancelledBy")
+  staffInvitationsRevoked AssociationStaffInvitation[] @relation("StaffInvitationRevokedBy")
+  organizationMembersCreated OrganizationMember[] @relation("OrganizationMemberCreatedBy")
+  organizationMembersSuspended OrganizationMember[] @relation("OrganizationMemberSuspendedBy")
+  organizationMembersRevoked OrganizationMember[] @relation("OrganizationMemberRevokedBy")
   organizationMember   OrganizationMember?
   teamInvitations      TeamInvitation[]
   maintenanceTasksAssigned MaintenanceTask[] @relation("MaintenanceTaskAssignedTo")
@@ -1618,16 +1644,31 @@ model OrganizationMember {
   associationRoleId String?
   permissionsJson Json?
   status          OrganizationMemberStatus @default(ACTIVE)
+  invitedAt       DateTime?
+  activatedAt     DateTime?
+  suspendedAt     DateTime?
+  suspendedById   String?
+  suspensionReason String?
+  revokedAt       DateTime?
+  revokedById     String?
+  revokeReason    String?
+  createdById     String?
   createdAt       DateTime               @default(now())
   updatedAt       DateTime               @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   associationRole AssociationRole? @relation(fields: [associationRoleId], references: [id], onDelete: SetNull)
+  createdBy   User?        @relation("OrganizationMemberCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  suspendedBy User?        @relation("OrganizationMemberSuspendedBy", fields: [suspendedById], references: [id], onDelete: SetNull)
+  revokedBy   User?        @relation("OrganizationMemberRevokedBy", fields: [revokedById], references: [id], onDelete: SetNull)
 
   @@index([organizationId, role])
   @@index([organizationId, associationRoleId])
   @@index([organizationId, status])
+  @@index([createdById, createdAt])
+  @@index([suspendedById, suspendedAt])
+  @@index([revokedById, revokedAt])
   @@map("organization_members")
 }
 
@@ -1649,10 +1690,52 @@ model AssociationRole {
   updatedBy       User?                       @relation("AssociationRoleUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   rolePermissions AssociationRolePermission[]
   members         OrganizationMember[]
+  staffInvitations AssociationStaffInvitation[]
 
   @@index([organizationId, type])
   @@index([organizationId, isSystem])
   @@map("association_roles")
+}
+
+model AssociationStaffInvitation {
+  id                 String                        @id @default(uuid())
+  associationId      String
+  invitedEmail       String
+  invitedFullName    String?
+  invitedPhone       String?
+  roleId             String
+  tokenHash          String                        @unique
+  tokenPreview       String?
+  status             StaffInvitationStatus         @default(PENDING)
+  expiresAt          DateTime
+  acceptedAt         DateTime?
+  acceptedByUserId   String?
+  cancelledAt        DateTime?
+  cancelledById      String?
+  cancellationReason String?
+  revokedAt          DateTime?
+  revokedById        String?
+  revokeReason       String?
+  createdById        String
+  lastSentAt         DateTime?
+  sendCount          Int                           @default(0)
+  deliveryMethod     StaffInvitationDeliveryMethod @default(COPY_LINK)
+  metadata           Json?
+  createdAt          DateTime                      @default(now())
+  updatedAt          DateTime                      @updatedAt
+
+  association Organization    @relation(fields: [associationId], references: [id], onDelete: Cascade)
+  role        AssociationRole @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  acceptedBy  User?           @relation("StaffInvitationAcceptedBy", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
+  cancelledBy User?           @relation("StaffInvitationCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
+  revokedBy   User?           @relation("StaffInvitationRevokedBy", fields: [revokedById], references: [id], onDelete: SetNull)
+  createdBy   User            @relation("StaffInvitationCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([associationId, status, expiresAt])
+  @@index([associationId, invitedEmail])
+  @@index([roleId])
+  @@index([createdById, createdAt])
+  @@map("association_staff_invitations")
 }
 
 model AssociationPermission {

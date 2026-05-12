@@ -86,6 +86,66 @@ export class AdminRbacController {
     return this.rbacService.myPermissions(user);
   }
 
+  @Get('team/stats')
+  @RequirePermission('TEAM', 'VIEW')
+  getTeamStats(@CurrentUser() user: any) {
+    return this.rbacService.getTeamStats(user);
+  }
+
+  @Get('team/invitations')
+  @RequirePermission('TEAM', 'VIEW')
+  listStaffInvitations(@CurrentUser() user: any, @Query() query: Record<string, unknown>) {
+    return this.rbacService.listStaffInvitations(user, query);
+  }
+
+  @Post('team/invitations')
+  @RequirePermission('TEAM', 'INVITE')
+  createStaffInvitation(@CurrentUser() user: any, @Body() body: any) {
+    return this.rbacService.createStaffInvitation(user, body);
+  }
+
+  @Get('team/invitations/:id')
+  @RequirePermission('TEAM', 'VIEW')
+  getStaffInvitation(@CurrentUser() user: any, @Param('id') id: string) {
+    return this.rbacService.getStaffInvitation(user, id);
+  }
+
+  @Post('team/invitations/:id/regenerate')
+  @RequirePermission('TEAM', 'INVITE')
+  regenerateStaffInvitation(@CurrentUser() user: any, @Param('id') id: string) {
+    return this.rbacService.regenerateStaffInvitation(user, id);
+  }
+
+  @Patch('team/invitations/:id/mark-sent')
+  @RequirePermission('TEAM', 'INVITE')
+  markStaffInvitationSent(@CurrentUser() user: any, @Param('id') id: string) {
+    return this.rbacService.markStaffInvitationSent(user, id);
+  }
+
+  @Patch('team/invitations/:id/cancel')
+  @RequirePermission('TEAM', 'INVITE')
+  cancelStaffInvitation(@CurrentUser() user: any, @Param('id') id: string, @Body() body: any) {
+    return this.rbacService.cancelStaffInvitation(user, id, body || {});
+  }
+
+  @Patch('team/invitations/:id/revoke')
+  @RequirePermission('TEAM', 'MANAGE')
+  revokeStaffInvitation(@CurrentUser() user: any, @Param('id') id: string, @Body() body: any) {
+    return this.rbacService.revokeStaffInvitation(user, id, body || {});
+  }
+
+  @Get('team/invitations/:id/permissions-preview')
+  @RequirePermission('TEAM', 'VIEW')
+  staffInvitationPermissionsPreview(@CurrentUser() user: any, @Param('id') id: string) {
+    return this.rbacService.staffInvitationPermissionsPreview(user, id);
+  }
+
+  @Get('team/permissions-members')
+  @RequirePermission('TEAM', 'VIEW')
+  listTeamMembers(@CurrentUser() user: any, @Query() query: Record<string, unknown>) {
+    return this.rbacService.listTeamMembers(user, query);
+  }
+
   @Get('team/:id/permissions')
   @RequirePermission('TEAM', 'VIEW')
   getTeamMemberPermissions(@CurrentUser() user: any, @Param('id') id: string) {
@@ -98,9 +158,34 @@ export class AdminRbacController {
     return this.rbacService.updateTeamMemberRole(user, id, body);
   }
 
-  @Get('team/permissions-members')
-  @RequirePermission('TEAM', 'VIEW')
-  listTeamMembers(@CurrentUser() user: any, @Query() query: Record<string, unknown>) {
-    return this.rbacService.listTeamMembers(user, query);
+  @Patch('team/:id/suspend')
+  @RequirePermission('TEAM', 'MANAGE')
+  suspendTeamMember(@CurrentUser() user: any, @Param('id') id: string, @Body() body: any) {
+    return this.rbacService.suspendTeamMember(user, id, body || {});
   }
+
+  @Patch('team/:id/reactivate')
+  @RequirePermission('TEAM', 'MANAGE')
+  reactivateTeamMember(@CurrentUser() user: any, @Param('id') id: string, @Body() body: any) {
+    return this.rbacService.reactivateTeamMember(user, id, body || {});
+  }
+
+  @Patch('team/:id/revoke')
+  @RequirePermission('TEAM', 'MANAGE')
+  revokeTeamMember(@CurrentUser() user: any, @Param('id') id: string, @Body() body: any) {
+    return this.rbacService.revokeTeamMember(user, id, body || {});
+  }
+
+  @Get('team/:id/activity')
+  @RequirePermission('TEAM', 'VIEW')
+  listTeamMemberActivity(@CurrentUser() user: any, @Param('id') id: string, @Query() query: Record<string, unknown>) {
+    return this.rbacService.listTeamMemberActivity(user, id, query);
+  }
+
+  @Get('team/:id')
+  @RequirePermission('TEAM', 'VIEW')
+  getTeamMember(@CurrentUser() user: any, @Param('id') id: string) {
+    return this.rbacService.getTeamMember(user, id);
+  }
+
 }

@@ -467,9 +467,51 @@ export const adminRbacApi = {
   myPermissions: () => apiRequest<any>('/api/admin/settings/permissions/my'),
   teamMembers: (params?: Record<string, string | number | boolean | undefined | null>) =>
     apiRequest<any>('/api/admin/team/permissions-members', { params }),
+  teamStats: () => apiRequest<any>('/api/admin/team/stats'),
+  teamMember: (memberId: string) => apiRequest<any>(`/api/admin/team/${memberId}`),
+  suspendTeamMember: (memberId: string, reason: string) =>
+    apiRequest<any>(`/api/admin/team/${memberId}/suspend`, { method: 'PATCH', body: { reason } }),
+  reactivateTeamMember: (memberId: string, note?: string) =>
+    apiRequest<any>(`/api/admin/team/${memberId}/reactivate`, { method: 'PATCH', body: { note } }),
+  revokeTeamMember: (memberId: string, reason: string) =>
+    apiRequest<any>(`/api/admin/team/${memberId}/revoke`, { method: 'PATCH', body: { reason } }),
+  teamMemberActivity: (memberId: string, params?: Record<string, string | number | boolean | undefined | null>) =>
+    apiRequest<any>(`/api/admin/team/${memberId}/activity`, { params }),
   teamMemberPermissions: (memberId: string) => apiRequest<any>(`/api/admin/team/${memberId}/permissions`),
   updateTeamMemberRole: (memberId: string, roleId: string, confirm = true) =>
     apiRequest<any>(`/api/admin/team/${memberId}/role`, { method: 'PATCH', body: { roleId, confirm } }),
+  staffInvitations: (params?: Record<string, string | number | boolean | undefined | null>) =>
+    apiRequest<any>('/api/admin/team/invitations', { params }),
+  createStaffInvitation: (data: {
+    invitedFullName?: string;
+    invitedEmail: string;
+    invitedPhone?: string;
+    roleId: string;
+    deliveryMethod?: 'COPY_LINK' | 'EMAIL_PLACEHOLDER' | 'MANUAL';
+    expiresInDays?: number;
+    message?: string;
+    confirmReplaceActive?: boolean;
+    confirmCritical?: boolean;
+  }) => apiRequest<any>('/api/admin/team/invitations', { method: 'POST', body: data }),
+  staffInvitation: (id: string) => apiRequest<any>(`/api/admin/team/invitations/${id}`),
+  regenerateStaffInvitation: (id: string) => apiRequest<any>(`/api/admin/team/invitations/${id}/regenerate`, { method: 'POST' }),
+  markStaffInvitationSent: (id: string) =>
+    apiRequest<any>(`/api/admin/team/invitations/${id}/mark-sent`, { method: 'PATCH' }),
+  cancelStaffInvitation: (id: string, reason?: string) =>
+    apiRequest<any>(`/api/admin/team/invitations/${id}/cancel`, { method: 'PATCH', body: { reason } }),
+  revokeStaffInvitation: (id: string, reason?: string) =>
+    apiRequest<any>(`/api/admin/team/invitations/${id}/revoke`, { method: 'PATCH', body: { reason } }),
+  staffInvitationPermissionsPreview: (id: string) =>
+    apiRequest<any>(`/api/admin/team/invitations/${id}/permissions-preview`),
+};
+
+export const staffInvitationsApi = {
+  validate: (token: string) => apiRequest<any>(`/api/staff-invitations/${token}`),
+  accept: (
+    token: string,
+    data: { fullName: string; email: string; phone?: string; password: string; confirmPassword: string },
+  ) => apiRequest<any>(`/api/staff-invitations/${token}/accept`, { method: 'POST', body: data }),
+  linkExisting: (token: string) => apiRequest<any>(`/api/staff-invitations/${token}/link-existing`, { method: 'POST' }),
 };
 
 export const dashboardApi = {

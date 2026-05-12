@@ -72,6 +72,7 @@ const sections: Array<{
     items: [
       { label: 'Notificări', href: '/admin/notifications', icon: Bell, permission: ['NOTIFICATIONS', 'VIEW'] },
       { label: 'Echipă', href: '/admin/team', icon: Users, permission: ['TEAM', 'VIEW'] },
+      { label: 'Invitații echipă', href: '/admin/team/invitations', icon: Users, permission: ['TEAM', 'INVITE'] },
       { label: 'Roluri', href: '/admin/settings/roles', icon: ShieldCheck, permission: ['TEAM', 'VIEW'] },
       { label: 'Permisiuni', href: '/admin/settings/permissions', icon: ShieldCheck, permission: ['TEAM', 'MANAGE'] },
       { label: 'Setări', href: '/admin/settings/organization', icon: Settings, permission: ['SETTINGS', 'VIEW'] },

@@ -35,6 +35,38 @@ export class RolesGuard implements CanActivate {
       return true;
     }
     const currentRole = String(user.role).toUpperCase();
+    if (
+      requiredRoles.some((role) => String(role).toUpperCase() === Role.ADMIN) &&
+      currentRole === Role.ADMIN &&
+      user.organizationId &&
+      (user.id || user.sub)
+    ) {
+      const membership = await this.prisma.organizationMember.findFirst({
+        where: {
+          organizationId: user.organizationId,
+          userId: user.id || user.sub,
+        },
+        select: { id: true, status: true },
+      });
+      if (membership?.status === OrganizationMemberStatus.SUSPENDED) {
+        throw new ForbiddenException({
+          code: 'STAFF_ACCESS_SUSPENDED',
+          message: 'Accesul tău este suspendat.',
+        });
+      }
+      if (membership?.status === OrganizationMemberStatus.REVOKED || membership?.status === OrganizationMemberStatus.DISABLED) {
+        throw new ForbiddenException({
+          code: 'STAFF_ACCESS_REVOKED',
+          message: 'Accesul tău a fost revocat.',
+        });
+      }
+      if (membership?.status === OrganizationMemberStatus.INVITED) {
+        throw new ForbiddenException({
+          code: 'STAFF_ACCESS_INVITED',
+          message: 'Invitația nu a fost acceptată încă.',
+        });
+      }
+    }
     if (requiredRoles.some((role) => String(role).toUpperCase() === currentRole)) return true;
 
     // Backwards-compatible organization-team access: ADMIN routes can be opened for active org members.
@@ -43,15 +75,26 @@ export class RolesGuard implements CanActivate {
       user.organizationId &&
       (user.id || user.sub)
     ) {
-      const hasActiveMembership = await this.prisma.organizationMember.findFirst({
+      const membership = await this.prisma.organizationMember.findFirst({
         where: {
           organizationId: user.organizationId,
           userId: user.id || user.sub,
-          status: OrganizationMemberStatus.ACTIVE,
         },
-        select: { id: true },
+        select: { id: true, status: true },
       });
-      if (hasActiveMembership) return true;
+      if (membership?.status === OrganizationMemberStatus.ACTIVE) return true;
+      if (membership?.status === OrganizationMemberStatus.SUSPENDED) {
+        throw new ForbiddenException({
+          code: 'STAFF_ACCESS_SUSPENDED',
+          message: 'Accesul tău este suspendat.',
+        });
+      }
+      if (membership?.status === OrganizationMemberStatus.REVOKED || membership?.status === OrganizationMemberStatus.DISABLED) {
+        throw new ForbiddenException({
+          code: 'STAFF_ACCESS_REVOKED',
+          message: 'Accesul tău a fost revocat.',
+        });
+      }
     }
     throw new ForbiddenException({
       code: 'FORBIDDEN',

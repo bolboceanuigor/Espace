@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
 import { formatMdl } from '@/lib/condo-admin-fallback';
-import { adminResidentUpdateRequestsApi, billingApi, communicationsApi, dataQualityApi, onboardingApi, workbenchApi } from '@/lib/api';
+import { adminRbacApi, adminResidentUpdateRequestsApi, billingApi, communicationsApi, dataQualityApi, onboardingApi, workbenchApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 type CrmOrganization = {
@@ -284,6 +284,7 @@ export default function AdminPage() {
   const [announcementStats, setAnnouncementStats] = useState<any>({});
   const [billingOverview, setBillingOverview] = useState<any>(null);
   const [dataQualitySummary, setDataQualitySummary] = useState<any>(null);
+  const [teamStats, setTeamStats] = useState<any>(null);
 
   useEffect(() => {
     let active = true;
@@ -365,6 +366,17 @@ export default function AdminPage() {
         setDataQualitySummary(null);
       });
 
+    adminRbacApi
+      .teamStats()
+      .then((response) => {
+        if (!active) return;
+        setTeamStats(response.data || null);
+      })
+      .catch(() => {
+        if (!active) return;
+        setTeamStats(null);
+      });
+
     return () => {
       active = false;
     };
@@ -437,8 +449,17 @@ export default function AdminPage() {
         href: '/admin/data-quality',
         active: Boolean(dataQualitySummary?.criticalCount || dataQualitySummary?.warningCount || !dataQualitySummary?.lastRunAt),
       },
+      {
+        title: 'Echipă',
+        value: teamStats ? String(teamStats.active || 0) : 'Vezi echipa',
+        description: teamStats
+          ? `${teamStats.pendingInvitations || 0} invitații pending · ${teamStats.suspended || 0} suspendați`
+          : 'Membri interni și invitații',
+        href: '/admin/team',
+        active: Boolean(teamStats?.pendingInvitations || teamStats?.suspended || !teamStats),
+      },
     ],
-    [announcementStats, billingOverview, crm, dataQualitySummary, pendingUpdateRequests],
+    [announcementStats, billingOverview, crm, dataQualitySummary, pendingUpdateRequests, teamStats],
   );
 
   const kpiCards = [

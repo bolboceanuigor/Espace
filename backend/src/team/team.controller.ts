@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import type { Request, Response } from 'express';
 import { AuthService } from '../auth/auth.service';
@@ -9,6 +9,7 @@ import { Public } from '../auth/decorators/public.decorator';
 import { RequiresPermissions } from '../auth/decorators/permissions.decorator';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
+import { AdminRbacService } from '../rbac/admin-rbac.service';
 import { AcceptTeamInvitationDto } from './dto/accept-team-invitation.dto';
 import { CreateTeamUserDto } from './dto/create-team-user.dto';
 import { UpdateTeamUserDto } from './dto/update-team-user.dto';
@@ -19,6 +20,7 @@ export class TeamController {
   constructor(
     private readonly teamService: TeamService,
     private readonly authService: AuthService,
+    private readonly rbacService: AdminRbacService,
   ) {}
 
   private setAuthCookies(
@@ -52,8 +54,8 @@ export class TeamController {
   @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(Role.ADMIN)
   @RequiresPermissions('team.view')
-  list(@CurrentUser() user: any) {
-    return this.teamService.adminList(user);
+  list(@CurrentUser() user: any, @Query() query: Record<string, unknown>) {
+    return this.rbacService.listTeamMembers(user, query || {});
   }
 
   @Post('admin/team/invite')

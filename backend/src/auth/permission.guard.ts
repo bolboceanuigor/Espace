@@ -54,6 +54,18 @@ export class PermissionGuard implements CanActivate {
 
     // Backwards compatibility for existing ADMIN users not yet migrated to OrganizationMember.
     if (!member && role === Role.ADMIN) return true;
+    if (member?.status === OrganizationMemberStatus.SUSPENDED) {
+      throw new ForbiddenException({
+        code: 'STAFF_ACCESS_SUSPENDED',
+        message: 'Accesul tău este suspendat.',
+      });
+    }
+    if (member?.status === OrganizationMemberStatus.REVOKED || member?.status === OrganizationMemberStatus.DISABLED) {
+      throw new ForbiddenException({
+        code: 'STAFF_ACCESS_REVOKED',
+        message: 'Accesul tău a fost revocat.',
+      });
+    }
     if (!member || member.status !== OrganizationMemberStatus.ACTIVE) {
       throw new ForbiddenException('Active organization membership required');
     }
