@@ -16,6 +16,7 @@ import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes } from 'crypto';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { TeamActivityRiskService } from './team-activity-risk.service';
 import {
   ASSOCIATION_ROLE_PRESETS,
   PERMISSION_ACTIONS,
@@ -141,6 +142,42 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
+function parseDateFilter(value: unknown) {
+  const raw = normalizeText(value);
+  if (!raw) return undefined;
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? undefined : date;
+}
+
+function parseDateToFilter(value: unknown) {
+  const raw = normalizeText(value);
+  if (!raw) return undefined;
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return undefined;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) date.setHours(23, 59, 59, 999);
+  return date;
+}
+
+function startOfToday() {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function activitySeverity(action: string, payload: Record<string, unknown>) {
+  const explicit = normalizeText(payload.severity || payload.status).toUpperCase();
+  if (['INFO', 'SUCCESS', 'WARNING', 'ERROR'].includes(explicit)) return explicit;
+  const key = action.toUpperCase();
+  if (key.includes('FAILED') || key.includes('REJECTED') || key.includes('ERROR')) return 'ERROR';
+  if (key.includes('CANCELLED') || key.includes('SUSPENDED') || key.includes('REVOKED') || key.includes('BLOCKED')) return 'WARNING';
+  if (key.includes('LOGIN_SUCCESS') || key.includes('ACCEPTED') || key.includes('CREATED') || key.includes('UPDATED')) return 'SUCCESS';
+  return 'INFO';
+}
+
+function riskOrder(risk: string) {
+  return ({ CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 } as Record<string, number>)[risk] || 0;
+}
+
 function normalizePermissionsInput(input: unknown): Partial<Record<TeamPermissionKey, boolean>> {
   const result: Partial<Record<TeamPermissionKey, boolean>> = {};
   if (!input) return result;
@@ -175,6 +212,7 @@ export class AdminRbacService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly teamActivityRisk: TeamActivityRiskService,
   ) {}
 
   private buildStaffInviteLink(token: string, locale = 'ro') {
@@ -215,6 +253,149 @@ export class AdminRbacService {
       oldValuesJson: oldValues,
       newValuesJson: newValues,
     });
+  }
+
+  private async assertAnyPermission(user: AuthUser, permissions: TeamPermissionKey[]) {
+    const current = await this.myPermissions(user);
+    const map = current.permissions || {};
+    if (permissions.some((permission) => map[permission])) return;
+    throw new ForbiddenException('Nu ai permisiunea necesară.');
+  }
+
+  private actorDisplayName(user?: { email?: string | null; fullName?: string | null; firstName?: string | null; lastName?: string | null } | null) {
+    if (!user) return 'Sistem';
+    return user.fullName || [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.email || 'Sistem';
+  }
+
+  private async activityRoleMap(organizationId: string, userIds: string[]) {
+    if (!userIds.length) return new Map<string, any>();
+    const memberships = await this.prisma.organizationMember.findMany({
+      where: { organizationId, userId: { in: Array.from(new Set(userIds)) } },
+      include: { associationRole: true },
+    });
+    return new Map(memberships.map((membership) => [membership.userId, membership]));
+  }
+
+  private serializeActivityLog(row: any, roleByUserId: Map<string, any>) {
+    const newValues = isRecord(row.newValuesJson) ? row.newValuesJson : {};
+    const oldValues = isRecord(row.oldValuesJson) ? row.oldValuesJson : {};
+    const metadataSource = isRecord(newValues.metadata) ? newValues.metadata : newValues;
+    const metadata = this.teamActivityRisk.sanitizeMetadata(metadataSource) as Record<string, unknown>;
+    const beforeSnapshot = this.teamActivityRisk.sanitizeMetadata(oldValues.beforeSnapshot ?? oldValues);
+    const afterSnapshot = this.teamActivityRisk.sanitizeMetadata(newValues.afterSnapshot ?? null);
+    const category = this.teamActivityRisk.mapAuditActionToCategory(row.action, row.entityType);
+    const riskLevel = this.teamActivityRisk.mapAuditActionToRisk(row.action, row.entityType);
+    const member = roleByUserId.get(row.userId);
+    const title = normalizeText(metadata.title) || row.description || row.action.replace(/_/g, ' ');
+    const message = normalizeText(metadata.message) || row.description || title;
+    return {
+      id: row.id,
+      createdAt: row.createdAt,
+      actor: row.user
+        ? {
+            id: row.user.id,
+            fullName: this.actorDisplayName(row.user),
+            email: row.user.email,
+          }
+        : null,
+      actorRole: member?.associationRole
+        ? {
+            id: member.associationRole.id,
+            name: member.associationRole.name,
+            type: member.associationRole.type,
+          }
+        : member
+          ? {
+              id: null,
+              name: member.role,
+              type: member.role,
+            }
+          : null,
+      action: row.action,
+      category,
+      riskLevel,
+      isSensitiveAction: this.teamActivityRisk.isSensitiveAction(row.action, row.entityType),
+      severity: activitySeverity(row.action, metadata),
+      entityType: row.entityType,
+      entityId: row.entityId,
+      title,
+      message,
+      description: row.description,
+      actionUrl: normalizeText(metadata.actionUrl) || this.teamActivityRisk.buildActionUrl(row.entityType, row.entityId, metadata),
+      metadata,
+      beforeSnapshot,
+      afterSnapshot,
+      ipAddress: row.ipAddress,
+      userAgent: row.userAgent,
+    };
+  }
+
+  private filterActivityItems(items: any[], query: Record<string, unknown>) {
+    const category = normalizeText(query.category).toUpperCase();
+    const action = normalizeText(query.action).toUpperCase();
+    const riskLevel = normalizeText(query.riskLevel).toUpperCase();
+    const severity = normalizeText(query.severity).toUpperCase();
+    const entityType = normalizeText(query.entityType).toUpperCase();
+    const search = normalizeText(query.search).toLowerCase();
+    const sensitiveOnly = query.sensitiveOnly === true || query.sensitiveOnly === 'true';
+    const failedOnly = query.failedOnly === true || query.failedOnly === 'true';
+    return items.filter((item) => {
+      if (category && item.category !== category) return false;
+      if (action && !String(item.action || '').toUpperCase().includes(action)) return false;
+      if (riskLevel && item.riskLevel !== riskLevel) return false;
+      if (severity && item.severity !== severity) return false;
+      if (entityType && String(item.entityType || '').toUpperCase() !== entityType) return false;
+      if (sensitiveOnly && !item.isSensitiveAction) return false;
+      if (failedOnly && item.severity !== 'ERROR' && !String(item.action || '').toUpperCase().includes('FAILED')) return false;
+      if (search) {
+        const haystack = [
+          item.actor?.fullName,
+          item.actor?.email,
+          item.actorRole?.name,
+          item.title,
+          item.message,
+          item.action,
+          item.category,
+          item.entityType,
+          item.entityId,
+          JSON.stringify(item.metadata || {}),
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        if (!haystack.includes(search)) return false;
+      }
+      return true;
+    });
+  }
+
+  private sortActivityItems(items: any[], query: Record<string, unknown>) {
+    const sortBy = normalizeText(query.sortBy) || 'newest';
+    const direction = normalizeText(query.sortDirection).toLowerCase() === 'asc' ? 1 : -1;
+    return [...items].sort((a, b) => {
+      if (sortBy === 'oldest') return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      if (sortBy === 'risk' || sortBy === 'riskLevel') return (riskOrder(a.riskLevel) - riskOrder(b.riskLevel)) * -1;
+      if (sortBy === 'actor') return String(a.actor?.fullName || '').localeCompare(String(b.actor?.fullName || '')) * direction;
+      if (sortBy === 'category') return String(a.category || '').localeCompare(String(b.category || '')) * direction;
+      return (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) * direction;
+    });
+  }
+
+  private activityStats(items: any[]) {
+    const today = startOfToday().getTime();
+    const byDate = [...items].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    const last = byDate[0] || null;
+    const lastCritical = byDate.find((item) => item.riskLevel === 'CRITICAL') || null;
+    return {
+      today: items.filter((item) => new Date(item.createdAt).getTime() >= today).length,
+      sensitive: items.filter((item) => item.isSensitiveAction).length,
+      critical: items.filter((item) => item.riskLevel === 'CRITICAL').length,
+      high: items.filter((item) => item.riskLevel === 'HIGH').length,
+      loginSuccess: items.filter((item) => item.action === 'LOGIN_SUCCESS').length,
+      loginFailed: items.filter((item) => item.action === 'LOGIN_FAILED').length,
+      lastActivityAt: last?.createdAt || null,
+      lastCriticalAt: lastCritical?.createdAt || null,
+    };
   }
 
   async ensurePermissionCatalog() {
@@ -922,11 +1103,154 @@ export class AdminRbacService {
     return member;
   }
 
+  private async activityItemsForOrganization(user: AuthUser, query: Record<string, unknown>, forcedActorUserId?: string) {
+    const organizationId = organizationIdOf(user);
+    const actorUserId = forcedActorUserId || normalizeText(query.actorUserId);
+    const dateFrom = parseDateFilter(query.dateFrom);
+    const dateTo = parseDateToFilter(query.dateTo);
+    const where: Prisma.AuditLogWhereInput = {
+      organizationId,
+      ...(actorUserId ? { userId: actorUserId } : {}),
+      ...(normalizeText(query.entityType) ? { entityType: normalizeText(query.entityType) } : {}),
+      ...(dateFrom || dateTo ? { createdAt: { ...(dateFrom ? { gte: dateFrom } : {}), ...(dateTo ? { lte: dateTo } : {}) } } : {}),
+    };
+    const rows = await this.prisma.auditLog.findMany({
+      where,
+      include: { user: { select: { id: true, email: true, fullName: true, firstName: true, lastName: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 2000,
+    });
+    const roleByUserId = await this.activityRoleMap(
+      organizationId,
+      rows.map((row) => row.userId),
+    );
+    return this.sortActivityItems(
+      this.filterActivityItems(
+        rows.map((row) => this.serializeActivityLog(row, roleByUserId)),
+        query,
+      ),
+      query,
+    );
+  }
+
+  async listTeamActivity(user: AuthUser, query: Record<string, unknown>) {
+    await this.ensureOwnerMembership(user);
+    await this.assertAnyPermission(user, ['audit_log.view', 'team.manage']);
+    const page = parsePage(query.page);
+    const limit = parseLimit(query.limit);
+    const items = await this.activityItemsForOrganization(user, query);
+    const total = items.length;
+    return {
+      items: items.slice((page - 1) * limit, page * limit),
+      meta: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
+      stats: await this.getTeamActivityStats(user, query),
+    };
+  }
+
+  async getTeamActivityStats(user: AuthUser, query: Record<string, unknown> = {}) {
+    await this.ensureOwnerMembership(user);
+    await this.assertAnyPermission(user, ['audit_log.view', 'team.manage']);
+    const organizationId = organizationIdOf(user);
+    const items = await this.activityItemsForOrganization(user, query);
+    const [activeMembers, suspendedMembers] = await Promise.all([
+      this.prisma.organizationMember.count({ where: { organizationId, status: OrganizationMemberStatus.ACTIVE } }),
+      this.prisma.organizationMember.count({ where: { organizationId, status: OrganizationMemberStatus.SUSPENDED } }),
+    ]);
+    return {
+      ...this.activityStats(items),
+      activeMembers,
+      suspendedMembers,
+    };
+  }
+
+  async getTeamActivityDetail(user: AuthUser, activityId: string) {
+    await this.ensureOwnerMembership(user);
+    await this.assertAnyPermission(user, ['audit_log.view', 'team.manage']);
+    const organizationId = organizationIdOf(user);
+    const row = await this.prisma.auditLog.findFirst({
+      where: { id: activityId, organizationId },
+      include: { user: { select: { id: true, email: true, fullName: true, firstName: true, lastName: true } } },
+    });
+    if (!row) throw new NotFoundException('Activity log not found');
+    const roleByUserId = await this.activityRoleMap(organizationId, [row.userId]);
+    return this.serializeActivityLog(row, roleByUserId);
+  }
+
+  async listSensitiveTeamActions(user: AuthUser, query: Record<string, unknown>) {
+    await this.ensureOwnerMembership(user);
+    await this.assertAnyPermission(user, ['audit_log.view']);
+    return this.listTeamActivity(user, { ...query, sensitiveOnly: true, sortBy: normalizeText(query.sortBy) || 'risk' });
+  }
+
+  private isSecurityActivity(item: any) {
+    const key = `${item.action || ''} ${item.category || ''}`.toUpperCase();
+    return (
+      item.category === 'AUTH' ||
+      key.includes('LOGIN') ||
+      key.includes('PASSWORD') ||
+      key.includes('SESSION') ||
+      key.includes('ACCESS_BLOCKED') ||
+      key.includes('SUSPENDED') ||
+      key.includes('REVOKED') ||
+      key.includes('INVITATION')
+    );
+  }
+
+  async listTeamSecurity(user: AuthUser, query: Record<string, unknown>) {
+    await this.ensureOwnerMembership(user);
+    await this.assertAnyPermission(user, ['audit_log.view', 'settings.manage']);
+    const page = parsePage(query.page);
+    const limit = parseLimit(query.limit);
+    const items = (await this.activityItemsForOrganization(user, query)).filter((item) => this.isSecurityActivity(item));
+    const total = items.length;
+    return {
+      items: items.slice((page - 1) * limit, page * limit).map((item) => ({
+        ...item,
+        eventType: item.action,
+      })),
+      meta: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
+      stats: await this.getTeamSecurityStats(user, query),
+    };
+  }
+
+  async getTeamSecurityStats(user: AuthUser, query: Record<string, unknown> = {}) {
+    await this.ensureOwnerMembership(user);
+    await this.assertAnyPermission(user, ['audit_log.view', 'settings.manage']);
+    const organizationId = organizationIdOf(user);
+    const today = startOfToday();
+    const [loginSuccessToday, loginFailedToday, blockedAccess, passwordResetRequests, suspended, revoked, expiredInvitations] = await Promise.all([
+      this.prisma.auditLog.count({ where: { organizationId, action: 'LOGIN_SUCCESS', createdAt: { gte: today } } }),
+      this.prisma.auditLog.count({ where: { organizationId, action: 'LOGIN_FAILED', createdAt: { gte: today } } }),
+      this.prisma.auditLog.count({ where: { organizationId, action: { contains: 'BLOCKED' } } }),
+      this.prisma.auditLog.count({ where: { organizationId, action: { contains: 'PASSWORD_RESET' } } }),
+      this.prisma.organizationMember.count({ where: { organizationId, status: OrganizationMemberStatus.SUSPENDED } }),
+      this.prisma.organizationMember.count({ where: { organizationId, status: OrganizationMemberStatus.REVOKED } }),
+      this.prisma.associationStaffInvitation.count({
+        where: {
+          associationId: organizationId,
+          OR: [
+            { status: StaffInvitationStatus.EXPIRED },
+            { status: { in: [StaffInvitationStatus.PENDING, StaffInvitationStatus.SENT] }, expiresAt: { lt: new Date() } },
+          ],
+        },
+      }),
+    ]);
+    return {
+      loginSuccessToday,
+      loginFailedToday,
+      blockedAccess,
+      passwordResetRequests,
+      suspended,
+      revoked,
+      expiredInvitations,
+    };
+  }
+
   async getTeamMember(user: AuthUser, memberId: string) {
     await this.ensureOwnerMembership(user);
     const details = await this.getTeamMemberPermissions(user, memberId);
-    const activity = await this.listTeamMemberActivity(user, memberId, { limit: 5 });
-    return { ...details.member, permissions: details.permissions, availableRoles: details.availableRoles, activity: activity.items };
+    const activity = await this.activityItemsForOrganization(user, { limit: 5 }, details.member.userId);
+    return { ...details.member, permissions: details.permissions, availableRoles: details.availableRoles, activity: activity.slice(0, 5) };
   }
 
   async suspendTeamMember(user: AuthUser, memberId: string, payload: { reason?: unknown }) {
@@ -999,17 +1323,58 @@ export class AdminRbacService {
 
   async listTeamMemberActivity(user: AuthUser, memberId: string, query: Record<string, unknown>) {
     await this.ensureOwnerMembership(user);
+    await this.assertAnyPermission(user, ['audit_log.view', 'team.manage']);
     const organizationId = organizationIdOf(user);
-    const member = await this.prisma.organizationMember.findFirst({ where: { id: memberId, organizationId }, select: { userId: true } });
-    if (!member) throw new NotFoundException('Team member not found');
-    const limit = parseLimit(query.limit || 20);
-    const items = await this.prisma.auditLog.findMany({
-      where: { organizationId, userId: member.userId },
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-      select: { id: true, action: true, entityType: true, entityId: true, description: true, createdAt: true },
+    const member = await this.prisma.organizationMember.findFirst({
+      where: { id: memberId, organizationId },
+      include: {
+        user: { select: { id: true, email: true, fullName: true, firstName: true, lastName: true } },
+        associationRole: true,
+      },
     });
-    return { items };
+    if (!member) throw new NotFoundException('Team member not found');
+    const page = parsePage(query.page);
+    const limit = parseLimit(query.limit || 20);
+    const items = await this.activityItemsForOrganization(user, query, member.userId);
+    const total = items.length;
+    const stats = this.activityStats(items);
+    return {
+      member: {
+        id: member.id,
+        userId: member.userId,
+        user: {
+          id: member.user.id,
+          fullName: this.actorDisplayName(member.user),
+          email: member.user.email,
+        },
+        role: member.associationRole
+          ? { id: member.associationRole.id, name: member.associationRole.name, type: member.associationRole.type }
+          : { id: null, name: member.role, type: member.role },
+        status: member.status,
+      },
+      summary: {
+        totalActivities: total,
+        today: stats.today,
+        sensitiveActions: stats.sensitive,
+        criticalActions: stats.critical,
+        loginSuccess: items.filter((item) => item.action === 'LOGIN_SUCCESS').length,
+        loginFailed: items.filter((item) => item.action === 'LOGIN_FAILED').length,
+        lastActivityAt: stats.lastActivityAt,
+      },
+      moduleBreakdown: Object.entries(
+        items.reduce<Record<string, number>>((acc, item) => {
+          acc[item.category] = (acc[item.category] || 0) + 1;
+          return acc;
+        }, {}),
+      ).map(([category, count]) => ({ category, count })),
+      items: items.slice((page - 1) * limit, page * limit),
+      meta: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
+    };
+  }
+
+  async getTeamMemberActivityStats(user: AuthUser, memberId: string, query: Record<string, unknown> = {}) {
+    const payload = await this.listTeamMemberActivity(user, memberId, { ...query, page: 1, limit: 1 });
+    return payload.summary;
   }
 
   private async getRoleWithPermissionsOrThrow(organizationId: string, roleId: string) {

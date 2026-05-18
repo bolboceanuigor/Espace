@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
-import { ResidentAccountStatus, ResidentPortalAccessStatus, Role } from '@prisma/client';
+import { OrganizationMemberStatus, ResidentAccountStatus, ResidentPortalAccessStatus, Role } from '@prisma/client';
 import { IS_PUBLIC_KEY } from '../auth/decorators/public.decorator';
 import { ROLES_KEY } from '../auth/decorators/roles.decorator';
 import { PrismaService } from '../prisma/prisma.service';
@@ -30,6 +30,12 @@ function extractBearerToken(authorization?: string) {
 function normalizeRole(role: Role | string) {
   const value = String(role).toUpperCase();
   return value === 'SUPER_ADMIN' ? 'SUPERADMIN' : value;
+}
+
+function headerValue(value: unknown): string | null {
+  if (Array.isArray(value)) return String(value[0] || '').trim() || null;
+  if (typeof value === 'string') return value.trim() || null;
+  return null;
 }
 
 @Injectable()
@@ -84,6 +90,18 @@ export class MvpAuthGuard implements CanActivate {
         });
       }
 
+      if (user.role === Role.ADMIN) {
+        const activeOrganizationId = await this.resolveAdminOrganizationId(
+          user.id,
+          user.organizationId,
+          headerValue(request.headers?.['x-association-id']) || headerValue(request.headers?.['x-org-id']),
+        );
+        user.organizationId = activeOrganizationId;
+        request.associationContext = {
+          associationId: activeOrganizationId,
+        };
+      }
+
       if (user.role === Role.RESIDENT) {
         const residentProfile = await this.prisma.residentProfile.findFirst({
           where: {
@@ -128,6 +146,52 @@ export class MvpAuthGuard implements CanActivate {
       throw new UnauthorizedException({
         code: 'SESSION_EXPIRED',
         message: 'Sesiunea a expirat. Te rugăm să te autentifici din nou.',
+      });
+    }
+  }
+
+  private async resolveAdminOrganizationId(userId: string, fallbackOrganizationId: string, requestedOrganizationId: string | null) {
+    if (!requestedOrganizationId) {
+      const membership = await this.prisma.organizationMember.findFirst({
+        where: { userId, organizationId: fallbackOrganizationId },
+        select: { status: true },
+      });
+      if (membership) this.assertActiveMembership(membership.status);
+      return fallbackOrganizationId;
+    }
+
+    const membership = await this.prisma.organizationMember.findFirst({
+      where: { userId, organizationId: requestedOrganizationId },
+      select: { status: true },
+    });
+    if (!membership) {
+      if (requestedOrganizationId === fallbackOrganizationId) return fallbackOrganizationId;
+      throw new ForbiddenException({
+        code: 'ASSOCIATION_ACCESS_DENIED',
+        message: 'Nu ai acces la această resursă.',
+      });
+    }
+    this.assertActiveMembership(membership.status);
+    return requestedOrganizationId;
+  }
+
+  private assertActiveMembership(status: OrganizationMemberStatus) {
+    if (status === OrganizationMemberStatus.SUSPENDED) {
+      throw new ForbiddenException({
+        code: 'STAFF_ACCESS_DENIED_SUSPENDED',
+        message: 'Accesul tău este suspendat.',
+      });
+    }
+    if (status === OrganizationMemberStatus.REVOKED || status === OrganizationMemberStatus.DISABLED) {
+      throw new ForbiddenException({
+        code: 'STAFF_ACCESS_DENIED_REVOKED',
+        message: 'Accesul tău a fost revocat.',
+      });
+    }
+    if (status !== OrganizationMemberStatus.ACTIVE) {
+      throw new ForbiddenException({
+        code: 'ACTIVE_ASSOCIATION_MEMBERSHIP_REQUIRED',
+        message: 'Nu ai acces la această resursă.',
       });
     }
   }

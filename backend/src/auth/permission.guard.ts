@@ -38,7 +38,8 @@ export class PermissionGuard implements CanActivate {
       return true;
     }
 
-    const organizationId = user.organizationId || null;
+    const associationContext = request.associationContext as { associationId?: string } | undefined;
+    const organizationId = associationContext?.associationId || user.organizationId || null;
     if (!organizationId) throw new ForbiddenException('Organization context missing');
 
     const member = await this.prisma.organizationMember.findFirst({

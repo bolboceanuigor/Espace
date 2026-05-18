@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import {
+  Activity,
   AlertCircle,
   ArrowRight,
   Banknote,
@@ -285,6 +286,7 @@ export default function AdminPage() {
   const [billingOverview, setBillingOverview] = useState<any>(null);
   const [dataQualitySummary, setDataQualitySummary] = useState<any>(null);
   const [teamStats, setTeamStats] = useState<any>(null);
+  const [teamActivityStats, setTeamActivityStats] = useState<any>(null);
 
   useEffect(() => {
     let active = true;
@@ -377,6 +379,17 @@ export default function AdminPage() {
         setTeamStats(null);
       });
 
+    adminRbacApi
+      .teamActivityStats()
+      .then((response) => {
+        if (!active) return;
+        setTeamActivityStats(response.data || null);
+      })
+      .catch(() => {
+        if (!active) return;
+        setTeamActivityStats(null);
+      });
+
     return () => {
       active = false;
     };
@@ -458,8 +471,17 @@ export default function AdminPage() {
         href: '/admin/team',
         active: Boolean(teamStats?.pendingInvitations || teamStats?.suspended || !teamStats),
       },
+      {
+        title: 'Activitate echipă',
+        value: teamActivityStats ? String(teamActivityStats.critical || 0) : 'Vezi audit',
+        description: teamActivityStats
+          ? `${teamActivityStats.sensitive || 0} acțiuni sensibile · ${teamActivityStats.today || 0} azi`
+          : 'Acțiuni sensibile și audit intern',
+        href: '/admin/team/activity',
+        active: Boolean(teamActivityStats?.critical || teamActivityStats?.sensitive || !teamActivityStats),
+      },
     ],
-    [announcementStats, billingOverview, crm, dataQualitySummary, pendingUpdateRequests, teamStats],
+    [announcementStats, billingOverview, crm, dataQualitySummary, pendingUpdateRequests, teamActivityStats, teamStats],
   );
 
   const kpiCards = [
@@ -495,6 +517,13 @@ export default function AdminPage() {
       description: `${crm.kpis.openIssues} cereri active`,
       icon: <MessageCircle className="h-5 w-5" />,
       tone: crm.kpis.urgentIssues > 0 ? ('warning' as const) : ('success' as const),
+    },
+    {
+      label: 'Acțiuni sensibile',
+      value: String(teamActivityStats?.sensitive || 0),
+      description: `${teamActivityStats?.critical || 0} critice în audit`,
+      icon: <Activity className="h-5 w-5" />,
+      tone: teamActivityStats?.critical ? ('danger' as const) : teamActivityStats?.sensitive ? ('warning' as const) : ('success' as const),
     },
     {
       label: 'Citiri lipsă',

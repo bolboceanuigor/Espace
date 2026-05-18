@@ -14,14 +14,16 @@ export default async function ForbiddenPage({ params }: ForbiddenPageProps) {
 
   return (
     <div className="mx-auto mt-16 max-w-lg rounded-2xl border border-border/60 bg-card p-5 text-center">
-      <h1 className="text-xl font-semibold tracking-tight text-foreground">403</h1>
-      <p className="mt-2 text-sm text-muted-foreground">Nu ai acces</p>
+      <h1 className="text-xl font-semibold tracking-tight text-foreground">Nu ai permisiunea necesară</h1>
+      <p className="mt-2 text-sm text-muted-foreground">
+        Contul tău nu are acces la această pagină sau această resursă aparține altei asociații.
+      </p>
       <div className="mt-4 flex flex-wrap justify-center gap-2">
         <Link
           href={backHref}
           className="inline-flex h-9 items-center justify-center rounded-xl border border-border/60 px-3 text-sm font-medium text-foreground transition duration-150 ease-out hover:bg-muted/60"
         >
-          Pagina principală
+          Înapoi la dashboard
         </Link>
         <Link
           href={`/${locale}/login`}

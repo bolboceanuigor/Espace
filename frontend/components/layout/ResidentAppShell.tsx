@@ -3,6 +3,7 @@
 import { type ReactNode } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { ResidentContextProvider, useResidentContext } from '@/context/ResidentContext';
 import { defaultLocale, isLocale } from '@/i18n';
 import ResidentBottomNav, { ResidentProfileShortcut } from './ResidentBottomNav';
 
@@ -17,15 +18,44 @@ type ResidentAppShellProps = {
 
 export default function ResidentAppShell({
   children,
-  userName = 'Ion Popescu',
-  apartmentLabel = 'Apartament 24',
-  organizationName = 'A.P.C. A0123-0940',
+  userName,
+  apartmentLabel,
+  organizationName,
+  notificationsSlot,
+  floatingAction,
+}: ResidentAppShellProps) {
+  return (
+    <ResidentContextProvider>
+      <ResidentAppShellContent
+        userName={userName}
+        apartmentLabel={apartmentLabel}
+        organizationName={organizationName}
+        notificationsSlot={notificationsSlot}
+        floatingAction={floatingAction}
+      >
+        {children}
+      </ResidentAppShellContent>
+    </ResidentContextProvider>
+  );
+}
+
+function ResidentAppShellContent({
+  children,
+  userName,
+  apartmentLabel,
+  organizationName,
   notificationsSlot,
   floatingAction,
 }: ResidentAppShellProps) {
   const params = useParams<{ locale?: string }>();
+  const residentContext = useResidentContext();
   const localeParam = typeof params?.locale === 'string' ? params.locale : defaultLocale;
   const locale = isLocale(localeParam) ? localeParam : defaultLocale;
+  const firstApartment = residentContext.apartments[0];
+  const displayUserName = userName || residentContext.user?.fullName || residentContext.resident?.fullName || 'Locatar';
+  const displayApartmentLabel = apartmentLabel || (firstApartment ? `Apartament ${firstApartment.apartmentNumber}` : 'Apartamentele mele');
+  const displayOrganizationName =
+    organizationName || residentContext.activeAssociation?.shortName || firstApartment?.association?.shortName || 'A.P.C.';
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -35,8 +65,8 @@ export default function ResidentAppShell({
             ES
           </Link>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-slate-950">{userName}</p>
-            <p className="truncate text-xs text-slate-500">{apartmentLabel} · {organizationName}</p>
+            <p className="truncate text-sm font-semibold text-slate-950">{displayUserName}</p>
+            <p className="truncate text-xs text-slate-500">{displayApartmentLabel} · {displayOrganizationName}</p>
           </div>
           {notificationsSlot}
           <div className="hidden md:block">

@@ -16,7 +16,7 @@ export function getRequestedOrgId(req: Request): string | undefined {
   if (typeof guardOrgScope === 'string' && guardOrgScope.trim()) {
     return guardOrgScope.trim();
   }
-  const header = req.headers['x-org-id'];
+  const header = req.headers['x-association-id'] || req.headers['x-org-id'];
   const headerOrgId = Array.isArray(header) ? header[0] : header;
   const queryOrgId = typeof req.query?.orgId === 'string' ? req.query.orgId : undefined;
   return (headerOrgId || queryOrgId || '').toString().trim() || undefined;
@@ -44,4 +44,3 @@ export function getOrgScope(user: AuthUser, requestedOrgId?: string): string {
 
   return userOrgId;
 }
-

@@ -79,7 +79,7 @@ async function bootstrap() {
     origin: corsOriginCallback,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-org-id'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-org-id', 'x-association-id'],
   });
 
   const port = Number(process.env.PORT || 4000);

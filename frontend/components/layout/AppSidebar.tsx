@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
 import {
+  Activity,
   BarChart3,
   Bell,
   Building2,
@@ -17,6 +18,7 @@ import {
   Megaphone,
   Receipt,
   Settings,
+  ShieldAlert,
   ShieldCheck,
   Upload,
   Users,
@@ -35,7 +37,13 @@ type AppSidebarProps = {
 
 const sections: Array<{
   title: string;
-  items: Array<{ label: string; href: string; icon: LucideIcon; permission?: [PermissionModule, PermissionAction] }>;
+  items: Array<{
+    label: string;
+    href: string;
+    icon: LucideIcon;
+    permission?: [PermissionModule, PermissionAction];
+    anyPermissions?: Array<[PermissionModule, PermissionAction]>;
+  }>;
 }> = [
   {
     title: 'Administrare',
@@ -73,6 +81,8 @@ const sections: Array<{
       { label: 'Notificări', href: '/admin/notifications', icon: Bell, permission: ['NOTIFICATIONS', 'VIEW'] },
       { label: 'Echipă', href: '/admin/team', icon: Users, permission: ['TEAM', 'VIEW'] },
       { label: 'Invitații echipă', href: '/admin/team/invitations', icon: Users, permission: ['TEAM', 'INVITE'] },
+      { label: 'Activitate echipă', href: '/admin/team/activity', icon: Activity, anyPermissions: [['AUDIT_LOG', 'VIEW'], ['TEAM', 'MANAGE']] },
+      { label: 'Securitate echipă', href: '/admin/team/security', icon: ShieldAlert, anyPermissions: [['AUDIT_LOG', 'VIEW'], ['SETTINGS', 'MANAGE']] },
       { label: 'Roluri', href: '/admin/settings/roles', icon: ShieldCheck, permission: ['TEAM', 'VIEW'] },
       { label: 'Permisiuni', href: '/admin/settings/permissions', icon: ShieldCheck, permission: ['TEAM', 'MANAGE'] },
       { label: 'Setări', href: '/admin/settings/organization', icon: Settings, permission: ['SETTINGS', 'VIEW'] },
@@ -118,7 +128,11 @@ export default function AppSidebar({
       <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
         <div className="space-y-5">
           {sections.map((section) => {
-            const visibleItems = section.items.filter((item) => !item.permission || can(item.permission[0], item.permission[1]));
+            const visibleItems = section.items.filter((item) => {
+              if (item.permission && !can(item.permission[0], item.permission[1])) return false;
+              if (item.anyPermissions?.length && !item.anyPermissions.some((permission) => can(permission[0], permission[1]))) return false;
+              return true;
+            });
             if (visibleItems.length === 0) return null;
             return (
             <div key={section.title}>

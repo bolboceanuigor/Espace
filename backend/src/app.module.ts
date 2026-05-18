@@ -23,6 +23,7 @@ import { DataQualityModule } from './data-quality/data-quality.module';
 import { ResidentAccessModule } from './resident-access/resident-access.module';
 import { TeamModule } from './team/team.module';
 import { AdminRbacModule } from './rbac/admin-rbac.module';
+import { AssociationContextModule } from './association-context/association-context.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -53,6 +54,7 @@ import { AppController } from './app.controller';
     ResidentAccessModule,
     TeamModule,
     AdminRbacModule,
+    AssociationContextModule,
   ],
   controllers: [AppController],
   providers: [],

@@ -6,10 +6,11 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { PermissionGuard } from '../auth/permission.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { AdminAssociationGuard } from '../association-context/admin-association.guard';
 import { AdminRbacService } from './admin-rbac.service';
 
 @Controller('api/admin')
-@UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, AdminAssociationGuard, PermissionGuard)
 @Roles(Role.ADMIN)
 export class AdminRbacController {
   constructor(private readonly rbacService: AdminRbacService) {}
@@ -146,6 +147,42 @@ export class AdminRbacController {
     return this.rbacService.listTeamMembers(user, query);
   }
 
+  @Get('team/activity')
+  @RequiresPermissions()
+  listTeamActivity(@CurrentUser() user: any, @Query() query: Record<string, unknown>) {
+    return this.rbacService.listTeamActivity(user, query);
+  }
+
+  @Get('team/activity/stats')
+  @RequiresPermissions()
+  getTeamActivityStats(@CurrentUser() user: any, @Query() query: Record<string, unknown>) {
+    return this.rbacService.getTeamActivityStats(user, query);
+  }
+
+  @Get('team/activity/:id')
+  @RequiresPermissions()
+  getTeamActivityDetail(@CurrentUser() user: any, @Param('id') id: string) {
+    return this.rbacService.getTeamActivityDetail(user, id);
+  }
+
+  @Get('team/sensitive-actions')
+  @RequiresPermissions()
+  listSensitiveActions(@CurrentUser() user: any, @Query() query: Record<string, unknown>) {
+    return this.rbacService.listSensitiveTeamActions(user, query);
+  }
+
+  @Get('team/security')
+  @RequiresPermissions()
+  listTeamSecurity(@CurrentUser() user: any, @Query() query: Record<string, unknown>) {
+    return this.rbacService.listTeamSecurity(user, query);
+  }
+
+  @Get('team/security/stats')
+  @RequiresPermissions()
+  getTeamSecurityStats(@CurrentUser() user: any, @Query() query: Record<string, unknown>) {
+    return this.rbacService.getTeamSecurityStats(user, query);
+  }
+
   @Get('team/:id/permissions')
   @RequirePermission('TEAM', 'VIEW')
   getTeamMemberPermissions(@CurrentUser() user: any, @Param('id') id: string) {
@@ -180,6 +217,12 @@ export class AdminRbacController {
   @RequirePermission('TEAM', 'VIEW')
   listTeamMemberActivity(@CurrentUser() user: any, @Param('id') id: string, @Query() query: Record<string, unknown>) {
     return this.rbacService.listTeamMemberActivity(user, id, query);
+  }
+
+  @Get('team/:id/activity/stats')
+  @RequirePermission('TEAM', 'VIEW')
+  getTeamMemberActivityStats(@CurrentUser() user: any, @Param('id') id: string, @Query() query: Record<string, unknown>) {
+    return this.rbacService.getTeamMemberActivityStats(user, id, query);
   }
 
   @Get('team/:id')

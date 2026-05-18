@@ -9,6 +9,7 @@ import { Public } from '../auth/decorators/public.decorator';
 import { RequiresPermissions } from '../auth/decorators/permissions.decorator';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
+import { AdminAssociationGuard } from '../association-context/admin-association.guard';
 import { AdminRbacService } from '../rbac/admin-rbac.service';
 import { AcceptTeamInvitationDto } from './dto/accept-team-invitation.dto';
 import { CreateTeamUserDto } from './dto/create-team-user.dto';
@@ -51,7 +52,7 @@ export class TeamController {
   }
 
   @Get('admin/team')
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, AdminAssociationGuard, PermissionGuard)
   @Roles(Role.ADMIN)
   @RequiresPermissions('team.view')
   list(@CurrentUser() user: any, @Query() query: Record<string, unknown>) {
@@ -59,7 +60,7 @@ export class TeamController {
   }
 
   @Post('admin/team/invite')
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, AdminAssociationGuard, PermissionGuard)
   @Roles(Role.ADMIN)
   @RequiresPermissions('team.manage')
   invite(@CurrentUser() user: any, @Body() dto: CreateTeamUserDto) {
@@ -67,7 +68,7 @@ export class TeamController {
   }
 
   @Patch('admin/team/:memberId')
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, AdminAssociationGuard, PermissionGuard)
   @Roles(Role.ADMIN)
   @RequiresPermissions('team.manage')
   update(
@@ -79,7 +80,7 @@ export class TeamController {
   }
 
   @Patch('admin/team/:memberId/disable')
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, AdminAssociationGuard, PermissionGuard)
   @Roles(Role.ADMIN)
   @RequiresPermissions('team.manage')
   disable(@CurrentUser() user: any, @Param('memberId') memberId: string) {
@@ -87,7 +88,7 @@ export class TeamController {
   }
 
   @Patch('admin/team/:memberId/permissions')
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, AdminAssociationGuard, PermissionGuard)
   @Roles(Role.ADMIN)
   @RequiresPermissions('team.manage')
   permissions(

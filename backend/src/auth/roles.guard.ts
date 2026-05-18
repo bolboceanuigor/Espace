@@ -38,12 +38,13 @@ export class RolesGuard implements CanActivate {
     if (
       requiredRoles.some((role) => String(role).toUpperCase() === Role.ADMIN) &&
       currentRole === Role.ADMIN &&
-      user.organizationId &&
+      (request.associationContext?.associationId || user.organizationId) &&
       (user.id || user.sub)
     ) {
+      const organizationId = request.associationContext?.associationId || user.organizationId;
       const membership = await this.prisma.organizationMember.findFirst({
         where: {
-          organizationId: user.organizationId,
+          organizationId,
           userId: user.id || user.sub,
         },
         select: { id: true, status: true },
@@ -72,12 +73,13 @@ export class RolesGuard implements CanActivate {
     // Backwards-compatible organization-team access: ADMIN routes can be opened for active org members.
     if (
       requiredRoles.some((role) => String(role).toUpperCase() === Role.ADMIN) &&
-      user.organizationId &&
+      (request.associationContext?.associationId || user.organizationId) &&
       (user.id || user.sub)
     ) {
+      const organizationId = request.associationContext?.associationId || user.organizationId;
       const membership = await this.prisma.organizationMember.findFirst({
         where: {
-          organizationId: user.organizationId,
+          organizationId,
           userId: user.id || user.sub,
         },
         select: { id: true, status: true },

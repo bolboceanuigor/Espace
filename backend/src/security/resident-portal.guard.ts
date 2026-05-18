@@ -30,6 +30,12 @@ export class ResidentPortalGuard implements CanActivate {
         apartmentId: true,
         accountStatus: true,
         portalAccessStatus: true,
+        apartmentResidents: {
+          select: {
+            apartmentId: true,
+            apartment: { select: { organizationId: true } },
+          },
+        },
         _count: { select: { apartmentResidents: true } },
       },
     });
@@ -64,7 +70,13 @@ export class ResidentPortalGuard implements CanActivate {
       });
     }
 
-    const apartmentsCount = Number(resident._count?.apartmentResidents || 0) || (resident.apartmentId ? 1 : 0);
+    const apartmentIds = Array.from(
+      new Set([resident.apartmentId, ...resident.apartmentResidents.map((relation) => relation.apartmentId)].filter(Boolean) as string[]),
+    );
+    const associationIds = Array.from(
+      new Set([user.organizationId, ...resident.apartmentResidents.map((relation) => relation.apartment.organizationId)].filter(Boolean) as string[]),
+    );
+    const apartmentsCount = apartmentIds.length || Number(resident._count?.apartmentResidents || 0);
     if (apartmentsCount < 1) {
       throw new ForbiddenException({
         code: 'RESIDENT_APARTMENT_LINK_MISSING',
@@ -74,7 +86,10 @@ export class ResidentPortalGuard implements CanActivate {
 
     request.residentContext = {
       residentId: resident.id,
+      userId: user.id,
       portalAccessStatus: ResidentPortalAccessStatus.ACTIVE,
+      apartmentIds,
+      associationIds,
       apartmentsCount,
     };
     return true;

@@ -749,6 +749,9 @@ export function TeamPermissionsListPage() {
             <ButtonLink href="/admin/team/invitations/new">
               <UserPlus className="h-4 w-4" /> Invită membru
             </ButtonLink>
+            <ButtonLink href="/admin/team/activity" variant="secondary">
+              Activitate echipă
+            </ButtonLink>
             <ButtonLink href="/admin/team/invitations" variant="secondary">
               Invitații
             </ButtonLink>
@@ -818,6 +821,7 @@ export function TeamPermissionsListPage() {
                     <td className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-2">
                         <ButtonLink href={`/admin/team/${member.id}`} variant="secondary" size="sm">Deschide</ButtonLink>
+                        <ButtonLink href={`/admin/team/${member.id}/activity`} variant="outline" size="sm">Activitate</ButtonLink>
                         <ButtonLink href={`/admin/team/${member.id}/permissions`} variant="outline" size="sm">Rol</ButtonLink>
                         {member.status === 'ACTIVE' ? (
                           <Button size="sm" variant="ghost" isLoading={busyId === member.id} onClick={() => memberAction(member.id, 'suspend')}>Suspendă</Button>
@@ -852,7 +856,12 @@ export function TeamMemberDetailPage() {
         description={data?.email || 'Detalii membru intern și activitate.'}
         backHref="/admin/team"
         badge={data?.status ? <VariantBadge variant={badgeVariant(data.status)}>{staffStatusLabels[data.status] || data.status}</VariantBadge> : null}
-        actions={<ButtonLink href={`/admin/team/${id}/permissions`}>Schimbă rol</ButtonLink>}
+        actions={
+          <>
+            <ButtonLink href={`/admin/team/${id}/activity`} variant="secondary">Vezi activitatea</ButtonLink>
+            <ButtonLink href={`/admin/team/${id}/permissions`}>Schimbă rol</ButtonLink>
+          </>
+        }
       />
       {loading ? <LoadingCard /> : null}
       {error ? <ErrorCard message={error} /> : null}
@@ -880,7 +889,10 @@ export function TeamMemberDetailPage() {
             </div>
           </Card>
           <Card className="lg:col-span-2">
-            <h2 className="text-base font-semibold text-slate-950">Activitate recentă</h2>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-base font-semibold text-slate-950">Activitate recentă</h2>
+              <ButtonLink href={`/admin/team/${id}/activity`} variant="outline" size="sm">Vezi tot</ButtonLink>
+            </div>
             <div className="mt-4 divide-y divide-slate-100">
               {(data.activity || []).map((item: any) => (
                 <div key={item.id} className="flex items-center justify-between gap-3 py-3 text-sm">

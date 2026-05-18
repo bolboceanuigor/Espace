@@ -3,6 +3,7 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { Bell, Menu, Search, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { AdminContextProvider, useAdminContext } from '@/context/AdminContext';
 import { PermissionsProvider } from '@/hooks/usePermissions';
 import AppSidebar from './AppSidebar';
 
@@ -34,7 +35,17 @@ function initialsFromName(name?: string | null, email?: string | null) {
     .join('') || 'AD';
 }
 
-export default function AdminAppShell({
+export default function AdminAppShell(props: AdminAppShellProps) {
+  return (
+    <AdminContextProvider>
+      <PermissionsProvider>
+        <AdminAppShellContent {...props} />
+      </PermissionsProvider>
+    </AdminContextProvider>
+  );
+}
+
+function AdminAppShellContent({
   children,
   organizationName,
   organizationCode,
@@ -52,13 +63,17 @@ export default function AdminAppShell({
   footerSlot,
 }: AdminAppShellProps) {
   const { user, org } = useAuth();
+  const adminContext = useAdminContext();
   const [mobileOpen, setMobileOpen] = useState(false);
   const displayName = userName || [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Administrator';
   const displayEmail = userEmail || user?.email || 'admin@espace.md';
   const displayInitials = userInitials || initialsFromName(displayName, displayEmail);
-  const displayOrgName = organizationName || org?.name || 'A.P.C. A0123-0940';
-  const displayOrgCode = organizationCode || 'A0123-0940';
-  const statusText = organizationStatus === 'ACTIVE' ? 'Activă' : organizationStatus;
+  const activeAssociation = adminContext.activeAssociation;
+  const displayOrgName = organizationName || activeAssociation?.shortName || org?.name || 'A.P.C. A0123-0940';
+  const displayOrgCode = organizationCode || activeAssociation?.associationCode || 'A0123-0940';
+  const statusValue = activeAssociation?.status || organizationStatus;
+  const statusText = statusValue === 'ACTIVE' ? 'Activă' : statusValue;
+  const roleName = adminContext.membership?.role?.name || 'Administrator';
 
   const defaultNotifications = useMemo(
     () => (
@@ -74,7 +89,6 @@ export default function AdminAppShell({
   );
 
   return (
-    <PermissionsProvider>
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <div className="fixed inset-y-0 left-0 z-40 hidden lg:block">
         <AppSidebar
@@ -127,8 +141,23 @@ export default function AdminAppShell({
                   {statusText}
                 </span>
               </div>
-              <p className="truncate text-xs text-slate-500">{displayOrgCode}</p>
+              <p className="truncate text-xs text-slate-500">{displayOrgCode} · {roleName}</p>
             </div>
+
+            {adminContext.availableAssociations.length > 1 ? (
+              <select
+                value={activeAssociation?.id || ''}
+                onChange={(event) => void adminContext.switchAssociation(event.target.value)}
+                className="hidden h-10 max-w-56 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm outline-none transition focus:border-slate-300 focus:ring-2 focus:ring-slate-200 md:block"
+                aria-label="Schimbă asociația activă"
+              >
+                {adminContext.availableAssociations.map((association) => (
+                  <option key={association.id} value={association.id}>
+                    {association.shortName}
+                  </option>
+                ))}
+              </select>
+            ) : null}
 
             <div className="hidden w-full max-w-sm items-center rounded-2xl border border-slate-200 bg-white px-3 shadow-sm md:flex">
               <Search className="h-4 w-4 text-slate-400" />
@@ -163,6 +192,5 @@ export default function AdminAppShell({
 
       {floatingAction}
     </div>
-    </PermissionsProvider>
   );
 }

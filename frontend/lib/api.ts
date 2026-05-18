@@ -3,7 +3,7 @@ import type { ApiEnvelope, ApiErrorPayload } from '@/types/api';
 import { getApiBaseUrl } from './runtime-config';
 
 const API_URL = getApiBaseUrl();
-const ACTIVE_ORG_STORAGE_KEY = 'activeOrgId';
+export const ACTIVE_ORG_STORAGE_KEY = 'activeOrgId';
 const DEBUG_API = process.env.NEXT_PUBLIC_DEBUG_API === 'true';
 
 export class ApiClientError extends Error {
@@ -61,13 +61,18 @@ function normalizeApiPath(path: string): string {
 
 function getOrgScopeHeader(path: string): Record<string, string> {
   if (typeof window === 'undefined') return {};
-  if (normalizeApiPath(path).startsWith('/api/superadmin/')) return {};
+  const normalizedPath = normalizeApiPath(path);
   const user = getUser();
   const role = (user?.role || '').toString().toUpperCase();
-  if (role !== 'SUPERADMIN') return {};
   const activeOrgId = localStorage.getItem(ACTIVE_ORG_STORAGE_KEY);
   if (!activeOrgId) return {};
-  return { 'x-org-id': activeOrgId };
+  if (role === 'ADMIN' && normalizedPath.startsWith('/api/admin/')) {
+    return { 'x-association-id': activeOrgId, 'x-org-id': activeOrgId };
+  }
+  if (role === 'SUPERADMIN' && normalizedPath.startsWith('/api/superadmin/')) {
+    return { 'x-org-id': activeOrgId };
+  }
+  return {};
 }
 
 function redirectToExpiredLogin() {
@@ -263,6 +268,16 @@ resetPassword: (data: { token: string; newPassword: string }) =>
     welcomeDismissed?: boolean;
   }) =>
     apiRequest<any>('/api/me/preferences', { method: 'PATCH', body: data }),
+};
+
+export const adminContextApi = {
+  get: () => apiRequest<any>('/api/admin/context'),
+  switchAssociation: (associationId: string) =>
+    apiRequest<any>('/api/admin/context/switch-association', { method: 'POST', body: { associationId } }),
+};
+
+export const residentContextApi = {
+  get: () => apiRequest<any>('/api/resident/context'),
 };
 
 export const propertiesApi = {
@@ -477,6 +492,19 @@ export const adminRbacApi = {
     apiRequest<any>(`/api/admin/team/${memberId}/revoke`, { method: 'PATCH', body: { reason } }),
   teamMemberActivity: (memberId: string, params?: Record<string, string | number | boolean | undefined | null>) =>
     apiRequest<any>(`/api/admin/team/${memberId}/activity`, { params }),
+  teamMemberActivityStats: (memberId: string, params?: Record<string, string | number | boolean | undefined | null>) =>
+    apiRequest<any>(`/api/admin/team/${memberId}/activity/stats`, { params }),
+  teamActivity: (params?: Record<string, string | number | boolean | undefined | null>) =>
+    apiRequest<any>('/api/admin/team/activity', { params }),
+  teamActivityStats: (params?: Record<string, string | number | boolean | undefined | null>) =>
+    apiRequest<any>('/api/admin/team/activity/stats', { params }),
+  teamActivityDetail: (id: string) => apiRequest<any>(`/api/admin/team/activity/${id}`),
+  teamSensitiveActions: (params?: Record<string, string | number | boolean | undefined | null>) =>
+    apiRequest<any>('/api/admin/team/sensitive-actions', { params }),
+  teamSecurity: (params?: Record<string, string | number | boolean | undefined | null>) =>
+    apiRequest<any>('/api/admin/team/security', { params }),
+  teamSecurityStats: (params?: Record<string, string | number | boolean | undefined | null>) =>
+    apiRequest<any>('/api/admin/team/security/stats', { params }),
   teamMemberPermissions: (memberId: string) => apiRequest<any>(`/api/admin/team/${memberId}/permissions`),
   updateTeamMemberRole: (memberId: string, roleId: string, confirm = true) =>
     apiRequest<any>(`/api/admin/team/${memberId}/role`, { method: 'PATCH', body: { roleId, confirm } }),

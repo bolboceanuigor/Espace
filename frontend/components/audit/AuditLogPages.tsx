@@ -144,8 +144,9 @@ function AuditFilters({
 
   return (
     <Card className="p-4">
-      <div className="grid gap-3 md:grid-cols-6">
+      <div className="grid gap-3 md:grid-cols-7">
         <Input label="Search" value={filters.search || ''} onChange={(event) => setField('search', event.target.value)} placeholder="titlu, mesaj, actor" />
+        <Input label="Actor userId" value={filters.actorUserId || ''} onChange={(event) => setField('actorUserId', event.target.value)} placeholder="userId" />
         <label className="space-y-1 text-sm font-medium text-foreground">
           <span>Acțiune</span>
           <select className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm" value={filters.action || ''} onChange={(event) => setField('action', event.target.value)}>
@@ -307,7 +308,12 @@ export function AdminAuditLogPage() {
       <PageHeader
         title="Istoric activitate"
         description="Urmărește acțiunile importante efectuate în asociație."
-        rightSlot={<Button onClick={load} variant="secondary"><RefreshCw className="h-4 w-4" /> Actualizează</Button>}
+        rightSlot={
+          <div className="flex flex-wrap gap-2">
+            <ButtonLink href="/admin/team/activity" variant="secondary">Team Activity</ButtonLink>
+            <Button onClick={load} variant="secondary"><RefreshCw className="h-4 w-4" /> Actualizează</Button>
+          </div>
+        }
       />
       <div className="flex flex-wrap gap-2">
         <Badge variant="neutral">{data?.association?.shortName || 'APC'}</Badge>

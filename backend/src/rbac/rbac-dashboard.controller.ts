@@ -8,6 +8,7 @@ import { RbacDashboardService } from './rbac-dashboard.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { SubscriptionAccessGuard } from '../subscription/subscription-access.guard';
 import { AllowsPastDue } from '../subscription/subscription-access.decorator';
+import { AdminAssociationGuard } from '../association-context/admin-association.guard';
 
 @Controller('api')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -32,7 +33,7 @@ export class RbacDashboardController {
 
   @Get('admin/overview')
   @Roles(Role.ADMIN, Role.SUPERADMIN, Role.SUPER_ADMIN)
-  @UseGuards(SubscriptionAccessGuard)
+  @UseGuards(AdminAssociationGuard, SubscriptionAccessGuard)
   @AllowsPastDue()
   adminOverview(@CurrentUser() user: any) {
     return this.service.getAdminOverview(user);
