@@ -30,6 +30,16 @@ export type AdminAssociationContext = {
   permissionLabels: string[];
   activeAssociation: AssociationSummary;
   availableAssociations: AssociationSummary[];
+  isSupportMode?: boolean;
+  supportSession?: {
+    id: string;
+    mode: 'READ_ONLY' | 'SUPPORT_WRITE' | string;
+    status: string;
+    reason: string;
+    internalTicketRef?: string | null;
+    startedAt: Date | string;
+    expiresAt?: Date | string | null;
+  } | null;
 };
 
 export type ResidentAssociationContext = {
@@ -52,6 +62,11 @@ export type RequestWithTenantContext = Request & {
   user?: AssociationContextUser;
   associationContext?: AdminAssociationContext;
   residentContext?: ResidentAssociationContext;
+  supportSessionContext?: NonNullable<AdminAssociationContext['supportSession']> & {
+    associationId: string;
+    startedById: string;
+    isReadOnly: boolean;
+  };
 };
 
 export function getAssociationContextFromRequest(request: Request): AdminAssociationContext | null {

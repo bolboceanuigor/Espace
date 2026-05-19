@@ -29,6 +29,8 @@ export class AssociationContextController {
       permissions: request.associationContext?.permissions || [],
       permissionLabels: request.associationContext?.permissionLabels || [],
       availableAssociations: request.associationContext?.availableAssociations || [],
+      isSupportMode: Boolean(request.associationContext?.isSupportMode),
+      supportSession: request.associationContext?.supportSession || null,
       warnings: [],
     };
   }

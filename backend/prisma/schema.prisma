@@ -58,6 +58,24 @@ enum StaffInvitationDeliveryMethod {
   MANUAL
 }
 
+enum SuperadminSupportAccessMode {
+  READ_ONLY
+  SUPPORT_WRITE
+}
+
+enum SuperadminSupportSessionStatus {
+  ACTIVE
+  EXPIRED
+  ENDED
+  REVOKED
+}
+
+enum AuditActorType {
+  USER
+  SUPERADMIN_SUPPORT
+  SYSTEM
+}
+
 enum AssociationRoleType {
   ASSOCIATION_OWNER
   ASSOCIATION_ADMIN
@@ -1413,6 +1431,10 @@ model AuditLog {
   id             String   @id @default(uuid())
   organizationId String?
   userId         String
+  supportSessionId String?
+  actorType      AuditActorType @default(USER)
+  effectiveAssociationId String?
+  isImpersonatedAction Boolean @default(false)
   action         String
   entityType     String
   entityId       String?
@@ -1427,6 +1449,9 @@ model AuditLog {
   user         User          @relation("AuditLogUser", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, createdAt])
+  @@index([supportSessionId, createdAt])
+  @@index([effectiveAssociationId, createdAt])
+  @@index([isImpersonatedAction, createdAt])
   @@index([userId, createdAt])
   @@index([action, entityType, createdAt])
   @@map("audit_logs")
@@ -1608,6 +1633,8 @@ model User {
   channelProfile          UserChannel?
   notificationJobs        NotificationJob[]
   supportSessionsStarted  SupportSession[] @relation("SupportSessionSuperAdmin")
+  supportSessionsEnded    SupportSession[] @relation("SupportSessionEndedBy")
+  supportSessionsRevoked  SupportSession[] @relation("SupportSessionRevokedBy")
   pushSubscriptions       PushSubscription[]
   systemErrorLogs         SystemErrorLog[]
   qaChecksTested          QACheck[]         @relation("QACheckTestedBy")
@@ -1623,16 +1650,33 @@ model SupportSession {
   id               String   @id @default(uuid())
   superAdminUserId String
   organizationId   String
+  mode             SuperadminSupportAccessMode @default(READ_ONLY)
+  status           SuperadminSupportSessionStatus @default(ACTIVE)
   startedAt        DateTime @default(now())
+  expiresAt        DateTime?
   endedAt          DateTime?
+  endedById        String?
+  endReason        String?
+  revokedAt        DateTime?
+  revokedById      String?
+  revokeReason     String?
+  lastActivityAt   DateTime?
+  internalTicketRef String?
+  ipAddress        String?
+  userAgent        String?
   reason           String?
   isActive         Boolean  @default(true)
+  updatedAt        DateTime @updatedAt
 
   superAdminUser User         @relation("SupportSessionSuperAdmin", fields: [superAdminUserId], references: [id], onDelete: Cascade)
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  endedBy       User?        @relation("SupportSessionEndedBy", fields: [endedById], references: [id], onDelete: SetNull)
+  revokedBy     User?        @relation("SupportSessionRevokedBy", fields: [revokedById], references: [id], onDelete: SetNull)
 
   @@index([superAdminUserId, isActive])
+  @@index([superAdminUserId, status, expiresAt])
   @@index([organizationId, isActive])
+  @@index([organizationId, status, expiresAt])
   @@map("support_sessions")
 }
 

@@ -15,6 +15,7 @@ import {
   type PermissionActionKey,
   type PermissionModuleKey,
 } from '../team/team-permissions';
+import { SupportSessionContextService } from './support-session-context.service';
 import type {
   AdminAssociationContext,
   AssociationContextUser,
@@ -50,7 +51,10 @@ function labelForPermission(key: string) {
 
 @Injectable()
 export class AssociationContextService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly supportSessions: SupportSessionContextService,
+  ) {}
 
   getRequestedAssociationId(request?: RequestWithTenantContext): string | null {
     const headers = request?.headers || {};
@@ -77,6 +81,10 @@ export class AssociationContextService {
         statusCode: 403,
         message: 'Nu ai acces la această resursă.',
       });
+    }
+
+    if (isSuperAdmin(user)) {
+      return this.supportAdminContext(user, request);
     }
 
     const requestedAssociationId = this.getRequestedAssociationId(request);
@@ -379,6 +387,36 @@ export class AssociationContextService {
       permissionLabels: permissions.map(labelForPermission),
       activeAssociation: this.organizationSummary(organization, OrganizationMemberStatus.ACTIVE),
       availableAssociations: [this.organizationSummary(organization, OrganizationMemberStatus.ACTIVE)],
+    };
+  }
+
+  private async supportAdminContext(
+    user: AssociationContextUser,
+    request?: RequestWithTenantContext,
+  ): Promise<AdminAssociationContext> {
+    const support = await this.supportSessions.getSupportSessionContext(user, request);
+    const permissions = this.supportSessions.supportPermissions(support.mode);
+    const association = this.organizationSummary(support.organization);
+    return {
+      associationId: support.associationId,
+      membershipId: support.id,
+      roleId: null,
+      roleType: 'SUPERADMIN_SUPPORT',
+      roleName: support.mode === 'READ_ONLY' ? 'Suport Superadmin read-only' : 'Suport Superadmin',
+      permissions,
+      permissionLabels: permissions.map(labelForPermission),
+      activeAssociation: association,
+      availableAssociations: [association],
+      isSupportMode: true,
+      supportSession: {
+        id: support.id,
+        mode: support.mode,
+        status: support.status,
+        reason: support.reason,
+        internalTicketRef: support.internalTicketRef,
+        startedAt: support.startedAt,
+        expiresAt: support.expiresAt,
+      },
     };
   }
 
