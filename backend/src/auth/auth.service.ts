@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
-import { AuthProvider, PlanCode, PlatformRole, Role } from '@prisma/client';
+import { AuthProvider, NotificationChannel, PlanCode, PlatformRole, Role, TransactionalNotificationType } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes } from 'crypto';
 import { LoginDto } from './dto/login.dto';
@@ -15,6 +15,7 @@ import { RegisterDto } from './dto/register.dto';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 import { EmailService } from '../email/email.service';
 import { EmailTemplateService } from '../email/email-template.service';
+import { TransactionalNotificationsService } from '../notifications/transactional-notifications.service';
 
 @Injectable()
 export class AuthService {
@@ -25,6 +26,7 @@ export class AuthService {
     private jwtService: JwtService,
     private emailService: EmailService,
     private emailTemplateService: EmailTemplateService,
+    private transactionalNotifications: TransactionalNotificationsService,
   ) {}
 
   private requiresEmailVerification() {
@@ -397,10 +399,18 @@ export class AuthService {
       }),
     ]);
 
-    await this.emailService.sendPasswordResetEmail({
-      email: user.email,
-      locale: this.normalizeLocale(locale),
-      token: resetTokenRaw,
+    const normalizedLocale = this.normalizeLocale(locale);
+    const resetLink = `${(process.env.FRONTEND_URL || process.env.APP_URL || 'http://localhost:3000').replace(/\/+$/, '')}/${normalizedLocale}/reset-password?token=${encodeURIComponent(resetTokenRaw)}`;
+    await this.transactionalNotifications.sendTransactionalNotification({
+      type: TransactionalNotificationType.PASSWORD_RESET,
+      channels: [NotificationChannel.EMAIL],
+      recipientUserId: user.id,
+      recipientEmail: user.email,
+      locale: normalizedLocale,
+      variables: { resetLink },
+      relatedEntityType: 'PASSWORD_RESET',
+      relatedEntityId: user.id,
+      metadata: { source: 'forgot_password' },
     });
 
     return { ok: true, message: 'RESET_EMAIL_SENT' as const };

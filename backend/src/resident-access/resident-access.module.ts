@@ -2,11 +2,12 @@ import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { MvpSecurityModule } from '../security/mvp-security.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { ResidentAccessController } from './resident-access.controller';
 import { ResidentAccessService } from './resident-access.service';
 
 @Module({
-  imports: [PrismaModule, MvpSecurityModule, AuditModule],
+  imports: [PrismaModule, MvpSecurityModule, AuditModule, NotificationsModule],
   controllers: [ResidentAccessController],
   providers: [ResidentAccessService],
   exports: [ResidentAccessService],

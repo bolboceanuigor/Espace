@@ -2398,6 +2398,27 @@ export const billingSaasApi = {
     apiRequest<any>(`/api/superadmin/trials/${organizationId}/mark-lost`, { method: 'POST' }),
 };
 
+export const notificationProvidersApi = {
+  overview: () => apiRequest<any>('/api/superadmin/notifications/overview'),
+  providers: () => apiRequest<any>('/api/superadmin/notifications/providers'),
+  testEmail: (to: string) => apiRequest<any>('/api/superadmin/notifications/providers/test-email', { method: 'POST', body: { to } }),
+  testSms: (to: string) => apiRequest<any>('/api/superadmin/notifications/providers/test-sms', { method: 'POST', body: { to } }),
+  templates: (params?: Record<string, string | number | boolean | undefined>) => apiRequest<any>('/api/superadmin/notifications/templates', { params }),
+  createTemplate: (data: Record<string, unknown>) => apiRequest<any>('/api/superadmin/notifications/templates', { method: 'POST', body: data }),
+  template: (id: string) => apiRequest<any>(`/api/superadmin/notifications/templates/${id}`),
+  updateTemplate: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/notifications/templates/${id}`, { method: 'PATCH', body: data }),
+  updateTemplateStatus: (id: string, status: string) => apiRequest<any>(`/api/superadmin/notifications/templates/${id}/status`, { method: 'PATCH', body: { status } }),
+  previewTemplate: (id: string, variables?: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/notifications/templates/${id}/preview`, { method: 'POST', body: { variables } }),
+  deliveries: (params?: Record<string, string | number | boolean | undefined>) => apiRequest<any>('/api/superadmin/notifications/deliveries', { params }),
+  delivery: (id: string) => apiRequest<any>(`/api/superadmin/notifications/deliveries/${id}`),
+  retryDelivery: (id: string) => apiRequest<any>(`/api/superadmin/notifications/deliveries/${id}/retry`, { method: 'POST' }),
+  cancelDelivery: (id: string) => apiRequest<any>(`/api/superadmin/notifications/deliveries/${id}/cancel`, { method: 'PATCH' }),
+  adminDeliveries: (params?: Record<string, string | number | boolean | undefined>) => apiRequest<any>('/api/admin/notifications/deliveries', { params }),
+  adminDelivery: (id: string) => apiRequest<any>(`/api/admin/notifications/deliveries/${id}`),
+  adminSettings: () => apiRequest<any>('/api/admin/settings/notifications'),
+  updateAdminSettings: (data: Record<string, unknown>) => apiRequest<any>('/api/admin/settings/notifications', { method: 'PATCH', body: data }),
+};
+
 export const schedulerApi = {
   superadminListJobs: () =>
     apiRequest<Array<{ id: string; name: string; status: 'ACTIVE' | 'DISABLED'; lastRunAt?: string | null }>>('/api/superadmin/jobs'),

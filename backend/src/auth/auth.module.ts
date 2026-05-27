@@ -11,12 +11,14 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { GoogleStrategy } from './google.strategy';
 import { GoogleAuthGuard } from './google-auth.guard';
 import { EmailModule } from '../email/email.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { PermissionGuard } from './permission.guard';
 
 @Module({
   imports: [
     PrismaModule,
     EmailModule,
+    NotificationsModule,
     PassportModule,
     JwtModule.registerAsync({
       inject: [ConfigService],

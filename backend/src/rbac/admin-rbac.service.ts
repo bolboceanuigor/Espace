@@ -4,6 +4,7 @@ import {
   AuthProvider,
   OrganizationMemberRole,
   OrganizationMemberStatus,
+  NotificationChannel,
   PermissionAction,
   PermissionModule,
   PlatformRole,
@@ -11,10 +12,12 @@ import {
   Role,
   StaffInvitationDeliveryMethod,
   StaffInvitationStatus,
+  TransactionalNotificationType,
 } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes } from 'crypto';
 import { AuditService } from '../audit/audit.service';
+import { TransactionalNotificationsService } from '../notifications/transactional-notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TeamActivityRiskService } from './team-activity-risk.service';
 import {
@@ -213,6 +216,7 @@ export class AdminRbacService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly teamActivityRisk: TeamActivityRiskService,
+    private readonly transactionalNotifications: TransactionalNotificationsService,
   ) {}
 
   private buildStaffInviteLink(token: string, locale = 'ro') {
@@ -1556,6 +1560,7 @@ export class AdminRbacService {
       deliveryMethod,
       expiresAt: invitation.expiresAt,
     });
+    await this.sendStaffInvitationNotification(invitation, rawToken, actorId).catch(() => undefined);
     return this.serializeStaffInvitation(invitation, rawToken);
   }
 
@@ -1595,7 +1600,29 @@ export class AdminRbacService {
       include: this.staffInvitationInclude(),
     });
     await this.auditAction(user, 'STAFF_INVITATION_REGENERATED', 'ASSOCIATION_STAFF_INVITATION', updated.id, 'Invitație staff regenerată', { status: existing.status }, { expiresAt: updated.expiresAt });
+    await this.sendStaffInvitationNotification(updated, rawToken, userIdOf(user)).catch(() => undefined);
     return this.serializeStaffInvitation(updated, rawToken);
+  }
+
+  private async sendStaffInvitationNotification(invitation: any, rawToken: string, actorUserId?: string | null) {
+    if (invitation.deliveryMethod !== StaffInvitationDeliveryMethod.EMAIL_PLACEHOLDER) return;
+    await this.transactionalNotifications.sendTransactionalNotification({
+      type: TransactionalNotificationType.STAFF_INVITATION,
+      channels: [NotificationChannel.EMAIL],
+      associationId: invitation.associationId,
+      recipientEmail: invitation.invitedEmail,
+      locale: 'ro',
+      variables: {
+        staffName: invitation.invitedFullName || invitation.invitedEmail,
+        associationName: invitation.association?.name || 'asociație',
+        associationCode: invitation.association?.fiscalCode || '',
+        inviteLink: this.buildStaffInviteLink(rawToken),
+        supportEmail: process.env.EMAIL_REPLY_TO || process.env.SUPPORT_EMAIL || 'support@example.com',
+      },
+      relatedEntityType: 'ASSOCIATION_STAFF_INVITATION',
+      relatedEntityId: invitation.id,
+      createdById: actorUserId || null,
+    });
   }
 
   async markStaffInvitationSent(user: AuthUser, invitationId: string) {

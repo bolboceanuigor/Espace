@@ -11,18 +11,21 @@ import {
   ApartmentResidentRole,
   AuthProvider,
   PlatformRole,
+  NotificationChannel,
   Prisma,
   ResidentAccountStatus,
   ResidentPortalAccessStatus,
   ResidentPortalInvitationDeliveryMethod,
   ResidentPortalInvitationStatus,
   Role,
+  TransactionalNotificationType,
 } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes } from 'crypto';
 import { AuditService } from '../audit/audit.service';
 import { buildPaginationMeta, resolvePagination } from '../common/pagination';
 import { PrismaService } from '../prisma/prisma.service';
+import { TransactionalNotificationsService } from '../notifications/transactional-notifications.service';
 import type { MvpUser } from '../security/mvp-auth.guard';
 
 type AnyPayload = Record<string, any>;
@@ -86,6 +89,7 @@ export class ResidentAccessService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly audit: AuditService,
+    private readonly transactionalNotifications: TransactionalNotificationsService,
   ) {}
 
   private isSuperadmin(user: MvpUser) {
@@ -675,6 +679,7 @@ export class ResidentAccessService {
       return invitation;
     });
 
+    await this.sendInvitationNotification(created, token.raw, user.id).catch(() => undefined);
     return {
       invitation: this.serializeInvitation(created, true, token.raw),
     };
@@ -805,7 +810,39 @@ export class ResidentAccessService {
       );
       return row;
     });
+    await this.sendInvitationNotification(updated, token.raw, user.id).catch(() => undefined);
     return { invitation: this.serializeInvitation(updated, true, token.raw) };
+  }
+
+  private async sendInvitationNotification(invitation: any, rawToken: string, actorUserId?: string | null) {
+    const channels =
+      invitation.deliveryMethod === ResidentPortalInvitationDeliveryMethod.EMAIL_PLACEHOLDER
+        ? [NotificationChannel.EMAIL]
+        : invitation.deliveryMethod === ResidentPortalInvitationDeliveryMethod.SMS_PLACEHOLDER
+          ? [NotificationChannel.SMS]
+          : [];
+    if (!channels.length) return;
+    await this.transactionalNotifications.sendTransactionalNotification({
+      type: TransactionalNotificationType.RESIDENT_PORTAL_INVITATION,
+      channels,
+      associationId: invitation.associationId,
+      recipientUserId: invitation.resident?.userId || null,
+      recipientResidentId: invitation.residentId,
+      recipientEmail: invitation.invitedEmail || invitation.resident?.email || null,
+      recipientPhone: invitation.invitedPhone || invitation.resident?.phone || null,
+      locale: 'ro',
+      variables: {
+        residentName: fullName(invitation.resident),
+        associationName: invitation.association?.name || 'asociație',
+        associationCode: invitation.association?.fiscalCode || '',
+        apartmentNumber: invitation.apartment?.number || '',
+        inviteLink: this.inviteLink(rawToken),
+        supportEmail: process.env.EMAIL_REPLY_TO || process.env.SUPPORT_EMAIL || 'support@example.com',
+      },
+      relatedEntityType: 'RESIDENT_PORTAL_INVITATION',
+      relatedEntityId: invitation.id,
+      createdById: actorUserId || null,
+    });
   }
 
   async markSent(user: MvpUser, invitationId: string) {

@@ -8,8 +8,11 @@ import {
   SaasInvoiceSource,
   SaasInvoiceStatus,
   SaasSubscriptionStatus,
+  NotificationChannel,
+  TransactionalNotificationType,
 } from '@prisma/client';
 import { buildPaginationMeta, resolvePagination } from '../common/pagination';
+import { TransactionalNotificationsService } from '../notifications/transactional-notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 type Actor = { id?: string; sub?: string; organizationId?: string | null };
@@ -30,7 +33,10 @@ const BILLABLE_SUBSCRIPTION_STATUSES: SaasSubscriptionStatus[] = [
 
 @Injectable()
 export class SaasInvoicesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly transactionalNotifications: TransactionalNotificationsService,
+  ) {}
 
   async superadminList(query: Record<string, unknown>) {
     const { page, limit, skip } = resolvePagination({ page: Number(query.page) || undefined, limit: Number(query.limit) || undefined }, 20, 100);
@@ -251,6 +257,7 @@ export class SaasInvoicesService {
     });
     await this.event(id, invoice.associationId, this.actorId(actor), SaasInvoiceEventType.INVOICE_ISSUED, 'Factură emisă', 'Factura este vizibilă pentru Adminul asociației.');
     await this.audit(this.actorId(actor), 'SAAS_INVOICE_ISSUED', invoice, existing.status);
+    await this.notifySaasInvoiceIssued(invoice, actor).catch(() => undefined);
     return this.serializeDetail(invoice, true);
   }
 
@@ -611,6 +618,35 @@ export class SaasInvoicesService {
         } as Prisma.InputJsonValue,
       },
     }).catch(() => undefined);
+  }
+
+  private async notifySaasInvoiceIssued(invoice: any, actor: Actor) {
+    const admins = await this.prisma.user.findMany({
+      where: { organizationId: invoice.associationId, role: 'ADMIN', deletedAt: null, isActive: true },
+      select: { id: true, email: true, firstName: true, lastName: true },
+      take: 20,
+    });
+    for (const admin of admins) {
+      await this.transactionalNotifications.sendTransactionalNotification({
+        type: TransactionalNotificationType.SAAS_INVOICE_ISSUED,
+        channels: [NotificationChannel.EMAIL],
+        associationId: invoice.associationId,
+        recipientUserId: admin.id,
+        recipientEmail: admin.email,
+        locale: 'ro',
+        variables: {
+          adminName: [admin.firstName, admin.lastName].filter(Boolean).join(' ') || admin.email,
+          associationName: invoice.association?.legalName || invoice.association?.name || 'asociație',
+          invoiceNumber: invoice.invoiceNumber,
+          amount: invoice.totalAmount,
+          currency: invoice.currency,
+          dueDate: this.dateOnly(invoice.dueDate),
+        },
+        relatedEntityType: 'SAAS_INVOICE',
+        relatedEntityId: invoice.id,
+        createdById: this.actorId(actor),
+      });
+    }
   }
 
   private subscriptionPrice(subscription: { price: number; billingCycle: SaasBillingCycle; plan: { monthlyPrice: number; yearlyPrice: number | null } }) {

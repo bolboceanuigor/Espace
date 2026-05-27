@@ -305,6 +305,61 @@ enum NotificationChannelType {
   SMS
 }
 
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  SMS
+}
+
+enum NotificationProviderType {
+  CONSOLE
+  SMTP
+  RESEND
+  SENDGRID
+  MAILGUN
+  TWILIO
+  CUSTOM_HTTP
+  DISABLED
+}
+
+enum NotificationDeliveryStatus {
+  PENDING
+  QUEUED
+  SENT
+  DELIVERED
+  FAILED
+  SKIPPED
+  CANCELLED
+}
+
+enum TransactionalNotificationType {
+  RESIDENT_PORTAL_INVITATION
+  STAFF_INVITATION
+  PASSWORD_RESET
+  RESIDENT_INVOICE_ISSUED
+  RESIDENT_PAYMENT_RECORDED
+  RESIDENT_PAYMENT_CANCELLED
+  ANNOUNCEMENT_PUBLISHED
+  ANNOUNCEMENT_URGENT
+  REQUEST_ADMIN_REPLY
+  REQUEST_STATUS_CHANGED
+  METER_READING_APPROVED
+  METER_READING_REJECTED
+  PROFILE_UPDATE_APPROVED
+  PROFILE_UPDATE_REJECTED
+  SAAS_INVOICE_ISSUED
+  SAAS_INVOICE_OVERDUE
+  SAAS_UPGRADE_REQUEST_APPROVED
+  SAAS_UPGRADE_REQUEST_REJECTED
+  SYSTEM_SECURITY_ALERT
+}
+
+enum NotificationTemplateStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
 enum NotificationJobStatus {
   PENDING
   PROCESSING
@@ -1040,6 +1095,7 @@ model Organization {
   maintenanceEvents  MaintenanceEvent[]
   expenses           Expense[]
   notifications      Notification[]
+  notificationDeliveries NotificationDelivery[]
   notificationJobs   NotificationJob[]
   notificationPreferences NotificationPreference[]
   telegramIntegration TelegramIntegration?
@@ -1959,6 +2015,10 @@ model User {
   announcementComments AnnouncementComment[]
   documentsUploaded    Document[]         @relation("DocumentUploadedByUser")
   notifications        Notification[]
+  notificationTemplatesCreated NotificationTemplate[] @relation("NotificationTemplateCreatedBy")
+  notificationTemplatesUpdated NotificationTemplate[] @relation("NotificationTemplateUpdatedBy")
+  notificationDeliveriesReceived NotificationDelivery[] @relation("NotificationDeliveryRecipientUser")
+  notificationDeliveriesCreated NotificationDelivery[] @relation("NotificationDeliveryCreatedBy")
   createdVoteSessions  VoteSession[] @relation("VoteSessionCreatedByUser")
   votes                Vote[]
   importJobsCreated    ImportJob[]   @relation("ImportJobCreatedByUser")
@@ -2341,6 +2401,7 @@ model ResidentProfile {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   portalAccessRevokedBy User? @relation("ResidentPortalAccessRevokedBy", fields: [portalAccessRevokedById], references: [id], onDelete: SetNull)
   portalInvitations ResidentPortalInvitation[]
+  notificationDeliveries NotificationDelivery[]
   apartmentResidents ApartmentResident[]
   ownedApartments Apartment[] @relation("ApartmentOwnerResident")
   issues       Issue[]
@@ -3439,6 +3500,76 @@ model NotificationJob {
   @@map("notification_jobs")
 }
 
+model NotificationTemplate {
+  id          String                     @id @default(uuid())
+  type        TransactionalNotificationType
+  channel     NotificationChannel
+  locale      String                     @default("ro")
+  name        String
+  subject     String?
+  body        String
+  smsBody     String?
+  variables   Json?
+  status      NotificationTemplateStatus @default(DRAFT)
+  isSystem    Boolean                    @default(false)
+  createdById String?
+  updatedById String?
+  createdAt   DateTime                   @default(now())
+  updatedAt   DateTime                   @updatedAt
+
+  createdBy  User?                  @relation("NotificationTemplateCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy  User?                  @relation("NotificationTemplateUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  deliveries NotificationDelivery[]
+
+  @@index([type, channel, locale, status])
+  @@index([status, updatedAt])
+  @@map("notification_templates")
+}
+
+model NotificationDelivery {
+  id                  String                     @id @default(uuid())
+  associationId       String?
+  recipientUserId     String?
+  recipientResidentId String?
+  recipientEmail      String?
+  recipientPhone      String?
+  channel             NotificationChannel
+  type                TransactionalNotificationType
+  providerType        NotificationProviderType
+  templateId          String?
+  status              NotificationDeliveryStatus @default(PENDING)
+  reasonCode          String?
+  subject             String?
+  bodyPreview         String?
+  providerMessageId   String?
+  errorMessage        String?
+  metadata            Json?
+  relatedEntityType   String?
+  relatedEntityId     String?
+  scheduledAt         DateTime?
+  queuedAt            DateTime?
+  sentAt              DateTime?
+  deliveredAt         DateTime?
+  failedAt            DateTime?
+  createdById         String?
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
+
+  association       Organization?         @relation(fields: [associationId], references: [id], onDelete: Cascade)
+  recipientUser     User?                 @relation("NotificationDeliveryRecipientUser", fields: [recipientUserId], references: [id], onDelete: SetNull)
+  recipientResident ResidentProfile?      @relation(fields: [recipientResidentId], references: [id], onDelete: SetNull)
+  template          NotificationTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  createdBy         User?                 @relation("NotificationDeliveryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([associationId, createdAt])
+  @@index([recipientUserId, createdAt])
+  @@index([recipientResidentId, createdAt])
+  @@index([channel, status, createdAt])
+  @@index([type, relatedEntityType, relatedEntityId])
+  @@index([providerType, status])
+  @@map("notification_deliveries")
+}
+
 model TelegramIntegration {
   id             String   @id @default(uuid())
   organizationId String   @unique
@@ -3641,6 +3772,7 @@ model OrganizationSetting {
   appName        String?  @default("Espace")
   themeMode      String   @default("LIGHT")
   menuConfig     Json?
+  notificationSettings Json?
   weekStart      String   @default("MONDAY")
   defaultLocale  String   @default("ro")
   createdAt      DateTime @default(now())
