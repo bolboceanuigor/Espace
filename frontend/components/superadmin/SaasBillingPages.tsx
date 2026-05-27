@@ -197,6 +197,7 @@ export function SaasBillingOverviewPage() {
           <>
             <ButtonLink href={localizedPath('/superadmin/billing/plans/new')}><Plus className="h-4 w-4" /> Creează plan</ButtonLink>
             <ButtonLink href={localizedPath('/superadmin/billing/subscriptions')} variant="secondary">Vezi abonamente</ButtonLink>
+            <ButtonLink href={localizedPath('/superadmin/billing/saas-invoices')} variant="secondary">Facturi SaaS</ButtonLink>
             <ButtonLink href={localizedPath('/superadmin/billing/upgrade-requests')} variant="secondary">Cereri upgrade</ButtonLink>
           </>
         }
@@ -215,6 +216,16 @@ export function SaasBillingOverviewPage() {
             <Kpi label="Venit lunar estimat" value={money(summary.estimatedMonthlyRevenue, summary.currency)} />
             <Kpi label="Venit anual estimat" value={money(summary.estimatedYearlyRevenue, summary.currency)} />
           </div>
+
+          <Card>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="font-semibold text-slate-950">Facturi SaaS</h2>
+                <p className="mt-1 text-sm text-slate-500">Gestionează facturile emise către APC-uri și soldurile restante.</p>
+              </div>
+              <ButtonLink href={localizedPath('/superadmin/billing/saas-invoices')} variant="secondary">Deschide facturile</ButtonLink>
+            </div>
+          </Card>
 
           <Card>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -638,6 +649,8 @@ export function SaasSubscriptionDetailsPage({ id }: { id: string }) {
           <button className={softButtonClass} onClick={() => action('suspend')}><PauseCircle className="h-4 w-4" /> Suspendă</button>
           <button className={softButtonClass} onClick={() => action('reactivate')}><RefreshCw className="h-4 w-4" /> Reactivează</button>
           <button className={softButtonClass} onClick={() => action('cancel')}><XCircle className="h-4 w-4" /> Anulează</button>
+          <ButtonLink href={localizedPath(`/superadmin/billing/saas-invoices/new?subscriptionId=${id}`)} variant="secondary">Generează factură</ButtonLink>
+          {subscription.associationId ? <ButtonLink href={localizedPath(`/superadmin/associations/${subscription.associationId}/saas-invoices`)} variant="secondary">Facturi SaaS</ButtonLink> : null}
         </div>
       </Card>
       <UsageCard usage={subscription.usage} />

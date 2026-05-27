@@ -472,6 +472,9 @@ export default function SuperadminOrganizationDetailsPage() {
             <Link href={localizedPath(`/superadmin/associations/${id}/upgrade-requests`)} className="rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted/60">
               Cereri upgrade
             </Link>
+            <Link href={localizedPath(`/superadmin/associations/${id}/saas-invoices`)} className="rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted/60">
+              Facturi SaaS
+            </Link>
             <button type="button" onClick={() => setEditModalOpen(true)} className="rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted/60">
               Editează
             </button>

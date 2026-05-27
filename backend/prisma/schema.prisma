@@ -214,6 +214,45 @@ enum SaasUpgradeRequestReason {
   OTHER
 }
 
+enum SaasInvoiceStatus {
+  DRAFT
+  ISSUED
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+  VOID
+}
+
+enum SaasInvoiceLineType {
+  SUBSCRIPTION_FEE
+  PLAN_UPGRADE
+  PLAN_DOWNGRADE_CREDIT
+  DISCOUNT
+  MANUAL_ADJUSTMENT
+  SETUP_FEE
+  OTHER
+}
+
+enum SaasInvoiceSource {
+  MANUAL
+  SUBSCRIPTION
+  UPGRADE_REQUEST
+  SYSTEM
+}
+
+enum SaasInvoiceEventType {
+  INVOICE_CREATED
+  INVOICE_UPDATED
+  INVOICE_ISSUED
+  INVOICE_MARKED_PARTIALLY_PAID
+  INVOICE_MARKED_PAID
+  INVOICE_CANCELLED
+  INVOICE_VOIDED
+  INVOICE_OVERDUE_MARKED
+  INTERNAL_NOTE_ADDED
+}
+
 enum OrganizationInvoiceStatus {
   UNPAID
   PAID
@@ -1011,6 +1050,8 @@ model Organization {
   saasSubscriptions  SaasSubscription[]
   saasSubscriptionEvents SaasSubscriptionEvent[]
   saasUpgradeRequests SaasUpgradeRequest[] @relation("SaasUpgradeRequestAssociation")
+  saasInvoices       SaasInvoice[] @relation("SaasInvoiceAssociation")
+  saasInvoiceEvents  SaasInvoiceEvent[]
   usageMeters        UsageMeter[]
   invoices           Invoice[]
   auditLogs          AuditLog[]
@@ -1587,6 +1628,8 @@ model SaasPlan {
   subscriptions SaasSubscription[]
   currentUpgradeRequests SaasUpgradeRequest[] @relation("SaasUpgradeRequestCurrentPlan")
   requestedUpgradeRequests SaasUpgradeRequest[] @relation("SaasUpgradeRequestRequestedPlan")
+  saasInvoices SaasInvoice[]
+  saasInvoiceLines SaasInvoiceLine[]
 
   @@index([status])
   @@index([isPublic])
@@ -1632,6 +1675,8 @@ model SaasSubscription {
   events      SaasSubscriptionEvent[]
   upgradeRequests SaasUpgradeRequest[] @relation("SaasUpgradeRequestSubscription")
   appliedUpgradeRequests SaasUpgradeRequest[] @relation("SaasUpgradeRequestAppliedSubscription")
+  saasInvoices SaasInvoice[]
+  saasInvoiceLines SaasInvoiceLine[]
 
   @@index([associationId, status])
   @@index([planId, status])
@@ -1672,6 +1717,7 @@ model SaasUpgradeRequest {
   reviewedBy          User?             @relation("SaasUpgradeRequestReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
   cancelledBy         User?             @relation("SaasUpgradeRequestCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
   appliedSubscription SaasSubscription? @relation("SaasUpgradeRequestAppliedSubscription", fields: [appliedSubscriptionId], references: [id], onDelete: SetNull)
+  sourceSaasInvoices  SaasInvoice[]
 
   @@index([associationId, status, createdAt])
   @@index([subscriptionId])
@@ -1680,6 +1726,114 @@ model SaasUpgradeRequest {
   @@index([status, createdAt])
   @@index([reason, createdAt])
   @@map("saas_upgrade_requests")
+}
+
+model SaasInvoice {
+  id                     String            @id @default(uuid())
+  associationId          String
+  subscriptionId         String?
+  planId                 String?
+  invoiceNumber          String            @unique
+  billingPeriodStart     DateTime
+  billingPeriodEnd       DateTime
+  billingMonth           String?
+  issueDate              DateTime
+  dueDate                DateTime
+  status                 SaasInvoiceStatus @default(DRAFT)
+  currency               BillingCurrency   @default(MDL)
+  subtotalAmount         Float             @default(0)
+  discountAmount         Float             @default(0)
+  taxAmount              Float             @default(0)
+  totalAmount            Float             @default(0)
+  paidAmount             Float             @default(0)
+  balanceAmount          Float             @default(0)
+  notes                  String?
+  internalNotes          String?
+  source                 SaasInvoiceSource @default(MANUAL)
+  sourceUpgradeRequestId String?
+  issuedAt               DateTime?
+  issuedById             String?
+  paidAt                 DateTime?
+  markedPaidById         String?
+  cancelledAt            DateTime?
+  cancelledById          String?
+  cancellationReason     String?
+  voidedAt               DateTime?
+  voidedById             String?
+  voidReason             String?
+  duplicateReason        String?
+  createdById            String
+  updatedById            String?
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+
+  association          Organization        @relation("SaasInvoiceAssociation", fields: [associationId], references: [id], onDelete: Cascade)
+  subscription         SaasSubscription?   @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  plan                 SaasPlan?           @relation(fields: [planId], references: [id], onDelete: SetNull)
+  sourceUpgradeRequest SaasUpgradeRequest? @relation(fields: [sourceUpgradeRequestId], references: [id], onDelete: SetNull)
+  issuedBy             User?               @relation("SaasInvoiceIssuedBy", fields: [issuedById], references: [id], onDelete: SetNull)
+  markedPaidBy         User?               @relation("SaasInvoiceMarkedPaidBy", fields: [markedPaidById], references: [id], onDelete: SetNull)
+  cancelledBy          User?               @relation("SaasInvoiceCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
+  voidedBy             User?               @relation("SaasInvoiceVoidedBy", fields: [voidedById], references: [id], onDelete: SetNull)
+  createdBy            User                @relation("SaasInvoiceCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy            User?               @relation("SaasInvoiceUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  lines                SaasInvoiceLine[]
+  events               SaasInvoiceEvent[]
+
+  @@index([associationId, status, createdAt])
+  @@index([subscriptionId, billingPeriodStart, billingPeriodEnd])
+  @@index([planId])
+  @@index([billingMonth])
+  @@index([status, dueDate])
+  @@index([sourceUpgradeRequestId])
+  @@map("saas_invoices")
+}
+
+model SaasInvoiceLine {
+  id             String              @id @default(uuid())
+  invoiceId      String
+  lineType       SaasInvoiceLineType
+  name           String
+  description    String?
+  quantity       Float               @default(1)
+  unitPrice      Float               @default(0)
+  amount         Float               @default(0)
+  currency       BillingCurrency     @default(MDL)
+  planId         String?
+  subscriptionId String?
+  metadata       Json?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  invoice      SaasInvoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  plan         SaasPlan?         @relation(fields: [planId], references: [id], onDelete: SetNull)
+  subscription SaasSubscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  @@index([invoiceId])
+  @@index([planId])
+  @@index([subscriptionId])
+  @@map("saas_invoice_lines")
+}
+
+model SaasInvoiceEvent {
+  id             String               @id @default(uuid())
+  invoiceId      String
+  associationId  String
+  actorUserId    String?
+  eventType      SaasInvoiceEventType
+  title          String
+  message        String
+  metadata       Json?
+  createdAt      DateTime             @default(now())
+
+  invoice     SaasInvoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  association Organization @relation(fields: [associationId], references: [id], onDelete: Cascade)
+  actor       User?        @relation("SaasInvoiceEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([invoiceId, createdAt])
+  @@index([associationId, createdAt])
+  @@index([eventType, createdAt])
+  @@map("saas_invoice_events")
 }
 
 model SaasSubscriptionEvent {
@@ -1857,6 +2011,13 @@ model User {
   saasUpgradeRequestsRequested SaasUpgradeRequest[] @relation("SaasUpgradeRequestRequestedBy")
   saasUpgradeRequestsReviewed SaasUpgradeRequest[] @relation("SaasUpgradeRequestReviewedBy")
   saasUpgradeRequestsCancelled SaasUpgradeRequest[] @relation("SaasUpgradeRequestCancelledBy")
+  saasInvoicesIssued SaasInvoice[] @relation("SaasInvoiceIssuedBy")
+  saasInvoicesMarkedPaid SaasInvoice[] @relation("SaasInvoiceMarkedPaidBy")
+  saasInvoicesCancelled SaasInvoice[] @relation("SaasInvoiceCancelledBy")
+  saasInvoicesVoided SaasInvoice[] @relation("SaasInvoiceVoidedBy")
+  saasInvoicesCreated SaasInvoice[] @relation("SaasInvoiceCreatedBy")
+  saasInvoicesUpdated SaasInvoice[] @relation("SaasInvoiceUpdatedBy")
+  saasInvoiceEvents SaasInvoiceEvent[] @relation("SaasInvoiceEventActor")
 
   @@index([organizationId])
   @@index([deletedAt])

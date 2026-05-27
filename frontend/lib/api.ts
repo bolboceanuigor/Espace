@@ -2348,6 +2348,30 @@ export const billingSaasApi = {
     apiRequest<any>(`/api/superadmin/billing/subscriptions/${id}/usage`),
   getSuperadminAssociationUsage: (organizationId: string) =>
     apiRequest<any>(`/api/superadmin/associations/${organizationId}/usage`),
+  listSaasInvoices: (params?: Record<string, string | number | boolean | undefined>) =>
+    apiRequest<any>('/api/superadmin/billing/saas-invoices', { params }),
+  saasInvoiceStats: () => apiRequest<any>('/api/superadmin/billing/saas-invoices/stats'),
+  createSaasInvoice: (data: Record<string, unknown>) =>
+    apiRequest<any>('/api/superadmin/billing/saas-invoices', { method: 'POST', body: data }),
+  createSaasInvoiceFromSubscription: (data: Record<string, unknown>) =>
+    apiRequest<any>('/api/superadmin/billing/saas-invoices/from-subscription', { method: 'POST', body: data }),
+  getSaasInvoice: (id: string) => apiRequest<any>(`/api/superadmin/billing/saas-invoices/${id}`),
+  updateSaasInvoice: (id: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/superadmin/billing/saas-invoices/${id}`, { method: 'PATCH', body: data }),
+  issueSaasInvoice: (id: string) =>
+    apiRequest<any>(`/api/superadmin/billing/saas-invoices/${id}/issue`, { method: 'PATCH' }),
+  markSaasInvoicePaid: (id: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/superadmin/billing/saas-invoices/${id}/mark-paid`, { method: 'PATCH', body: data }),
+  cancelSaasInvoice: (id: string, reason: string) =>
+    apiRequest<any>(`/api/superadmin/billing/saas-invoices/${id}/cancel`, { method: 'PATCH', body: { reason } }),
+  voidSaasInvoice: (id: string, reason: string) =>
+    apiRequest<any>(`/api/superadmin/billing/saas-invoices/${id}/void`, { method: 'PATCH', body: { reason } }),
+  getSaasInvoiceEvents: (id: string) =>
+    apiRequest<any>(`/api/superadmin/billing/saas-invoices/${id}/events`),
+  getAssociationSaasInvoices: (organizationId: string) =>
+    apiRequest<any>(`/api/superadmin/associations/${organizationId}/saas-invoices`),
+  listAdminSaasInvoices: () => apiRequest<any>('/api/admin/subscription/invoices'),
+  getAdminSaasInvoice: (id: string) => apiRequest<any>(`/api/admin/subscription/invoices/${id}`),
   getAdminSubscriptionStatus: () => apiRequest<any>('/api/admin/subscription/status'),
   getAdminSubscriptionInvoices: () => apiRequest<any[]>('/api/admin/subscription/invoices'),
   superadminBillingInvoices: () => apiRequest<any[]>('/api/superadmin/billing/invoices'),

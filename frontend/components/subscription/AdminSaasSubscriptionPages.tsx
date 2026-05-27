@@ -129,6 +129,7 @@ export function AdminSaasSubscriptionPage() {
             <Link href={localizedPath('/admin/subscription/limits')} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-border/70 px-4 text-sm font-semibold hover:bg-muted/60">Vezi limite</Link>
             <Link href={localizedPath('/admin/subscription/upgrade')} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground">Cere upgrade <ExternalLink className="h-4 w-4" /></Link>
             <Link href={localizedPath('/admin/subscription/upgrade-requests')} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-border/70 px-4 text-sm font-semibold hover:bg-muted/60">Cererile mele</Link>
+            <Link href={localizedPath('/admin/subscription/invoices')} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-border/70 px-4 text-sm font-semibold hover:bg-muted/60">Facturi abonament</Link>
           </div>
         </Card>
         <Card>
@@ -148,6 +149,11 @@ export function AdminSaasSubscriptionPage() {
             </div>
           ))}
         </div>
+      </Card>
+      <Card>
+        <h2 className="font-semibold text-foreground">Facturi abonament</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Vezi facturile SaaS emise de Espace către asociație, statusul și soldul restant.</p>
+        <Link href={localizedPath('/admin/subscription/invoices')} className="mt-4 inline-flex min-h-10 items-center rounded-xl border border-border/70 px-4 text-sm font-semibold hover:bg-muted/60">Vezi facturi</Link>
       </Card>
       <Card>
         <h2 className="font-semibold text-foreground">Ai nevoie de mai multe resurse?</h2>

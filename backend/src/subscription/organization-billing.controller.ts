@@ -266,7 +266,7 @@ export class OrganizationBillingController {
     return this.service.adminSubscriptionStatus(user);
   }
 
-  @Get('admin/subscription/invoices')
+  @Get('admin/subscription/legacy-invoices')
   @UseGuards(RolesGuard, SubscriptionAccessGuard)
   @Roles(Role.ADMIN)
   @AllowsSuspendedViewOnly()
