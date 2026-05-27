@@ -2416,6 +2416,47 @@ export const billingSaasApi = {
     apiRequest<any>(`/api/superadmin/trials/${organizationId}/mark-lost`, { method: 'POST' }),
 };
 
+export const onlinePaymentsApi = {
+  superadminProviders: () => apiRequest<any>('/api/superadmin/payments/providers'),
+  superadminCreateProvider: (data: Record<string, unknown>) =>
+    apiRequest<any>('/api/superadmin/payments/providers', { method: 'POST', body: data }),
+  superadminProvider: (id: string) => apiRequest<any>(`/api/superadmin/payments/providers/${id}`),
+  superadminUpdateProvider: (id: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/superadmin/payments/providers/${id}`, { method: 'PATCH', body: data }),
+  superadminProviderStatus: (id: string, status: string) =>
+    apiRequest<any>(`/api/superadmin/payments/providers/${id}/status`, { method: 'PATCH', body: { status } }),
+  superadminProviderDefault: (id: string) =>
+    apiRequest<any>(`/api/superadmin/payments/providers/${id}/default`, { method: 'PATCH' }),
+  superadminProviderHealth: (id: string) => apiRequest<any>(`/api/superadmin/payments/providers/${id}/health`),
+  superadminProviderTest: (id: string) =>
+    apiRequest<any>(`/api/superadmin/payments/providers/${id}/test`, { method: 'POST' }),
+  superadminIntents: (params?: Record<string, string | number | boolean | undefined>) =>
+    apiRequest<any>('/api/superadmin/payments/intents', { params }),
+  superadminIntent: (id: string) => apiRequest<any>(`/api/superadmin/payments/intents/${id}`),
+  superadminCancelIntent: (id: string, reason: string) =>
+    apiRequest<any>(`/api/superadmin/payments/intents/${id}/cancel`, { method: 'PATCH', body: { reason } }),
+
+  adminSettings: () => apiRequest<any>('/api/admin/payment-settings'),
+  adminUpdateSettings: (data: Record<string, unknown>) =>
+    apiRequest<any>('/api/admin/payment-settings', { method: 'PATCH', body: data }),
+  adminIntents: (params?: Record<string, string | number | boolean | undefined>) =>
+    apiRequest<any>('/api/admin/payments/intents', { params }),
+  adminIntent: (id: string) => apiRequest<any>(`/api/admin/payments/intents/${id}`),
+  adminCancelIntent: (id: string, reason: string) =>
+    apiRequest<any>(`/api/admin/payments/intents/${id}/cancel`, { method: 'PATCH', body: { reason } }),
+  adminCreateInvoiceIntent: (invoiceId: string, data?: Record<string, unknown>) =>
+    apiRequest<any>(`/api/admin/invoices/${invoiceId}/payment-intents`, { method: 'POST', body: data || {} }),
+  adminInvoiceIntents: (invoiceId: string) => apiRequest<any>(`/api/admin/invoices/${invoiceId}/payment-intents`),
+
+  residentCreateIntent: (invoiceId: string, data?: Record<string, unknown>) =>
+    apiRequest<any>(`/api/resident/invoices/${invoiceId}/payment-intents`, { method: 'POST', body: data || {} }),
+  residentIntents: (params?: Record<string, string | number | boolean | undefined>) =>
+    apiRequest<any>('/api/resident/payment-intents', { params }),
+  residentIntent: (id: string) => apiRequest<any>(`/api/resident/payment-intents/${id}`),
+  residentCancelIntent: (id: string, reason: string) =>
+    apiRequest<any>(`/api/resident/payment-intents/${id}/cancel`, { method: 'PATCH', body: { reason } }),
+};
+
 export const notificationProvidersApi = {
   overview: () => apiRequest<any>('/api/superadmin/notifications/overview'),
   providers: () => apiRequest<any>('/api/superadmin/notifications/providers'),

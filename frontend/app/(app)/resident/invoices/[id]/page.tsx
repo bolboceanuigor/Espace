@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, CreditCard, FileText, Home, Printer, ReceiptText, UserRound } from 'lucide-react';
-import { Badge, Button, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
+import { Badge, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
 import { residentDemoApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { useLocalizedPath } from '@/lib/use-localized-path';
@@ -208,13 +208,13 @@ export default function ResidentInvoiceDetailsPage() {
                   <Printer className="h-4 w-4" />
                   Print / Save as PDF
                 </ButtonLink>
-                <Button type="button" variant="secondary" disabled>
+                <ButtonLink href={localizedPath(`/resident/invoices/${invoice.id}/pay`)} variant="secondary">
                   <CreditCard className="h-4 w-4" />
                   Achită online
-                </Button>
+                </ButtonLink>
               </div>
               <p className="mt-3 rounded-2xl bg-muted/35 px-4 py-3 text-sm text-muted-foreground">
-                Pentru PDF, deschide preview-ul de print și folosește opțiunea Save as PDF din browser.
+                Plățile online sunt în pregătire. Flow-ul creează doar intenții de plată test și nu procesează bani.
               </p>
             </Card>
 

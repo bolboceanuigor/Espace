@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, FileText, Home, Printer, ReceiptText, UserRound, WalletCards, XCircle } from 'lucide-react';
+import { ArrowLeft, CreditCard, FileText, Home, Printer, ReceiptText, UserRound, WalletCards, XCircle } from 'lucide-react';
 import { Badge, Button, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
 import { invoicesApi, paymentsApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
@@ -223,6 +223,10 @@ export default function AdminInvoiceDetailsPage() {
                 <ButtonLink href={localizedPath(`/admin/invoices/${invoice.invoiceId || invoice.id}/print`)} variant="secondary">
                   <Printer className="h-4 w-4" />
                   Print / Save as PDF
+                </ButtonLink>
+                <ButtonLink href={localizedPath(`/admin/invoices/${invoice.invoiceId || invoice.id}/payment-intents`)} variant="secondary">
+                  <CreditCard className="h-4 w-4" />
+                  Plăți online
                 </ButtonLink>
                 {canCancel ? (
                   <>

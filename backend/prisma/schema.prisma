@@ -515,6 +515,75 @@ enum PaymentProvider {
   CASH
 }
 
+enum OnlinePaymentProviderType {
+  BPAY
+  BANK_CARD
+  PAYNET
+  MAIB
+  VICTORIABANK
+  MICB
+  STRIPE
+  CUSTOM
+  MANUAL_TEST
+}
+
+enum OnlinePaymentProviderStatus {
+  DRAFT
+  DISABLED
+  TESTING
+  ACTIVE
+  ERROR
+  ARCHIVED
+}
+
+enum OnlinePaymentProviderMode {
+  TEST
+  LIVE
+}
+
+enum OnlinePaymentConfigStatus {
+  NOT_CONFIGURED
+  PARTIAL
+  CONFIGURED
+}
+
+enum PaymentIntentSource {
+  RESIDENT_PORTAL
+  ADMIN_CREATED
+  SYSTEM
+  TEST
+}
+
+enum PaymentMethodType {
+  ONLINE_CARD
+  BPAY
+  BANK_TRANSFER_REDIRECT
+  QR_CODE
+  TEST_METHOD
+}
+
+enum PaymentIntentEventType {
+  INTENT_CREATED
+  INTENT_INITIALIZED
+  INTENT_PROVIDER_PENDING
+  INTENT_REQUIRES_ACTION
+  INTENT_PROCESSING
+  INTENT_SUCCEEDED_TEST
+  INTENT_FAILED
+  INTENT_CANCELLED
+  INTENT_EXPIRED
+  WEBHOOK_RECEIVED
+  WEBHOOK_IGNORED
+  NOTE_ADDED
+}
+
+enum PaymentWebhookEventStatus {
+  RECEIVED
+  PROCESSED
+  IGNORED
+  FAILED
+}
+
 enum FileAssetEntityType {
   DOCUMENT
   ISSUE_ATTACHMENT
@@ -533,7 +602,12 @@ enum FileStorageProvider {
 }
 
 enum PaymentIntentStatus {
+  DRAFT
   CREATED
+  PENDING_PROVIDER
+  REQUIRES_ACTION
+  PROCESSING
+  SUCCEEDED
   REDIRECTED
   PAID
   FAILED
@@ -1175,7 +1249,9 @@ model Organization {
   reminderLogs       ReminderLog[]
   onboardingChecklist OnboardingChecklist?
   supportSessions      SupportSession[]
+  onlinePaymentSettings AssociationPaymentSettings?
   paymentIntents     PaymentIntent[]
+  paymentIntentEvents PaymentIntentEvent[]
   paymentProviderConfigs PaymentProviderConfig[]
   subscriptionContracts OrganizationSubscription[]
   billingInvoices      OrganizationInvoice[]
@@ -2051,6 +2127,13 @@ model User {
   duplicateMergePlansCreated DuplicateMergePlan[] @relation("DuplicateMergePlanCreatedBy")
   duplicateMergePlansApplied DuplicateMergePlan[] @relation("DuplicateMergePlanAppliedBy")
   monthlyChargesCreated MonthlyCharge[] @relation("MonthlyChargeCreatedByUser")
+  onlinePaymentProvidersCreated OnlinePaymentProvider[] @relation("OnlinePaymentProviderCreatedBy")
+  onlinePaymentProvidersUpdated OnlinePaymentProvider[] @relation("OnlinePaymentProviderUpdatedBy")
+  associationPaymentSettingsCreated AssociationPaymentSettings[] @relation("AssociationPaymentSettingsCreatedBy")
+  associationPaymentSettingsUpdated AssociationPaymentSettings[] @relation("AssociationPaymentSettingsUpdatedBy")
+  paymentIntentsCreated PaymentIntent[] @relation("PaymentIntentCreatedBy")
+  paymentIntentsCancelled PaymentIntent[] @relation("PaymentIntentCancelledBy")
+  paymentIntentEvents PaymentIntentEvent[] @relation("PaymentIntentEventActor")
   paymentsCreated      Payment[]     @relation("PaymentCreatedByUser")
   auditLogs            AuditLog[]    @relation("AuditLogUser")
   associationRolesCreated AssociationRole[] @relation("AssociationRoleCreatedBy")
@@ -2129,6 +2212,66 @@ model GeneratedDocument {
   @@index([entityType, entityId])
   @@index([generatedById, generatedAt])
   @@map("generated_documents")
+}
+
+model OnlinePaymentProvider {
+  id               String                      @id @default(uuid())
+  type             OnlinePaymentProviderType
+  code             String                      @unique
+  name             String
+  description      String?
+  status           OnlinePaymentProviderStatus @default(DRAFT)
+  mode             OnlinePaymentProviderMode   @default(TEST)
+  isDefault        Boolean                     @default(false)
+  isPublic         Boolean                     @default(false)
+  supportsCards    Boolean                     @default(false)
+  supportsBpay     Boolean                     @default(false)
+  supportsQr       Boolean                     @default(false)
+  supportsRedirect Boolean                     @default(false)
+  supportsWebhooks Boolean                     @default(false)
+  configStatus     OnlinePaymentConfigStatus   @default(NOT_CONFIGURED)
+  publicConfig     Json?
+  createdById      String?
+  updatedById      String?
+  createdAt        DateTime                    @default(now())
+  updatedAt        DateTime                    @updatedAt
+
+  createdBy User? @relation("OnlinePaymentProviderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User? @relation("OnlinePaymentProviderUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  settings  AssociationPaymentSettings[]
+  intents   PaymentIntent[]
+
+  @@index([type])
+  @@index([status, mode])
+  @@index([isDefault])
+  @@map("online_payment_providers")
+}
+
+model AssociationPaymentSettings {
+  id                          String          @id @default(uuid())
+  associationId               String          @unique
+  onlinePaymentsEnabled       Boolean         @default(false)
+  providerId                  String?
+  allowResidentOnlinePayments Boolean         @default(false)
+  allowPartialOnlinePayments  Boolean         @default(false)
+  minPaymentAmount            Float?
+  maxPaymentAmount            Float?
+  defaultCurrency             BillingCurrency @default(MDL)
+  paymentInstructions         String?
+  testModeEnabled             Boolean         @default(false)
+  createdById                 String?
+  updatedById                 String?
+  createdAt                   DateTime        @default(now())
+  updatedAt                   DateTime        @updatedAt
+
+  association Organization @relation(fields: [associationId], references: [id], onDelete: Cascade)
+  provider    OnlinePaymentProvider? @relation(fields: [providerId], references: [id], onDelete: SetNull)
+  createdBy   User? @relation("AssociationPaymentSettingsCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy   User? @relation("AssociationPaymentSettingsUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([providerId])
+  @@index([onlinePaymentsEnabled])
+  @@map("association_payment_settings")
 }
 
 model SupportSession {
@@ -2449,6 +2592,7 @@ model ResidentProfile {
   portalAccessRevokedBy User? @relation("ResidentPortalAccessRevokedBy", fields: [portalAccessRevokedById], references: [id], onDelete: SetNull)
   portalInvitations ResidentPortalInvitation[]
   notificationDeliveries NotificationDelivery[]
+  paymentIntents PaymentIntent[]
   apartmentResidents ApartmentResident[]
   ownedApartments Apartment[] @relation("ApartmentOwnerResident")
   issues       Issue[]
@@ -2602,30 +2746,103 @@ model Payment {
 }
 
 model PaymentIntent {
-  id             String            @id @default(uuid())
-  organizationId String
-  apartmentId    String
-  invoiceId      String?
-  amount         Float
-  currency       BillingCurrency
-  provider       PaymentProvider
-  status         PaymentIntentStatus @default(CREATED)
-  providerPaymentId String?
-  redirectUrl    String?
-  metadataJson   Json?
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
+  id                  String            @id @default(uuid())
+  organizationId      String
+  apartmentId         String
+  invoiceId           String?
+  residentId          String?
+  createdByUserId     String?
+  providerId          String?
+  amount              Float
+  currency            BillingCurrency
+  provider            PaymentProvider
+  providerType        OnlinePaymentProviderType?
+  source              PaymentIntentSource?
+  paymentMethodType   PaymentMethodType?
+  status              PaymentIntentStatus @default(CREATED)
+  providerPaymentId   String?
+  providerIntentId    String?
+  redirectUrl         String?
+  providerCheckoutUrl String?
+  providerReference   String?
+  idempotencyKey      String? @unique
+  description         String?
+  expiresAt           DateTime?
+  cancelledAt         DateTime?
+  cancelledById       String?
+  cancellationReason  String?
+  failedAt            DateTime?
+  failureReason       String?
+  succeededAt         DateTime?
+  metadataJson        Json?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
 
   organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   apartment    Apartment      @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
   invoice      ResidentInvoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  resident     ResidentProfile? @relation(fields: [residentId], references: [id], onDelete: SetNull)
+  createdBy    User? @relation("PaymentIntentCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  providerConfig OnlinePaymentProvider? @relation(fields: [providerId], references: [id], onDelete: SetNull)
+  cancelledBy  User? @relation("PaymentIntentCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
   payments     Payment[]
+  events       PaymentIntentEvent[]
+  webhookEvents PaymentWebhookEvent[]
 
   @@index([organizationId, status])
   @@index([apartmentId])
   @@index([invoiceId])
+  @@index([residentId])
+  @@index([providerId])
+  @@index([providerType])
+  @@index([source])
   @@index([provider])
   @@map("payment_intents")
+}
+
+model PaymentIntentEvent {
+  id              String                 @id @default(uuid())
+  paymentIntentId String
+  associationId   String
+  actorUserId     String?
+  eventType       PaymentIntentEventType
+  title           String
+  message         String
+  metadata        Json?
+  createdAt       DateTime               @default(now())
+
+  paymentIntent PaymentIntent @relation(fields: [paymentIntentId], references: [id], onDelete: Cascade)
+  association   Organization  @relation(fields: [associationId], references: [id], onDelete: Cascade)
+  actor         User?         @relation("PaymentIntentEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([paymentIntentId, createdAt])
+  @@index([associationId, createdAt])
+  @@index([eventType, createdAt])
+  @@map("payment_intent_events")
+}
+
+model PaymentWebhookEvent {
+  id              String                    @id @default(uuid())
+  providerType    OnlinePaymentProviderType
+  providerEventId String?
+  paymentIntentId String?
+  status          PaymentWebhookEventStatus @default(RECEIVED)
+  rawPayload      Json?
+  headers         Json?
+  signatureValid  Boolean?
+  errorMessage    String?
+  receivedAt      DateTime                  @default(now())
+  processedAt     DateTime?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  paymentIntent PaymentIntent? @relation(fields: [paymentIntentId], references: [id], onDelete: SetNull)
+
+  @@index([providerType, receivedAt])
+  @@index([providerEventId])
+  @@index([paymentIntentId])
+  @@index([status, receivedAt])
+  @@map("payment_webhook_events")
 }
 
 model PaymentProviderConfig {
