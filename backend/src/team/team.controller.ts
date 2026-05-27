@@ -15,6 +15,7 @@ import { AcceptTeamInvitationDto } from './dto/accept-team-invitation.dto';
 import { CreateTeamUserDto } from './dto/create-team-user.dto';
 import { UpdateTeamUserDto } from './dto/update-team-user.dto';
 import { TeamService } from './team.service';
+import { SaasLimitEnforcementService } from '../saas-usage/saas-limit-enforcement.service';
 
 @Controller('api')
 export class TeamController {
@@ -22,6 +23,7 @@ export class TeamController {
     private readonly teamService: TeamService,
     private readonly authService: AuthService,
     private readonly rbacService: AdminRbacService,
+    private readonly saasLimits: SaasLimitEnforcementService,
   ) {}
 
   private setAuthCookies(
@@ -63,7 +65,8 @@ export class TeamController {
   @UseGuards(JwtAuthGuard, RolesGuard, AdminAssociationGuard, PermissionGuard)
   @Roles(Role.ADMIN)
   @RequiresPermissions('team.manage')
-  invite(@CurrentUser() user: any, @Body() dto: CreateTeamUserDto) {
+  async invite(@CurrentUser() user: any, @Body() dto: CreateTeamUserDto) {
+    await this.saasLimits.assertCanInviteStaff(user.organizationId, user);
     return this.teamService.adminInvite(user, dto);
   }
 
@@ -71,11 +74,12 @@ export class TeamController {
   @UseGuards(JwtAuthGuard, RolesGuard, AdminAssociationGuard, PermissionGuard)
   @Roles(Role.ADMIN)
   @RequiresPermissions('team.manage')
-  update(
+  async update(
     @CurrentUser() user: any,
     @Param('memberId') memberId: string,
     @Body() dto: UpdateTeamUserDto,
   ) {
+    await this.saasLimits.assertSubscriptionAllowsWrite(user.organizationId, user);
     return this.teamService.adminUpdateMember(user, memberId, dto);
   }
 
@@ -83,7 +87,8 @@ export class TeamController {
   @UseGuards(JwtAuthGuard, RolesGuard, AdminAssociationGuard, PermissionGuard)
   @Roles(Role.ADMIN)
   @RequiresPermissions('team.manage')
-  disable(@CurrentUser() user: any, @Param('memberId') memberId: string) {
+  async disable(@CurrentUser() user: any, @Param('memberId') memberId: string) {
+    await this.saasLimits.assertSubscriptionAllowsWrite(user.organizationId, user);
     return this.teamService.adminDisableMember(user, memberId);
   }
 
@@ -91,11 +96,12 @@ export class TeamController {
   @UseGuards(JwtAuthGuard, RolesGuard, AdminAssociationGuard, PermissionGuard)
   @Roles(Role.ADMIN)
   @RequiresPermissions('team.manage')
-  permissions(
+  async permissions(
     @CurrentUser() user: any,
     @Param('memberId') memberId: string,
     @Body() dto: { permissions?: Record<string, boolean> },
   ) {
+    await this.saasLimits.assertFeatureEnabled(user.organizationId, 'staffRoles', user);
     return this.teamService.adminUpdatePermissions(user, memberId, dto.permissions);
   }
 

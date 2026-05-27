@@ -310,7 +310,7 @@ export default function SuperadminOrganizationsPage() {
                 <Mini label="Status CRM" value={crmStageLabel(row.status)} />
                 <Mini label="Contact responsabil" value={row.administratorName || 'Neatribuit'} />
                 <Mini label="Email / telefon" value={[row.administratorEmail, row.administratorPhone].filter(Boolean).join(' · ') || '-'} />
-                <Mini label="Plan / abonament" value="Gestionare manuală" />
+                <Mini label="Plan / abonament" value="Vezi billing SaaS" />
                 <Mini label="Următorul pas" value={nextStepForAssociation(row)} />
                 <Mini label="Următorul follow-up" value={formatFollowUpDate(nextFollowUps[row.id])} />
               </div>
@@ -320,6 +320,9 @@ export default function SuperadminOrganizationsPage() {
                 <StatusButton disabled={updatingStatusId === row.id || row.status === 'INACTIVE'} onClick={() => updateAssociationStatus(row.id, 'INACTIVE')}>Dezactivează</StatusButton>
                 <Link href={localizedPath(`/superadmin/organizations/${row.id}`)} className="inline-flex min-h-10 flex-1 items-center justify-center rounded-2xl border border-border/70 px-4 text-sm font-semibold text-foreground hover:bg-muted/60">
                   Deschide
+                </Link>
+                <Link href={localizedPath(`/superadmin/associations/${row.id}/subscription`)} className="inline-flex min-h-10 flex-1 items-center justify-center rounded-2xl border border-border/70 px-4 text-sm font-semibold text-foreground hover:bg-muted/60">
+                  Abonament
                 </Link>
               </div>
             </div>

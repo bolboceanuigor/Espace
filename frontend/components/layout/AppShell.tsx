@@ -160,9 +160,10 @@ function AppShellContent({ children }: AppShellProps) {
     billingSaasApi
       .getAdminSubscription()
       .then((res) => {
+        const subscription = res.data?.subscription || res.data;
         setAdminSubscription({
-          status: String(res.data?.status || '').toUpperCase(),
-          trialEndDate: res.data?.trialEndDate || null,
+          status: String(subscription?.status || '').toUpperCase(),
+          trialEndDate: subscription?.trialEndsAt || subscription?.trialEndDate || null,
         });
       })
       .catch(() => setAdminSubscription(null));

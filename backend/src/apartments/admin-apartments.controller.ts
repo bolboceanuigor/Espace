@@ -5,13 +5,17 @@ import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { PermissionGuard } from '../auth/permission.guard';
 import { MvpAuthGuard, MvpRolesGuard, MvpUser } from '../security/mvp-auth.guard';
+import { SaasLimitEnforcementService } from '../saas-usage/saas-limit-enforcement.service';
 import { ApartmentsService } from './apartments.service';
 
 @Controller()
 @UseGuards(MvpAuthGuard, MvpRolesGuard, PermissionGuard)
 @Roles(Role.ADMIN, Role.SUPERADMIN)
 export class AdminApartmentsController {
-  constructor(private readonly apartmentsService: ApartmentsService) {}
+  constructor(
+    private readonly apartmentsService: ApartmentsService,
+    private readonly saasLimits: SaasLimitEnforcementService,
+  ) {}
 
   @Get(['admin/apartments', 'api/admin/apartments'])
   @RequirePermission('APARTMENTS', 'VIEW')
@@ -27,25 +31,29 @@ export class AdminApartmentsController {
 
   @Post(['admin/apartments', 'api/admin/apartments'])
   @RequirePermission('APARTMENTS', 'CREATE')
-  create(@CurrentUser() user: MvpUser, @Body() body: unknown) {
+  async create(@CurrentUser() user: MvpUser, @Body() body: unknown) {
+    await this.saasLimits.assertCanCreateApartment(user.organizationId, user);
     return this.apartmentsService.createAdminApartment(user, body);
   }
 
   @Patch(['admin/apartments/:id', 'api/admin/apartments/:id'])
   @RequirePermission('APARTMENTS', 'UPDATE')
-  update(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+  async update(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    await this.saasLimits.assertSubscriptionAllowsWrite(user.organizationId, user);
     return this.apartmentsService.updateAdminApartment(user, id, body);
   }
 
   @Post(['admin/apartments/:id/residents', 'api/admin/apartments/:id/residents'])
   @RequirePermission('RESIDENTS', 'CREATE')
-  linkOrCreateResident(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+  async linkOrCreateResident(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    await this.saasLimits.assertCanCreateResident(user.organizationId, user);
     return this.apartmentsService.linkOrCreateAdminResident(user, id, body);
   }
 
   @Patch(['admin/apartments/:id/primary-contact', 'api/admin/apartments/:id/primary-contact'])
   @RequirePermission('RESIDENTS', 'UPDATE')
-  setPrimaryContact(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+  async setPrimaryContact(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    await this.saasLimits.assertSubscriptionAllowsWrite(user.organizationId, user);
     return this.apartmentsService.setPrimaryContact(user, id, body);
   }
 }

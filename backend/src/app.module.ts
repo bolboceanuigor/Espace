@@ -11,6 +11,8 @@ import { ResidentDemoModule } from './resident-demo/resident-demo.module';
 import { DemoAuthReadModule } from './demo-auth-read/demo-auth-read.module';
 import { MinimalAuthModule } from './minimal-auth/minimal-auth.module';
 import { SaasManagementModule } from './saas-management/saas-management.module';
+import { SaasBillingModule } from './saas-billing/saas-billing.module';
+import { SaasUsageModule } from './saas-usage/saas-usage.module';
 import { SetupModule } from './setup/setup.module';
 import { MessagesMvpModule } from './messages-mvp/messages-mvp.module';
 import { ActivityMvpModule } from './activity-mvp/activity-mvp.module';
@@ -42,6 +44,8 @@ import { AppController } from './app.controller';
     DemoAuthReadModule,
     MinimalAuthModule,
     SaasManagementModule,
+    SaasBillingModule,
+    SaasUsageModule,
     SetupModule,
     MessagesMvpModule,
     ActivityMvpModule,

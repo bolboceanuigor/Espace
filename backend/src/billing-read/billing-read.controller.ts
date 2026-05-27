@@ -6,13 +6,17 @@ import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { PermissionGuard } from '../auth/permission.guard';
 import { MvpAuthGuard, MvpRolesGuard, MvpUser } from '../security/mvp-auth.guard';
+import { SaasLimitEnforcementService } from '../saas-usage/saas-limit-enforcement.service';
 import { BillingReadService } from './billing-read.service';
 
 @Controller()
 @UseGuards(MvpAuthGuard, MvpRolesGuard, PermissionGuard)
 @Roles(Role.ADMIN, Role.SUPERADMIN)
 export class BillingReadController {
-  constructor(private readonly billingReadService: BillingReadService) {}
+  constructor(
+    private readonly billingReadService: BillingReadService,
+    private readonly saasLimits: SaasLimitEnforcementService,
+  ) {}
 
   private sendCsv(res: Response, payload: { csv: string; fileName: string }) {
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
@@ -94,48 +98,56 @@ export class BillingReadController {
   @Get(['admin/exports/invoices.csv', 'api/admin/exports/invoices.csv'])
   @RequirePermission('EXPORTS', 'EXPORT')
   async exportAdminInvoicesCsv(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>, @Res() res: Response) {
+    await this.saasLimits.assertCanExportCsv(user.organizationId, 'invoices', user);
     this.sendCsv(res, await this.billingReadService.exportAdminInvoicesCsv(user, query));
   }
 
   @Get(['admin/exports/payments.csv', 'api/admin/exports/payments.csv'])
   @RequirePermission('EXPORTS', 'EXPORT')
   async exportAdminPaymentsCsv(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>, @Res() res: Response) {
+    await this.saasLimits.assertCanExportCsv(user.organizationId, 'payments', user);
     this.sendCsv(res, await this.billingReadService.exportAdminPaymentsCsv(user, query));
   }
 
   @Get(['admin/exports/apartment-balances.csv', 'api/admin/exports/apartment-balances.csv'])
   @RequirePermission('EXPORTS', 'EXPORT')
   async exportAdminApartmentBalancesCsv(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>, @Res() res: Response) {
+    await this.saasLimits.assertCanExportCsv(user.organizationId, 'balances', user);
     this.sendCsv(res, await this.billingReadService.exportAdminApartmentBalancesCsv(user, query));
   }
 
   @Get(['admin/exports/financial-monthly.csv', 'api/admin/exports/financial-monthly.csv'])
   @RequirePermission('EXPORTS', 'EXPORT')
   async exportAdminFinancialMonthlyCsv(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>, @Res() res: Response) {
+    await this.saasLimits.assertCanExportCsv(user.organizationId, 'financial', user);
     this.sendCsv(res, await this.billingReadService.exportAdminFinancialMonthlyCsv(user, query));
   }
 
   @Get(['admin/exports/aging.csv', 'api/admin/exports/aging.csv'])
   @RequirePermission('EXPORTS', 'EXPORT')
   async exportAdminAgingCsv(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>, @Res() res: Response) {
+    await this.saasLimits.assertCanExportCsv(user.organizationId, 'aging', user);
     this.sendCsv(res, await this.billingReadService.exportAdminAgingCsv(user, query));
   }
 
   @Get(['admin/exports/meter-consumption.csv', 'api/admin/exports/meter-consumption.csv'])
   @RequirePermission('EXPORTS', 'EXPORT')
   async exportAdminMeterConsumptionCsv(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>, @Res() res: Response) {
+    await this.saasLimits.assertCanExportCsv(user.organizationId, 'meter-consumption', user);
     this.sendCsv(res, await this.billingReadService.exportAdminMeterConsumptionCsv(user, query));
   }
 
   @Get(['admin/exports/apartments.csv', 'api/admin/exports/apartments.csv'])
   @RequirePermission('EXPORTS', 'EXPORT')
   async exportAdminApartmentsCsv(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>, @Res() res: Response) {
+    await this.saasLimits.assertCanExportCsv(user.organizationId, 'apartments', user);
     this.sendCsv(res, await this.billingReadService.exportAdminApartmentsCsv(user, query));
   }
 
   @Get(['admin/exports/residents.csv', 'api/admin/exports/residents.csv'])
   @RequirePermission('EXPORTS', 'EXPORT')
   async exportAdminResidentsCsv(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>, @Res() res: Response) {
+    await this.saasLimits.assertCanExportCsv(user.organizationId, 'residents', user);
     this.sendCsv(res, await this.billingReadService.exportAdminResidentsCsv(user, query));
   }
 
@@ -267,7 +279,8 @@ export class BillingReadController {
 
   @Post(['admin/tariffs/meter-based', 'api/admin/tariffs/meter-based'])
   @RequirePermission('TARIFFS', 'MANAGE')
-  createMeterBasedTariff(@CurrentUser() user: MvpUser, @Body() body: unknown) {
+  async createMeterBasedTariff(@CurrentUser() user: MvpUser, @Body() body: unknown) {
+    await this.saasLimits.assertFeatureEnabled(user.organizationId, 'meterBasedTariffs', user);
     return this.billingReadService.saveMeterBasedTariff(user, body);
   }
 
@@ -279,19 +292,22 @@ export class BillingReadController {
 
   @Patch(['admin/tariffs/meter-based/:id', 'api/admin/tariffs/meter-based/:id'])
   @RequirePermission('TARIFFS', 'MANAGE')
-  updateMeterBasedTariff(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+  async updateMeterBasedTariff(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    await this.saasLimits.assertFeatureEnabled(user.organizationId, 'meterBasedTariffs', user);
     return this.billingReadService.saveMeterBasedTariff(user, body, id);
   }
 
   @Patch(['admin/tariffs/meter-based/:id/status', 'api/admin/tariffs/meter-based/:id/status'])
   @RequirePermission('TARIFFS', 'MANAGE')
-  updateMeterBasedTariffStatus(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+  async updateMeterBasedTariffStatus(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    await this.saasLimits.assertFeatureEnabled(user.organizationId, 'meterBasedTariffs', user);
     return this.billingReadService.updateMeterBasedTariffStatus(user, id, body);
   }
 
   @Post(['admin/tariffs/meter-based/:id/duplicate', 'api/admin/tariffs/meter-based/:id/duplicate'])
   @RequirePermission('TARIFFS', 'MANAGE')
-  duplicateMeterBasedTariff(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+  async duplicateMeterBasedTariff(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    await this.saasLimits.assertFeatureEnabled(user.organizationId, 'meterBasedTariffs', user);
     return this.billingReadService.duplicateMeterBasedTariff(user, id);
   }
 
@@ -450,13 +466,15 @@ export class BillingReadController {
 
   @Post(['admin/invoices/finalize/:draftId', 'api/admin/invoices/finalize/:draftId'])
   @RequirePermission('INVOICES', 'FINALIZE')
-  finalizeInvoiceDraft(@CurrentUser() user: MvpUser, @Param('draftId') draftId: string) {
+  async finalizeInvoiceDraft(@CurrentUser() user: MvpUser, @Param('draftId') draftId: string) {
+    await this.saasLimits.assertCanFinalizeInvoices(user.organizationId, undefined, 1, user);
     return this.billingReadService.finalizeInvoiceDraft(user, draftId);
   }
 
   @Post(['admin/invoices/generate-monthly', 'api/admin/invoices/generate-monthly'])
   @RequirePermission('INVOICES', 'FINALIZE')
-  generateMonthlyInvoices(@CurrentUser() user: MvpUser, @Body() body: unknown) {
+  async generateMonthlyInvoices(@CurrentUser() user: MvpUser, @Body() body: unknown) {
+    await this.saasLimits.assertCanFinalizeInvoices(user.organizationId, undefined, 1, user);
     return this.billingReadService.generateMonthlyInvoices(user, body);
   }
 
@@ -550,7 +568,8 @@ export class BillingReadController {
 
   @Post(['admin/payments', 'api/admin/payments'])
   @RequirePermission('PAYMENTS', 'CREATE')
-  createAdminPayment(@CurrentUser() user: MvpUser, @Body() body: unknown) {
+  async createAdminPayment(@CurrentUser() user: MvpUser, @Body() body: unknown) {
+    await this.saasLimits.assertFeatureEnabled(user.organizationId, 'manualPayments', user);
     return this.billingReadService.createAdminPayment(user, body);
   }
 

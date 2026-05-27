@@ -5,12 +5,16 @@ import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { PermissionGuard } from '../auth/permission.guard';
 import { MvpAuthGuard, MvpRolesGuard, MvpUser } from '../security/mvp-auth.guard';
+import { SaasLimitEnforcementService } from '../saas-usage/saas-limit-enforcement.service';
 import { MetersService } from './meters.service';
 
 @Controller()
 @UseGuards(MvpAuthGuard, MvpRolesGuard, PermissionGuard)
 export class MetersController {
-  constructor(private readonly metersService: MetersService) {}
+  constructor(
+    private readonly metersService: MetersService,
+    private readonly saasLimits: SaasLimitEnforcementService,
+  ) {}
 
   @Get(['meters', 'api/meters'])
   @Roles(Role.ADMIN, Role.SUPERADMIN)
@@ -22,14 +26,16 @@ export class MetersController {
   @Post(['meters', 'api/meters'])
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   @RequirePermission('METERS', 'MANAGE')
-  createMeter(@CurrentUser() user: MvpUser, @Body() body: unknown) {
+  async createMeter(@CurrentUser() user: MvpUser, @Body() body: unknown) {
+    await this.saasLimits.assertCanCreateMeter(user.organizationId, user);
     return this.metersService.createMeter(user, body);
   }
 
   @Post(['meters/:meterId/readings', 'api/meters/:meterId/readings'])
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   @RequirePermission('METER_READINGS', 'CREATE')
-  addReading(@CurrentUser() user: MvpUser, @Param('meterId') meterId: string, @Body() body: unknown) {
+  async addReading(@CurrentUser() user: MvpUser, @Param('meterId') meterId: string, @Body() body: unknown) {
+    await this.saasLimits.assertFeatureEnabled(user.organizationId, 'meterReadings', user);
     return this.metersService.addReading(user, meterId, body);
   }
 
@@ -50,7 +56,8 @@ export class MetersController {
   @Post(['admin/meters', 'api/admin/meters'])
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   @RequirePermission('METERS', 'MANAGE')
-  createAdminMeter(@CurrentUser() user: MvpUser, @Body() body: unknown) {
+  async createAdminMeter(@CurrentUser() user: MvpUser, @Body() body: unknown) {
+    await this.saasLimits.assertCanCreateMeter(user.organizationId, user);
     return this.metersService.createMeter(user, body);
   }
 
@@ -64,14 +71,16 @@ export class MetersController {
   @Patch(['admin/meters/:id', 'api/admin/meters/:id'])
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   @RequirePermission('METERS', 'MANAGE')
-  updateAdminMeter(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+  async updateAdminMeter(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    await this.saasLimits.assertSubscriptionAllowsWrite(user.organizationId, user);
     return this.metersService.updateMeter(user, id, body);
   }
 
   @Patch(['admin/meters/:id/status', 'api/admin/meters/:id/status'])
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   @RequirePermission('METERS', 'MANAGE')
-  changeAdminMeterStatus(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+  async changeAdminMeterStatus(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    await this.saasLimits.assertSubscriptionAllowsWrite(user.organizationId, user);
     return this.metersService.changeMeterStatus(user, id, body);
   }
 
@@ -155,7 +164,8 @@ export class MetersController {
   @Post(['admin/meter-readings', 'api/admin/meter-readings'])
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   @RequirePermission('METER_READINGS', 'CREATE')
-  createAdminReading(@CurrentUser() user: MvpUser, @Body() body: unknown) {
+  async createAdminReading(@CurrentUser() user: MvpUser, @Body() body: unknown) {
+    await this.saasLimits.assertFeatureEnabled(user.organizationId, 'meterReadings', user);
     return this.metersService.createAdminReading(user, body);
   }
 
@@ -169,21 +179,24 @@ export class MetersController {
   @Patch(['admin/meter-readings/:id/approve', 'api/admin/meter-readings/:id/approve'])
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   @RequirePermission('METER_READINGS', 'APPROVE')
-  approveReading(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+  async approveReading(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    await this.saasLimits.assertSubscriptionAllowsWrite(user.organizationId, user);
     return this.metersService.approveReading(user, id, body);
   }
 
   @Patch(['admin/meter-readings/:id/reject', 'api/admin/meter-readings/:id/reject'])
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   @RequirePermission('METER_READINGS', 'APPROVE')
-  rejectReading(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+  async rejectReading(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    await this.saasLimits.assertSubscriptionAllowsWrite(user.organizationId, user);
     return this.metersService.rejectReading(user, id, body);
   }
 
   @Patch(['admin/meter-readings/:id/needs-review', 'api/admin/meter-readings/:id/needs-review'])
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   @RequirePermission('METER_READINGS', 'APPROVE')
-  markReadingNeedsReview(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+  async markReadingNeedsReview(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    await this.saasLimits.assertSubscriptionAllowsWrite(user.organizationId, user);
     return this.metersService.markReadingNeedsReview(user, id, body);
   }
 

@@ -7,6 +7,7 @@ import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { PermissionGuard } from '../auth/permission.guard';
 import { MvpAuthGuard, MvpRolesGuard, MvpUser } from '../security/mvp-auth.guard';
+import { SaasLimitEnforcementService } from '../saas-usage/saas-limit-enforcement.service';
 import { UploadImportDto } from './dto/imports.dto';
 import { ImportsService } from './imports.service';
 
@@ -17,7 +18,10 @@ const CSV_FILE_LIMIT_BYTES = 5 * 1024 * 1024;
 @Roles(Role.ADMIN, Role.SUPERADMIN)
 @RequirePermission('IMPORTS', 'VIEW')
 export class ImportsController {
-  constructor(private readonly importsService: ImportsService) {}
+  constructor(
+    private readonly importsService: ImportsService,
+    private readonly saasLimits: SaasLimitEnforcementService,
+  ) {}
 
   private sendCsv(res: Response, payload: { csv: string; fileName: string }) {
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
@@ -84,126 +88,137 @@ export class ImportsController {
 
   @Patch(['admin/imports/:id/cancel', 'api/admin/imports/:id/cancel'])
   @RequirePermission('IMPORTS', 'MANAGE')
-  cancelImport(
+  async cancelImport(
     @CurrentUser() user: MvpUser,
     @Param('id') id: string,
     @Headers('x-org-id') activeOrganizationId?: string,
   ) {
+    await this.saasLimits.assertSubscriptionAllowsWrite(activeOrganizationId || user.organizationId, user);
     return this.importsService.cancelImport(user, id, activeOrganizationId);
   }
 
   @Post(['admin/imports/apartments/preview', 'api/admin/imports/apartments/preview'])
   @RequirePermission('IMPORTS', 'IMPORT')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: CSV_FILE_LIMIT_BYTES } }))
-  previewApartments(
+  async previewApartments(
     @CurrentUser() user: MvpUser,
     @Body() body: Record<string, unknown>,
     @UploadedFile() file: Express.Multer.File | undefined,
     @Headers('x-org-id') activeOrganizationId?: string,
   ) {
+    await this.saasLimits.assertCanImportCsv(activeOrganizationId || user.organizationId, 'apartments', user);
     return this.importsService.previewApartmentsCsv(user, body, file, activeOrganizationId);
   }
 
   @Post(['admin/imports/apartments/:id/confirm', 'api/admin/imports/apartments/:id/confirm'])
   @RequirePermission('IMPORTS', 'IMPORT')
-  confirmApartments(
+  async confirmApartments(
     @CurrentUser() user: MvpUser,
     @Param('id') id: string,
     @Body() body: unknown,
     @Headers('x-org-id') activeOrganizationId?: string,
   ) {
+    await this.saasLimits.assertCanImportCsv(activeOrganizationId || user.organizationId, 'apartments', user);
     return this.importsService.confirmApartmentsCsv(user, id, body, activeOrganizationId);
   }
 
   @Post(['admin/imports/residents/preview', 'api/admin/imports/residents/preview'])
   @RequirePermission('IMPORTS', 'IMPORT')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: CSV_FILE_LIMIT_BYTES } }))
-  previewResidents(
+  async previewResidents(
     @CurrentUser() user: MvpUser,
     @Body() body: Record<string, unknown>,
     @UploadedFile() file: Express.Multer.File | undefined,
     @Headers('x-org-id') activeOrganizationId?: string,
   ) {
+    await this.saasLimits.assertCanImportCsv(activeOrganizationId || user.organizationId, 'residents', user);
     return this.importsService.previewResidentsCsv(user, body, file, activeOrganizationId);
   }
 
   @Post(['admin/imports/residents/:id/confirm', 'api/admin/imports/residents/:id/confirm'])
   @RequirePermission('IMPORTS', 'IMPORT')
-  confirmResidents(
+  async confirmResidents(
     @CurrentUser() user: MvpUser,
     @Param('id') id: string,
     @Body() body: unknown,
     @Headers('x-org-id') activeOrganizationId?: string,
   ) {
+    await this.saasLimits.assertCanImportCsv(activeOrganizationId || user.organizationId, 'residents', user);
     return this.importsService.confirmResidentsCsv(user, id, body, activeOrganizationId);
   }
 
   @Post(['admin/imports/meters/preview', 'api/admin/imports/meters/preview'])
   @RequirePermission('IMPORTS', 'IMPORT')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: CSV_FILE_LIMIT_BYTES } }))
-  previewMeters(
+  async previewMeters(
     @CurrentUser() user: MvpUser,
     @Body() body: Record<string, unknown>,
     @UploadedFile() file: Express.Multer.File | undefined,
     @Headers('x-org-id') activeOrganizationId?: string,
   ) {
+    await this.saasLimits.assertCanImportCsv(activeOrganizationId || user.organizationId, 'meters', user);
     return this.importsService.previewMetersCsv(user, body, file, activeOrganizationId);
   }
 
   @Post(['admin/imports/meters/:id/confirm', 'api/admin/imports/meters/:id/confirm'])
   @RequirePermission('IMPORTS', 'IMPORT')
-  confirmMeters(
+  async confirmMeters(
     @CurrentUser() user: MvpUser,
     @Param('id') id: string,
     @Body() body: unknown,
     @Headers('x-org-id') activeOrganizationId?: string,
   ) {
+    await this.saasLimits.assertCanImportCsv(activeOrganizationId || user.organizationId, 'meters', user);
     return this.importsService.confirmMetersCsv(user, id, body, activeOrganizationId);
   }
 
   @Post(['admin/imports/meter-readings/preview', 'api/admin/imports/meter-readings/preview'])
   @RequirePermission('IMPORTS', 'IMPORT')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: CSV_FILE_LIMIT_BYTES } }))
-  previewMeterReadings(
+  async previewMeterReadings(
     @CurrentUser() user: MvpUser,
     @Body() body: Record<string, unknown>,
     @UploadedFile() file: Express.Multer.File | undefined,
     @Headers('x-org-id') activeOrganizationId?: string,
   ) {
+    await this.saasLimits.assertCanImportCsv(activeOrganizationId || user.organizationId, 'meter-readings', user);
     return this.importsService.previewMeterReadingsCsv(user, body, file, activeOrganizationId);
   }
 
   @Post(['admin/imports/meter-readings/:id/confirm', 'api/admin/imports/meter-readings/:id/confirm'])
   @RequirePermission('IMPORTS', 'IMPORT')
-  confirmMeterReadings(
+  async confirmMeterReadings(
     @CurrentUser() user: MvpUser,
     @Param('id') id: string,
     @Body() body: unknown,
     @Headers('x-org-id') activeOrganizationId?: string,
   ) {
+    await this.saasLimits.assertCanImportCsv(activeOrganizationId || user.organizationId, 'meter-readings', user);
     return this.importsService.confirmMeterReadingsCsv(user, id, body, activeOrganizationId);
   }
 
   @Post(['admin/imports/:id/confirm', 'api/admin/imports/:id/confirm'])
   @RequirePermission('IMPORTS', 'IMPORT')
-  confirmImport(
+  async confirmImport(
     @CurrentUser() user: MvpUser,
     @Param('id') id: string,
     @Body() body: unknown,
     @Headers('x-org-id') activeOrganizationId?: string,
   ) {
+    await this.saasLimits.assertCanImportCsv(activeOrganizationId || user.organizationId, 'generic', user);
     return this.importsService.confirmAdmin(user, id, body, activeOrganizationId);
   }
 
   @Post(['admin/imports/upload', 'api/admin/imports/upload'])
   @RequirePermission('IMPORTS', 'IMPORT')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: CSV_FILE_LIMIT_BYTES } }))
-  legacyUpload(
+  async legacyUpload(
     @CurrentUser() user: MvpUser,
     @Body() body: UploadImportDto,
     @UploadedFile() file: Express.Multer.File | undefined,
     @Headers('x-org-id') activeOrganizationId?: string,
   ) {
+    await this.saasLimits.assertCanImportCsv(activeOrganizationId || user.organizationId, String(body.type || 'generic'), user);
     return this.importsService.uploadAdmin(user, body.type, file?.originalname || 'import.csv', file?.buffer || Buffer.alloc(0), activeOrganizationId);
   }
 

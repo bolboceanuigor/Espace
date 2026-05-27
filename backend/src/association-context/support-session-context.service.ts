@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { SuperadminSupportAccessMode, SuperadminSupportSessionStatus } from '@prisma/client';
+import { Prisma, SuperadminSupportAccessMode, SuperadminSupportSessionStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AssociationContextUser, RequestWithTenantContext } from './association-context.types';
 
@@ -255,7 +255,7 @@ export class SupportSessionContextService {
         entityType: 'SUPPORT_SESSION',
         entityId: input.supportSessionId,
         description: input.description,
-        newValuesJson: input.metadata || {},
+        newValuesJson: (input.metadata || {}) as Prisma.InputJsonValue,
         ipAddress: headerValue(input.request?.headers?.['x-forwarded-for']) || null,
         userAgent: headerValue(input.request?.headers?.['user-agent']) || null,
       },

@@ -1,17 +1,24 @@
 import { BadRequestException, Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { SaasUsageService } from '../saas-usage/saas-usage.service';
 import { AssociationContextService } from './association-context.service';
 import { AdminAssociationGuard } from './admin-association.guard';
 import type { AssociationContextUser, RequestWithTenantContext } from './association-context.types';
 
 @Controller('api')
 export class AssociationContextController {
-  constructor(private readonly associationContext: AssociationContextService) {}
+  constructor(
+    private readonly associationContext: AssociationContextService,
+    private readonly saasUsage: SaasUsageService,
+  ) {}
 
   @Get('admin/context')
   @UseGuards(JwtAuthGuard, AdminAssociationGuard)
-  getAdminContext(@Req() request: RequestWithTenantContext) {
+  async getAdminContext(@Req() request: RequestWithTenantContext) {
+    const subscription = request.associationContext?.associationId
+      ? await this.saasUsage.adminSubscriptionSummary(request.associationContext.associationId).catch(() => null)
+      : null;
     return {
       user: this.userSummary(request.user),
       activeAssociation: request.associationContext?.activeAssociation,
@@ -31,7 +38,11 @@ export class AssociationContextController {
       availableAssociations: request.associationContext?.availableAssociations || [],
       isSupportMode: Boolean(request.associationContext?.isSupportMode),
       supportSession: request.associationContext?.supportSession || null,
-      warnings: [],
+      subscription: subscription?.subscription || null,
+      planFeatures: subscription?.features || {},
+      planLimits: Object.fromEntries((subscription?.limits || []).map((item: any) => [item.limitKey, item.limit])),
+      usageWarnings: subscription?.warnings || [],
+      warnings: subscription?.warnings || [],
     };
   }
 
@@ -67,6 +78,9 @@ export class AssociationContextController {
   @UseGuards(JwtAuthGuard)
   async getResidentContext(@CurrentUser() user: AssociationContextUser) {
     const context = await this.associationContext.getResidentAssociationContext(user);
+    const subscriptionWarning = context.activeAssociation?.id
+      ? await this.saasUsage.residentSubscriptionWarning(context.activeAssociation.id).catch(() => null)
+      : null;
     return {
       user: this.userSummary(user),
       resident: {
@@ -76,6 +90,7 @@ export class AssociationContextController {
       apartments: context.apartments,
       associations: context.associations,
       activeAssociation: context.activeAssociation,
+      subscriptionWarning,
       warnings: [],
     };
   }

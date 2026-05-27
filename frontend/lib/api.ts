@@ -2239,6 +2239,44 @@ export const systemMonitoringApi = {
 };
 
 export const billingSaasApi = {
+  overview: () => apiRequest<any>('/api/superadmin/billing/overview'),
+  listPlans: (params?: Record<string, string | number | boolean | undefined>) =>
+    apiRequest<any>('/api/superadmin/billing/plans', { params }),
+  createSaasPlan: (data: Record<string, unknown>) =>
+    apiRequest<any>('/api/superadmin/billing/plans', { method: 'POST', body: data }),
+  getSaasPlan: (id: string) => apiRequest<any>(`/api/superadmin/billing/plans/${id}`),
+  updateSaasPlan: (id: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/superadmin/billing/plans/${id}`, { method: 'PATCH', body: data }),
+  updateSaasPlanStatus: (id: string, status: 'DRAFT' | 'ACTIVE' | 'ARCHIVED') =>
+    apiRequest<any>(`/api/superadmin/billing/plans/${id}/status`, { method: 'PATCH', body: { status } }),
+  duplicateSaasPlan: (id: string) =>
+    apiRequest<any>(`/api/superadmin/billing/plans/${id}/duplicate`, { method: 'POST' }),
+  saasPlanAssociations: (id: string) =>
+    apiRequest<any>(`/api/superadmin/billing/plans/${id}/associations`),
+  listSaasSubscriptions: (params?: Record<string, string | number | boolean | undefined>) =>
+    apiRequest<any>('/api/superadmin/billing/subscriptions', { params }),
+  createSaasSubscription: (data: Record<string, unknown>) =>
+    apiRequest<any>('/api/superadmin/billing/subscriptions', { method: 'POST', body: data }),
+  getSaasSubscription: (id: string) =>
+    apiRequest<any>(`/api/superadmin/billing/subscriptions/${id}`),
+  changeSaasPlan: (id: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/superadmin/billing/subscriptions/${id}/change-plan`, { method: 'PATCH', body: data }),
+  activateSaasSubscription: (id: string) =>
+    apiRequest<any>(`/api/superadmin/billing/subscriptions/${id}/activate`, { method: 'PATCH' }),
+  suspendSaasSubscription: (id: string, reason: string) =>
+    apiRequest<any>(`/api/superadmin/billing/subscriptions/${id}/suspend`, { method: 'PATCH', body: { reason } }),
+  reactivateSaasSubscription: (id: string) =>
+    apiRequest<any>(`/api/superadmin/billing/subscriptions/${id}/reactivate`, { method: 'PATCH' }),
+  cancelSaasSubscription: (id: string, reason: string) =>
+    apiRequest<any>(`/api/superadmin/billing/subscriptions/${id}/cancel`, { method: 'PATCH', body: { reason } }),
+  addSaasSubscriptionNote: (id: string, note: string) =>
+    apiRequest<any>(`/api/superadmin/billing/subscriptions/${id}/notes`, { method: 'POST', body: { note } }),
+  getAssociationSaasSubscription: (organizationId: string) =>
+    apiRequest<any>(`/api/superadmin/associations/${organizationId}/subscription`),
+  assignAssociationSaasPlan: (organizationId: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/superadmin/associations/${organizationId}/subscription/assign-plan`, { method: 'POST', body: data }),
+  getAssociationSaasUsage: (organizationId: string) =>
+    apiRequest<any>(`/api/superadmin/associations/${organizationId}/subscription/usage`),
   listSuperadminSubscriptions: (status?: 'TRIAL' | 'ACTIVE' | 'PAST_DUE' | 'SUSPENDED' | 'CANCELLED') =>
     apiRequest<any[]>('/api/superadmin/subscriptions', { params: status ? { status } : undefined }),
   upsertOrganizationSubscription: (
@@ -2279,6 +2317,18 @@ export const billingSaasApi = {
     action: 'START_TRIAL' | 'EXTEND_TRIAL_30' | 'MARK_ACTIVE' | 'MARK_PAST_DUE' | 'SUSPEND' | 'CANCEL',
   ) => apiRequest<any>(`/api/superadmin/subscriptions/${id}/quick-action`, { method: 'POST', body: { action } }),
   getAdminSubscription: () => apiRequest<any>('/api/admin/subscription'),
+  getAdminSubscriptionUsage: () => apiRequest<any>('/api/admin/subscription/usage'),
+  getAdminSubscriptionLimits: () => apiRequest<any>('/api/admin/subscription/limits'),
+  getAdminSubscriptionFeatures: () => apiRequest<any>('/api/admin/subscription/features'),
+  getAdminSubscriptionWarnings: () => apiRequest<any>('/api/admin/subscription/warnings'),
+  superadminUsageOverview: (params?: Record<string, string | number | boolean | undefined>) =>
+    apiRequest<any>('/api/superadmin/billing/usage', { params }),
+  superadminUsageAssociations: (params?: Record<string, string | number | boolean | undefined>) =>
+    apiRequest<any>('/api/superadmin/billing/usage/associations', { params }),
+  getSaasSubscriptionUsage: (id: string) =>
+    apiRequest<any>(`/api/superadmin/billing/subscriptions/${id}/usage`),
+  getSuperadminAssociationUsage: (organizationId: string) =>
+    apiRequest<any>(`/api/superadmin/associations/${organizationId}/usage`),
   getAdminSubscriptionStatus: () => apiRequest<any>('/api/admin/subscription/status'),
   getAdminSubscriptionInvoices: () => apiRequest<any[]>('/api/admin/subscription/invoices'),
   superadminBillingInvoices: () => apiRequest<any[]>('/api/superadmin/billing/invoices'),

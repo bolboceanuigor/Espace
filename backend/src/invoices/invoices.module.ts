@@ -5,9 +5,10 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { InvoicesController } from './invoices.controller';
 import { InvoicesService } from './invoices.service';
+import { SaasUsageModule } from '../saas-usage/saas-usage.module';
 
 @Module({
-  imports: [PrismaModule, AuditModule, NotificationsModule, EmailModule],
+  imports: [PrismaModule, AuditModule, NotificationsModule, EmailModule, SaasUsageModule],
   controllers: [InvoicesController],
   providers: [InvoicesService],
 })

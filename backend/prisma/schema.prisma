@@ -158,6 +158,40 @@ enum OrganizationSubscriptionStatus {
   CANCELLED
 }
 
+enum SaasPlanStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum SaasSubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  SUSPENDED
+  CANCELLED
+  EXPIRED
+}
+
+enum SaasBillingCycle {
+  MONTHLY
+  YEARLY
+  CUSTOM
+}
+
+enum SaasSubscriptionEventType {
+  SUBSCRIPTION_CREATED
+  PLAN_ASSIGNED
+  TRIAL_STARTED
+  SUBSCRIPTION_ACTIVATED
+  SUBSCRIPTION_SUSPENDED
+  SUBSCRIPTION_REACTIVATED
+  SUBSCRIPTION_CANCELLED
+  SUBSCRIPTION_EXPIRED
+  PLAN_CHANGED
+  INTERNAL_NOTE_ADDED
+}
+
 enum OrganizationInvoiceStatus {
   UNPAID
   PAID
@@ -952,6 +986,8 @@ model Organization {
   smsIntegration      SMSIntegration?
   settings           OrganizationSetting?
   subscription       Subscription?
+  saasSubscriptions  SaasSubscription[]
+  saasSubscriptionEvents SaasSubscriptionEvent[]
   usageMeters        UsageMeter[]
   invoices           Invoice[]
   auditLogs          AuditLog[]
@@ -1496,6 +1532,108 @@ model Plan {
   @@map("plans")
 }
 
+model SaasPlan {
+  id                       String         @id @default(uuid())
+  code                     String         @unique
+  name                     String
+  description              String?
+  status                   SaasPlanStatus @default(DRAFT)
+  currency                 BillingCurrency @default(MDL)
+  monthlyPrice             Float          @default(0)
+  yearlyPrice              Float?
+  trialDays                Int            @default(14)
+  maxApartments            Int?
+  maxResidents             Int?
+  maxStaffMembers          Int?
+  maxMeters                Int?
+  maxInvoicesPerMonth      Int?
+  maxAnnouncementsPerMonth Int?
+  maxRequestsPerMonth      Int?
+  maxStorageMB             Int?
+  features                 Json
+  limits                   Json?
+  isPublic                 Boolean        @default(true)
+  isDefault                Boolean        @default(false)
+  createdById              String?
+  updatedById              String?
+  createdAt                DateTime       @default(now())
+  updatedAt                DateTime       @updatedAt
+
+  createdBy     User?              @relation("SaasPlanCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy     User?              @relation("SaasPlanUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  subscriptions SaasSubscription[]
+
+  @@index([status])
+  @@index([isPublic])
+  @@index([isDefault])
+  @@map("saas_plans")
+}
+
+model SaasSubscription {
+  id                 String                 @id @default(uuid())
+  associationId      String
+  planId             String
+  status             SaasSubscriptionStatus @default(TRIALING)
+  billingCycle       SaasBillingCycle       @default(MONTHLY)
+  currency           BillingCurrency        @default(MDL)
+  price              Float                  @default(0)
+  trialStartedAt     DateTime?
+  trialEndsAt        DateTime?
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  activatedAt        DateTime?
+  suspendedAt        DateTime?
+  suspendedById      String?
+  suspensionReason   String?
+  cancelledAt        DateTime?
+  cancelledById      String?
+  cancellationReason String?
+  expiresAt          DateTime?
+  planSnapshot       Json
+  limitsSnapshot     Json
+  featuresSnapshot   Json
+  internalNotes      String?
+  createdById        String?
+  updatedById        String?
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+
+  association Organization @relation(fields: [associationId], references: [id], onDelete: Cascade)
+  plan        SaasPlan     @relation(fields: [planId], references: [id], onDelete: Restrict)
+  createdBy   User?        @relation("SaasSubscriptionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy   User?        @relation("SaasSubscriptionUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  suspendedBy User?        @relation("SaasSubscriptionSuspendedBy", fields: [suspendedById], references: [id], onDelete: SetNull)
+  cancelledBy User?        @relation("SaasSubscriptionCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
+  events      SaasSubscriptionEvent[]
+
+  @@index([associationId, status])
+  @@index([planId, status])
+  @@index([status, createdAt])
+  @@index([trialEndsAt])
+  @@map("saas_subscriptions")
+}
+
+model SaasSubscriptionEvent {
+  id             String                    @id @default(uuid())
+  subscriptionId String
+  associationId  String
+  actorUserId    String?
+  eventType      SaasSubscriptionEventType
+  title          String
+  message        String
+  metadata       Json?
+  createdAt      DateTime                  @default(now())
+
+  subscription SaasSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  association  Organization     @relation(fields: [associationId], references: [id], onDelete: Cascade)
+  actor        User?            @relation("SaasSubscriptionEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([subscriptionId, createdAt])
+  @@index([associationId, createdAt])
+  @@index([eventType, createdAt])
+  @@map("saas_subscription_events")
+}
+
 model UsageMeter {
   id                    String   @id @default(uuid())
   organizationId        String
@@ -1640,6 +1778,13 @@ model User {
   qaChecksTested          QACheck[]         @relation("QACheckTestedBy")
   betaReadinessChecks     BetaReadinessCheck[] @relation("BetaReadinessCheckedBy")
   betaLaunchConfigUpdates BetaLaunchConfig[] @relation("BetaLaunchUpdatedBy")
+  saasPlansCreated        SaasPlan[] @relation("SaasPlanCreatedBy")
+  saasPlansUpdated        SaasPlan[] @relation("SaasPlanUpdatedBy")
+  saasSubscriptionsCreated SaasSubscription[] @relation("SaasSubscriptionCreatedBy")
+  saasSubscriptionsUpdated SaasSubscription[] @relation("SaasSubscriptionUpdatedBy")
+  saasSubscriptionsSuspended SaasSubscription[] @relation("SaasSubscriptionSuspendedBy")
+  saasSubscriptionsCancelled SaasSubscription[] @relation("SaasSubscriptionCancelledBy")
+  saasSubscriptionEvents  SaasSubscriptionEvent[] @relation("SaasSubscriptionEventActor")
 
   @@index([organizationId])
   @@index([deletedAt])

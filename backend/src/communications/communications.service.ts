@@ -4,6 +4,7 @@ import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { LimitsService } from '../limits/limits.service';
+import { SaasLimitEnforcementService } from '../saas-usage/saas-limit-enforcement.service';
 import {
   CreateAnnouncementCommentDto,
   CreateAnnouncementDto,
@@ -24,6 +25,7 @@ export class CommunicationsService {
     private readonly auditService: AuditService,
     private readonly notificationsService: NotificationsService,
     private readonly limitsService: LimitsService,
+    private readonly saasLimits: SaasLimitEnforcementService,
   ) {}
 
   private assertAdmin(user: AuthUser) {
@@ -166,6 +168,7 @@ export class CommunicationsService {
 
   async createAdminAnnouncement(user: AuthUser, dto: CreateAnnouncementDto) {
     const { organizationId, userId } = this.assertAdmin(user);
+    await this.saasLimits.assertCanCreateAnnouncement(organizationId, user);
     await this.assertTargetInOrg(organizationId, dto.targetType as ContentTargetType, dto.buildingId, dto.staircaseId, dto.apartmentId);
     const announcement = await (this.prisma as any).announcement.create({
       data: {
@@ -206,6 +209,7 @@ export class CommunicationsService {
 
   async updateAdminAnnouncement(user: AuthUser, id: string, dto: UpdateAnnouncementDto) {
     const { organizationId } = this.assertAdmin(user);
+    await this.saasLimits.assertSubscriptionAllowsWrite(organizationId, user);
     const existing = await this.prisma.announcement.findFirst({ where: { id, organizationId }, select: { id: true, targetType: true } });
     if (!existing) throw new NotFoundException('Announcement not found');
     const targetType = (dto.targetType || existing.targetType) as ContentTargetType;
@@ -239,6 +243,7 @@ export class CommunicationsService {
 
   async deleteAdminAnnouncement(user: AuthUser, id: string) {
     const { organizationId } = this.assertAdmin(user);
+    await this.saasLimits.assertSubscriptionAllowsWrite(organizationId, user);
     const existing = await this.prisma.announcement.findFirst({ where: { id, organizationId } });
     if (!existing) throw new NotFoundException('Announcement not found');
     await this.prisma.announcement.delete({ where: { id } });
@@ -254,6 +259,7 @@ export class CommunicationsService {
 
   async pinAdminAnnouncement(user: AuthUser, id: string, isPinned?: boolean) {
     const { organizationId } = this.assertAdmin(user);
+    await this.saasLimits.assertSubscriptionAllowsWrite(organizationId, user);
     const existing = await this.prisma.announcement.findFirst({ where: { id, organizationId }, select: { id: true, isPinned: true } as any });
     if (!existing) throw new NotFoundException('Announcement not found');
     return (this.prisma as any).announcement.update({
@@ -264,6 +270,7 @@ export class CommunicationsService {
 
   async toggleAdminAnnouncementComments(user: AuthUser, id: string, commentsEnabled?: boolean) {
     const { organizationId } = this.assertAdmin(user);
+    await this.saasLimits.assertSubscriptionAllowsWrite(organizationId, user);
     const existing = await this.prisma.announcement.findFirst({ where: { id, organizationId }, select: { id: true, commentsEnabled: true } as any });
     if (!existing) throw new NotFoundException('Announcement not found');
     return (this.prisma as any).announcement.update({

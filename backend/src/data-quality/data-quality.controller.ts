@@ -5,6 +5,7 @@ import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { PermissionGuard } from '../auth/permission.guard';
 import { MvpAuthGuard, MvpRolesGuard, MvpUser } from '../security/mvp-auth.guard';
+import { SaasLimitEnforcementService } from '../saas-usage/saas-limit-enforcement.service';
 import { DataQualityService } from './data-quality.service';
 import { DuplicateDetectionService } from './duplicates.service';
 
@@ -16,6 +17,7 @@ export class DataQualityController {
   constructor(
     private readonly dataQualityService: DataQualityService,
     private readonly duplicateDetectionService: DuplicateDetectionService,
+    private readonly saasLimits: SaasLimitEnforcementService,
   ) {}
 
   @Get(['admin/data-quality', 'api/admin/data-quality'])
@@ -29,11 +31,12 @@ export class DataQualityController {
 
   @Post(['admin/data-quality/run', 'api/admin/data-quality/run'])
   @RequirePermission('DATA_QUALITY', 'MANAGE')
-  run(
+  async run(
     @CurrentUser() user: MvpUser,
     @Body() body: Record<string, unknown>,
     @Headers('x-org-id') activeOrganizationId?: string,
   ) {
+    await this.saasLimits.assertFeatureEnabled(activeOrganizationId || user.organizationId, 'dataQuality', user);
     return this.dataQualityService.run(user, body, activeOrganizationId);
   }
 
@@ -62,11 +65,12 @@ export class DataQualityController {
 
   @Post(['admin/data-quality/duplicates/scan', 'api/admin/data-quality/duplicates/scan'])
   @RequirePermission('DATA_QUALITY', 'MANAGE')
-  scanDuplicates(
+  async scanDuplicates(
     @CurrentUser() user: MvpUser,
     @Body() body: Record<string, unknown>,
     @Headers('x-org-id') activeOrganizationId?: string,
   ) {
+    await this.saasLimits.assertFeatureEnabled(activeOrganizationId || user.organizationId, 'duplicateDetection', user);
     return this.duplicateDetectionService.scan(user, body, activeOrganizationId);
   }
 
@@ -86,23 +90,25 @@ export class DataQualityController {
 
   @Post(['admin/data-quality/duplicates/groups/:id/merge/preview', 'api/admin/data-quality/duplicates/groups/:id/merge/preview'])
   @RequirePermission('DATA_QUALITY', 'MANAGE')
-  previewDuplicateMerge(
+  async previewDuplicateMerge(
     @CurrentUser() user: MvpUser,
     @Param('id') id: string,
     @Body() body: Record<string, unknown>,
     @Headers('x-org-id') activeOrganizationId?: string,
   ) {
+    await this.saasLimits.assertFeatureEnabled(activeOrganizationId || user.organizationId, 'duplicateDetection', user);
     return this.duplicateDetectionService.mergePreview(user, id, body, activeOrganizationId);
   }
 
   @Post(['admin/data-quality/duplicates/groups/:id/merge/apply', 'api/admin/data-quality/duplicates/groups/:id/merge/apply'])
   @RequirePermission('DATA_QUALITY', 'MANAGE')
-  applyDuplicateMerge(
+  async applyDuplicateMerge(
     @CurrentUser() user: MvpUser,
     @Param('id') id: string,
     @Body() body: Record<string, unknown>,
     @Headers('x-org-id') activeOrganizationId?: string,
   ) {
+    await this.saasLimits.assertFeatureEnabled(activeOrganizationId || user.organizationId, 'duplicateDetection', user);
     return this.duplicateDetectionService.mergeApply(user, id, body, activeOrganizationId);
   }
 

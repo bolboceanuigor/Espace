@@ -3,6 +3,7 @@ import { NotificationType, Prisma, Role } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { SaasLimitEnforcementService } from '../saas-usage/saas-limit-enforcement.service';
 import {
   AdminIssueFiltersDto,
   AdminUpdateIssueDto,
@@ -21,6 +22,7 @@ export class IssuesService {
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
     private readonly notificationsService: NotificationsService,
+    private readonly saasLimits: SaasLimitEnforcementService,
   ) {}
 
   private userId(user: AuthUser) {
@@ -115,6 +117,7 @@ export class IssuesService {
 
   async residentCreate(user: AuthUser, dto: CreateResidentIssueDto) {
     const { organizationId, userId } = this.assertResident(user);
+    await this.saasLimits.assertCanCreateRequest(organizationId, user);
     const apartmentIds = await this.residentApartmentScope(organizationId, userId);
 
     if (dto.locationType === 'APARTMENT') {
@@ -311,6 +314,7 @@ export class IssuesService {
 
   async adminUpdate(user: AuthUser, id: string, dto: AdminUpdateIssueDto) {
     const { organizationId } = this.assertAdmin(user);
+    await this.saasLimits.assertSubscriptionAllowsWrite(organizationId, user);
     const issue = await this.prisma.issue.findFirst({ where: { id, organizationId }, select: { id: true, title: true } });
     if (!issue) throw new NotFoundException('Issue not found');
 
@@ -355,6 +359,7 @@ export class IssuesService {
 
   async adminAddComment(user: AuthUser, id: string, dto: CreateIssueCommentDto) {
     const { organizationId, userId } = this.assertAdmin(user);
+    await this.saasLimits.assertSubscriptionAllowsWrite(organizationId, user);
     const issue = await this.prisma.issue.findFirst({ where: { id, organizationId }, select: { id: true, title: true } });
     if (!issue) throw new NotFoundException('Issue not found');
     const comment = await this.prisma.issueComment.create({
@@ -373,6 +378,7 @@ export class IssuesService {
 
   async adminDelete(user: AuthUser, id: string) {
     const { organizationId } = this.assertAdmin(user);
+    await this.saasLimits.assertSubscriptionAllowsWrite(organizationId, user);
     const issue = await this.prisma.issue.findFirst({ where: { id, organizationId } });
     if (!issue) throw new NotFoundException('Issue not found');
     await this.prisma.issue.delete({ where: { id } });

@@ -4,6 +4,7 @@ import { AuditService } from '../audit/audit.service';
 import { EmailTemplateService } from '../email/email-template.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { SaasLimitEnforcementService } from '../saas-usage/saas-limit-enforcement.service';
 import { GenerateMonthlyInvoicesDto, InvoicesFilterDto, SendRemindersDto } from './dto/invoices.dto';
 import { buildPaginationMeta, resolvePagination } from '../common/pagination';
 
@@ -16,6 +17,7 @@ export class InvoicesService {
     private readonly auditService: AuditService,
     private readonly notificationsService: NotificationsService,
     private readonly emailTemplateService: EmailTemplateService,
+    private readonly saasLimits: SaasLimitEnforcementService,
   ) {}
 
   private userId(user: AuthUser) {
@@ -72,6 +74,7 @@ export class InvoicesService {
 
   async generateMonthly(user: AuthUser, dto: GenerateMonthlyInvoicesDto) {
     const { organizationId, userId } = this.assertAdmin(user);
+    await this.saasLimits.assertCanFinalizeInvoices(organizationId, `${dto.year}-${String(dto.month).padStart(2, '0')}`, 1, user);
     if (dto.month < 1 || dto.month > 12 || dto.year < 2000 || dto.year > 2100) {
       throw new BadRequestException('Invalid billing period');
     }
