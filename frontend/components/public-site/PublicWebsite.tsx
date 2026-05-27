@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import type { FormEvent } from 'react';
 import { useParams } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ArrowRight,
   Banknote,
@@ -42,7 +42,7 @@ function localized(locale: string, href: string) {
   return `/${locale}${href === '/' ? '' : href}`;
 }
 
-function PublicNavbar() {
+export function PublicNavbar() {
   const locale = useLocale();
   const [open, setOpen] = useState(false);
   const links = [
@@ -87,17 +87,18 @@ function PublicNavbar() {
   );
 }
 
-function PublicFooter() {
+export function PublicFooter() {
   const locale = useLocale();
   const cols = [
     ['Platforma', [['Platforma', '/platforma'], ['Functionalitati', '/functionalitati'], ['Securitate', '/securitate']]],
     ['Pentru administratori', [['Administratori', '/pentru-administratori'], ['Preturi', '/preturi'], ['Cere acces', '/cere-acces']]],
     ['Pentru locatari', [['Locatari', '/pentru-locatari'], ['Ajutor', '/ajutor'], ['Contact', '/contact']]],
+    ['Legal', [['Securitate', '/securitate'], ['Confidentialitate', '/confidentialitate'], ['Termeni', '/termeni'], ['Cookies', '/cookies'], ['Prelucrarea datelor', '/prelucrarea-datelor']]],
     ['Contact', [['Contacteaza Espace', '/contact'], ['Incepe', '/incepe']]],
   ] as const;
   return (
     <footer className="border-t border-slate-200 bg-white">
-      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-5 lg:px-8">
+      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-6 lg:px-8">
         <div>
           <div className="flex items-center gap-2"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-950 text-white">E</span><span className="font-semibold text-slate-950">Espace</span></div>
           <p className="mt-4 text-sm leading-6 text-slate-500">Platforma SaaS pentru administrarea APC-urilor din Republica Moldova.</p>
@@ -112,6 +113,42 @@ function PublicFooter() {
         ))}
       </div>
     </footer>
+  );
+}
+
+export function CookieBanner() {
+  const locale = useLocale();
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && localStorage.getItem('espace_cookie_ack') !== 'true') {
+      setVisible(true);
+    }
+  }, []);
+
+  if (!visible) return null;
+  return (
+    <div className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-3xl rounded-lg border border-slate-200 bg-white p-4 shadow-xl">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm leading-6 text-slate-600">
+          Folosim cookies necesare pentru functionarea aplicatiei. Cookies optionale vor fi folosite doar daca sunt activate.
+        </p>
+        <div className="flex gap-2">
+          <Link href={localized(locale, '/cookies')} className="rounded-md border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700">
+            Detalii
+          </Link>
+          <button
+            onClick={() => {
+              localStorage.setItem('espace_cookie_ack', 'true');
+              setVisible(false);
+            }}
+            className="rounded-md bg-slate-950 px-3 py-2 text-sm font-semibold text-white"
+          >
+            Am inteles
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -441,6 +478,7 @@ function ResidentsPage() {
 }
 
 function ContactPage({ access = false }: { access?: boolean }) {
+  const locale = useLocale();
   return (
     <section className="bg-slate-50 py-16">
       <div className="mx-auto grid max-w-6xl gap-8 px-4 sm:px-6 lg:grid-cols-[0.8fr_1.2fr] lg:px-8">
@@ -448,6 +486,11 @@ function ContactPage({ access = false }: { access?: boolean }) {
           <h1 className="text-4xl font-semibold text-slate-950">{access ? 'Cere acces pentru asociatia ta' : 'Contacteaza Espace'}</h1>
           <p className="mt-4 leading-7 text-slate-600">{access ? 'Trimite datele de contact si discutam pasii pentru activarea asociatiei in Espace.' : 'Pentru asociatii interesate de activare, completeaza formularul si vei fi contactat pentru pasii urmatori.'}</p>
           <div className="mt-6 rounded-lg border border-slate-200 bg-white p-5 text-sm text-slate-600"><Phone className="mb-3 h-5 w-5 text-emerald-700" />Implementarea se face asistat, ca datele asociatiei sa fie configurate corect de la inceput.</div>
+          {!access ? (
+            <div className="mt-3 rounded-lg border border-slate-200 bg-white p-5 text-sm text-slate-600">
+              Pentru intrebari despre confidentialitate, termeni sau securitate, consulta <Link href={localized(locale, '/legal')} className="font-semibold text-emerald-700">Legal & Trust</Link>.
+            </div>
+          ) : null}
         </div>
         <div className="rounded-lg border border-slate-200 bg-white p-5"><AccessRequestForm source={access ? 'ACCESS_REQUEST' : 'CONTACT_PAGE'} /></div>
       </div>
@@ -480,6 +523,7 @@ export function PublicWebsitePage({ page = 'home' }: { page?: PageKind }) {
       {page === 'help' ? <HelpLandingPage /> : null}
       {page !== 'home' && page !== 'access' && page !== 'contact' ? <CTASection /> : null}
       <PublicFooter />
+      <CookieBanner />
     </div>
   );
 }

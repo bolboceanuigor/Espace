@@ -1,4 +1,5 @@
-import { BillingCurrency, OrganizationStatus, PrismaClient } from '@prisma/client';
+import { BillingCurrency, LegalDocumentStatus, OrganizationStatus, PrismaClient } from '@prisma/client';
+import { LEGAL_DOCUMENT_SEEDS } from '../src/legal/legal.seed';
 
 const prisma = new PrismaClient();
 
@@ -36,7 +37,36 @@ async function main() {
     },
   });
 
+  for (const document of LEGAL_DOCUMENT_SEEDS) {
+    await prisma.legalDocument.upsert({
+      where: {
+        slug_locale_version: {
+          slug: document.slug,
+          locale: document.locale,
+          version: document.version,
+        },
+      },
+      update: {
+        title: document.title,
+        description: document.description,
+        type: document.type,
+        audience: document.audience,
+        body: document.body,
+        status: LegalDocumentStatus.PUBLISHED,
+        isActive: true,
+        publishedAt: new Date(),
+      },
+      create: {
+        ...document,
+        status: LegalDocumentStatus.PUBLISHED,
+        isActive: true,
+        publishedAt: new Date(),
+      },
+    });
+  }
+
   console.log('Platform base organization is ready.');
+  console.log('Legal & Trust seed documents are ready.');
   console.log('Use npm run seed:production-superadmin to create a production SUPERADMIN if needed.');
 }
 

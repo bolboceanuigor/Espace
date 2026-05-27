@@ -960,6 +960,152 @@ enum CustomerOnboardingRequestSource {
   OTHER
 }
 
+enum LegalDocumentType {
+  PRIVACY_POLICY
+  TERMS_OF_USE
+  COOKIE_POLICY
+  DATA_PROCESSING
+  SECURITY
+  TRUST_CENTER
+  CONTACT_POLICY
+  OTHER
+}
+
+enum LegalDocumentAudience {
+  PUBLIC
+  ADMIN
+  RESIDENT
+  SUPERADMIN
+  ALL
+}
+
+enum LegalDocumentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum LegalContactRequestType {
+  PRIVACY
+  DATA_ACCESS
+  DATA_CORRECTION
+  DATA_DELETION
+  SECURITY
+  TERMS
+  GENERAL
+}
+
+enum LegalContactRequestStatus {
+  NEW
+  IN_REVIEW
+  RESOLVED
+  CLOSED
+  SPAM
+}
+
+enum LaunchStateStatus {
+  NOT_READY
+  NEEDS_ATTENTION
+  READY
+  LIVE
+}
+
+enum LaunchChecklistCategory {
+  PRODUCT
+  INFRASTRUCTURE
+  DATABASE
+  DEPLOYMENT
+  ENVIRONMENT
+  SECURITY
+  LEGAL
+  BILLING
+  NOTIFICATIONS
+  PAYMENTS
+  FIRST_APC
+  SUPPORT
+  MONITORING
+  COSTS
+}
+
+enum LaunchChecklistStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  PASSED
+  WARNING
+  BLOCKED
+  NOT_APPLICABLE
+}
+
+enum LaunchChecklistSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum PlatformServiceType {
+  SOURCE_CONTROL
+  HOSTING_FRONTEND
+  HOSTING_BACKEND
+  DATABASE
+  STORAGE
+  AUTH
+  EMAIL
+  SMS
+  DOMAIN
+  DNS
+  MONITORING
+  ERROR_TRACKING
+  PAYMENT_PROVIDER
+  DESIGN_TOOL
+  DEVELOPMENT_TOOL
+  AI_CODING_TOOL
+  ANALYTICS
+  OTHER
+}
+
+enum PlatformServiceStatus {
+  ACTIVE
+  TRIAL
+  PAYMENT_DUE
+  PAST_DUE
+  SUSPENDED
+  CANCELLED
+  UNKNOWN
+}
+
+enum PlatformServiceCriticality {
+  CRITICAL
+  IMPORTANT
+  OPTIONAL
+}
+
+enum PlatformServiceBillingCycle {
+  MONTHLY
+  YEARLY
+  PAY_AS_YOU_GO
+  FREE
+  UNKNOWN
+}
+
+enum PlatformServicePaymentEventType {
+  PAYMENT_RECORDED
+  RENEWAL_RECORDED
+  STATUS_CHANGED
+  COST_CHANGED
+  NOTE_ADDED
+}
+
+enum LaunchEventType {
+  CHECKLIST_UPDATED
+  SERVICE_ADDED
+  SERVICE_UPDATED
+  SERVICE_PAYMENT_RECORDED
+  GO_LIVE_READY_MARKED
+  LIVE_MARKED
+  BLOCKER_FOUND
+  BLOCKER_RESOLVED
+}
+
 enum ClientNoteType {
   CALL
   MEETING
@@ -1309,6 +1455,7 @@ model Organization {
   clientNotes        ClientNote[]
   leads              Lead[]
   customerOnboardingRequests CustomerOnboardingRequest[] @relation("CustomerOnboardingRequestConvertedAssociation")
+  legalContactRequests LegalContactRequest[] @relation("LegalContactRequestAssociation")
   chatMessages       AssociationChatMessage[]
   invitations        Invitation[]
   condoBuildings     CondoBuilding[]
@@ -1645,6 +1792,183 @@ model CustomerOnboardingRequest {
   @@index([assignedToId, status])
   @@index([convertedAssociationId])
   @@map("customer_onboarding_requests")
+}
+
+model LegalDocument {
+  id          String                @id @default(uuid())
+  slug        String
+  title       String
+  description String?
+  type        LegalDocumentType
+  audience    LegalDocumentAudience @default(PUBLIC)
+  status      LegalDocumentStatus   @default(DRAFT)
+  locale      String                @default("ro")
+  body        String
+  version     String                @default("1.0")
+  isActive    Boolean               @default(false)
+  publishedAt DateTime?
+  archivedAt  DateTime?
+  createdById String?
+  updatedById String?
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  createdBy User? @relation("LegalDocumentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User? @relation("LegalDocumentUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([slug, locale, version])
+  @@index([type, audience, locale, isActive])
+  @@index([status, locale, updatedAt])
+  @@map("legal_documents")
+}
+
+model LegalContactRequest {
+  id             String                    @id @default(uuid())
+  fullName       String
+  email          String?
+  phone          String?
+  subject        String
+  message        String
+  requestType    LegalContactRequestType   @default(GENERAL)
+  status         LegalContactRequestStatus @default(NEW)
+  source         String                    @default("PUBLIC_LEGAL")
+  userId         String?
+  associationId  String?
+  handledById    String?
+  handledAt      DateTime?
+  internalNotes  String?
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+
+  user        User?         @relation("LegalContactRequestUser", fields: [userId], references: [id], onDelete: SetNull)
+  association Organization? @relation("LegalContactRequestAssociation", fields: [associationId], references: [id], onDelete: SetNull)
+  handledBy   User?         @relation("LegalContactRequestHandledBy", fields: [handledById], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([requestType, createdAt])
+  @@index([email, createdAt])
+  @@index([associationId, createdAt])
+  @@map("legal_contact_requests")
+}
+
+model LaunchChecklistItem {
+  id          String                  @id @default(uuid())
+  key         String                  @unique
+  category    LaunchChecklistCategory
+  title       String
+  description String
+  status      LaunchChecklistStatus   @default(NOT_STARTED)
+  severity    LaunchChecklistSeverity @default(INFO)
+  isRequired  Boolean                 @default(true)
+  actionUrl   String?
+  owner       String?
+  evidence    String?
+  checkedAt   DateTime?
+  checkedById String?
+  metadata    Json?
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+
+  checkedBy User? @relation("LaunchChecklistCheckedBy", fields: [checkedById], references: [id], onDelete: SetNull)
+
+  @@index([category, status])
+  @@index([severity, status])
+  @@map("launch_checklist_items")
+}
+
+model PlatformService {
+  id                   String                         @id @default(uuid())
+  name                 String
+  type                 PlatformServiceType
+  providerName         String
+  description          String?
+  purpose              String
+  criticality          PlatformServiceCriticality
+  status               PlatformServiceStatus          @default(UNKNOWN)
+  billingCycle         PlatformServiceBillingCycle    @default(UNKNOWN)
+  currency             String                         @default("USD")
+  estimatedMonthlyCost Float?
+  estimatedYearlyCost  Float?
+  nextPaymentDate      DateTime?
+  renewalDate          DateTime?
+  accountEmail         String?
+  dashboardUrl         String?
+  documentationUrl     String?
+  ownerUserId          String?
+  managedBy            String?
+  environmentKeys      Json?
+  dependsOn            Json?
+  impactIfDown         String
+  notes                String?
+  isRequiredForLaunch  Boolean                        @default(false)
+  createdById          String?
+  updatedById          String?
+  createdAt            DateTime                       @default(now())
+  updatedAt            DateTime                       @updatedAt
+
+  owner         User?                         @relation("PlatformServiceOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  createdBy     User?                         @relation("PlatformServiceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy     User?                         @relation("PlatformServiceUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  paymentEvents PlatformServicePaymentEvent[]
+
+  @@index([type, status])
+  @@index([criticality, status])
+  @@index([nextPaymentDate])
+  @@map("platform_services")
+}
+
+model PlatformServicePaymentEvent {
+  id              String                          @id @default(uuid())
+  serviceId       String
+  eventType       PlatformServicePaymentEventType
+  amount          Float?
+  currency        String?
+  paymentDate     DateTime?
+  nextPaymentDate DateTime?
+  note            String?
+  actorUserId     String?
+  createdAt       DateTime                        @default(now())
+
+  service PlatformService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  actor   User?           @relation("PlatformServicePaymentActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([serviceId, createdAt])
+  @@index([eventType, createdAt])
+  @@map("platform_service_payment_events")
+}
+
+model LaunchState {
+  id             String            @id @default(uuid())
+  status         LaunchStateStatus @default(NOT_READY)
+  readinessScore Int               @default(0)
+  markedReadyAt  DateTime?
+  markedReadyById String?
+  wentLiveAt     DateTime?
+  wentLiveById   String?
+  notes          String?
+  metadata       Json?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  markedReadyBy User? @relation("LaunchStateMarkedReadyBy", fields: [markedReadyById], references: [id], onDelete: SetNull)
+  wentLiveBy    User? @relation("LaunchStateWentLiveBy", fields: [wentLiveById], references: [id], onDelete: SetNull)
+
+  @@map("launch_state")
+}
+
+model LaunchEvent {
+  id          String          @id @default(uuid())
+  eventType   LaunchEventType
+  title       String
+  message     String
+  actorUserId String?
+  metadata    Json?
+  createdAt   DateTime        @default(now())
+
+  actor User? @relation("LaunchEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([eventType, createdAt])
+  @@map("launch_events")
 }
 
 model ClientNote {
@@ -2435,6 +2759,18 @@ model User {
   helpArticleFeedback HelpArticleFeedback[]
   helpOnboardingProgresses UserOnboardingProgress[]
   assignedCustomerOnboardingRequests CustomerOnboardingRequest[] @relation("CustomerOnboardingRequestAssignedTo")
+  legalDocumentsCreated LegalDocument[] @relation("LegalDocumentCreatedBy")
+  legalDocumentsUpdated LegalDocument[] @relation("LegalDocumentUpdatedBy")
+  legalContactRequests LegalContactRequest[] @relation("LegalContactRequestUser")
+  legalContactRequestsHandled LegalContactRequest[] @relation("LegalContactRequestHandledBy")
+  launchChecklistChecks LaunchChecklistItem[] @relation("LaunchChecklistCheckedBy")
+  platformServicesOwned PlatformService[] @relation("PlatformServiceOwner")
+  platformServicesCreated PlatformService[] @relation("PlatformServiceCreatedBy")
+  platformServicesUpdated PlatformService[] @relation("PlatformServiceUpdatedBy")
+  platformServicePaymentEvents PlatformServicePaymentEvent[] @relation("PlatformServicePaymentActor")
+  launchStatesMarkedReady LaunchState[] @relation("LaunchStateMarkedReadyBy")
+  launchStatesWentLive LaunchState[] @relation("LaunchStateWentLiveBy")
+  launchEvents LaunchEvent[] @relation("LaunchEventActor")
 
   @@index([organizationId])
   @@index([deletedAt])

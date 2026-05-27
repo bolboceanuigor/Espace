@@ -3127,6 +3127,35 @@ export const helpApi = {
   superadminStats: () => apiRequest<any>('/api/superadmin/help/stats'),
 };
 
+export const legalApi = {
+  documents: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/legal/documents', { params }),
+  getBySlug: (slug: string, locale = 'ro') => apiRequest<any>(`/api/legal/documents/${slug}`, { params: { locale } }),
+  active: (type: string, locale = 'ro') => apiRequest<any>(`/api/legal/active/${type}`, { params: { locale } }),
+  contactRequest: (data: Record<string, any>) =>
+    apiRequest<any>('/api/legal/contact-requests', { method: 'POST', body: data }),
+  superadminStats: () => apiRequest<any>('/api/superadmin/legal/stats'),
+  superadminDocuments: (params?: Record<string, string | undefined>) =>
+    apiRequest<any>('/api/superadmin/legal/documents', { params }),
+  superadminGetDocument: (id: string) => apiRequest<any>(`/api/superadmin/legal/documents/${id}`),
+  superadminCreateDocument: (data: Record<string, any>) =>
+    apiRequest<any>('/api/superadmin/legal/documents', { method: 'POST', body: data }),
+  superadminUpdateDocument: (id: string, data: Record<string, any>) =>
+    apiRequest<any>(`/api/superadmin/legal/documents/${id}`, { method: 'PATCH', body: data }),
+  superadminPublishDocument: (id: string) =>
+    apiRequest<any>(`/api/superadmin/legal/documents/${id}/publish`, { method: 'PATCH' }),
+  superadminArchiveDocument: (id: string) =>
+    apiRequest<any>(`/api/superadmin/legal/documents/${id}/archive`, { method: 'PATCH' }),
+  superadminDuplicateDocument: (id: string) =>
+    apiRequest<any>(`/api/superadmin/legal/documents/${id}/duplicate`, { method: 'POST' }),
+  superadminContactRequests: (params?: Record<string, string | undefined>) =>
+    apiRequest<any>('/api/superadmin/legal/contact-requests', { params }),
+  superadminGetContactRequest: (id: string) => apiRequest<any>(`/api/superadmin/legal/contact-requests/${id}`),
+  superadminContactStatus: (id: string, status: string) =>
+    apiRequest<any>(`/api/superadmin/legal/contact-requests/${id}/status`, { method: 'PATCH', body: { status } }),
+  superadminContactNote: (id: string, note: string) =>
+    apiRequest<any>(`/api/superadmin/legal/contact-requests/${id}/notes`, { method: 'POST', body: { note } }),
+};
+
 export const condoApi = {
   getOwnerDashboard: () =>
     apiRequest<{

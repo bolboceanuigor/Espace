@@ -20,6 +20,7 @@ import {
   Settings, 
   ShieldCheck, 
   Sparkles,
+  Scale,
   Timer, 
   TrendingUp, 
   UserCog,
@@ -520,6 +521,12 @@ export default function SuperadminPage() {
                 title="Cereri clienți"
                 description="Cererile de acces și contact primite prin website"
                 href={localizedPath('/superadmin/customer-requests')}
+              />
+              <QuickActionCard
+                icon={Scale}
+                title="Legal & Trust"
+                description="Documente legale, versiuni si cereri privacy/security"
+                href={localizedPath('/superadmin/legal')}
               />
             </div>
           </section>

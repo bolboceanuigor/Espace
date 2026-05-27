@@ -2,10 +2,10 @@ import type { Metadata } from 'next';
 import { LegalPublicPage } from '@/components/public-site/LegalPublicPages';
 
 export const metadata: Metadata = {
-  title: 'Espace — Securitate si protectia datelor',
-  description: 'Controale de acces, audit si separarea datelor pentru platforma Espace.',
+  title: 'Espace — Politica de confidentialitate',
+  description: 'Cum sunt tratate datele personale si operationale in Espace.',
 };
 
 export default function Page() {
-  return <LegalPublicPage page="security" />;
+  return <LegalPublicPage page="privacy" />;
 }
