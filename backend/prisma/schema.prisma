@@ -332,6 +332,22 @@ enum NotificationDeliveryStatus {
   CANCELLED
 }
 
+enum GeneratedDocumentType {
+  INTERNAL_INVOICE
+  PAYMENT_RECEIPT
+  SAAS_INVOICE
+  SAAS_PAYMENT_RECEIPT
+  FINANCIAL_REPORT
+  METER_CONSUMPTION_REPORT
+}
+
+enum GeneratedDocumentStatus {
+  GENERATED
+  FAILED
+  SKIPPED
+  PREVIEW_ONLY
+}
+
 enum TransactionalNotificationType {
   RESIDENT_PORTAL_INVITATION
   STAFF_INVITATION
@@ -1108,6 +1124,7 @@ model Organization {
   saasUpgradeRequests SaasUpgradeRequest[] @relation("SaasUpgradeRequestAssociation")
   saasInvoices       SaasInvoice[] @relation("SaasInvoiceAssociation")
   saasInvoiceEvents  SaasInvoiceEvent[]
+  generatedDocuments GeneratedDocument[]
   usageMeters        UsageMeter[]
   invoices           Invoice[]
   auditLogs          AuditLog[]
@@ -2078,10 +2095,40 @@ model User {
   saasInvoicesCreated SaasInvoice[] @relation("SaasInvoiceCreatedBy")
   saasInvoicesUpdated SaasInvoice[] @relation("SaasInvoiceUpdatedBy")
   saasInvoiceEvents SaasInvoiceEvent[] @relation("SaasInvoiceEventActor")
+  generatedDocuments GeneratedDocument[] @relation("GeneratedDocumentGeneratedBy")
 
   @@index([organizationId])
   @@index([deletedAt])
   @@map("users")
+}
+
+model GeneratedDocument {
+  id             String                  @id @default(uuid())
+  associationId  String?
+  generatedById  String?
+  documentType   GeneratedDocumentType
+  status         GeneratedDocumentStatus
+  entityType     String
+  entityId       String
+  fileName       String
+  mimeType       String
+  fileSize       Int?
+  storagePath    String?
+  publicUrl      String?
+  checksum       String?
+  metadata       Json?
+  errorMessage   String?
+  generatedAt    DateTime                @default(now())
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+
+  association Organization? @relation(fields: [associationId], references: [id], onDelete: SetNull)
+  generatedBy User?         @relation("GeneratedDocumentGeneratedBy", fields: [generatedById], references: [id], onDelete: SetNull)
+
+  @@index([associationId, documentType, generatedAt])
+  @@index([entityType, entityId])
+  @@index([generatedById, generatedAt])
+  @@map("generated_documents")
 }
 
 model SupportSession {

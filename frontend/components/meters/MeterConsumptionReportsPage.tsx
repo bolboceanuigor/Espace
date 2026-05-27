@@ -9,6 +9,7 @@ import {
   Droplets,
   Gauge,
   ListChecks,
+  Printer,
   RefreshCw,
   Search,
   Zap,
@@ -508,6 +509,10 @@ export function MeterConsumptionReportsPage() {
             <ButtonLink href="/admin/tariffs/meter-based" variant="secondary">
               <Gauge className="h-4 w-4" />
               Configurează tarife pe consum
+            </ButtonLink>
+            <ButtonLink href={`/admin/meter-readings/reports/print?periodMonth=${filters.periodMonth}`} variant="secondary">
+              <Printer className="h-4 w-4" />
+              Print
             </ButtonLink>
             <Button variant="outline" onClick={exportCsv}>
               <Download className="h-4 w-4" />

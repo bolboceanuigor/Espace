@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Eye } from 'lucide-react';
+import { ArrowLeft, Eye, Printer } from 'lucide-react';
 import { billingSaasApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
@@ -78,7 +78,7 @@ export function AdminSaasInvoiceDetailPage({ id }: { id: string }) {
   if (!invoice) return <Card><p className="text-sm text-muted-foreground">Se încarcă...</p></Card>;
   return (
     <div className="space-y-5">
-      <Header title={invoice.invoiceNumber} subtitle="Detalii read-only pentru factura de abonament." actions={<Link href={localizedPath('/admin/subscription/invoices')} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-border/70 px-4 text-sm font-semibold"><ArrowLeft className="h-4 w-4" /> Înapoi</Link>} />
+      <Header title={invoice.invoiceNumber} subtitle="Detalii read-only pentru factura de abonament." actions={<div className="flex flex-wrap gap-2"><Link href={localizedPath('/admin/subscription/invoices')} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-border/70 px-4 text-sm font-semibold"><ArrowLeft className="h-4 w-4" /> Înapoi</Link><Link href={localizedPath(`/admin/subscription/invoices/${id}/print`)} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-border/70 px-4 text-sm font-semibold"><Printer className="h-4 w-4" /> Print / Save as PDF</Link></div>} />
       <Card><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><p>Status<br /><Badge status={invoice.status} /></p><p>Total<br /><b>{money(invoice.totalAmount, invoice.currency)}</b></p><p>Achitat<br /><b>{money(invoice.paidAmount, invoice.currency)}</b></p><p>Sold<br /><b>{money(invoice.balanceAmount, invoice.currency)}</b></p><p>Plan<br /><b>{data.plan?.name || '—'}</b></p><p>Perioadă<br /><b>{fmtDate(invoice.billingPeriodStart)} - {fmtDate(invoice.billingPeriodEnd)}</b></p><p>Data emiterii<br /><b>{fmtDate(invoice.issueDate)}</b></p><p>Scadență<br /><b>{fmtDate(invoice.dueDate)}</b></p></div></Card>
       <Card><h2 className="font-semibold text-foreground">Linii factură</h2><div className="mt-4 divide-y divide-border">{(data.lines || []).map((line: any) => <div key={line.id} className="flex justify-between gap-3 py-3"><div><p className="font-medium">{line.name}</p><p className="text-sm text-muted-foreground">{line.description || line.lineType}</p></div><p className="font-semibold">{money(line.amount, line.currency)}</p></div>)}</div></Card>
       {invoice.notes ? <Card><h2 className="font-semibold text-foreground">Note</h2><p className="mt-2 text-sm text-muted-foreground">{invoice.notes}</p></Card> : null}

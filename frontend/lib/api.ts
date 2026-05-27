@@ -1133,6 +1133,8 @@ export const metersApi = {
     apiRequest<any>(`/api/admin/meter-readings/${id}/needs-review`, { method: 'PATCH', body: data || {} }),
   adminConsumptionReport: (params?: Record<string, string | number | boolean | null | undefined>) =>
     apiRequest<any>('/api/admin/meter-readings/reports/consumption', { params }),
+  adminConsumptionDocument: (params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>('/api/admin/meter-readings/reports/document', { params }),
   adminConsumptionSummary: (params?: Record<string, string | number | boolean | null | undefined>) =>
     apiRequest<any>('/api/admin/meter-readings/reports/summary', { params }),
   adminConsumptionByMeterType: (params?: Record<string, string | number | boolean | null | undefined>) =>
@@ -1518,6 +1520,8 @@ export const reportsApi = {
   adminOverview: () => apiRequest<any>('/api/admin/reports'),
   adminFinancialOverview: (params?: Record<string, string | number | boolean | undefined>) =>
     apiRequest<any>('/api/admin/reports/financial/overview', { params }),
+  adminFinancialMonthlyDocument: (params?: Record<string, string | number | boolean | undefined>) =>
+    apiRequest<any>('/api/admin/reports/financial/monthly/document', { params }),
   adminFinancialStatusBreakdown: (params?: Record<string, string | number | boolean | undefined>) =>
     apiRequest<any>('/api/admin/reports/financial/status-breakdown', { params }),
   adminFinancialMonthlyTrend: (params?: Record<string, string | number | boolean | undefined>) =>
@@ -1637,6 +1641,8 @@ export const invoicesApi = {
   }) =>
     apiRequest<any>('/api/admin/invoices', { params }),
   adminGetOne: (id: string) => apiRequest<any>(`/api/admin/invoices/${id}`),
+  adminDocument: (id: string) => apiRequest<any>(`/api/admin/invoices/${id}/document`),
+  adminPdfFallback: (id: string) => apiRequest<any>(`/api/admin/invoices/${id}/pdf`),
   adminUpdateStatus: (id: string, data: { status: 'CANCELLED' | 'VOID' }) =>
     apiRequest<any>(`/api/admin/invoices/${id}/status`, { method: 'PATCH', body: data }),
   finalizeSummary: (draftId: string) => apiRequest<any>(`/api/admin/invoices/finalize/${draftId}`),
@@ -1704,6 +1710,8 @@ export const invoicesApi = {
     limit?: number;
   }) => apiRequest<any>('/api/resident/invoices', { params }),
   residentGetOne: (id: string) => apiRequest<any>(`/api/resident/invoices/${id}`),
+  residentDocument: (id: string) => apiRequest<any>(`/api/resident/invoices/${id}/document`),
+  residentPdfFallback: (id: string) => apiRequest<any>(`/api/resident/invoices/${id}/pdf`),
   residentPdf: (id: string) => apiRequest<Blob>(`/api/resident/invoices/${id}/pdf`, { responseType: 'blob' }),
   residentReceipts: () => apiRequest<any[]>('/api/resident/receipts'),
   residentReceiptPdf: (id: string) => apiRequest<Blob>(`/api/resident/receipts/${id}/pdf`, { responseType: 'blob' }),
@@ -1850,6 +1858,8 @@ export const paymentsApi = {
     notes?: string;
   }) => apiRequest<any>('/api/admin/payments', { method: 'POST', body: data }),
   adminGetOne: (id: string) => apiRequest<any>(`/api/admin/payments/${id}`),
+  adminReceiptDocument: (id: string) => apiRequest<any>(`/api/admin/payments/${id}/receipt-document`),
+  adminReceiptPdfFallback: (id: string) => apiRequest<any>(`/api/admin/payments/${id}/receipt-pdf`),
   adminCancelManual: (id: string, data: { reason: string }) =>
     apiRequest<any>(`/api/admin/payments/${id}/cancel`, { method: 'PATCH', body: data }),
   adminInvoiceSearch: (params?: { search?: string; unpaidOnly?: boolean }) =>
@@ -1903,6 +1913,8 @@ export const paymentsApi = {
     provider: 'MAIB' | 'PAYNET' | 'OPLATA' | 'MANUAL_BANK_TRANSFER' | 'CASH';
   }) => apiRequest<any>('/api/resident/payments/create-intent', { method: 'POST', body: data }),
   residentStatus: (id: string) => apiRequest<any>(`/api/resident/payments/${id}/status`),
+  residentReceiptDocument: (id: string) => apiRequest<any>(`/api/resident/payments/${id}/receipt-document`),
+  residentReceiptPdfFallback: (id: string) => apiRequest<any>(`/api/resident/payments/${id}/receipt-pdf`),
 };
 
 export const organizationSettingsApi = {
@@ -2356,6 +2368,10 @@ export const billingSaasApi = {
   createSaasInvoiceFromSubscription: (data: Record<string, unknown>) =>
     apiRequest<any>('/api/superadmin/billing/saas-invoices/from-subscription', { method: 'POST', body: data }),
   getSaasInvoice: (id: string) => apiRequest<any>(`/api/superadmin/billing/saas-invoices/${id}`),
+  getSaasInvoiceDocument: (id: string) => apiRequest<any>(`/api/superadmin/billing/saas-invoices/${id}/document`),
+  getSaasInvoicePdfFallback: (id: string) => apiRequest<any>(`/api/superadmin/billing/saas-invoices/${id}/pdf`),
+  getSaasInvoiceReceiptDocument: (id: string) =>
+    apiRequest<any>(`/api/superadmin/billing/saas-invoices/${id}/receipt-document`),
   updateSaasInvoice: (id: string, data: Record<string, unknown>) =>
     apiRequest<any>(`/api/superadmin/billing/saas-invoices/${id}`, { method: 'PATCH', body: data }),
   issueSaasInvoice: (id: string) =>
@@ -2372,6 +2388,8 @@ export const billingSaasApi = {
     apiRequest<any>(`/api/superadmin/associations/${organizationId}/saas-invoices`),
   listAdminSaasInvoices: () => apiRequest<any>('/api/admin/subscription/invoices'),
   getAdminSaasInvoice: (id: string) => apiRequest<any>(`/api/admin/subscription/invoices/${id}`),
+  getAdminSaasInvoiceDocument: (id: string) => apiRequest<any>(`/api/admin/subscription/invoices/${id}/document`),
+  getAdminSaasInvoicePdfFallback: (id: string) => apiRequest<any>(`/api/admin/subscription/invoices/${id}/pdf`),
   getAdminSubscriptionStatus: () => apiRequest<any>('/api/admin/subscription/status'),
   getAdminSubscriptionInvoices: () => apiRequest<any[]>('/api/admin/subscription/invoices'),
   superadminBillingInvoices: () => apiRequest<any[]>('/api/superadmin/billing/invoices'),

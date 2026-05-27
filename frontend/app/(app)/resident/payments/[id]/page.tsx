@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, Banknote, CreditCard, FileText, Home, ReceiptText } from 'lucide-react';
+import { ArrowLeft, Banknote, CreditCard, FileText, Home, Printer, ReceiptText } from 'lucide-react';
 import { Badge, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
 import { residentDemoApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
@@ -193,6 +193,10 @@ export default function ResidentPaymentDetailsPage() {
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 <ButtonLink href={`/resident/invoices/${invoice.id}`} variant="secondary">Vezi factura</ButtonLink>
+                <ButtonLink href={`/resident/payments/${payment.id}/receipt/print`} variant="secondary">
+                  <Printer className="h-4 w-4" />
+                  Confirmare plată
+                </ButtonLink>
                 <ButtonLink href="/resident/payments" variant="secondary">Înapoi la plăți</ButtonLink>
               </div>
             </Card>

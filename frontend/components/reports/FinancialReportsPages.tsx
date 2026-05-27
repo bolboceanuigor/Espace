@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { ArrowRight, BarChart3, Download, FileText, History, RefreshCw, WalletCards } from 'lucide-react';
+import { ArrowRight, BarChart3, Download, FileText, History, Printer, RefreshCw, WalletCards } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -384,6 +384,7 @@ export function FinancialOverviewPage() {
             <ButtonLink href={localizedPath('/admin/payments')} variant="secondary">Vezi plăți</ButtonLink>
             <ButtonLink href={localizedPath(`/admin/payments/reconciliation?billingMonth=${filters.billingMonth}`)} variant="secondary">Reconciliere</ButtonLink>
             <ButtonLink href={localizedPath(`/admin/billing?billingMonth=${filters.billingMonth}`)} variant="secondary">Proces facturare</ButtonLink>
+            <ButtonLink href={localizedPath(`/admin/reports/financial/monthly/print?billingMonth=${filters.billingMonth}`)} variant="secondary"><Printer className="h-4 w-4" /> Print</ButtonLink>
             <Button variant="secondary" onClick={exportMonthly}><Download className="h-4 w-4" /> Export lunar</Button>
             <Button variant="secondary" onClick={exportBalances}>Export solduri</Button>
             <Button variant="secondary" onClick={exportAging}>Export aging</Button>

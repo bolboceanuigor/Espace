@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, CreditCard, Download, FileText, Home, ReceiptText, UserRound } from 'lucide-react';
+import { ArrowLeft, CreditCard, FileText, Home, Printer, ReceiptText, UserRound } from 'lucide-react';
 import { Badge, Button, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
 import { residentDemoApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
@@ -204,17 +204,17 @@ export default function ResidentInvoiceDetailsPage() {
                   <ArrowLeft className="h-4 w-4" />
                   Înapoi la facturi
                 </ButtonLink>
-                <Button type="button" variant="secondary" disabled>
-                  <Download className="h-4 w-4" />
-                  Descarcă PDF
-                </Button>
+                <ButtonLink href={localizedPath(`/resident/invoices/${invoice.id}/print`)} variant="secondary">
+                  <Printer className="h-4 w-4" />
+                  Print / Save as PDF
+                </ButtonLink>
                 <Button type="button" variant="secondary" disabled>
                   <CreditCard className="h-4 w-4" />
                   Achită online
                 </Button>
               </div>
               <p className="mt-3 rounded-2xl bg-muted/35 px-4 py-3 text-sm text-muted-foreground">
-                PDF în curând. Plățile online vor fi disponibile ulterior.
+                Pentru PDF, deschide preview-ul de print și folosește opțiunea Save as PDF din browser.
               </p>
             </Card>
 

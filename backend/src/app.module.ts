@@ -15,6 +15,7 @@ import { SaasBillingModule } from './saas-billing/saas-billing.module';
 import { SaasUsageModule } from './saas-usage/saas-usage.module';
 import { SaasUpgradesModule } from './saas-upgrades/saas-upgrades.module';
 import { SaasInvoicesModule } from './saas-invoices/saas-invoices.module';
+import { DocumentRenderModule } from './document-render/document-render.module';
 import { SetupModule } from './setup/setup.module';
 import { MessagesMvpModule } from './messages-mvp/messages-mvp.module';
 import { ActivityMvpModule } from './activity-mvp/activity-mvp.module';
@@ -50,6 +51,7 @@ import { AppController } from './app.controller';
     SaasUsageModule,
     SaasUpgradesModule,
     SaasInvoicesModule,
+    DocumentRenderModule,
     SetupModule,
     MessagesMvpModule,
     ActivityMvpModule,
