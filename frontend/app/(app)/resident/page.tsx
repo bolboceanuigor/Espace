@@ -534,6 +534,23 @@ export default function ResidentDashboardPage() {
       </section>
 
       <Card>
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-foreground">Ai nevoie de ajutor?</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Ghiduri simple pentru facturi, plati, transmitere indici si solicitari.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <ButtonLink href="/resident/help/cum-vad-facturile" variant="secondary" size="sm">Facturi</ButtonLink>
+            <ButtonLink href="/resident/help/cum-vad-istoricul-platilor" variant="secondary" size="sm">Plati</ButtonLink>
+            <ButtonLink href="/resident/help/cum-transmit-indicii-contoarelor" variant="secondary" size="sm">Indici</ButtonLink>
+            <ButtonLink href="/resident/help" variant="primary" size="sm">Ajutor</ButtonLink>
+          </div>
+        </div>
+      </Card>
+
+      <Card>
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold text-foreground">Anunțuri recente</h2>

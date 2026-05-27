@@ -1078,6 +1078,40 @@ enum HelpCategory {
   OTHER
 }
 
+enum HelpAudience {
+  PUBLIC
+  SUPERADMIN
+  ADMIN
+  STAFF
+  RESIDENT
+}
+
+enum HelpArticleStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum HelpArticleType {
+  GUIDE
+  FAQ
+  TROUBLESHOOTING
+  CHECKLIST
+  RELEASE_NOTE
+  POLICY
+  HOW_TO
+}
+
+enum HelpCategoryStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum OnboardingGuideStatus {
+  ACTIVE
+  ARCHIVED
+}
+
 enum InvitationStatus {
   PENDING
   ACCEPTED
@@ -1307,6 +1341,7 @@ model Organization {
   pushSubscriptions  PushSubscription[]
   systemErrorLogs    SystemErrorLog[]
   systemErrorEvents  SystemErrorEvent[]
+  helpOnboardingProgresses UserOnboardingProgress[]
   createdByAgent     User?       @relation("CreatedByAgent", fields: [createdByAgentId], references: [id], onDelete: SetNull)
   ownerAdmin        User?        @relation("OrganizationOwnerAdmin", fields: [ownerAdminId], references: [id], onDelete: SetNull)
 
@@ -1663,19 +1698,120 @@ model LeadActivity {
 }
 
 model HelpArticle {
-  id          String         @id @default(uuid())
-  title       String
-  slug        String         @unique
-  content     String
-  targetRole  HelpTargetRole @default(ALL)
-  category    HelpCategory   @default(OTHER)
-  isPublished Boolean        @default(false)
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  id                   String            @id @default(uuid())
+  categoryId           String?
+  title                String
+  slug                 String            @unique
+  excerpt              String?
+  content              String
+  body                 String?
+  type                 HelpArticleType   @default(GUIDE)
+  status               HelpArticleStatus @default(DRAFT)
+  audience             Json?
+  targetRole           HelpTargetRole    @default(ALL)
+  category             HelpCategory      @default(OTHER)
+  tags                 Json?
+  locale               String            @default("ro")
+  sortOrder            Int               @default(0)
+  isFeatured           Boolean           @default(false)
+  isContextual         Boolean           @default(false)
+  relatedRoute         String?
+  relatedModule        String?
+  estimatedReadMinutes Int?
+  isPublished          Boolean           @default(false)
+  publishedAt          DateTime?
+  archivedAt           DateTime?
+  createdById          String?
+  updatedById          String?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
 
+  helpCategory HelpDocCategory?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  createdBy    User?                @relation("HelpArticleCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy    User?                @relation("HelpArticleUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  feedback     HelpArticleFeedback[]
+
+  @@index([categoryId, status, sortOrder])
+  @@index([status, locale, updatedAt])
   @@index([targetRole, isPublished, createdAt])
   @@index([category, isPublished, createdAt])
+  @@index([relatedModule, isContextual])
   @@map("help_articles")
+}
+
+model HelpDocCategory {
+  id          String             @id @default(uuid())
+  slug        String             @unique
+  title       String
+  description String?
+  icon        String?
+  audience    Json?
+  sortOrder   Int                @default(0)
+  status      HelpCategoryStatus @default(ACTIVE)
+  createdById String?
+  updatedById String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  articles  HelpArticle[]
+  createdBy User? @relation("HelpCategoryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User? @relation("HelpCategoryUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([status, sortOrder])
+  @@map("help_categories")
+}
+
+model HelpArticleFeedback {
+  id        String        @id @default(uuid())
+  articleId String
+  userId    String?
+  audience  HelpAudience?
+  helpful   Boolean
+  comment   String?
+  route     String?
+  createdAt DateTime      @default(now())
+
+  article HelpArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  user    User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([articleId, createdAt])
+  @@index([helpful, createdAt])
+  @@map("help_article_feedback")
+}
+
+model OnboardingGuide {
+  id          String                 @id @default(uuid())
+  key         String                 @unique
+  title       String
+  description String
+  audience    HelpAudience
+  status      OnboardingGuideStatus @default(ACTIVE)
+  steps       Json
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  @@index([audience, status])
+  @@map("onboarding_guides")
+}
+
+model UserOnboardingProgress {
+  id             String    @id @default(uuid())
+  userId         String
+  associationId  String?
+  guideKey       String
+  completedSteps Json?
+  skippedSteps   Json?
+  completedAt    DateTime?
+  dismissedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  association Organization? @relation(fields: [associationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, associationId, guideKey])
+  @@index([associationId, guideKey])
+  @@map("user_onboarding_progress")
 }
 
 model AssociationChatMessage {
@@ -2225,6 +2361,12 @@ model User {
   saasInvoicesUpdated SaasInvoice[] @relation("SaasInvoiceUpdatedBy")
   saasInvoiceEvents SaasInvoiceEvent[] @relation("SaasInvoiceEventActor")
   generatedDocuments GeneratedDocument[] @relation("GeneratedDocumentGeneratedBy")
+  helpArticlesCreated HelpArticle[] @relation("HelpArticleCreatedBy")
+  helpArticlesUpdated HelpArticle[] @relation("HelpArticleUpdatedBy")
+  helpCategoriesCreated HelpDocCategory[] @relation("HelpCategoryCreatedBy")
+  helpCategoriesUpdated HelpDocCategory[] @relation("HelpCategoryUpdatedBy")
+  helpArticleFeedback HelpArticleFeedback[]
+  helpOnboardingProgresses UserOnboardingProgress[]
 
   @@index([organizationId])
   @@index([deletedAt])

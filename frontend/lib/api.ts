@@ -3064,20 +3064,34 @@ export const filesApi = {
 };
 
 export const helpApi = {
-  list: (params?: { category?: string; search?: string }) => apiRequest<any[]>('/api/help/articles', { params }),
+  home: () => apiRequest<any>('/api/help'),
+  categories: () => apiRequest<any[]>('/api/help/categories'),
+  list: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/help/articles', { params }),
   getBySlug: (slug: string) => apiRequest<any>(`/api/help/articles/${slug}`),
-  superadminList: () => apiRequest<any[]>('/api/superadmin/help/articles'),
-  superadminCreate: (data: {
-    title: string;
-    slug: string;
-    content: string;
-    targetRole: 'ALL' | 'SUPER_ADMIN' | 'ADMIN' | 'RESIDENT';
-    category: 'GETTING_STARTED' | 'PAYMENTS' | 'INVOICES' | 'RESIDENTS' | 'ISSUES' | 'SETTINGS' | 'OTHER';
-    isPublished?: boolean;
-  }) => apiRequest<any>('/api/superadmin/help/articles', { method: 'POST', body: data }),
+  feedback: (articleId: string, data: { helpful: boolean; comment?: string; route?: string }) =>
+    apiRequest<any>(`/api/help/articles/${articleId}/feedback`, { method: 'POST', body: data }),
+  adminHome: () => apiRequest<any>('/api/admin/help'),
+  adminContextual: (params?: { route?: string; module?: string }) => apiRequest<any>('/api/admin/help/contextual', { params }),
+  residentHome: () => apiRequest<any>('/api/resident/help'),
+  residentContextual: (params?: { route?: string; module?: string }) => apiRequest<any>('/api/resident/help/contextual', { params }),
+  onboardingGuide: () => apiRequest<any>('/api/admin/onboarding-guide'),
+  updateOnboardingProgress: (data: { guideKey: string; completedSteps?: string[]; skippedSteps?: string[] }) =>
+    apiRequest<any>('/api/admin/onboarding-guide/progress', { method: 'PATCH', body: data }),
+  superadminList: (params?: Record<string, string | undefined>) => apiRequest<any[]>('/api/superadmin/help/articles', { params }),
+  superadminGet: (id: string) => apiRequest<any>(`/api/superadmin/help/articles/${id}`),
+  superadminCreate: (data: Record<string, any>) => apiRequest<any>('/api/superadmin/help/articles', { method: 'POST', body: data }),
   superadminUpdate: (id: string, data: Partial<any>) =>
     apiRequest<any>(`/api/superadmin/help/articles/${id}`, { method: 'PATCH', body: data }),
+  superadminStatus: (id: string, status: string) =>
+    apiRequest<any>(`/api/superadmin/help/articles/${id}/status`, { method: 'PATCH', body: { status } }),
+  superadminDuplicate: (id: string) => apiRequest<any>(`/api/superadmin/help/articles/${id}/duplicate`, { method: 'POST' }),
   superadminDelete: (id: string) => apiRequest<any>(`/api/superadmin/help/articles/${id}`, { method: 'DELETE' }),
+  superadminCategories: () => apiRequest<any[]>('/api/superadmin/help/categories'),
+  superadminCreateCategory: (data: Record<string, any>) => apiRequest<any>('/api/superadmin/help/categories', { method: 'POST', body: data }),
+  superadminUpdateCategory: (id: string, data: Record<string, any>) =>
+    apiRequest<any>(`/api/superadmin/help/categories/${id}`, { method: 'PATCH', body: data }),
+  superadminFeedback: () => apiRequest<any[]>('/api/superadmin/help/feedback'),
+  superadminStats: () => apiRequest<any>('/api/superadmin/help/stats'),
 };
 
 export const condoApi = {

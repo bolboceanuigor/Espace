@@ -508,6 +508,12 @@ export default function SuperadminPage() {
                 description="Configurează opțiunile globale"
                 href={localizedPath('/superadmin/settings')}
               />
+              <QuickActionCard
+                icon={Sparkles}
+                title="Help & Docs"
+                description="Articole publicate, drafturi și feedback de la utilizatori"
+                href={localizedPath('/superadmin/help')}
+              />
             </div>
           </section>
 

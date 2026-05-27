@@ -629,6 +629,26 @@ export default function AdminPage() {
 
       <SetupChecklistCard setup={setup} setupError={setupError} localizedPath={localizedPath} />
 
+      <Card className="p-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
+              <ListChecks className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold text-foreground">Ghid de configurare</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Parcurge ghidul pas-cu-pas pentru apartamente, locatari, tarife, facturi si invitatii portal.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <ButtonLink href="/admin/onboarding-guide" variant="primary">Continua ghidul</ButtonLink>
+            <ButtonLink href="/admin/help" variant="secondary">Ajutor</ButtonLink>
+          </div>
+        </div>
+      </Card>
+
       <Card>
         <div className="flex flex-col gap-1">
           <p className="text-sm font-semibold text-foreground">Financiar</p>

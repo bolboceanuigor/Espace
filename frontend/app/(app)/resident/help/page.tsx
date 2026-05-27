@@ -1,5 +1,5 @@
 import { HelpHomePage } from '@/components/help/HelpCenterPages';
 
 export default function Page() {
-  return <HelpHomePage mode="public" />;
+  return <HelpHomePage mode="resident" />;
 }
