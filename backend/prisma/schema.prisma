@@ -935,6 +935,31 @@ enum DemoRequestStatus {
   NO_SHOW
 }
 
+enum CustomerOnboardingRequestStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  IN_ONBOARDING
+  CONVERTED
+  CLOSED
+  SPAM
+}
+
+enum CustomerOnboardingRequestPriority {
+  LOW
+  NORMAL
+  HIGH
+}
+
+enum CustomerOnboardingRequestSource {
+  PUBLIC_WEBSITE
+  CONTACT_PAGE
+  ACCESS_REQUEST
+  REFERRAL
+  MANUAL
+  OTHER
+}
+
 enum ClientNoteType {
   CALL
   MEETING
@@ -1283,6 +1308,7 @@ model Organization {
   featureRequests    FeatureRequest[]
   clientNotes        ClientNote[]
   leads              Lead[]
+  customerOnboardingRequests CustomerOnboardingRequest[] @relation("CustomerOnboardingRequestConvertedAssociation")
   chatMessages       AssociationChatMessage[]
   invitations        Invitation[]
   condoBuildings     CondoBuilding[]
@@ -1578,6 +1604,47 @@ model DemoRequest {
   @@index([leadId, createdAt])
   @@index([email, createdAt])
   @@map("demo_requests")
+}
+
+model CustomerOnboardingRequest {
+  id                      String                            @id @default(uuid())
+  fullName                String
+  phone                   String
+  email                   String?
+  associationName         String
+  associationCode         String?
+  address                 String?
+  apartmentsCount         Int?
+  role                    String?
+  currentManagementMethod String?
+  interestedModules       Json?
+  preferredContactMethod  String?
+  message                 String?
+  source                  CustomerOnboardingRequestSource   @default(PUBLIC_WEBSITE)
+  status                  CustomerOnboardingRequestStatus   @default(NEW)
+  priority                CustomerOnboardingRequestPriority @default(NORMAL)
+  assignedToId            String?
+  contactedAt             DateTime?
+  qualifiedAt             DateTime?
+  convertedAssociationId  String?
+  closedAt                DateTime?
+  closeReason             String?
+  internalNotes           String?
+  metadata                Json?
+  createdAt               DateTime                          @default(now())
+  updatedAt               DateTime                          @updatedAt
+
+  assignedTo           User?         @relation("CustomerOnboardingRequestAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  convertedAssociation Organization? @relation("CustomerOnboardingRequestConvertedAssociation", fields: [convertedAssociationId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([priority, createdAt])
+  @@index([source, createdAt])
+  @@index([phone, createdAt])
+  @@index([email, createdAt])
+  @@index([assignedToId, status])
+  @@index([convertedAssociationId])
+  @@map("customer_onboarding_requests")
 }
 
 model ClientNote {
@@ -2367,6 +2434,7 @@ model User {
   helpCategoriesUpdated HelpDocCategory[] @relation("HelpCategoryUpdatedBy")
   helpArticleFeedback HelpArticleFeedback[]
   helpOnboardingProgresses UserOnboardingProgress[]
+  assignedCustomerOnboardingRequests CustomerOnboardingRequest[] @relation("CustomerOnboardingRequestAssignedTo")
 
   @@index([organizationId])
   @@index([deletedAt])

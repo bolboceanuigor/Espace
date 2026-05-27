@@ -361,16 +361,16 @@
       "features": "Functionalitati",
       "pricing": "Preturi",
       "contact": "Contact",
-      "requestDemo": "Cere demo",
-      "tryDemo": "Incearca demo",
+      "requestDemo": "Cere acces",
+      "tryDemo": "Incepe cu Espace",
       "footerText": "Espace - platforma SaaS pentru A.P.C. din Republica Moldova.",
       "footerSupport": "Suport: contact@espace.md"
     },
     "hero": {
       "title": "Administrarea blocului, simplificata.",
       "subtitle": "Plati, datorii, sesizari, anunturi si rapoarte intr-o singura platforma.",
-      "ctaDemo": "Cere demo",
-      "ctaTryDemo": "Incearca demo",
+      "ctaDemo": "Cere acces",
+      "ctaTryDemo": "Incepe cu Espace",
       "ctaFeatures": "Vezi functionalitati"
     },
     "problem": {
@@ -401,15 +401,15 @@
     "pricing": {
       "title": "Preturi flexibile pentru fiecare asociatie",
       "items": {
-        "trial": "Trial 30 zile, fara cost initial.",
+        "trial": "Activare asistata, fara checkout online.",
         "custom": "Pret custom in functie de dimensiunea asociatiei.",
         "models": "Modele de tarifare: per apartament / per m2 / tarif fix."
       },
       "cta": "Vezi detalii de pret"
     },
     "contact": {
-      "title": "Solicita demo pentru asociatia ta",
-      "subtitle": "Spune-ne cateva detalii, iar echipa noastra te contacteaza cu o prezentare adaptata."
+      "title": "Cere acces pentru asociatia ta",
+      "subtitle": "Spune-ne cateva detalii, iar echipa noastra te contacteaza pentru pasii de activare."
     },
     "form": {
       "name": "Nume complet",
@@ -429,11 +429,11 @@
       "title": "Preturi pentru asociatii de proprietari",
       "subtitle": "Oferim pachete flexibile, adaptate dimensiunii asociatiei, cu onboarding asistat si suport local.",
       "cards": {
-        "trial": { "label": "Trial", "value": "30 zile", "text": "Testezi platforma complet, fara risc." },
+        "trial": { "label": "Onboarding", "value": "30 zile", "text": "Discutam pasii de activare si configurare asistata." },
         "custom": { "label": "Custom", "value": "Per asociatie", "text": "Calculat in functie de numar de apartamente si nevoi." },
         "models": { "label": "Modele tarifare", "value": "3 optiuni", "text": "Per apartament / per m2 / tarif fix." }
       },
-      "cta": "Cere demo personalizat"
+      "cta": "Cere acces personalizat"
     },
     "featuresPage": {
       "title": "Functionalitati complete pentru administrare moderna",
@@ -458,8 +458,8 @@
       "formTitle": "Lasa-ne un mesaj"
     },
     "demoPage": {
-      "title": "Cere demo",
-      "subtitle": "Completeaza formularul si iti prezentam platforma in functie de specificul asociatiei tale."
+      "title": "Cere acces",
+      "subtitle": "Completeaza formularul si discutam pasii de activare pentru asociatia ta."
     }
   },
   "help": {

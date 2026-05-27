@@ -15,6 +15,7 @@ import {
   ExternalLink,
   Home,
   LayoutGrid,
+  Phone,
   Plus, 
   Settings, 
   ShieldCheck, 
@@ -513,6 +514,12 @@ export default function SuperadminPage() {
                 title="Help & Docs"
                 description="Articole publicate, drafturi și feedback de la utilizatori"
                 href={localizedPath('/superadmin/help')}
+              />
+              <QuickActionCard
+                icon={Phone}
+                title="Cereri clienți"
+                description="Cererile de acces și contact primite prin website"
+                href={localizedPath('/superadmin/customer-requests')}
               />
             </div>
           </section>

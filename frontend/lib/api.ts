@@ -798,6 +798,39 @@ export const demoRequestsApi = {
     apiRequest<any>(`/api/superadmin/demo-requests/${id}/cancel`, { method: 'POST', body: data || {} }),
 };
 
+export const customerRequestsApi = {
+  createPublic: (data: {
+    fullName: string;
+    phone: string;
+    email?: string;
+    associationName: string;
+    associationCode?: string;
+    address?: string;
+    apartmentsCount?: number;
+    role?: string;
+    currentManagementMethod?: string;
+    interestedModules?: string[];
+    preferredContactMethod?: string;
+    message?: string;
+    source?: 'PUBLIC_WEBSITE' | 'CONTACT_PAGE' | 'ACCESS_REQUEST' | 'REFERRAL' | 'MANUAL' | 'OTHER';
+    consent: boolean;
+    website?: string;
+  }) => apiRequest<any>('/api/public/customer-requests', { method: 'POST', body: data }),
+  superadminList: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/customer-requests', { params }),
+  superadminStats: () => apiRequest<any>('/api/superadmin/customer-requests/stats'),
+  superadminGet: (id: string) => apiRequest<any>(`/api/superadmin/customer-requests/${id}`),
+  superadminStatus: (id: string, data: { status: string; closeReason?: string }) =>
+    apiRequest<any>(`/api/superadmin/customer-requests/${id}/status`, { method: 'PATCH', body: data }),
+  superadminPriority: (id: string, priority: string) =>
+    apiRequest<any>(`/api/superadmin/customer-requests/${id}/priority`, { method: 'PATCH', body: { priority } }),
+  superadminNote: (id: string, note: string) =>
+    apiRequest<any>(`/api/superadmin/customer-requests/${id}/notes`, { method: 'POST', body: { note } }),
+  superadminAssign: (id: string, assignedToId?: string) =>
+    apiRequest<any>(`/api/superadmin/customer-requests/${id}/assign`, { method: 'PATCH', body: { assignedToId } }),
+  superadminConvert: (id: string) =>
+    apiRequest<any>(`/api/superadmin/customer-requests/${id}/convert-to-association`, { method: 'PATCH' }),
+};
+
 export const invitationsApi = {
   createAdmin: (
     organizationId: string,

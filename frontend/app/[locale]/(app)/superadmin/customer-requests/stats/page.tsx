@@ -1,0 +1,1 @@
+export { default } from '@/app/(app)/superadmin/customer-requests/stats/page';

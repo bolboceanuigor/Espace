@@ -19,6 +19,7 @@ import { DocumentRenderModule } from './document-render/document-render.module';
 import { OnlinePaymentsModule } from './online-payments/online-payments.module';
 import { SystemMonitoringModule } from './system-monitoring/system-monitoring.module';
 import { HelpModule } from './help/help.module';
+import { CustomerRequestsModule } from './customer-requests/customer-requests.module';
 import { SetupModule } from './setup/setup.module';
 import { MessagesMvpModule } from './messages-mvp/messages-mvp.module';
 import { ActivityMvpModule } from './activity-mvp/activity-mvp.module';
@@ -58,6 +59,7 @@ import { AppController } from './app.controller';
     OnlinePaymentsModule,
     SystemMonitoringModule,
     HelpModule,
+    CustomerRequestsModule,
     SetupModule,
     MessagesMvpModule,
     ActivityMvpModule,
