@@ -17,6 +17,7 @@ import {
   LayoutGrid,
   Phone,
   Plus, 
+  Rocket,
   Settings, 
   ShieldCheck, 
   Sparkles,
@@ -527,6 +528,12 @@ export default function SuperadminPage() {
                 title="Legal & Trust"
                 description="Documente legale, versiuni si cereri privacy/security"
                 href={localizedPath('/superadmin/legal')}
+              />
+              <QuickActionCard
+                icon={Rocket}
+                title="Go-Live Control Center"
+                description="Checklist lansare, servicii critice si costuri lunare"
+                href={localizedPath('/superadmin/launch')}
               />
             </div>
           </section>

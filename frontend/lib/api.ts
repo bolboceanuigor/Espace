@@ -3156,6 +3156,30 @@ export const legalApi = {
     apiRequest<any>(`/api/superadmin/legal/contact-requests/${id}/notes`, { method: 'POST', body: { note } }),
 };
 
+export const launchApi = {
+  overview: () => apiRequest<any>('/api/superadmin/launch'),
+  checklist: () => apiRequest<any>('/api/superadmin/launch/checklist'),
+  runChecklist: () => apiRequest<any>('/api/superadmin/launch/checklist/run', { method: 'POST' }),
+  updateChecklistItem: (id: string, data: Record<string, any>) =>
+    apiRequest<any>(`/api/superadmin/launch/checklist/${id}`, { method: 'PATCH', body: data }),
+  services: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/launch/services', { params }),
+  createService: (data: Record<string, any>) => apiRequest<any>('/api/superadmin/launch/services', { method: 'POST', body: data }),
+  getService: (id: string) => apiRequest<any>(`/api/superadmin/launch/services/${id}`),
+  updateService: (id: string, data: Record<string, any>) =>
+    apiRequest<any>(`/api/superadmin/launch/services/${id}`, { method: 'PATCH', body: data }),
+  recordPayment: (id: string, data: Record<string, any>) =>
+    apiRequest<any>(`/api/superadmin/launch/services/${id}/payment-events`, { method: 'POST', body: data }),
+  costs: () => apiRequest<any>('/api/superadmin/launch/costs'),
+  env: () => apiRequest<any>('/api/superadmin/launch/env'),
+  deployments: () => apiRequest<any>('/api/superadmin/launch/deployments'),
+  goLive: () => apiRequest<any>('/api/superadmin/launch/go-live'),
+  markReady: (data: { confirmed: boolean; notes?: string }) =>
+    apiRequest<any>('/api/superadmin/launch/go-live/mark-ready', { method: 'POST', body: data }),
+  markLive: (data: { confirmed: boolean; notes?: string }) =>
+    apiRequest<any>('/api/superadmin/launch/go-live/mark-live', { method: 'POST', body: data }),
+  events: () => apiRequest<any[]>('/api/superadmin/launch/events'),
+};
+
 export const condoApi = {
   getOwnerDashboard: () =>
     apiRequest<{

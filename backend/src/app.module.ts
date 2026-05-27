@@ -21,6 +21,7 @@ import { SystemMonitoringModule } from './system-monitoring/system-monitoring.mo
 import { HelpModule } from './help/help.module';
 import { CustomerRequestsModule } from './customer-requests/customer-requests.module';
 import { LegalModule } from './legal/legal.module';
+import { LaunchControlModule } from './launch-control/launch-control.module';
 import { SetupModule } from './setup/setup.module';
 import { MessagesMvpModule } from './messages-mvp/messages-mvp.module';
 import { ActivityMvpModule } from './activity-mvp/activity-mvp.module';
@@ -62,6 +63,7 @@ import { AppController } from './app.controller';
     HelpModule,
     CustomerRequestsModule,
     LegalModule,
+    LaunchControlModule,
     SetupModule,
     MessagesMvpModule,
     ActivityMvpModule,
