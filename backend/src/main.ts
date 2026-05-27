@@ -5,6 +5,8 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import helmet from 'helmet';
 import { ResponseEnvelopeInterceptor } from './common/interceptors/response-envelope.interceptor';
 import { assertProductionCorsIsSafe, corsOriginCallback } from './common/cors/origin';
+import { randomUUID } from 'crypto';
+import { SystemMonitoringService } from './system-monitoring/system-monitoring.service';
 
 async function bootstrap() {
   if (!process.env.DATABASE_URL) {
@@ -24,6 +26,13 @@ async function bootstrap() {
     expressApp.set('trust proxy', 1);
   }
   app.use(helmet());
+  app.use((req, res, next) => {
+    const incoming = req.headers['x-request-id'];
+    const requestId = typeof incoming === 'string' && incoming.trim() ? incoming.trim().slice(0, 120) : randomUUID();
+    (req as any).requestId = requestId;
+    res.setHeader('X-Request-Id', requestId);
+    next();
+  });
   const logHttp =
     (process.env.LOG_HTTP ?? (process.env.NODE_ENV === 'production' ? 'false' : 'true')).toLowerCase() ===
     'true';
@@ -36,6 +45,7 @@ async function bootstrap() {
           JSON.stringify({
             level: 'info',
             type: 'http',
+            requestId: (req as any).requestId,
             method: req.method,
             path: req.originalUrl,
             status: res.statusCode,
@@ -71,7 +81,7 @@ async function bootstrap() {
   );
 
   app.useGlobalInterceptors(new ResponseEnvelopeInterceptor());
-  app.useGlobalFilters(new HttpExceptionFilter());
+  app.useGlobalFilters(new HttpExceptionFilter(app.get(SystemMonitoringService)));
 
   assertProductionCorsIsSafe();
 
@@ -79,7 +89,7 @@ async function bootstrap() {
     origin: corsOriginCallback,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-org-id', 'x-association-id'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-org-id', 'x-association-id', 'x-request-id'],
   });
 
   const port = Number(process.env.PORT || 4000);

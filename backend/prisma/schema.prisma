@@ -988,8 +988,14 @@ enum PreferredLanguage {
 enum SystemErrorSource {
   BACKEND
   FRONTEND
+  DATABASE
+  PRISMA
+  AUTH
+  PAYMENTS
+  NOTIFICATIONS
   JOB
   WEBHOOK
+  SYSTEM
   PAYMENT_PROVIDER
 }
 
@@ -998,6 +1004,43 @@ enum SystemErrorLevel {
   WARNING
   ERROR
   CRITICAL
+}
+
+enum SystemHealthStatus {
+  OPERATIONAL
+  DEGRADED
+  DOWN
+  UNKNOWN
+}
+
+enum SystemServiceKey {
+  BACKEND_API
+  FRONTEND_APP
+  DATABASE
+  PRISMA
+  AUTH
+  NOTIFICATIONS
+  PAYMENTS
+  FILE_STORAGE
+  JOBS
+  EXTERNAL_PROVIDERS
+}
+
+enum DeploymentProvider {
+  VERCEL
+  RENDER
+  GITHUB
+  MANUAL
+  UNKNOWN
+}
+
+enum DeploymentStatus {
+  QUEUED
+  BUILDING
+  READY
+  FAILED
+  CANCELLED
+  UNKNOWN
 }
 
 enum QACheckStatus {
@@ -1263,6 +1306,7 @@ model Organization {
   supportChatMessages ChatMessage[]
   pushSubscriptions  PushSubscription[]
   systemErrorLogs    SystemErrorLog[]
+  systemErrorEvents  SystemErrorEvent[]
   createdByAgent     User?       @relation("CreatedByAgent", fields: [createdByAgentId], references: [id], onDelete: SetNull)
   ownerAdmin        User?        @relation("OrganizationOwnerAdmin", fields: [ownerAdminId], references: [id], onDelete: SetNull)
 
@@ -2158,6 +2202,8 @@ model User {
   supportSessionsRevoked  SupportSession[] @relation("SupportSessionRevokedBy")
   pushSubscriptions       PushSubscription[]
   systemErrorLogs         SystemErrorLog[]
+  systemErrorEvents       SystemErrorEvent[]
+  resolvedSystemErrorEvents SystemErrorEvent[] @relation("SystemErrorEventResolvedBy")
   qaChecksTested          QACheck[]         @relation("QACheckTestedBy")
   betaReadinessChecks     BetaReadinessCheck[] @relation("BetaReadinessCheckedBy")
   betaLaunchConfigUpdates BetaLaunchConfig[] @relation("BetaLaunchUpdatedBy")
@@ -3087,6 +3133,78 @@ model SystemErrorLog {
   @@index([source, level, resolved])
   @@index([organizationId, createdAt])
   @@map("system_error_logs")
+}
+
+model SystemErrorEvent {
+  id              String           @id @default(uuid())
+  source          SystemErrorSource
+  severity        SystemErrorLevel
+  message         String
+  stack           String?
+  code            String?
+  route           String?
+  method          String?
+  statusCode      Int?
+  userId          String?
+  associationId   String?
+  requestId       String?
+  userAgent       String?
+  ipAddress       String?
+  metadata        Json?
+  fingerprint     String?
+  occurrenceCount Int              @default(1)
+  firstSeenAt     DateTime         @default(now())
+  lastSeenAt      DateTime         @default(now())
+  resolvedAt      DateTime?
+  resolvedById    String?
+  resolutionNote  String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  association Organization? @relation(fields: [associationId], references: [id], onDelete: SetNull)
+  user        User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  resolvedBy  User?         @relation("SystemErrorEventResolvedBy", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  @@index([source, severity, lastSeenAt])
+  @@index([associationId, lastSeenAt])
+  @@index([userId, lastSeenAt])
+  @@index([requestId])
+  @@index([fingerprint, resolvedAt])
+  @@index([resolvedAt, lastSeenAt])
+  @@map("system_error_events")
+}
+
+model SystemHealthSnapshot {
+  id        String             @id @default(uuid())
+  status    SystemHealthStatus
+  checkedAt DateTime           @default(now())
+  services  Json
+  summary   Json?
+  createdAt DateTime           @default(now())
+
+  @@index([status, checkedAt])
+  @@map("system_health_snapshots")
+}
+
+model DeploymentRecord {
+  id              String             @id @default(uuid())
+  provider        DeploymentProvider @default(UNKNOWN)
+  environment     String?
+  branch          String?
+  commitSha       String?
+  commitMessage   String?
+  status          DeploymentStatus   @default(UNKNOWN)
+  deployedAt      DateTime?
+  buildStartedAt  DateTime?
+  buildFinishedAt DateTime?
+  url             String?
+  metadata        Json?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@index([provider, environment, deployedAt])
+  @@index([status, deployedAt])
+  @@map("deployment_records")
 }
 
 model Expense {

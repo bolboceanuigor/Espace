@@ -1,6 +1,7 @@
 import { Controller, Get, NotFoundException } from '@nestjs/common';
 import { Public } from './auth/decorators/public.decorator';
 import { PrismaService } from './prisma/prisma.service';
+import { SystemMonitoringService } from './system-monitoring/system-monitoring.service';
 
 function getAppVersion() {
   return process.env.APP_VERSION || process.env.npm_package_version || '0.1.0-beta';
@@ -8,7 +9,10 @@ function getAppVersion() {
 
 @Controller()
 export class AppController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly monitoring: SystemMonitoringService,
+  ) {}
 
   @Public()
   @Get()
@@ -19,12 +23,7 @@ export class AppController {
   @Public()
   @Get('health')
   getHealth() {
-    return {
-      status: 'ok',
-      service: 'espace-api',
-      version: getAppVersion(),
-      environment: process.env.NODE_ENV || 'development',
-    };
+    return this.monitoring.getHealth();
   }
 
   @Public()
@@ -58,13 +57,19 @@ export class AppController {
   @Public()
   @Get('api/health')
   async getApiHealth() {
-    const time = new Date().toISOString();
-    try {
-      await this.prisma.$queryRaw`SELECT 1`;
-      return { ok: true, time };
-    } catch {
-      return { ok: false, time };
-    }
+    return this.monitoring.getHealth();
+  }
+
+  @Public()
+  @Get('api/health/liveness')
+  getApiLiveness() {
+    return this.monitoring.getLiveness();
+  }
+
+  @Public()
+  @Get('api/health/readiness')
+  getApiReadiness() {
+    return this.monitoring.getReadiness();
   }
 
   @Public()

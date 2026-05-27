@@ -396,6 +396,15 @@ function AppShellContent({ children }: AppShellProps) {
             {/* Right side */}
             <div className="flex items-center gap-2">
               {normalizedRole === 'SUPER_ADMIN' && <OrgSwitcher />}
+              {normalizedRole === 'SUPER_ADMIN' && (
+                <Link
+                  href={`/${locale}/superadmin/monitoring`}
+                  className="hidden min-h-9 items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-xs font-semibold text-emerald-700 sm:inline-flex"
+                >
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                  Monitoring
+                </Link>
+              )}
               
               {/* Demo badge */}
               {(activeUser?.isDemoUser || activeOrg?.isDemo) && (

@@ -12,6 +12,9 @@ export class ResponseEnvelopeInterceptor implements NestInterceptor {
         if (
           path === '/health' ||
           path === '/health/db' ||
+          path === '/api/health' ||
+          path === '/api/health/readiness' ||
+          path === '/api/health/liveness' ||
           path === '/auth/login' ||
           path === '/api/auth/login' ||
           path === '/auth/me' ||

@@ -8,7 +8,7 @@ import { useAuth } from '@/context/AuthContext';
 import { defaultLocale, isLocale } from '@/i18n';
 import { roleHomePath } from '@/lib/role-routing';
 
-export default function LocaleErrorPage() {
+export default function LocaleErrorPage({ error }: { error?: Error & { digest?: string } }) {
   const tCommon = useTranslations('common');
   const router = useRouter();
   const params = useParams<{ locale?: string }>();
@@ -23,6 +23,7 @@ export default function LocaleErrorPage() {
       <p className="text-sm text-muted-foreground">
         Pagina nu s-a încărcat corect. Poți încerca din nou sau poți reveni în aplicație.
       </p>
+      {error?.digest ? <p className="text-xs text-muted-foreground">Error ID: {error.digest}</p> : null}
       <div className="mt-2 flex flex-wrap justify-center gap-2">
         <Button size="sm" onClick={() => router.refresh()}>
           {tCommon('refresh')}

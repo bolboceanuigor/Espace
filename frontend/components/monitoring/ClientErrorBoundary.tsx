@@ -20,7 +20,8 @@ export default class ClientErrorBoundary extends React.Component<Props, State> {
       .reportClientError({
         message: error.message || 'Client rendering error',
         stack: error.stack || errorInfo.componentStack || '',
-        metadataJson: {
+        route: typeof window !== 'undefined' ? window.location.pathname : '',
+        metadata: {
           componentStack: errorInfo.componentStack || '',
           href: typeof window !== 'undefined' ? window.location.href : '',
         },
@@ -34,7 +35,8 @@ export default class ClientErrorBoundary extends React.Component<Props, State> {
         .reportClientError({
           message: event.message || 'Unhandled window error',
           stack: event.error?.stack || '',
-          metadataJson: {
+          route: window.location.pathname,
+          metadata: {
             filename: event.filename || '',
             lineno: event.lineno || 0,
             colno: event.colno || 0,
@@ -51,7 +53,8 @@ export default class ClientErrorBoundary extends React.Component<Props, State> {
         .reportClientError({
           message,
           stack,
-          metadataJson: { kind: 'unhandledrejection', href: window.location.href },
+          route: window.location.pathname,
+          metadata: { kind: 'unhandledrejection', href: window.location.href },
         })
         .catch(() => undefined);
     };

@@ -2186,8 +2186,8 @@ export const dataQualityDuplicatesApi = {
 };
 
 export const systemMonitoringApi = {
-  reportClientError: (data: { message: string; stack?: string; metadataJson?: Record<string, any> }) =>
-    apiRequest<any>('/api/system/errors/client', { method: 'POST', body: data }),
+  reportClientError: (data: { message: string; stack?: string; route?: string; code?: string; severity?: string; metadata?: Record<string, any>; metadataJson?: Record<string, any> }) =>
+    apiRequest<any>('/api/client-errors', { method: 'POST', body: data }),
   health: () =>
     apiRequest<{
       status?: string;
@@ -2248,6 +2248,19 @@ export const systemMonitoringApi = {
       appVersion: string;
       environment: string;
     }>('/api/superadmin/system/status'),
+  overview: () => apiRequest<any>('/api/superadmin/monitoring/overview'),
+  monitoringHealth: () => apiRequest<any>('/api/superadmin/monitoring/health'),
+  monitoringServices: () => apiRequest<any>('/api/superadmin/monitoring/services'),
+  errors: (params?: Record<string, string | number | boolean | undefined>) =>
+    apiRequest<any>('/api/superadmin/monitoring/errors', { params }),
+  error: (id: string) => apiRequest<any>(`/api/superadmin/monitoring/errors/${id}`),
+  resolveError: (id: string, resolutionNote?: string) =>
+    apiRequest<any>(`/api/superadmin/monitoring/errors/${id}/resolve`, { method: 'PATCH', body: { resolutionNote } }),
+  reopenError: (id: string) =>
+    apiRequest<any>(`/api/superadmin/monitoring/errors/${id}/reopen`, { method: 'PATCH' }),
+  deployments: () => apiRequest<any>('/api/superadmin/monitoring/deployments'),
+  currentDeployment: () => apiRequest<any>('/api/superadmin/monitoring/deployments/current'),
+  saveHealthSnapshot: () => apiRequest<any>('/api/superadmin/monitoring/health/snapshot', { method: 'POST' }),
 };
 
 export const billingSaasApi = {

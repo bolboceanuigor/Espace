@@ -7,10 +7,14 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { SystemErrorLevel, SystemErrorSource } from '@prisma/client';
+import { SystemMonitoringService, sanitizeErrorMetadata } from '../../system-monitoring/system-monitoring.service';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(HttpExceptionFilter.name);
+
+  constructor(private readonly monitoring?: SystemMonitoringService) {}
 
   private getErrorCode(status: number, message: string | string[]): string {
     if (status === HttpStatus.BAD_REQUEST) return 'VALIDATION_ERROR';
@@ -78,10 +82,39 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     const isProduction = process.env.NODE_ENV === 'production';
     if (status >= 500) {
+      const requestId = String((request as any).requestId || request.headers['x-request-id'] || '');
+      const user = (request as any).user || {};
+      const logPayload = {
+        level: 'error',
+        timestamp: new Date().toISOString(),
+        requestId,
+        method: request.method,
+        route: request.originalUrl || request.url,
+        userId: user.id || user.sub || null,
+        associationId: user.organizationId || request.headers['x-association-id'] || request.headers['x-org-id'] || null,
+        message: exception instanceof Error ? exception.message : String(exception),
+        code: explicitCode || this.getErrorCode(status, message),
+      };
       this.logger.error(
-        `${request.method} ${request.url} ${status}`,
+        JSON.stringify(logPayload),
         exception instanceof Error ? exception.stack : String(exception),
       );
+      this.monitoring?.recordErrorEvent({
+        source: exception instanceof Error && exception.name?.toLowerCase().includes('prisma') ? SystemErrorSource.PRISMA : SystemErrorSource.BACKEND,
+        severity: SystemErrorLevel.ERROR,
+        message: exception instanceof Error ? exception.message : String(message),
+        stack: exception instanceof Error ? exception.stack : null,
+        code: explicitCode || this.getErrorCode(status, message),
+        route: request.originalUrl || request.url,
+        method: request.method,
+        statusCode: status,
+        userId: user.id || user.sub || null,
+        associationId: user.organizationId || String(request.headers['x-association-id'] || request.headers['x-org-id'] || '') || null,
+        requestId,
+        userAgent: request.headers['user-agent'] || null,
+        ipAddress: request.ip,
+        metadata: sanitizeErrorMetadata({ params: request.params, query: request.query }),
+      }).catch(() => undefined);
       if (isProduction) {
         message = 'A apărut o eroare. Încearcă din nou.';
         details = null;
@@ -98,6 +131,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
         code: explicitCode || this.getErrorCode(status, message),
         message,
         details,
+        requestId: (request as any).requestId || request.headers['x-request-id'] || undefined,
       },
     });
   }
