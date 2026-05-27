@@ -18,6 +18,7 @@ import { authApi, billingSaasApi, notificationsApi, onboardingApi, subscriptionA
 import { normalizeRole, roleHomePath } from '@/lib/role-routing';
 import { isAdminHardBlocked } from '@/lib/subscription-access';
 import FeedbackModal from '@/components/feedback/FeedbackModal';
+import ResidentAppShell from '@/components/resident/ResidentAppShell';
 
 type AppShellProps = { children: React.ReactNode };
 
@@ -229,30 +230,7 @@ function AppShellContent({ children }: AppShellProps) {
 
   // Resident layout - simplified mobile-first
   if (['RESIDENT', 'TENANT'].includes(normalizedRole)) {
-    return (
-      <div className="min-h-screen bg-neutral-50">
-        <header className="sticky top-0 z-30 border-b border-neutral-200 bg-white">
-          <div className="mx-auto flex h-14 max-w-2xl items-center justify-between px-4">
-            <Link href={homeRoute} className="text-lg font-semibold text-neutral-900">
-              Espace
-            </Link>
-            <button
-              type="button"
-              onClick={() => setNotificationsOpen(!notificationsOpen)}
-              className="relative rounded-lg p-2 text-neutral-600 hover:bg-neutral-100"
-            >
-              <Bell className="size-5" />
-              {notificationsUnreadCount > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white">
-                  {notificationsUnreadCount}
-                </span>
-              )}
-            </button>
-          </div>
-        </header>
-        <main className="mx-auto max-w-2xl px-4 py-6">{children}</main>
-      </div>
-    );
+    return <ResidentAppShell unreadNotifications={notificationsUnreadCount}>{children}</ResidentAppShell>;
   }
 
   // Admin & SuperAdmin layout - Fresha-style with sidebar

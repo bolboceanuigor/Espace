@@ -1,35 +1,45 @@
+const CACHE_NAME = 'espace-resident-shell-v1';
+const OFFLINE_URL = '/offline.html';
+const STATIC_ASSETS = [
+  OFFLINE_URL,
+  '/favicon.svg',
+  '/icons/pwa-192.svg',
+  '/icons/pwa-512.svg',
+  '/icons/maskable-192.svg',
+  '/icons/maskable-512.svg',
+];
+
 self.addEventListener('install', (event) => {
-  event.waitUntil(self.skipWaiting());
+  event.waitUntil(
+    caches
+      .open(CACHE_NAME)
+      .then((cache) => cache.addAll(STATIC_ASSETS))
+      .then(() => self.skipWaiting()),
+  );
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches
+      .keys()
+      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))
+      .then(() => self.clients.claim()),
+  );
 });
 
-self.addEventListener('fetch', () => {
-  // Service worker placeholder for future offline strategies.
-});
+self.addEventListener('fetch', (event) => {
+  const request = event.request;
+  const url = new URL(request.url);
 
-self.addEventListener('push', (event) => {
-  let payload = {};
-  try {
-    payload = event.data ? event.data.json() : {};
-  } catch (_) {
-    payload = {};
+  if (request.method !== 'GET') return;
+  if (url.pathname.startsWith('/api/')) return;
+
+  if (request.mode === 'navigate') {
+    event.respondWith(fetch(request).catch(() => caches.match(OFFLINE_URL)));
+    return;
   }
-  const title = payload.title || 'Notificare noua';
-  const options = {
-    body: payload.message || 'Ai o notificare noua in aplicatie.',
-    icon: '/icons/pwa-192.svg',
-    badge: '/icons/pwa-192.svg',
-    data: { link: payload.link || '/' },
-  };
-  event.waitUntil(self.registration.showNotification(title, options));
-});
 
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
-  const link = event.notification?.data?.link || '/';
-  event.waitUntil(self.clients.openWindow(link));
+  if (STATIC_ASSETS.includes(url.pathname)) {
+    event.respondWith(caches.match(request).then((cached) => cached || fetch(request)));
+  }
 });
-
