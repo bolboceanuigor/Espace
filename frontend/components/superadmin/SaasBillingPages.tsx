@@ -197,6 +197,7 @@ export function SaasBillingOverviewPage() {
           <>
             <ButtonLink href={localizedPath('/superadmin/billing/plans/new')}><Plus className="h-4 w-4" /> Creează plan</ButtonLink>
             <ButtonLink href={localizedPath('/superadmin/billing/subscriptions')} variant="secondary">Vezi abonamente</ButtonLink>
+            <ButtonLink href={localizedPath('/superadmin/billing/upgrade-requests')} variant="secondary">Cereri upgrade</ButtonLink>
           </>
         }
       />
@@ -214,6 +215,16 @@ export function SaasBillingOverviewPage() {
             <Kpi label="Venit lunar estimat" value={money(summary.estimatedMonthlyRevenue, summary.currency)} />
             <Kpi label="Venit anual estimat" value={money(summary.estimatedYearlyRevenue, summary.currency)} />
           </div>
+
+          <Card>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="font-semibold text-slate-950">Cereri upgrade</h2>
+                <p className="mt-1 text-sm text-slate-500">Procesează cererile de schimbare plan trimise de asociații.</p>
+              </div>
+              <ButtonLink href={localizedPath('/superadmin/billing/upgrade-requests')} variant="secondary">Deschide cererile</ButtonLink>
+            </div>
+          </Card>
 
           <div className="grid gap-5 xl:grid-cols-[1fr_1fr]">
             <Card>

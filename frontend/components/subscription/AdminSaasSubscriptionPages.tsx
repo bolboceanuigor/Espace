@@ -127,7 +127,8 @@ export function AdminSaasSubscriptionPage() {
           </div>
           <div className="mt-5 flex flex-wrap gap-2">
             <Link href={localizedPath('/admin/subscription/limits')} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-border/70 px-4 text-sm font-semibold hover:bg-muted/60">Vezi limite</Link>
-            <span className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground">Contactează Superadmin pentru upgrade <ExternalLink className="h-4 w-4" /></span>
+            <Link href={localizedPath('/admin/subscription/upgrade')} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground">Cere upgrade <ExternalLink className="h-4 w-4" /></Link>
+            <Link href={localizedPath('/admin/subscription/upgrade-requests')} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-border/70 px-4 text-sm font-semibold hover:bg-muted/60">Cererile mele</Link>
           </div>
         </Card>
         <Card>
@@ -148,19 +149,33 @@ export function AdminSaasSubscriptionPage() {
           ))}
         </div>
       </Card>
+      <Card>
+        <h2 className="font-semibold text-foreground">Ai nevoie de mai multe resurse?</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Trimite o cerere către Superadmin pentru modificarea planului asociației.</p>
+        <Link href={localizedPath('/admin/subscription/upgrade')} className="mt-4 inline-flex min-h-10 items-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground">Cere upgrade</Link>
+      </Card>
     </div>
   );
 }
 
 export function AdminSaasUsagePage() {
+  const localizedPath = useLocalizedPath();
   const { data, loading } = useSubscriptionData(() => billingSaasApi.getAdminSubscriptionUsage());
   const limits = data?.limits || [];
+  const hasRisk = limits.some((item: any) => item.status === 'NEAR_LIMIT' || item.status === 'OVER_LIMIT');
   if (loading) return <Loading />;
   return (
     <div className="space-y-5">
       <Header title="Utilizare abonament" subtitle="Vezi utilizarea detaliată a planului pentru luna curentă." />
+      {hasRisk ? (
+        <Card>
+          <p className="font-semibold text-amber-700">Te apropii de limita planului.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Poți cere upgrade pentru resurse suplimentare.</p>
+          <Link href={localizedPath('/admin/subscription/upgrade')} className="mt-4 inline-flex min-h-10 items-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground">Cere upgrade</Link>
+        </Card>
+      ) : null}
       {!limits.length ? <Card><p className="font-semibold text-foreground">Nu există date de utilizare</p><p className="mt-1 text-sm text-muted-foreground">Datele de utilizare vor apărea după adăugarea apartamentelor, locatarilor și activității în sistem.</p></Card> : null}
-      <div className="grid gap-4 lg:grid-cols-2">{limits.map((item: any) => <Progress key={item.limitKey} item={item} />)}</div>
+      <div className="grid gap-4 lg:grid-cols-2">{limits.map((item: any) => <div key={item.limitKey} className="space-y-2"><Progress item={item} />{item.status === 'NEAR_LIMIT' || item.status === 'OVER_LIMIT' ? <Link href={localizedPath(`/admin/subscription/upgrade?limit=${item.limitKey}`)} className="inline-flex min-h-9 items-center rounded-lg border border-border/70 px-3 text-sm font-semibold">Cere upgrade pentru această limită</Link> : null}</div>)}</div>
     </div>
   );
 }

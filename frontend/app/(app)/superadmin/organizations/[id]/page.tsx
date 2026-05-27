@@ -469,6 +469,9 @@ export default function SuperadminOrganizationDetailsPage() {
             <Link href={localizedPath(`/superadmin/organizations/${id}/subscription`)} className="rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted/60">
               Abonament
             </Link>
+            <Link href={localizedPath(`/superadmin/associations/${id}/upgrade-requests`)} className="rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted/60">
+              Cereri upgrade
+            </Link>
             <button type="button" onClick={() => setEditModalOpen(true)} className="rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted/60">
               Editează
             </button>
@@ -595,6 +598,7 @@ export default function SuperadminOrganizationDetailsPage() {
           <CrmTile title="Administrator / contacte" description={administrators.length ? `${administrators.length} contact(e)` : 'Administrator neatribuit'} status={administrators.length ? 'Activ' : 'Necesită acțiune'} />
           <CrmTile title="Onboarding" description={association.apartmentsCount > 0 ? 'Apartamente în evidență' : 'Urmează importul apartamentelor'} status={association.apartmentsCount > 0 ? 'În lucru' : 'Următorul pas'} />
           <CrmTile title="Plan / abonament" description="Gestionare manuală prin pagina de abonament." status="Activ" />
+          <CrmTile title="Upgrade requests" description="Istoricul cererilor este disponibil în pagina dedicată." status="Activ" />
           <CrmTile title="Activitate" description="Evenimentele platformei sunt disponibile în dashboard." status="Activ" />
           <CrmTile title="Note interne" description={notes.length ? `${notes.length} notă(e)` : 'Fără note încă'} status="Activ" />
           <CrmTile title="Sarcini / follow-up" description="Sarcinile sunt gestionate în board-ul Superadmin." status="Activ" />

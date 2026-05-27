@@ -2321,6 +2321,25 @@ export const billingSaasApi = {
   getAdminSubscriptionLimits: () => apiRequest<any>('/api/admin/subscription/limits'),
   getAdminSubscriptionFeatures: () => apiRequest<any>('/api/admin/subscription/features'),
   getAdminSubscriptionWarnings: () => apiRequest<any>('/api/admin/subscription/warnings'),
+  getAdminUpgradeOptions: () => apiRequest<any>('/api/admin/subscription/upgrade-options'),
+  createAdminUpgradeRequest: (data: Record<string, unknown>) =>
+    apiRequest<any>('/api/admin/subscription/upgrade-requests', { method: 'POST', body: data }),
+  listAdminUpgradeRequests: () => apiRequest<any>('/api/admin/subscription/upgrade-requests'),
+  getAdminUpgradeRequest: (id: string) => apiRequest<any>(`/api/admin/subscription/upgrade-requests/${id}`),
+  cancelAdminUpgradeRequest: (id: string, cancellationReason?: string) =>
+    apiRequest<any>(`/api/admin/subscription/upgrade-requests/${id}/cancel`, { method: 'PATCH', body: { cancellationReason } }),
+  listSuperadminUpgradeRequests: (params?: Record<string, string | number | boolean | undefined>) =>
+    apiRequest<any>('/api/superadmin/billing/upgrade-requests', { params }),
+  superadminUpgradeRequestStats: () => apiRequest<any>('/api/superadmin/billing/upgrade-requests/stats'),
+  getSuperadminUpgradeRequest: (id: string) => apiRequest<any>(`/api/superadmin/billing/upgrade-requests/${id}`),
+  markUpgradeRequestInReview: (id: string) =>
+    apiRequest<any>(`/api/superadmin/billing/upgrade-requests/${id}/in-review`, { method: 'PATCH' }),
+  approveUpgradeRequest: (id: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/superadmin/billing/upgrade-requests/${id}/approve`, { method: 'PATCH', body: data }),
+  rejectUpgradeRequest: (id: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/superadmin/billing/upgrade-requests/${id}/reject`, { method: 'PATCH', body: data }),
+  getAssociationUpgradeRequests: (organizationId: string) =>
+    apiRequest<any>(`/api/superadmin/associations/${organizationId}/upgrade-requests`),
   superadminUsageOverview: (params?: Record<string, string | number | boolean | undefined>) =>
     apiRequest<any>('/api/superadmin/billing/usage', { params }),
   superadminUsageAssociations: (params?: Record<string, string | number | boolean | undefined>) =>

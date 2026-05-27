@@ -192,6 +192,28 @@ enum SaasSubscriptionEventType {
   INTERNAL_NOTE_ADDED
 }
 
+enum SaasUpgradeRequestStatus {
+  PENDING
+  IN_REVIEW
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum SaasUpgradeRequestReason {
+  LIMIT_REACHED
+  NEAR_LIMIT
+  FEATURE_NEEDED
+  MORE_STAFF
+  MORE_APARTMENTS
+  MORE_METERS
+  MORE_INVOICES
+  ADVANCED_REPORTS
+  DATA_QUALITY
+  SUPPORT_ACCESS
+  OTHER
+}
+
 enum OrganizationInvoiceStatus {
   UNPAID
   PAID
@@ -988,6 +1010,7 @@ model Organization {
   subscription       Subscription?
   saasSubscriptions  SaasSubscription[]
   saasSubscriptionEvents SaasSubscriptionEvent[]
+  saasUpgradeRequests SaasUpgradeRequest[] @relation("SaasUpgradeRequestAssociation")
   usageMeters        UsageMeter[]
   invoices           Invoice[]
   auditLogs          AuditLog[]
@@ -1562,6 +1585,8 @@ model SaasPlan {
   createdBy     User?              @relation("SaasPlanCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy     User?              @relation("SaasPlanUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   subscriptions SaasSubscription[]
+  currentUpgradeRequests SaasUpgradeRequest[] @relation("SaasUpgradeRequestCurrentPlan")
+  requestedUpgradeRequests SaasUpgradeRequest[] @relation("SaasUpgradeRequestRequestedPlan")
 
   @@index([status])
   @@index([isPublic])
@@ -1605,12 +1630,56 @@ model SaasSubscription {
   suspendedBy User?        @relation("SaasSubscriptionSuspendedBy", fields: [suspendedById], references: [id], onDelete: SetNull)
   cancelledBy User?        @relation("SaasSubscriptionCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
   events      SaasSubscriptionEvent[]
+  upgradeRequests SaasUpgradeRequest[] @relation("SaasUpgradeRequestSubscription")
+  appliedUpgradeRequests SaasUpgradeRequest[] @relation("SaasUpgradeRequestAppliedSubscription")
 
   @@index([associationId, status])
   @@index([planId, status])
   @@index([status, createdAt])
   @@index([trialEndsAt])
   @@map("saas_subscriptions")
+}
+
+model SaasUpgradeRequest {
+  id                    String                   @id @default(uuid())
+  associationId         String
+  subscriptionId        String?
+  currentPlanId         String?
+  requestedPlanId       String?
+  status                SaasUpgradeRequestStatus @default(PENDING)
+  reason                SaasUpgradeRequestReason
+  message               String?
+  requestedById         String
+  reviewedById          String?
+  reviewedAt            DateTime?
+  adminResponse         String?
+  approvedAt            DateTime?
+  rejectedAt            DateTime?
+  cancelledAt           DateTime?
+  cancelledById         String?
+  cancellationReason    String?
+  appliedPlanChange     Boolean                  @default(false)
+  appliedSubscriptionId String?
+  metadata              Json?
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+
+  association         Organization      @relation("SaasUpgradeRequestAssociation", fields: [associationId], references: [id], onDelete: Cascade)
+  subscription        SaasSubscription? @relation("SaasUpgradeRequestSubscription", fields: [subscriptionId], references: [id], onDelete: SetNull)
+  currentPlan         SaasPlan?         @relation("SaasUpgradeRequestCurrentPlan", fields: [currentPlanId], references: [id], onDelete: SetNull)
+  requestedPlan       SaasPlan?         @relation("SaasUpgradeRequestRequestedPlan", fields: [requestedPlanId], references: [id], onDelete: SetNull)
+  requestedBy         User              @relation("SaasUpgradeRequestRequestedBy", fields: [requestedById], references: [id], onDelete: Restrict)
+  reviewedBy          User?             @relation("SaasUpgradeRequestReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+  cancelledBy         User?             @relation("SaasUpgradeRequestCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
+  appliedSubscription SaasSubscription? @relation("SaasUpgradeRequestAppliedSubscription", fields: [appliedSubscriptionId], references: [id], onDelete: SetNull)
+
+  @@index([associationId, status, createdAt])
+  @@index([subscriptionId])
+  @@index([currentPlanId])
+  @@index([requestedPlanId])
+  @@index([status, createdAt])
+  @@index([reason, createdAt])
+  @@map("saas_upgrade_requests")
 }
 
 model SaasSubscriptionEvent {
@@ -1785,6 +1854,9 @@ model User {
   saasSubscriptionsSuspended SaasSubscription[] @relation("SaasSubscriptionSuspendedBy")
   saasSubscriptionsCancelled SaasSubscription[] @relation("SaasSubscriptionCancelledBy")
   saasSubscriptionEvents  SaasSubscriptionEvent[] @relation("SaasSubscriptionEventActor")
+  saasUpgradeRequestsRequested SaasUpgradeRequest[] @relation("SaasUpgradeRequestRequestedBy")
+  saasUpgradeRequestsReviewed SaasUpgradeRequest[] @relation("SaasUpgradeRequestReviewedBy")
+  saasUpgradeRequestsCancelled SaasUpgradeRequest[] @relation("SaasUpgradeRequestCancelledBy")
 
   @@index([organizationId])
   @@index([deletedAt])

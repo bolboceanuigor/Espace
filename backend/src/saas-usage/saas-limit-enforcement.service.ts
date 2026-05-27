@@ -72,7 +72,11 @@ export class SaasLimitEnforcementService {
         statusCode: 403,
         code: 'SAAS_FEATURE_DISABLED',
         message: 'Această funcționalitate nu este disponibilă în planul curent.',
-        details: { featureKey, planName: subscription.plan.name },
+        details: {
+          featureKey,
+          planName: subscription.plan.name,
+          upgradeRequestUrl: `/ro/admin/subscription/upgrade?feature=${featureKey}`,
+        },
       });
     }
   }
@@ -116,6 +120,7 @@ export class SaasLimitEnforcementService {
         used: limit.used,
         limit: limit.limit,
         planName: data.subscription?.planName || null,
+        upgradeRequestUrl: `/ro/admin/subscription/upgrade?limit=${limitKey}`,
       },
     });
   }
