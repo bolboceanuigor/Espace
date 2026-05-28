@@ -3243,6 +3243,44 @@ export const dataRetentionApi = {
   adminSettings: () => apiRequest<any>('/api/admin/settings/data-retention'),
 };
 
+export const dataExportApi = {
+  superadminRequests: (params?: Record<string, any>) => apiRequest<any>('/api/superadmin/data-requests', { params }),
+  superadminRequestStats: () => apiRequest<any>('/api/superadmin/data-requests/stats'),
+  superadminRequest: (id: string) => apiRequest<any>(`/api/superadmin/data-requests/${id}`),
+  superadminUpdateRequestStatus: (id: string, data: Record<string, any>) =>
+    apiRequest<any>(`/api/superadmin/data-requests/${id}/status`, { method: 'PATCH', body: data }),
+  superadminCreateExportForRequest: (id: string) =>
+    apiRequest<any>(`/api/superadmin/data-requests/${id}/create-export`, { method: 'POST' }),
+  superadminExports: (params?: Record<string, any>) => apiRequest<any>('/api/superadmin/data-exports', { params }),
+  superadminExport: (id: string) => apiRequest<any>(`/api/superadmin/data-exports/${id}`),
+  superadminCreateExport: (data: Record<string, any>) => apiRequest<any>('/api/superadmin/data-exports', { method: 'POST', body: data }),
+  superadminCancelExport: (id: string, data: Record<string, any>) =>
+    apiRequest<any>(`/api/superadmin/data-exports/${id}/cancel`, { method: 'PATCH', body: data }),
+
+  adminRequests: (params?: Record<string, any>) => apiRequest<any>('/api/admin/data-requests', { params }),
+  adminRequest: (id: string) => apiRequest<any>(`/api/admin/data-requests/${id}`),
+  adminCreateRequest: (data: Record<string, any>) => apiRequest<any>('/api/admin/data-requests', { method: 'POST', body: data }),
+  adminUpdateRequestStatus: (id: string, data: Record<string, any>) =>
+    apiRequest<any>(`/api/admin/data-requests/${id}/status`, { method: 'PATCH', body: data }),
+  adminCancelRequest: (id: string, data: Record<string, any>) =>
+    apiRequest<any>(`/api/admin/data-requests/${id}/cancel`, { method: 'PATCH', body: data }),
+  adminExports: (params?: Record<string, any>) => apiRequest<any>('/api/admin/data-exports', { params }),
+  adminExport: (id: string) => apiRequest<any>(`/api/admin/data-exports/${id}`),
+  adminCreateExport: (data: Record<string, any>) => apiRequest<any>('/api/admin/data-exports', { method: 'POST', body: data }),
+  adminCancelExport: (id: string, data: Record<string, any>) =>
+    apiRequest<any>(`/api/admin/data-exports/${id}/cancel`, { method: 'PATCH', body: data }),
+
+  residentRequests: (params?: Record<string, any>) => apiRequest<any>('/api/resident/data-requests', { params }),
+  residentRequest: (id: string) => apiRequest<any>(`/api/resident/data-requests/${id}`),
+  residentCreateRequest: (data: Record<string, any>) => apiRequest<any>('/api/resident/data-requests', { method: 'POST', body: data }),
+  residentCancelRequest: (id: string, data: Record<string, any>) =>
+    apiRequest<any>(`/api/resident/data-requests/${id}/cancel`, { method: 'PATCH', body: data }),
+  residentCreatePersonalExport: (id: string) =>
+    apiRequest<any>(`/api/resident/data-requests/${id}/create-personal-export`, { method: 'POST' }),
+  residentExports: () => apiRequest<any>('/api/resident/data-exports'),
+  residentExport: (id: string) => apiRequest<any>(`/api/resident/data-exports/${id}`),
+};
+
 export const condoApi = {
   getOwnerDashboard: () =>
     apiRequest<{

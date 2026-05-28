@@ -1269,6 +1269,77 @@ enum DataDeletionRequestStatus {
   CANCELLED
 }
 
+enum DataRequestType {
+  ACCESS
+  PORTABILITY
+  CORRECTION
+  EXPORT
+  ANONYMIZATION
+  DELETION
+  RESTRICTION
+  OTHER
+}
+
+enum DataRequestStatus {
+  NEW
+  IN_REVIEW
+  WAITING_FOR_INFO
+  APPROVED
+  REJECTED
+  COMPLETED
+  CANCELLED
+}
+
+enum DataRequestScope {
+  RESIDENT_PERSONAL_DATA
+  ASSOCIATION_DATA
+  APARTMENT_DATA
+  INVOICE_PAYMENT_DATA
+  METER_DATA
+  ACCOUNT_ACCESS_DATA
+  FULL_ASSOCIATION_EXPORT
+  FULL_RESIDENT_EXPORT
+  OTHER
+}
+
+enum DataExportType {
+  ASSOCIATION_FULL_EXPORT
+  ASSOCIATION_FINANCIAL_EXPORT
+  ASSOCIATION_RESIDENTS_EXPORT
+  ASSOCIATION_APARTMENTS_EXPORT
+  ASSOCIATION_METERS_EXPORT
+  RESIDENT_PERSONAL_EXPORT
+  RESIDENT_FINANCIAL_EXPORT
+  RESIDENT_METER_EXPORT
+  AUDIT_EXPORT
+  CUSTOM_EXPORT
+}
+
+enum DataExportFormat {
+  CSV
+  JSON
+  ZIP
+}
+
+enum DataExportStatus {
+  REQUESTED
+  PROCESSING
+  READY
+  FAILED
+  EXPIRED
+  CANCELLED
+}
+
+enum DataExportEventType {
+  EXPORT_REQUESTED
+  EXPORT_STARTED
+  EXPORT_READY
+  EXPORT_FAILED
+  EXPORT_DOWNLOADED
+  EXPORT_CANCELLED
+  EXPORT_EXPIRED
+}
+
 enum ClientNoteType {
   CALL
   MEETING
@@ -1682,6 +1753,8 @@ model Organization {
   retentionEvents    RetentionEvent[]
   legalHolds         LegalHold[]
   dataDeletionRequests DataDeletionRequest[]
+  dataRequests DataRequest[]
+  dataExportJobs DataExportJob[]
   createdByAgent     User?       @relation("CreatedByAgent", fields: [createdByAgentId], references: [id], onDelete: SetNull)
   ownerAdmin        User?        @relation("OrganizationOwnerAdmin", fields: [ownerAdminId], references: [id], onDelete: SetNull)
 
@@ -2420,6 +2493,106 @@ model DataDeletionRequest {
   @@index([entityType, entityId])
   @@index([requestType, status])
   @@map("data_deletion_requests")
+}
+
+model DataRequest {
+  id                  String            @id @default(uuid())
+  associationId       String?
+  requesterUserId     String?
+  requesterResidentId String?
+  requesterEmail      String?
+  requesterPhone      String?
+  type                DataRequestType
+  scope               DataRequestScope
+  status              DataRequestStatus @default(NEW)
+  title               String
+  message             String
+  reason              String?
+  reviewedById        String?
+  reviewedAt          DateTime?
+  decisionNote        String?
+  completedById       String?
+  completedAt         DateTime?
+  cancelledById       String?
+  cancelledAt         DateTime?
+  cancellationReason  String?
+  relatedExportId     String?
+  metadata            Json?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  association       Organization?    @relation(fields: [associationId], references: [id], onDelete: SetNull)
+  requesterUser     User?            @relation("DataRequestRequesterUser", fields: [requesterUserId], references: [id], onDelete: SetNull)
+  requesterResident ResidentProfile? @relation("DataRequestRequesterResident", fields: [requesterResidentId], references: [id], onDelete: SetNull)
+  reviewedBy        User?            @relation("DataRequestReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+  completedBy       User?            @relation("DataRequestCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+  cancelledBy       User?            @relation("DataRequestCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
+  relatedExport     DataExportJob?   @relation("DataRequestRelatedExport", fields: [relatedExportId], references: [id], onDelete: SetNull)
+  exportJobs        DataExportJob[]  @relation("DataRequestExportJobs")
+
+  @@index([associationId, status, createdAt])
+  @@index([requesterUserId, createdAt])
+  @@index([requesterResidentId, createdAt])
+  @@index([type, scope, status])
+  @@map("data_requests")
+}
+
+model DataExportJob {
+  id               String              @id @default(uuid())
+  associationId    String?
+  requestedById    String?
+  residentId       String?
+  dataRequestId    String?
+  exportType       DataExportType
+  format           DataExportFormat
+  status           DataExportStatus    @default(REQUESTED)
+  fileName         String
+  fileSize         Int?
+  storagePath      String?
+  downloadUrl      String?
+  expiresAt        DateTime?
+  filters          Json?
+  includedEntities Json?
+  rowCounts        Json?
+  errorMessage     String?
+  startedAt        DateTime?
+  completedAt      DateTime?
+  cancelledAt      DateTime?
+  metadata         Json?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  association Organization?    @relation(fields: [associationId], references: [id], onDelete: SetNull)
+  requestedBy User?            @relation("DataExportJobRequestedBy", fields: [requestedById], references: [id], onDelete: SetNull)
+  resident    ResidentProfile? @relation("DataExportJobResident", fields: [residentId], references: [id], onDelete: SetNull)
+  dataRequest DataRequest?     @relation("DataRequestExportJobs", fields: [dataRequestId], references: [id], onDelete: SetNull)
+  relatedDataRequests DataRequest[] @relation("DataRequestRelatedExport")
+  events      DataExportEvent[]
+
+  @@index([associationId, status, createdAt])
+  @@index([requestedById, createdAt])
+  @@index([residentId, createdAt])
+  @@index([dataRequestId])
+  @@index([exportType, format, status])
+  @@map("data_export_jobs")
+}
+
+model DataExportEvent {
+  id           String              @id @default(uuid())
+  exportJobId  String
+  actorUserId  String?
+  eventType    DataExportEventType
+  title        String
+  message      String
+  metadata     Json?
+  createdAt    DateTime            @default(now())
+
+  exportJob DataExportJob @relation(fields: [exportJobId], references: [id], onDelete: Cascade)
+  actor     User?         @relation("DataExportEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([exportJobId, createdAt])
+  @@index([eventType, createdAt])
+  @@map("data_export_events")
 }
 
 model ClientNote {
@@ -3239,6 +3412,12 @@ model User {
   dataDeletionRequestsRequested DataDeletionRequest[] @relation("DataDeletionRequestRequestedBy")
   dataDeletionRequestsTargetUser DataDeletionRequest[] @relation("DataDeletionRequestTargetUser")
   dataDeletionRequestsReviewed DataDeletionRequest[] @relation("DataDeletionRequestReviewedBy")
+  dataRequestsRequested DataRequest[] @relation("DataRequestRequesterUser")
+  dataRequestsReviewed DataRequest[] @relation("DataRequestReviewedBy")
+  dataRequestsCompleted DataRequest[] @relation("DataRequestCompletedBy")
+  dataRequestsCancelled DataRequest[] @relation("DataRequestCancelledBy")
+  dataExportJobsRequested DataExportJob[] @relation("DataExportJobRequestedBy")
+  dataExportEvents DataExportEvent[] @relation("DataExportEventActor")
   apartmentsArchived Apartment[] @relation("ApartmentArchivedBy")
   apartmentsRestored Apartment[] @relation("ApartmentRestoredBy")
   residentsArchived ResidentProfile[] @relation("ResidentArchivedBy")
@@ -3685,6 +3864,8 @@ model ResidentProfile {
   issues       Issue[]
   messageThreads MessageThread[]
   dataDeletionRequestsTarget DataDeletionRequest[] @relation("DataDeletionRequestTargetResident")
+  dataRequestsRequested DataRequest[] @relation("DataRequestRequesterResident")
+  dataExportJobs DataExportJob[] @relation("DataExportJobResident")
 
   @@index([organizationId])
   @@index([userId])

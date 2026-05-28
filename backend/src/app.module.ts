@@ -24,6 +24,7 @@ import { LegalModule } from './legal/legal.module';
 import { LaunchControlModule } from './launch-control/launch-control.module';
 import { BackupRecoveryModule } from './backup-recovery/backup-recovery.module';
 import { DataRetentionModule } from './data-retention/data-retention.module';
+import { DataExportModule } from './data-export/data-export.module';
 import { SetupModule } from './setup/setup.module';
 import { MessagesMvpModule } from './messages-mvp/messages-mvp.module';
 import { ActivityMvpModule } from './activity-mvp/activity-mvp.module';
@@ -68,6 +69,7 @@ import { AppController } from './app.controller';
     LaunchControlModule,
     BackupRecoveryModule,
     DataRetentionModule,
+    DataExportModule,
     SetupModule,
     MessagesMvpModule,
     ActivityMvpModule,
