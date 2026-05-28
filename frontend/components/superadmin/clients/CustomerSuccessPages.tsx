@@ -59,6 +59,7 @@ function Header({ title, subtitle }: { title: string; subtitle: string }) {
           <Link href={path('/superadmin/customer-success/playbooks')} className="rounded-md border border-slate-200 px-3 py-2">Playbooks</Link>
           <Link href={path('/superadmin/customer-success/interventions')} className="rounded-md border border-slate-200 px-3 py-2">Interventii</Link>
           <Link href={path('/superadmin/customer-success/recommendations')} className="rounded-md border border-slate-200 px-3 py-2">Recomandari</Link>
+          <Link href={path('/superadmin/customer-success/reports')} className="rounded-md border border-slate-200 px-3 py-2">Reports</Link>
         </nav>
       </div>
     </header>
@@ -70,6 +71,7 @@ function Kpi({ icon, label, value }: { icon: React.ReactNode; label: string; val
 }
 
 export function CustomerSuccessDashboardPage() {
+  const path = useLocalizedPath();
   const [data, setData] = useState<any>(null);
   const load = useCallback(async () => setData((await superadminCustomerSuccessApi.dashboard()).data), []);
   useEffect(() => { load().catch(() => undefined); }, [load]);
@@ -93,6 +95,7 @@ export function CustomerSuccessDashboardPage() {
           {(data?.activeInterventions || []).map((item: any) => <InterventionCard key={item.id} item={item} />)}
         </Panel>
       </div>
+      <Link href={path('/superadmin/customer-success/reports')} className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-700">Customer Success Reports <ArrowRight className="h-4 w-4" /></Link>
     </Shell>
   );
 }

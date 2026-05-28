@@ -8,6 +8,7 @@ CREATE TYPE "CustomerSuccessReportExportStatus" AS ENUM ('REQUESTED', 'READY', '
 CREATE TABLE "customer_success_metric_snapshots" (
   "id" TEXT NOT NULL,
   "reportType" "CustomerSuccessReportType" NOT NULL,
+  "period" "CustomerSuccessReportPeriod" NOT NULL DEFAULT 'CUSTOM',
   "periodStart" TIMESTAMP(3) NOT NULL,
   "periodEnd" TIMESTAMP(3) NOT NULL,
   "granularity" "CustomerSuccessMetricGranularity" NOT NULL DEFAULT 'WEEKLY',

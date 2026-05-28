@@ -19,6 +19,7 @@ import {
   Home,
   Kanban,
   LayoutGrid,
+  LineChart,
   Phone,
   Plus, 
   Rocket,
@@ -556,6 +557,12 @@ export default function SuperadminPage() {
                 title="Customer Success"
                 description="Playbook-uri, interventii si workflow-uri ghidate pentru clienti"
                 href={localizedPath('/superadmin/customer-success')}
+              />
+              <QuickActionCard
+                icon={LineChart}
+                title="Customer Success Reports"
+                description="Portfolio analytics, health, revenue si playbook performance"
+                href={localizedPath('/superadmin/customer-success/reports')}
               />
               <QuickActionCard
                 icon={Scale}

@@ -3470,6 +3470,35 @@ export const superadminCustomerSuccessApi = {
   createRecommendationTask: (id: string) => apiRequest<any>(`/api/superadmin/customer-success/recommendations/${id}/create-task`, { method: 'POST' }),
 };
 
+export const superadminCustomerSuccessReportsApi = {
+  overview: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/customer-success/reports/overview', { params }),
+  portfolio: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/customer-success/reports/portfolio', { params }),
+  health: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/customer-success/reports/health', { params }),
+  healthTrends: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/customer-success/reports/health/trends', { params }),
+  onboarding: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/customer-success/reports/onboarding', { params }),
+  revenue: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/customer-success/reports/revenue', { params }),
+  saasInvoices: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/customer-success/reports/saas-invoices', { params }),
+  followUps: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/customer-success/reports/follow-ups', { params }),
+  tasks: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/customer-success/reports/tasks', { params }),
+  playbooks: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/customer-success/reports/playbooks', { params }),
+  usage: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/customer-success/reports/usage', { params }),
+  churnRisk: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/customer-success/reports/churn-risk', { params }),
+  ownerPerformance: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/customer-success/reports/owner-performance', { params }),
+  saveSnapshot: (data: Record<string, unknown>) => apiRequest<any>('/api/superadmin/customer-success/reports/snapshots', { method: 'POST', body: data }),
+  snapshots: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/customer-success/reports/snapshots', { params }),
+  snapshot: (id: string) => apiRequest<any>(`/api/superadmin/customer-success/reports/snapshots/${id}`),
+  saved: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/customer-success/reports/saved', { params }),
+  createSaved: (data: Record<string, unknown>) => apiRequest<any>('/api/superadmin/customer-success/reports/saved', { method: 'POST', body: data }),
+  savedDetail: (id: string) => apiRequest<any>(`/api/superadmin/customer-success/reports/saved/${id}`),
+  updateSaved: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/customer-success/reports/saved/${id}`, { method: 'PATCH', body: data }),
+  archiveSaved: (id: string) => apiRequest<any>(`/api/superadmin/customer-success/reports/saved/${id}/archive`, { method: 'PATCH' }),
+  favoriteSaved: (id: string, isFavorite: boolean) => apiRequest<any>(`/api/superadmin/customer-success/reports/saved/${id}/favorite`, { method: 'PATCH', body: { isFavorite } }),
+  createExport: (data: Record<string, unknown>) => apiRequest<any>('/api/superadmin/customer-success/reports/export', { method: 'POST', body: data }),
+  exports: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/customer-success/reports/exports', { params }),
+  exportDetail: (id: string) => apiRequest<any>(`/api/superadmin/customer-success/reports/exports/${id}`),
+  exportDownloadUrl: (id: string) => `${requireApiUrl()}/api/superadmin/customer-success/reports/exports/${id}/download`,
+};
+
 export const condoApi = {
   getOwnerDashboard: () =>
     apiRequest<{

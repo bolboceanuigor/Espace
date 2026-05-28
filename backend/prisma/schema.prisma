@@ -3251,6 +3251,7 @@ model ClientInterventionEvent {
 model CustomerSuccessMetricSnapshot {
   id            String                           @id @default(uuid())
   reportType    CustomerSuccessReportType
+  period        CustomerSuccessReportPeriod      @default(CUSTOM)
   periodStart   DateTime
   periodEnd     DateTime
   granularity   CustomerSuccessMetricGranularity @default(WEEKLY)
