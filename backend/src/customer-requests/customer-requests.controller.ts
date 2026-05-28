@@ -11,9 +11,10 @@ import {
   CustomerRequestNoteDto,
   CustomerRequestPriorityDto,
   CustomerRequestStatusDto,
+  CustomerRequestUpdateDto,
 } from './dto/customer-request.dto';
 
-@Controller('api/public/customer-requests')
+@Controller(['api/public/customer-requests', 'api/public/access-requests', 'public/access-requests'])
 export class PublicCustomerRequestsController {
   constructor(private readonly service: CustomerRequestsService) {}
 
@@ -30,7 +31,7 @@ export class PublicCustomerRequestsController {
   }
 }
 
-@Controller('api/superadmin/customer-requests')
+@Controller(['api/superadmin/customer-requests', 'api/superadmin/access-requests', 'superadmin/access-requests'])
 @UseGuards(RolesGuard)
 @Roles(Role.SUPERADMIN)
 export class SuperadminCustomerRequestsController {
@@ -49,6 +50,11 @@ export class SuperadminCustomerRequestsController {
   @Get(':id')
   get(@Param('id') id: string) {
     return this.service.get(id);
+  }
+
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() dto: CustomerRequestUpdateDto) {
+    return this.service.update(id, dto);
   }
 
   @Patch(':id/status')

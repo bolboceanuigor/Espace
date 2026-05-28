@@ -16,13 +16,23 @@ import {
   CustomerOnboardingRequestPriority,
   CustomerOnboardingRequestSource,
   CustomerOnboardingRequestStatus,
+  CustomerOnboardingRequestType,
 } from '@prisma/client';
 
 export class CreateCustomerOnboardingRequestDto {
+  @IsOptional()
+  @IsEnum(CustomerOnboardingRequestType)
+  type?: CustomerOnboardingRequestType;
+
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(160)
-  fullName: string;
+  contactName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(160)
+  fullName?: string;
 
   @IsString()
   @IsNotEmpty()
@@ -34,10 +44,15 @@ export class CreateCustomerOnboardingRequestDto {
   @MaxLength(180)
   email?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(220)
-  associationName: string;
+  associationName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(220)
+  legalName?: string;
 
   @IsOptional()
   @IsString()
@@ -46,8 +61,24 @@ export class CreateCustomerOnboardingRequestDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(80)
+  apcCode?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  city?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(260)
   address?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(2000)
+  blocksCount?: number;
 
   @IsOptional()
   @IsInt()
@@ -59,6 +90,11 @@ export class CreateCustomerOnboardingRequestDto {
   @IsString()
   @MaxLength(80)
   role?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  contactRole?: string;
 
   @IsOptional()
   @IsString()
@@ -118,4 +154,27 @@ export class CustomerRequestAssignDto {
   @IsOptional()
   @IsString()
   assignedToId?: string;
+}
+
+export class CustomerRequestUpdateDto {
+  @IsOptional()
+  @IsEnum(CustomerOnboardingRequestStatus)
+  status?: CustomerOnboardingRequestStatus;
+
+  @IsOptional()
+  @IsEnum(CustomerOnboardingRequestPriority)
+  priority?: CustomerOnboardingRequestPriority;
+
+  @IsOptional()
+  @IsString()
+  assignedToId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(4000)
+  internalNote?: string | null;
+
+  @IsOptional()
+  @IsString()
+  lastContactedAt?: string | null;
 }

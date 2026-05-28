@@ -523,10 +523,16 @@ export default function SuperadminPage() {
                 href={localizedPath('/superadmin/help')}
               />
               <QuickActionCard
+                icon={Rocket}
+                title="Release Notes"
+                description="Changelog public, update-uri pe roluri și confirmări de citire"
+                href={localizedPath('/superadmin/release-notes')}
+              />
+              <QuickActionCard
                 icon={Phone}
-                title="Cereri clienți"
+                title="Cereri acces"
                 description="Cererile de acces și contact primite prin website"
-                href={localizedPath('/superadmin/customer-requests')}
+                href={localizedPath('/superadmin/access-requests')}
               />
               <QuickActionCard
                 icon={Kanban}
@@ -575,6 +581,12 @@ export default function SuperadminPage() {
                 title="Revenue Forecast"
                 description="Forecast MRR/ARR si oportunitati de upgrade pe planuri SaaS"
                 href={localizedPath('/superadmin/revenue/forecast')}
+              />
+              <QuickActionCard
+                icon={Timer}
+                title="Retention & Renewals"
+                description="Churn risk, reînnoiri si planuri manuale de retenție"
+                href={localizedPath('/superadmin/retention')}
               />
               <QuickActionCard
                 icon={Scale}

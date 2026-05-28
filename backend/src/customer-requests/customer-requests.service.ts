@@ -6,6 +6,7 @@ import {
   CustomerOnboardingRequestPriority,
   CustomerOnboardingRequestSource,
   CustomerOnboardingRequestStatus,
+  CustomerOnboardingRequestType,
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -15,6 +16,7 @@ import {
   CustomerRequestNoteDto,
   CustomerRequestPriorityDto,
   CustomerRequestStatusDto,
+  CustomerRequestUpdateDto,
 } from './dto/customer-request.dto';
 
 @Injectable()
@@ -23,9 +25,17 @@ export class CustomerRequestsService {
 
   async createPublic(dto: CreateCustomerOnboardingRequestDto, meta?: { ip?: string; userAgent?: string; path?: string }) {
     if (!dto.consent) throw new BadRequestException('Consimtamantul este obligatoriu.');
-    if (dto.website?.trim()) throw new BadRequestException('Cererea nu a putut fi trimisa.');
+    if (dto.website?.trim()) return { success: true, message: 'Cererea a fost trimisa. Te vom contacta pentru configurarea accesului.' };
+    const contactName = (dto.contactName || dto.fullName || '').trim();
+    const city = dto.city?.trim();
+    if (!contactName) throw new BadRequestException('Numele persoanei de contact este obligatoriu.');
+    if (!city) throw new BadRequestException('Orasul este obligatoriu.');
     const phone = dto.phone.trim();
     if (phone.length < 6 || !/^[+()\d\s.-]+$/.test(phone)) throw new BadRequestException('Telefonul nu este valid.');
+    const email = dto.email?.trim().toLowerCase() || null;
+    const address = dto.address?.trim() || null;
+    const associationName = dto.associationName?.trim() || dto.legalName?.trim() || 'Nespecificat';
+    const apcCode = dto.apcCode?.trim() || dto.associationCode?.trim() || null;
     const recentCount = await this.prisma.customerOnboardingRequest.count({
       where: {
         phone,
@@ -33,37 +43,48 @@ export class CustomerRequestsService {
       },
     });
     if (recentCount >= 3) {
-      return { success: true, message: 'Cererea a fost trimisa.' };
+      return { success: true, message: 'Cererea a fost trimisa. Te vom contacta pentru configurarea accesului.' };
     }
+    const duplicate = await this.findRecentDuplicate({ phone, email, city, address });
     const request = await this.prisma.customerOnboardingRequest.create({
       data: {
-        fullName: dto.fullName.trim(),
+        type: dto.type || CustomerOnboardingRequestType.APC,
+        fullName: contactName,
         phone,
-        email: dto.email?.trim().toLowerCase() || null,
-        associationName: dto.associationName.trim(),
-        associationCode: dto.associationCode?.trim() || null,
-        address: dto.address?.trim() || null,
+        email,
+        associationName,
+        legalName: dto.legalName?.trim() || null,
+        associationCode: apcCode,
+        apcCode,
+        city,
+        address,
+        blocksCount: dto.blocksCount ?? null,
         apartmentsCount: dto.apartmentsCount ?? null,
-        role: dto.role?.trim() || null,
+        role: dto.contactRole?.trim() || dto.role?.trim() || null,
+        contactRole: dto.contactRole?.trim() || dto.role?.trim() || null,
         currentManagementMethod: dto.currentManagementMethod?.trim() || null,
         interestedModules: (dto.interestedModules || []) as unknown as Prisma.InputJsonValue,
         preferredContactMethod: dto.preferredContactMethod?.trim() || null,
         message: dto.message?.trim() || null,
-        source: dto.source || CustomerOnboardingRequestSource.PUBLIC_WEBSITE,
+        source: dto.source || CustomerOnboardingRequestSource.ACCESS_REQUEST,
         status: CustomerOnboardingRequestStatus.NEW,
         priority: dto.apartmentsCount && dto.apartmentsCount >= 200 ? CustomerOnboardingRequestPriority.HIGH : CustomerOnboardingRequestPriority.NORMAL,
+        possibleDuplicate: !!duplicate,
+        duplicateOfRequestId: duplicate?.id || null,
         metadata: {
           ip: meta?.ip,
           userAgent: meta?.userAgent?.slice(0, 300),
           path: meta?.path,
           consent: true,
+          possibleDuplicate: !!duplicate,
+          duplicateOfRequestId: duplicate?.id || null,
         } as Prisma.InputJsonValue,
       },
     });
     await this.prisma.clientAccount.create({
       data: {
         customerRequestId: request.id,
-        displayName: request.associationName,
+        displayName: request.associationName || request.legalName || request.fullName,
         lifecycleStage: ClientLifecycleStage.NEW_REQUEST,
         priority: request.priority === CustomerOnboardingRequestPriority.HIGH ? ClientPriority.HIGH : request.priority === CustomerOnboardingRequestPriority.LOW ? ClientPriority.LOW : ClientPriority.NORMAL,
         source: request.source === CustomerOnboardingRequestSource.ACCESS_REQUEST ? ClientSource.ACCESS_REQUEST : request.source === CustomerOnboardingRequestSource.REFERRAL ? ClientSource.REFERRAL : ClientSource.PUBLIC_WEBSITE,
@@ -71,23 +92,26 @@ export class CustomerRequestsService {
         contactPhone: request.phone,
         contactEmail: request.email,
         associationName: request.associationName,
-        associationCode: request.associationCode,
+        associationCode: request.apcCode || request.associationCode,
         address: request.address,
         apartmentsCount: request.apartmentsCount,
-        metadata: { sourceRequest: 'public_customer_request' } as Prisma.InputJsonValue,
+        metadata: { sourceRequest: 'public_access_request', city: request.city, requestType: request.type } as Prisma.InputJsonValue,
       },
     }).catch(() => undefined);
-    return { success: true, message: 'Cererea a fost trimisa.' };
+    return { success: true, message: 'Cererea a fost trimisa. Te vom contacta pentru configurarea accesului.' };
   }
 
   async list(filters: Record<string, string | undefined>) {
     const page = Math.max(1, Number(filters.page || 1));
     const limit = Math.min(100, Math.max(1, Number(filters.limit || 30)));
     const search = filters.search?.trim();
+    const statusFilter = this.statusWhere(filters.status);
     const where: Prisma.CustomerOnboardingRequestWhereInput = {
-      ...(filters.status ? { status: filters.status as CustomerOnboardingRequestStatus } : {}),
+      ...(statusFilter ? { status: statusFilter } : {}),
+      ...(filters.type ? { type: filters.type as CustomerOnboardingRequestType } : {}),
       ...(filters.priority ? { priority: filters.priority as CustomerOnboardingRequestPriority } : {}),
       ...(filters.source ? { source: filters.source as CustomerOnboardingRequestSource } : {}),
+      ...(filters.city ? { city: { contains: filters.city.trim(), mode: 'insensitive' } } : {}),
       ...(filters.preferredContactMethod ? { preferredContactMethod: filters.preferredContactMethod } : {}),
       ...(filters.dateFrom ? { createdAt: { gte: new Date(filters.dateFrom) } } : {}),
       ...(filters.dateTo ? { createdAt: { lte: new Date(filters.dateTo) } } : {}),
@@ -98,7 +122,11 @@ export class CustomerRequestsService {
               { phone: { contains: search, mode: 'insensitive' } },
               { email: { contains: search, mode: 'insensitive' } },
               { associationName: { contains: search, mode: 'insensitive' } },
+              { legalName: { contains: search, mode: 'insensitive' } },
               { associationCode: { contains: search, mode: 'insensitive' } },
+              { apcCode: { contains: search, mode: 'insensitive' } },
+              { city: { contains: search, mode: 'insensitive' } },
+              { address: { contains: search, mode: 'insensitive' } },
             ],
           }
         : {}),
@@ -145,23 +173,50 @@ export class CustomerRequestsService {
       },
     });
     if (!request) throw new NotFoundException('Customer request not found');
-    return request;
+    const possibleDuplicates = await this.findPossibleDuplicatesForRequest(request);
+    return { ...request, possibleDuplicates };
   }
 
   async updateStatus(id: string, dto: CustomerRequestStatusDto) {
     await this.ensureExists(id);
     const now = new Date();
+    const status = this.normalizeStatus(dto.status);
     return this.prisma.customerOnboardingRequest.update({
       where: { id },
       data: {
-        status: dto.status,
-        contactedAt: dto.status === CustomerOnboardingRequestStatus.CONTACTED ? now : undefined,
-        qualifiedAt: dto.status === CustomerOnboardingRequestStatus.QUALIFIED ? now : undefined,
+        status,
+        contactedAt: status === CustomerOnboardingRequestStatus.CONTACTED ? now : undefined,
+        lastContactedAt: status === CustomerOnboardingRequestStatus.CONTACTED ? now : undefined,
+        qualifiedAt: status === CustomerOnboardingRequestStatus.QUALIFIED ? now : undefined,
         closedAt:
-          dto.status === CustomerOnboardingRequestStatus.CLOSED || dto.status === CustomerOnboardingRequestStatus.SPAM
+          status === CustomerOnboardingRequestStatus.CLOSED || status === CustomerOnboardingRequestStatus.REJECTED || status === CustomerOnboardingRequestStatus.SPAM
             ? now
             : undefined,
         closeReason: dto.closeReason,
+      },
+    });
+  }
+
+  async update(id: string, dto: CustomerRequestUpdateDto) {
+    await this.ensureExists(id);
+    const status = dto.status ? this.normalizeStatus(dto.status) : undefined;
+    const lastContactedAt = dto.lastContactedAt === null || dto.lastContactedAt === '' ? null : dto.lastContactedAt ? new Date(dto.lastContactedAt) : undefined;
+    const now = new Date();
+    return this.prisma.customerOnboardingRequest.update({
+      where: { id },
+      data: {
+        ...(status ? { status } : {}),
+        ...(dto.priority ? { priority: dto.priority } : {}),
+        ...(dto.assignedToId !== undefined ? { assignedToId: dto.assignedToId || null } : {}),
+        ...(dto.internalNote !== undefined ? { internalNotes: dto.internalNote?.trim() || null } : {}),
+        ...(lastContactedAt !== undefined ? { lastContactedAt, contactedAt: lastContactedAt } : {}),
+        ...(status === CustomerOnboardingRequestStatus.CONTACTED ? { contactedAt: now, lastContactedAt: now } : {}),
+        ...(status === CustomerOnboardingRequestStatus.QUALIFIED ? { qualifiedAt: now } : {}),
+        ...(status === CustomerOnboardingRequestStatus.CLOSED || status === CustomerOnboardingRequestStatus.REJECTED || status === CustomerOnboardingRequestStatus.SPAM ? { closedAt: now } : {}),
+      },
+      include: {
+        assignedTo: { select: { id: true, fullName: true, email: true } },
+        convertedAssociation: { select: { id: true, name: true, legalName: true, createdAt: true } },
       },
     });
   }
@@ -192,6 +247,57 @@ export class CustomerRequestsService {
       ok: false,
       message: 'Conversia automata va fi disponibila ulterior. Creeaza asociatia din Superadmin si leag-o manual dupa confirmare.',
     };
+  }
+
+  private async findRecentDuplicate(input: { phone: string; email?: string | null; city?: string | null; address?: string | null }) {
+    const or: Prisma.CustomerOnboardingRequestWhereInput[] = [{ phone: input.phone }];
+    if (input.email) or.push({ email: input.email });
+    const where: Prisma.CustomerOnboardingRequestWhereInput = {
+      createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
+      OR: or,
+      ...(input.city ? { city: { equals: input.city, mode: 'insensitive' } } : {}),
+      ...(input.address ? { address: { equals: input.address, mode: 'insensitive' } } : {}),
+    };
+    return this.prisma.customerOnboardingRequest.findFirst({
+      where,
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    });
+  }
+
+  private async findPossibleDuplicatesForRequest(request: { id: string; phone: string; email?: string | null; city?: string | null; address?: string | null }) {
+    const or: Prisma.CustomerOnboardingRequestWhereInput[] = [{ phone: request.phone }];
+    if (request.email) or.push({ email: request.email });
+    if (!or.length) return [];
+    return this.prisma.customerOnboardingRequest.findMany({
+      where: {
+        id: { not: request.id },
+        createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
+        OR: or,
+        ...(request.city ? { city: { equals: request.city, mode: 'insensitive' } } : {}),
+        ...(request.address ? { address: { equals: request.address, mode: 'insensitive' } } : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+      select: { id: true, fullName: true, phone: true, email: true, associationName: true, city: true, address: true, createdAt: true, status: true },
+    });
+  }
+
+  private normalizeStatus(status: CustomerOnboardingRequestStatus) {
+    if (String(status) === 'IN_ONBOARDING') return CustomerOnboardingRequestStatus.ONBOARDING;
+    if (String(status) === 'CLOSED') return CustomerOnboardingRequestStatus.REJECTED;
+    return status;
+  }
+
+  private statusWhere(status?: string) {
+    if (!status) return undefined;
+    if (status === 'ONBOARDING' || status === 'IN_ONBOARDING') {
+      return { in: [CustomerOnboardingRequestStatus.ONBOARDING, CustomerOnboardingRequestStatus.IN_ONBOARDING] };
+    }
+    if (status === 'REJECTED' || status === 'CLOSED') {
+      return { in: [CustomerOnboardingRequestStatus.REJECTED, CustomerOnboardingRequestStatus.CLOSED] };
+    }
+    return status as CustomerOnboardingRequestStatus;
   }
 
   private async ensureExists(id: string) {

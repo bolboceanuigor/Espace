@@ -1171,9 +1171,9 @@ export class SuperadminClientsService {
   private stageFromRequestStatus(status: CustomerOnboardingRequestStatus) {
     if (status === CustomerOnboardingRequestStatus.CONTACTED) return ClientLifecycleStage.CONTACTED;
     if (status === CustomerOnboardingRequestStatus.QUALIFIED) return ClientLifecycleStage.QUALIFIED;
-    if (status === CustomerOnboardingRequestStatus.IN_ONBOARDING) return ClientLifecycleStage.ONBOARDING;
+    if (status === CustomerOnboardingRequestStatus.IN_ONBOARDING || status === CustomerOnboardingRequestStatus.ONBOARDING) return ClientLifecycleStage.ONBOARDING;
     if (status === CustomerOnboardingRequestStatus.CONVERTED) return ClientLifecycleStage.ACTIVE;
-    if (status === CustomerOnboardingRequestStatus.CLOSED) return ClientLifecycleStage.CLOSED;
+    if (status === CustomerOnboardingRequestStatus.CLOSED || status === CustomerOnboardingRequestStatus.REJECTED) return ClientLifecycleStage.CLOSED;
     return ClientLifecycleStage.NEW_REQUEST;
   }
 
@@ -1181,9 +1181,9 @@ export class SuperadminClientsService {
     if (!client.customerRequestId) return;
     const status = client.lifecycleStage === ClientLifecycleStage.CONTACTED ? CustomerOnboardingRequestStatus.CONTACTED
       : client.lifecycleStage === ClientLifecycleStage.QUALIFIED ? CustomerOnboardingRequestStatus.QUALIFIED
-      : client.lifecycleStage === ClientLifecycleStage.ONBOARDING ? CustomerOnboardingRequestStatus.IN_ONBOARDING
+      : client.lifecycleStage === ClientLifecycleStage.ONBOARDING ? CustomerOnboardingRequestStatus.ONBOARDING
       : client.lifecycleStage === ClientLifecycleStage.ACTIVE ? CustomerOnboardingRequestStatus.CONVERTED
-      : client.lifecycleStage === ClientLifecycleStage.CLOSED ? CustomerOnboardingRequestStatus.CLOSED
+      : client.lifecycleStage === ClientLifecycleStage.CLOSED ? CustomerOnboardingRequestStatus.REJECTED
       : null;
     if (status) await this.prisma.customerOnboardingRequest.update({ where: { id: client.customerRequestId }, data: { status } }).catch(() => undefined);
   }

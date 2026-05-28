@@ -42,7 +42,7 @@ export class AssignRetentionDto {
 }
 
 export class RetentionNoteDto {
-  note!: string;
+  note?: string;
 }
 
 export class CreateRetentionTaskDto {

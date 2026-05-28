@@ -865,6 +865,15 @@ enum FeedbackPriority {
   HIGH
 }
 
+enum FeedbackSource {
+  IN_APP
+  SUPPORT
+  CALL
+  EMAIL
+  SUPERADMIN
+  IMPORT
+}
+
 enum FeatureRequestCategory {
   PAYMENTS
   REPORTS
@@ -893,6 +902,143 @@ enum ReleaseNoteTargetRole {
   SUPER_ADMIN
   ADMIN
   RESIDENT
+}
+
+enum ProductReleaseStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ProductUpdateStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ProductUpdateType {
+  FEATURE
+  IMPROVEMENT
+  FIX
+  SECURITY
+  DEPRECATION
+  NOTICE
+}
+
+enum ProductUpdateVisibility {
+  PUBLIC_CHANGELOG
+  IN_APP_ONLY
+  INTERNAL_ONLY
+}
+
+enum ProductUpdatePriority {
+  LOW
+  NORMAL
+  HIGH
+  CRITICAL
+}
+
+enum FeatureFlagStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum FeatureFlagType {
+  RELEASE_FLAG
+  MODULE_AVAILABILITY
+  EXPERIMENT
+  KILL_SWITCH
+}
+
+enum FeatureFlagRuleScope {
+  GLOBAL
+  PLAN
+  ORGANIZATION
+  ROLE
+  COHORT
+}
+
+enum FeatureFlagRuleEffect {
+  ENABLE
+  DISABLE
+}
+
+enum FeatureFlagEventType {
+  CREATED
+  UPDATED
+  STATUS_CHANGED
+  RULE_CREATED
+  RULE_UPDATED
+  RULE_DELETED
+  EVALUATION_PREVIEWED
+  ARCHIVED
+}
+
+enum BetaProgramStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+enum BetaCohortStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+enum BetaCohortMemberType {
+  ORGANIZATION
+  USER
+}
+
+enum BetaCohortMemberStatus {
+  INVITED
+  ACTIVE
+  PAUSED
+  REMOVED
+  COMPLETED
+}
+
+enum BetaFeedbackSentiment {
+  POSITIVE
+  NEUTRAL
+  NEGATIVE
+}
+
+enum BetaFeedbackSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum BetaFeedbackStatus {
+  NEW
+  REVIEWED
+  ACTIONED
+  DISMISSED
+}
+
+enum BetaProgramEventType {
+  CREATED
+  UPDATED
+  STATUS_CHANGED
+  COHORT_CREATED
+  COHORT_UPDATED
+  COHORT_STATUS_CHANGED
+  MEMBER_ADDED
+  MEMBER_UPDATED
+  MEMBER_REMOVED
+  FEEDBACK_SUBMITTED
+  FEEDBACK_REVIEWED
+  FEATURE_FLAG_LINKED
 }
 
 enum EmailTemplateTargetRole {
@@ -940,9 +1086,18 @@ enum CustomerOnboardingRequestStatus {
   CONTACTED
   QUALIFIED
   IN_ONBOARDING
+  ONBOARDING
   CONVERTED
   CLOSED
+  REJECTED
   SPAM
+}
+
+enum CustomerOnboardingRequestType {
+  APC
+  ADMINISTRATOR
+  PROPERTY_MANAGER
+  OTHER
 }
 
 enum CustomerOnboardingRequestPriority {
@@ -1216,6 +1371,8 @@ enum ClientRetentionEventType {
   RENEWAL_STATUS_CHANGED
   RENEWAL_COMPLETED
   RETENTION_PLAN_CREATED
+  RETENTION_PLAN_COMPLETED
+  RETENTION_PLAN_CANCELLED
   RETENTION_ACTION_COMPLETED
   RETENTION_NOTE_ADDED
   RETENTION_TASK_CREATED
@@ -2590,6 +2747,9 @@ model Organization {
   auditLogs          AuditLog[]
   feedbacks          Feedback[]
   featureRequests    FeatureRequest[]
+  featureFlagRules   FeatureFlagRule[]
+  betaCohortMembers  BetaCohortMember[]
+  betaFeedback       BetaFeedback[]
   clientNotes        ClientNote[]
   leads              Lead[]
   customerOnboardingRequests CustomerOnboardingRequest[] @relation("CustomerOnboardingRequestConvertedAssociation")
@@ -2747,25 +2907,45 @@ model OnboardingChecklist {
 }
 
 model Feedback {
-  id             String   @id @default(uuid())
-  organizationId String?
-  userId         String
-  userRole       String
-  pageUrl        String?
-  type           FeedbackType
-  title          String
-  message        String
-  status         FeedbackStatus   @default(NEW)
-  priority       FeedbackPriority @default(MEDIUM)
-  screenshotUrl  String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                     String           @id @default(uuid())
+  organizationId         String?
+  userId                 String
+  userRole               String
+  pageUrl                String?
+  type                   FeedbackType
+  source                 FeedbackSource   @default(IN_APP)
+  title                  String
+  message                String
+  moduleKey              String?
+  customerImpact         String?
+  reproductionSteps      String?
+  environment            String?
+  browserInfo            String?
+  deviceInfo             String?
+  contextJson            Json?
+  status                 FeedbackStatus   @default(NEW)
+  priority               FeedbackPriority @default(MEDIUM)
+  screenshotUrl          String?
+  internalNotes          String?
+  assignedToId           String?
+  reviewedById           String?
+  reviewedAt             DateTime?
+  linkedFeatureRequestId String?
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
 
-  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
-  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization          Organization?    @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  user                  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignedTo            User?            @relation("FeedbackAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  reviewedBy            User?            @relation("FeedbackReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+  linkedFeatureRequest  FeatureRequest?  @relation("FeedbackLinkedFeatureRequest", fields: [linkedFeatureRequestId], references: [id], onDelete: SetNull)
+  sourceFeatureRequests FeatureRequest[] @relation("FeatureRequestSourceFeedback")
+  productUpdates        ProductUpdate[]  @relation("ProductUpdateFeedback")
 
-  @@index([organizationId, createdAt])
+  @@index([organizationId, status, createdAt])
   @@index([userId, createdAt])
+  @@index([type, priority, status])
+  @@index([linkedFeatureRequestId])
   @@map("feedback")
 }
 
@@ -2773,21 +2953,41 @@ model FeatureRequest {
   id              String                   @id @default(uuid())
   organizationId  String?
   createdByUserId String
+  ownerId         String?
+  sourceFeedbackId String?
   title           String
   description     String
+  publicSummary   String?
+  customerProblem String?
+  expectedOutcome String?
+  moduleKey       String?
   category        FeatureRequestCategory
   status          FeatureRequestStatus     @default(NEW)
   visibility      FeatureRequestVisibility @default(INTERNAL)
+  impactScore     Int                      @default(0)
+  effortScore     Int                      @default(0)
+  reachScore      Int                      @default(0)
+  confidenceScore Int                      @default(0)
+  roadmapQuarter  String?
+  internalNotes   String?
   createdAt       DateTime                 @default(now())
   updatedAt       DateTime                 @updatedAt
 
-  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
-  createdBy    User          @relation("FeatureRequestCreatedByUser", fields: [createdByUserId], references: [id], onDelete: Cascade)
-  votes        FeatureVote[]
+  organization     Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  createdBy        User          @relation("FeatureRequestCreatedByUser", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  owner            User?         @relation("FeatureRequestOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  sourceFeedback   Feedback?     @relation("FeatureRequestSourceFeedback", fields: [sourceFeedbackId], references: [id], onDelete: SetNull)
+  feedbackItems    Feedback[]    @relation("FeedbackLinkedFeatureRequest")
+  votes            FeatureVote[]
+  comments         FeatureRequestComment[]
+  events           FeatureRequestEvent[]
+  productUpdates   ProductUpdate[] @relation("ProductUpdateFeatureRequest")
 
   @@index([status, category, visibility])
   @@index([organizationId, createdAt])
   @@index([createdByUserId, createdAt])
+  @@index([ownerId, status])
+  @@index([sourceFeedbackId])
   @@map("feature_requests")
 }
 
@@ -2803,6 +3003,39 @@ model FeatureVote {
   @@unique([featureRequestId, userId])
   @@index([userId, createdAt])
   @@map("feature_votes")
+}
+
+model FeatureRequestComment {
+  id               String   @id @default(uuid())
+  featureRequestId String
+  authorId         String
+  body             String
+  internalOnly     Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  featureRequest FeatureRequest @relation(fields: [featureRequestId], references: [id], onDelete: Cascade)
+  author         User           @relation("FeatureRequestCommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([featureRequestId, createdAt])
+  @@index([authorId, createdAt])
+  @@map("feature_request_comments")
+}
+
+model FeatureRequestEvent {
+  id               String   @id @default(uuid())
+  featureRequestId String
+  actorId          String?
+  type             String
+  message          String
+  metadataJson     Json?
+  createdAt        DateTime @default(now())
+
+  featureRequest FeatureRequest @relation(fields: [featureRequestId], references: [id], onDelete: Cascade)
+  actor          User?          @relation("FeatureRequestEventActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([featureRequestId, createdAt])
+  @@map("feature_request_events")
 }
 
 model ReleaseNote {
@@ -2834,6 +3067,329 @@ model ReleaseNoteRead {
   @@unique([releaseNoteId, userId])
   @@index([userId, readAt])
   @@map("release_note_reads")
+}
+
+model ProductRelease {
+  id            String               @id @default(uuid())
+  version       String               @unique
+  title         String
+  summary       String?
+  status        ProductReleaseStatus @default(DRAFT)
+  releaseDate   DateTime?
+  scheduledAt   DateTime?
+  publishedAt   DateTime?
+  publicSlug    String?              @unique
+  internalNotes String?
+  createdById   String?
+  publishedById String?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  createdBy   User?           @relation("ProductReleaseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  publishedBy User?           @relation("ProductReleasePublishedBy", fields: [publishedById], references: [id], onDelete: SetNull)
+  updates     ProductUpdate[]
+
+  @@index([status, publishedAt])
+  @@index([releaseDate])
+  @@map("product_releases")
+}
+
+model ProductUpdate {
+  id                     String                  @id @default(uuid())
+  productReleaseId       String?
+  title                  String
+  summary                String
+  body                   String
+  updateType             ProductUpdateType       @default(IMPROVEMENT)
+  status                 ProductUpdateStatus     @default(DRAFT)
+  audience               ReleaseNoteTargetRole   @default(ALL)
+  visibility             ProductUpdateVisibility @default(IN_APP_ONLY)
+  priority               ProductUpdatePriority   @default(NORMAL)
+  moduleKey              String?
+  version                String?
+  requiresAcknowledgement Boolean                 @default(false)
+  scheduledAt            DateTime?
+  publishedAt            DateTime?
+  createdById            String?
+  publishedById          String?
+  linkedFeatureRequestId String?
+  linkedFeedbackId       String?
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+
+  release              ProductRelease?                @relation(fields: [productReleaseId], references: [id], onDelete: SetNull)
+  createdBy            User?                           @relation("ProductUpdateCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  publishedBy          User?                           @relation("ProductUpdatePublishedBy", fields: [publishedById], references: [id], onDelete: SetNull)
+  linkedFeatureRequest FeatureRequest?                 @relation("ProductUpdateFeatureRequest", fields: [linkedFeatureRequestId], references: [id], onDelete: SetNull)
+  linkedFeedback       Feedback?                       @relation("ProductUpdateFeedback", fields: [linkedFeedbackId], references: [id], onDelete: SetNull)
+  acknowledgements     ProductUpdateAcknowledgement[]
+
+  @@index([status, audience, publishedAt])
+  @@index([visibility, publishedAt])
+  @@index([productReleaseId])
+  @@index([linkedFeatureRequestId])
+  @@index([linkedFeedbackId])
+  @@map("product_updates")
+}
+
+model ProductUpdateAcknowledgement {
+  id              String   @id @default(uuid())
+  productUpdateId String
+  userId          String
+  organizationId  String?
+  userRole        String?
+  acknowledgedAt  DateTime @default(now())
+
+  productUpdate ProductUpdate @relation(fields: [productUpdateId], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([productUpdateId, userId])
+  @@index([userId, acknowledgedAt])
+  @@index([organizationId, acknowledgedAt])
+  @@map("product_update_acknowledgements")
+}
+
+model FeatureFlag {
+  id                  String            @id @default(uuid())
+  key                 String            @unique
+  name                String
+  description         String?
+  type                FeatureFlagType   @default(RELEASE_FLAG)
+  status              FeatureFlagStatus @default(DRAFT)
+  moduleKey           String?
+  defaultEnabled      Boolean           @default(false)
+  rolloutPercentage   Int               @default(100)
+  visibleInNavigation Boolean           @default(true)
+  config              Json?
+  startsAt            DateTime?
+  endsAt              DateTime?
+  createdById         String?
+  updatedById         String?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  createdBy User?              @relation("FeatureFlagCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?              @relation("FeatureFlagUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  rules     FeatureFlagRule[]
+  events    FeatureFlagEvent[]
+  betaPrograms BetaProgram[]
+  betaCohorts  BetaCohort[]
+  betaFeedback BetaFeedback[]
+
+  @@index([status, type])
+  @@index([moduleKey, status])
+  @@map("feature_flags")
+}
+
+model FeatureFlagRule {
+  id                String                @id @default(uuid())
+  featureFlagId     String
+  scope             FeatureFlagRuleScope
+  effect            FeatureFlagRuleEffect @default(ENABLE)
+  planId            String?
+  organizationId    String?
+  betaCohortId      String?
+  role              Role?
+  rolloutPercentage Int?
+  priority          Int                   @default(100)
+  conditions        Json?
+  startsAt          DateTime?
+  endsAt            DateTime?
+  createdById       String?
+  updatedById       String?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  featureFlag  FeatureFlag   @relation(fields: [featureFlagId], references: [id], onDelete: Cascade)
+  plan         SaasPlan?     @relation(fields: [planId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  betaCohort   BetaCohort?   @relation(fields: [betaCohortId], references: [id], onDelete: Cascade)
+  createdBy    User?         @relation("FeatureFlagRuleCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy    User?         @relation("FeatureFlagRuleUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([featureFlagId, priority])
+  @@index([scope, effect])
+  @@index([planId])
+  @@index([organizationId])
+  @@index([betaCohortId])
+  @@index([role])
+  @@map("feature_flag_rules")
+}
+
+model FeatureFlagEvent {
+  id            String               @id @default(uuid())
+  featureFlagId String
+  actorUserId   String?
+  eventType     FeatureFlagEventType
+  title         String
+  message       String?
+  metadata      Json?
+  createdAt     DateTime             @default(now())
+
+  featureFlag FeatureFlag @relation(fields: [featureFlagId], references: [id], onDelete: Cascade)
+  actorUser   User?       @relation("FeatureFlagEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([featureFlagId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@map("feature_flag_events")
+}
+
+model BetaProgram {
+  id              String            @id @default(uuid())
+  key             String            @unique
+  name            String
+  description     String?
+  status          BetaProgramStatus @default(DRAFT)
+  moduleKey       String?
+  featureFlagId   String?
+  targetRelease   String?
+  successCriteria Json?
+  riskNotes       String?
+  startsAt        DateTime?
+  endsAt          DateTime?
+  ownerId         String?
+  createdById     String?
+  updatedById     String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  featureFlag FeatureFlag? @relation(fields: [featureFlagId], references: [id], onDelete: SetNull)
+  owner       User?        @relation("BetaProgramOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  createdBy   User?        @relation("BetaProgramCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy   User?        @relation("BetaProgramUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  cohorts     BetaCohort[]
+  feedback    BetaFeedback[]
+  events      BetaProgramEvent[]
+
+  @@index([status, updatedAt])
+  @@index([moduleKey, status])
+  @@index([featureFlagId])
+  @@index([ownerId])
+  @@map("beta_programs")
+}
+
+model BetaCohort {
+  id                String           @id @default(uuid())
+  betaProgramId     String
+  key               String
+  name              String
+  description       String?
+  status            BetaCohortStatus @default(DRAFT)
+  moduleKey         String?
+  featureFlagId     String?
+  rolloutPercentage Int              @default(100)
+  entryCriteria     Json?
+  exitCriteria      Json?
+  startsAt          DateTime?
+  endsAt            DateTime?
+  createdById       String?
+  updatedById       String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  betaProgram      BetaProgram        @relation(fields: [betaProgramId], references: [id], onDelete: Cascade)
+  featureFlag      FeatureFlag?       @relation(fields: [featureFlagId], references: [id], onDelete: SetNull)
+  createdBy        User?              @relation("BetaCohortCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy        User?              @relation("BetaCohortUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  members          BetaCohortMember[]
+  feedback         BetaFeedback[]
+  events           BetaProgramEvent[]
+  featureFlagRules FeatureFlagRule[]
+
+  @@unique([betaProgramId, key])
+  @@index([betaProgramId, status])
+  @@index([moduleKey, status])
+  @@index([featureFlagId])
+  @@map("beta_cohorts")
+}
+
+model BetaCohortMember {
+  id             String                 @id @default(uuid())
+  betaCohortId   String
+  memberType     BetaCohortMemberType
+  organizationId String?
+  userId         String?
+  status         BetaCohortMemberStatus @default(ACTIVE)
+  role           Role?
+  notes          String?
+  invitedAt      DateTime?
+  activatedAt    DateTime?
+  removedAt      DateTime?
+  createdById    String?
+  updatedById    String?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  betaCohort   BetaCohort    @relation(fields: [betaCohortId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User?         @relation("BetaCohortMemberUser", fields: [userId], references: [id], onDelete: Cascade)
+  createdBy   User?         @relation("BetaCohortMemberCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy   User?         @relation("BetaCohortMemberUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([betaCohortId, organizationId])
+  @@unique([betaCohortId, userId])
+  @@index([organizationId, status])
+  @@index([userId, status])
+  @@index([memberType, status])
+  @@map("beta_cohort_members")
+}
+
+model BetaFeedback {
+  id             String                @id @default(uuid())
+  betaProgramId  String?
+  betaCohortId   String?
+  organizationId String?
+  userId         String
+  featureFlagId  String?
+  moduleKey      String?
+  title          String
+  message        String
+  sentiment      BetaFeedbackSentiment @default(NEUTRAL)
+  severity       BetaFeedbackSeverity  @default(MEDIUM)
+  status         BetaFeedbackStatus    @default(NEW)
+  pageUrl        String?
+  screenshotUrl  String?
+  contextJson    Json?
+  internalNotes  String?
+  reviewedById   String?
+  reviewedAt     DateTime?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  betaProgram  BetaProgram? @relation(fields: [betaProgramId], references: [id], onDelete: SetNull)
+  betaCohort   BetaCohort?  @relation(fields: [betaCohortId], references: [id], onDelete: SetNull)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  user         User         @relation("BetaFeedbackUser", fields: [userId], references: [id], onDelete: Cascade)
+  featureFlag  FeatureFlag? @relation(fields: [featureFlagId], references: [id], onDelete: SetNull)
+  reviewedBy   User?        @relation("BetaFeedbackReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([betaProgramId, status, createdAt])
+  @@index([betaCohortId, status, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([userId, createdAt])
+  @@index([featureFlagId])
+  @@map("beta_feedback")
+}
+
+model BetaProgramEvent {
+  id            String               @id @default(uuid())
+  betaProgramId String?
+  betaCohortId  String?
+  actorUserId   String?
+  eventType     BetaProgramEventType
+  title         String
+  message       String?
+  metadata      Json?
+  createdAt     DateTime             @default(now())
+
+  betaProgram BetaProgram? @relation(fields: [betaProgramId], references: [id], onDelete: Cascade)
+  betaCohort  BetaCohort?  @relation(fields: [betaCohortId], references: [id], onDelete: Cascade)
+  actorUser   User?        @relation("BetaProgramEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([betaProgramId, createdAt])
+  @@index([betaCohortId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@map("beta_program_events")
 }
 
 model EmailTemplate {
@@ -2903,14 +3459,20 @@ model DemoRequest {
 
 model CustomerOnboardingRequest {
   id                      String                            @id @default(uuid())
+  type                    CustomerOnboardingRequestType     @default(APC)
   fullName                String
   phone                   String
   email                   String?
   associationName         String
+  legalName               String?
   associationCode         String?
+  apcCode                 String?
+  city                    String?
   address                 String?
+  blocksCount             Int?
   apartmentsCount         Int?
   role                    String?
+  contactRole             String?
   currentManagementMethod String?
   interestedModules       Json?
   preferredContactMethod  String?
@@ -2920,11 +3482,14 @@ model CustomerOnboardingRequest {
   priority                CustomerOnboardingRequestPriority @default(NORMAL)
   assignedToId            String?
   contactedAt             DateTime?
+  lastContactedAt         DateTime?
   qualifiedAt             DateTime?
   convertedAssociationId  String?
   closedAt                DateTime?
   closeReason             String?
   internalNotes           String?
+  possibleDuplicate       Boolean                           @default(false)
+  duplicateOfRequestId    String?
   metadata                Json?
   createdAt               DateTime                          @default(now())
   updatedAt               DateTime                          @updatedAt
@@ -2933,12 +3498,16 @@ model CustomerOnboardingRequest {
   convertedAssociation Organization? @relation("CustomerOnboardingRequestConvertedAssociation", fields: [convertedAssociationId], references: [id], onDelete: SetNull)
 
   @@index([status, createdAt])
+  @@index([type, status])
   @@index([priority, createdAt])
   @@index([source, createdAt])
+  @@index([city, status])
   @@index([phone, createdAt])
   @@index([email, createdAt])
+  @@index([apcCode, createdAt])
   @@index([assignedToId, status])
   @@index([convertedAssociationId])
+  @@index([possibleDuplicate, createdAt])
   @@map("customer_onboarding_requests")
 }
 
@@ -5145,6 +5714,7 @@ model SaasPlan {
   requestedUpgradeRequests SaasUpgradeRequest[] @relation("SaasUpgradeRequestRequestedPlan")
   saasInvoices SaasInvoice[]
   saasInvoiceLines SaasInvoiceLine[]
+  featureFlagRules FeatureFlagRule[]
 
   @@index([status])
   @@index([isPublic])
@@ -5439,9 +6009,35 @@ model User {
   preference     UserPreference?
   createdOrgs    Organization[] @relation("CreatedByAgent")
   feedbacks          Feedback[]
+  feedbackAssigned   Feedback[] @relation("FeedbackAssignedTo")
+  feedbackReviewed   Feedback[] @relation("FeedbackReviewedBy")
   featureRequestsCreated FeatureRequest[] @relation("FeatureRequestCreatedByUser")
+  featureRequestsOwned FeatureRequest[] @relation("FeatureRequestOwner")
   featureVotes       FeatureVote[]
+  featureRequestComments FeatureRequestComment[] @relation("FeatureRequestCommentAuthor")
+  featureRequestEvents FeatureRequestEvent[] @relation("FeatureRequestEventActor")
   releaseNoteReads   ReleaseNoteRead[]
+  productReleasesCreated ProductRelease[] @relation("ProductReleaseCreatedBy")
+  productReleasesPublished ProductRelease[] @relation("ProductReleasePublishedBy")
+  productUpdatesCreated ProductUpdate[] @relation("ProductUpdateCreatedBy")
+  productUpdatesPublished ProductUpdate[] @relation("ProductUpdatePublishedBy")
+  productUpdateAcknowledgements ProductUpdateAcknowledgement[]
+  featureFlagsCreated FeatureFlag[] @relation("FeatureFlagCreatedBy")
+  featureFlagsUpdated FeatureFlag[] @relation("FeatureFlagUpdatedBy")
+  featureFlagRulesCreated FeatureFlagRule[] @relation("FeatureFlagRuleCreatedBy")
+  featureFlagRulesUpdated FeatureFlagRule[] @relation("FeatureFlagRuleUpdatedBy")
+  featureFlagEvents FeatureFlagEvent[] @relation("FeatureFlagEventActor")
+  betaProgramsOwned BetaProgram[] @relation("BetaProgramOwner")
+  betaProgramsCreated BetaProgram[] @relation("BetaProgramCreatedBy")
+  betaProgramsUpdated BetaProgram[] @relation("BetaProgramUpdatedBy")
+  betaCohortsCreated BetaCohort[] @relation("BetaCohortCreatedBy")
+  betaCohortsUpdated BetaCohort[] @relation("BetaCohortUpdatedBy")
+  betaCohortMemberships BetaCohortMember[] @relation("BetaCohortMemberUser")
+  betaCohortMembersCreated BetaCohortMember[] @relation("BetaCohortMemberCreatedBy")
+  betaCohortMembersUpdated BetaCohortMember[] @relation("BetaCohortMemberUpdatedBy")
+  betaFeedbackSubmitted BetaFeedback[] @relation("BetaFeedbackUser")
+  betaFeedbackReviewed BetaFeedback[] @relation("BetaFeedbackReviewedBy")
+  betaProgramEvents BetaProgramEvent[] @relation("BetaProgramEventActor")
   clientNotesCreated ClientNote[] @relation("ClientNoteCreatedBy")
   superadminTasksCreated SuperAdminTask[] @relation("SuperAdminTaskCreatedBy")
   superadminTasksAssigned SuperAdminTask[] @relation("SuperAdminTaskAssignedTo")

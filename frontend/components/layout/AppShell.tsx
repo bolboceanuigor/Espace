@@ -38,6 +38,9 @@ const SUPER_ADMIN_NAV = [
   { key: 'administrators', label: 'Administratori', href: '/superadmin/administrators', icon: Users },
   { key: 'subscriptions', label: 'Abonamente', href: '/superadmin/subscriptions', icon: CreditCard },
   { key: 'reports', label: 'Rapoarte', href: '/superadmin/reports', icon: BarChart3 },
+  { key: 'access-requests', label: 'Cereri acces', href: '/superadmin/access-requests', icon: FileText },
+  { key: 'feature-flags', label: 'Feature flags', href: '/superadmin/feature-flags', icon: Settings },
+  { key: 'beta-program', label: 'Beta program', href: '/superadmin/beta', icon: Settings },
   { key: 'settings', label: 'Setări', href: '/superadmin/settings', icon: Settings },
 ];
 

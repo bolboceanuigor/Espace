@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } f
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RoadmapService } from './roadmap.service';
-import { CreateRoadmapFeatureDto, RoadmapFeatureFiltersDto, UpdateRoadmapFeatureDto } from './dto/roadmap.dto';
+import { CreateFeatureRequestCommentDto, CreateRoadmapFeatureDto, RoadmapFeatureFiltersDto, UpdateRoadmapFeatureDto } from './dto/roadmap.dto';
 
 @Controller('api')
 @UseGuards(JwtAuthGuard)
@@ -34,8 +34,23 @@ export class RoadmapController {
     return this.roadmapService.listFeaturesForSuperadmin(user, query);
   }
 
+  @Get('superadmin/roadmap/dashboard')
+  dashboardForSuperadmin(@CurrentUser() user: any) {
+    return this.roadmapService.dashboardForSuperadmin(user);
+  }
+
+  @Get('superadmin/roadmap/features/:id')
+  getFeatureForSuperadmin(@CurrentUser() user: any, @Param('id') id: string) {
+    return this.roadmapService.getFeatureForSuperadmin(user, id);
+  }
+
   @Patch('superadmin/roadmap/features/:id')
   updateFeature(@CurrentUser() user: any, @Param('id') id: string, @Body() body: UpdateRoadmapFeatureDto) {
     return this.roadmapService.updateFeatureBySuperadmin(user, id, body);
+  }
+
+  @Post('superadmin/roadmap/features/:id/comments')
+  addComment(@CurrentUser() user: any, @Param('id') id: string, @Body() body: CreateFeatureRequestCommentDto) {
+    return this.roadmapService.addComment(user, id, body);
   }
 }

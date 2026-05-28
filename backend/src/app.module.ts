@@ -30,6 +30,11 @@ import { SavedViewsModule } from './saved-views/saved-views.module';
 import { AdminSearchModule } from './admin-search/admin-search.module';
 import { SuperadminSearchModule } from './superadmin-search/superadmin-search.module';
 import { SuperadminClientsModule } from './superadmin-clients/superadmin-clients.module';
+import { FeedbackModule } from './feedback/feedback.module';
+import { RoadmapModule } from './roadmap/roadmap.module';
+import { ReleaseNotesModule } from './release-notes/release-notes.module';
+import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
+import { BetaProgramsModule } from './beta-programs/beta-programs.module';
 import { SetupModule } from './setup/setup.module';
 import { MessagesMvpModule } from './messages-mvp/messages-mvp.module';
 import { ActivityMvpModule } from './activity-mvp/activity-mvp.module';
@@ -80,6 +85,11 @@ import { AppController } from './app.controller';
     AdminSearchModule,
     SuperadminSearchModule,
     SuperadminClientsModule,
+    FeedbackModule,
+    RoadmapModule,
+    ReleaseNotesModule,
+    FeatureFlagsModule,
+    BetaProgramsModule,
     SetupModule,
     MessagesMvpModule,
     ActivityMvpModule,

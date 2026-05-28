@@ -28,7 +28,7 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import { customerRequestsApi } from '@/lib/api';
+import { accessRequestsApi } from '@/lib/api';
 
 type PageKind = 'home' | 'platform' | 'admins' | 'residents' | 'features' | 'pricing' | 'contact' | 'access' | 'security' | 'help';
 
@@ -243,17 +243,16 @@ function CTASection() {
 
 export function AccessRequestForm({ source = 'ACCESS_REQUEST', compact = false }: { source?: 'ACCESS_REQUEST' | 'CONTACT_PAGE' | 'PUBLIC_WEBSITE'; compact?: boolean }) {
   const [form, setForm] = useState({
-    fullName: '',
+    contactName: '',
     phone: '',
     email: '',
+    city: '',
+    type: 'APC',
     associationName: '',
-    associationCode: '',
+    apcCode: '',
     address: '',
     apartmentsCount: '',
-    role: '',
-    currentManagementMethod: '',
-    interestedModules: [] as string[],
-    preferredContactMethod: 'PHONE',
+    contactRole: '',
     message: '',
     consent: false,
     website: '',
@@ -261,18 +260,28 @@ export function AccessRequestForm({ source = 'ACCESS_REQUEST', compact = false }
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
-  const modules = ['Facturi', 'Plati', 'Contoare', 'Portal locatar', 'Rapoarte', 'Import date', 'Altceva'];
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setSaving(true);
     setError('');
     try {
-      await customerRequestsApi.createPublic({
+      if (!form.contactName.trim() || !form.phone.trim() || !form.city.trim()) {
+        setError('Completeaza numele, telefonul si orasul.');
+        return;
+      }
+      await accessRequestsApi.createAccessRequest({
         ...form,
+        contactName: form.contactName.trim(),
+        phone: form.phone.trim(),
+        city: form.city.trim(),
+        type: form.type as any,
         apartmentsCount: form.apartmentsCount ? Number(form.apartmentsCount) : undefined,
         email: form.email || undefined,
-        associationCode: form.associationCode || undefined,
+        associationName: form.associationName || undefined,
+        apcCode: form.apcCode || undefined,
         address: form.address || undefined,
+        contactRole: form.contactRole || undefined,
+        message: form.message || undefined,
         source,
       });
       setDone(true);
@@ -286,7 +295,7 @@ export function AccessRequestForm({ source = 'ACCESS_REQUEST', compact = false }
     return (
       <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-5">
         <h3 className="font-semibold text-emerald-950">Cererea a fost trimisa</h3>
-        <p className="mt-2 text-sm text-emerald-800">Vei fi contactat pentru pasii urmatori de activare.</p>
+        <p className="mt-2 text-sm text-emerald-800">Cererea a fost trimisa. Te vom contacta pentru configurarea accesului.</p>
       </div>
     );
   }
@@ -294,45 +303,22 @@ export function AccessRequestForm({ source = 'ACCESS_REQUEST', compact = false }
     <form onSubmit={submit} className="space-y-4">
       <input className="hidden" tabIndex={-1} autoComplete="off" value={form.website} onChange={(e) => setForm((p) => ({ ...p, website: e.target.value }))} />
       <div className={`grid gap-3 ${compact ? 'md:grid-cols-2' : 'md:grid-cols-2'}`}>
-        <input required placeholder="Nume si prenume" value={form.fullName} onChange={(e) => setForm((p) => ({ ...p, fullName: e.target.value }))} className="h-11 rounded-md border border-slate-200 px-3 text-sm" />
+        <input required placeholder="Nume persoana contact" value={form.contactName} onChange={(e) => setForm((p) => ({ ...p, contactName: e.target.value }))} className="h-11 rounded-md border border-slate-200 px-3 text-sm" />
         <input required placeholder="Telefon" value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} className="h-11 rounded-md border border-slate-200 px-3 text-sm" />
-        <input type="email" placeholder="Email (optional)" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} className="h-11 rounded-md border border-slate-200 px-3 text-sm" />
-        <input required placeholder="Denumirea asociatiei" value={form.associationName} onChange={(e) => setForm((p) => ({ ...p, associationName: e.target.value }))} className="h-11 rounded-md border border-slate-200 px-3 text-sm" />
-        <input placeholder="Cod asociatie (optional)" value={form.associationCode} onChange={(e) => setForm((p) => ({ ...p, associationCode: e.target.value }))} className="h-11 rounded-md border border-slate-200 px-3 text-sm" />
-        <input type="number" min={1} placeholder="Numar apartamente" value={form.apartmentsCount} onChange={(e) => setForm((p) => ({ ...p, apartmentsCount: e.target.value }))} className="h-11 rounded-md border border-slate-200 px-3 text-sm" />
-        <select value={form.role} onChange={(e) => setForm((p) => ({ ...p, role: e.target.value }))} className="h-11 rounded-md border border-slate-200 px-3 text-sm">
-          <option value="">Rolul tau</option>
-          <option>Administrator APC</option>
-          <option>Membru comitet</option>
-          <option>Locatar</option>
-          <option>Altul</option>
+        <input type="email" placeholder="Email optional" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} className="h-11 rounded-md border border-slate-200 px-3 text-sm" />
+        <input required placeholder="Oras" value={form.city} onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))} className="h-11 rounded-md border border-slate-200 px-3 text-sm" />
+        <select value={form.type} onChange={(e) => setForm((p) => ({ ...p, type: e.target.value }))} className="h-11 rounded-md border border-slate-200 px-3 text-sm">
+          <option value="APC">APC / asociatie</option>
+          <option value="ADMINISTRATOR">Administrator</option>
+          <option value="PROPERTY_MANAGER">Property manager</option>
+          <option value="OTHER">Altceva</option>
         </select>
-        <select value={form.currentManagementMethod} onChange={(e) => setForm((p) => ({ ...p, currentManagementMethod: e.target.value }))} className="h-11 rounded-md border border-slate-200 px-3 text-sm">
-          <option value="">Cum administrati acum?</option>
-          <option>Excel</option>
-          <option>Documente fizice</option>
-          <option>Alt software</option>
-          <option>Nu stiu</option>
-        </select>
+        <input placeholder="Denumire APC/asociatie optional" value={form.associationName} onChange={(e) => setForm((p) => ({ ...p, associationName: e.target.value }))} className="h-11 rounded-md border border-slate-200 px-3 text-sm" />
+        <input placeholder="Cod APC optional" value={form.apcCode} onChange={(e) => setForm((p) => ({ ...p, apcCode: e.target.value }))} className="h-11 rounded-md border border-slate-200 px-3 text-sm" />
+        <input placeholder="Adresa optional" value={form.address} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} className="h-11 rounded-md border border-slate-200 px-3 text-sm" />
+        <input type="number" min={1} placeholder="Numar aproximativ apartamente" value={form.apartmentsCount} onChange={(e) => setForm((p) => ({ ...p, apartmentsCount: e.target.value }))} className="h-11 rounded-md border border-slate-200 px-3 text-sm" />
+        <input placeholder="Rol optional" value={form.contactRole} onChange={(e) => setForm((p) => ({ ...p, contactRole: e.target.value }))} className="h-11 rounded-md border border-slate-200 px-3 text-sm" />
       </div>
-      <input placeholder="Adresa (optional)" value={form.address} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} className="h-11 w-full rounded-md border border-slate-200 px-3 text-sm" />
-      <div>
-        <p className="mb-2 text-sm font-medium text-slate-700">Module de interes</p>
-        <div className="flex flex-wrap gap-2">
-          {modules.map((item) => (
-            <label key={item} className="flex items-center gap-2 rounded-full border border-slate-200 px-3 py-2 text-sm">
-              <input type="checkbox" checked={form.interestedModules.includes(item)} onChange={(e) => setForm((p) => ({ ...p, interestedModules: e.target.checked ? [...p.interestedModules, item] : p.interestedModules.filter((value) => value !== item) }))} />
-              {item}
-            </label>
-          ))}
-        </div>
-      </div>
-      <select value={form.preferredContactMethod} onChange={(e) => setForm((p) => ({ ...p, preferredContactMethod: e.target.value }))} className="h-11 w-full rounded-md border border-slate-200 px-3 text-sm">
-        <option value="PHONE">Telefon</option>
-        <option value="EMAIL">Email</option>
-        <option value="WHATSAPP">WhatsApp</option>
-        <option value="TELEGRAM">Telegram</option>
-      </select>
       <textarea placeholder="Mesaj optional" value={form.message} onChange={(e) => setForm((p) => ({ ...p, message: e.target.value }))} className="min-h-[120px] w-full rounded-md border border-slate-200 p-3 text-sm" />
       <label className="flex items-start gap-2 text-sm text-slate-600">
         <input required type="checkbox" checked={form.consent} onChange={(e) => setForm((p) => ({ ...p, consent: e.target.checked }))} className="mt-1" />

@@ -659,59 +659,211 @@ export const feedbackApi = {
     message: string;
     pageUrl?: string;
     screenshotUrl?: string;
+    source?: 'IN_APP' | 'SUPPORT' | 'CALL' | 'EMAIL' | 'SUPERADMIN' | 'IMPORT';
+    moduleKey?: string;
+    customerImpact?: string;
+    reproductionSteps?: string;
+    environment?: string;
+    browserInfo?: string;
+    deviceInfo?: string;
   }) =>
     apiRequest<any>('/api/feedback', { method: 'POST', body: data }),
   list: () => apiRequest<any[]>('/api/feedback'),
+  superadminDashboard: () => apiRequest<any>('/api/superadmin/feedback/dashboard'),
   superadminList: (params?: {
     organizationId?: string;
     type?: 'BUG' | 'IDEA' | 'QUESTION' | 'COMPLAINT';
     status?: 'NEW' | 'REVIEWED' | 'IN_PROGRESS' | 'RESOLVED' | 'REJECTED';
     priority?: 'LOW' | 'MEDIUM' | 'HIGH';
+    linked?: 'true' | 'false';
   }) => apiRequest<any[]>('/api/superadmin/feedback', { params }),
-  superadminUpdate: (id: string, data: { status?: 'NEW' | 'REVIEWED' | 'IN_PROGRESS' | 'RESOLVED' | 'REJECTED'; priority?: 'LOW' | 'MEDIUM' | 'HIGH' }) =>
+  superadminGet: (id: string) => apiRequest<any>(`/api/superadmin/feedback/${id}`),
+  superadminUpdate: (id: string, data: {
+    status?: 'NEW' | 'REVIEWED' | 'IN_PROGRESS' | 'RESOLVED' | 'REJECTED';
+    priority?: 'LOW' | 'MEDIUM' | 'HIGH';
+    assignedToId?: string;
+    linkedFeatureRequestId?: string;
+    moduleKey?: string;
+    internalNotes?: string;
+  }) =>
     apiRequest<any>(`/api/superadmin/feedback/${id}`, { method: 'PATCH', body: data }),
+  convertToFeature: (id: string, data?: Record<string, unknown>) =>
+    apiRequest<any>(`/api/superadmin/feedback/${id}/convert-to-feature`, { method: 'POST', body: data || {} }),
 };
 
 export const roadmapApi = {
   list: (params?: {
     status?: 'NEW' | 'UNDER_REVIEW' | 'PLANNED' | 'IN_PROGRESS' | 'RELEASED' | 'REJECTED';
     category?: 'PAYMENTS' | 'REPORTS' | 'MOBILE' | 'INTEGRATIONS' | 'UX' | 'OTHER';
+    visibility?: 'INTERNAL' | 'PUBLIC';
   }) => apiRequest<any[]>('/api/roadmap/features', { params }),
   create: (data: {
     title: string;
     description: string;
     category: 'PAYMENTS' | 'REPORTS' | 'MOBILE' | 'INTEGRATIONS' | 'UX' | 'OTHER';
     visibility?: 'INTERNAL' | 'PUBLIC';
+    sourceFeedbackId?: string;
+    publicSummary?: string;
+    customerProblem?: string;
+    expectedOutcome?: string;
+    moduleKey?: string;
   }) => apiRequest<any>('/api/roadmap/features', { method: 'POST', body: data }),
   vote: (id: string) => apiRequest<any>(`/api/roadmap/features/${id}/vote`, { method: 'POST' }),
   unvote: (id: string) => apiRequest<any>(`/api/roadmap/features/${id}/vote`, { method: 'DELETE' }),
+  superadminDashboard: () => apiRequest<any>('/api/superadmin/roadmap/dashboard'),
   superadminList: (params?: {
     status?: 'NEW' | 'UNDER_REVIEW' | 'PLANNED' | 'IN_PROGRESS' | 'RELEASED' | 'REJECTED';
     category?: 'PAYMENTS' | 'REPORTS' | 'MOBILE' | 'INTEGRATIONS' | 'UX' | 'OTHER';
+    visibility?: 'INTERNAL' | 'PUBLIC';
+    organizationId?: string;
+    ownerId?: string;
   }) => apiRequest<any[]>('/api/superadmin/roadmap/features', { params }),
-  superadminUpdate: (id: string, data: { status?: 'NEW' | 'UNDER_REVIEW' | 'PLANNED' | 'IN_PROGRESS' | 'RELEASED' | 'REJECTED'; visibility?: 'INTERNAL' | 'PUBLIC' }) =>
+  superadminGet: (id: string) => apiRequest<any>(`/api/superadmin/roadmap/features/${id}`),
+  superadminUpdate: (id: string, data: {
+    status?: 'NEW' | 'UNDER_REVIEW' | 'PLANNED' | 'IN_PROGRESS' | 'RELEASED' | 'REJECTED';
+    visibility?: 'INTERNAL' | 'PUBLIC';
+    ownerId?: string;
+    title?: string;
+    description?: string;
+    publicSummary?: string;
+    customerProblem?: string;
+    expectedOutcome?: string;
+    moduleKey?: string;
+    roadmapQuarter?: string;
+    internalNotes?: string;
+    impactScore?: number;
+    effortScore?: number;
+    reachScore?: number;
+    confidenceScore?: number;
+  }) =>
     apiRequest<any>(`/api/superadmin/roadmap/features/${id}`, { method: 'PATCH', body: data }),
+  superadminComment: (id: string, data: { body: string; internalOnly?: boolean }) =>
+    apiRequest<any>(`/api/superadmin/roadmap/features/${id}/comments`, { method: 'POST', body: data }),
 };
 
 export const releaseNotesApi = {
-  list: () => apiRequest<any[]>('/api/release-notes'),
-  unread: () => apiRequest<any[]>('/api/release-notes/unread'),
-  markRead: (id: string) => apiRequest<any>(`/api/release-notes/${id}/read`, { method: 'PATCH' }),
+  list: (params?: { audience?: 'ALL' | 'SUPER_ADMIN' | 'ADMIN' | 'RESIDENT'; updateType?: string; releaseId?: string }) =>
+    apiRequest<any[]>('/api/product-updates', { params }),
+  unread: () => apiRequest<any[]>('/api/product-updates/unread'),
+  markRead: (id: string) => apiRequest<any>(`/api/product-updates/${id}/acknowledge`, { method: 'PATCH' }),
+  publicChangelog: () => apiRequest<any[]>('/api/product-updates/public-changelog'),
   superadminList: (params?: { targetRole?: 'ALL' | 'SUPER_ADMIN' | 'ADMIN' | 'RESIDENT'; isPublished?: boolean }) =>
-    apiRequest<any[]>('/api/superadmin/release-notes', {
+    apiRequest<any[]>('/api/superadmin/product-updates', {
       params: {
-        targetRole: params?.targetRole,
-        isPublished: params?.isPublished !== undefined ? String(params.isPublished) : undefined,
+        audience: params?.targetRole,
+        status: params?.isPublished === true ? 'PUBLISHED' : params?.isPublished === false ? 'DRAFT' : undefined,
       },
     }),
   superadminCreate: (data: { title: string; content: string; version?: string; targetRole?: 'ALL' | 'SUPER_ADMIN' | 'ADMIN' | 'RESIDENT' }) =>
-    apiRequest<any>('/api/superadmin/release-notes', { method: 'POST', body: data }),
+    apiRequest<any>('/api/superadmin/product-updates', {
+      method: 'POST',
+      body: {
+        title: data.title,
+        summary: data.title,
+        body: data.content,
+        version: data.version,
+        audience: data.targetRole,
+        updateType: 'IMPROVEMENT',
+        visibility: 'IN_APP_ONLY',
+      },
+    }),
   superadminUpdate: (
     id: string,
     data: Partial<{ title: string; content: string; version?: string; targetRole: 'ALL' | 'SUPER_ADMIN' | 'ADMIN' | 'RESIDENT'; isPublished: boolean }>,
-  ) => apiRequest<any>(`/api/superadmin/release-notes/${id}`, { method: 'PATCH', body: data }),
-  superadminDelete: (id: string) => apiRequest<any>(`/api/superadmin/release-notes/${id}`, { method: 'DELETE' }),
-  superadminPublish: (id: string) => apiRequest<any>(`/api/superadmin/release-notes/${id}/publish`, { method: 'POST' }),
+  ) => apiRequest<any>(`/api/superadmin/product-updates/${id}`, {
+    method: 'PATCH',
+    body: {
+      title: data.title,
+      summary: data.title,
+      body: data.content,
+      version: data.version,
+      audience: data.targetRole,
+      status: data.isPublished === true ? 'PUBLISHED' : data.isPublished === false ? 'DRAFT' : undefined,
+    },
+  }),
+  superadminDelete: (id: string) => apiRequest<any>(`/api/superadmin/product-updates/${id}`, { method: 'DELETE' }),
+  superadminPublish: (id: string) => apiRequest<any>(`/api/superadmin/product-updates/${id}/publish`, { method: 'POST' }),
+};
+
+export const productUpdatesApi = {
+  list: releaseNotesApi.list,
+  unread: releaseNotesApi.unread,
+  acknowledge: releaseNotesApi.markRead,
+  publicChangelog: releaseNotesApi.publicChangelog,
+  superadminDashboard: () => apiRequest<any>('/api/superadmin/product-updates/dashboard'),
+  releases: (params?: { status?: 'DRAFT' | 'SCHEDULED' | 'PUBLISHED' | 'ARCHIVED' }) =>
+    apiRequest<any[]>('/api/superadmin/product-releases', { params }),
+  release: (id: string) => apiRequest<any>(`/api/superadmin/product-releases/${id}`),
+  createRelease: (data: Record<string, unknown>) => apiRequest<any>('/api/superadmin/product-releases', { method: 'POST', body: data }),
+  updateRelease: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/product-releases/${id}`, { method: 'PATCH', body: data }),
+  publishRelease: (id: string) => apiRequest<any>(`/api/superadmin/product-releases/${id}/publish`, { method: 'POST' }),
+  archiveRelease: (id: string) => apiRequest<any>(`/api/superadmin/product-releases/${id}/archive`, { method: 'POST' }),
+  deleteRelease: (id: string) => apiRequest<any>(`/api/superadmin/product-releases/${id}`, { method: 'DELETE' }),
+  updates: (params?: {
+    status?: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+    audience?: 'ALL' | 'SUPER_ADMIN' | 'ADMIN' | 'RESIDENT';
+    visibility?: 'PUBLIC_CHANGELOG' | 'IN_APP_ONLY' | 'INTERNAL_ONLY';
+    updateType?: 'FEATURE' | 'IMPROVEMENT' | 'FIX' | 'SECURITY' | 'DEPRECATION' | 'NOTICE';
+    releaseId?: string;
+  }) => apiRequest<any[]>('/api/superadmin/product-updates', { params }),
+  update: (id: string) => apiRequest<any>(`/api/superadmin/product-updates/${id}`),
+  createUpdate: (data: Record<string, unknown>) => apiRequest<any>('/api/superadmin/product-updates', { method: 'POST', body: data }),
+  updateUpdate: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/product-updates/${id}`, { method: 'PATCH', body: data }),
+  publishUpdate: (id: string) => apiRequest<any>(`/api/superadmin/product-updates/${id}/publish`, { method: 'POST' }),
+  archiveUpdate: (id: string) => apiRequest<any>(`/api/superadmin/product-updates/${id}/archive`, { method: 'POST' }),
+  deleteUpdate: (id: string) => apiRequest<any>(`/api/superadmin/product-updates/${id}`, { method: 'DELETE' }),
+  acknowledgements: (id: string) => apiRequest<any[]>(`/api/superadmin/product-updates/${id}/acknowledgements`),
+};
+
+export const featureFlagsApi = {
+  catalog: () => apiRequest<any[]>('/api/feature-flags/catalog'),
+  evaluate: (params?: { moduleKey?: string }) => apiRequest<any>('/api/feature-flags/evaluate', { params }),
+  superadminCatalog: () => apiRequest<any[]>('/api/superadmin/feature-flags/catalog'),
+  dashboard: () => apiRequest<any>('/api/superadmin/feature-flags/dashboard'),
+  list: (params?: {
+    status?: 'DRAFT' | 'ACTIVE' | 'PAUSED' | 'ARCHIVED';
+    type?: 'RELEASE_FLAG' | 'MODULE_AVAILABILITY' | 'EXPERIMENT' | 'KILL_SWITCH';
+    moduleKey?: string;
+    q?: string;
+  }) => apiRequest<any[]>('/api/superadmin/feature-flags', { params }),
+  get: (id: string) => apiRequest<any>(`/api/superadmin/feature-flags/${id}`),
+  create: (data: Record<string, unknown>) => apiRequest<any>('/api/superadmin/feature-flags', { method: 'POST', body: data }),
+  update: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/feature-flags/${id}`, { method: 'PATCH', body: data }),
+  updateStatus: (id: string, status: 'DRAFT' | 'ACTIVE' | 'PAUSED' | 'ARCHIVED') =>
+    apiRequest<any>(`/api/superadmin/feature-flags/${id}/status`, { method: 'PATCH', body: { status } }),
+  createRule: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/feature-flags/${id}/rules`, { method: 'POST', body: data }),
+  updateRule: (id: string, ruleId: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/superadmin/feature-flags/${id}/rules/${ruleId}`, { method: 'PATCH', body: data }),
+  deleteRule: (id: string, ruleId: string) => apiRequest<any>(`/api/superadmin/feature-flags/${id}/rules/${ruleId}`, { method: 'DELETE' }),
+  preview: (data: { organizationId?: string; planId?: string; role?: 'SUPERADMIN' | 'ADMIN' | 'RESIDENT'; userId?: string }) =>
+    apiRequest<any>('/api/superadmin/feature-flags/preview', { method: 'POST', body: data }),
+};
+
+export const betaProgramsApi = {
+  myAccess: () => apiRequest<any[]>('/api/beta/my-access'),
+  submitFeedback: (data: Record<string, unknown>) => apiRequest<any>('/api/beta/feedback', { method: 'POST', body: data }),
+  dashboard: () => apiRequest<any>('/api/superadmin/beta/dashboard'),
+  listPrograms: (params?: { status?: 'DRAFT' | 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'ARCHIVED'; moduleKey?: string; q?: string }) =>
+    apiRequest<any[]>('/api/superadmin/beta/programs', { params }),
+  getProgram: (id: string) => apiRequest<any>(`/api/superadmin/beta/programs/${id}`),
+  createProgram: (data: Record<string, unknown>) => apiRequest<any>('/api/superadmin/beta/programs', { method: 'POST', body: data }),
+  updateProgram: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/beta/programs/${id}`, { method: 'PATCH', body: data }),
+  updateProgramStatus: (id: string, status: 'DRAFT' | 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'ARCHIVED') =>
+    apiRequest<any>(`/api/superadmin/beta/programs/${id}/status`, { method: 'PATCH', body: { status } }),
+  createCohort: (programId: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/superadmin/beta/programs/${programId}/cohorts`, { method: 'POST', body: data }),
+  updateCohort: (cohortId: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/beta/cohorts/${cohortId}`, { method: 'PATCH', body: data }),
+  updateCohortStatus: (cohortId: string, status: 'DRAFT' | 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'ARCHIVED') =>
+    apiRequest<any>(`/api/superadmin/beta/cohorts/${cohortId}/status`, { method: 'PATCH', body: { status } }),
+  addMember: (cohortId: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/superadmin/beta/cohorts/${cohortId}/members`, { method: 'POST', body: data }),
+  updateMember: (cohortId: string, memberId: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/superadmin/beta/cohorts/${cohortId}/members/${memberId}`, { method: 'PATCH', body: data }),
+  removeMember: (cohortId: string, memberId: string) =>
+    apiRequest<any>(`/api/superadmin/beta/cohorts/${cohortId}/members/${memberId}`, { method: 'DELETE' }),
+  listFeedback: (params?: { betaProgramId?: string; betaCohortId?: string; organizationId?: string; status?: string; severity?: string }) =>
+    apiRequest<any[]>('/api/superadmin/beta/feedback', { params }),
+  updateFeedback: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/beta/feedback/${id}`, { method: 'PATCH', body: data }),
 };
 
 export const leadsApi = {
@@ -800,14 +952,21 @@ export const demoRequestsApi = {
 
 export const customerRequestsApi = {
   createPublic: (data: {
-    fullName: string;
+    type?: 'APC' | 'ADMINISTRATOR' | 'PROPERTY_MANAGER' | 'OTHER';
+    contactName?: string;
+    fullName?: string;
     phone: string;
     email?: string;
-    associationName: string;
+    city?: string;
+    associationName?: string;
+    legalName?: string;
     associationCode?: string;
+    apcCode?: string;
     address?: string;
+    blocksCount?: number;
     apartmentsCount?: number;
     role?: string;
+    contactRole?: string;
     currentManagementMethod?: string;
     interestedModules?: string[];
     preferredContactMethod?: string;
@@ -819,6 +978,8 @@ export const customerRequestsApi = {
   superadminList: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/customer-requests', { params }),
   superadminStats: () => apiRequest<any>('/api/superadmin/customer-requests/stats'),
   superadminGet: (id: string) => apiRequest<any>(`/api/superadmin/customer-requests/${id}`),
+  superadminUpdate: (id: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/superadmin/customer-requests/${id}`, { method: 'PATCH', body: data }),
   superadminStatus: (id: string, data: { status: string; closeReason?: string }) =>
     apiRequest<any>(`/api/superadmin/customer-requests/${id}/status`, { method: 'PATCH', body: data }),
   superadminPriority: (id: string, priority: string) =>
@@ -829,6 +990,39 @@ export const customerRequestsApi = {
     apiRequest<any>(`/api/superadmin/customer-requests/${id}/assign`, { method: 'PATCH', body: { assignedToId } }),
   superadminConvert: (id: string) =>
     apiRequest<any>(`/api/superadmin/customer-requests/${id}/convert-to-association`, { method: 'PATCH' }),
+};
+
+export const accessRequestsApi = {
+  createAccessRequest: (data: {
+    contactName: string;
+    phone: string;
+    email?: string;
+    city: string;
+    type: 'APC' | 'ADMINISTRATOR' | 'PROPERTY_MANAGER' | 'OTHER';
+    associationName?: string;
+    legalName?: string;
+    apcCode?: string;
+    address?: string;
+    blocksCount?: number;
+    apartmentsCount?: number;
+    contactRole?: string;
+    message?: string;
+    source?: 'PUBLIC_WEBSITE' | 'CONTACT_PAGE' | 'ACCESS_REQUEST' | 'REFERRAL' | 'MANUAL' | 'OTHER';
+    consent: boolean;
+    website?: string;
+  }) => apiRequest<any>('/api/public/access-requests', { method: 'POST', body: data }),
+  getSuperadminAccessRequests: (params?: {
+    status?: string;
+    search?: string;
+    city?: string;
+    type?: string;
+    priority?: string;
+    page?: string;
+    limit?: string;
+  }) => apiRequest<any>('/api/superadmin/access-requests', { params }),
+  getSuperadminAccessRequest: (id: string) => apiRequest<any>(`/api/superadmin/access-requests/${id}`),
+  updateSuperadminAccessRequest: (id: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/superadmin/access-requests/${id}`, { method: 'PATCH', body: data }),
 };
 
 export const invitationsApi = {
@@ -3551,6 +3745,50 @@ export const superadminRevenueApi = {
   detectAssociationUpgradeOpportunities: (associationId: string) => apiRequest<any>(`/api/superadmin/revenue/upgrade-opportunities/detect/${associationId}`, { method: 'POST' }),
   clientForecast: (clientId: string) => apiRequest<any>(`/api/superadmin/revenue/clients/${clientId}/forecast`),
   clientUpgradeOpportunities: (clientId: string) => apiRequest<any>(`/api/superadmin/revenue/clients/${clientId}/upgrade-opportunities`),
+};
+
+export const superadminRetentionApi = {
+  dashboard: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/retention/dashboard', { params }),
+  reports: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/retention/reports', { params }),
+  reasons: () => apiRequest<any>('/api/superadmin/retention/reasons'),
+  risks: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/retention/churn-risk', { params }),
+  createRisk: (data: Record<string, unknown>) => apiRequest<any>('/api/superadmin/retention/churn-risk', { method: 'POST', body: data }),
+  risk: (id: string) => apiRequest<any>(`/api/superadmin/retention/churn-risk/${id}`),
+  updateRisk: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/retention/churn-risk/${id}`, { method: 'PATCH', body: data }),
+  updateRiskStatus: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/retention/churn-risk/${id}/status`, { method: 'PATCH', body: data }),
+  assignRisk: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/retention/churn-risk/${id}/assign`, { method: 'PATCH', body: data }),
+  startRetentionPlan: (id: string, data?: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/retention/churn-risk/${id}/start-retention-plan`, { method: 'POST', body: data || {} }),
+  riskTask: (id: string, data?: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/retention/churn-risk/${id}/create-task`, { method: 'POST', body: data || {} }),
+  riskFollowUp: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/retention/churn-risk/${id}/create-follow-up`, { method: 'POST', body: data }),
+  addRiskNote: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/retention/churn-risk/${id}/notes`, { method: 'POST', body: data }),
+  markRiskSaved: (id: string, data?: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/retention/churn-risk/${id}/mark-saved`, { method: 'POST', body: data || {} }),
+  markRiskLost: (id: string, data?: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/retention/churn-risk/${id}/mark-lost`, { method: 'POST', body: data || {} }),
+  dismissRisk: (id: string, data?: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/retention/churn-risk/${id}/dismiss`, { method: 'POST', body: data || {} }),
+  detectRisks: () => apiRequest<any>('/api/superadmin/retention/churn-risk/detect', { method: 'POST' }),
+  detectClientRisks: (clientId: string) => apiRequest<any>(`/api/superadmin/retention/churn-risk/detect/${clientId}`, { method: 'POST' }),
+  renewals: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/retention/renewals', { params }),
+  createRenewal: (data: Record<string, unknown>) => apiRequest<any>('/api/superadmin/retention/renewals', { method: 'POST', body: data }),
+  renewal: (id: string) => apiRequest<any>(`/api/superadmin/retention/renewals/${id}`),
+  updateRenewal: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/retention/renewals/${id}`, { method: 'PATCH', body: data }),
+  updateRenewalStatus: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/retention/renewals/${id}/status`, { method: 'PATCH', body: data }),
+  startRenewal: (id: string) => apiRequest<any>(`/api/superadmin/retention/renewals/${id}/start`, { method: 'POST' }),
+  completeRenewal: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/retention/renewals/${id}/complete`, { method: 'POST', body: data }),
+  startRenewalRetentionPlan: (id: string, data?: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/retention/renewals/${id}/start-retention-plan`, { method: 'POST', body: data || {} }),
+  renewalTask: (id: string, data?: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/retention/renewals/${id}/create-task`, { method: 'POST', body: data || {} }),
+  renewalFollowUp: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/retention/renewals/${id}/create-follow-up`, { method: 'POST', body: data }),
+  generateRenewals: () => apiRequest<any>('/api/superadmin/retention/renewals/generate-from-subscriptions', { method: 'POST' }),
+  plans: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/retention/plans', { params }),
+  createPlan: (data: Record<string, unknown>) => apiRequest<any>('/api/superadmin/retention/plans', { method: 'POST', body: data }),
+  plan: (id: string) => apiRequest<any>(`/api/superadmin/retention/plans/${id}`),
+  updatePlan: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/retention/plans/${id}`, { method: 'PATCH', body: data }),
+  createAction: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/retention/plans/${id}/actions`, { method: 'POST', body: data }),
+  updateAction: (id: string, actionId: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/retention/plans/${id}/actions/${actionId}`, { method: 'PATCH', body: data }),
+  completeAction: (id: string, actionId: string, data?: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/retention/plans/${id}/actions/${actionId}/complete`, { method: 'POST', body: data || {} }),
+  completePlan: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/retention/plans/${id}/complete`, { method: 'POST', body: data }),
+  cancelPlan: (id: string, data?: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/retention/plans/${id}/cancel`, { method: 'POST', body: data || {} }),
+  planTask: (id: string, data?: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/retention/plans/${id}/create-task`, { method: 'POST', body: data || {} }),
+  planFollowUp: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/retention/plans/${id}/create-follow-up`, { method: 'POST', body: data }),
+  clientRetention: (clientId: string) => apiRequest<any>(`/api/superadmin/retention/clients/${clientId}`),
 };
 
 export const condoApi = {

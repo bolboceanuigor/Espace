@@ -20,7 +20,7 @@ export class FeedbackController {
 
   @Get()
   @UseGuards(RolesGuard)
-  @Roles(Role.SUPERADMIN)
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
   list(@CurrentUser() user: any, @Req() req: Request) {
     const organizationId = getOrgScope(user, getRequestedOrgId(req));
     return this.feedbackService.list(organizationId, user.role);
