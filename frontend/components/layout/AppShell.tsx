@@ -19,6 +19,7 @@ import { normalizeRole, roleHomePath } from '@/lib/role-routing';
 import { isAdminHardBlocked } from '@/lib/subscription-access';
 import FeedbackModal from '@/components/feedback/FeedbackModal';
 import ResidentAppShell from '@/components/resident/ResidentAppShell';
+import { SuperadminCommandPalette, SuperadminGlobalSearchInput } from '@/components/superadmin-search/SuperadminCommandPalette';
 
 type AppShellProps = { children: React.ReactNode };
 
@@ -64,6 +65,7 @@ function AppShellContent({ children }: AppShellProps) {
   const [notificationsUnreadCount, setNotificationsUnreadCount] = useState(0);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [superadminSearchOpen, setSuperadminSearchOpen] = useState(false);
   const [adminSubscription, setAdminSubscription] = useState<{ status: string; trialEndDate?: string | null } | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   
@@ -187,11 +189,15 @@ function AppShellContent({ children }: AppShellProps) {
       const isMetaK = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k';
       if (!isMetaK) return;
       event.preventDefault();
+      if (normalizedRole === 'SUPER_ADMIN') {
+        setSuperadminSearchOpen((current) => !current);
+        return;
+      }
       searchInputRef.current?.focus();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+  }, [normalizedRole]);
 
   const handleLogout = async () => {
     await logout();
@@ -380,6 +386,9 @@ function AppShellContent({ children }: AppShellProps) {
 
             {/* Search */}
             <div className="hidden flex-1 lg:block lg:max-w-md">
+              {normalizedRole === 'SUPER_ADMIN' ? (
+                <SuperadminGlobalSearchInput onOpen={() => setSuperadminSearchOpen(true)} />
+              ) : (
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
                 <input
@@ -391,11 +400,22 @@ function AppShellContent({ children }: AppShellProps) {
                   className="h-9 w-full rounded-lg border border-neutral-200 bg-neutral-50 pl-9 pr-3 text-sm text-neutral-900 placeholder-neutral-400 outline-none transition-colors focus:border-neutral-300 focus:bg-white focus:ring-1 focus:ring-neutral-200"
                 />
               </div>
+              )}
             </div>
 
             {/* Right side */}
             <div className="flex items-center gap-2">
               {normalizedRole === 'SUPER_ADMIN' && <OrgSwitcher />}
+              {normalizedRole === 'SUPER_ADMIN' && (
+                <button
+                  type="button"
+                  onClick={() => setSuperadminSearchOpen(true)}
+                  className="rounded-lg p-2 text-neutral-600 hover:bg-neutral-100 lg:hidden"
+                  aria-label="Caută global"
+                >
+                  <Search className="size-5" />
+                </button>
+              )}
               {normalizedRole === 'SUPER_ADMIN' && (
                 <Link
                   href={`/${locale}/superadmin/monitoring`}
@@ -495,6 +515,7 @@ function AppShellContent({ children }: AppShellProps) {
 
       {/* Feedback modal */}
       <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} pageUrl={pathname || '/'} />
+      {normalizedRole === 'SUPER_ADMIN' ? <SuperadminCommandPalette open={superadminSearchOpen} onOpenChange={setSuperadminSearchOpen} /> : null}
     </div>
   );
 }

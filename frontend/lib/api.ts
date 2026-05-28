@@ -3322,6 +3322,18 @@ export const adminSearchApi = {
     apiRequest<any>(`/api/admin/commands/${commandKey}/execute`, { method: 'POST', body: data }),
 };
 
+export const superadminSearchApi = {
+  search: (params: { q?: string; types?: string; limitPerType?: number; includeCommands?: boolean; includeRecent?: boolean }) =>
+    apiRequest<any>('/api/superadmin/search', { params }),
+  recent: () => apiRequest<any>('/api/superadmin/search/recent'),
+  saveRecent: (data: { query?: string; selectedResultType?: string; selectedResultId?: string; selectedResultTitle?: string; selectedUrl?: string }) =>
+    apiRequest<any>('/api/superadmin/search/recent', { method: 'POST', body: data }),
+  clearRecent: () => apiRequest<any>('/api/superadmin/search/recent', { method: 'DELETE' }),
+  commands: () => apiRequest<any>('/api/superadmin/commands'),
+  executeCommand: (commandKey: string) => apiRequest<any>(`/api/superadmin/commands/${commandKey}/execute`, { method: 'POST' }),
+  clientNavigator: (associationId: string) => apiRequest<any>(`/api/superadmin/client-navigator/${associationId}`),
+};
+
 export const condoApi = {
   getOwnerDashboard: () =>
     apiRequest<{
