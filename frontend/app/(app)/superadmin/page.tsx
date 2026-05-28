@@ -571,6 +571,12 @@ export default function SuperadminPage() {
                 href={localizedPath('/superadmin/revenue')}
               />
               <QuickActionCard
+                icon={TrendingUp}
+                title="Revenue Forecast"
+                description="Forecast MRR/ARR si oportunitati de upgrade pe planuri SaaS"
+                href={localizedPath('/superadmin/revenue/forecast')}
+              />
+              <QuickActionCard
                 icon={Scale}
                 title="Legal & Trust"
                 description="Documente legale, versiuni si cereri privacy/security"
