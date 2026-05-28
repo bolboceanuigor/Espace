@@ -267,6 +267,14 @@ export function LaunchServiceDetailPage() {
           <div className="mt-2 flex flex-wrap gap-2">{(service.environmentKeys || []).map((key: string) => <span key={key} className="rounded-md bg-slate-100 px-2 py-1 font-mono text-xs">{key}</span>)}</div>
           <h3 className="mt-6 font-semibold">Impact if down</h3>
           <p className="mt-2 text-sm leading-6 text-slate-600">{service.impactIfDown}</p>
+          <div className="mt-6 rounded-md border border-amber-200 bg-amber-50 p-4">
+            <h3 className="font-semibold text-amber-900">Backup relevance & recovery impact</h3>
+            <p className="mt-2 text-sm leading-6 text-amber-800">Serviciile critice trebuie incluse in planul de recovery. Pentru database, hosting, domain, DNS si source control, verifica runbook-urile si backup checks in Backup & Recovery.</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Link href={localized(locale, '/superadmin/backup/recovery-plan')} className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-amber-800">Runbooks</Link>
+              <Link href={localized(locale, '/superadmin/backup/backup-checks')} className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-amber-800">Backup checks</Link>
+            </div>
+          </div>
           {service.dashboardUrl ? <a href={service.dashboardUrl} target="_blank" className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-emerald-700">Dashboard extern <ExternalLink className="h-4 w-4" /></a> : null}
         </section>
         <aside className="space-y-4">

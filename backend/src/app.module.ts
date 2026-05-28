@@ -22,6 +22,7 @@ import { HelpModule } from './help/help.module';
 import { CustomerRequestsModule } from './customer-requests/customer-requests.module';
 import { LegalModule } from './legal/legal.module';
 import { LaunchControlModule } from './launch-control/launch-control.module';
+import { BackupRecoveryModule } from './backup-recovery/backup-recovery.module';
 import { SetupModule } from './setup/setup.module';
 import { MessagesMvpModule } from './messages-mvp/messages-mvp.module';
 import { ActivityMvpModule } from './activity-mvp/activity-mvp.module';
@@ -64,6 +65,7 @@ import { AppController } from './app.controller';
     CustomerRequestsModule,
     LegalModule,
     LaunchControlModule,
+    BackupRecoveryModule,
     SetupModule,
     MessagesMvpModule,
     ActivityMvpModule,

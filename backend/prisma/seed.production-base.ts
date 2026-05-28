@@ -1,6 +1,7 @@
 import { BillingCurrency, LegalDocumentStatus, OrganizationStatus, PrismaClient } from '@prisma/client';
 import { LEGAL_DOCUMENT_SEEDS } from '../src/legal/legal.seed';
 import { LAUNCH_CHECKLIST_SEEDS, PLATFORM_SERVICE_SEEDS } from '../src/launch-control/launch-control.seed';
+import { BACKUP_CHECKLIST_SEEDS, RECOVERY_RUNBOOK_SEEDS } from '../src/backup-recovery/backup-recovery.seed';
 
 const prisma = new PrismaClient();
 
@@ -95,9 +96,36 @@ async function main() {
     else await prisma.platformService.create({ data });
   }
 
+  for (const [key, category, title, description, severity, isRequired, actionUrl] of BACKUP_CHECKLIST_SEEDS) {
+    await prisma.backupChecklistItem.upsert({
+      where: { key },
+      update: { category, title, description, severity, isRequired, actionUrl },
+      create: { key, category, title, description, severity, isRequired, actionUrl },
+    });
+  }
+
+  for (const runbook of RECOVERY_RUNBOOK_SEEDS) {
+    await prisma.recoveryRunbook.upsert({
+      where: { key: runbook.key },
+      update: {
+        title: runbook.title,
+        description: runbook.description,
+        scenario: runbook.scenario,
+        severity: runbook.severity,
+        steps: runbook.steps,
+        status: 'ACTIVE',
+      },
+      create: {
+        ...runbook,
+        status: 'ACTIVE',
+      },
+    });
+  }
+
   console.log('Platform base organization is ready.');
   console.log('Legal & Trust seed documents are ready.');
   console.log('Launch checklist and platform service seeds are ready.');
+  console.log('Backup checklist and recovery runbook seeds are ready.');
   console.log('Use npm run seed:production-superadmin to create a production SUPERADMIN if needed.');
 }
 

@@ -12,6 +12,7 @@ import {
   ChevronRight, 
   Clock,
   CreditCard, 
+  Database,
   ExternalLink,
   Home,
   LayoutGrid,
@@ -534,6 +535,12 @@ export default function SuperadminPage() {
                 title="Go-Live Control Center"
                 description="Checklist lansare, servicii critice si costuri lunare"
                 href={localizedPath('/superadmin/launch')}
+              />
+              <QuickActionCard
+                icon={Database}
+                title="Backup & Recovery"
+                description="Plan backup, runbooks, recovery drills si incidente production"
+                href={localizedPath('/superadmin/backup')}
               />
             </div>
           </section>

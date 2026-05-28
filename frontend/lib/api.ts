@@ -3180,6 +3180,38 @@ export const launchApi = {
   events: () => apiRequest<any[]>('/api/superadmin/launch/events'),
 };
 
+export const backupApi = {
+  overview: () => apiRequest<any>('/api/superadmin/backup'),
+  checklist: () => apiRequest<any>('/api/superadmin/backup/checklist'),
+  runChecklist: () => apiRequest<any>('/api/superadmin/backup/checklist/run', { method: 'POST' }),
+  updateChecklistItem: (id: string, data: Record<string, any>) =>
+    apiRequest<any>(`/api/superadmin/backup/checklist/${id}`, { method: 'PATCH', body: data }),
+  backupChecks: () => apiRequest<any[]>('/api/superadmin/backup/backup-checks'),
+  createBackupCheck: (data: Record<string, any>) =>
+    apiRequest<any>('/api/superadmin/backup/backup-checks', { method: 'POST', body: data }),
+  getBackupCheck: (id: string) => apiRequest<any>(`/api/superadmin/backup/backup-checks/${id}`),
+  updateBackupCheck: (id: string, data: Record<string, any>) =>
+    apiRequest<any>(`/api/superadmin/backup/backup-checks/${id}`, { method: 'PATCH', body: data }),
+  recoveryPlan: () => apiRequest<any>('/api/superadmin/backup/recovery-plan'),
+  recoveryDrills: () => apiRequest<any[]>('/api/superadmin/backup/recovery-drills'),
+  createRecoveryDrill: (data: Record<string, any>) =>
+    apiRequest<any>('/api/superadmin/backup/recovery-drills', { method: 'POST', body: data }),
+  getRecoveryDrill: (id: string) => apiRequest<any>(`/api/superadmin/backup/recovery-drills/${id}`),
+  updateRecoveryDrill: (id: string, data: Record<string, any>) =>
+    apiRequest<any>(`/api/superadmin/backup/recovery-drills/${id}`, { method: 'PATCH', body: data }),
+  startRecoveryDrill: (id: string) => apiRequest<any>(`/api/superadmin/backup/recovery-drills/${id}/start`, { method: 'POST' }),
+  completeRecoveryDrill: (id: string, data: Record<string, any>) =>
+    apiRequest<any>(`/api/superadmin/backup/recovery-drills/${id}/complete`, { method: 'POST', body: data }),
+  incidents: () => apiRequest<any[]>('/api/superadmin/backup/incidents'),
+  createIncident: (data: Record<string, any>) => apiRequest<any>('/api/superadmin/backup/incidents', { method: 'POST', body: data }),
+  getIncident: (id: string) => apiRequest<any>(`/api/superadmin/backup/incidents/${id}`),
+  updateIncident: (id: string, data: Record<string, any>) =>
+    apiRequest<any>(`/api/superadmin/backup/incidents/${id}`, { method: 'PATCH', body: data }),
+  addIncidentUpdate: (id: string, data: Record<string, any>) =>
+    apiRequest<any>(`/api/superadmin/backup/incidents/${id}/updates`, { method: 'POST', body: data }),
+  exportCenter: () => apiRequest<any>('/api/superadmin/backup/export-center'),
+};
+
 export const condoApi = {
   getOwnerDashboard: () =>
     apiRequest<{

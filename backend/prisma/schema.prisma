@@ -1106,6 +1106,77 @@ enum LaunchEventType {
   BLOCKER_RESOLVED
 }
 
+enum BackupReadinessStatus {
+  NOT_CONFIGURED
+  NEEDS_ATTENTION
+  PARTIALLY_READY
+  READY
+  VERIFIED
+}
+
+enum BackupCheckStatus {
+  NOT_CHECKED
+  PASSED
+  WARNING
+  FAILED
+  NOT_APPLICABLE
+}
+
+enum RecoveryDrillStatus {
+  PLANNED
+  IN_PROGRESS
+  PASSED
+  PARTIAL
+  FAILED
+  CANCELLED
+}
+
+enum ProductionIncidentStatus {
+  OPEN
+  INVESTIGATING
+  MITIGATED
+  RESOLVED
+  CLOSED
+}
+
+enum ProductionIncidentSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum BackupScope {
+  DATABASE
+  FILE_STORAGE
+  ENVIRONMENT_CONFIG
+  SOURCE_CODE
+  DEPLOYMENT_CONFIG
+  LEGAL_DOCS
+  EXPORTS
+  FULL_PLATFORM
+}
+
+enum RecoveryRunbookStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum RecoveryScenario {
+  DATABASE_DOWN
+  BACKEND_DOWN
+  FRONTEND_DOWN
+  FAILED_DEPLOY
+  FAILED_MIGRATION
+  ACCIDENTAL_DATA_CHANGE
+  EXTERNAL_PROVIDER_DOWN
+  DOMAIN_DNS_ISSUE
+  SECURITY_INCIDENT
+  PAYMENT_PROVIDER_ISSUE
+  NOTIFICATION_PROVIDER_ISSUE
+}
+
 enum ClientNoteType {
   CALL
   MEETING
@@ -1971,6 +2042,153 @@ model LaunchEvent {
   @@map("launch_events")
 }
 
+model BackupChecklistItem {
+  id          String            @id @default(uuid())
+  key         String            @unique
+  category    String
+  title       String
+  description String
+  status      BackupCheckStatus @default(NOT_CHECKED)
+  severity    LaunchChecklistSeverity @default(INFO)
+  isRequired  Boolean           @default(true)
+  actionUrl   String?
+  evidence    String?
+  checkedAt   DateTime?
+  checkedById String?
+  metadata    Json?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  checkedBy User? @relation("BackupChecklistCheckedBy", fields: [checkedById], references: [id], onDelete: SetNull)
+
+  @@index([category, status])
+  @@index([severity, status])
+  @@map("backup_checklist_items")
+}
+
+model BackupCheck {
+  id              String            @id @default(uuid())
+  scope           BackupScope
+  status          BackupCheckStatus
+  title           String
+  description     String
+  providerName    String?
+  checkedAt       DateTime          @default(now())
+  checkedById     String?
+  backupLocation  String?
+  backupReference String?
+  backupDate      DateTime?
+  restoreTested   Boolean           @default(false)
+  restoreTestedAt DateTime?
+  notes           String?
+  metadata        Json?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  checkedBy User? @relation("BackupCheckCheckedBy", fields: [checkedById], references: [id], onDelete: SetNull)
+
+  @@index([scope, status])
+  @@index([checkedAt])
+  @@index([backupDate])
+  @@map("backup_checks")
+}
+
+model RecoveryDrill {
+  id              String              @id @default(uuid())
+  title           String
+  description     String
+  status          RecoveryDrillStatus @default(PLANNED)
+  scope           BackupScope
+  scenario        RecoveryScenario?
+  plannedAt       DateTime?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  performedById   String?
+  durationMinutes Int?
+  resultSummary   String?
+  issuesFound     Json?
+  actionsTaken    Json?
+  nextActions     Json?
+  notes           String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  performedBy User? @relation("RecoveryDrillPerformedBy", fields: [performedById], references: [id], onDelete: SetNull)
+
+  @@index([scope, status])
+  @@index([scenario, status])
+  @@index([plannedAt])
+  @@map("recovery_drills")
+}
+
+model RecoveryRunbook {
+  id             String                     @id @default(uuid())
+  key            String                     @unique
+  title          String
+  description    String
+  scenario       RecoveryScenario
+  severity       ProductionIncidentSeverity
+  steps          Json
+  status         RecoveryRunbookStatus      @default(ACTIVE)
+  owner          String?
+  lastReviewedAt DateTime?
+  reviewedById   String?
+  createdAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
+
+  reviewedBy User? @relation("RecoveryRunbookReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([scenario, status])
+  @@index([severity, status])
+  @@map("recovery_runbooks")
+}
+
+model ProductionIncident {
+  id                String                     @id @default(uuid())
+  title             String
+  description       String
+  severity          ProductionIncidentSeverity
+  status            ProductionIncidentStatus   @default(OPEN)
+  affectedServices  Json?
+  startedAt         DateTime                   @default(now())
+  detectedAt        DateTime?
+  mitigatedAt       DateTime?
+  resolvedAt        DateTime?
+  closedAt          DateTime?
+  openedById        String?
+  assignedToId      String?
+  rootCause         String?
+  resolutionSummary String?
+  nextActions       Json?
+  metadata          Json?
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+
+  openedBy User? @relation("ProductionIncidentOpenedBy", fields: [openedById], references: [id], onDelete: SetNull)
+  assignedTo User? @relation("ProductionIncidentAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  updates ProductionIncidentUpdate[]
+
+  @@index([severity, status])
+  @@index([startedAt])
+  @@map("production_incidents")
+}
+
+model ProductionIncidentUpdate {
+  id          String                    @id @default(uuid())
+  incidentId  String
+  actorUserId String?
+  status      ProductionIncidentStatus?
+  message     String
+  metadata    Json?
+  createdAt   DateTime                  @default(now())
+
+  incident ProductionIncident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  actor    User?              @relation("ProductionIncidentUpdateActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([incidentId, createdAt])
+  @@map("production_incident_updates")
+}
+
 model ClientNote {
   id              String         @id @default(uuid())
   organizationId  String
@@ -2771,6 +2989,13 @@ model User {
   launchStatesMarkedReady LaunchState[] @relation("LaunchStateMarkedReadyBy")
   launchStatesWentLive LaunchState[] @relation("LaunchStateWentLiveBy")
   launchEvents LaunchEvent[] @relation("LaunchEventActor")
+  backupChecklistChecks BackupChecklistItem[] @relation("BackupChecklistCheckedBy")
+  backupChecks BackupCheck[] @relation("BackupCheckCheckedBy")
+  recoveryDrillsPerformed RecoveryDrill[] @relation("RecoveryDrillPerformedBy")
+  recoveryRunbooksReviewed RecoveryRunbook[] @relation("RecoveryRunbookReviewedBy")
+  productionIncidentsOpened ProductionIncident[] @relation("ProductionIncidentOpenedBy")
+  productionIncidentsAssigned ProductionIncident[] @relation("ProductionIncidentAssignedTo")
+  productionIncidentUpdates ProductionIncidentUpdate[] @relation("ProductionIncidentUpdateActor")
 
   @@index([organizationId])
   @@index([deletedAt])
