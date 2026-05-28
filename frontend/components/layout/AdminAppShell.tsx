@@ -5,6 +5,7 @@ import { Bell, Menu, Search, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { AdminContextProvider, useAdminContext } from '@/context/AdminContext';
 import { PermissionsProvider } from '@/hooks/usePermissions';
+import { AdminCommandPalette, AdminGlobalSearchInput } from '@/components/admin-search/AdminCommandPalette';
 import AppSidebar from './AppSidebar';
 
 type AdminAppShellProps = {
@@ -65,6 +66,7 @@ function AdminAppShellContent({
   const { user, org } = useAuth();
   const adminContext = useAdminContext();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [commandOpen, setCommandOpen] = useState(false);
   const displayName = userName || [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Administrator';
   const displayEmail = userEmail || user?.email || 'admin@espace.md';
   const displayInitials = userInitials || initialsFromName(displayName, displayEmail);
@@ -159,19 +161,15 @@ function AdminAppShellContent({
               </select>
             ) : null}
 
-            <div className="hidden w-full max-w-sm items-center rounded-2xl border border-slate-200 bg-white px-3 shadow-sm md:flex">
-              <Search className="h-4 w-4 text-slate-400" />
-              <input
-                value={searchValue}
-                onChange={(event) => onSearchChange?.(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') onSearchSubmit?.();
-                }}
-                placeholder={searchPlaceholder}
-                className="h-10 min-w-0 flex-1 bg-transparent px-3 text-sm text-slate-900 outline-none placeholder:text-slate-400"
-              />
-              <kbd className="rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] text-slate-400">⌘F</kbd>
-            </div>
+            <AdminGlobalSearchInput onOpen={() => setCommandOpen(true)} />
+            <button
+              type="button"
+              onClick={() => setCommandOpen(true)}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm md:hidden"
+              aria-label="Caută"
+            >
+              <Search className="h-5 w-5" />
+            </button>
 
             {notificationsSlot || defaultNotifications}
 
@@ -191,6 +189,7 @@ function AdminAppShellContent({
       </div>
 
       {floatingAction}
+      <AdminCommandPalette open={commandOpen} onOpenChange={setCommandOpen} />
     </div>
   );
 }

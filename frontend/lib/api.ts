@@ -3310,6 +3310,18 @@ export const savedViewsApi = {
   updatePreferences: (module: string, data: Record<string, any>) => apiRequest<any>(`/api/admin/module-preferences/${module}`, { method: 'PATCH', body: data }),
 };
 
+export const adminSearchApi = {
+  search: (params: { q?: string; types?: string; limitPerType?: number; includeCommands?: boolean; includeRecent?: boolean; includeSmartLists?: boolean }) =>
+    apiRequest<any>('/api/admin/search', { params }),
+  recent: () => apiRequest<any>('/api/admin/search/recent'),
+  saveRecent: (data: { query?: string; selectedResultType?: string; selectedResultId?: string; selectedResultTitle?: string; selectedUrl?: string }) =>
+    apiRequest<any>('/api/admin/search/recent', { method: 'POST', body: data }),
+  clearRecent: () => apiRequest<any>('/api/admin/search/recent', { method: 'DELETE' }),
+  commands: () => apiRequest<any>('/api/admin/commands'),
+  executeCommand: (commandKey: string, data: { confirm?: boolean } = {}) =>
+    apiRequest<any>(`/api/admin/commands/${commandKey}/execute`, { method: 'POST', body: data }),
+};
+
 export const condoApi = {
   getOwnerDashboard: () =>
     apiRequest<{

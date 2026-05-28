@@ -2845,6 +2845,23 @@ model AdminSearchHistory {
   @@map("admin_search_history")
 }
 
+model SuperadminSearchHistory {
+  id                  String   @id @default(uuid())
+  userId              String
+  query               String?
+  selectedResultType  String?
+  selectedResultId    String?
+  selectedResultTitle String?
+  selectedUrl         String?
+  createdAt           DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([selectedResultType, selectedResultId])
+  @@map("superadmin_search_history")
+}
+
 model ClientNote {
   id              String         @id @default(uuid())
   organizationId  String
@@ -3676,6 +3693,7 @@ model User {
   savedViewsArchived SavedView[] @relation("SavedViewArchivedBy")
   modulePreferences UserModulePreferences[] @relation("UserModulePreferencesUser")
   adminSearchHistory AdminSearchHistory[]
+  superadminSearchHistory SuperadminSearchHistory[]
   apartmentsArchived Apartment[] @relation("ApartmentArchivedBy")
   apartmentsRestored Apartment[] @relation("ApartmentRestoredBy")
   residentsArchived ResidentProfile[] @relation("ResidentArchivedBy")
