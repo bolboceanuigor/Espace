@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowUpDown, Download, Eye, FileText, Home, Search, WalletCards, XCircle } from 'lucide-react';
 import { Badge, Button, ButtonLink, Card, Input, PageHeader, StatCard } from '@/components/ui';
+import { SavedViewsBar } from '@/components/saved-views/SavedViewsComponents';
 import { exportsApi, invoicesApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { downloadBlob } from '@/lib/download';
@@ -102,8 +103,12 @@ export default function AdminInvoicesPage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const value = params.get('billingMonth') || '';
-    if (value) setBillingMonth(value);
+    const monthValue = params.get('billingMonth') || '';
+    const statusValue = params.get('status') || '';
+    const searchValue = params.get('search') || '';
+    if (monthValue) setBillingMonth(monthValue);
+    if (statusValue) setStatus(statusValue === 'PARTIAL' ? 'PARTIALLY_PAID' : statusValue);
+    if (searchValue) setQuery(searchValue);
   }, []);
 
   useEffect(() => {
@@ -190,6 +195,19 @@ export default function AdminInvoicesPage() {
 
       {message ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">{message}</div> : null}
       {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</div> : null}
+
+      <SavedViewsBar
+        module="INVOICES"
+        currentFilters={{ billingMonth, status, search: query }}
+        sort={{ sortBy, sortDirection }}
+        onApply={(viewFilters, viewSort) => {
+          setBillingMonth(String(viewFilters.billingMonth || ''));
+          setStatus(String(viewFilters.status || ''));
+          setQuery(String(viewFilters.search || ''));
+          if (viewSort?.sortBy) setSortBy(String(viewSort.sortBy));
+          if (viewSort?.sortDirection === 'asc' || viewSort?.sortDirection === 'desc') setSortDirection(viewSort.sortDirection);
+        }}
+      />
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
         <StatCard label="Total facturi" value={String(data?.meta.total || 0)} description="În evidența internă" icon={<FileText className="h-5 w-5" />} />

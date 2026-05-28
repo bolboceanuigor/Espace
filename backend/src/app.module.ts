@@ -26,6 +26,7 @@ import { BackupRecoveryModule } from './backup-recovery/backup-recovery.module';
 import { DataRetentionModule } from './data-retention/data-retention.module';
 import { DataExportModule } from './data-export/data-export.module';
 import { BulkOperationsModule } from './bulk-operations/bulk-operations.module';
+import { SavedViewsModule } from './saved-views/saved-views.module';
 import { SetupModule } from './setup/setup.module';
 import { MessagesMvpModule } from './messages-mvp/messages-mvp.module';
 import { ActivityMvpModule } from './activity-mvp/activity-mvp.module';
@@ -72,6 +73,7 @@ import { AppController } from './app.controller';
     DataRetentionModule,
     DataExportModule,
     BulkOperationsModule,
+    SavedViewsModule,
     SetupModule,
     MessagesMvpModule,
     ActivityMvpModule,

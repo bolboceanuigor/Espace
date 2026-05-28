@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Building2, Download, FileUp, Home, Pencil, Plus, Search, UserPlus } from 'lucide-react';
 import { Badge, Button, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
 import { BulkSelectionToolbar } from '@/components/bulk-operations/BulkOperationComponents';
+import { SavedViewsBar } from '@/components/saved-views/SavedViewsComponents';
 import { adminApartmentsCrmApi, exportsApi } from '@/lib/api';
 import { downloadBlob } from '@/lib/download';
 import { useLocalizedPath } from '@/lib/use-localized-path';
@@ -320,6 +321,23 @@ export default function AdminApartmentsPage() {
 
       {success ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">{success}</div> : null}
       {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</div> : null}
+
+      <SavedViewsBar
+        module="APARTMENTS"
+        currentFilters={filters}
+        sort={{ sortBy: filters.sortBy, sortDirection: filters.sortDirection }}
+        onApply={(viewFilters, viewSort) => setFilters((current) => ({
+          ...current,
+          ...viewFilters,
+          ...(viewSort || {}),
+          staircase: String(viewFilters.staircase || current.staircase || 'ALL'),
+          floor: String(viewFilters.floor || current.floor || 'ALL'),
+          status: String(viewFilters.status || current.status || 'ALL'),
+          hasPrimaryContact: String(viewFilters.hasPrimaryContact || current.hasPrimaryContact || 'ALL'),
+          hasArea: String(viewFilters.hasArea || current.hasArea || 'ALL'),
+          page: 1,
+        }))}
+      />
 
       <BulkSelectionToolbar
         entityType="APARTMENT"

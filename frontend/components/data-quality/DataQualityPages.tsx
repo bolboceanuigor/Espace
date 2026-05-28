@@ -39,6 +39,7 @@ import {
 } from '@/components/ui';
 import EmptyState from '@/components/common/EmptyState';
 import { BulkSelectionToolbar } from '@/components/bulk-operations/BulkOperationComponents';
+import { SavedViewsBar } from '@/components/saved-views/SavedViewsComponents';
 import { dataQualityApi, dataQualityDuplicatesApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
@@ -495,6 +496,11 @@ export function AdminDataQualityIssuesPage() {
         rightSlot={<ButtonLink href={localizedPath('/admin/data-quality')} variant="secondary"><ArrowLeft className="h-4 w-4" /> Overview</ButtonLink>}
       />
       <IssueFilters filters={filters} onChange={setFilters} onRefresh={load} />
+      <SavedViewsBar
+        module="DATA_QUALITY"
+        currentFilters={filters}
+        onApply={(viewFilters) => setFilters((current) => ({ ...current, ...viewFilters }))}
+      />
       <BulkSelectionToolbar
         entityType="DATA_QUALITY_ISSUE"
         selectedIds={selectedIds}

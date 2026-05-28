@@ -1858,6 +1858,7 @@ model Organization {
   bulkOperations BulkOperation[]
   savedViews SavedView[]
   modulePreferences UserModulePreferences[]
+  adminSearchHistory AdminSearchHistory[]
   createdByAgent     User?       @relation("CreatedByAgent", fields: [createdByAgentId], references: [id], onDelete: SetNull)
   ownerAdmin        User?        @relation("OrganizationOwnerAdmin", fields: [ownerAdminId], references: [id], onDelete: SetNull)
 
@@ -2825,6 +2826,25 @@ model UserModulePreferences {
   @@map("user_module_preferences")
 }
 
+model AdminSearchHistory {
+  id                  String   @id @default(uuid())
+  associationId       String
+  userId              String
+  query               String?
+  selectedResultType  String?
+  selectedResultId    String?
+  selectedResultTitle String?
+  selectedUrl         String?
+  createdAt           DateTime @default(now())
+
+  association Organization @relation(fields: [associationId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([associationId, userId, createdAt])
+  @@index([selectedResultType, selectedResultId])
+  @@map("admin_search_history")
+}
+
 model ClientNote {
   id              String         @id @default(uuid())
   organizationId  String
@@ -3655,6 +3675,7 @@ model User {
   savedViewsUpdated SavedView[] @relation("SavedViewUpdatedBy")
   savedViewsArchived SavedView[] @relation("SavedViewArchivedBy")
   modulePreferences UserModulePreferences[] @relation("UserModulePreferencesUser")
+  adminSearchHistory AdminSearchHistory[]
   apartmentsArchived Apartment[] @relation("ApartmentArchivedBy")
   apartmentsRestored Apartment[] @relation("ApartmentRestoredBy")
   residentsArchived ResidentProfile[] @relation("ResidentArchivedBy")

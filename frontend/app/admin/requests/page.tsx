@@ -22,6 +22,7 @@ import {
 import LoadingState from '@/components/common/LoadingState';
 import EmptyState from '@/components/common/EmptyState';
 import { BulkSelectionToolbar } from '@/components/bulk-operations/BulkOperationComponents';
+import { SavedViewsBar } from '@/components/saved-views/SavedViewsComponents';
 import { requestsApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
@@ -161,6 +162,20 @@ export default function AdminRequestsPage() {
 
       {message ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">{message}</div> : null}
       {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</div> : null}
+
+      <SavedViewsBar
+        module="REQUESTS"
+        currentFilters={{ search, status, category, priority, apartmentId: apartmentFilter, residentId: residentFilter, openOnly }}
+        onApply={(viewFilters) => {
+          setSearch(String(viewFilters.search || ''));
+          setStatus(String(viewFilters.status || ''));
+          setCategory(String(viewFilters.category || ''));
+          setPriority(String(viewFilters.priority || ''));
+          setApartmentFilter(String(viewFilters.apartmentId || ''));
+          setResidentFilter(String(viewFilters.residentId || ''));
+          setOpenOnly(viewFilters.openOnly === true || viewFilters.openOnly === 'true');
+        }}
+      />
 
       <BulkSelectionToolbar
         entityType="REQUEST"

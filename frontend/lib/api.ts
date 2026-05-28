@@ -3292,6 +3292,24 @@ export const bulkOperationsApi = {
   result: (id: string) => apiRequest<any>(`/api/admin/bulk-operations/${id}/result`),
 };
 
+export const savedViewsApi = {
+  list: (params?: Record<string, any>) => apiRequest<any>('/api/admin/saved-views', { params }),
+  create: (data: Record<string, any>) => apiRequest<any>('/api/admin/saved-views', { method: 'POST', body: data }),
+  get: (id: string) => apiRequest<any>(`/api/admin/saved-views/${id}`),
+  update: (id: string, data: Record<string, any>) => apiRequest<any>(`/api/admin/saved-views/${id}`, { method: 'PATCH', body: data }),
+  archive: (id: string) => apiRequest<any>(`/api/admin/saved-views/${id}/archive`, { method: 'PATCH' }),
+  duplicate: (id: string) => apiRequest<any>(`/api/admin/saved-views/${id}/duplicate`, { method: 'POST' }),
+  favorite: (id: string, value: boolean) => apiRequest<any>(`/api/admin/saved-views/${id}/favorite`, { method: 'PATCH', body: { value } }),
+  setDefault: (id: string) => apiRequest<any>(`/api/admin/saved-views/${id}/default`, { method: 'PATCH' }),
+  use: (id: string) => apiRequest<any>(`/api/admin/saved-views/${id}/use`, { method: 'POST' }),
+  smartLists: (params?: Record<string, any>) => apiRequest<any>('/api/admin/smart-lists', { params }),
+  smartList: (key: string) => apiRequest<any>(`/api/admin/smart-lists/${key}`),
+  smartListCount: (key: string) => apiRequest<any>(`/api/admin/smart-lists/${key}/count`),
+  duplicateSmartList: (key: string) => apiRequest<any>(`/api/admin/smart-lists/${key}/duplicate`, { method: 'POST' }),
+  preferences: (module: string) => apiRequest<any>(`/api/admin/module-preferences/${module}`),
+  updatePreferences: (module: string, data: Record<string, any>) => apiRequest<any>(`/api/admin/module-preferences/${module}`, { method: 'PATCH', body: data }),
+};
+
 export const condoApi = {
   getOwnerDashboard: () =>
     apiRequest<{
