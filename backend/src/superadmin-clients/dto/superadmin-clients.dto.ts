@@ -1,11 +1,15 @@
 import { IsBoolean, IsDateString, IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
 import {
   ClientAccountStatus,
+  ClientFollowUpSource,
   ClientFollowUpStatus,
   ClientLifecycleStage,
   ClientPriority,
+  ClientReminderSource,
   ClientRiskLevel,
   ClientSource,
+  ClientTaskCategory,
+  ClientTaskSource,
   ClientTaskStatus,
 } from '@prisma/client';
 
@@ -77,10 +81,16 @@ export class LinkAssociationDto {
 
 export class CreateClientTaskDto {
   @IsString() title: string;
+  @IsOptional() @IsString() clientAccountId?: string;
   @IsOptional() @IsString() description?: string;
   @IsOptional() @IsEnum(ClientPriority) priority?: ClientPriority;
+  @IsOptional() @IsEnum(ClientTaskCategory) category?: ClientTaskCategory;
   @IsOptional() @IsDateString() dueAt?: string;
+  @IsOptional() @IsDateString() reminderAt?: string;
   @IsOptional() @IsString() assignedToId?: string;
+  @IsOptional() @IsEnum(ClientTaskSource) source?: ClientTaskSource;
+  @IsOptional() @IsString() relatedEntityType?: string;
+  @IsOptional() @IsString() relatedEntityId?: string;
 }
 
 export class UpdateClientTaskDto {
@@ -88,12 +98,22 @@ export class UpdateClientTaskDto {
   @IsOptional() @IsString() description?: string;
   @IsOptional() @IsEnum(ClientTaskStatus) status?: ClientTaskStatus;
   @IsOptional() @IsEnum(ClientPriority) priority?: ClientPriority;
+  @IsOptional() @IsEnum(ClientTaskCategory) category?: ClientTaskCategory;
   @IsOptional() @IsDateString() dueAt?: string;
+  @IsOptional() @IsDateString() reminderAt?: string;
   @IsOptional() @IsString() assignedToId?: string;
+  @IsOptional() @IsEnum(ClientTaskSource) source?: ClientTaskSource;
+  @IsOptional() @IsString() relatedEntityType?: string;
+  @IsOptional() @IsString() relatedEntityId?: string;
 }
 
 export class CancelClientTaskDto {
   @IsString() reason: string;
+}
+
+export class RescheduleClientTaskDto {
+  @IsOptional() @IsDateString() dueAt?: string;
+  @IsOptional() @IsDateString() reminderAt?: string;
 }
 
 export class CreateClientNoteDto {
@@ -111,15 +131,54 @@ export class UpdateClientNoteDto {
 
 export class CreateClientFollowUpDto {
   @IsString() title: string;
+  @IsOptional() @IsString() clientAccountId?: string;
   @IsOptional() @IsString() description?: string;
   @IsDateString() dueAt: string;
+  @IsOptional() @IsDateString() reminderAt?: string;
+  @IsOptional() @IsEnum(ClientPriority) priority?: ClientPriority;
   @IsOptional() @IsString() assignedToId?: string;
+  @IsOptional() @IsEnum(ClientFollowUpSource) source?: ClientFollowUpSource;
+  @IsOptional() @IsString() relatedEntityType?: string;
+  @IsOptional() @IsString() relatedEntityId?: string;
 }
 
 export class UpdateClientFollowUpDto {
   @IsOptional() @IsString() title?: string;
   @IsOptional() @IsString() description?: string;
   @IsOptional() @IsDateString() dueAt?: string;
+  @IsOptional() @IsDateString() reminderAt?: string;
   @IsOptional() @IsEnum(ClientFollowUpStatus) status?: ClientFollowUpStatus;
+  @IsOptional() @IsEnum(ClientPriority) priority?: ClientPriority;
   @IsOptional() @IsString() assignedToId?: string;
+  @IsOptional() @IsEnum(ClientFollowUpSource) source?: ClientFollowUpSource;
+  @IsOptional() @IsString() relatedEntityType?: string;
+  @IsOptional() @IsString() relatedEntityId?: string;
+}
+
+export class CancelClientFollowUpDto {
+  @IsOptional() @IsString() reason?: string;
+}
+
+export class RescheduleClientFollowUpDto {
+  @IsDateString() dueAt: string;
+  @IsOptional() @IsDateString() reminderAt?: string;
+}
+
+export class CreateClientReminderDto {
+  @IsString() title: string;
+  @IsOptional() @IsString() clientAccountId?: string;
+  @IsOptional() @IsString() associationId?: string;
+  @IsOptional() @IsString() taskId?: string;
+  @IsOptional() @IsString() followUpId?: string;
+  @IsOptional() @IsString() message?: string;
+  @IsOptional() @IsEnum(ClientPriority) priority?: ClientPriority;
+  @IsDateString() remindAt: string;
+  @IsOptional() @IsString() assignedToId?: string;
+  @IsOptional() @IsEnum(ClientReminderSource) source?: ClientReminderSource;
+  @IsOptional() @IsString() relatedEntityType?: string;
+  @IsOptional() @IsString() relatedEntityId?: string;
+}
+
+export class SnoozeClientReminderDto {
+  @IsDateString() snoozedUntil: string;
 }

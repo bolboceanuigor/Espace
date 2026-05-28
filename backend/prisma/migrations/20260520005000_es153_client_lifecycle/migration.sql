@@ -77,7 +77,7 @@ CREATE TABLE "client_tasks" (
   CONSTRAINT "client_tasks_pkey" PRIMARY KEY ("id")
 );
 
-CREATE TABLE "client_notes" (
+CREATE TABLE "client_account_notes" (
   "id" TEXT NOT NULL,
   "clientAccountId" TEXT NOT NULL,
   "associationId" TEXT,
@@ -86,7 +86,7 @@ CREATE TABLE "client_notes" (
   "isPinned" BOOLEAN NOT NULL DEFAULT false,
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" TIMESTAMP(3) NOT NULL,
-  CONSTRAINT "client_notes_pkey" PRIMARY KEY ("id")
+  CONSTRAINT "client_account_notes_pkey" PRIMARY KEY ("id")
 );
 
 CREATE TABLE "client_follow_ups" (
@@ -122,13 +122,13 @@ CREATE INDEX "client_tasks_clientAccountId_status_idx" ON "client_tasks"("client
 CREATE INDEX "client_tasks_associationId_status_idx" ON "client_tasks"("associationId", "status");
 CREATE INDEX "client_tasks_assignedToId_dueAt_idx" ON "client_tasks"("assignedToId", "dueAt");
 CREATE INDEX "client_tasks_status_dueAt_idx" ON "client_tasks"("status", "dueAt");
-CREATE INDEX "client_notes_clientAccountId_isPinned_createdAt_idx" ON "client_notes"("clientAccountId", "isPinned", "createdAt");
-CREATE INDEX "client_notes_associationId_createdAt_idx" ON "client_notes"("associationId", "createdAt");
+CREATE INDEX "client_account_notes_clientAccountId_isPinned_createdAt_idx" ON "client_account_notes"("clientAccountId", "isPinned", "createdAt");
+CREATE INDEX "client_account_notes_associationId_createdAt_idx" ON "client_account_notes"("associationId", "createdAt");
 CREATE INDEX "client_follow_ups_clientAccountId_status_dueAt_idx" ON "client_follow_ups"("clientAccountId", "status", "dueAt");
 CREATE INDEX "client_follow_ups_associationId_status_dueAt_idx" ON "client_follow_ups"("associationId", "status", "dueAt");
 CREATE INDEX "client_follow_ups_assignedToId_status_dueAt_idx" ON "client_follow_ups"("assignedToId", "status", "dueAt");
 
 ALTER TABLE "client_activities" ADD CONSTRAINT "client_activities_clientAccountId_fkey" FOREIGN KEY ("clientAccountId") REFERENCES "client_accounts"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "client_tasks" ADD CONSTRAINT "client_tasks_clientAccountId_fkey" FOREIGN KEY ("clientAccountId") REFERENCES "client_accounts"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "client_notes" ADD CONSTRAINT "client_notes_clientAccountId_fkey" FOREIGN KEY ("clientAccountId") REFERENCES "client_accounts"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "client_account_notes" ADD CONSTRAINT "client_account_notes_clientAccountId_fkey" FOREIGN KEY ("clientAccountId") REFERENCES "client_accounts"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "client_follow_ups" ADD CONSTRAINT "client_follow_ups_clientAccountId_fkey" FOREIGN KEY ("clientAccountId") REFERENCES "client_accounts"("id") ON DELETE CASCADE ON UPDATE CASCADE;

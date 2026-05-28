@@ -3334,6 +3334,43 @@ export const superadminSearchApi = {
   clientNavigator: (associationId: string) => apiRequest<any>(`/api/superadmin/client-navigator/${associationId}`),
 };
 
+export const superadminClientsApi = {
+  list: (params?: Record<string, string | number | boolean | undefined>) => apiRequest<any>('/api/superadmin/clients', { params }),
+  pipeline: () => apiRequest<any>('/api/superadmin/clients/pipeline'),
+  stats: () => apiRequest<any>('/api/superadmin/clients/stats'),
+  create: (data: Record<string, unknown>) => apiRequest<any>('/api/superadmin/clients', { method: 'POST', body: data }),
+  get: (id: string) => apiRequest<any>(`/api/superadmin/clients/${id}`),
+  update: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/clients/${id}`, { method: 'PATCH', body: data }),
+  changeStage: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/clients/${id}/stage`, { method: 'PATCH', body: data }),
+  changeStatus: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/clients/${id}/status`, { method: 'PATCH', body: data }),
+  changePriority: (id: string, priority: string) => apiRequest<any>(`/api/superadmin/clients/${id}/priority`, { method: 'PATCH', body: { priority } }),
+  changeOwner: (id: string, ownerUserId?: string) => apiRequest<any>(`/api/superadmin/clients/${id}/owner`, { method: 'PATCH', body: { ownerUserId } }),
+  recalculateRisk: (id: string) => apiRequest<any>(`/api/superadmin/clients/${id}/risk`, { method: 'PATCH', body: { recalculate: true } }),
+  close: (id: string, reason: string) => apiRequest<any>(`/api/superadmin/clients/${id}/close`, { method: 'POST', body: { reason } }),
+  reopen: (id: string) => apiRequest<any>(`/api/superadmin/clients/${id}/reopen`, { method: 'POST' }),
+  fromCustomerRequest: (requestId: string) => apiRequest<any>(`/api/superadmin/clients/from-customer-request/${requestId}`, { method: 'POST' }),
+  linkAssociation: (id: string, associationId: string) => apiRequest<any>(`/api/superadmin/clients/${id}/link-association`, { method: 'POST', body: { associationId } }),
+  createAssociation: (id: string) => apiRequest<any>(`/api/superadmin/clients/${id}/create-association`, { method: 'POST' }),
+  tasks: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/clients/tasks', { params }),
+  clientTasks: (id: string) => apiRequest<any>(`/api/superadmin/clients/${id}/tasks`),
+  createTask: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/clients/${id}/tasks`, { method: 'POST', body: data }),
+  updateTask: (taskId: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/clients/tasks/${taskId}`, { method: 'PATCH', body: data }),
+  completeTask: (taskId: string) => apiRequest<any>(`/api/superadmin/clients/tasks/${taskId}/complete`, { method: 'PATCH' }),
+  cancelTask: (taskId: string, reason: string) => apiRequest<any>(`/api/superadmin/clients/tasks/${taskId}/cancel`, { method: 'PATCH', body: { reason } }),
+  notes: (id: string) => apiRequest<any>(`/api/superadmin/clients/${id}/notes`),
+  createNote: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/clients/${id}/notes`, { method: 'POST', body: data }),
+  updateNote: (noteId: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/clients/notes/${noteId}`, { method: 'PATCH', body: data }),
+  pinNote: (noteId: string, isPinned: boolean) => apiRequest<any>(`/api/superadmin/clients/notes/${noteId}/pin`, { method: 'PATCH', body: { isPinned } }),
+  followUps: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/clients/follow-ups', { params }),
+  createFollowUp: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/clients/${id}/follow-ups`, { method: 'POST', body: data }),
+  updateFollowUp: (followUpId: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/clients/follow-ups/${followUpId}`, { method: 'PATCH', body: data }),
+  doneFollowUp: (followUpId: string) => apiRequest<any>(`/api/superadmin/clients/follow-ups/${followUpId}/done`, { method: 'PATCH' }),
+  cancelFollowUp: (followUpId: string) => apiRequest<any>(`/api/superadmin/clients/follow-ups/${followUpId}/cancel`, { method: 'PATCH' }),
+  activity: (id: string) => apiRequest<any>(`/api/superadmin/clients/${id}/activity`),
+  onboarding: (id: string) => apiRequest<any>(`/api/superadmin/clients/${id}/onboarding`),
+  risk: (id: string) => apiRequest<any>(`/api/superadmin/clients/${id}/risk`),
+};
+
 export const condoApi = {
   getOwnerDashboard: () =>
     apiRequest<{

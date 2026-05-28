@@ -1,6 +1,7 @@
 export type SuperadminCommandKey =
   | 'GO_SUPERADMIN_DASHBOARD'
   | 'GO_ASSOCIATIONS'
+  | 'GO_CLIENT_PIPELINE'
   | 'GO_CUSTOMER_REQUESTS'
   | 'GO_BILLING'
   | 'GO_SAAS_PLANS'
@@ -37,6 +38,7 @@ export type SuperadminCommandDefinition = {
 export const SUPERADMIN_COMMANDS: SuperadminCommandDefinition[] = [
   { key: 'GO_SUPERADMIN_DASHBOARD', title: 'Superadmin dashboard', subtitle: 'Overview platforma Espace', category: 'Navigare', icon: 'layout-dashboard', url: '/superadmin' },
   { key: 'GO_ASSOCIATIONS', title: 'Asociatii', subtitle: 'Lista APC-uri/clienti', category: 'Navigare', icon: 'building', url: '/superadmin/associations' },
+  { key: 'GO_CLIENT_PIPELINE', title: 'Client Pipeline', subtitle: 'Lifecycle CRM pentru APC-uri', category: 'Navigare', icon: 'kanban', url: '/superadmin/clients/pipeline' },
   { key: 'GO_CUSTOMER_REQUESTS', title: 'Cereri clienti', subtitle: 'Cererile venite din website', category: 'Navigare', icon: 'inbox', url: '/superadmin/customer-requests' },
   { key: 'GO_BILLING', title: 'SaaS billing', subtitle: 'Planuri, abonamente si facturi', category: 'Navigare', icon: 'credit-card', url: '/superadmin/billing' },
   { key: 'GO_SAAS_PLANS', title: 'Planuri SaaS', subtitle: 'Configureaza planurile comerciale', category: 'Navigare', icon: 'layers', url: '/superadmin/billing/plans' },

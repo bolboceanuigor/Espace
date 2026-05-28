@@ -1035,11 +1035,88 @@ enum ClientTaskStatus {
   CANCELLED
 }
 
+enum ClientTaskCategory {
+  GENERAL
+  CONTACT
+  ONBOARDING
+  DATA_IMPORT
+  BILLING_SETUP
+  SUBSCRIPTION
+  SAAS_INVOICE
+  SUPPORT
+  SECURITY
+  BACKUP
+  LEGAL
+  PLATFORM_SERVICE
+  FOLLOW_UP
+}
+
+enum ClientTaskSource {
+  MANUAL
+  CLIENT_PIPELINE
+  CUSTOMER_REQUEST
+  ONBOARDING
+  SUBSCRIPTION
+  SAAS_INVOICE
+  SUPPORT_SESSION
+  SECURITY_CENTER
+  MONITORING
+  PLATFORM_SERVICE
+  BACKUP
+  SYSTEM
+}
+
 enum ClientFollowUpStatus {
   OPEN
   DONE
   MISSED
   CANCELLED
+}
+
+enum ClientFollowUpSource {
+  MANUAL
+  CLIENT_PIPELINE
+  CUSTOMER_REQUEST
+  SUBSCRIPTION
+  SAAS_INVOICE
+  ONBOARDING
+  SUPPORT
+  SYSTEM
+}
+
+enum ClientReminderStatus {
+  SCHEDULED
+  DUE
+  SNOOZED
+  COMPLETED
+  DISMISSED
+  CANCELLED
+}
+
+enum ClientReminderSource {
+  MANUAL
+  TASK
+  FOLLOW_UP
+  CLIENT_PIPELINE
+  SAAS_INVOICE
+  SUBSCRIPTION
+  PLATFORM_SERVICE
+  BACKUP
+  MONITORING
+  SYSTEM
+}
+
+enum ClientCalendarEventType {
+  TASK_DUE
+  FOLLOW_UP_DUE
+  REMINDER
+  CLIENT_STAGE_TARGET
+  SUBSCRIPTION_RENEWAL
+  SAAS_INVOICE_DUE
+  PLATFORM_SERVICE_PAYMENT_DUE
+  RECOVERY_DRILL_PLANNED
+  PRODUCTION_INCIDENT_REVIEW
+  MANUAL_EVENT
 }
 
 enum LegalDocumentType {
@@ -2256,8 +2333,9 @@ model ClientAccount {
 
   activities ClientActivity[]
   tasks      ClientTask[]
-  notes      ClientNote[]
+  notes      ClientAccountNote[]
   followUps  ClientFollowUp[]
+  reminders  ClientReminder[]
 
   @@index([lifecycleStage, updatedAt])
   @@index([status, updatedAt])
@@ -2297,7 +2375,9 @@ model ClientTask {
   description        String?
   status             ClientTaskStatus @default(OPEN)
   priority           ClientPriority   @default(NORMAL)
+  category           ClientTaskCategory @default(GENERAL)
   dueAt              DateTime?
+  reminderAt         DateTime?
   assignedToId       String?
   completedAt        DateTime?
   completedById      String?
@@ -2305,6 +2385,10 @@ model ClientTask {
   cancelledById      String?
   cancellationReason String?
   createdById        String?
+  source             ClientTaskSource @default(MANUAL)
+  relatedEntityType  String?
+  relatedEntityId    String?
+  metadata           Json?
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
 
@@ -2313,11 +2397,14 @@ model ClientTask {
   @@index([clientAccountId, status])
   @@index([associationId, status])
   @@index([assignedToId, dueAt])
+  @@index([category, status])
+  @@index([source, dueAt])
+  @@index([reminderAt])
   @@index([status, dueAt])
   @@map("client_tasks")
 }
 
-model ClientNote {
+model ClientAccountNote {
   id              String   @id @default(uuid())
   clientAccountId String
   associationId   String?
@@ -2331,7 +2418,7 @@ model ClientNote {
 
   @@index([clientAccountId, isPinned, createdAt])
   @@index([associationId, createdAt])
-  @@map("client_notes")
+  @@map("client_account_notes")
 }
 
 model ClientFollowUp {
@@ -2341,11 +2428,20 @@ model ClientFollowUp {
   title           String
   description     String?
   dueAt           DateTime
+  reminderAt      DateTime?
   status          ClientFollowUpStatus @default(OPEN)
+  priority        ClientPriority       @default(NORMAL)
   assignedToId    String?
   completedAt     DateTime?
   completedById   String?
+  cancelledAt     DateTime?
+  cancelledById   String?
+  cancellationReason String?
   createdById     String?
+  source          ClientFollowUpSource @default(MANUAL)
+  relatedEntityType String?
+  relatedEntityId   String?
+  metadata        Json?
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
 
@@ -2354,7 +2450,46 @@ model ClientFollowUp {
   @@index([clientAccountId, status, dueAt])
   @@index([associationId, status, dueAt])
   @@index([assignedToId, status, dueAt])
+  @@index([priority, status])
+  @@index([source, dueAt])
+  @@index([reminderAt])
   @@map("client_follow_ups")
+}
+
+model ClientReminder {
+  id                String               @id @default(uuid())
+  clientAccountId   String?
+  associationId     String?
+  taskId            String?
+  followUpId        String?
+  title             String
+  message           String?
+  status            ClientReminderStatus @default(SCHEDULED)
+  priority          ClientPriority       @default(NORMAL)
+  remindAt          DateTime
+  snoozedUntil      DateTime?
+  dismissedAt       DateTime?
+  dismissedById     String?
+  completedAt       DateTime?
+  completedById     String?
+  assignedToId      String?
+  createdById       String?
+  source            ClientReminderSource @default(MANUAL)
+  relatedEntityType String?
+  relatedEntityId   String?
+  metadata          Json?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  clientAccount ClientAccount? @relation(fields: [clientAccountId], references: [id], onDelete: Cascade)
+
+  @@index([clientAccountId, status, remindAt])
+  @@index([associationId, status, remindAt])
+  @@index([assignedToId, status, remindAt])
+  @@index([taskId])
+  @@index([followUpId])
+  @@index([source, remindAt])
+  @@map("client_reminders")
 }
 
 model LegalDocument {

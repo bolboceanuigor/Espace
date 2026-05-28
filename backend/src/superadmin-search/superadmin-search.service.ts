@@ -5,6 +5,7 @@ import { SaveSuperadminSearchHistoryDto } from './dto/superadmin-search.dto';
 import { SUPERADMIN_COMMANDS } from './superadmin-command.definitions';
 
 export enum SuperadminSearchResultType {
+  CLIENT_ACCOUNT = 'CLIENT_ACCOUNT',
   ASSOCIATION = 'ASSOCIATION',
   USER = 'USER',
   CUSTOMER_REQUEST = 'CUSTOMER_REQUEST',
@@ -42,6 +43,7 @@ type Result = {
 };
 
 const LABELS: Record<SuperadminSearchResultType, string> = {
+  CLIENT_ACCOUNT: 'Client pipeline',
   ASSOCIATION: 'Asociatii',
   USER: 'Utilizatori',
   CUSTOMER_REQUEST: 'Cereri clienti',
@@ -83,6 +85,7 @@ export class SuperadminSearchService {
       tasks.push(fn().then((items) => ({ type, items })));
     };
 
+    add(SuperadminSearchResultType.CLIENT_ACCOUNT, () => this.searchClientAccounts(q, limit));
     add(SuperadminSearchResultType.ASSOCIATION, () => this.searchAssociations(q, limit));
     add(SuperadminSearchResultType.USER, () => this.searchUsers(q, limit));
     add(SuperadminSearchResultType.CUSTOMER_REQUEST, () => this.searchCustomerRequests(q, limit));
@@ -178,6 +181,7 @@ export class SuperadminSearchService {
       auditLogs,
       systemErrors,
       customerRequest,
+      clientAccount,
       dataQualityIssues,
     ] = await Promise.all([
       this.prisma.saasSubscription.findFirst({ where: { associationId }, include: { plan: { select: { name: true, code: true } } }, orderBy: { createdAt: 'desc' } }),
@@ -195,6 +199,7 @@ export class SuperadminSearchService {
       this.prisma.auditLog.findMany({ where: { OR: [{ organizationId: associationId }, { effectiveAssociationId: associationId }] }, select: { id: true, action: true, entityType: true, description: true, createdAt: true }, orderBy: { createdAt: 'desc' }, take: 5 }),
       this.prisma.systemErrorEvent.findMany({ where: { associationId }, select: { id: true, severity: true, message: true, route: true, lastSeenAt: true }, orderBy: { lastSeenAt: 'desc' }, take: 5 }),
       this.prisma.customerOnboardingRequest.findFirst({ where: { OR: [{ convertedAssociationId: associationId }, { associationCode: association.fiscalCode || undefined }, { associationName: { contains: association.name, mode: 'insensitive' } }] }, orderBy: { createdAt: 'desc' } }),
+      this.prisma.clientAccount.findFirst({ where: { associationId }, orderBy: { updatedAt: 'desc' } }),
       this.prisma.dataQualityIssue.count({ where: { associationId, status: 'OPEN' as any } }),
     ]);
     const totalIssued = saasInvoices.reduce((sum, item) => sum + item.totalAmount, 0);
@@ -223,14 +228,33 @@ export class SuperadminSearchService {
       support: { activeSessions: activeSupportSessions, recentSessions: recentSupportSessions },
       security: { recentAuditLogs: auditLogs, recentSystemErrors: systemErrors, criticalErrors: systemErrors.filter((item) => String(item.severity) === 'CRITICAL').length },
       customerLifecycle: customerRequest ? { id: customerRequest.id, status: customerRequest.status, associationName: customerRequest.associationName, createdAt: customerRequest.createdAt } : null,
+      clientLifecycle: clientAccount ? { id: clientAccount.id, lifecycleStage: clientAccount.lifecycleStage, status: clientAccount.status, priority: clientAccount.priority, riskLevel: clientAccount.riskLevel, ownerUserId: clientAccount.ownerUserId, nextFollowUpAt: clientAccount.nextFollowUpAt } : null,
       quickLinks: [
         { label: 'Open association', url: `/superadmin/associations/${associationId}` },
+        ...(clientAccount ? [{ label: 'Client lifecycle', url: `/superadmin/clients/${clientAccount.id}` }] : []),
         { label: 'Subscription', url: `/superadmin/associations/${associationId}/subscription` },
         { label: 'SaaS invoices', url: `/superadmin/associations/${associationId}/saas-invoices` },
         { label: 'Data export', url: `/superadmin/associations/${associationId}/data-export` },
         { label: 'Monitoring', url: '/superadmin/monitoring' },
       ],
     };
+  }
+
+  private searchClientAccounts(q: string, take: number) {
+    return this.prisma.clientAccount.findMany({
+      where: {
+        OR: [
+          { displayName: { contains: q, mode: 'insensitive' } },
+          { contactName: { contains: q, mode: 'insensitive' } },
+          { contactPhone: { contains: q, mode: 'insensitive' } },
+          { contactEmail: { contains: q, mode: 'insensitive' } },
+          { associationName: { contains: q, mode: 'insensitive' } },
+          { associationCode: { contains: q, mode: 'insensitive' } },
+        ],
+      },
+      take,
+      orderBy: { updatedAt: 'desc' },
+    }).then((items) => items.map((item) => this.result('CLIENT_ACCOUNT', item.id, item.displayName, [item.associationCode ? `Cod ${item.associationCode}` : null, item.lifecycleStage].filter(Boolean).join(' · '), item.contactName || item.contactPhone || item.contactEmail || undefined, String(item.riskLevel), `/superadmin/clients/${item.id}`, 'kanban', this.score(q, `${item.displayName} ${item.associationCode || ''} ${item.contactName || ''} ${item.contactPhone || ''}`), { associationId: item.associationId, associationCode: item.associationCode })));
   }
 
   private searchAssociations(q: string, take: number) {

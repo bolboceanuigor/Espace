@@ -300,6 +300,18 @@ export function ClientNavigatorPage({ associationId }: { associationId: string }
         <StatCard label="Sold SaaS" value={`${Number(data.saasBilling.outstandingBalance || 0).toFixed(2)} MDL`} tone={data.saasBilling.outstandingBalance > 0 ? 'warning' : 'success'} />
         <StatCard label="Support activ" value={data.support.activeSessions || 0} />
       </section>
+      {data.clientLifecycle ? (
+        <Card>
+          <h2 className="font-bold text-slate-950">Client lifecycle</h2>
+          <div className="mt-3 grid gap-2 text-sm md:grid-cols-5">
+            <span><b>Etapa:</b> {data.clientLifecycle.lifecycleStage}</span>
+            <span><b>Status:</b> {data.clientLifecycle.status}</span>
+            <span><b>Prioritate:</b> {data.clientLifecycle.priority}</span>
+            <span><b>Risc:</b> {data.clientLifecycle.riskLevel}</span>
+            <a href={localizedPath(`/superadmin/clients/${data.clientLifecycle.id}`)} className="font-semibold text-emerald-700 hover:underline">Deschide client</a>
+          </div>
+        </Card>
+      ) : null}
       <section className="grid gap-4 lg:grid-cols-3">
         <ClientNavigatorSection title="Product usage" items={[['Apartamente', data.usage.apartments], ['Locatari', data.usage.residents], ['Staff', data.usage.staff], ['Facturi', data.usage.invoices], ['Plăți', data.usage.payments], ['Contoare', data.usage.meters], ['Solicitări', data.usage.requests], ['Data Quality open', data.usage.dataQualityOpenIssues]]} />
         <ClientNavigatorSection title="SaaS billing" items={[['Total issued', `${data.saasBilling.totalIssued.toFixed(2)} MDL`], ['Total paid', `${data.saasBilling.totalPaid.toFixed(2)} MDL`], ['Outstanding', `${data.saasBilling.outstandingBalance.toFixed(2)} MDL`], ['Overdue invoices', data.saasBilling.overdueInvoices]]} />

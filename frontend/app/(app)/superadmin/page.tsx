@@ -15,6 +15,7 @@ import {
   Database,
   ExternalLink,
   Home,
+  Kanban,
   LayoutGrid,
   Phone,
   Plus, 
@@ -523,6 +524,12 @@ export default function SuperadminPage() {
                 title="Cereri clienți"
                 description="Cererile de acces și contact primite prin website"
                 href={localizedPath('/superadmin/customer-requests')}
+              />
+              <QuickActionCard
+                icon={Kanban}
+                title="Client Pipeline"
+                description="Lifecycle CRM, follow-up-uri, taskuri si risc client"
+                href={localizedPath('/superadmin/clients')}
               />
               <QuickActionCard
                 icon={Scale}

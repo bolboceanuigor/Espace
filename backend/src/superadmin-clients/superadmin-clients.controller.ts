@@ -4,6 +4,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import {
+  CancelClientFollowUpDto,
   CancelClientTaskDto,
   ChangeClientOwnerDto,
   ChangeClientPriorityDto,
@@ -14,8 +15,12 @@ import {
   CreateClientAccountDto,
   CreateClientFollowUpDto,
   CreateClientNoteDto,
+  CreateClientReminderDto,
   CreateClientTaskDto,
   LinkAssociationDto,
+  RescheduleClientFollowUpDto,
+  RescheduleClientTaskDto,
+  SnoozeClientReminderDto,
   UpdateClientAccountDto,
   UpdateClientFollowUpDto,
   UpdateClientNoteDto,
@@ -59,14 +64,74 @@ export class SuperadminClientsController {
     return this.service.listTasks(query);
   }
 
+  @Post('tasks')
+  createGlobalTask(@Body() dto: CreateClientTaskDto, @CurrentUser() user: any) {
+    return this.service.createTaskGlobal(dto, user);
+  }
+
   @Get('follow-ups')
   followUps(@Query() query: Record<string, string | undefined>) {
     return this.service.followUps(query);
   }
 
+  @Post('follow-ups')
+  createGlobalFollowUp(@Body() dto: CreateClientFollowUpDto, @CurrentUser() user: any) {
+    return this.service.createFollowUpGlobal(dto, user);
+  }
+
+  @Get('my-work')
+  myWork(@CurrentUser() user: any) {
+    return this.service.myWork(user);
+  }
+
+  @Get('calendar')
+  calendar(@Query() query: Record<string, string | undefined>) {
+    return this.service.calendar(query);
+  }
+
+  @Get('calendar/agenda')
+  calendarAgenda(@Query() query: Record<string, string | undefined>) {
+    return this.service.calendar({ ...query, view: 'agenda' });
+  }
+
+  @Get('calendar/day')
+  calendarDay(@Query() query: Record<string, string | undefined>) {
+    return this.service.calendar({ ...query, view: 'day' });
+  }
+
+  @Get('calendar/week')
+  calendarWeek(@Query() query: Record<string, string | undefined>) {
+    return this.service.calendar({ ...query, view: 'week' });
+  }
+
+  @Get('calendar/month')
+  calendarMonth(@Query() query: Record<string, string | undefined>) {
+    return this.service.calendar({ ...query, view: 'month' });
+  }
+
+  @Get('reminders')
+  reminders(@Query() query: Record<string, string | undefined>) {
+    return this.service.listReminders(query);
+  }
+
+  @Post('reminders')
+  createReminder(@Body() dto: CreateClientReminderDto, @CurrentUser() user: any) {
+    return this.service.createReminder(dto, user);
+  }
+
+  @Get('tasks/:taskId')
+  getTask(@Param('taskId') taskId: string) {
+    return this.service.getTask(taskId);
+  }
+
   @Patch('tasks/:taskId')
   updateTask(@Param('taskId') taskId: string, @Body() dto: UpdateClientTaskDto, @CurrentUser() user: any) {
     return this.service.updateTask(taskId, dto, user);
+  }
+
+  @Patch('tasks/:taskId/start')
+  startTask(@Param('taskId') taskId: string, @CurrentUser() user: any) {
+    return this.service.startTask(taskId, user);
   }
 
   @Patch('tasks/:taskId/complete')
@@ -77,6 +142,11 @@ export class SuperadminClientsController {
   @Patch('tasks/:taskId/cancel')
   cancelTask(@Param('taskId') taskId: string, @Body() dto: CancelClientTaskDto, @CurrentUser() user: any) {
     return this.service.cancelTask(taskId, dto, user);
+  }
+
+  @Patch('tasks/:taskId/reschedule')
+  rescheduleTask(@Param('taskId') taskId: string, @Body() dto: RescheduleClientTaskDto, @CurrentUser() user: any) {
+    return this.service.rescheduleTask(taskId, dto, user);
   }
 
   @Patch('notes/:noteId')
@@ -94,14 +164,49 @@ export class SuperadminClientsController {
     return this.service.updateFollowUp(followUpId, dto);
   }
 
+  @Get('follow-ups/:followUpId')
+  getFollowUp(@Param('followUpId') followUpId: string) {
+    return this.service.getFollowUp(followUpId);
+  }
+
   @Patch('follow-ups/:followUpId/done')
   doneFollowUp(@Param('followUpId') followUpId: string, @CurrentUser() user: any) {
     return this.service.doneFollowUp(followUpId, user);
   }
 
   @Patch('follow-ups/:followUpId/cancel')
-  cancelFollowUp(@Param('followUpId') followUpId: string) {
-    return this.service.cancelFollowUp(followUpId);
+  cancelFollowUp(@Param('followUpId') followUpId: string, @Body() dto: CancelClientFollowUpDto, @CurrentUser() user: any) {
+    return this.service.cancelFollowUp(followUpId, dto, user);
+  }
+
+  @Patch('follow-ups/:followUpId/reschedule')
+  rescheduleFollowUp(@Param('followUpId') followUpId: string, @Body() dto: RescheduleClientFollowUpDto, @CurrentUser() user: any) {
+    return this.service.rescheduleFollowUp(followUpId, dto, user);
+  }
+
+  @Get('reminders/:reminderId')
+  getReminder(@Param('reminderId') reminderId: string) {
+    return this.service.getReminder(reminderId);
+  }
+
+  @Patch('reminders/:reminderId/complete')
+  completeReminder(@Param('reminderId') reminderId: string, @CurrentUser() user: any) {
+    return this.service.completeReminder(reminderId, user);
+  }
+
+  @Patch('reminders/:reminderId/snooze')
+  snoozeReminder(@Param('reminderId') reminderId: string, @Body() dto: SnoozeClientReminderDto) {
+    return this.service.snoozeReminder(reminderId, dto);
+  }
+
+  @Patch('reminders/:reminderId/dismiss')
+  dismissReminder(@Param('reminderId') reminderId: string, @CurrentUser() user: any) {
+    return this.service.dismissReminder(reminderId, user);
+  }
+
+  @Patch('reminders/:reminderId/cancel')
+  cancelReminder(@Param('reminderId') reminderId: string) {
+    return this.service.cancelReminder(reminderId);
   }
 
   @Get(':id')
@@ -182,6 +287,16 @@ export class SuperadminClientsController {
   @Post(':id/follow-ups')
   createFollowUp(@Param('id') id: string, @Body() dto: CreateClientFollowUpDto, @CurrentUser() user: any) {
     return this.service.createFollowUp(id, dto, user);
+  }
+
+  @Get(':id/follow-ups')
+  clientFollowUps(@Param('id') id: string) {
+    return this.service.clientFollowUps(id);
+  }
+
+  @Get(':id/calendar')
+  clientCalendar(@Param('id') id: string, @Query() query: Record<string, string | undefined>) {
+    return this.service.clientCalendar(id, query);
   }
 
   @Get(':id/activity')

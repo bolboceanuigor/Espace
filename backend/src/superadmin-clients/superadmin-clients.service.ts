@@ -2,11 +2,17 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import {
   ClientAccountStatus,
   ClientActivityType,
+  ClientCalendarEventType,
+  ClientFollowUpSource,
   ClientFollowUpStatus,
   ClientLifecycleStage,
   ClientPriority,
+  ClientReminderSource,
+  ClientReminderStatus,
   ClientRiskLevel,
   ClientSource,
+  ClientTaskCategory,
+  ClientTaskSource,
   ClientTaskStatus,
   CustomerOnboardingRequestStatus,
   Prisma,
@@ -15,6 +21,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ClientRiskService } from './client-risk.service';
 import {
   CancelClientTaskDto,
+  CancelClientFollowUpDto,
   ChangeClientOwnerDto,
   ChangeClientPriorityDto,
   ChangeClientRiskDto,
@@ -24,8 +31,12 @@ import {
   CreateClientAccountDto,
   CreateClientFollowUpDto,
   CreateClientNoteDto,
+  CreateClientReminderDto,
   CreateClientTaskDto,
   LinkAssociationDto,
+  RescheduleClientFollowUpDto,
+  RescheduleClientTaskDto,
+  SnoozeClientReminderDto,
   UpdateClientAccountDto,
   UpdateClientFollowUpDto,
   UpdateClientNoteDto,
@@ -38,6 +49,23 @@ const REQUIRED_REASON_STAGES = new Set<ClientLifecycleStage>([
   ClientLifecycleStage.SUSPENDED,
   ClientLifecycleStage.CHURNED,
   ClientLifecycleStage.CLOSED,
+]);
+
+const ALLOWED_RELATED_ENTITY_TYPES = new Set([
+  'CLIENT_ACCOUNT',
+  'ASSOCIATION',
+  'CUSTOMER_REQUEST',
+  'SAAS_SUBSCRIPTION',
+  'SAAS_INVOICE',
+  'UPGRADE_REQUEST',
+  'SUPPORT_SESSION',
+  'PLATFORM_SERVICE',
+  'BACKUP_CHECK',
+  'RECOVERY_DRILL',
+  'PRODUCTION_INCIDENT',
+  'SYSTEM_ERROR_EVENT',
+  'LEGAL_DOCUMENT',
+  'DATA_REQUEST',
 ]);
 
 @Injectable()
@@ -310,22 +338,22 @@ export class SuperadminClientsService {
 
   async notes(id: string) {
     await this.ensureClient(id);
-    return { items: await this.prisma.clientNote.findMany({ where: { clientAccountId: id }, orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }] }) };
+    return { items: await this.prisma.clientAccountNote.findMany({ where: { clientAccountId: id }, orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }] }) };
   }
 
   async createNote(id: string, dto: CreateClientNoteDto, actor: any) {
     const client = await this.ensureClient(id);
-    const note = await this.prisma.clientNote.create({ data: { clientAccountId: id, associationId: client.associationId, authorUserId: actor?.id, note: this.sanitizeText(dto.note), isPinned: !!dto.isPinned } });
+    const note = await this.prisma.clientAccountNote.create({ data: { clientAccountId: id, associationId: client.associationId, authorUserId: actor?.id, note: this.sanitizeText(dto.note), isPinned: !!dto.isPinned } });
     await this.activity(id, actor?.id, ClientActivityType.NOTE_ADDED, 'Nota adaugata', note.note.slice(0, 160), { noteId: note.id });
     return note;
   }
 
   async updateNote(noteId: string, dto: UpdateClientNoteDto) {
-    return this.prisma.clientNote.update({ where: { id: noteId }, data: { note: dto.note ? this.sanitizeText(dto.note) : undefined, isPinned: dto.isPinned } });
+    return this.prisma.clientAccountNote.update({ where: { id: noteId }, data: { note: dto.note ? this.sanitizeText(dto.note) : undefined, isPinned: dto.isPinned } });
   }
 
   async pinNote(noteId: string, pinned: boolean) {
-    return this.prisma.clientNote.update({ where: { id: noteId }, data: { isPinned: pinned } });
+    return this.prisma.clientAccountNote.update({ where: { id: noteId }, data: { isPinned: pinned } });
   }
 
   async followUps(query: Record<string, string | undefined>) {
@@ -517,7 +545,7 @@ export class SuperadminClientsService {
   private statusForStage(stage: ClientLifecycleStage) {
     if (stage === ClientLifecycleStage.ACTIVE) return ClientAccountStatus.ACTIVE;
     if (stage === ClientLifecycleStage.SUSPENDED) return ClientAccountStatus.SUSPENDED;
-    if ([ClientLifecycleStage.CLOSED, ClientLifecycleStage.CHURNED].includes(stage)) return ClientAccountStatus.CLOSED;
+    if (stage === ClientLifecycleStage.CLOSED || stage === ClientLifecycleStage.CHURNED) return ClientAccountStatus.CLOSED;
     return ClientAccountStatus.OPEN;
   }
 
