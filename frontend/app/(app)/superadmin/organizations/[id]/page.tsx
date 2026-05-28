@@ -453,6 +453,8 @@ export default function SuperadminOrganizationDetailsPage() {
     }
   };
 
+  const createdFromAccessRequest = association.createdFromAccessRequest;
+
   return (
     <div className="space-y-5 pb-4">
       <PageHeader
@@ -498,6 +500,24 @@ export default function SuperadminOrganizationDetailsPage() {
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
           {successMessage}
         </div>
+      ) : null}
+
+      {createdFromAccessRequest ? (
+        <Card>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-base font-semibold text-foreground">Creată din cerere de acces</h2>
+              <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
+                <span>Contact inițial: {createdFromAccessRequest.contactName || '-'}</span>
+                <span>Telefon: {createdFromAccessRequest.phone || '-'}</span>
+                {createdFromAccessRequest.convertedAt ? <span>Conversie: {formatDateTime(createdFromAccessRequest.convertedAt)}</span> : null}
+              </div>
+            </div>
+            <Link href={localizedPath(`/superadmin/access-requests/${createdFromAccessRequest.id}`)} className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-border/70 px-4 text-sm font-semibold text-foreground hover:bg-muted/60">
+              Deschide cererea inițială
+            </Link>
+          </div>
+        </Card>
       ) : null}
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

@@ -8,7 +8,6 @@ import { Badge, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHea
 import { superadminApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 import {
-  mockAssociations,
   normalizeApiAssociation,
   statusBadgeVariant,
   statusLabel,
@@ -68,7 +67,7 @@ export default function SuperadminOrganizationsPage() {
   const [rows, setRows] = useState<MvpAssociation[]>([]);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<'ALL' | AssociationStatus>('ALL');
-  const [source, setSource] = useState<'loading' | 'mock' | 'api'>('loading');
+  const [source, setSource] = useState<'loading' | 'api' | 'unavailable'>('loading');
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [isCreating, setIsCreating] = useState(false);
@@ -117,9 +116,9 @@ export default function SuperadminOrganizationsPage() {
       })
       .catch(() => {
         if (!active) return;
-        setRows(mockAssociations);
-        setSource('mock');
-        setListError('Date temporare — API indisponibil.');
+        setRows([]);
+        setSource('unavailable');
+        setListError('Nu am putut încărca organizațiile. Reîncearcă după ce API-ul este disponibil.');
       });
     return () => {
       active = false;
@@ -284,7 +283,7 @@ export default function SuperadminOrganizationsPage() {
             <option value="INACTIVE">Inactive</option>
           </select>
           <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-            {source === 'loading' ? 'Se încarcă...' : source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
+            {source === 'loading' ? 'Se încarcă...' : source === 'api' ? 'Date reale' : 'API indisponibil'}
           </span>
         </div>
       </Card>
@@ -329,7 +328,8 @@ export default function SuperadminOrganizationsPage() {
           </Card>
         ))}
         {source === 'loading' ? <Card className="p-5 text-sm font-medium text-muted-foreground">Se încarcă datele...</Card> : null}
-        {source !== 'loading' && !filteredRows.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există A.P.C.-uri încă. Creează prima asociație.</Card> : null}
+        {source === 'unavailable' ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu putem încărca organizațiile acum. Nu sunt afișate date demo.</Card> : null}
+        {source === 'api' && !filteredRows.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există A.P.C.-uri încă. Creează prima asociație.</Card> : null}
       </section>
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} maxWidth="2xl">

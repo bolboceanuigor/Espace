@@ -44,6 +44,32 @@ export class OrganizationsService {
         users: true,
       },
     },
+    accessRequestsConverted: {
+      orderBy: { convertedAt: 'desc' as const },
+      take: 1,
+      select: {
+        id: true,
+        fullName: true,
+        phone: true,
+        email: true,
+        associationName: true,
+        createdAt: true,
+        convertedAt: true,
+      },
+    },
+    customerOnboardingRequests: {
+      orderBy: { convertedAt: 'desc' as const },
+      take: 1,
+      select: {
+        id: true,
+        fullName: true,
+        phone: true,
+        email: true,
+        associationName: true,
+        createdAt: true,
+        convertedAt: true,
+      },
+    },
   } as const;
 
   private readonly adminSelect = {
@@ -89,9 +115,28 @@ export class OrganizationsService {
       email: string;
       phone: string | null;
     }>;
+    accessRequestsConverted?: Array<{
+      id: string;
+      fullName: string;
+      phone: string;
+      email: string | null;
+      associationName: string;
+      createdAt: Date;
+      convertedAt: Date | null;
+    }>;
+    customerOnboardingRequests?: Array<{
+      id: string;
+      fullName: string;
+      phone: string;
+      email: string | null;
+      associationName: string;
+      createdAt: Date;
+      convertedAt: Date | null;
+    }>;
   }) {
     const associationCode = organization.fiscalCode || this.extractAssociationCode(organization.name, organization.legalName);
     const primaryAdmin = organization.users?.[0] ?? null;
+    const createdFromAccessRequest = organization.accessRequestsConverted?.[0] ?? organization.customerOnboardingRequests?.[0] ?? null;
     return {
       id: organization.id,
       name: organization.name,
@@ -112,6 +157,17 @@ export class OrganizationsService {
       administratorName: this.fullName(primaryAdmin) || 'Administrator neatribuit',
       administratorEmail: primaryAdmin?.email ?? '',
       administratorPhone: primaryAdmin?.phone ?? '',
+      createdFromAccessRequest: createdFromAccessRequest
+        ? {
+            id: createdFromAccessRequest.id,
+            contactName: createdFromAccessRequest.fullName,
+            phone: createdFromAccessRequest.phone,
+            email: createdFromAccessRequest.email,
+            associationName: createdFromAccessRequest.associationName,
+            requestedAt: createdFromAccessRequest.createdAt,
+            convertedAt: createdFromAccessRequest.convertedAt,
+          }
+        : null,
     };
   }
 

@@ -1,5 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import {
+  AuthProvider,
+  ClientAccountStatus,
+  ClientActivityType,
   ClientLifecycleStage,
   ClientPriority,
   ClientSource,
@@ -7,17 +10,41 @@ import {
   CustomerOnboardingRequestSource,
   CustomerOnboardingRequestStatus,
   CustomerOnboardingRequestType,
+  InvitationStatus,
+  OnboardingStatus,
+  OrganizationMemberRole,
+  OrganizationMemberStatus,
+  OrganizationStatus,
+  PlanCode,
+  PlatformRole,
   Prisma,
+  Role,
 } from '@prisma/client';
+import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateCustomerOnboardingRequestDto,
   CustomerRequestAssignDto,
+  CustomerRequestConvertDto,
   CustomerRequestNoteDto,
   CustomerRequestPriorityDto,
   CustomerRequestStatusDto,
   CustomerRequestUpdateDto,
 } from './dto/customer-request.dto';
+
+type NormalizedConversionInput = {
+  organizationName: string;
+  legalName?: string;
+  shortName?: string;
+  apcCode?: string;
+  city: string;
+  address?: string;
+  adminName: string;
+  adminEmail?: string;
+  adminPhone: string;
+  sendInvite: boolean;
+  note?: string;
+};
 
 @Injectable()
 export class CustomerRequestsService {
@@ -137,6 +164,7 @@ export class CustomerRequestsService {
         include: {
           assignedTo: { select: { id: true, fullName: true, email: true } },
           convertedAssociation: { select: { id: true, name: true, legalName: true } },
+          convertedOrganization: { select: { id: true, name: true, legalName: true, onboardingStatus: true, onboardingStep: true } },
         },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
@@ -170,6 +198,8 @@ export class CustomerRequestsService {
       include: {
         assignedTo: { select: { id: true, fullName: true, email: true } },
         convertedAssociation: { select: { id: true, name: true, legalName: true, createdAt: true } },
+        convertedOrganization: { select: { id: true, name: true, legalName: true, createdAt: true, onboardingStatus: true, onboardingStep: true } },
+        convertedBy: { select: { id: true, fullName: true, firstName: true, lastName: true, email: true } },
       },
     });
     if (!request) throw new NotFoundException('Customer request not found');
@@ -217,6 +247,7 @@ export class CustomerRequestsService {
       include: {
         assignedTo: { select: { id: true, fullName: true, email: true } },
         convertedAssociation: { select: { id: true, name: true, legalName: true, createdAt: true } },
+        convertedOrganization: { select: { id: true, name: true, legalName: true, createdAt: true, onboardingStatus: true, onboardingStep: true } },
       },
     });
   }
@@ -240,13 +271,486 @@ export class CustomerRequestsService {
     return this.prisma.customerOnboardingRequest.update({ where: { id }, data: { assignedToId: dto.assignedToId || null } });
   }
 
-  async convertToAssociation(id: string) {
-    const request = await this.get(id);
-    if (request.convertedAssociationId) return request;
-    return {
-      ok: false,
-      message: 'Conversia automata va fi disponibila ulterior. Creeaza asociatia din Superadmin si leag-o manual dupa confirmare.',
+  async convertToOrganization(id: string, dto: CustomerRequestConvertDto, actor: any) {
+    const actorId = this.currentUserId(actor);
+
+    return this.prisma.$transaction(async (tx) => {
+      const request = await tx.customerOnboardingRequest.findUnique({
+        where: { id },
+        include: {
+          convertedAssociation: { select: { id: true, name: true } },
+          convertedOrganization: { select: { id: true, name: true } },
+        },
+      });
+      if (!request) throw new NotFoundException('Customer request not found');
+      if (request.convertedOrganizationId || request.convertedAssociationId) {
+        throw new ConflictException('Cererea a fost deja convertita intr-o organizatie.');
+      }
+
+      const input = this.normalizeConversionInput(dto, request);
+      if (input.apcCode) {
+        const duplicate = await tx.organization.findFirst({
+          where: { fiscalCode: input.apcCode },
+          select: { id: true, name: true },
+        });
+        if (duplicate) {
+          throw new ConflictException('Exista deja o organizatie cu acest cod APC.');
+        }
+      }
+
+      const now = new Date();
+      const organization = await tx.organization.create({
+        data: {
+          name: input.shortName || input.organizationName,
+          legalName: input.legalName || input.organizationName,
+          fiscalCode: input.apcCode || null,
+          address: input.address || null,
+          city: input.city,
+          country: 'MD',
+          phone: input.adminPhone,
+          email: input.adminEmail || null,
+          administratorName: input.adminName,
+          status: OrganizationStatus.TRIAL,
+          subscriptionStatus: 'TRIAL',
+          subscriptionPlan: 'FREE',
+          ownerAdminId: null,
+          onboardingCompleted: false,
+          onboardingStatus: OnboardingStatus.IN_PROGRESS,
+          onboardingStep: 'BASIC_INFO',
+          onboardingCompletedAt: null,
+          defaultLocale: 'ro',
+          weekStart: 'MONDAY',
+          isDemo: false,
+          isActive: true,
+          createdByAgentId: actorId,
+        },
+      });
+
+      await tx.organizationSetting.create({
+        data: {
+          organizationId: organization.id,
+          weekStart: 'MONDAY',
+          defaultLocale: 'ro',
+        },
+      });
+
+      const trialPlan = await tx.plan.upsert({
+        where: { code: PlanCode.TRIAL },
+        update: { name: 'Trial', priceMonthly: 0, currency: 'EUR' },
+        create: { code: PlanCode.TRIAL, name: 'Trial', priceMonthly: 0, currency: 'EUR' },
+        select: { id: true },
+      });
+      const trialEndsAt = new Date(now);
+      trialEndsAt.setDate(trialEndsAt.getDate() + 14);
+      await tx.subscription.create({
+        data: {
+          organizationId: organization.id,
+          planId: trialPlan.id,
+          plan: 'starter',
+          status: 'TRIAL',
+          currentPeriodStart: now,
+          currentPeriodEnd: trialEndsAt,
+          price: 0,
+          apartmentLimit: 5,
+          trialEndsAt,
+          subscriptionEndsAt: null,
+          isActive: true,
+        },
+      });
+
+      await tx.onboardingChecklist.create({
+        data: { organizationId: organization.id },
+      });
+
+      const admin = input.adminEmail ? await this.createInitialAdmin(tx, organization.id, input, actorId) : null;
+      if (admin) {
+        await tx.organization.update({
+          where: { id: organization.id },
+          data: { ownerAdminId: admin.id },
+        });
+      }
+
+      const invitation = input.sendInvite && input.adminEmail
+        ? await this.createAdminInvitation(tx, organization.id, input, actorId)
+        : null;
+
+      const mergedMetadata = this.mergeJsonObject(request.metadata, {
+        conversion: {
+          organizationId: organization.id,
+          convertedById: actorId,
+          convertedAt: now.toISOString(),
+          initialAdminUserId: admin?.id || null,
+          invitationId: invitation?.id || null,
+          sendInvite: !!input.sendInvite,
+          missingIdentifier: !input.apcCode,
+        },
+      });
+      const internalNotes = input.note
+        ? [request.internalNotes, `[${now.toISOString()}] Conversie in organizatie: ${input.note}`].filter(Boolean).join('\n\n')
+        : request.internalNotes;
+
+      const updatedRequest = await tx.customerOnboardingRequest.update({
+        where: { id: request.id },
+        data: {
+          status: CustomerOnboardingRequestStatus.CONVERTED,
+          convertedAt: now,
+          convertedById: actorId,
+          convertedOrganizationId: organization.id,
+          convertedAssociationId: organization.id,
+          conversionNote: input.note || null,
+          qualifiedAt: request.qualifiedAt || now,
+          internalNotes,
+          metadata: mergedMetadata as Prisma.InputJsonValue,
+        },
+        include: {
+          assignedTo: { select: { id: true, fullName: true, email: true } },
+          convertedAssociation: { select: { id: true, name: true, legalName: true, createdAt: true } },
+          convertedOrganization: { select: { id: true, name: true, legalName: true, createdAt: true, onboardingStatus: true, onboardingStep: true } },
+          convertedBy: { select: { id: true, fullName: true, firstName: true, lastName: true, email: true } },
+        },
+      });
+
+      const clientAccount = await this.upsertClientAccountAfterConversion(tx, updatedRequest, organization.id, input, actorId);
+      if (clientAccount) {
+        await tx.clientActivity.createMany({
+          data: [
+            {
+              clientAccountId: clientAccount.id,
+              associationId: organization.id,
+              actorUserId: actorId,
+              type: ClientActivityType.ASSOCIATION_LINKED,
+              title: 'Organizatie creata din cerere',
+              message: `Cererea de acces a fost convertita in ${organization.name}.`,
+              metadata: { requestId: request.id, organizationId: organization.id } as Prisma.InputJsonValue,
+            },
+            {
+              clientAccountId: clientAccount.id,
+              associationId: organization.id,
+              actorUserId: actorId,
+              type: ClientActivityType.ONBOARDING_STARTED,
+              title: 'Onboarding initial creat',
+              message: 'Organizatia a primit statusul initial de onboarding.',
+              metadata: { onboardingStep: 'BASIC_INFO', missingIdentifier: !input.apcCode } as Prisma.InputJsonValue,
+            },
+          ],
+        });
+      }
+
+      await tx.auditLog.createMany({
+        data: [
+          {
+            organizationId: organization.id,
+            userId: actorId,
+            action: 'ACCESS_REQUEST_CONVERTED',
+            entityType: 'CustomerOnboardingRequest',
+            entityId: request.id,
+            description: `Cererea de acces ${request.fullName} a fost convertita in organizatie.`,
+            oldValuesJson: { status: request.status } as Prisma.InputJsonValue,
+            newValuesJson: { status: CustomerOnboardingRequestStatus.CONVERTED, organizationId: organization.id } as Prisma.InputJsonValue,
+          },
+          {
+            organizationId: organization.id,
+            userId: actorId,
+            action: 'ORGANIZATION_CREATED_FROM_REQUEST',
+            entityType: 'Organization',
+            entityId: organization.id,
+            description: `Organizatia ${organization.name} a fost creata dintr-o cerere de acces.`,
+            oldValuesJson: Prisma.JsonNull,
+            newValuesJson: { requestId: request.id, organizationId: organization.id } as Prisma.InputJsonValue,
+          },
+        ],
+      });
+
+      return {
+        success: true,
+        message: 'Cererea a fost convertita in organizatie.',
+        request: updatedRequest,
+        organization: {
+          id: organization.id,
+          name: organization.name,
+          legalName: organization.legalName,
+          fiscalCode: organization.fiscalCode,
+          city: organization.city,
+          address: organization.address,
+          onboardingStatus: organization.onboardingStatus,
+          onboardingStep: organization.onboardingStep,
+          createdAt: organization.createdAt,
+        },
+        admin,
+        invitation: invitation
+          ? {
+              id: invitation.id,
+              email: invitation.email,
+              status: invitation.status,
+              expiresAt: invitation.expiresAt,
+              inviteLink: this.buildInviteLink(invitation.token),
+            }
+          : null,
+        onboarding: {
+          status: organization.onboardingStatus,
+          step: organization.onboardingStep,
+          initialChecklistCreated: true,
+          missingIdentifier: !input.apcCode,
+        },
+      };
+    });
+  }
+
+  async convertToAssociation(id: string, actor: any) {
+    const request = await this.prisma.customerOnboardingRequest.findUnique({ where: { id } });
+    if (!request) throw new NotFoundException('Customer request not found');
+    return this.convertToOrganization(
+      id,
+      {
+        organizationName: request.associationName || request.legalName || `APC ${request.fullName}`,
+        legalName: request.legalName || request.associationName || undefined,
+        shortName: request.associationName || undefined,
+        apcCode: request.apcCode || request.associationCode || undefined,
+        city: request.city || '',
+        address: request.address || undefined,
+        adminName: request.fullName,
+        adminPhone: request.phone,
+        adminEmail: request.email || undefined,
+        sendInvite: false,
+      },
+      actor,
+    );
+  }
+
+  private async createInitialAdmin(
+    tx: Prisma.TransactionClient,
+    organizationId: string,
+    input: NormalizedConversionInput,
+    actorId: string,
+  ) {
+    if (!input.adminEmail) return null;
+    const existing = await tx.user.findFirst({
+      where: { email: input.adminEmail, deletedAt: null },
+      select: { id: true, organizationId: true },
+    });
+    if (existing && existing.organizationId !== organizationId) {
+      throw new ConflictException('Exista deja un utilizator cu acest email in alta organizatie.');
+    }
+
+    const nameParts = this.splitName(input.adminName);
+    const admin = existing
+      ? await tx.user.update({
+          where: { id: existing.id },
+          data: {
+            role: Role.ADMIN,
+            platformRole: PlatformRole.ORGANIZATION_USER,
+            organizationId,
+            phone: input.adminPhone,
+            fullName: input.adminName,
+            firstName: nameParts.firstName,
+            lastName: nameParts.lastName,
+            isActive: true,
+          },
+          select: this.adminSelect(),
+        })
+      : await tx.user.create({
+          data: {
+            email: input.adminEmail,
+            passwordHash: null,
+            authProvider: AuthProvider.LOCAL,
+            emailVerifiedAt: null,
+            fullName: input.adminName,
+            firstName: nameParts.firstName,
+            lastName: nameParts.lastName,
+            phone: input.adminPhone,
+            role: Role.ADMIN,
+            platformRole: PlatformRole.ORGANIZATION_USER,
+            preferredLanguage: 'RO',
+            organizationId,
+            isActive: true,
+            isDemoUser: false,
+          },
+          select: this.adminSelect(),
+        });
+
+    await tx.organizationMember.upsert({
+      where: { userId: admin.id },
+      update: {
+        organizationId,
+        role: OrganizationMemberRole.ORG_ADMIN,
+        status: OrganizationMemberStatus.ACTIVE,
+        activatedAt: new Date(),
+      },
+      create: {
+        organizationId,
+        userId: admin.id,
+        role: OrganizationMemberRole.ORG_ADMIN,
+        status: OrganizationMemberStatus.ACTIVE,
+        activatedAt: new Date(),
+        createdById: actorId,
+      },
+    });
+
+    return admin;
+  }
+
+  private async createAdminInvitation(
+    tx: Prisma.TransactionClient,
+    organizationId: string,
+    input: NormalizedConversionInput,
+    actorId: string,
+  ) {
+    if (!input.adminEmail) return null;
+    const token = randomBytes(24).toString('hex');
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+    return tx.invitation.create({
+      data: {
+        organizationId,
+        email: input.adminEmail,
+        phone: input.adminPhone,
+        role: Role.ADMIN,
+        token,
+        status: InvitationStatus.PENDING,
+        expiresAt,
+        invitedByUserId: actorId,
+      },
+    });
+  }
+
+  private async upsertClientAccountAfterConversion(
+    tx: Prisma.TransactionClient,
+    request: {
+      id: string;
+      fullName: string;
+      phone: string;
+      email: string | null;
+      associationName: string;
+      associationCode: string | null;
+      apcCode: string | null;
+      address: string | null;
+      apartmentsCount: number | null;
+      priority: CustomerOnboardingRequestPriority;
+      internalNotes: string | null;
+    },
+    organizationId: string,
+    input: NormalizedConversionInput,
+    actorId: string,
+  ) {
+    const existing = await tx.clientAccount.findFirst({ where: { customerRequestId: request.id }, select: { id: true } });
+    const data = {
+      associationId: organizationId,
+      lifecycleStage: ClientLifecycleStage.ONBOARDING,
+      status: ClientAccountStatus.ACTIVE,
+      displayName: input.organizationName,
+      contactName: input.adminName,
+      contactPhone: input.adminPhone,
+      contactEmail: input.adminEmail || request.email,
+      associationName: input.organizationName,
+      associationCode: input.apcCode || request.apcCode || request.associationCode,
+      apartmentsCount: request.apartmentsCount,
+      address: input.address || request.address,
+      onboardingStartedAt: new Date(),
+      updatedById: actorId,
+      metadata: {
+        convertedFromAccessRequestId: request.id,
+        missingIdentifier: !input.apcCode,
+      } as Prisma.InputJsonValue,
     };
+    if (existing) {
+      return tx.clientAccount.update({ where: { id: existing.id }, data, select: { id: true } });
+    }
+    return tx.clientAccount.create({
+      data: {
+        ...data,
+        customerRequestId: request.id,
+        priority: request.priority === CustomerOnboardingRequestPriority.HIGH ? ClientPriority.HIGH : request.priority === CustomerOnboardingRequestPriority.LOW ? ClientPriority.LOW : ClientPriority.NORMAL,
+        source: ClientSource.ACCESS_REQUEST,
+        createdById: actorId,
+      },
+      select: { id: true },
+    });
+  }
+
+  private normalizeConversionInput(dto: Partial<CustomerRequestConvertDto>, request: {
+    associationName: string;
+    legalName: string | null;
+    associationCode: string | null;
+    apcCode: string | null;
+    city: string | null;
+    address: string | null;
+    fullName: string;
+    phone: string;
+    email: string | null;
+  }): NormalizedConversionInput {
+    const organizationName = this.requiredTrim(dto.organizationName || request.associationName || request.legalName || '', 'Numele organizatiei este obligatoriu.');
+    const city = this.requiredTrim(dto.city || request.city || '', 'Orasul este obligatoriu.');
+    const adminName = this.requiredTrim(dto.adminName || request.fullName || '', 'Numele administratorului este obligatoriu.');
+    const adminPhone = this.requiredTrim(dto.adminPhone || request.phone || '', 'Telefonul administratorului este obligatoriu.');
+    if (adminPhone.length < 6 || !/^[+()\d\s.-]+$/.test(adminPhone)) {
+      throw new BadRequestException('Telefonul administratorului nu este valid.');
+    }
+    const adminEmail = this.optionalTrim(dto.adminEmail || request.email || '')?.toLowerCase();
+    if (adminEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail)) {
+      throw new BadRequestException('Emailul administratorului nu este valid.');
+    }
+    return {
+      organizationName,
+      legalName: this.optionalTrim(dto.legalName || request.legalName || ''),
+      shortName: this.optionalTrim(dto.shortName || organizationName),
+      apcCode: this.optionalTrim(dto.apcCode || request.apcCode || request.associationCode || '')?.toUpperCase(),
+      city,
+      address: this.optionalTrim(dto.address || request.address || ''),
+      adminName,
+      adminEmail: adminEmail || undefined,
+      adminPhone,
+      sendInvite: dto.sendInvite === true,
+      note: this.optionalTrim(dto.note || ''),
+    };
+  }
+
+  private adminSelect() {
+    return {
+      id: true,
+      email: true,
+      fullName: true,
+      firstName: true,
+      lastName: true,
+      phone: true,
+      role: true,
+      organizationId: true,
+      isActive: true,
+      createdAt: true,
+    } as const;
+  }
+
+  private currentUserId(actor: any) {
+    const id = actor?.id || actor?.sub || actor?.userId;
+    if (!id) throw new BadRequestException('Utilizatorul curent nu este disponibil.');
+    return String(id);
+  }
+
+  private splitName(value: string) {
+    const parts = value.trim().split(/\s+/).filter(Boolean);
+    return {
+      firstName: parts[0] || value.trim(),
+      lastName: parts.slice(1).join(' ') || null,
+    };
+  }
+
+  private requiredTrim(value: string | null | undefined, message: string) {
+    const next = String(value || '').trim();
+    if (!next) throw new BadRequestException(message);
+    return next;
+  }
+
+  private optionalTrim(value: string | null | undefined) {
+    return String(value || '').trim() || undefined;
+  }
+
+  private mergeJsonObject(base: Prisma.JsonValue | null | undefined, patch: Record<string, unknown>) {
+    const source = base && typeof base === 'object' && !Array.isArray(base) ? base as Record<string, unknown> : {};
+    return { ...source, ...patch };
+  }
+
+  private buildInviteLink(token: string) {
+    const appUrl = (process.env.FRONTEND_URL || process.env.APP_URL || 'http://localhost:3000').replace(/\/+$/, '');
+    return `${appUrl}/ro/accept-invitation/${token}`;
   }
 
   private async findRecentDuplicate(input: { phone: string; email?: string | null; city?: string | null; address?: string | null }) {

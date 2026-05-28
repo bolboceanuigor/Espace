@@ -178,3 +178,59 @@ export class CustomerRequestUpdateDto {
   @IsString()
   lastContactedAt?: string | null;
 }
+
+export class CustomerRequestConvertDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(220)
+  organizationName: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(220)
+  legalName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(160)
+  shortName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  apcCode?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(120)
+  city: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(260)
+  address?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(160)
+  adminName: string;
+
+  @IsOptional()
+  @IsEmail()
+  @MaxLength(180)
+  adminEmail?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(40)
+  adminPhone: string;
+
+  @IsOptional()
+  @IsBoolean()
+  sendInvite?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(3000)
+  note?: string;
+}

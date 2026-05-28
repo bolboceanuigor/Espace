@@ -18,6 +18,15 @@ export type MvpAssociation = {
   administratorName: string;
   administratorEmail: string;
   administratorPhone: string;
+  createdFromAccessRequest?: {
+    id: string;
+    contactName: string;
+    phone: string;
+    email?: string | null;
+    associationName?: string | null;
+    requestedAt?: string;
+    convertedAt?: string | null;
+  } | null;
 };
 
 export type MvpAdministrator = {
@@ -259,6 +268,17 @@ export function normalizeApiAssociation(row: any): MvpAssociation {
     administratorName: String(row?.administratorName || row?.adminName || 'Administrator neatribuit'),
     administratorEmail: String(row?.administratorEmail || row?.adminEmail || ''),
     administratorPhone: String(row?.administratorPhone || row?.adminPhone || ''),
+    createdFromAccessRequest: row?.createdFromAccessRequest
+      ? {
+          id: String(row.createdFromAccessRequest.id || ''),
+          contactName: String(row.createdFromAccessRequest.contactName || row.createdFromAccessRequest.fullName || ''),
+          phone: String(row.createdFromAccessRequest.phone || ''),
+          email: row.createdFromAccessRequest.email ? String(row.createdFromAccessRequest.email) : null,
+          associationName: row.createdFromAccessRequest.associationName ? String(row.createdFromAccessRequest.associationName) : null,
+          requestedAt: row.createdFromAccessRequest.requestedAt ? String(row.createdFromAccessRequest.requestedAt) : undefined,
+          convertedAt: row.createdFromAccessRequest.convertedAt ? String(row.createdFromAccessRequest.convertedAt) : null,
+        }
+      : null,
   };
 }
 

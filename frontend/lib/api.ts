@@ -1023,6 +1023,22 @@ export const accessRequestsApi = {
   getSuperadminAccessRequest: (id: string) => apiRequest<any>(`/api/superadmin/access-requests/${id}`),
   updateSuperadminAccessRequest: (id: string, data: Record<string, unknown>) =>
     apiRequest<any>(`/api/superadmin/access-requests/${id}`, { method: 'PATCH', body: data }),
+  convertSuperadminAccessRequest: (
+    id: string,
+    data: {
+      organizationName: string;
+      legalName?: string;
+      shortName?: string;
+      apcCode?: string;
+      city: string;
+      address?: string;
+      adminName: string;
+      adminEmail?: string;
+      adminPhone: string;
+      sendInvite?: boolean;
+      note?: string;
+    },
+  ) => apiRequest<any>(`/api/superadmin/access-requests/${id}/convert`, { method: 'POST', body: data }),
 };
 
 export const invitationsApi = {

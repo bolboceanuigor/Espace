@@ -2753,6 +2753,7 @@ model Organization {
   clientNotes        ClientNote[]
   leads              Lead[]
   customerOnboardingRequests CustomerOnboardingRequest[] @relation("CustomerOnboardingRequestConvertedAssociation")
+  accessRequestsConverted CustomerOnboardingRequest[] @relation("CustomerOnboardingRequestConvertedOrganization")
   legalContactRequests LegalContactRequest[] @relation("LegalContactRequestAssociation")
   chatMessages       AssociationChatMessage[]
   invitations        Invitation[]
@@ -3485,6 +3486,10 @@ model CustomerOnboardingRequest {
   lastContactedAt         DateTime?
   qualifiedAt             DateTime?
   convertedAssociationId  String?
+  convertedAt             DateTime?
+  convertedById           String?
+  convertedOrganizationId String?
+  conversionNote          String?
   closedAt                DateTime?
   closeReason             String?
   internalNotes           String?
@@ -3496,6 +3501,8 @@ model CustomerOnboardingRequest {
 
   assignedTo           User?         @relation("CustomerOnboardingRequestAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
   convertedAssociation Organization? @relation("CustomerOnboardingRequestConvertedAssociation", fields: [convertedAssociationId], references: [id], onDelete: SetNull)
+  convertedBy          User?         @relation("CustomerOnboardingRequestConvertedBy", fields: [convertedById], references: [id], onDelete: SetNull)
+  convertedOrganization Organization? @relation("CustomerOnboardingRequestConvertedOrganization", fields: [convertedOrganizationId], references: [id], onDelete: SetNull)
 
   @@index([status, createdAt])
   @@index([type, status])
@@ -3507,6 +3514,9 @@ model CustomerOnboardingRequest {
   @@index([apcCode, createdAt])
   @@index([assignedToId, status])
   @@index([convertedAssociationId])
+  @@index([convertedOrganizationId])
+  @@index([convertedById])
+  @@index([convertedAt])
   @@index([possibleDuplicate, createdAt])
   @@map("customer_onboarding_requests")
 }
@@ -6042,6 +6052,7 @@ model User {
   superadminTasksCreated SuperAdminTask[] @relation("SuperAdminTaskCreatedBy")
   superadminTasksAssigned SuperAdminTask[] @relation("SuperAdminTaskAssignedTo")
   leadActivities     LeadActivity[]
+  convertedCustomerOnboardingRequests CustomerOnboardingRequest[] @relation("CustomerOnboardingRequestConvertedBy")
   chatMessages       AssociationChatMessage[]
   invitationsCreated Invitation[] @relation("UserInvitations")
   residentPortalInvitationsCreated ResidentPortalInvitation[] @relation("ResidentPortalInvitationCreatedBy")

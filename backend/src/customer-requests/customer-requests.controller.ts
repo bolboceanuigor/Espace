@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards } from
 import { Role } from '@prisma/client';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { Public } from '../auth/decorators/public.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { CustomerRequestsService } from './customer-requests.service';
@@ -12,6 +13,7 @@ import {
   CustomerRequestPriorityDto,
   CustomerRequestStatusDto,
   CustomerRequestUpdateDto,
+  CustomerRequestConvertDto,
 } from './dto/customer-request.dto';
 
 @Controller(['api/public/customer-requests', 'api/public/access-requests', 'public/access-requests'])
@@ -77,8 +79,13 @@ export class SuperadminCustomerRequestsController {
     return this.service.assign(id, dto);
   }
 
+  @Post(':id/convert')
+  convertAccessRequest(@Param('id') id: string, @Body() dto: CustomerRequestConvertDto, @CurrentUser() user: any) {
+    return this.service.convertToOrganization(id, dto, user);
+  }
+
   @Patch(':id/convert-to-association')
-  convert(@Param('id') id: string) {
-    return this.service.convertToAssociation(id);
+  convert(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.service.convertToAssociation(id, user);
   }
 }
