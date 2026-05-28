@@ -6,6 +6,7 @@ import {
   Activity, 
   ArrowRight, 
   ArrowUpRight, 
+  BookOpen,
   Building2, 
   Calendar,
   CheckCircle2, 
@@ -536,6 +537,12 @@ export default function SuperadminPage() {
                 title="Agenda CRM"
                 description="Taskuri, follow-up-uri si reminder-e interne pentru clienti"
                 href={localizedPath('/superadmin/clients/my-work')}
+              />
+              <QuickActionCard
+                icon={BookOpen}
+                title="Knowledge Base"
+                description="Note, contacte, decizii si probleme cunoscute pentru clienti"
+                href={localizedPath('/superadmin/knowledge')}
               />
               <QuickActionCard
                 icon={Scale}

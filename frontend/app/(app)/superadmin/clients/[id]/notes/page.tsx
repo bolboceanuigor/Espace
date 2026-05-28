@@ -1,5 +1,5 @@
-import { ClientDetailPage } from '@/components/superadmin/clients/ClientLifecyclePages';
+import { ClientNotesPage } from '@/components/superadmin/clients/ClientKnowledgePages';
 
 export default function Page({ params }: { params: { id: string } }) {
-  return <ClientDetailPage id={params.id} tab="notes" />;
+  return <ClientNotesPage id={params.id} />;
 }

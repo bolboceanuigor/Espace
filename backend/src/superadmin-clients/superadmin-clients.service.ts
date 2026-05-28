@@ -2,8 +2,21 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import {
   ClientAccountStatus,
   ClientActivityType,
+  ClientChecklistStatus,
+  ClientContactStatus,
+  ClientDecisionImpact,
+  ClientDecisionStatus,
+  ClientFileStorageProvider,
   ClientFollowUpSource,
   ClientFollowUpStatus,
+  ClientKnowledgeCategory,
+  ClientKnowledgeItemType,
+  ClientKnowledgePriority,
+  ClientKnowledgeStatus,
+  ClientKnowledgeVisibility,
+  ClientKnownIssueSeverity,
+  ClientKnownIssueStatus,
+  ClientLinkStatus,
   ClientLifecycleStage,
   ClientPriority,
   ClientReminderSource,
@@ -19,6 +32,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { ClientRiskService } from './client-risk.service';
 import {
+  ArchiveClientKnowledgeDto,
   CancelClientTaskDto,
   CancelClientFollowUpDto,
   ChangeClientOwnerDto,
@@ -28,16 +42,31 @@ import {
   ChangeClientStatusDto,
   CloseClientDto,
   CreateClientAccountDto,
+  CreateClientChecklistDto,
+  CreateClientContactDto,
+  CreateClientDecisionDto,
+  CreateClientFileDto,
   CreateClientFollowUpDto,
+  CreateClientKnowledgeItemDto,
+  CreateClientKnownIssueDto,
+  CreateClientLinkDto,
   CreateClientNoteDto,
   CreateClientReminderDto,
   CreateClientTaskDto,
   LinkAssociationDto,
+  ResolveClientKnownIssueDto,
   RescheduleClientFollowUpDto,
   RescheduleClientTaskDto,
   SnoozeClientReminderDto,
   UpdateClientAccountDto,
+  UpdateClientChecklistDto,
+  UpdateClientContactDto,
+  UpdateClientDecisionDto,
+  UpdateClientFileDto,
   UpdateClientFollowUpDto,
+  UpdateClientKnowledgeItemDto,
+  UpdateClientKnownIssueDto,
+  UpdateClientLinkDto,
   UpdateClientNoteDto,
   UpdateClientTaskDto,
 } from './dto/superadmin-clients.dto';
@@ -65,6 +94,10 @@ const ALLOWED_RELATED_ENTITY_TYPES = new Set([
   'SYSTEM_ERROR_EVENT',
   'LEGAL_DOCUMENT',
   'DATA_REQUEST',
+  'CLIENT_TASK',
+  'CLIENT_FOLLOW_UP',
+  'DATA_EXPORT',
+  'HELP_ARTICLE',
 ]);
 
 const CALENDAR_EVENT_TYPE = {
@@ -415,26 +448,6 @@ export class SuperadminClientsService {
     return task;
   }
 
-  async notes(id: string) {
-    await this.ensureClient(id);
-    return { items: await this.prisma.clientAccountNote.findMany({ where: { clientAccountId: id }, orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }] }) };
-  }
-
-  async createNote(id: string, dto: CreateClientNoteDto, actor: any) {
-    const client = await this.ensureClient(id);
-    const note = await this.prisma.clientAccountNote.create({ data: { clientAccountId: id, associationId: client.associationId, authorUserId: actor?.id, note: this.sanitizeText(dto.note), isPinned: !!dto.isPinned } });
-    await this.activity(id, actor?.id, ClientActivityType.NOTE_ADDED, 'Nota adaugata', note.note.slice(0, 160), { noteId: note.id });
-    return note;
-  }
-
-  async updateNote(noteId: string, dto: UpdateClientNoteDto) {
-    return this.prisma.clientAccountNote.update({ where: { id: noteId }, data: { note: dto.note ? this.sanitizeText(dto.note) : undefined, isPinned: dto.isPinned } });
-  }
-
-  async pinNote(noteId: string, pinned: boolean) {
-    return this.prisma.clientAccountNote.update({ where: { id: noteId }, data: { isPinned: pinned } });
-  }
-
   async followUps(query: Record<string, string | undefined>) {
     const now = new Date();
     const week = new Date(now);
@@ -601,6 +614,364 @@ export class SuperadminClientsService {
 
   async cancelReminder(reminderId: string) {
     return this.prisma.clientReminder.update({ where: { id: reminderId }, data: { status: ClientReminderStatus.CANCELLED } });
+  }
+
+  async knowledgeOverview(id: string) {
+    const client = await this.ensureClient(id);
+    const active = ClientKnowledgeStatus.ACTIVE;
+    const [notes, pinnedNotesCount, files, contacts, decisions, openIssues, checklists, pinnedNotes, primaryContacts, recentDecisions, recentFiles, recentLinks, issues, last] = await Promise.all([
+      this.prisma.clientKnowledgeItem.count({ where: { clientAccountId: id, type: ClientKnowledgeItemType.NOTE, status: active } }),
+      this.prisma.clientKnowledgeItem.count({ where: { clientAccountId: id, isPinned: true, status: active } }),
+      this.prisma.clientFile.count({ where: { clientAccountId: id, status: active } }),
+      this.prisma.clientContact.count({ where: { clientAccountId: id, status: ClientContactStatus.ACTIVE } }),
+      this.prisma.clientDecision.count({ where: { clientAccountId: id, status: ClientDecisionStatus.ACTIVE } }),
+      this.prisma.clientKnownIssue.count({ where: { clientAccountId: id, status: { in: [ClientKnownIssueStatus.OPEN, ClientKnownIssueStatus.IN_PROGRESS] } } }),
+      this.prisma.clientChecklist.count({ where: { clientAccountId: id, status: { in: [ClientChecklistStatus.ACTIVE, ClientChecklistStatus.COMPLETED] } } }),
+      this.prisma.clientKnowledgeItem.findMany({ where: { clientAccountId: id, isPinned: true, status: active }, orderBy: { updatedAt: 'desc' }, take: 5 }),
+      this.prisma.clientContact.findMany({ where: { clientAccountId: id, isPrimary: true, status: ClientContactStatus.ACTIVE }, orderBy: { updatedAt: 'desc' }, take: 5 }),
+      this.prisma.clientDecision.findMany({ where: { clientAccountId: id, status: ClientDecisionStatus.ACTIVE }, orderBy: { decisionDate: 'desc' }, take: 5 }),
+      this.prisma.clientFile.findMany({ where: { clientAccountId: id, status: active }, orderBy: { uploadedAt: 'desc' }, take: 5 }),
+      this.prisma.clientLink.findMany({ where: { clientAccountId: id, status: ClientLinkStatus.ACTIVE }, orderBy: { updatedAt: 'desc' }, take: 5 }),
+      this.prisma.clientKnownIssue.findMany({ where: { clientAccountId: id, status: { in: [ClientKnownIssueStatus.OPEN, ClientKnownIssueStatus.IN_PROGRESS] } }, orderBy: [{ severity: 'desc' }, { updatedAt: 'desc' }], take: 5 }),
+      this.prisma.clientKnowledgeItem.findFirst({ where: { clientAccountId: id }, orderBy: { updatedAt: 'desc' }, select: { updatedAt: true } }),
+    ]);
+    return {
+      client,
+      summary: { notes, pinnedNotes: pinnedNotesCount, files, contacts, decisions, openIssues, checklists, lastUpdatedAt: last?.updatedAt || null },
+      pinnedNotes,
+      primaryContacts,
+      openIssues: issues,
+      recentDecisions,
+      recentFiles,
+      recentLinks,
+      storage: { directUploadEnabled: false, message: 'Upload direct va fi disponibil dupa configurarea storage-ului. Poti salva linkuri/document references.' },
+    };
+  }
+
+  async clientKnowledgeSearch(id: string, query: Record<string, string | undefined>) {
+    await this.ensureClient(id);
+    return this.listKnowledge({ ...query, clientAccountId: id });
+  }
+
+  async listKnowledge(query: Record<string, string | undefined>) {
+    const search = query.search || query.q;
+    const where: Prisma.ClientKnowledgeItemWhereInput = {
+      ...(query.clientAccountId ? { clientAccountId: query.clientAccountId } : {}),
+      ...(query.associationId ? { associationId: query.associationId } : {}),
+      ...(query.type ? { type: query.type as ClientKnowledgeItemType } : {}),
+      ...(query.category ? { category: query.category as ClientKnowledgeCategory } : {}),
+      ...(query.priority ? { priority: query.priority as ClientKnowledgePriority } : {}),
+      ...(query.status ? { status: query.status as ClientKnowledgeStatus } : { status: ClientKnowledgeStatus.ACTIVE }),
+      ...(search ? { OR: [
+        { title: { contains: search, mode: 'insensitive' } },
+        { content: { contains: search, mode: 'insensitive' } },
+        { summary: { contains: search, mode: 'insensitive' } },
+      ] } : {}),
+    };
+    const items = await this.prisma.clientKnowledgeItem.findMany({ where, include: { clientAccount: { select: { id: true, displayName: true, associationName: true } } }, orderBy: [{ isPinned: 'desc' }, { updatedAt: 'desc' }], take: 200 });
+    return { items };
+  }
+
+  async globalFiles(query: Record<string, string | undefined>) {
+    const search = query.search || query.q;
+    const items = await this.prisma.clientFile.findMany({
+      where: {
+        ...(query.clientAccountId ? { clientAccountId: query.clientAccountId } : {}),
+        ...(query.category ? { category: query.category as ClientKnowledgeCategory } : {}),
+        ...(query.status ? { status: query.status as ClientKnowledgeStatus } : { status: ClientKnowledgeStatus.ACTIVE }),
+        ...(search ? { OR: [{ fileName: { contains: search, mode: 'insensitive' } }, { originalFileName: { contains: search, mode: 'insensitive' } }, { description: { contains: search, mode: 'insensitive' } }] } : {}),
+      },
+      include: { clientAccount: { select: { id: true, displayName: true, associationName: true } } },
+      orderBy: { uploadedAt: 'desc' },
+      take: 200,
+    });
+    return { items, uploadEnabled: false };
+  }
+
+  async globalDecisions(query: Record<string, string | undefined>) {
+    const search = query.search || query.q;
+    const items = await this.prisma.clientDecision.findMany({
+      where: {
+        ...(query.clientAccountId ? { clientAccountId: query.clientAccountId } : {}),
+        ...(query.status ? { status: query.status as ClientDecisionStatus } : { status: { not: ClientDecisionStatus.ARCHIVED } }),
+        ...(query.category ? { category: query.category as ClientKnowledgeCategory } : {}),
+        ...(search ? { OR: [{ title: { contains: search, mode: 'insensitive' } }, { description: { contains: search, mode: 'insensitive' } }, { decidedBy: { contains: search, mode: 'insensitive' } }] } : {}),
+      },
+      include: { clientAccount: { select: { id: true, displayName: true, associationName: true } } },
+      orderBy: { decisionDate: 'desc' },
+      take: 200,
+    });
+    return { items };
+  }
+
+  async globalKnownIssues(query: Record<string, string | undefined>) {
+    const search = query.search || query.q;
+    const items = await this.prisma.clientKnownIssue.findMany({
+      where: {
+        ...(query.clientAccountId ? { clientAccountId: query.clientAccountId } : {}),
+        ...(query.status ? { status: query.status as ClientKnownIssueStatus } : { status: { not: ClientKnownIssueStatus.ARCHIVED } }),
+        ...(query.severity ? { severity: query.severity as ClientKnownIssueSeverity } : {}),
+        ...(query.category ? { category: query.category as ClientKnowledgeCategory } : {}),
+        ...(search ? { OR: [{ title: { contains: search, mode: 'insensitive' } }, { description: { contains: search, mode: 'insensitive' } }, { workaround: { contains: search, mode: 'insensitive' } }] } : {}),
+      },
+      include: { clientAccount: { select: { id: true, displayName: true, associationName: true } } },
+      orderBy: [{ severity: 'desc' }, { updatedAt: 'desc' }],
+      take: 200,
+    });
+    return { items };
+  }
+
+  async createKnowledgeItem(id: string, dto: CreateClientKnowledgeItemDto, actor: any, forcedType?: ClientKnowledgeItemType) {
+    this.assertRelatedEntity(dto.relatedEntityType);
+    this.assertNoSecrets([dto.title, dto.content, dto.summary, dto.tags].filter(Boolean).join(' '));
+    const client = await this.ensureClient(id);
+    const item = await this.prisma.clientKnowledgeItem.create({ data: {
+      clientAccountId: id,
+      associationId: client.associationId,
+      type: forcedType || dto.type || ClientKnowledgeItemType.NOTE,
+      category: dto.category || ClientKnowledgeCategory.GENERAL,
+      visibility: dto.visibility || ClientKnowledgeVisibility.INTERNAL_SUPERADMIN,
+      priority: dto.priority || ClientKnowledgePriority.NORMAL,
+      title: this.sanitizeText(dto.title),
+      content: dto.content ? this.sanitizeText(dto.content) : null,
+      summary: dto.summary ? this.sanitizeText(dto.summary) : null,
+      isPinned: !!dto.isPinned,
+      tags: this.tagsJson(dto.tags),
+      relatedEntityType: dto.relatedEntityType || null,
+      relatedEntityId: dto.relatedEntityId || null,
+      createdById: actor?.id || 'system',
+    } });
+    await this.activity(id, actor?.id, ClientActivityType.NOTE_ADDED, 'Knowledge item creat', item.title, { itemId: item.id, itemType: item.type });
+    return item;
+  }
+
+  async getKnowledgeItem(id: string, itemId: string) {
+    await this.ensureClient(id);
+    const item = await this.prisma.clientKnowledgeItem.findFirst({ where: { id: itemId, clientAccountId: id } });
+    if (!item) throw new NotFoundException('Knowledge item not found');
+    return item;
+  }
+
+  async updateKnowledgeItem(id: string, itemId: string, dto: UpdateClientKnowledgeItemDto, actor: any) {
+    await this.getKnowledgeItem(id, itemId);
+    this.assertRelatedEntity(dto.relatedEntityType);
+    this.assertNoSecrets([dto.title, dto.content, dto.summary, dto.tags].filter(Boolean).join(' '));
+    return this.prisma.clientKnowledgeItem.update({ where: { id: itemId }, data: {
+      title: dto.title ? this.sanitizeText(dto.title) : undefined,
+      content: dto.content ? this.sanitizeText(dto.content) : dto.content,
+      summary: dto.summary ? this.sanitizeText(dto.summary) : dto.summary,
+      type: dto.type,
+      category: dto.category,
+      visibility: dto.visibility,
+      priority: dto.priority,
+      isPinned: dto.isPinned,
+      tags: dto.tags ? this.tagsJson(dto.tags) : undefined,
+      relatedEntityType: dto.relatedEntityType,
+      relatedEntityId: dto.relatedEntityId,
+      updatedById: actor?.id || null,
+    } });
+  }
+
+  async archiveKnowledgeItem(id: string, itemId: string, dto: ArchiveClientKnowledgeDto, actor: any) {
+    await this.getKnowledgeItem(id, itemId);
+    return this.prisma.clientKnowledgeItem.update({ where: { id: itemId }, data: { status: ClientKnowledgeStatus.ARCHIVED, archivedAt: new Date(), archivedById: actor?.id || null, archiveReason: dto.reason || null } });
+  }
+
+  async notes(id: string) {
+    await this.ensureClient(id);
+    return { items: await this.prisma.clientKnowledgeItem.findMany({ where: { clientAccountId: id, type: ClientKnowledgeItemType.NOTE, status: ClientKnowledgeStatus.ACTIVE }, orderBy: [{ isPinned: 'desc' }, { updatedAt: 'desc' }] }) };
+  }
+
+  async createNote(id: string, dto: CreateClientNoteDto | CreateClientKnowledgeItemDto | any, actor: any) {
+    const content = dto.content || dto.note;
+    const title = dto.title || (content ? String(content).slice(0, 80) : 'Nota interna');
+    return this.createKnowledgeItem(id, { ...dto, title, content, type: ClientKnowledgeItemType.NOTE, isPinned: dto.isPinned }, actor, ClientKnowledgeItemType.NOTE);
+  }
+
+  async updateNote(noteId: string, dto: UpdateClientNoteDto | UpdateClientKnowledgeItemDto | any, actor?: any) {
+    const existing = await this.prisma.clientKnowledgeItem.findUnique({ where: { id: noteId } });
+    if (!existing) throw new NotFoundException('Note not found');
+    return this.updateKnowledgeItem(existing.clientAccountId, noteId, { ...dto, title: dto.title || existing.title, content: dto.content || dto.note }, actor);
+  }
+
+  async pinNote(noteId: string, pinned: boolean) {
+    return this.prisma.clientKnowledgeItem.update({ where: { id: noteId }, data: { isPinned: pinned } });
+  }
+
+  async clientFiles(id: string, query: Record<string, string | undefined>) {
+    await this.ensureClient(id);
+    const items = await this.prisma.clientFile.findMany({ where: { clientAccountId: id, ...(query.status ? { status: query.status as ClientKnowledgeStatus } : { status: ClientKnowledgeStatus.ACTIVE }), ...(query.category ? { category: query.category as ClientKnowledgeCategory } : {}) }, orderBy: { uploadedAt: 'desc' } });
+    return { items, uploadEnabled: false };
+  }
+
+  async createClientFile(id: string, dto: CreateClientFileDto, actor: any) {
+    this.assertNoSecrets([dto.fileName, dto.originalFileName, dto.description, dto.externalUrl].filter(Boolean).join(' '));
+    this.validateExternalUrl(dto.externalUrl);
+    const client = await this.ensureClient(id);
+    const file = await this.prisma.clientFile.create({ data: {
+      clientAccountId: id,
+      associationId: client.associationId,
+      fileName: this.sanitizeText(dto.fileName),
+      originalFileName: dto.originalFileName || dto.fileName,
+      mimeType: dto.mimeType || null,
+      fileSize: dto.fileSize == null ? null : Number(dto.fileSize),
+      storageProvider: dto.storageProvider || ClientFileStorageProvider.EXTERNAL_LINK,
+      storagePath: dto.storagePath || null,
+      externalUrl: dto.externalUrl || null,
+      description: dto.description ? this.sanitizeText(dto.description) : null,
+      category: dto.category || ClientKnowledgeCategory.DOCUMENTS,
+      uploadedById: actor?.id || 'system',
+    } });
+    await this.createKnowledgeItem(id, { title: file.fileName, content: file.description || undefined, type: ClientKnowledgeItemType.FILE, category: file.category }, actor, ClientKnowledgeItemType.FILE).catch(() => undefined);
+    return file;
+  }
+
+  async updateClientFile(id: string, fileId: string, dto: UpdateClientFileDto, actor: any) {
+    await this.assertClientScoped('clientFile', id, fileId);
+    this.assertNoSecrets([dto.fileName, dto.originalFileName, dto.description, dto.externalUrl].filter(Boolean).join(' '));
+    this.validateExternalUrl(dto.externalUrl);
+    return this.prisma.clientFile.update({ where: { id: fileId }, data: { ...this.cleanUndefined({ fileName: dto.fileName, originalFileName: dto.originalFileName, mimeType: dto.mimeType, fileSize: dto.fileSize == null ? undefined : Number(dto.fileSize), storageProvider: dto.storageProvider, storagePath: dto.storagePath, externalUrl: dto.externalUrl, description: dto.description, category: dto.category, updatedAt: new Date(), archivedById: undefined }), metadata: undefined } });
+  }
+
+  async archiveClientFile(id: string, fileId: string, dto: ArchiveClientKnowledgeDto, actor: any) {
+    await this.assertClientScoped('clientFile', id, fileId);
+    return this.prisma.clientFile.update({ where: { id: fileId }, data: { status: ClientKnowledgeStatus.ARCHIVED, archivedAt: new Date(), archivedById: actor?.id || null, archiveReason: dto.reason || null } });
+  }
+
+  async clientContacts(id: string) {
+    await this.ensureClient(id);
+    return { items: await this.prisma.clientContact.findMany({ where: { clientAccountId: id, status: { not: ClientContactStatus.ARCHIVED } }, orderBy: [{ isPrimary: 'desc' }, { updatedAt: 'desc' }] }) };
+  }
+
+  async createClientContact(id: string, dto: CreateClientContactDto, actor: any) {
+    this.assertNoSecrets([dto.fullName, dto.role, dto.phone, dto.email, dto.notes].filter(Boolean).join(' '));
+    const client = await this.ensureClient(id);
+    if (dto.isPrimary) await this.prisma.clientContact.updateMany({ where: { clientAccountId: id }, data: { isPrimary: false } });
+    return this.prisma.clientContact.create({ data: { clientAccountId: id, associationId: client.associationId, fullName: this.sanitizeText(dto.fullName), role: dto.role || null, phone: dto.phone || null, email: dto.email || null, preferredContactMethod: dto.preferredContactMethod || null, notes: dto.notes ? this.sanitizeText(dto.notes) : null, isPrimary: !!dto.isPrimary, status: dto.status || ClientContactStatus.ACTIVE, createdById: actor?.id || 'system' } });
+  }
+
+  async updateClientContact(id: string, contactId: string, dto: UpdateClientContactDto, actor: any) {
+    await this.assertClientScoped('clientContact', id, contactId);
+    this.assertNoSecrets([dto.fullName, dto.role, dto.phone, dto.email, dto.notes].filter(Boolean).join(' '));
+    if (dto.isPrimary) await this.prisma.clientContact.updateMany({ where: { clientAccountId: id, id: { not: contactId } }, data: { isPrimary: false } });
+    return this.prisma.clientContact.update({ where: { id: contactId }, data: { fullName: dto.fullName, role: dto.role, phone: dto.phone, email: dto.email, preferredContactMethod: dto.preferredContactMethod, notes: dto.notes, isPrimary: dto.isPrimary, status: dto.status, updatedById: actor?.id || null } });
+  }
+
+  async primaryClientContact(id: string, contactId: string) {
+    await this.assertClientScoped('clientContact', id, contactId);
+    await this.prisma.clientContact.updateMany({ where: { clientAccountId: id }, data: { isPrimary: false } });
+    return this.prisma.clientContact.update({ where: { id: contactId }, data: { isPrimary: true, status: ClientContactStatus.ACTIVE } });
+  }
+
+  async archiveClientContact(id: string, contactId: string) {
+    await this.assertClientScoped('clientContact', id, contactId);
+    return this.prisma.clientContact.update({ where: { id: contactId }, data: { status: ClientContactStatus.ARCHIVED, isPrimary: false } });
+  }
+
+  async clientDecisions(id: string) {
+    await this.ensureClient(id);
+    return { items: await this.prisma.clientDecision.findMany({ where: { clientAccountId: id, status: { not: ClientDecisionStatus.ARCHIVED } }, orderBy: { decisionDate: 'desc' } }) };
+  }
+
+  async createClientDecision(id: string, dto: CreateClientDecisionDto, actor: any) {
+    this.assertRelatedEntity(dto.relatedEntityType);
+    this.assertNoSecrets([dto.title, dto.description, dto.decidedBy].filter(Boolean).join(' '));
+    const client = await this.ensureClient(id);
+    const decision = await this.prisma.clientDecision.create({ data: { clientAccountId: id, associationId: client.associationId, title: this.sanitizeText(dto.title), description: this.sanitizeText(dto.description), decisionDate: dto.decisionDate ? new Date(dto.decisionDate) : new Date(), decidedBy: dto.decidedBy || null, impact: dto.impact || ClientDecisionImpact.MEDIUM, category: dto.category || ClientKnowledgeCategory.DECISIONS, status: dto.status || ClientDecisionStatus.ACTIVE, relatedEntityType: dto.relatedEntityType || null, relatedEntityId: dto.relatedEntityId || null, createdById: actor?.id || 'system' } });
+    await this.createKnowledgeItem(id, { title: decision.title, content: decision.description, type: ClientKnowledgeItemType.DECISION, category: decision.category, priority: this.priorityFromImpact(decision.impact) }, actor, ClientKnowledgeItemType.DECISION).catch(() => undefined);
+    return decision;
+  }
+
+  async updateClientDecision(id: string, decisionId: string, dto: UpdateClientDecisionDto, actor: any) {
+    await this.assertClientScoped('clientDecision', id, decisionId);
+    this.assertRelatedEntity(dto.relatedEntityType);
+    this.assertNoSecrets([dto.title, dto.description, dto.decidedBy].filter(Boolean).join(' '));
+    return this.prisma.clientDecision.update({ where: { id: decisionId }, data: { title: dto.title, description: dto.description, decisionDate: dto.decisionDate ? new Date(dto.decisionDate) : undefined, decidedBy: dto.decidedBy, impact: dto.impact, category: dto.category, status: dto.status, relatedEntityType: dto.relatedEntityType, relatedEntityId: dto.relatedEntityId, updatedById: actor?.id || null } });
+  }
+
+  async supersedeClientDecision(id: string, decisionId: string) {
+    await this.assertClientScoped('clientDecision', id, decisionId);
+    return this.prisma.clientDecision.update({ where: { id: decisionId }, data: { status: ClientDecisionStatus.SUPERSEDED } });
+  }
+
+  async archiveClientDecision(id: string, decisionId: string) {
+    await this.assertClientScoped('clientDecision', id, decisionId);
+    return this.prisma.clientDecision.update({ where: { id: decisionId }, data: { status: ClientDecisionStatus.ARCHIVED } });
+  }
+
+  async clientKnownIssues(id: string) {
+    await this.ensureClient(id);
+    return { items: await this.prisma.clientKnownIssue.findMany({ where: { clientAccountId: id, status: { not: ClientKnownIssueStatus.ARCHIVED } }, orderBy: [{ severity: 'desc' }, { updatedAt: 'desc' }] }) };
+  }
+
+  async createClientKnownIssue(id: string, dto: CreateClientKnownIssueDto, actor: any) {
+    this.assertRelatedEntity(dto.relatedEntityType);
+    this.assertNoSecrets([dto.title, dto.description, dto.workaround, dto.resolution].filter(Boolean).join(' '));
+    const client = await this.ensureClient(id);
+    const issue = await this.prisma.clientKnownIssue.create({ data: { clientAccountId: id, associationId: client.associationId, title: this.sanitizeText(dto.title), description: this.sanitizeText(dto.description), severity: dto.severity || ClientKnownIssueSeverity.MEDIUM, status: dto.status || ClientKnownIssueStatus.OPEN, category: dto.category || ClientKnowledgeCategory.RISKS, workaround: dto.workaround ? this.sanitizeText(dto.workaround) : null, resolution: dto.resolution ? this.sanitizeText(dto.resolution) : null, assignedToId: dto.assignedToId || null, relatedEntityType: dto.relatedEntityType || null, relatedEntityId: dto.relatedEntityId || null, createdById: actor?.id || 'system' } });
+    await this.createKnowledgeItem(id, { title: issue.title, content: issue.description, type: ClientKnowledgeItemType.KNOWN_ISSUE, category: issue.category, priority: this.priorityFromSeverity(issue.severity) }, actor, ClientKnowledgeItemType.KNOWN_ISSUE).catch(() => undefined);
+    return issue;
+  }
+
+  async updateClientKnownIssue(id: string, issueId: string, dto: UpdateClientKnownIssueDto, actor: any) {
+    await this.assertClientScoped('clientKnownIssue', id, issueId);
+    this.assertRelatedEntity(dto.relatedEntityType);
+    this.assertNoSecrets([dto.title, dto.description, dto.workaround, dto.resolution].filter(Boolean).join(' '));
+    return this.prisma.clientKnownIssue.update({ where: { id: issueId }, data: { title: dto.title, description: dto.description, status: dto.status, severity: dto.severity, category: dto.category, workaround: dto.workaround, resolution: dto.resolution, assignedToId: dto.assignedToId, relatedEntityType: dto.relatedEntityType, relatedEntityId: dto.relatedEntityId, updatedById: actor?.id || null } });
+  }
+
+  async resolveClientKnownIssue(id: string, issueId: string, dto: ResolveClientKnownIssueDto) {
+    await this.assertClientScoped('clientKnownIssue', id, issueId);
+    return this.prisma.clientKnownIssue.update({ where: { id: issueId }, data: { status: ClientKnownIssueStatus.RESOLVED, resolvedAt: new Date(), resolution: dto.resolution || undefined } });
+  }
+
+  async archiveClientKnownIssue(id: string, issueId: string) {
+    await this.assertClientScoped('clientKnownIssue', id, issueId);
+    return this.prisma.clientKnownIssue.update({ where: { id: issueId }, data: { status: ClientKnownIssueStatus.ARCHIVED } });
+  }
+
+  async clientLinks(id: string) {
+    await this.ensureClient(id);
+    return { items: await this.prisma.clientLink.findMany({ where: { clientAccountId: id, status: ClientLinkStatus.ACTIVE }, orderBy: { updatedAt: 'desc' } }) };
+  }
+
+  async createClientLink(id: string, dto: CreateClientLinkDto, actor: any) {
+    this.assertNoSecrets([dto.title, dto.url, dto.description].filter(Boolean).join(' '));
+    this.validateExternalUrl(dto.url);
+    const client = await this.ensureClient(id);
+    const link = await this.prisma.clientLink.create({ data: { clientAccountId: id, associationId: client.associationId, title: this.sanitizeText(dto.title), url: dto.url, description: dto.description ? this.sanitizeText(dto.description) : null, category: dto.category || ClientKnowledgeCategory.GENERAL, status: dto.status || ClientLinkStatus.ACTIVE, createdById: actor?.id || 'system' } });
+    await this.createKnowledgeItem(id, { title: link.title, content: link.description || link.url, type: ClientKnowledgeItemType.LINK, category: link.category }, actor, ClientKnowledgeItemType.LINK).catch(() => undefined);
+    return link;
+  }
+
+  async updateClientLink(id: string, linkId: string, dto: UpdateClientLinkDto, actor: any) {
+    await this.assertClientScoped('clientLink', id, linkId);
+    this.assertNoSecrets([dto.title, dto.url, dto.description].filter(Boolean).join(' '));
+    this.validateExternalUrl(dto.url);
+    return this.prisma.clientLink.update({ where: { id: linkId }, data: { title: dto.title, url: dto.url, description: dto.description, category: dto.category, status: dto.status, updatedById: actor?.id || null } });
+  }
+
+  async archiveClientLink(id: string, linkId: string) {
+    await this.assertClientScoped('clientLink', id, linkId);
+    return this.prisma.clientLink.update({ where: { id: linkId }, data: { status: ClientLinkStatus.ARCHIVED } });
+  }
+
+  async clientChecklists(id: string) {
+    await this.ensureClient(id);
+    return { items: await this.prisma.clientChecklist.findMany({ where: { clientAccountId: id, status: { not: ClientChecklistStatus.ARCHIVED } }, orderBy: { updatedAt: 'desc' } }) };
+  }
+
+  async createClientChecklist(id: string, dto: CreateClientChecklistDto, actor: any) {
+    this.assertNoSecrets([dto.title, dto.description, JSON.stringify(dto.items || '')].filter(Boolean).join(' '));
+    const client = await this.ensureClient(id);
+    const items = Array.isArray(dto.items) ? dto.items : [];
+    return this.prisma.clientChecklist.create({ data: { clientAccountId: id, associationId: client.associationId, title: this.sanitizeText(dto.title), description: dto.description ? this.sanitizeText(dto.description) : null, category: dto.category || ClientKnowledgeCategory.ONBOARDING, status: dto.status || ClientChecklistStatus.ACTIVE, items: items as Prisma.InputJsonValue, createdById: actor?.id || 'system' } });
+  }
+
+  async updateClientChecklist(id: string, checklistId: string, dto: UpdateClientChecklistDto, actor: any) {
+    await this.assertClientScoped('clientChecklist', id, checklistId);
+    this.assertNoSecrets([dto.title, dto.description, JSON.stringify(dto.items || '')].filter(Boolean).join(' '));
+    return this.prisma.clientChecklist.update({ where: { id: checklistId }, data: { title: dto.title, description: dto.description, category: dto.category, status: dto.status, items: Array.isArray(dto.items) ? dto.items as Prisma.InputJsonValue : undefined, completedAt: dto.status === ClientChecklistStatus.COMPLETED ? new Date() : undefined, updatedById: actor?.id || null } });
   }
 
   async myWork(actor: any) {
@@ -1004,6 +1375,67 @@ export class SuperadminClientsService {
     if (reminderAt && dueAt && new Date(reminderAt) > new Date(dueAt)) {
       throw new BadRequestException('Reminder-ul trebuie sa fie inainte de due date.');
     }
+  }
+
+  private assertNoSecrets(text: string) {
+    if (!text) return;
+    const patterns = [
+      /password\s*[:=]/i,
+      /parola\s*[:=]/i,
+      /api[_-]?key/i,
+      /token\s*[:=]/i,
+      /access_token/i,
+      /refresh_token/i,
+      /secret\s*[:=]/i,
+      /\bJWT\b/i,
+      /Bearer\s+[A-Za-z0-9._-]+/i,
+      /\bsk-[A-Za-z0-9_-]{12,}/i,
+      /supabase\s+service\s+role/i,
+      /private\s+key/i,
+    ];
+    if (patterns.some((pattern) => pattern.test(text))) {
+      throw new BadRequestException('Nu salva parole, tokenuri sau chei API in notele interne.');
+    }
+  }
+
+  private validateExternalUrl(url?: string) {
+    if (!url) return;
+    this.assertNoSecrets(url);
+    try {
+      const parsed = new URL(url);
+      if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('Invalid protocol');
+    } catch {
+      throw new BadRequestException('URL invalid.');
+    }
+  }
+
+  private tagsJson(tags?: string) {
+    if (!tags) return undefined;
+    return tags.split(',').map((tag) => tag.trim()).filter(Boolean).slice(0, 20) as Prisma.InputJsonValue;
+  }
+
+  private priorityFromImpact(impact: ClientDecisionImpact): ClientKnowledgePriority {
+    if (impact === ClientDecisionImpact.CRITICAL) return ClientKnowledgePriority.CRITICAL;
+    if (impact === ClientDecisionImpact.HIGH) return ClientKnowledgePriority.HIGH;
+    if (impact === ClientDecisionImpact.LOW) return ClientKnowledgePriority.LOW;
+    return ClientKnowledgePriority.NORMAL;
+  }
+
+  private priorityFromSeverity(severity: ClientKnownIssueSeverity): ClientKnowledgePriority {
+    if (severity === ClientKnownIssueSeverity.CRITICAL) return ClientKnowledgePriority.CRITICAL;
+    if (severity === ClientKnownIssueSeverity.HIGH) return ClientKnowledgePriority.HIGH;
+    if (severity === ClientKnownIssueSeverity.LOW) return ClientKnowledgePriority.LOW;
+    return ClientKnowledgePriority.NORMAL;
+  }
+
+  private async assertClientScoped(model: 'clientFile' | 'clientContact' | 'clientDecision' | 'clientKnownIssue' | 'clientLink' | 'clientChecklist', clientAccountId: string, id: string) {
+    const delegate = this.prisma[model] as any;
+    const item = await delegate.findFirst({ where: { id, clientAccountId }, select: { id: true } });
+    if (!item) throw new NotFoundException('Resource not found');
+  }
+
+  private cleanUndefined<T extends Record<string, unknown>>(value: T) {
+    return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined)) as T;
   }
 
   private sanitizeText(value: string) {

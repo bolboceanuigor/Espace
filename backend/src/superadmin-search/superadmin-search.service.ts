@@ -23,6 +23,7 @@ export enum SuperadminSearchResultType {
   PRODUCTION_INCIDENT = 'PRODUCTION_INCIDENT',
   LEGAL_DOCUMENT = 'LEGAL_DOCUMENT',
   HELP_ARTICLE = 'HELP_ARTICLE',
+  CLIENT_KNOWLEDGE = 'CLIENT_KNOWLEDGE',
   DATA_REQUEST = 'DATA_REQUEST',
   DATA_EXPORT = 'DATA_EXPORT',
   COMMAND = 'COMMAND',
@@ -61,6 +62,7 @@ const LABELS: Record<SuperadminSearchResultType, string> = {
   PRODUCTION_INCIDENT: 'Incidente productie',
   LEGAL_DOCUMENT: 'Legal',
   HELP_ARTICLE: 'Help',
+  CLIENT_KNOWLEDGE: 'Knowledge clienti',
   DATA_REQUEST: 'Cereri date',
   DATA_EXPORT: 'Exporturi date',
   COMMAND: 'Comenzi rapide',
@@ -102,6 +104,7 @@ export class SuperadminSearchService {
     add(SuperadminSearchResultType.PRODUCTION_INCIDENT, () => this.searchIncidents(q, limit));
     add(SuperadminSearchResultType.LEGAL_DOCUMENT, () => this.searchLegalDocuments(q, limit));
     add(SuperadminSearchResultType.HELP_ARTICLE, () => this.searchHelpArticles(q, limit));
+    add(SuperadminSearchResultType.CLIENT_KNOWLEDGE, () => this.searchClientKnowledge(q, limit));
     add(SuperadminSearchResultType.DATA_REQUEST, () => this.searchDataRequests(q, limit));
     add(SuperadminSearchResultType.DATA_EXPORT, () => this.searchDataExports(q, limit));
     if (query.includeCommands !== 'false') add(SuperadminSearchResultType.COMMAND, async () => this.commandResults(q, limit));
@@ -183,6 +186,10 @@ export class SuperadminSearchService {
       customerRequest,
       clientAccount,
       dataQualityIssues,
+      knowledgePinned,
+      knowledgeContacts,
+      knowledgeIssues,
+      knowledgeDecisions,
     ] = await Promise.all([
       this.prisma.saasSubscription.findFirst({ where: { associationId }, include: { plan: { select: { name: true, code: true } } }, orderBy: { createdAt: 'desc' } }),
       this.prisma.apartment.count({ where: { organizationId: associationId } }),
@@ -201,6 +208,10 @@ export class SuperadminSearchService {
       this.prisma.customerOnboardingRequest.findFirst({ where: { OR: [{ convertedAssociationId: associationId }, { associationCode: association.fiscalCode || undefined }, { associationName: { contains: association.name, mode: 'insensitive' } }] }, orderBy: { createdAt: 'desc' } }),
       this.prisma.clientAccount.findFirst({ where: { associationId }, orderBy: { updatedAt: 'desc' } }),
       this.prisma.dataQualityIssue.count({ where: { associationId, status: 'OPEN' as any } }),
+      this.prisma.clientKnowledgeItem.findMany({ where: { associationId, isPinned: true, status: 'ACTIVE' as any }, orderBy: { updatedAt: 'desc' }, take: 3 }).catch(() => []),
+      this.prisma.clientContact.findMany({ where: { associationId, isPrimary: true, status: 'ACTIVE' as any }, orderBy: { updatedAt: 'desc' }, take: 3 }).catch(() => []),
+      this.prisma.clientKnownIssue.findMany({ where: { associationId, status: { in: ['OPEN', 'IN_PROGRESS'] as any } }, orderBy: { updatedAt: 'desc' }, take: 3 }).catch(() => []),
+      this.prisma.clientDecision.findMany({ where: { associationId, status: 'ACTIVE' as any }, orderBy: { decisionDate: 'desc' }, take: 3 }).catch(() => []),
     ]);
     const totalIssued = saasInvoices.reduce((sum, item) => sum + item.totalAmount, 0);
     const totalPaid = saasInvoices.reduce((sum, item) => sum + item.paidAmount, 0);
@@ -229,9 +240,11 @@ export class SuperadminSearchService {
       security: { recentAuditLogs: auditLogs, recentSystemErrors: systemErrors, criticalErrors: systemErrors.filter((item) => String(item.severity) === 'CRITICAL').length },
       customerLifecycle: customerRequest ? { id: customerRequest.id, status: customerRequest.status, associationName: customerRequest.associationName, createdAt: customerRequest.createdAt } : null,
       clientLifecycle: clientAccount ? { id: clientAccount.id, lifecycleStage: clientAccount.lifecycleStage, status: clientAccount.status, priority: clientAccount.priority, riskLevel: clientAccount.riskLevel, ownerUserId: clientAccount.ownerUserId, nextFollowUpAt: clientAccount.nextFollowUpAt } : null,
+      knowledge: { pinnedNotes: knowledgePinned, primaryContacts: knowledgeContacts, openIssues: knowledgeIssues, recentDecisions: knowledgeDecisions },
       quickLinks: [
         { label: 'Open association', url: `/superadmin/associations/${associationId}` },
         ...(clientAccount ? [{ label: 'Client lifecycle', url: `/superadmin/clients/${clientAccount.id}` }] : []),
+        ...(clientAccount ? [{ label: 'Knowledge base', url: `/superadmin/clients/${clientAccount.id}/knowledge` }] : []),
         { label: 'Subscription', url: `/superadmin/associations/${associationId}/subscription` },
         { label: 'SaaS invoices', url: `/superadmin/associations/${associationId}/saas-invoices` },
         { label: 'Data export', url: `/superadmin/associations/${associationId}/data-export` },
@@ -346,6 +359,33 @@ export class SuperadminSearchService {
   private searchHelpArticles(q: string, take: number) {
     return this.prisma.helpArticle.findMany({ where: { OR: [{ title: { contains: q, mode: 'insensitive' } }, { slug: { contains: q, mode: 'insensitive' } }, { excerpt: { contains: q, mode: 'insensitive' } }] }, take, orderBy: { updatedAt: 'desc' } })
       .then((items) => items.map((item) => this.result('HELP_ARTICLE', item.id, item.title, `${item.type} · ${item.locale}`, item.excerpt || undefined, String(item.status), `/superadmin/help/articles/${item.id}`, 'help-circle', this.score(q, `${item.title} ${item.slug}`))));
+  }
+
+  private searchClientKnowledge(q: string, take: number) {
+    return this.prisma.clientKnowledgeItem.findMany({
+      where: {
+        status: 'ACTIVE' as any,
+        OR: [
+          { title: { contains: q, mode: 'insensitive' } },
+          { content: { contains: q, mode: 'insensitive' } },
+          { summary: { contains: q, mode: 'insensitive' } },
+        ],
+      },
+      include: { clientAccount: { select: { id: true, displayName: true, associationName: true } } },
+      take,
+      orderBy: [{ isPinned: 'desc' }, { updatedAt: 'desc' }],
+    }).then((items) => items.map((item) => this.result(
+      'CLIENT_KNOWLEDGE',
+      item.id,
+      item.title,
+      `${item.type} · ${item.category}`,
+      item.summary || item.clientAccount?.displayName || item.clientAccount?.associationName || undefined,
+      String(item.priority),
+      `/superadmin/clients/${item.clientAccountId}/knowledge`,
+      'book-open',
+      this.score(q, `${item.title} ${item.summary || ''} ${item.content || ''}`),
+      { clientAccountId: item.clientAccountId, itemType: item.type, category: item.category },
+    )));
   }
 
   private searchDataRequests(q: string, take: number) {

@@ -1224,6 +1224,70 @@ enum ClientChecklistStatus {
   ARCHIVED
 }
 
+enum ClientHealthStatus {
+  EXCELLENT
+  HEALTHY
+  NEEDS_ATTENTION
+  AT_RISK
+  CRITICAL
+  UNKNOWN
+}
+
+enum ClientHealthDimension {
+  ONBOARDING
+  PRODUCT_USAGE
+  SUBSCRIPTION
+  SAAS_BILLING
+  SUPPORT
+  DATA_QUALITY
+  SECURITY
+  MONITORING
+  FOLLOW_UP
+  ENGAGEMENT
+  PLATFORM_SERVICES
+  KNOWLEDGE_BASE
+}
+
+enum ClientHealthRiskReason {
+  ONBOARDING_STUCK
+  NO_ASSOCIATION_LINKED
+  NO_ACTIVE_SUBSCRIPTION
+  TRIAL_ENDING_SOON
+  SUBSCRIPTION_SUSPENDED
+  SAAS_INVOICE_OVERDUE
+  LOW_ADMIN_ACTIVITY
+  NO_RECENT_LOGIN
+  NO_BILLING_RUN
+  NO_RECENT_INVOICES
+  MANY_DATA_QUALITY_ISSUES
+  CRITICAL_DATA_QUALITY_ISSUES
+  OPEN_SUPPORT_ISSUES
+  OPEN_PRODUCTION_INCIDENT
+  SECURITY_EVENTS
+  FAILED_NOTIFICATIONS
+  FAILED_IMPORTS
+  OVERDUE_FOLLOW_UP
+  OVERDUE_TASKS
+  NO_OWNER_ASSIGNED
+  PLATFORM_SERVICE_DUE
+  MISSING_KNOWLEDGE_CONTEXT
+  CUSTOMER_AT_RISK_MANUAL
+  OTHER
+}
+
+enum ClientHealthCalculationSource {
+  MANUAL
+  SYSTEM
+  ON_DEMAND
+}
+
+enum ClientHealthActionStatus {
+  SUGGESTED
+  ACCEPTED
+  DISMISSED
+  COMPLETED
+}
+
 enum LegalDocumentType {
   PRIVACY_POLICY
   TERMS_OF_USE
@@ -2448,6 +2512,9 @@ model ClientAccount {
   clientKnownIssues ClientKnownIssue[]
   clientLinks ClientLink[]
   clientChecklists ClientChecklist[]
+  healthSnapshots ClientHealthSnapshot[]
+  healthOverrides ClientHealthOverride[]
+  healthActions ClientHealthAction[]
 
   @@index([lifecycleStage, updatedAt])
   @@index([status, updatedAt])
@@ -2798,6 +2865,82 @@ model ClientChecklist {
   @@index([associationId, status, createdAt])
   @@index([category, status])
   @@map("client_checklists")
+}
+
+model ClientHealthSnapshot {
+  id                 String                        @id @default(uuid())
+  clientAccountId    String
+  associationId      String?
+  overallScore       Int
+  status             ClientHealthStatus
+  dimensions         Json
+  riskReasons        Json
+  recommendedActions Json
+  calculatedAt       DateTime                      @default(now())
+  calculatedById     String?
+  calculationSource  ClientHealthCalculationSource @default(ON_DEMAND)
+  metadata           Json?
+  createdAt          DateTime                      @default(now())
+  updatedAt          DateTime                      @updatedAt
+
+  clientAccount ClientAccount @relation(fields: [clientAccountId], references: [id], onDelete: Cascade)
+
+  @@index([clientAccountId, calculatedAt])
+  @@index([associationId, calculatedAt])
+  @@index([status, overallScore])
+  @@index([calculationSource, calculatedAt])
+  @@map("client_health_snapshots")
+}
+
+model ClientHealthOverride {
+  id              String              @id @default(uuid())
+  clientAccountId String
+  associationId   String?
+  overrideStatus  ClientHealthStatus?
+  overrideScore   Int?
+  reason          String
+  active          Boolean             @default(true)
+  createdById     String
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  disabledAt      DateTime?
+  disabledById    String?
+
+  clientAccount ClientAccount @relation(fields: [clientAccountId], references: [id], onDelete: Cascade)
+
+  @@index([clientAccountId, active])
+  @@index([associationId, active])
+  @@index([overrideStatus, active])
+  @@map("client_health_overrides")
+}
+
+model ClientHealthAction {
+  id                String                   @id @default(uuid())
+  clientAccountId   String
+  associationId     String?
+  riskReason        ClientHealthRiskReason
+  title             String
+  description       String
+  status            ClientHealthActionStatus @default(SUGGESTED)
+  priority          ClientPriority           @default(NORMAL)
+  relatedTaskId     String?
+  relatedFollowUpId String?
+  createdById       String?
+  acceptedById      String?
+  completedById     String?
+  dismissedById     String?
+  dismissedReason   String?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+
+  clientAccount ClientAccount @relation(fields: [clientAccountId], references: [id], onDelete: Cascade)
+
+  @@index([clientAccountId, status, priority])
+  @@index([associationId, status])
+  @@index([riskReason, status])
+  @@index([relatedTaskId])
+  @@index([relatedFollowUpId])
+  @@map("client_health_actions")
 }
 
 model LegalDocument {
