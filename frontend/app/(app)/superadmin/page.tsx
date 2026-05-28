@@ -15,6 +15,7 @@ import {
   CreditCard, 
   Database,
   ExternalLink,
+  HeartPulse,
   Home,
   Kanban,
   LayoutGrid,
@@ -543,6 +544,12 @@ export default function SuperadminPage() {
                 title="Knowledge Base"
                 description="Note, contacte, decizii si probleme cunoscute pentru clienti"
                 href={localizedPath('/superadmin/knowledge')}
+              />
+              <QuickActionCard
+                icon={HeartPulse}
+                title="Client Health"
+                description="Health score, clienti in risc si actiuni recomandate"
+                href={localizedPath('/superadmin/client-health')}
               />
               <QuickActionCard
                 icon={Scale}

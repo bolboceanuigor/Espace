@@ -3423,6 +3423,24 @@ export const superadminKnowledgeApi = {
   knownIssues: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/knowledge/known-issues', { params }),
 };
 
+export const superadminClientHealthApi = {
+  overview: () => apiRequest<any>('/api/superadmin/client-health/overview'),
+  clients: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/client-health/clients', { params }),
+  detail: (id: string) => apiRequest<any>(`/api/superadmin/client-health/clients/${id}`),
+  recalculate: (id: string) => apiRequest<any>(`/api/superadmin/client-health/clients/${id}/recalculate`, { method: 'POST' }),
+  recalculateAll: () => apiRequest<any>('/api/superadmin/client-health/recalculate-all', { method: 'POST' }),
+  trend: (id: string) => apiRequest<any>(`/api/superadmin/client-health/clients/${id}/trend`),
+  atRisk: () => apiRequest<any>('/api/superadmin/client-health/at-risk'),
+  recommendations: () => apiRequest<any>('/api/superadmin/client-health/recommendations'),
+  override: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/client-health/clients/${id}/override`, { method: 'POST', body: data }),
+  disableOverride: (id: string) => apiRequest<any>(`/api/superadmin/client-health/overrides/${id}/disable`, { method: 'PATCH' }),
+  acceptAction: (id: string) => apiRequest<any>(`/api/superadmin/client-health/actions/${id}/accept`, { method: 'POST' }),
+  dismissAction: (id: string, reason?: string) => apiRequest<any>(`/api/superadmin/client-health/actions/${id}/dismiss`, { method: 'POST', body: { reason } }),
+  completeAction: (id: string) => apiRequest<any>(`/api/superadmin/client-health/actions/${id}/complete`, { method: 'POST' }),
+  createTask: (id: string, data?: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/client-health/actions/${id}/create-task`, { method: 'POST', body: data || {} }),
+  createFollowUp: (id: string, data?: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/client-health/actions/${id}/create-follow-up`, { method: 'POST', body: data || {} }),
+};
+
 export const condoApi = {
   getOwnerDashboard: () =>
     apiRequest<{

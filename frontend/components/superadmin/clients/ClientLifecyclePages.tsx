@@ -215,7 +215,7 @@ function ClientsTable({ items }: { items: any[] }) {
   );
 }
 
-export function ClientDetailPage({ id, tab }: { id: string; tab?: 'activity' | 'tasks' | 'follow-ups' | 'calendar' | 'knowledge' | 'notes' | 'files' | 'contacts' | 'decisions' | 'known-issues' | 'links' | 'onboarding' | 'subscription' | 'risk' }) {
+export function ClientDetailPage({ id, tab }: { id: string; tab?: 'activity' | 'tasks' | 'follow-ups' | 'calendar' | 'health' | 'knowledge' | 'notes' | 'files' | 'contacts' | 'decisions' | 'known-issues' | 'links' | 'onboarding' | 'subscription' | 'risk' }) {
   const path = useLocalizedPath();
   const [data, setData] = useState<any>(null);
   const [note, setNote] = useState('');
@@ -241,7 +241,7 @@ export function ClientDetailPage({ id, tab }: { id: string; tab?: 'activity' | '
         </div>
       </header>
       <nav className="flex flex-wrap gap-2 rounded-lg border border-slate-200 bg-white p-3 text-sm">
-        {['activity', 'tasks', 'follow-ups', 'calendar', 'knowledge', 'notes', 'files', 'contacts', 'decisions', 'known-issues', 'links', 'onboarding', 'subscription', 'risk'].map((item) => <Link key={item} href={path(`/superadmin/clients/${id}/${item}`)} className={`rounded-md px-3 py-2 ${tab === item ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-700'}`}>{item}</Link>)}
+        {['activity', 'tasks', 'follow-ups', 'calendar', 'health', 'knowledge', 'notes', 'files', 'contacts', 'decisions', 'known-issues', 'links', 'onboarding', 'subscription', 'risk'].map((item) => <Link key={item} href={path(`/superadmin/clients/${id}/${item}`)} className={`rounded-md px-3 py-2 ${tab === item ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-700'}`}>{item}</Link>)}
       </nav>
       {!tab ? <Overview data={data} onStage={async (stage) => { const reason = ['ACTIVE', 'SUSPENDED', 'CHURNED', 'CLOSED'].includes(stage) ? window.prompt('Motiv') || '' : ''; await superadminClientsApi.changeStage(id, { stage, reason }); await load(); }} /> : null}
       {tab === 'activity' ? <Timeline items={client.activities || []} /> : null}

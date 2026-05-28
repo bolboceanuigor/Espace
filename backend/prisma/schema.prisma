@@ -1288,6 +1288,114 @@ enum ClientHealthActionStatus {
   COMPLETED
 }
 
+enum CustomerSuccessPlaybookStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum CustomerSuccessPlaybookCategory {
+  ONBOARDING
+  ACTIVATION
+  BILLING
+  SUBSCRIPTION
+  DATA_QUALITY
+  PRODUCT_USAGE
+  SUPPORT
+  SECURITY
+  MONITORING
+  RETENTION
+  TRAINING
+  RENEWAL
+  RECOVERY
+  OTHER
+}
+
+enum CustomerSuccessTriggerType {
+  MANUAL
+  HEALTH_STATUS
+  RISK_REASON
+  LIFECYCLE_STAGE
+  SUBSCRIPTION_STATUS
+  SAAS_INVOICE_STATUS
+  DATA_QUALITY_SEVERITY
+  SUPPORT_ISSUE
+  FOLLOW_UP_OVERDUE
+  TASK_OVERDUE
+  PLATFORM_INCIDENT
+  NO_RECENT_ACTIVITY
+}
+
+enum ClientInterventionStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_CLIENT
+  WAITING_INTERNAL
+  COMPLETED
+  CANCELLED
+  FAILED
+}
+
+enum ClientInterventionOutcome {
+  NOT_SET
+  RESOLVED
+  PARTIALLY_RESOLVED
+  CLIENT_CONTACTED
+  TASKS_CREATED
+  ESCALATED
+  NO_RESPONSE
+  NOT_RELEVANT
+  LOST_CLIENT
+  FOLLOW_UP_REQUIRED
+}
+
+enum PlaybookStepStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  SKIPPED
+  BLOCKED
+}
+
+enum PlaybookStepType {
+  CHECK
+  CONTACT_CLIENT
+  CREATE_TASK
+  CREATE_FOLLOW_UP
+  ADD_NOTE
+  REVIEW_DATA
+  REVIEW_SUBSCRIPTION
+  REVIEW_SAAS_INVOICE
+  REVIEW_DATA_QUALITY
+  REVIEW_SUPPORT_SESSION
+  START_SUPPORT_SESSION
+  SEND_MESSAGE_MANUAL
+  SEND_NOTIFICATION_CONFIRM
+  UPDATE_CLIENT_STAGE
+  UPDATE_CLIENT_RISK
+  ESCALATE_INTERNAL
+  COMPLETE_INTERVENTION
+}
+
+enum ClientInterventionEventType {
+  INTERVENTION_STARTED
+  INTERVENTION_STATUS_CHANGED
+  INTERVENTION_ASSIGNED
+  STEP_STARTED
+  STEP_COMPLETED
+  STEP_SKIPPED
+  STEP_BLOCKED
+  TASK_CREATED
+  FOLLOW_UP_CREATED
+  NOTE_ADDED
+  CLIENT_CONTACT_RECORDED
+  NOTIFICATION_SENT
+  NOTIFICATION_SKIPPED
+  INTERVENTION_COMPLETED
+  INTERVENTION_CANCELLED
+  OUTCOME_SET
+}
+
 enum LegalDocumentType {
   PRIVACY_POLICY
   TERMS_OF_USE
@@ -2515,6 +2623,8 @@ model ClientAccount {
   healthSnapshots ClientHealthSnapshot[]
   healthOverrides ClientHealthOverride[]
   healthActions ClientHealthAction[]
+  interventions ClientIntervention[]
+  interventionEvents ClientInterventionEvent[]
 
   @@index([lifecycleStage, updatedAt])
   @@index([status, updatedAt])
@@ -2941,6 +3051,149 @@ model ClientHealthAction {
   @@index([relatedTaskId])
   @@index([relatedFollowUpId])
   @@map("client_health_actions")
+}
+
+model CustomerSuccessPlaybook {
+  id                       String                          @id @default(uuid())
+  key                      String                          @unique
+  name                     String
+  description              String
+  category                 CustomerSuccessPlaybookCategory
+  status                   CustomerSuccessPlaybookStatus   @default(DRAFT)
+  triggerType              CustomerSuccessTriggerType      @default(MANUAL)
+  triggerConfig            Json?
+  recommendedFor           Json?
+  defaultPriority          ClientPriority                  @default(NORMAL)
+  estimatedDurationMinutes Int?
+  isSystem                 Boolean                         @default(false)
+  createdById              String?
+  updatedById              String?
+  createdAt                DateTime                        @default(now())
+  updatedAt                DateTime                        @updatedAt
+
+  steps         CustomerSuccessPlaybookStep[]
+  interventions ClientIntervention[]
+
+  @@index([category, status])
+  @@index([triggerType, status])
+  @@index([isSystem, status])
+  @@map("customer_success_playbooks")
+}
+
+model CustomerSuccessPlaybookStep {
+  id              String           @id @default(uuid())
+  playbookId      String
+  sortOrder       Int
+  title           String
+  description     String
+  stepType        PlaybookStepType
+  required        Boolean          @default(true)
+  actionConfig    Json?
+  expectedOutcome String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  playbook CustomerSuccessPlaybook @relation(fields: [playbookId], references: [id], onDelete: Cascade)
+  interventionSteps ClientInterventionStep[]
+
+  @@index([playbookId, sortOrder])
+  @@map("customer_success_playbook_steps")
+}
+
+model ClientIntervention {
+  id                 String                     @id @default(uuid())
+  clientAccountId    String
+  associationId      String?
+  playbookId         String
+  status             ClientInterventionStatus   @default(OPEN)
+  priority           ClientPriority             @default(NORMAL)
+  outcome            ClientInterventionOutcome  @default(NOT_SET)
+  title              String
+  description        String?
+  triggerType        CustomerSuccessTriggerType @default(MANUAL)
+  triggerReason      String?
+  triggerMetadata    Json?
+  healthSnapshotId   String?
+  assignedToId       String?
+  startedById        String
+  startedAt          DateTime                   @default(now())
+  dueAt              DateTime?
+  completedAt        DateTime?
+  completedById      String?
+  cancelledAt        DateTime?
+  cancelledById      String?
+  cancellationReason String?
+  outcomeNotes       String?
+  metadata           Json?
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+
+  clientAccount ClientAccount             @relation(fields: [clientAccountId], references: [id], onDelete: Cascade)
+  playbook      CustomerSuccessPlaybook   @relation(fields: [playbookId], references: [id], onDelete: Restrict)
+  steps         ClientInterventionStep[]
+  events        ClientInterventionEvent[]
+
+  @@index([clientAccountId, status, priority])
+  @@index([associationId, status])
+  @@index([playbookId, status])
+  @@index([assignedToId, status, dueAt])
+  @@index([triggerReason, status])
+  @@map("client_interventions")
+}
+
+model ClientInterventionStep {
+  id                String             @id @default(uuid())
+  interventionId    String
+  playbookStepId    String?
+  sortOrder         Int
+  title             String
+  description       String
+  stepType          PlaybookStepType
+  required          Boolean            @default(true)
+  status            PlaybookStepStatus @default(PENDING)
+  actionConfig      Json?
+  result            Json?
+  completedAt       DateTime?
+  completedById     String?
+  skippedAt         DateTime?
+  skippedById       String?
+  skipReason        String?
+  blockedReason     String?
+  relatedTaskId     String?
+  relatedFollowUpId String?
+  relatedNoteId     String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  intervention ClientIntervention             @relation(fields: [interventionId], references: [id], onDelete: Cascade)
+  playbookStep CustomerSuccessPlaybookStep?   @relation(fields: [playbookStepId], references: [id], onDelete: SetNull)
+
+  @@index([interventionId, sortOrder])
+  @@index([status, updatedAt])
+  @@index([relatedTaskId])
+  @@index([relatedFollowUpId])
+  @@index([relatedNoteId])
+  @@map("client_intervention_steps")
+}
+
+model ClientInterventionEvent {
+  id              String                      @id @default(uuid())
+  interventionId  String
+  clientAccountId String
+  actorUserId     String?
+  eventType       ClientInterventionEventType
+  title           String
+  message         String
+  metadata        Json?
+  createdAt       DateTime                    @default(now())
+
+  intervention  ClientIntervention @relation(fields: [interventionId], references: [id], onDelete: Cascade)
+  clientAccount ClientAccount      @relation(fields: [clientAccountId], references: [id], onDelete: Cascade)
+
+  @@index([interventionId, createdAt])
+  @@index([clientAccountId, createdAt])
+  @@index([eventType, createdAt])
+  @@map("client_intervention_events")
 }
 
 model LegalDocument {

@@ -4,7 +4,6 @@ import {
   ClientFollowUpStatus,
   ClientHealthActionStatus,
   ClientHealthCalculationSource,
-  ClientHealthDimension,
   ClientHealthRiskReason,
   ClientHealthStatus,
   ClientKnownIssueSeverity,
@@ -25,6 +24,19 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateHealthFollowUpDto, CreateHealthTaskDto, ClientHealthOverrideDto, DismissClientHealthActionDto } from './dto/client-health.dto';
+
+enum ClientHealthDimension {
+  ONBOARDING = 'ONBOARDING',
+  PRODUCT_USAGE = 'PRODUCT_USAGE',
+  SUBSCRIPTION = 'SUBSCRIPTION',
+  SAAS_BILLING = 'SAAS_BILLING',
+  SUPPORT = 'SUPPORT',
+  DATA_QUALITY = 'DATA_QUALITY',
+  SECURITY = 'SECURITY',
+  FOLLOW_UP = 'FOLLOW_UP',
+  ENGAGEMENT = 'ENGAGEMENT',
+  KNOWLEDGE_BASE = 'KNOWLEDGE_BASE',
+}
 
 type DimensionResult = {
   key: ClientHealthDimension;
@@ -332,7 +344,7 @@ export class ClientHealthService {
       score = 20;
       reasons.push(ClientHealthRiskReason.SUBSCRIPTION_SUSPENDED);
     }
-    if ([SaasSubscriptionStatus.CANCELLED, SaasSubscriptionStatus.EXPIRED].includes(subscription.status)) score = 0;
+    if (subscription.status === SaasSubscriptionStatus.CANCELLED || subscription.status === SaasSubscriptionStatus.EXPIRED) score = 0;
     if (subscription.trialEndsAt && subscription.trialEndsAt > new Date() && subscription.trialEndsAt < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)) reasons.push(ClientHealthRiskReason.TRIAL_ENDING_SOON);
     return this.dimension(ClientHealthDimension.SUBSCRIPTION, score, reasons, ['Verifica statusul abonamentului.'], { status: subscription.status, trialEndsAt: subscription.trialEndsAt });
   }
@@ -502,17 +514,17 @@ export class ClientHealthService {
       SUBSCRIPTION_SUSPENDED: 'Abonament suspendat',
       CUSTOMER_AT_RISK_MANUAL: 'Override manual',
     };
-    const urgent = [ClientHealthRiskReason.SUBSCRIPTION_SUSPENDED, ClientHealthRiskReason.CRITICAL_DATA_QUALITY_ISSUES, ClientHealthRiskReason.CUSTOMER_AT_RISK_MANUAL];
-    const high = [ClientHealthRiskReason.SAAS_INVOICE_OVERDUE, ClientHealthRiskReason.ONBOARDING_STUCK, ClientHealthRiskReason.OVERDUE_FOLLOW_UP, ClientHealthRiskReason.OVERDUE_TASKS, ClientHealthRiskReason.OPEN_SUPPORT_ISSUES];
+    const urgent: ClientHealthRiskReason[] = [ClientHealthRiskReason.SUBSCRIPTION_SUSPENDED, ClientHealthRiskReason.CRITICAL_DATA_QUALITY_ISSUES, ClientHealthRiskReason.CUSTOMER_AT_RISK_MANUAL];
+    const high: ClientHealthRiskReason[] = [ClientHealthRiskReason.SAAS_INVOICE_OVERDUE, ClientHealthRiskReason.ONBOARDING_STUCK, ClientHealthRiskReason.OVERDUE_FOLLOW_UP, ClientHealthRiskReason.OVERDUE_TASKS, ClientHealthRiskReason.OPEN_SUPPORT_ISSUES];
     return { label: labels[key] || key, severity: urgent.includes(key) ? ClientPriority.URGENT : high.includes(key) ? ClientPriority.HIGH : ClientPriority.NORMAL, message: labels[key] || key };
   }
 
   private categoryForReason(reason: ClientHealthRiskReason) {
-    if ([ClientHealthRiskReason.SAAS_INVOICE_OVERDUE].includes(reason)) return ClientTaskCategory.SAAS_INVOICE;
-    if ([ClientHealthRiskReason.NO_ACTIVE_SUBSCRIPTION, ClientHealthRiskReason.TRIAL_ENDING_SOON, ClientHealthRiskReason.SUBSCRIPTION_SUSPENDED].includes(reason)) return ClientTaskCategory.SUBSCRIPTION;
-    if ([ClientHealthRiskReason.ONBOARDING_STUCK, ClientHealthRiskReason.NO_ASSOCIATION_LINKED].includes(reason)) return ClientTaskCategory.ONBOARDING;
-    if ([ClientHealthRiskReason.OPEN_SUPPORT_ISSUES].includes(reason)) return ClientTaskCategory.SUPPORT;
-    if ([ClientHealthRiskReason.SECURITY_EVENTS, ClientHealthRiskReason.OPEN_PRODUCTION_INCIDENT].includes(reason)) return ClientTaskCategory.SECURITY;
+    if (reason === ClientHealthRiskReason.SAAS_INVOICE_OVERDUE) return ClientTaskCategory.SAAS_INVOICE;
+    if (reason === ClientHealthRiskReason.NO_ACTIVE_SUBSCRIPTION || reason === ClientHealthRiskReason.TRIAL_ENDING_SOON || reason === ClientHealthRiskReason.SUBSCRIPTION_SUSPENDED) return ClientTaskCategory.SUBSCRIPTION;
+    if (reason === ClientHealthRiskReason.ONBOARDING_STUCK || reason === ClientHealthRiskReason.NO_ASSOCIATION_LINKED) return ClientTaskCategory.ONBOARDING;
+    if (reason === ClientHealthRiskReason.OPEN_SUPPORT_ISSUES) return ClientTaskCategory.SUPPORT;
+    if (reason === ClientHealthRiskReason.SECURITY_EVENTS || reason === ClientHealthRiskReason.OPEN_PRODUCTION_INCIDENT) return ClientTaskCategory.SECURITY;
     return ClientTaskCategory.GENERAL;
   }
 
