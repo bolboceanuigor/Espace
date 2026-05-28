@@ -960,6 +960,88 @@ enum CustomerOnboardingRequestSource {
   OTHER
 }
 
+enum ClientLifecycleStage {
+  NEW_REQUEST
+  CONTACTED
+  QUALIFIED
+  PREPARING_ONBOARDING
+  ONBOARDING
+  READY_TO_ACTIVATE
+  ACTIVE
+  AT_RISK
+  SUSPENDED
+  CHURNED
+  CLOSED
+}
+
+enum ClientAccountStatus {
+  OPEN
+  ACTIVE
+  PAUSED
+  SUSPENDED
+  CLOSED
+}
+
+enum ClientPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum ClientSource {
+  PUBLIC_WEBSITE
+  ACCESS_REQUEST
+  REFERRAL
+  MANUAL
+  EXISTING_RELATIONSHIP
+  IMPORTED
+  OTHER
+}
+
+enum ClientRiskLevel {
+  NONE
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ClientActivityType {
+  CLIENT_CREATED
+  STAGE_CHANGED
+  STATUS_CHANGED
+  PRIORITY_CHANGED
+  OWNER_CHANGED
+  NOTE_ADDED
+  TASK_CREATED
+  TASK_COMPLETED
+  FOLLOW_UP_SET
+  CONTACT_RECORDED
+  CUSTOMER_REQUEST_LINKED
+  ASSOCIATION_LINKED
+  ONBOARDING_STARTED
+  ONBOARDING_COMPLETED
+  SUBSCRIPTION_LINKED
+  RISK_UPDATED
+  CLIENT_CLOSED
+  CLIENT_REOPENED
+}
+
+enum ClientTaskStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ClientFollowUpStatus {
+  OPEN
+  DONE
+  MISSED
+  CANCELLED
+}
+
 enum LegalDocumentType {
   PRIVACY_POLICY
   TERMS_OF_USE
@@ -2136,6 +2218,143 @@ model CustomerOnboardingRequest {
   @@index([assignedToId, status])
   @@index([convertedAssociationId])
   @@map("customer_onboarding_requests")
+}
+
+model ClientAccount {
+  id                    String               @id @default(uuid())
+  associationId         String?
+  customerRequestId     String?
+  lifecycleStage        ClientLifecycleStage @default(NEW_REQUEST)
+  status                ClientAccountStatus  @default(OPEN)
+  priority              ClientPriority       @default(NORMAL)
+  source                ClientSource         @default(MANUAL)
+  riskLevel             ClientRiskLevel      @default(NONE)
+  displayName           String
+  contactName           String?
+  contactPhone          String?
+  contactEmail          String?
+  associationName       String?
+  associationCode       String?
+  apartmentsCount       Int?
+  address               String?
+  ownerUserId           String?
+  nextFollowUpAt        DateTime?
+  lastContactedAt       DateTime?
+  qualifiedAt           DateTime?
+  onboardingStartedAt   DateTime?
+  activatedAt           DateTime?
+  suspendedAt           DateTime?
+  churnedAt             DateTime?
+  closedAt              DateTime?
+  closeReason           String?
+  internalNotes         String?
+  metadata              Json?
+  createdById           String?
+  updatedById           String?
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+
+  activities ClientActivity[]
+  tasks      ClientTask[]
+  notes      ClientNote[]
+  followUps  ClientFollowUp[]
+
+  @@index([lifecycleStage, updatedAt])
+  @@index([status, updatedAt])
+  @@index([priority, updatedAt])
+  @@index([riskLevel, updatedAt])
+  @@index([ownerUserId, nextFollowUpAt])
+  @@index([associationId])
+  @@index([customerRequestId])
+  @@index([associationCode])
+  @@map("client_accounts")
+}
+
+model ClientActivity {
+  id              String             @id @default(uuid())
+  clientAccountId String
+  associationId   String?
+  actorUserId     String?
+  type            ClientActivityType
+  title           String
+  message         String
+  metadata        Json?
+  createdAt       DateTime           @default(now())
+
+  clientAccount ClientAccount @relation(fields: [clientAccountId], references: [id], onDelete: Cascade)
+
+  @@index([clientAccountId, createdAt])
+  @@index([associationId, createdAt])
+  @@index([type, createdAt])
+  @@map("client_activities")
+}
+
+model ClientTask {
+  id                 String           @id @default(uuid())
+  clientAccountId    String
+  associationId      String?
+  title              String
+  description        String?
+  status             ClientTaskStatus @default(OPEN)
+  priority           ClientPriority   @default(NORMAL)
+  dueAt              DateTime?
+  assignedToId       String?
+  completedAt        DateTime?
+  completedById      String?
+  cancelledAt        DateTime?
+  cancelledById      String?
+  cancellationReason String?
+  createdById        String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  clientAccount ClientAccount @relation(fields: [clientAccountId], references: [id], onDelete: Cascade)
+
+  @@index([clientAccountId, status])
+  @@index([associationId, status])
+  @@index([assignedToId, dueAt])
+  @@index([status, dueAt])
+  @@map("client_tasks")
+}
+
+model ClientNote {
+  id              String   @id @default(uuid())
+  clientAccountId String
+  associationId   String?
+  authorUserId    String
+  note            String
+  isPinned        Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  clientAccount ClientAccount @relation(fields: [clientAccountId], references: [id], onDelete: Cascade)
+
+  @@index([clientAccountId, isPinned, createdAt])
+  @@index([associationId, createdAt])
+  @@map("client_notes")
+}
+
+model ClientFollowUp {
+  id              String               @id @default(uuid())
+  clientAccountId String
+  associationId   String?
+  title           String
+  description     String?
+  dueAt           DateTime
+  status          ClientFollowUpStatus @default(OPEN)
+  assignedToId    String?
+  completedAt     DateTime?
+  completedById   String?
+  createdById     String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  clientAccount ClientAccount @relation(fields: [clientAccountId], references: [id], onDelete: Cascade)
+
+  @@index([clientAccountId, status, dueAt])
+  @@index([associationId, status, dueAt])
+  @@index([assignedToId, status, dueAt])
+  @@map("client_follow_ups")
 }
 
 model LegalDocument {

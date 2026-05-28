@@ -1,5 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import {
+  ClientLifecycleStage,
+  ClientPriority,
+  ClientSource,
   CustomerOnboardingRequestPriority,
   CustomerOnboardingRequestSource,
   CustomerOnboardingRequestStatus,
@@ -32,7 +35,7 @@ export class CustomerRequestsService {
     if (recentCount >= 3) {
       return { success: true, message: 'Cererea a fost trimisa.' };
     }
-    await this.prisma.customerOnboardingRequest.create({
+    const request = await this.prisma.customerOnboardingRequest.create({
       data: {
         fullName: dto.fullName.trim(),
         phone,
@@ -57,6 +60,23 @@ export class CustomerRequestsService {
         } as Prisma.InputJsonValue,
       },
     });
+    await this.prisma.clientAccount.create({
+      data: {
+        customerRequestId: request.id,
+        displayName: request.associationName,
+        lifecycleStage: ClientLifecycleStage.NEW_REQUEST,
+        priority: request.priority === CustomerOnboardingRequestPriority.HIGH ? ClientPriority.HIGH : request.priority === CustomerOnboardingRequestPriority.LOW ? ClientPriority.LOW : ClientPriority.NORMAL,
+        source: request.source === CustomerOnboardingRequestSource.ACCESS_REQUEST ? ClientSource.ACCESS_REQUEST : request.source === CustomerOnboardingRequestSource.REFERRAL ? ClientSource.REFERRAL : ClientSource.PUBLIC_WEBSITE,
+        contactName: request.fullName,
+        contactPhone: request.phone,
+        contactEmail: request.email,
+        associationName: request.associationName,
+        associationCode: request.associationCode,
+        address: request.address,
+        apartmentsCount: request.apartmentsCount,
+        metadata: { sourceRequest: 'public_customer_request' } as Prisma.InputJsonValue,
+      },
+    }).catch(() => undefined);
     return { success: true, message: 'Cererea a fost trimisa.' };
   }
 
