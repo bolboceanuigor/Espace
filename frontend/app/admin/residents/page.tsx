@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Download, FileUp, Mail, Pencil, Phone, Plus, Search, UserCheck, UserPlus, Users, UserX } from 'lucide-react';
 import { Badge, Button, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
+import { BulkSelectionToolbar } from '@/components/bulk-operations/BulkOperationComponents';
 import { adminResidentsCrmApi, exportsApi } from '@/lib/api';
 import { downloadBlob } from '@/lib/download';
 import { useLocalizedPath } from '@/lib/use-localized-path';
@@ -197,6 +198,7 @@ export default function AdminResidentsPage() {
   const [relationForm, setRelationForm] = useState(emptyRelationForm);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const loadResidents = useCallback(async () => {
     setError('');
@@ -391,6 +393,21 @@ export default function AdminResidentsPage() {
       {success ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">{success}</div> : null}
       {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</div> : null}
 
+      <BulkSelectionToolbar
+        entityType="RESIDENT"
+        selectedIds={selectedIds}
+        onClear={() => setSelectedIds([])}
+        onDone={() => {
+          setSelectedIds([]);
+          void loadResidents();
+        }}
+        actions={[
+          { operationType: 'RESIDENTS_SET_STATUS', label: 'Setează status' },
+          { operationType: 'RESIDENTS_ARCHIVE', label: 'Arhivează selectați', requiresReason: true },
+          { operationType: 'RESIDENTS_SEND_PORTAL_INVITATIONS', label: 'Preview invitații portal' },
+        ]}
+      />
+
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-8">
         <StatCard label="Total persoane" value={data.stats.totalResidents} description="În asociația curentă" icon={<Users className="h-5 w-5" />} />
         <StatCard label="Proprietari" value={data.stats.owners} description="Rol proprietar" icon={<UserCheck className="h-5 w-5" />} tone="success" />
@@ -458,7 +475,8 @@ export default function AdminResidentsPage() {
           </section>
 
           <section className="hidden overflow-hidden rounded-[1.35rem] border border-border/70 bg-white shadow-[0_14px_40px_rgba(15,23,42,0.045)] md:block">
-            <div className="grid grid-cols-[1.1fr_0.85fr_1.1fr_1fr_0.75fr_0.85fr_0.9fr_0.75fr_0.8fr_0.85fr_1.55fr] gap-3 border-b border-border/70 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <div className="grid grid-cols-[0.3fr_1.1fr_0.85fr_1.1fr_1fr_0.75fr_0.85fr_0.9fr_0.75fr_0.8fr_0.85fr_1.55fr] gap-3 border-b border-border/70 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <span><input type="checkbox" checked={data.items.length > 0 && data.items.every((row) => selectedIds.includes(row.id))} onChange={(event) => setSelectedIds(event.target.checked ? data.items.map((row) => row.id) : [])} /></span>
               <span>Nume</span>
               <span>Telefon</span>
               <span>Email</span>
@@ -472,7 +490,8 @@ export default function AdminResidentsPage() {
               <span>Acțiuni</span>
             </div>
             {data.items.map((row) => (
-              <div key={row.id} className="grid grid-cols-[1.1fr_0.85fr_1.1fr_1fr_0.75fr_0.85fr_0.9fr_0.75fr_0.8fr_0.85fr_1.55fr] items-center gap-3 border-b border-border/50 px-4 py-4 text-sm last:border-b-0">
+              <div key={row.id} className="grid grid-cols-[0.3fr_1.1fr_0.85fr_1.1fr_1fr_0.75fr_0.85fr_0.9fr_0.75fr_0.8fr_0.85fr_1.55fr] items-center gap-3 border-b border-border/50 px-4 py-4 text-sm last:border-b-0">
+                <input type="checkbox" checked={selectedIds.includes(row.id)} onChange={(event) => setSelectedIds((current) => event.target.checked ? [...current, row.id] : current.filter((id) => id !== row.id))} />
                 <strong className="truncate text-foreground">{row.fullName}</strong>
                 <span className="truncate text-muted-foreground">{row.phone || '-'}</span>
                 <span className="truncate text-muted-foreground">{row.email || '-'}</span>

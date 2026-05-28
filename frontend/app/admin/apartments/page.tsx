@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Building2, Download, FileUp, Home, Pencil, Plus, Search, UserPlus } from 'lucide-react';
 import { Badge, Button, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
+import { BulkSelectionToolbar } from '@/components/bulk-operations/BulkOperationComponents';
 import { adminApartmentsCrmApi, exportsApi } from '@/lib/api';
 import { downloadBlob } from '@/lib/download';
 import { useLocalizedPath } from '@/lib/use-localized-path';
@@ -136,6 +137,7 @@ export default function AdminApartmentsPage() {
   const [contactForm, setContactForm] = useState(emptyContactForm);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const loadApartments = useCallback(async () => {
     setError('');
@@ -319,6 +321,20 @@ export default function AdminApartmentsPage() {
       {success ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">{success}</div> : null}
       {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</div> : null}
 
+      <BulkSelectionToolbar
+        entityType="APARTMENT"
+        selectedIds={selectedIds}
+        onClear={() => setSelectedIds([])}
+        onDone={() => {
+          setSelectedIds([]);
+          void loadApartments();
+        }}
+        actions={[
+          { operationType: 'APARTMENTS_SET_STATUS', label: 'Setează status' },
+          { operationType: 'APARTMENTS_ARCHIVE', label: 'Arhivează selectate', requiresReason: true },
+        ]}
+      />
+
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
         <StatCard label="Total apartamente" value={data.stats.totalApartments} description="În asociația curentă" icon={<Home className="h-5 w-5" />} />
         <StatCard label="Total m²" value={data.stats.totalAreaM2.toFixed(1)} description="Suprafață declarată" icon={<Building2 className="h-5 w-5" />} />
@@ -389,7 +405,14 @@ export default function AdminApartmentsPage() {
           </section>
 
           <section className="hidden overflow-hidden rounded-[1.35rem] border border-border/70 bg-white shadow-[0_14px_40px_rgba(15,23,42,0.045)] md:block">
-            <div className="grid grid-cols-[0.8fr_0.7fr_0.6fr_0.9fr_1fr_1.3fr_0.9fr_0.8fr_0.9fr_1.2fr] gap-3 border-b border-border/70 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <div className="grid grid-cols-[0.3fr_0.8fr_0.7fr_0.6fr_0.9fr_1fr_1.3fr_0.9fr_0.8fr_0.9fr_1.2fr] gap-3 border-b border-border/70 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <span>
+                <input
+                  type="checkbox"
+                  checked={data.items.length > 0 && data.items.every((row) => selectedIds.includes(row.id))}
+                  onChange={(event) => setSelectedIds(event.target.checked ? data.items.map((row) => row.id) : [])}
+                />
+              </span>
               <span>Apartament</span>
               <span>Scara</span>
               <span>Etaj</span>
@@ -402,7 +425,12 @@ export default function AdminApartmentsPage() {
               <span>Acțiuni</span>
             </div>
             {data.items.map((row) => (
-              <div key={row.id} className="grid grid-cols-[0.8fr_0.7fr_0.6fr_0.9fr_1fr_1.3fr_0.9fr_0.8fr_0.9fr_1.2fr] items-center gap-3 border-b border-border/50 px-4 py-4 text-sm last:border-b-0">
+              <div key={row.id} className="grid grid-cols-[0.3fr_0.8fr_0.7fr_0.6fr_0.9fr_1fr_1.3fr_0.9fr_0.8fr_0.9fr_1.2fr] items-center gap-3 border-b border-border/50 px-4 py-4 text-sm last:border-b-0">
+                <input
+                  type="checkbox"
+                  checked={selectedIds.includes(row.id)}
+                  onChange={(event) => setSelectedIds((current) => event.target.checked ? [...current, row.id] : current.filter((id) => id !== row.id))}
+                />
                 <strong className="text-foreground">Apt. {row.apartmentNumber}</strong>
                 <span className="text-muted-foreground">{row.staircase || '-'}</span>
                 <span className="text-muted-foreground">{row.floor || '-'}</span>

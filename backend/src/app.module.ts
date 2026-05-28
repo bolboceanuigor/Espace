@@ -25,6 +25,7 @@ import { LaunchControlModule } from './launch-control/launch-control.module';
 import { BackupRecoveryModule } from './backup-recovery/backup-recovery.module';
 import { DataRetentionModule } from './data-retention/data-retention.module';
 import { DataExportModule } from './data-export/data-export.module';
+import { BulkOperationsModule } from './bulk-operations/bulk-operations.module';
 import { SetupModule } from './setup/setup.module';
 import { MessagesMvpModule } from './messages-mvp/messages-mvp.module';
 import { ActivityMvpModule } from './activity-mvp/activity-mvp.module';
@@ -70,6 +71,7 @@ import { AppController } from './app.controller';
     BackupRecoveryModule,
     DataRetentionModule,
     DataExportModule,
+    BulkOperationsModule,
     SetupModule,
     MessagesMvpModule,
     ActivityMvpModule,

@@ -17,6 +17,8 @@ export interface DataTableProps<T> {
   data: T[];
   keyExtractor: (item: T) => string;
   onRowClick?: (item: T) => void;
+  selectedIds?: string[];
+  onSelectionChange?: (ids: string[]) => void;
   sortBy?: string;
   sortDirection?: 'asc' | 'desc';
   onSort?: (key: string) => void;
@@ -32,6 +34,8 @@ function DataTableInner<T>(
     data,
     keyExtractor,
     onRowClick,
+    selectedIds,
+    onSelectionChange,
     sortBy,
     sortDirection,
     onSort,
@@ -47,12 +51,24 @@ function DataTableInner<T>(
     if (align === 'right') return 'text-right';
     return 'text-left';
   };
+  const selectionEnabled = Boolean(onSelectionChange);
+  const allVisibleSelected = data.length > 0 && data.every((item) => selectedIds?.includes(keyExtractor(item)));
 
   return (
     <div ref={ref} className={`overflow-x-auto ${className}`.trim()}>
       <table className="w-full border-collapse">
         <thead>
           <tr className={`border-b border-border/60 ${stickyHeader ? 'sticky top-0 bg-card z-10' : ''}`}>
+            {selectionEnabled ? (
+              <th className="w-10 px-4 py-3 text-left">
+                <input
+                  type="checkbox"
+                  checked={allVisibleSelected}
+                  onChange={(event) => onSelectionChange?.(event.target.checked ? data.map((item) => keyExtractor(item)) : [])}
+                  aria-label="Selectează toate rândurile vizibile"
+                />
+              </th>
+            ) : null}
             {columns.map((col) => (
               <th
                 key={col.key}
@@ -96,7 +112,7 @@ function DataTableInner<T>(
             ))
           ) : data.length === 0 ? (
             <tr>
-              <td colSpan={columns.length} className="px-4 py-8">
+              <td colSpan={columns.length + (selectionEnabled ? 1 : 0)} className="px-4 py-8">
                 {emptyState || (
                   <div className="text-center text-sm text-muted-foreground">
                     Nu există date de afișat.
@@ -115,6 +131,19 @@ function DataTableInner<T>(
                 }`}
                 onClick={onRowClick ? () => onRowClick(item) : undefined}
               >
+                {selectionEnabled ? (
+                  <td className="px-4 py-3.5" onClick={(event) => event.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(selectedIds?.includes(keyExtractor(item)))}
+                      onChange={(event) => {
+                        const id = keyExtractor(item);
+                        onSelectionChange?.(event.target.checked ? [...(selectedIds || []), id] : (selectedIds || []).filter((value) => value !== id));
+                      }}
+                      aria-label="Selectează rândul"
+                    />
+                  </td>
+                ) : null}
                 {columns.map((col) => (
                   <td
                     key={col.key}

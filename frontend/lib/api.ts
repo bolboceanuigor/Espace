@@ -3281,6 +3281,17 @@ export const dataExportApi = {
   residentExport: (id: string) => apiRequest<any>(`/api/resident/data-exports/${id}`),
 };
 
+export const bulkOperationsApi = {
+  list: (params?: Record<string, any>) => apiRequest<any>('/api/admin/bulk-operations', { params }),
+  availableActions: (params: Record<string, any>) => apiRequest<any>('/api/admin/bulk-operations/available-actions', { params }),
+  preview: (data: Record<string, any>) => apiRequest<any>('/api/admin/bulk-operations/preview', { method: 'POST', body: data }),
+  get: (id: string) => apiRequest<any>(`/api/admin/bulk-operations/${id}`),
+  items: (id: string) => apiRequest<any>(`/api/admin/bulk-operations/${id}/items`),
+  confirm: (id: string) => apiRequest<any>(`/api/admin/bulk-operations/${id}/confirm`, { method: 'POST', body: { confirm: true } }),
+  cancel: (id: string, data: Record<string, any>) => apiRequest<any>(`/api/admin/bulk-operations/${id}/cancel`, { method: 'PATCH', body: data }),
+  result: (id: string) => apiRequest<any>(`/api/admin/bulk-operations/${id}/result`),
+};
+
 export const condoApi = {
   getOwnerDashboard: () =>
     apiRequest<{

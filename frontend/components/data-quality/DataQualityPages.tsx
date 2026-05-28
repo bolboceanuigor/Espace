@@ -38,6 +38,7 @@ import {
   TableWrapper,
 } from '@/components/ui';
 import EmptyState from '@/components/common/EmptyState';
+import { BulkSelectionToolbar } from '@/components/bulk-operations/BulkOperationComponents';
 import { dataQualityApi, dataQualityDuplicatesApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
@@ -452,6 +453,7 @@ export function AdminDataQualityIssuesPage() {
   const [stats, setStats] = useState<any>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -493,6 +495,19 @@ export function AdminDataQualityIssuesPage() {
         rightSlot={<ButtonLink href={localizedPath('/admin/data-quality')} variant="secondary"><ArrowLeft className="h-4 w-4" /> Overview</ButtonLink>}
       />
       <IssueFilters filters={filters} onChange={setFilters} onRefresh={load} />
+      <BulkSelectionToolbar
+        entityType="DATA_QUALITY_ISSUE"
+        selectedIds={selectedIds}
+        onClear={() => setSelectedIds([])}
+        onDone={() => {
+          setSelectedIds([]);
+          void load();
+        }}
+        actions={[
+          { operationType: 'DATA_QUALITY_MARK_RESOLVED', label: 'Marchează rezolvate' },
+          { operationType: 'DATA_QUALITY_MARK_IGNORED', label: 'Ignoră selectate', requiresReason: true },
+        ]}
+      />
       <div className="grid gap-3 md:grid-cols-5">
         <StatCard label="Critice" value={String(stats.critical || 0)} tone={stats.critical ? 'danger' : 'success'} />
         <StatCard label="Warnings" value={String(stats.warning || 0)} tone={stats.warning ? 'warning' : 'success'} />
@@ -505,6 +520,7 @@ export function AdminDataQualityIssuesPage() {
         <Table>
           <TableHead>
             <TableRow>
+              <TableHeaderCell><input type="checkbox" checked={items.length > 0 && items.every((issue) => selectedIds.includes(issue.id))} onChange={(event) => setSelectedIds(event.target.checked ? items.map((issue) => issue.id) : [])} /></TableHeaderCell>
               <TableHeaderCell>Problemă</TableHeaderCell>
               <TableHeaderCell>Categorie</TableHeaderCell>
               <TableHeaderCell>Severitate</TableHeaderCell>
@@ -517,9 +533,10 @@ export function AdminDataQualityIssuesPage() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {!loading && !items.length ? <TableEmpty colSpan={9}>Nu există probleme pentru filtrele selectate.</TableEmpty> : null}
+            {!loading && !items.length ? <TableEmpty colSpan={10}>Nu există probleme pentru filtrele selectate.</TableEmpty> : null}
             {items.map((issue) => (
               <TableRow key={issue.id}>
+                <TableCell><input type="checkbox" checked={selectedIds.includes(issue.id)} onChange={(event) => setSelectedIds((current) => event.target.checked ? [...current, issue.id] : current.filter((id) => id !== issue.id))} /></TableCell>
                 <TableCell>
                   <p className="font-semibold text-foreground">{issue.title}</p>
                   <p className="text-xs text-muted-foreground">{issue.description}</p>

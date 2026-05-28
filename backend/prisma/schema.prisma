@@ -1340,6 +1340,106 @@ enum DataExportEventType {
   EXPORT_EXPIRED
 }
 
+enum BulkOperationStatus {
+  DRAFT
+  PREVIEWED
+  CONFIRMED
+  PROCESSING
+  COMPLETED
+  PARTIAL
+  FAILED
+  CANCELLED
+}
+
+enum BulkOperationItemStatus {
+  PENDING
+  VALID
+  WARNING
+  SKIPPED
+  APPLIED
+  FAILED
+}
+
+enum BulkEntityType {
+  APARTMENT
+  RESIDENT
+  APARTMENT_RESIDENT
+  METER
+  METER_READING
+  INTERNAL_INVOICE
+  PAYMENT
+  REQUEST
+  ANNOUNCEMENT
+  DATA_QUALITY_ISSUE
+  IMPORT_JOB
+  EXPORT_LOG
+}
+
+enum BulkOperationType {
+  APARTMENTS_SET_STATUS
+  APARTMENTS_SET_STAIRCASE
+  APARTMENTS_SET_BUILDING
+  APARTMENTS_ARCHIVE
+  RESIDENTS_SET_STATUS
+  RESIDENTS_SET_PREFERRED_CONTACT_METHOD
+  RESIDENTS_ARCHIVE
+  RESIDENTS_SEND_PORTAL_INVITATIONS
+  METERS_SET_STATUS
+  METERS_SET_UNIT_FROM_TYPE
+  METERS_ARCHIVE
+  METER_READINGS_MARK_NEEDS_REVIEW
+  REQUESTS_SET_STATUS
+  REQUESTS_ASSIGN_TO_STAFF
+  REQUESTS_ARCHIVE_CLOSED
+  ANNOUNCEMENTS_ARCHIVE
+  ANNOUNCEMENTS_MARK_PINNED
+  ANNOUNCEMENTS_MARK_UNPINNED
+  INVOICES_EXPORT_SELECTED
+  INVOICES_PRINT_SELECTED
+  INVOICES_MARK_AS_SENT_INTERNAL
+  PAYMENTS_EXPORT_SELECTED
+  DATA_QUALITY_MARK_RESOLVED
+  DATA_QUALITY_MARK_IGNORED
+  IMPORTS_ARCHIVE_COMPLETED
+  EXPORTS_ARCHIVE_OLD
+}
+
+enum SavedViewModule {
+  APARTMENTS
+  RESIDENTS
+  INVOICES
+  PAYMENTS
+  METERS
+  METER_READINGS
+  REQUESTS
+  ANNOUNCEMENTS
+  DATA_QUALITY
+  AUDIT_LOG
+  IMPORTS
+  EXPORTS
+  FINANCIAL_REPORTS
+  TEAM_ACTIVITY
+  SAAS_SUBSCRIPTION
+  OTHER
+}
+
+enum SavedViewScope {
+  PERSONAL
+  TEAM
+  SYSTEM
+}
+
+enum SavedViewStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum SavedViewDensity {
+  COMPACT
+  COMFORTABLE
+  SPACIOUS
+}
+
 enum ClientNoteType {
   CALL
   MEETING
@@ -1755,6 +1855,9 @@ model Organization {
   dataDeletionRequests DataDeletionRequest[]
   dataRequests DataRequest[]
   dataExportJobs DataExportJob[]
+  bulkOperations BulkOperation[]
+  savedViews SavedView[]
+  modulePreferences UserModulePreferences[]
   createdByAgent     User?       @relation("CreatedByAgent", fields: [createdByAgentId], references: [id], onDelete: SetNull)
   ownerAdmin        User?        @relation("OrganizationOwnerAdmin", fields: [ownerAdminId], references: [id], onDelete: SetNull)
 
@@ -2595,6 +2698,133 @@ model DataExportEvent {
   @@map("data_export_events")
 }
 
+model BulkOperation {
+  id                 String              @id @default(uuid())
+  associationId      String
+  entityType         BulkEntityType
+  operationType      BulkOperationType
+  status             BulkOperationStatus @default(DRAFT)
+  title              String
+  description        String?
+  payload            Json?
+  filters            Json?
+  selectedIds        Json
+  totalItems         Int                 @default(0)
+  validItems         Int                 @default(0)
+  warningItems       Int                 @default(0)
+  skippedItems       Int                 @default(0)
+  appliedItems       Int                 @default(0)
+  failedItems        Int                 @default(0)
+  createdById        String
+  confirmedById      String?
+  confirmedAt        DateTime?
+  startedAt          DateTime?
+  completedAt        DateTime?
+  cancelledAt        DateTime?
+  cancelledById      String?
+  cancellationReason String?
+  resultSummary      Json?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  association Organization @relation(fields: [associationId], references: [id], onDelete: Cascade)
+  createdBy   User         @relation("BulkOperationCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  confirmedBy User?        @relation("BulkOperationConfirmedBy", fields: [confirmedById], references: [id], onDelete: SetNull)
+  cancelledBy User?        @relation("BulkOperationCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
+  items       BulkOperationItem[]
+
+  @@index([associationId, status, createdAt])
+  @@index([associationId, entityType, operationType])
+  @@index([createdById, createdAt])
+  @@map("bulk_operations")
+}
+
+model BulkOperationItem {
+  id                String                  @id @default(uuid())
+  bulkOperationId   String
+  entityType        BulkEntityType
+  entityId          String
+  entityDisplayName String?
+  status            BulkOperationItemStatus @default(PENDING)
+  warnings          Json?
+  errors            Json?
+  beforeSnapshot    Json?
+  afterSnapshot     Json?
+  appliedAt         DateTime?
+  failedAt          DateTime?
+  errorMessage      String?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  bulkOperation BulkOperation @relation(fields: [bulkOperationId], references: [id], onDelete: Cascade)
+
+  @@index([bulkOperationId, status])
+  @@index([entityType, entityId])
+  @@map("bulk_operation_items")
+}
+
+model SavedView {
+  id           String           @id @default(uuid())
+  associationId String
+  module       SavedViewModule
+  scope        SavedViewScope
+  status       SavedViewStatus  @default(ACTIVE)
+  name         String
+  description  String?
+  filters      Json
+  sort         Json?
+  columns      Json?
+  density      SavedViewDensity?
+  searchQuery  String?
+  isDefault    Boolean          @default(false)
+  isFavorite   Boolean          @default(false)
+  isSystem     Boolean          @default(false)
+  smartListKey String?
+  usageCount   Int              @default(0)
+  lastUsedAt   DateTime?
+  createdById  String?
+  updatedById  String?
+  archivedAt   DateTime?
+  archivedById String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  association Organization @relation(fields: [associationId], references: [id], onDelete: Cascade)
+  createdBy   User?        @relation("SavedViewCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy   User?        @relation("SavedViewUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  archivedBy  User?        @relation("SavedViewArchivedBy", fields: [archivedById], references: [id], onDelete: SetNull)
+  defaultPreferences UserModulePreferences[] @relation("UserModulePreferencesDefaultView")
+
+  @@index([associationId, module, status])
+  @@index([associationId, scope, isFavorite])
+  @@index([createdById, module])
+  @@index([smartListKey])
+  @@map("saved_views")
+}
+
+model UserModulePreferences {
+  id                 String            @id @default(uuid())
+  userId             String
+  associationId      String
+  module             SavedViewModule
+  defaultSavedViewId String?
+  columns            Json?
+  density            SavedViewDensity?
+  pageSize           Int?
+  sort               Json?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  user             User         @relation("UserModulePreferencesUser", fields: [userId], references: [id], onDelete: Cascade)
+  association      Organization @relation(fields: [associationId], references: [id], onDelete: Cascade)
+  defaultSavedView SavedView?   @relation("UserModulePreferencesDefaultView", fields: [defaultSavedViewId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, associationId, module])
+  @@index([associationId, module])
+  @@index([defaultSavedViewId])
+  @@map("user_module_preferences")
+}
+
 model ClientNote {
   id              String         @id @default(uuid())
   organizationId  String
@@ -3418,6 +3648,13 @@ model User {
   dataRequestsCancelled DataRequest[] @relation("DataRequestCancelledBy")
   dataExportJobsRequested DataExportJob[] @relation("DataExportJobRequestedBy")
   dataExportEvents DataExportEvent[] @relation("DataExportEventActor")
+  bulkOperationsCreated BulkOperation[] @relation("BulkOperationCreatedBy")
+  bulkOperationsConfirmed BulkOperation[] @relation("BulkOperationConfirmedBy")
+  bulkOperationsCancelled BulkOperation[] @relation("BulkOperationCancelledBy")
+  savedViewsCreated SavedView[] @relation("SavedViewCreatedBy")
+  savedViewsUpdated SavedView[] @relation("SavedViewUpdatedBy")
+  savedViewsArchived SavedView[] @relation("SavedViewArchivedBy")
+  modulePreferences UserModulePreferences[] @relation("UserModulePreferencesUser")
   apartmentsArchived Apartment[] @relation("ApartmentArchivedBy")
   apartmentsRestored Apartment[] @relation("ApartmentRestoredBy")
   residentsArchived ResidentProfile[] @relation("ResidentArchivedBy")

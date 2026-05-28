@@ -21,6 +21,7 @@ import {
 } from '@/components/ui';
 import LoadingState from '@/components/common/LoadingState';
 import EmptyState from '@/components/common/EmptyState';
+import { BulkSelectionToolbar } from '@/components/bulk-operations/BulkOperationComponents';
 import { requestsApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
@@ -89,6 +90,7 @@ export default function AdminRequestsPage() {
   const [apartmentFilter, setApartmentFilter] = useState('');
   const [residentFilter, setResidentFilter] = useState('');
   const [openOnly, setOpenOnly] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const query = useMemo(
     () => ({ search, status, category, priority, apartmentId: apartmentFilter, residentId: residentFilter, openOnly, limit: 50, sortBy: priority === 'URGENT' ? 'priority' : undefined }),
@@ -160,6 +162,20 @@ export default function AdminRequestsPage() {
       {message ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">{message}</div> : null}
       {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</div> : null}
 
+      <BulkSelectionToolbar
+        entityType="REQUEST"
+        selectedIds={selectedIds}
+        onClear={() => setSelectedIds([])}
+        onDone={() => {
+          setSelectedIds([]);
+          void load();
+        }}
+        actions={[
+          { operationType: 'REQUESTS_SET_STATUS', label: 'Setează status' },
+          { operationType: 'REQUESTS_ARCHIVE_CLOSED', label: 'Arhivează închise', requiresReason: true },
+        ]}
+      />
+
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Solicitări noi" value={stats.new || 0} icon={<MessageCircle className="h-5 w-5" />} tone={stats.new ? 'warning' : 'neutral'} />
         <StatCard label="În lucru" value={stats.inProgress || 0} icon={<Wrench className="h-5 w-5" />} tone="warning" />
@@ -223,6 +239,7 @@ export default function AdminRequestsPage() {
           <Table>
             <TableHead>
               <TableRow hover={false}>
+                <TableHeaderCell><input type="checkbox" checked={items.length > 0 && items.every((row) => selectedIds.includes(row.id))} onChange={(event) => setSelectedIds(event.target.checked ? items.map((row) => row.id) : [])} /></TableHeaderCell>
                 <TableHeaderCell>Număr</TableHeaderCell>
                 <TableHeaderCell>Titlu</TableHeaderCell>
                 <TableHeaderCell>Locatar</TableHeaderCell>
@@ -238,6 +255,7 @@ export default function AdminRequestsPage() {
             <TableBody>
               {items.map((request) => (
                 <TableRow key={request.id}>
+                  <TableCell><input type="checkbox" checked={selectedIds.includes(request.id)} onChange={(event) => setSelectedIds((current) => event.target.checked ? [...current, request.id] : current.filter((id) => id !== request.id))} /></TableCell>
                   <TableCell className="font-medium">{request.requestNumber}</TableCell>
                   <TableCell>
                     <div className="max-w-[260px]">
@@ -291,7 +309,7 @@ export default function AdminRequestsPage() {
                   </TableCell>
                 </TableRow>
               ))}
-              {!items.length ? <TableEmpty colSpan={10}>Nu există solicitări.</TableEmpty> : null}
+              {!items.length ? <TableEmpty colSpan={11}>Nu există solicitări.</TableEmpty> : null}
             </TableBody>
           </Table>
         </TableWrapper>
