@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { Activity, AlertTriangle, ArrowRight, CheckCircle2, ClipboardList, HeartPulse, RefreshCw, ShieldAlert, TrendingUp } from 'lucide-react';
-import { superadminClientHealthApi } from '@/lib/api';
+import { superadminClientHealthApi, superadminCustomerSuccessApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 const statusLabels: Record<string, string> = {
@@ -278,6 +278,7 @@ function ClientRow({ item }: { item: any }) {
 }
 
 function ActionRow({ item, onDone }: { item: any; onDone: () => void }) {
+  const startPlaybook = async () => { await superadminCustomerSuccessApi.startRecommendation(item.id); onDone(); };
   const createTask = async () => { await superadminClientHealthApi.createTask(item.id); onDone(); };
   const createFollowUp = async () => { await superadminClientHealthApi.createFollowUp(item.id); onDone(); };
   const dismiss = async () => { const reason = window.prompt('Motiv dismiss') || undefined; await superadminClientHealthApi.dismissAction(item.id, reason); onDone(); };
@@ -287,6 +288,7 @@ function ActionRow({ item, onDone }: { item: any; onDone: () => void }) {
       <p className="mt-1 text-sm text-slate-500">{item.description}</p>
       <p className="mt-1 text-xs text-slate-400">{item.clientAccount?.displayName || ''}</p>
       <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
+        <button onClick={startPlaybook} className="rounded-md bg-slate-950 px-3 py-2 text-white">Start playbook</button>
         <button onClick={createTask} className="rounded-md border border-slate-200 px-3 py-2 text-slate-700">Creeaza task</button>
         <button onClick={createFollowUp} className="rounded-md border border-slate-200 px-3 py-2 text-slate-700">Creeaza follow-up</button>
         <button onClick={dismiss} className="rounded-md border border-slate-200 px-3 py-2 text-slate-500">Dismiss</button>

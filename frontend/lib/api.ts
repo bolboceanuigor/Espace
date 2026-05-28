@@ -3441,6 +3441,35 @@ export const superadminClientHealthApi = {
   createFollowUp: (id: string, data?: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/client-health/actions/${id}/create-follow-up`, { method: 'POST', body: data || {} }),
 };
 
+export const superadminCustomerSuccessApi = {
+  dashboard: () => apiRequest<any>('/api/superadmin/customer-success'),
+  playbooks: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/customer-success/playbooks', { params }),
+  createPlaybook: (data: Record<string, unknown>) => apiRequest<any>('/api/superadmin/customer-success/playbooks', { method: 'POST', body: data }),
+  playbook: (id: string) => apiRequest<any>(`/api/superadmin/customer-success/playbooks/${id}`),
+  updatePlaybook: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/customer-success/playbooks/${id}`, { method: 'PATCH', body: data }),
+  archivePlaybook: (id: string) => apiRequest<any>(`/api/superadmin/customer-success/playbooks/${id}/archive`, { method: 'PATCH' }),
+  duplicatePlaybook: (id: string) => apiRequest<any>(`/api/superadmin/customer-success/playbooks/${id}/duplicate`, { method: 'POST' }),
+  startPlaybook: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/customer-success/playbooks/${id}/start`, { method: 'POST', body: data }),
+  interventions: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/customer-success/interventions', { params }),
+  createIntervention: (data: Record<string, unknown>) => apiRequest<any>('/api/superadmin/customer-success/interventions', { method: 'POST', body: data }),
+  intervention: (id: string) => apiRequest<any>(`/api/superadmin/customer-success/interventions/${id}`),
+  updateIntervention: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/customer-success/interventions/${id}`, { method: 'PATCH', body: data }),
+  completeIntervention: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/customer-success/interventions/${id}/complete`, { method: 'POST', body: data }),
+  cancelIntervention: (id: string, reason: string) => apiRequest<any>(`/api/superadmin/customer-success/interventions/${id}/cancel`, { method: 'POST', body: { reason } }),
+  startStep: (id: string, stepId: string) => apiRequest<any>(`/api/superadmin/customer-success/interventions/${id}/steps/${stepId}/start`, { method: 'PATCH', body: {} }),
+  completeStep: (id: string, stepId: string) => apiRequest<any>(`/api/superadmin/customer-success/interventions/${id}/steps/${stepId}/complete`, { method: 'PATCH', body: {} }),
+  skipStep: (id: string, stepId: string, reason: string) => apiRequest<any>(`/api/superadmin/customer-success/interventions/${id}/steps/${stepId}/skip`, { method: 'PATCH', body: { reason } }),
+  blockStep: (id: string, stepId: string, reason: string) => apiRequest<any>(`/api/superadmin/customer-success/interventions/${id}/steps/${stepId}/block`, { method: 'PATCH', body: { reason } }),
+  stepCreateTask: (id: string, stepId: string, data?: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/customer-success/interventions/${id}/steps/${stepId}/create-task`, { method: 'POST', body: data || {} }),
+  stepCreateFollowUp: (id: string, stepId: string, data?: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/customer-success/interventions/${id}/steps/${stepId}/create-follow-up`, { method: 'POST', body: data || {} }),
+  stepAddNote: (id: string, stepId: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/customer-success/interventions/${id}/steps/${stepId}/add-note`, { method: 'POST', body: data }),
+  recordContact: (id: string, stepId: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/customer-success/interventions/${id}/steps/${stepId}/record-contact`, { method: 'POST', body: data }),
+  recommendations: () => apiRequest<any>('/api/superadmin/customer-success/recommendations'),
+  startRecommendation: (id: string) => apiRequest<any>(`/api/superadmin/customer-success/recommendations/${id}/start-playbook`, { method: 'POST' }),
+  dismissRecommendation: (id: string) => apiRequest<any>(`/api/superadmin/customer-success/recommendations/${id}/dismiss`, { method: 'POST' }),
+  createRecommendationTask: (id: string) => apiRequest<any>(`/api/superadmin/customer-success/recommendations/${id}/create-task`, { method: 'POST' }),
+};
+
 export const condoApi = {
   getOwnerDashboard: () =>
     apiRequest<{

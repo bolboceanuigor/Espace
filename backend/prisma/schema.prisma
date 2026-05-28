@@ -1396,6 +1396,58 @@ enum ClientInterventionEventType {
   OUTCOME_SET
 }
 
+enum CustomerSuccessReportType {
+  PORTFOLIO_OVERVIEW
+  HEALTH_DISTRIBUTION
+  HEALTH_TRENDS
+  ONBOARDING_PIPELINE
+  REVENUE_ESTIMATE
+  SAAS_INVOICES
+  FOLLOW_UP_PERFORMANCE
+  TASK_PERFORMANCE
+  PLAYBOOK_PERFORMANCE
+  USAGE_BY_PLAN
+  CHURN_RISK
+  CUSTOMER_LIFECYCLE
+  OWNER_PERFORMANCE
+  CUSTOM
+}
+
+enum CustomerSuccessReportPeriod {
+  TODAY
+  LAST_7_DAYS
+  LAST_30_DAYS
+  LAST_90_DAYS
+  MONTH_TO_DATE
+  QUARTER_TO_DATE
+  YEAR_TO_DATE
+  CUSTOM
+}
+
+enum CustomerSuccessMetricGranularity {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+}
+
+enum SavedCustomerReportStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum CustomerSuccessReportExportFormat {
+  CSV
+  JSON
+}
+
+enum CustomerSuccessReportExportStatus {
+  REQUESTED
+  READY
+  FAILED
+  EXPIRED
+}
+
 enum LegalDocumentType {
   PRIVACY_POLICY
   TERMS_OF_USE
@@ -3194,6 +3246,67 @@ model ClientInterventionEvent {
   @@index([clientAccountId, createdAt])
   @@index([eventType, createdAt])
   @@map("client_intervention_events")
+}
+
+model CustomerSuccessMetricSnapshot {
+  id            String                           @id @default(uuid())
+  reportType    CustomerSuccessReportType
+  periodStart   DateTime
+  periodEnd     DateTime
+  granularity   CustomerSuccessMetricGranularity @default(WEEKLY)
+  metrics       Json
+  filters       Json?
+  generatedById String?
+  generatedAt   DateTime                         @default(now())
+  createdAt     DateTime                         @default(now())
+  updatedAt     DateTime                         @updatedAt
+
+  @@index([reportType, generatedAt])
+  @@index([periodStart, periodEnd])
+  @@index([generatedById, generatedAt])
+  @@map("customer_success_metric_snapshots")
+}
+
+model SavedCustomerSuccessReport {
+  id           String                    @id @default(uuid())
+  name         String
+  description  String?
+  reportType   CustomerSuccessReportType
+  status       SavedCustomerReportStatus @default(ACTIVE)
+  filters      Json
+  columns      Json?
+  chartConfig  Json?
+  isFavorite   Boolean                   @default(false)
+  createdById  String
+  updatedById  String?
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+
+  @@index([reportType, status])
+  @@index([createdById, status])
+  @@index([isFavorite, status])
+  @@map("saved_customer_success_reports")
+}
+
+model CustomerSuccessReportExport {
+  id            String                            @id @default(uuid())
+  reportType    CustomerSuccessReportType
+  format        CustomerSuccessReportExportFormat @default(CSV)
+  status        CustomerSuccessReportExportStatus @default(REQUESTED)
+  fileName      String
+  fileSize      Int?
+  filters       Json
+  generatedById String
+  generatedAt   DateTime?
+  errorMessage  String?
+  metadata      Json?
+  createdAt     DateTime                          @default(now())
+  updatedAt     DateTime                          @updatedAt
+
+  @@index([reportType, createdAt])
+  @@index([generatedById, createdAt])
+  @@index([status, createdAt])
+  @@map("customer_success_report_exports")
 }
 
 model LegalDocument {

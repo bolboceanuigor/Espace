@@ -552,6 +552,12 @@ export default function SuperadminPage() {
                 href={localizedPath('/superadmin/client-health')}
               />
               <QuickActionCard
+                icon={Zap}
+                title="Customer Success"
+                description="Playbook-uri, interventii si workflow-uri ghidate pentru clienti"
+                href={localizedPath('/superadmin/customer-success')}
+              />
+              <QuickActionCard
                 icon={Scale}
                 title="Legal & Trust"
                 description="Documente legale, versiuni si cereri privacy/security"
