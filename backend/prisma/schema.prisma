@@ -1119,6 +1119,111 @@ enum ClientCalendarEventType {
   MANUAL_EVENT
 }
 
+enum ClientKnowledgeItemType {
+  NOTE
+  DECISION
+  FILE
+  LINK
+  CONTACT
+  KNOWN_ISSUE
+  CHECKLIST
+  ONBOARDING_CONTEXT
+  SUPPORT_CONTEXT
+  BILLING_CONTEXT
+  SECURITY_CONTEXT
+  LEGAL_CONTEXT
+  TECHNICAL_CONTEXT
+}
+
+enum ClientKnowledgeCategory {
+  GENERAL
+  ONBOARDING
+  SUPPORT
+  BILLING
+  SUBSCRIPTION
+  TECHNICAL
+  LEGAL
+  SECURITY
+  DATA_IMPORT
+  PEOPLE
+  DECISIONS
+  RISKS
+  INCIDENTS
+  DOCUMENTS
+  OTHER
+}
+
+enum ClientKnowledgeStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum ClientKnowledgeVisibility {
+  INTERNAL_SUPERADMIN
+  INTERNAL_SUPPORT
+  INTERNAL_BILLING
+  INTERNAL_TECHNICAL
+}
+
+enum ClientKnowledgePriority {
+  LOW
+  NORMAL
+  HIGH
+  CRITICAL
+}
+
+enum ClientFileStorageProvider {
+  NONE
+  LOCAL
+  SUPABASE
+  S3
+  EXTERNAL_LINK
+}
+
+enum ClientContactStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum ClientDecisionImpact {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ClientDecisionStatus {
+  ACTIVE
+  SUPERSEDED
+  ARCHIVED
+}
+
+enum ClientKnownIssueStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  ARCHIVED
+}
+
+enum ClientKnownIssueSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ClientLinkStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum ClientChecklistStatus {
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
 enum LegalDocumentType {
   PRIVACY_POLICY
   TERMS_OF_USE
@@ -2336,6 +2441,13 @@ model ClientAccount {
   notes      ClientAccountNote[]
   followUps  ClientFollowUp[]
   reminders  ClientReminder[]
+  knowledgeItems ClientKnowledgeItem[]
+  clientFiles ClientFile[]
+  clientContacts ClientContact[]
+  clientDecisions ClientDecision[]
+  clientKnownIssues ClientKnownIssue[]
+  clientLinks ClientLink[]
+  clientChecklists ClientChecklist[]
 
   @@index([lifecycleStage, updatedAt])
   @@index([status, updatedAt])
@@ -2490,6 +2602,202 @@ model ClientReminder {
   @@index([followUpId])
   @@index([source, remindAt])
   @@map("client_reminders")
+}
+
+model ClientKnowledgeItem {
+  id                String                    @id @default(uuid())
+  clientAccountId   String
+  associationId     String?
+  type              ClientKnowledgeItemType
+  category          ClientKnowledgeCategory   @default(GENERAL)
+  status            ClientKnowledgeStatus     @default(ACTIVE)
+  visibility        ClientKnowledgeVisibility @default(INTERNAL_SUPERADMIN)
+  priority          ClientKnowledgePriority   @default(NORMAL)
+  title             String
+  content           String?
+  summary           String?
+  isPinned          Boolean                   @default(false)
+  tags              Json?
+  relatedEntityType String?
+  relatedEntityId   String?
+  metadata          Json?
+  createdById       String
+  updatedById       String?
+  archivedAt        DateTime?
+  archivedById      String?
+  archiveReason     String?
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+
+  clientAccount ClientAccount @relation(fields: [clientAccountId], references: [id], onDelete: Cascade)
+
+  @@index([clientAccountId, type, status])
+  @@index([associationId, type, status])
+  @@index([category, status, updatedAt])
+  @@index([priority, status, updatedAt])
+  @@index([isPinned, updatedAt])
+  @@index([createdById, updatedAt])
+  @@map("client_knowledge_items")
+}
+
+model ClientFile {
+  id                String                    @id @default(uuid())
+  clientAccountId   String
+  associationId     String?
+  knowledgeItemId   String?
+  fileName          String
+  originalFileName  String?
+  mimeType          String?
+  fileSize          Int?
+  storageProvider   ClientFileStorageProvider @default(EXTERNAL_LINK)
+  storagePath       String?
+  externalUrl       String?
+  description       String?
+  category          ClientKnowledgeCategory   @default(DOCUMENTS)
+  status            ClientKnowledgeStatus     @default(ACTIVE)
+  uploadedById      String
+  uploadedAt        DateTime                  @default(now())
+  archivedAt        DateTime?
+  archivedById      String?
+  archiveReason     String?
+  metadata          Json?
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+
+  clientAccount ClientAccount @relation(fields: [clientAccountId], references: [id], onDelete: Cascade)
+
+  @@index([clientAccountId, status, uploadedAt])
+  @@index([associationId, status, uploadedAt])
+  @@index([knowledgeItemId])
+  @@index([category, status])
+  @@map("client_files")
+}
+
+model ClientContact {
+  id                     String              @id @default(uuid())
+  clientAccountId        String
+  associationId          String?
+  fullName               String
+  role                   String?
+  phone                  String?
+  email                  String?
+  preferredContactMethod String?
+  notes                  String?
+  isPrimary              Boolean             @default(false)
+  status                 ClientContactStatus @default(ACTIVE)
+  createdById            String
+  updatedById            String?
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+
+  clientAccount ClientAccount @relation(fields: [clientAccountId], references: [id], onDelete: Cascade)
+
+  @@index([clientAccountId, status, isPrimary])
+  @@index([associationId, status])
+  @@index([email])
+  @@index([phone])
+  @@map("client_contacts")
+}
+
+model ClientDecision {
+  id                String                  @id @default(uuid())
+  clientAccountId   String
+  associationId     String?
+  title             String
+  description       String
+  decisionDate      DateTime
+  decidedBy         String?
+  impact            ClientDecisionImpact    @default(MEDIUM)
+  category          ClientKnowledgeCategory @default(DECISIONS)
+  status            ClientDecisionStatus    @default(ACTIVE)
+  relatedEntityType String?
+  relatedEntityId   String?
+  createdById       String
+  updatedById       String?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  clientAccount ClientAccount @relation(fields: [clientAccountId], references: [id], onDelete: Cascade)
+
+  @@index([clientAccountId, status, decisionDate])
+  @@index([associationId, status, decisionDate])
+  @@index([impact, status])
+  @@map("client_decisions")
+}
+
+model ClientKnownIssue {
+  id                String                   @id @default(uuid())
+  clientAccountId   String
+  associationId     String?
+  title             String
+  description       String
+  status            ClientKnownIssueStatus   @default(OPEN)
+  severity          ClientKnownIssueSeverity @default(MEDIUM)
+  category          ClientKnowledgeCategory  @default(RISKS)
+  workaround        String?
+  resolution        String?
+  relatedEntityType String?
+  relatedEntityId   String?
+  assignedToId      String?
+  openedAt          DateTime                 @default(now())
+  resolvedAt        DateTime?
+  createdById       String
+  updatedById       String?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+
+  clientAccount ClientAccount @relation(fields: [clientAccountId], references: [id], onDelete: Cascade)
+
+  @@index([clientAccountId, status, severity])
+  @@index([associationId, status, severity])
+  @@index([assignedToId, status])
+  @@index([category, status])
+  @@map("client_known_issues")
+}
+
+model ClientLink {
+  id              String                  @id @default(uuid())
+  clientAccountId String
+  associationId   String?
+  title           String
+  url             String
+  description     String?
+  category        ClientKnowledgeCategory @default(GENERAL)
+  status          ClientLinkStatus        @default(ACTIVE)
+  createdById     String
+  updatedById     String?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  clientAccount ClientAccount @relation(fields: [clientAccountId], references: [id], onDelete: Cascade)
+
+  @@index([clientAccountId, status, createdAt])
+  @@index([associationId, status, createdAt])
+  @@index([category, status])
+  @@map("client_links")
+}
+
+model ClientChecklist {
+  id              String                  @id @default(uuid())
+  clientAccountId String
+  associationId   String?
+  title           String
+  description     String?
+  category        ClientKnowledgeCategory @default(ONBOARDING)
+  status          ClientChecklistStatus   @default(ACTIVE)
+  items           Json
+  completedAt     DateTime?
+  createdById     String
+  updatedById     String?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  clientAccount ClientAccount @relation(fields: [clientAccountId], references: [id], onDelete: Cascade)
+
+  @@index([clientAccountId, status, createdAt])
+  @@index([associationId, status, createdAt])
+  @@index([category, status])
+  @@map("client_checklists")
 }
 
 model LegalDocument {

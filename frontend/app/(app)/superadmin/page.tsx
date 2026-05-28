@@ -532,6 +532,12 @@ export default function SuperadminPage() {
                 href={localizedPath('/superadmin/clients')}
               />
               <QuickActionCard
+                icon={Calendar}
+                title="Agenda CRM"
+                description="Taskuri, follow-up-uri si reminder-e interne pentru clienti"
+                href={localizedPath('/superadmin/clients/my-work')}
+              />
+              <QuickActionCard
                 icon={Scale}
                 title="Legal & Trust"
                 description="Documente legale, versiuni si cereri privacy/security"

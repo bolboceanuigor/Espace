@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowRight, ClipboardList, Clock, Kanban, ListChecks, MessageSquare, RefreshCw, ShieldAlert, UserRoundCheck } from 'lucide-react';
+import { ArrowRight, Bell, CalendarDays, ClipboardList, Clock, Kanban, ListChecks, MessageSquare, RefreshCw, ShieldAlert, UserRoundCheck } from 'lucide-react';
 import { superadminClientsApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
@@ -68,6 +68,9 @@ function Header({ title, subtitle }: { title: string; subtitle: string }) {
           <Link href={path('/superadmin/clients/list')} className="rounded-md border border-slate-200 px-3 py-2">Lista</Link>
           <Link href={path('/superadmin/clients/tasks')} className="rounded-md border border-slate-200 px-3 py-2">Taskuri</Link>
           <Link href={path('/superadmin/clients/follow-ups')} className="rounded-md border border-slate-200 px-3 py-2">Follow-ups</Link>
+          <Link href={path('/superadmin/clients/my-work')} className="rounded-md border border-slate-200 px-3 py-2">Munca mea</Link>
+          <Link href={path('/superadmin/clients/calendar')} className="rounded-md border border-slate-200 px-3 py-2">Calendar</Link>
+          <Link href={path('/superadmin/clients/reminders')} className="rounded-md border border-slate-200 px-3 py-2">Reminders</Link>
         </nav>
       </div>
     </header>
@@ -97,6 +100,7 @@ export function ClientsDashboardPage() {
         <QuickCard href={path('/superadmin/clients/pipeline')} title="Client Pipeline" text="Vezi clientii grupati pe etapa CRM." />
         <QuickCard href={path('/superadmin/clients/tasks')} title="Taskuri client" text="Urmareste taskurile deschise si intarziate." />
         <QuickCard href={path('/superadmin/clients/follow-ups')} title="Follow-ups" text="Vezi contactele programate si restante." />
+        <QuickCard href={path('/superadmin/clients/my-work')} title="Munca mea" text="Agenda personala cu taskuri, follow-up-uri si reminders." />
       </div>
     </Shell>
   );
@@ -211,7 +215,7 @@ function ClientsTable({ items }: { items: any[] }) {
   );
 }
 
-export function ClientDetailPage({ id, tab }: { id: string; tab?: 'activity' | 'tasks' | 'notes' | 'onboarding' | 'subscription' | 'risk' }) {
+export function ClientDetailPage({ id, tab }: { id: string; tab?: 'activity' | 'tasks' | 'follow-ups' | 'calendar' | 'notes' | 'onboarding' | 'subscription' | 'risk' }) {
   const path = useLocalizedPath();
   const [data, setData] = useState<any>(null);
   const [note, setNote] = useState('');
@@ -237,11 +241,13 @@ export function ClientDetailPage({ id, tab }: { id: string; tab?: 'activity' | '
         </div>
       </header>
       <nav className="flex flex-wrap gap-2 rounded-lg border border-slate-200 bg-white p-3 text-sm">
-        {['activity', 'tasks', 'notes', 'onboarding', 'subscription', 'risk'].map((item) => <Link key={item} href={path(`/superadmin/clients/${id}/${item}`)} className={`rounded-md px-3 py-2 ${tab === item ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-700'}`}>{item}</Link>)}
+        {['activity', 'tasks', 'follow-ups', 'calendar', 'notes', 'onboarding', 'subscription', 'risk'].map((item) => <Link key={item} href={path(`/superadmin/clients/${id}/${item}`)} className={`rounded-md px-3 py-2 ${tab === item ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-700'}`}>{item}</Link>)}
       </nav>
       {!tab ? <Overview data={data} onStage={async (stage) => { const reason = ['ACTIVE', 'SUSPENDED', 'CHURNED', 'CLOSED'].includes(stage) ? window.prompt('Motiv') || '' : ''; await superadminClientsApi.changeStage(id, { stage, reason }); await load(); }} /> : null}
       {tab === 'activity' ? <Timeline items={client.activities || []} /> : null}
       {tab === 'tasks' ? <Panel title="Taskuri"><InlineCreate value={taskTitle} onChange={setTaskTitle} onSubmit={addTask} placeholder="Titlu task..." /> <TaskList items={client.tasks || []} onComplete={async (taskId) => { await superadminClientsApi.completeTask(taskId); await load(); }} /></Panel> : null}
+      {tab === 'follow-ups' ? <FollowUpsPanel clientId={id} /> : null}
+      {tab === 'calendar' ? <ClientCalendarPanel clientId={id} /> : null}
       {tab === 'notes' ? <Panel title="Note interne"><textarea value={note} onChange={(e) => setNote(e.target.value)} className="min-h-24 w-full rounded-md border border-slate-200 p-3 text-sm" placeholder="Adauga nota interna..." /><button onClick={addNote} className="mt-2 rounded-md bg-slate-950 px-3 py-2 text-sm font-semibold text-white">Adauga nota</button><NoteList items={client.notes || []} /></Panel> : null}
       {tab === 'onboarding' ? <OnboardingTab id={id} /> : null}
       {tab === 'subscription' ? <SubscriptionTab data={data} /> : null}
@@ -299,13 +305,121 @@ function RiskTab({ data }: { data: any }) {
 export function ClientTasksPage() {
   const [items, setItems] = useState<any[]>([]);
   useEffect(() => { superadminClientsApi.tasks().then((res) => setItems((res.data || res).items || [])).catch(() => undefined); }, []);
-  return <Shell><Header title="Taskuri clienti" subtitle="Toate taskurile din pipeline." /><Panel title="Taskuri">{items.length ? <TaskList items={items} onComplete={async (id) => { await superadminClientsApi.completeTask(id); setItems(items.filter((item) => item.id !== id)); }} /> : <Empty title="Nu exista taskuri pentru clienti." />}</Panel></Shell>;
+  return <Shell><Header title="Taskuri clienti" subtitle="Gestioneaza taskurile interne pentru clienti si onboarding." /><Panel title="Taskuri">{items.length ? <TaskTable items={items} onComplete={async (id) => { await superadminClientsApi.completeTask(id); setItems(items.filter((item) => item.id !== id)); }} /> : <Empty title="Nu exista taskuri." />}</Panel></Shell>;
+}
+
+export function ClientTaskCreatePage() {
+  const path = useLocalizedPath();
+  const [form, setForm] = useState({ clientAccountId: '', title: '', category: 'GENERAL', priority: 'NORMAL', dueAt: '', reminderAt: '' });
+  const submit = async () => {
+    if (!form.clientAccountId || !form.title.trim()) return;
+    const res = await superadminClientsApi.createGlobalTask({ ...form, dueAt: form.dueAt || undefined, reminderAt: form.reminderAt || undefined });
+    const task = res.data || res;
+    window.location.href = path(`/superadmin/clients/tasks/${task.id}`);
+  };
+  return <Shell><Header title="Task nou" subtitle="Creeaza un task intern legat de un client." /><Panel title="Detalii task"><div className="grid gap-3 md:grid-cols-2"><Field label="ClientAccount ID" value={form.clientAccountId} onChange={(v) => setForm({ ...form, clientAccountId: v })} /><Field label="Titlu" value={form.title} onChange={(v) => setForm({ ...form, title: v })} /><SelectField label="Categorie" value={form.category} options={['GENERAL','CONTACT','ONBOARDING','DATA_IMPORT','BILLING_SETUP','SUBSCRIPTION','SAAS_INVOICE','SUPPORT','SECURITY','BACKUP','LEGAL','PLATFORM_SERVICE','FOLLOW_UP']} onChange={(v) => setForm({ ...form, category: v })} /><SelectField label="Prioritate" value={form.priority} options={['LOW','NORMAL','HIGH','URGENT']} onChange={(v) => setForm({ ...form, priority: v })} /><Field label="Due date" type="datetime-local" value={form.dueAt} onChange={(v) => setForm({ ...form, dueAt: v })} /><Field label="Reminder" type="datetime-local" value={form.reminderAt} onChange={(v) => setForm({ ...form, reminderAt: v })} /></div><button onClick={submit} className="mt-4 rounded-md bg-slate-950 px-4 py-2 text-sm font-semibold text-white">Creeaza task</button></Panel></Shell>;
+}
+
+export function ClientTaskDetailPage({ id }: { id: string }) {
+  const [item, setItem] = useState<any>(null);
+  const [newDue, setNewDue] = useState('');
+  const load = useCallback(async () => setItem((await superadminClientsApi.getTask(id)).data || {}), [id]);
+  useEffect(() => { load().catch(() => undefined); }, [load]);
+  if (!item) return <Shell><p className="text-sm text-slate-500">Se incarca taskul...</p></Shell>;
+  return <Shell><Header title={item.title} subtitle="Detalii task CRM intern." /><div className="grid gap-4 lg:grid-cols-3"><Panel title="Task"><Info label="Status" value={item.status} /><Info label="Prioritate" value={item.priority} /><Info label="Categorie" value={item.category} /><Info label="Due" value={fmt(item.dueAt)} /><Info label="Reminder" value={fmt(item.reminderAt)} /></Panel><Panel title="Client"><Info label="Client" value={item.clientAccount?.displayName} /><Info label="Asociatie" value={item.clientAccount?.associationName} /><Link href={`/superadmin/clients/${item.clientAccountId}`} className="text-sm font-semibold text-emerald-700">Deschide client</Link></Panel><Panel title="Actiuni"><div className="space-y-2"><button onClick={async () => { await superadminClientsApi.startTask(id); await load(); }} className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm">Marcheaza in lucru</button><button onClick={async () => { await superadminClientsApi.completeTask(id); await load(); }} className="w-full rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white">Completeaza</button><input type="datetime-local" value={newDue} onChange={(e) => setNewDue(e.target.value)} className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm" /><button onClick={async () => { if (newDue) { await superadminClientsApi.rescheduleTask(id, { dueAt: newDue }); await load(); } }} className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm">Reprogrameaza</button></div></Panel></div></Shell>;
 }
 
 export function ClientFollowUpsPage() {
   const [items, setItems] = useState<any[]>([]);
   useEffect(() => { superadminClientsApi.followUps().then((res) => setItems((res.data || res).items || [])).catch(() => undefined); }, []);
-  return <Shell><Header title="Follow-ups clienti" subtitle="Contacte programate, intarziate si upcoming." /><Panel title="Follow-ups">{items.length ? items.map((item) => <div key={item.id} className="mb-2 flex items-center justify-between rounded-md border border-slate-200 p-3"><div><p className="text-sm font-semibold text-slate-950">{item.title}</p><p className="text-xs text-slate-500">{fmt(item.dueAt)} · {item.status}</p></div><button onClick={async () => { await superadminClientsApi.doneFollowUp(item.id); setItems(items.filter((entry) => entry.id !== item.id)); }} className="rounded-md border border-slate-200 px-3 py-1 text-xs">Done</button></div>) : <Empty title="Nu exista follow-up-uri programate." />}</Panel></Shell>;
+  return <Shell><Header title="Follow-up-uri" subtitle="Urmareste clientii care trebuie contactati sau verificati." /><Panel title="Follow-up-uri">{items.length ? <FollowUpTable items={items} onDone={async (id) => { await superadminClientsApi.doneFollowUp(id); setItems(items.filter((entry) => entry.id !== id)); }} /> : <Empty title="Nu exista follow-up-uri." />}</Panel></Shell>;
+}
+
+export function ClientFollowUpDetailPage({ id }: { id: string }) {
+  const [item, setItem] = useState<any>(null);
+  const [newDue, setNewDue] = useState('');
+  const load = useCallback(async () => setItem((await superadminClientsApi.getFollowUp(id)).data || {}), [id]);
+  useEffect(() => { load().catch(() => undefined); }, [load]);
+  if (!item) return <Shell><p className="text-sm text-slate-500">Se incarca follow-up-ul...</p></Shell>;
+  return <Shell><Header title={item.title} subtitle="Detalii follow-up client." /><div className="grid gap-4 lg:grid-cols-3"><Panel title="Follow-up"><Info label="Status" value={item.status} /><Info label="Prioritate" value={item.priority} /><Info label="Due" value={fmt(item.dueAt)} /><Info label="Reminder" value={fmt(item.reminderAt)} /></Panel><Panel title="Client"><Info label="Client" value={item.clientAccount?.displayName} /><Info label="Contact" value={item.clientAccount?.contactName} /><Link href={`/superadmin/clients/${item.clientAccountId}`} className="text-sm font-semibold text-emerald-700">Deschide client</Link></Panel><Panel title="Actiuni"><button onClick={async () => { await superadminClientsApi.doneFollowUp(id); await load(); }} className="mb-2 w-full rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white">Mark done</button><input type="datetime-local" value={newDue} onChange={(e) => setNewDue(e.target.value)} className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm" /><button onClick={async () => { if (newDue) { await superadminClientsApi.rescheduleFollowUp(id, { dueAt: newDue }); await load(); } }} className="mt-2 w-full rounded-md border border-slate-200 px-3 py-2 text-sm">Reprogrameaza</button></Panel></div></Shell>;
+}
+
+export function ClientMyWorkPage() {
+  const [data, setData] = useState<any>(null);
+  useEffect(() => { superadminClientsApi.myWork().then((res) => setData(res.data || res)).catch(() => setData({ summary: {}, overdue: [], today: [], upcoming: [] })); }, []);
+  const summary = data?.summary || {};
+  return <Shell><Header title="Munca mea" subtitle="Taskurile, follow-up-urile si reminder-ele asignate tie." /><div className="grid gap-3 md:grid-cols-4"><Kpi icon={<ClipboardList />} label="Taskuri deschise" value={summary.openTasks || 0} /><Kpi icon={<Clock />} label="Taskuri intarziate" value={summary.overdueTasks || 0} tone="amber" /><Kpi icon={<CalendarDays />} label="Follow-up-uri azi" value={summary.followUpsToday || 0} /><Kpi icon={<Bell />} label="Reminder-e due" value={summary.dueReminders || 0} tone="amber" /></div><AgendaSection title="Intarziate" items={data?.overdue || []} /><AgendaSection title="Azi" items={data?.today || []} /><AgendaSection title="Urmatoarele 7 zile" items={data?.upcoming || []} /></Shell>;
+}
+
+export function ClientCalendarPage({ view = 'agenda', clientId }: { view?: 'agenda' | 'day' | 'week' | 'month'; clientId?: string }) {
+  const [items, setItems] = useState<any[]>([]);
+  const load = useCallback(async () => {
+    const api = clientId ? superadminClientsApi.clientCalendar(clientId, { view }) : view === 'day' ? superadminClientsApi.calendarDay() : view === 'week' ? superadminClientsApi.calendarWeek() : view === 'month' ? superadminClientsApi.calendarMonth() : superadminClientsApi.calendar({ view });
+    const res = await api;
+    setItems((res.data || res).items || []);
+  }, [clientId, view]);
+  useEffect(() => { load().catch(() => undefined); }, [load]);
+  return <Shell><Header title="Calendar CRM" subtitle="Vezi taskurile, follow-up-urile si reminder-ele intr-un calendar operational." /><Panel title={view === 'month' ? 'Luna' : view === 'week' ? 'Saptamana' : view === 'day' ? 'Zi' : 'Agenda'}>{items.length ? <CalendarList items={items} /> : <Empty title="Nu exista activitati in perioada selectata." />}</Panel></Shell>;
+}
+
+export function ClientRemindersPage() {
+  const [items, setItems] = useState<any[]>([]);
+  const load = useCallback(async () => setItems(((await superadminClientsApi.reminders()).data || {}).items || []), []);
+  useEffect(() => { load().catch(() => undefined); }, [load]);
+  return <Shell><Header title="Reminder Center" subtitle="Vezi reminder-ele active pentru clienti, taskuri si follow-up-uri." /><Panel title="Reminder-e">{items.length ? <ReminderTable items={items} onComplete={async (id) => { await superadminClientsApi.completeReminder(id); await load(); }} onDismiss={async (id) => { await superadminClientsApi.dismissReminder(id); await load(); }} /> : <Empty title="Nu exista reminder-e active." />}</Panel></Shell>;
+}
+
+export function ClientReminderDetailPage({ id }: { id: string }) {
+  const [item, setItem] = useState<any>(null);
+  const [snooze, setSnooze] = useState('');
+  const load = useCallback(async () => setItem((await superadminClientsApi.getReminder(id)).data || {}), [id]);
+  useEffect(() => { load().catch(() => undefined); }, [load]);
+  if (!item) return <Shell><p className="text-sm text-slate-500">Se incarca reminder-ul...</p></Shell>;
+  return <Shell><Header title={item.title} subtitle="Detalii reminder CRM." /><div className="grid gap-4 lg:grid-cols-3"><Panel title="Reminder"><Info label="Status" value={item.status} /><Info label="Prioritate" value={item.priority} /><Info label="Remind at" value={fmt(item.remindAt)} /><Info label="Snoozed until" value={fmt(item.snoozedUntil)} /></Panel><Panel title="Client"><Info label="Client" value={item.clientAccount?.displayName} /><Info label="Mesaj" value={item.message} /></Panel><Panel title="Actiuni"><button onClick={async () => { await superadminClientsApi.completeReminder(id); await load(); }} className="mb-2 w-full rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white">Completeaza</button><input type="datetime-local" value={snooze} onChange={(e) => setSnooze(e.target.value)} className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm" /><button onClick={async () => { if (snooze) { await superadminClientsApi.snoozeReminder(id, snooze); await load(); } }} className="mt-2 w-full rounded-md border border-slate-200 px-3 py-2 text-sm">Snooze</button><button onClick={async () => { await superadminClientsApi.dismissReminder(id); await load(); }} className="mt-2 w-full rounded-md border border-slate-200 px-3 py-2 text-sm">Dismiss</button></Panel></div></Shell>;
+}
+
+function FollowUpsPanel({ clientId }: { clientId: string }) {
+  const [items, setItems] = useState<any[]>([]);
+  useEffect(() => { superadminClientsApi.clientFollowUps(clientId).then((res) => setItems((res.data || res).items || [])).catch(() => undefined); }, [clientId]);
+  return <Panel title="Follow-up-uri client">{items.length ? <FollowUpTable items={items} onDone={async (id) => { await superadminClientsApi.doneFollowUp(id); setItems(items.filter((item) => item.id !== id)); }} /> : <Empty title="Nu exista follow-up-uri programate." />}</Panel>;
+}
+
+function ClientCalendarPanel({ clientId }: { clientId: string }) {
+  const [items, setItems] = useState<any[]>([]);
+  useEffect(() => { superadminClientsApi.clientCalendar(clientId).then((res) => setItems((res.data || res).items || [])).catch(() => undefined); }, [clientId]);
+  return <Panel title="Agenda client">{items.length ? <CalendarList items={items} /> : <Empty title="Nu exista activitati pentru acest client." />}</Panel>;
+}
+
+function TaskTable({ items, onComplete }: { items: any[]; onComplete: (id: string) => void }) {
+  const path = useLocalizedPath();
+  return <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left text-sm"><thead className="text-xs uppercase text-slate-500"><tr><th className="p-3">Task</th><th>Client</th><th>Categorie</th><th>Prioritate</th><th>Status</th><th>Due</th><th>Actiuni</th></tr></thead><tbody className="divide-y divide-slate-100">{items.map((item) => <tr key={item.id}><td className="p-3 font-semibold text-slate-950">{item.title}</td><td>{item.clientAccount?.displayName || item.clientAccountId || '-'}</td><td>{item.category || 'GENERAL'}</td><td><Badge value={item.priority || 'NORMAL'} tone={item.priority === 'URGENT' || item.priority === 'HIGH' ? 'red' : 'slate'} /></td><td>{item.status}</td><td>{fmt(item.dueAt)}</td><td className="space-x-2"><Link href={path(`/superadmin/clients/tasks/${item.id}`)} className="text-emerald-700 hover:underline">Deschide</Link>{item.status !== 'COMPLETED' ? <button onClick={() => onComplete(item.id)} className="text-slate-600 hover:underline">Completeaza</button> : null}</td></tr>)}</tbody></table></div>;
+}
+
+function FollowUpTable({ items, onDone }: { items: any[]; onDone: (id: string) => void }) {
+  const path = useLocalizedPath();
+  return <div className="overflow-x-auto"><table className="w-full min-w-[850px] text-left text-sm"><thead className="text-xs uppercase text-slate-500"><tr><th className="p-3">Follow-up</th><th>Client</th><th>Prioritate</th><th>Status</th><th>Due</th><th>Actiuni</th></tr></thead><tbody className="divide-y divide-slate-100">{items.map((item) => <tr key={item.id}><td className="p-3 font-semibold text-slate-950">{item.title}</td><td>{item.clientAccount?.displayName || item.clientAccountId || '-'}</td><td><Badge value={item.priority || 'NORMAL'} tone={item.priority === 'URGENT' || item.priority === 'HIGH' ? 'red' : 'slate'} /></td><td>{item.status}</td><td>{fmt(item.dueAt)}</td><td className="space-x-2"><Link href={path(`/superadmin/clients/follow-ups/${item.id}`)} className="text-emerald-700 hover:underline">Deschide</Link>{item.status === 'OPEN' ? <button onClick={() => onDone(item.id)} className="text-slate-600 hover:underline">Done</button> : null}</td></tr>)}</tbody></table></div>;
+}
+
+function ReminderTable({ items, onComplete, onDismiss }: { items: any[]; onComplete: (id: string) => void; onDismiss: (id: string) => void }) {
+  const path = useLocalizedPath();
+  return <div className="overflow-x-auto"><table className="w-full min-w-[850px] text-left text-sm"><thead className="text-xs uppercase text-slate-500"><tr><th className="p-3">Reminder</th><th>Client</th><th>Status</th><th>Prioritate</th><th>Remind at</th><th>Actiuni</th></tr></thead><tbody className="divide-y divide-slate-100">{items.map((item) => <tr key={item.id}><td className="p-3 font-semibold text-slate-950">{item.title}</td><td>{item.clientAccount?.displayName || item.clientAccountId || '-'}</td><td>{item.status}</td><td>{item.priority}</td><td>{fmt(item.snoozedUntil || item.remindAt)}</td><td className="space-x-2"><Link href={path(`/superadmin/clients/reminders/${item.id}`)} className="text-emerald-700 hover:underline">Deschide</Link><button onClick={() => onComplete(item.id)} className="text-slate-600 hover:underline">Completeaza</button><button onClick={() => onDismiss(item.id)} className="text-slate-600 hover:underline">Dismiss</button></td></tr>)}</tbody></table></div>;
+}
+
+function CalendarList({ items }: { items: any[] }) {
+  const path = useLocalizedPath();
+  return <div className="space-y-2">{items.map((item) => <Link key={item.id} href={path(item.url || '/superadmin/clients/calendar')} className="flex items-center justify-between rounded-md border border-slate-200 p-3 hover:border-emerald-300"><div><p className="text-sm font-semibold text-slate-950">{item.title}</p><p className="text-xs text-slate-500">{item.type} · {item.client?.displayName || 'Platforma'} · {fmt(item.startAt)}</p></div><Badge value={item.priority || 'NORMAL'} tone={item.priority === 'URGENT' || item.priority === 'HIGH' ? 'red' : 'slate'} /></Link>)}</div>;
+}
+
+function AgendaSection({ title, items }: { title: string; items: any[] }) {
+  return <Panel title={title}>{items.length ? <CalendarList items={items} /> : <Empty title="Nu exista activitati in aceasta sectiune." />}</Panel>;
+}
+
+function Field({ label, value, onChange, type = 'text' }: { label: string; value: string; onChange: (value: string) => void; type?: string }) {
+  return <label className="block"><span className="mb-1 block text-xs font-semibold uppercase text-slate-400">{label}</span><input type={type} value={value} onChange={(e) => onChange(e.target.value)} className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm" /></label>;
+}
+
+function SelectField({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (value: string) => void }) {
+  return <label className="block"><span className="mb-1 block text-xs font-semibold uppercase text-slate-400">{label}</span><select value={value} onChange={(e) => onChange(e.target.value)} className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm">{options.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>;
 }
 
 export function ClientReportsPage() {

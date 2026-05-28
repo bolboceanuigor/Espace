@@ -2,7 +2,6 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import {
   ClientAccountStatus,
   ClientActivityType,
-  ClientCalendarEventType,
   ClientFollowUpSource,
   ClientFollowUpStatus,
   ClientLifecycleStage,
@@ -67,6 +66,15 @@ const ALLOWED_RELATED_ENTITY_TYPES = new Set([
   'LEGAL_DOCUMENT',
   'DATA_REQUEST',
 ]);
+
+const CALENDAR_EVENT_TYPE = {
+  TASK_DUE: 'TASK_DUE',
+  FOLLOW_UP_DUE: 'FOLLOW_UP_DUE',
+  REMINDER: 'REMINDER',
+  SAAS_INVOICE_DUE: 'SAAS_INVOICE_DUE',
+  PLATFORM_SERVICE_PAYMENT_DUE: 'PLATFORM_SERVICE_PAYMENT_DUE',
+  RECOVERY_DRILL_PLANNED: 'RECOVERY_DRILL_PLANNED',
+} as const;
 
 @Injectable()
 export class SuperadminClientsService {
@@ -298,41 +306,112 @@ export class SuperadminClientsService {
   }
 
   async listTasks(query: Record<string, string | undefined>) {
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(now.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+    const search = query.search?.trim();
     const where: Prisma.ClientTaskWhereInput = {
       ...(query.status ? { status: query.status as ClientTaskStatus } : {}),
+      ...(query.priority ? { priority: query.priority as ClientPriority } : {}),
+      ...(query.category ? { category: query.category as ClientTaskCategory } : {}),
+      ...(query.source ? { source: query.source as ClientTaskSource } : {}),
       ...(query.assignedToId ? { assignedToId: query.assignedToId } : {}),
       ...(query.clientAccountId ? { clientAccountId: query.clientAccountId } : {}),
-      ...(query.overdue === 'true' ? { status: { in: [ClientTaskStatus.OPEN, ClientTaskStatus.IN_PROGRESS] }, dueAt: { lt: new Date() } } : {}),
+      ...(query.overdue === 'true' || query.overdueOnly === 'true' ? { status: { in: [ClientTaskStatus.OPEN, ClientTaskStatus.IN_PROGRESS] }, dueAt: { lt: now } } : {}),
+      ...(query.dueToday === 'true' ? { dueAt: { gte: todayStart, lt: tomorrow } } : {}),
+      ...(search ? { OR: [{ title: { contains: search, mode: 'insensitive' } }, { description: { contains: search, mode: 'insensitive' } }] } : {}),
     };
-    return { items: await this.prisma.clientTask.findMany({ where, orderBy: [{ dueAt: 'asc' }, { createdAt: 'desc' }], take: 200 }) };
+    return { items: await this.prisma.clientTask.findMany({ where, include: { clientAccount: { select: { id: true, displayName: true, associationName: true, contactName: true } } }, orderBy: [{ dueAt: 'asc' }, { createdAt: 'desc' }], take: 200 }) };
   }
 
   async clientTasks(id: string) {
     await this.ensureClient(id);
-    return { items: await this.prisma.clientTask.findMany({ where: { clientAccountId: id }, orderBy: { createdAt: 'desc' } }) };
+    return { items: await this.prisma.clientTask.findMany({ where: { clientAccountId: id }, orderBy: [{ dueAt: 'asc' }, { createdAt: 'desc' }] }) };
+  }
+
+  async createTaskGlobal(dto: CreateClientTaskDto, actor: any) {
+    if (!dto.clientAccountId) throw new BadRequestException('clientAccountId este obligatoriu.');
+    return this.createTask(dto.clientAccountId, dto, actor);
   }
 
   async createTask(id: string, dto: CreateClientTaskDto, actor: any) {
+    this.assertRelatedEntity(dto.relatedEntityType);
+    this.assertReminderBeforeDue(dto.reminderAt, dto.dueAt);
     const client = await this.ensureClient(id);
-    const task = await this.prisma.clientTask.create({ data: { clientAccountId: id, associationId: client.associationId, title: dto.title, description: dto.description || null, priority: dto.priority || ClientPriority.NORMAL, dueAt: dto.dueAt ? new Date(dto.dueAt) : null, assignedToId: dto.assignedToId || null, createdById: actor?.id || null } });
+    const task = await this.prisma.clientTask.create({ data: {
+      clientAccountId: id,
+      associationId: client.associationId,
+      title: this.sanitizeText(dto.title),
+      description: dto.description ? this.sanitizeText(dto.description) : null,
+      priority: dto.priority || ClientPriority.NORMAL,
+      category: dto.category || ClientTaskCategory.GENERAL,
+      dueAt: dto.dueAt ? new Date(dto.dueAt) : null,
+      reminderAt: dto.reminderAt ? new Date(dto.reminderAt) : null,
+      assignedToId: dto.assignedToId || null,
+      createdById: actor?.id || null,
+      source: dto.source || ClientTaskSource.MANUAL,
+      relatedEntityType: dto.relatedEntityType || null,
+      relatedEntityId: dto.relatedEntityId || null,
+    } });
+    await this.createReminderForTask(task, actor);
     await this.activity(id, actor?.id, ClientActivityType.TASK_CREATED, 'Task creat', task.title, { taskId: task.id });
     return task;
   }
 
+  async getTask(taskId: string) {
+    const task = await this.prisma.clientTask.findUnique({ where: { id: taskId }, include: { clientAccount: true } });
+    if (!task) throw new NotFoundException('Client task not found');
+    return task;
+  }
+
   async updateTask(taskId: string, dto: UpdateClientTaskDto, actor: any) {
-    const task = await this.prisma.clientTask.update({ where: { id: taskId }, data: { title: dto.title, description: dto.description, status: dto.status, priority: dto.priority, dueAt: dto.dueAt ? new Date(dto.dueAt) : undefined, assignedToId: dto.assignedToId } });
+    this.assertRelatedEntity(dto.relatedEntityType);
+    this.assertReminderBeforeDue(dto.reminderAt, dto.dueAt);
+    const task = await this.prisma.clientTask.update({ where: { id: taskId }, data: {
+      title: dto.title ? this.sanitizeText(dto.title) : undefined,
+      description: dto.description ? this.sanitizeText(dto.description) : dto.description,
+      status: dto.status,
+      priority: dto.priority,
+      category: dto.category,
+      dueAt: dto.dueAt ? new Date(dto.dueAt) : undefined,
+      reminderAt: dto.reminderAt ? new Date(dto.reminderAt) : undefined,
+      assignedToId: dto.assignedToId,
+      source: dto.source,
+      relatedEntityType: dto.relatedEntityType,
+      relatedEntityId: dto.relatedEntityId,
+    } });
+    await this.createReminderForTask(task, actor);
     await this.activity(task.clientAccountId, actor?.id, ClientActivityType.TASK_CREATED, 'Task actualizat', task.title, { taskId });
+    return task;
+  }
+
+  async startTask(taskId: string, actor: any) {
+    const task = await this.prisma.clientTask.update({ where: { id: taskId }, data: { status: ClientTaskStatus.IN_PROGRESS } });
+    await this.activity(task.clientAccountId, actor?.id, ClientActivityType.TASK_CREATED, 'Task pornit', task.title, { taskId });
     return task;
   }
 
   async completeTask(taskId: string, actor: any) {
     const task = await this.prisma.clientTask.update({ where: { id: taskId }, data: { status: ClientTaskStatus.COMPLETED, completedAt: new Date(), completedById: actor?.id || null } });
+    await this.prisma.clientReminder.updateMany({ where: { taskId, status: { in: [ClientReminderStatus.SCHEDULED, ClientReminderStatus.DUE, ClientReminderStatus.SNOOZED] } }, data: { status: ClientReminderStatus.COMPLETED, completedAt: new Date(), completedById: actor?.id || null } });
     await this.activity(task.clientAccountId, actor?.id, ClientActivityType.TASK_COMPLETED, 'Task finalizat', task.title, { taskId });
     return task;
   }
 
   async cancelTask(taskId: string, dto: CancelClientTaskDto, actor: any) {
     const task = await this.prisma.clientTask.update({ where: { id: taskId }, data: { status: ClientTaskStatus.CANCELLED, cancelledAt: new Date(), cancelledById: actor?.id || null, cancellationReason: dto.reason } });
+    await this.prisma.clientReminder.updateMany({ where: { taskId, status: { in: [ClientReminderStatus.SCHEDULED, ClientReminderStatus.DUE, ClientReminderStatus.SNOOZED] } }, data: { status: ClientReminderStatus.CANCELLED } });
+    return task;
+  }
+
+  async rescheduleTask(taskId: string, dto: RescheduleClientTaskDto, actor: any) {
+    this.assertReminderBeforeDue(dto.reminderAt, dto.dueAt);
+    const task = await this.prisma.clientTask.update({ where: { id: taskId }, data: { dueAt: dto.dueAt ? new Date(dto.dueAt) : undefined, reminderAt: dto.reminderAt ? new Date(dto.reminderAt) : undefined } });
+    await this.createReminderForTask(task, actor);
+    await this.activity(task.clientAccountId, actor?.id, ClientActivityType.TASK_CREATED, 'Task reprogramat', task.title, { taskId, dueAt: task.dueAt, reminderAt: task.reminderAt });
     return task;
   }
 
@@ -360,34 +439,230 @@ export class SuperadminClientsService {
     const now = new Date();
     const week = new Date(now);
     week.setDate(now.getDate() + 7);
+    const tomorrow = new Date(now);
+    tomorrow.setDate(now.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+    const search = query.search?.trim();
     const where: Prisma.ClientFollowUpWhereInput = {
       ...(query.status ? { status: query.status as ClientFollowUpStatus } : {}),
+      ...(query.priority ? { priority: query.priority as ClientPriority } : {}),
+      ...(query.source ? { source: query.source as ClientFollowUpSource } : {}),
       ...(query.assignedToId ? { assignedToId: query.assignedToId } : {}),
+      ...(query.clientAccountId ? { clientAccountId: query.clientAccountId } : {}),
       ...(query.overdue === 'true' ? { status: ClientFollowUpStatus.OPEN, dueAt: { lt: now } } : {}),
       ...(query.upcoming === 'true' ? { status: ClientFollowUpStatus.OPEN, dueAt: { gte: now, lte: week } } : {}),
+      ...(query.dueToday === 'true' ? { dueAt: { gte: todayStart, lt: tomorrow } } : {}),
+      ...(search ? { OR: [{ title: { contains: search, mode: 'insensitive' } }, { description: { contains: search, mode: 'insensitive' } }] } : {}),
     };
-    return { items: await this.prisma.clientFollowUp.findMany({ where, orderBy: { dueAt: 'asc' }, take: 200 }) };
+    return { items: await this.prisma.clientFollowUp.findMany({ where, include: { clientAccount: { select: { id: true, displayName: true, contactName: true, contactPhone: true, contactEmail: true } } }, orderBy: { dueAt: 'asc' }, take: 200 }) };
+  }
+
+  async createFollowUpGlobal(dto: CreateClientFollowUpDto, actor: any) {
+    if (!dto.clientAccountId) throw new BadRequestException('clientAccountId este obligatoriu.');
+    return this.createFollowUp(dto.clientAccountId, dto, actor);
+  }
+
+  async clientFollowUps(id: string) {
+    await this.ensureClient(id);
+    return { items: await this.prisma.clientFollowUp.findMany({ where: { clientAccountId: id }, orderBy: { dueAt: 'asc' } }) };
   }
 
   async createFollowUp(id: string, dto: CreateClientFollowUpDto, actor: any) {
+    this.assertRelatedEntity(dto.relatedEntityType);
+    this.assertReminderBeforeDue(dto.reminderAt, dto.dueAt);
     const client = await this.ensureClient(id);
     const dueAt = new Date(dto.dueAt);
-    const followUp = await this.prisma.clientFollowUp.create({ data: { clientAccountId: id, associationId: client.associationId, title: dto.title, description: dto.description || null, dueAt, assignedToId: dto.assignedToId || null, createdById: actor?.id || null } });
+    const followUp = await this.prisma.clientFollowUp.create({ data: {
+      clientAccountId: id,
+      associationId: client.associationId,
+      title: this.sanitizeText(dto.title),
+      description: dto.description ? this.sanitizeText(dto.description) : null,
+      dueAt,
+      reminderAt: dto.reminderAt ? new Date(dto.reminderAt) : null,
+      priority: dto.priority || ClientPriority.NORMAL,
+      assignedToId: dto.assignedToId || null,
+      createdById: actor?.id || null,
+      source: dto.source || ClientFollowUpSource.MANUAL,
+      relatedEntityType: dto.relatedEntityType || null,
+      relatedEntityId: dto.relatedEntityId || null,
+    } });
     await this.prisma.clientAccount.update({ where: { id }, data: { nextFollowUpAt: dueAt } });
+    await this.createReminderForFollowUp(followUp, actor);
     await this.activity(id, actor?.id, ClientActivityType.FOLLOW_UP_SET, 'Follow-up setat', `${dto.title} - ${dueAt.toISOString().slice(0, 10)}`, { followUpId: followUp.id });
     return followUp;
   }
 
   async updateFollowUp(followUpId: string, dto: UpdateClientFollowUpDto) {
-    return this.prisma.clientFollowUp.update({ where: { id: followUpId }, data: { title: dto.title, description: dto.description, dueAt: dto.dueAt ? new Date(dto.dueAt) : undefined, status: dto.status, assignedToId: dto.assignedToId } });
+    this.assertRelatedEntity(dto.relatedEntityType);
+    this.assertReminderBeforeDue(dto.reminderAt, dto.dueAt);
+    const followUp = await this.prisma.clientFollowUp.update({ where: { id: followUpId }, data: {
+      title: dto.title ? this.sanitizeText(dto.title) : undefined,
+      description: dto.description ? this.sanitizeText(dto.description) : dto.description,
+      dueAt: dto.dueAt ? new Date(dto.dueAt) : undefined,
+      reminderAt: dto.reminderAt ? new Date(dto.reminderAt) : undefined,
+      status: dto.status,
+      priority: dto.priority,
+      assignedToId: dto.assignedToId,
+      source: dto.source,
+      relatedEntityType: dto.relatedEntityType,
+      relatedEntityId: dto.relatedEntityId,
+    } });
+    await this.createReminderForFollowUp(followUp, null);
+    return followUp;
+  }
+
+  async getFollowUp(followUpId: string) {
+    const followUp = await this.prisma.clientFollowUp.findUnique({ where: { id: followUpId }, include: { clientAccount: true } });
+    if (!followUp) throw new NotFoundException('Client follow-up not found');
+    return followUp;
   }
 
   async doneFollowUp(followUpId: string, actor: any) {
-    return this.prisma.clientFollowUp.update({ where: { id: followUpId }, data: { status: ClientFollowUpStatus.DONE, completedAt: new Date(), completedById: actor?.id || null } });
+    const followUp = await this.prisma.clientFollowUp.update({ where: { id: followUpId }, data: { status: ClientFollowUpStatus.DONE, completedAt: new Date(), completedById: actor?.id || null } });
+    await this.prisma.clientReminder.updateMany({ where: { followUpId, status: { in: [ClientReminderStatus.SCHEDULED, ClientReminderStatus.DUE, ClientReminderStatus.SNOOZED] } }, data: { status: ClientReminderStatus.COMPLETED, completedAt: new Date(), completedById: actor?.id || null } });
+    await this.activity(followUp.clientAccountId, actor?.id, ClientActivityType.TASK_COMPLETED, 'Follow-up finalizat', followUp.title, { followUpId });
+    return followUp;
   }
 
-  async cancelFollowUp(followUpId: string) {
-    return this.prisma.clientFollowUp.update({ where: { id: followUpId }, data: { status: ClientFollowUpStatus.CANCELLED } });
+  async cancelFollowUp(followUpId: string, dto?: CancelClientFollowUpDto, actor?: any) {
+    const followUp = await this.prisma.clientFollowUp.update({ where: { id: followUpId }, data: { status: ClientFollowUpStatus.CANCELLED, cancelledAt: new Date(), cancelledById: actor?.id || null, cancellationReason: dto?.reason || null } });
+    await this.prisma.clientReminder.updateMany({ where: { followUpId, status: { in: [ClientReminderStatus.SCHEDULED, ClientReminderStatus.DUE, ClientReminderStatus.SNOOZED] } }, data: { status: ClientReminderStatus.CANCELLED } });
+    return followUp;
+  }
+
+  async rescheduleFollowUp(followUpId: string, dto: RescheduleClientFollowUpDto, actor: any) {
+    this.assertReminderBeforeDue(dto.reminderAt, dto.dueAt);
+    const followUp = await this.prisma.clientFollowUp.update({ where: { id: followUpId }, data: { dueAt: new Date(dto.dueAt), reminderAt: dto.reminderAt ? new Date(dto.reminderAt) : undefined } });
+    await this.prisma.clientAccount.update({ where: { id: followUp.clientAccountId }, data: { nextFollowUpAt: followUp.dueAt } }).catch(() => undefined);
+    await this.createReminderForFollowUp(followUp, actor);
+    await this.activity(followUp.clientAccountId, actor?.id, ClientActivityType.FOLLOW_UP_SET, 'Follow-up reprogramat', followUp.title, { followUpId, dueAt: followUp.dueAt, reminderAt: followUp.reminderAt });
+    return followUp;
+  }
+
+  async listReminders(query: Record<string, string | undefined>) {
+    const now = new Date();
+    const search = query.search?.trim();
+    const activeStatuses = [ClientReminderStatus.SCHEDULED, ClientReminderStatus.DUE, ClientReminderStatus.SNOOZED];
+    const where: Prisma.ClientReminderWhereInput = {
+      ...(query.status ? { status: query.status as ClientReminderStatus } : {}),
+      ...(query.priority ? { priority: query.priority as ClientPriority } : {}),
+      ...(query.source ? { source: query.source as ClientReminderSource } : {}),
+      ...(query.assignedToId ? { assignedToId: query.assignedToId } : {}),
+      ...(query.clientAccountId ? { clientAccountId: query.clientAccountId } : {}),
+      ...(query.due === 'true' ? { status: { in: activeStatuses }, OR: [{ remindAt: { lte: now } }, { snoozedUntil: { lte: now } }] } : {}),
+      ...(search ? { OR: [{ title: { contains: search, mode: 'insensitive' } }, { message: { contains: search, mode: 'insensitive' } }] } : {}),
+    };
+    const items = await this.prisma.clientReminder.findMany({ where, include: { clientAccount: { select: { id: true, displayName: true, associationName: true } } }, orderBy: [{ remindAt: 'asc' }, { createdAt: 'desc' }], take: 200 });
+    return { items: items.map((item) => this.decorateReminderStatus(item, now)) };
+  }
+
+  async createReminder(dto: CreateClientReminderDto, actor: any) {
+    this.assertRelatedEntity(dto.relatedEntityType);
+    let client: any = null;
+    if (dto.clientAccountId) client = await this.ensureClient(dto.clientAccountId);
+    const reminder = await this.prisma.clientReminder.create({ data: {
+      clientAccountId: dto.clientAccountId || null,
+      associationId: dto.associationId || client?.associationId || null,
+      taskId: dto.taskId || null,
+      followUpId: dto.followUpId || null,
+      title: this.sanitizeText(dto.title),
+      message: dto.message ? this.sanitizeText(dto.message) : null,
+      priority: dto.priority || ClientPriority.NORMAL,
+      remindAt: new Date(dto.remindAt),
+      assignedToId: dto.assignedToId || null,
+      createdById: actor?.id || null,
+      source: dto.source || ClientReminderSource.MANUAL,
+      relatedEntityType: dto.relatedEntityType || null,
+      relatedEntityId: dto.relatedEntityId || null,
+    } });
+    if (reminder.clientAccountId) await this.activity(reminder.clientAccountId, actor?.id, ClientActivityType.FOLLOW_UP_SET, 'Reminder creat', reminder.title, { reminderId: reminder.id });
+    return reminder;
+  }
+
+  async getReminder(reminderId: string) {
+    const reminder = await this.prisma.clientReminder.findUnique({ where: { id: reminderId }, include: { clientAccount: true } });
+    if (!reminder) throw new NotFoundException('Client reminder not found');
+    return this.decorateReminderStatus(reminder, new Date());
+  }
+
+  async completeReminder(reminderId: string, actor: any) {
+    return this.prisma.clientReminder.update({ where: { id: reminderId }, data: { status: ClientReminderStatus.COMPLETED, completedAt: new Date(), completedById: actor?.id || null } });
+  }
+
+  async snoozeReminder(reminderId: string, dto: SnoozeClientReminderDto) {
+    return this.prisma.clientReminder.update({ where: { id: reminderId }, data: { status: ClientReminderStatus.SNOOZED, snoozedUntil: new Date(dto.snoozedUntil) } });
+  }
+
+  async dismissReminder(reminderId: string, actor: any) {
+    return this.prisma.clientReminder.update({ where: { id: reminderId }, data: { status: ClientReminderStatus.DISMISSED, dismissedAt: new Date(), dismissedById: actor?.id || null } });
+  }
+
+  async cancelReminder(reminderId: string) {
+    return this.prisma.clientReminder.update({ where: { id: reminderId }, data: { status: ClientReminderStatus.CANCELLED } });
+  }
+
+  async myWork(actor: any) {
+    const now = new Date();
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(todayStart);
+    tomorrow.setDate(todayStart.getDate() + 1);
+    const nextWeek = new Date(now);
+    nextWeek.setDate(now.getDate() + 7);
+    const userId = actor?.id;
+    const assignment = userId ? [{ assignedToId: userId }, { assignedToId: null }] : [{ assignedToId: null }];
+    const activeTask = { status: { in: [ClientTaskStatus.OPEN, ClientTaskStatus.IN_PROGRESS] } };
+    const activeFollowUp = { status: ClientFollowUpStatus.OPEN };
+    const activeReminder = { status: { in: [ClientReminderStatus.SCHEDULED, ClientReminderStatus.DUE, ClientReminderStatus.SNOOZED] } };
+    const [openTasks, overdueTasks, followUpsToday, overdueFollowUps, dueReminders, urgentItems, overdue, today, upcoming, completedRecently] = await Promise.all([
+      this.prisma.clientTask.count({ where: { ...activeTask, OR: assignment } }),
+      this.prisma.clientTask.count({ where: { ...activeTask, OR: assignment, dueAt: { lt: now } } }),
+      this.prisma.clientFollowUp.count({ where: { ...activeFollowUp, OR: assignment, dueAt: { gte: todayStart, lt: tomorrow } } }),
+      this.prisma.clientFollowUp.count({ where: { ...activeFollowUp, OR: assignment, dueAt: { lt: now } } }),
+      this.prisma.clientReminder.count({ where: { ...activeReminder, OR: assignment, remindAt: { lte: now } } }),
+      this.prisma.clientTask.count({ where: { ...activeTask, OR: assignment, priority: ClientPriority.URGENT } }),
+      this.calendar({ from: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 30).toISOString(), to: now.toISOString(), status: 'active' }),
+      this.calendar({ from: todayStart.toISOString(), to: tomorrow.toISOString(), status: 'active' }),
+      this.calendar({ from: tomorrow.toISOString(), to: nextWeek.toISOString(), status: 'active' }),
+      this.prisma.clientTask.findMany({ where: { status: ClientTaskStatus.COMPLETED, completedAt: { gte: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 7) }, OR: assignment }, include: { clientAccount: { select: { id: true, displayName: true } } }, orderBy: { completedAt: 'desc' }, take: 10 }),
+    ]);
+    return {
+      summary: { openTasks, overdueTasks, followUpsToday, overdueFollowUps, dueReminders, urgentItems, completedThisWeek: completedRecently.length },
+      overdue: overdue.items,
+      today: today.items,
+      upcoming: upcoming.items,
+      completedRecently,
+    };
+  }
+
+  async calendar(query: Record<string, string | undefined>) {
+    const { from, to } = this.calendarRange(query);
+    const clientAccountId = query.clientAccountId;
+    const assignedToId = query.assignedToId;
+    const [tasks, followUps, reminders, saasInvoices, services, drills] = await Promise.all([
+      this.prisma.clientTask.findMany({ where: { ...(clientAccountId ? { clientAccountId } : {}), ...(assignedToId ? { assignedToId } : {}), dueAt: { gte: from, lte: to }, status: { not: ClientTaskStatus.CANCELLED } }, include: { clientAccount: { select: { id: true, displayName: true } } }, take: 300 }),
+      this.prisma.clientFollowUp.findMany({ where: { ...(clientAccountId ? { clientAccountId } : {}), ...(assignedToId ? { assignedToId } : {}), dueAt: { gte: from, lte: to }, status: { not: ClientFollowUpStatus.CANCELLED } }, include: { clientAccount: { select: { id: true, displayName: true, contactName: true } } }, take: 300 }),
+      this.prisma.clientReminder.findMany({ where: { ...(clientAccountId ? { clientAccountId } : {}), ...(assignedToId ? { assignedToId } : {}), OR: [{ remindAt: { gte: from, lte: to } }, { snoozedUntil: { gte: from, lte: to } }], status: { notIn: [ClientReminderStatus.CANCELLED, ClientReminderStatus.DISMISSED] } }, include: { clientAccount: { select: { id: true, displayName: true } } }, take: 300 }),
+      clientAccountId ? Promise.resolve([]) : this.prisma.saasInvoice.findMany({ where: { dueDate: { gte: from, lte: to } }, include: { association: { select: { id: true, name: true } } }, take: 80 }).catch(() => []),
+      clientAccountId ? Promise.resolve([]) : this.prisma.platformService.findMany({ where: { nextPaymentDate: { gte: from, lte: to } }, take: 80 }).catch(() => []),
+      clientAccountId ? Promise.resolve([]) : this.prisma.recoveryDrill.findMany({ where: { plannedAt: { gte: from, lte: to } }, take: 80 }).catch(() => []),
+    ]);
+    const items = [
+      ...tasks.map((task) => this.taskEvent(task)),
+      ...followUps.map((followUp) => this.followUpEvent(followUp)),
+      ...reminders.map((reminder) => this.reminderEvent(reminder)),
+      ...saasInvoices.map((invoice: any) => ({ id: `saas_invoice_${invoice.id}`, type: CALENDAR_EVENT_TYPE.SAAS_INVOICE_DUE, title: `Factura SaaS scadenta ${invoice.invoiceNumber || ''}`.trim(), startAt: invoice.dueDate, status: invoice.status, priority: invoice.status === 'OVERDUE' ? ClientPriority.HIGH : ClientPriority.NORMAL, client: invoice.association ? { id: invoice.association.id, displayName: invoice.association.name } : null, url: `/superadmin/saas-invoices/${invoice.id}` })),
+      ...services.map((service: any) => ({ id: `platform_service_${service.id}`, type: CALENDAR_EVENT_TYPE.PLATFORM_SERVICE_PAYMENT_DUE, title: `Plata serviciu: ${service.name}`, startAt: service.nextPaymentDate, status: service.status, priority: service.criticality === 'CRITICAL' ? ClientPriority.HIGH : ClientPriority.NORMAL, client: null, url: `/superadmin/launch/services/${service.id}` })),
+      ...drills.map((drill: any) => ({ id: `recovery_drill_${drill.id}`, type: CALENDAR_EVENT_TYPE.RECOVERY_DRILL_PLANNED, title: drill.title, startAt: drill.plannedAt, status: drill.status, priority: ClientPriority.NORMAL, client: null, url: `/superadmin/backup/recovery-drills/${drill.id}` })),
+    ].sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
+    return { items, meta: { from, to, total: items.length, view: query.view || 'agenda' } };
+  }
+
+  async clientCalendar(id: string, query: Record<string, string | undefined>) {
+    await this.ensureClient(id);
+    return this.calendar({ ...query, clientAccountId: id });
   }
 
   async activityTimeline(id: string) {
@@ -584,6 +859,151 @@ export class SuperadminClientsService {
       this.prisma.dataQualityRun.count({ where: { associationId } }).catch(() => 0),
     ]);
     return { apartments, residents, tariffs, meters, dataQuality };
+  }
+
+  private async createReminderForTask(task: any, actor: any) {
+    if (!task.reminderAt) return null;
+    return this.prisma.clientReminder.upsert({
+      where: { id: `task_${task.id}` },
+      update: {
+        title: `Reminder task: ${task.title}`,
+        message: task.description || null,
+        status: ClientReminderStatus.SCHEDULED,
+        priority: task.priority,
+        remindAt: task.reminderAt,
+        assignedToId: task.assignedToId || null,
+        relatedEntityType: 'CLIENT_ACCOUNT',
+        relatedEntityId: task.clientAccountId,
+      },
+      create: {
+        id: `task_${task.id}`,
+        clientAccountId: task.clientAccountId,
+        associationId: task.associationId,
+        taskId: task.id,
+        title: `Reminder task: ${task.title}`,
+        message: task.description || null,
+        priority: task.priority,
+        remindAt: task.reminderAt,
+        assignedToId: task.assignedToId || null,
+        createdById: actor?.id || null,
+        source: ClientReminderSource.TASK,
+        relatedEntityType: 'CLIENT_ACCOUNT',
+        relatedEntityId: task.clientAccountId,
+      },
+    }).catch(() => null);
+  }
+
+  private async createReminderForFollowUp(followUp: any, actor: any) {
+    if (!followUp.reminderAt) return null;
+    return this.prisma.clientReminder.upsert({
+      where: { id: `follow_up_${followUp.id}` },
+      update: {
+        title: `Reminder follow-up: ${followUp.title}`,
+        message: followUp.description || null,
+        status: ClientReminderStatus.SCHEDULED,
+        priority: followUp.priority,
+        remindAt: followUp.reminderAt,
+        assignedToId: followUp.assignedToId || null,
+        relatedEntityType: 'CLIENT_ACCOUNT',
+        relatedEntityId: followUp.clientAccountId,
+      },
+      create: {
+        id: `follow_up_${followUp.id}`,
+        clientAccountId: followUp.clientAccountId,
+        associationId: followUp.associationId,
+        followUpId: followUp.id,
+        title: `Reminder follow-up: ${followUp.title}`,
+        message: followUp.description || null,
+        priority: followUp.priority,
+        remindAt: followUp.reminderAt,
+        assignedToId: followUp.assignedToId || null,
+        createdById: actor?.id || null,
+        source: ClientReminderSource.FOLLOW_UP,
+        relatedEntityType: 'CLIENT_ACCOUNT',
+        relatedEntityId: followUp.clientAccountId,
+      },
+    }).catch(() => null);
+  }
+
+  private decorateReminderStatus<T extends { status: ClientReminderStatus; remindAt: Date; snoozedUntil?: Date | null }>(item: T, now: Date) {
+    const effectiveDue = item.status === ClientReminderStatus.SNOOZED ? item.snoozedUntil : item.remindAt;
+    if ((item.status === ClientReminderStatus.SCHEDULED || item.status === ClientReminderStatus.SNOOZED) && effectiveDue && effectiveDue <= now) {
+      return { ...item, status: ClientReminderStatus.DUE };
+    }
+    return item;
+  }
+
+  private calendarRange(query: Record<string, string | undefined>) {
+    const base = query.date ? new Date(query.date) : new Date();
+    let from = query.from ? new Date(query.from) : new Date(base);
+    let to = query.to ? new Date(query.to) : new Date(base);
+    if (!query.from && !query.to) {
+      if (query.view === 'day') {
+        from.setHours(0, 0, 0, 0);
+        to = new Date(from);
+        to.setDate(to.getDate() + 1);
+      } else if (query.view === 'month') {
+        from = new Date(base.getFullYear(), base.getMonth(), 1);
+        to = new Date(base.getFullYear(), base.getMonth() + 1, 1);
+      } else {
+        from.setHours(0, 0, 0, 0);
+        to = new Date(from);
+        to.setDate(to.getDate() + 7);
+      }
+    }
+    return { from, to };
+  }
+
+  private taskEvent(task: any) {
+    return {
+      id: `task_${task.id}`,
+      type: CALENDAR_EVENT_TYPE.TASK_DUE,
+      title: task.title,
+      startAt: task.dueAt,
+      status: task.status,
+      priority: task.priority,
+      client: task.clientAccount ? { id: task.clientAccount.id, displayName: task.clientAccount.displayName } : null,
+      assignedTo: task.assignedToId ? { id: task.assignedToId } : null,
+      url: `/superadmin/clients/tasks/${task.id}`,
+    };
+  }
+
+  private followUpEvent(followUp: any) {
+    return {
+      id: `follow_up_${followUp.id}`,
+      type: CALENDAR_EVENT_TYPE.FOLLOW_UP_DUE,
+      title: followUp.title,
+      startAt: followUp.dueAt,
+      status: followUp.status,
+      priority: followUp.priority,
+      client: followUp.clientAccount ? { id: followUp.clientAccount.id, displayName: followUp.clientAccount.displayName } : null,
+      assignedTo: followUp.assignedToId ? { id: followUp.assignedToId } : null,
+      url: `/superadmin/clients/follow-ups/${followUp.id}`,
+    };
+  }
+
+  private reminderEvent(reminder: any) {
+    return {
+      id: `reminder_${reminder.id}`,
+      type: CALENDAR_EVENT_TYPE.REMINDER,
+      title: reminder.title,
+      startAt: reminder.snoozedUntil || reminder.remindAt,
+      status: reminder.status,
+      priority: reminder.priority,
+      client: reminder.clientAccount ? { id: reminder.clientAccount.id, displayName: reminder.clientAccount.displayName } : null,
+      assignedTo: reminder.assignedToId ? { id: reminder.assignedToId } : null,
+      url: `/superadmin/clients/reminders/${reminder.id}`,
+    };
+  }
+
+  private assertRelatedEntity(type?: string) {
+    if (type && !ALLOWED_RELATED_ENTITY_TYPES.has(type)) throw new BadRequestException('relatedEntityType nu este permis.');
+  }
+
+  private assertReminderBeforeDue(reminderAt?: string, dueAt?: string) {
+    if (reminderAt && dueAt && new Date(reminderAt) > new Date(dueAt)) {
+      throw new BadRequestException('Reminder-ul trebuie sa fie inainte de due date.');
+    }
   }
 
   private sanitizeText(value: string) {
