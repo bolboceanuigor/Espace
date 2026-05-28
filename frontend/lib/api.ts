@@ -3212,6 +3212,37 @@ export const backupApi = {
   exportCenter: () => apiRequest<any>('/api/superadmin/backup/export-center'),
 };
 
+export const dataRetentionApi = {
+  overview: () => apiRequest<any>('/api/superadmin/data-retention'),
+  policies: (params?: Record<string, any>) => apiRequest<any>('/api/superadmin/data-retention/policies', { params }),
+  policy: (id: string) => apiRequest<any>(`/api/superadmin/data-retention/policies/${id}`),
+  updatePolicy: (id: string, data: Record<string, any>) =>
+    apiRequest<any>(`/api/superadmin/data-retention/policies/${id}`, { method: 'PATCH', body: data }),
+  archive: (params?: Record<string, any>) => apiRequest<any>('/api/superadmin/data-retention/archive', { params }),
+  archiveRecord: (id: string) => apiRequest<any>(`/api/superadmin/data-retention/archive/${id}`),
+  restoreArchive: (id: string, data: Record<string, any>) =>
+    apiRequest<any>(`/api/superadmin/data-retention/archive/${id}/restore`, { method: 'POST', body: data }),
+  legalHolds: (params?: Record<string, any>) => apiRequest<any>('/api/superadmin/data-retention/legal-holds', { params }),
+  createLegalHold: (data: Record<string, any>) =>
+    apiRequest<any>('/api/superadmin/data-retention/legal-holds', { method: 'POST', body: data }),
+  releaseLegalHold: (id: string, data: Record<string, any>) =>
+    apiRequest<any>(`/api/superadmin/data-retention/legal-holds/${id}/release`, { method: 'PATCH', body: data }),
+  deletionRequests: (params?: Record<string, any>) =>
+    apiRequest<any>('/api/superadmin/data-retention/deletion-requests', { params }),
+  createDeletionRequest: (data: Record<string, any>) =>
+    apiRequest<any>('/api/superadmin/data-retention/deletion-requests', { method: 'POST', body: data }),
+  deletionRequest: (id: string) => apiRequest<any>(`/api/superadmin/data-retention/deletion-requests/${id}`),
+  updateDeletionRequestStatus: (id: string, data: Record<string, any>) =>
+    apiRequest<any>(`/api/superadmin/data-retention/deletion-requests/${id}/status`, { method: 'PATCH', body: data }),
+  adminArchive: (params?: Record<string, any>) => apiRequest<any>('/api/admin/archive', { params }),
+  adminArchiveRecord: (id: string) => apiRequest<any>(`/api/admin/archive/${id}`),
+  adminArchiveEntity: (entityType: string, entityId: string, data: Record<string, any>) =>
+    apiRequest<any>(`/api/admin/archive/${entityType}/${entityId}`, { method: 'POST', body: data }),
+  adminRestoreArchive: (id: string, data: Record<string, any>) =>
+    apiRequest<any>(`/api/admin/archive/${id}/restore`, { method: 'POST', body: data }),
+  adminSettings: () => apiRequest<any>('/api/admin/settings/data-retention'),
+};
+
 export const condoApi = {
   getOwnerDashboard: () =>
     apiRequest<{

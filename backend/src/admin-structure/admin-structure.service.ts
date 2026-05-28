@@ -40,6 +40,15 @@ export class AdminStructureService {
     return user.organizationId;
   }
 
+  private hardDeleteForbidden(entityType: string, entityId?: string) {
+    throw new ForbiddenException({
+      statusCode: 403,
+      code: 'DATA_RETENTION_HARD_DELETE_FORBIDDEN',
+      message: 'Această resursă nu poate fi ștearsă definitiv. Folosește arhivarea.',
+      details: { entityType, entityId },
+    });
+  }
+
   async listBuildings(user: { role?: string; organizationId?: string | null }) {
     const organizationId = this.assertAdmin(user);
     return this.prisma.building.findMany({
@@ -363,24 +372,7 @@ export class AdminStructureService {
     const organizationId = this.assertAdmin(user);
     const apartment = await this.prisma.apartment.findFirst({ where: { id, organizationId } });
     if (!apartment) throw new NotFoundException('Apartment not found');
-    const [linkedResidents, linkedInvoices, linkedPayments] = await Promise.all([
-      this.prisma.residentProfile.count({ where: { organizationId, apartmentId: id } }),
-      this.prisma.residentInvoice.count({ where: { organizationId, apartmentId: id } }),
-      this.prisma.payment.count({ where: { organizationId, apartmentId: id } }),
-    ]);
-    if (linkedResidents || linkedInvoices || linkedPayments) {
-      throw new BadRequestException('Cannot delete apartment with linked residents or financial history');
-    }
-
-    await this.prisma.apartment.delete({ where: { id } });
-    await this.auditService.logDelete(
-      { userId: this.userId(user), organizationId },
-      'APARTMENT',
-      id,
-      apartment,
-      `Deleted apartment ${apartment.number}`,
-    );
-    return { ok: true };
+    this.hardDeleteForbidden('APARTMENT', id);
   }
 
   async listResidents(user: { role?: string; organizationId?: string | null }, query: ListResidentsQueryDto) {
@@ -554,14 +546,6 @@ export class AdminStructureService {
     const organizationId = this.assertAdmin(user);
     const resident = await this.prisma.residentProfile.findFirst({ where: { id, organizationId } });
     if (!resident) throw new NotFoundException('Resident profile not found');
-    await this.prisma.residentProfile.delete({ where: { id } });
-    await this.auditService.logDelete(
-      { userId: this.userId(user), organizationId },
-      'RESIDENT_PROFILE',
-      id,
-      resident,
-      'Deleted resident profile',
-    );
-    return { ok: true };
+    this.hardDeleteForbidden('RESIDENT', id);
   }
 }

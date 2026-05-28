@@ -1177,6 +1177,98 @@ enum RecoveryScenario {
   NOTIFICATION_PROVIDER_ISSUE
 }
 
+enum DataRetentionEntityType {
+  ASSOCIATION
+  APARTMENT
+  RESIDENT
+  APARTMENT_RESIDENT
+  TARIFF
+  METER
+  METER_READING
+  BILLING_RUN
+  INVOICE_DRAFT
+  INTERNAL_INVOICE
+  INTERNAL_INVOICE_LINE
+  PAYMENT
+  ANNOUNCEMENT
+  REQUEST
+  NOTIFICATION
+  IMPORT_JOB
+  EXPORT_LOG
+  AUDIT_LOG
+  DATA_QUALITY_ISSUE
+  DUPLICATE_GROUP
+  STAFF_MEMBERSHIP
+  STAFF_INVITATION
+  RESIDENT_INVITATION
+  SUPPORT_SESSION
+  AUTH_SECURITY_EVENT
+  SAAS_PLAN
+  SAAS_SUBSCRIPTION
+  SAAS_INVOICE
+  CUSTOMER_ONBOARDING_REQUEST
+  LEGAL_DOCUMENT
+  HELP_ARTICLE
+  SYSTEM_ERROR_EVENT
+  PLATFORM_SERVICE
+  BACKUP_CHECK
+  PRODUCTION_INCIDENT
+}
+
+enum DataRetentionAction {
+  KEEP_FOREVER
+  ARCHIVE_ALLOWED
+  RESTORE_ALLOWED
+  SOFT_DELETE_ALLOWED
+  HARD_DELETE_FORBIDDEN
+  ANONYMIZATION_REQUIRES_APPROVAL
+  DELETE_REQUIRES_SUPERADMIN_APPROVAL
+  LEGAL_HOLD_SUPPORTED
+}
+
+enum ArchiveStatus {
+  ACTIVE
+  ARCHIVED
+  RESTORED
+  LOCKED
+  RETENTION_PROTECTED
+}
+
+enum RetentionEventAction {
+  POLICY_CREATED
+  POLICY_UPDATED
+  ENTITY_ARCHIVED
+  ENTITY_RESTORED
+  ARCHIVE_BLOCKED
+  DELETE_BLOCKED
+  LEGAL_HOLD_APPLIED
+  LEGAL_HOLD_REMOVED
+  ANONYMIZATION_REQUESTED
+  DELETION_REQUESTED
+  DELETION_REQUEST_REJECTED
+}
+
+enum LegalHoldStatus {
+  ACTIVE
+  RELEASED
+}
+
+enum DataDeletionRequestType {
+  DELETE
+  ANONYMIZE
+  EXPORT
+  CORRECT
+}
+
+enum DataDeletionRequestStatus {
+  NEW
+  IN_REVIEW
+  APPROVED
+  REJECTED
+  COMPLETED
+  CANCELLED
+}
+
 enum ClientNoteType {
   CALL
   MEETING
@@ -1586,6 +1678,10 @@ model Organization {
   systemErrorLogs    SystemErrorLog[]
   systemErrorEvents  SystemErrorEvent[]
   helpOnboardingProgresses UserOnboardingProgress[]
+  archiveRecords     ArchiveRecord[]
+  retentionEvents    RetentionEvent[]
+  legalHolds         LegalHold[]
+  dataDeletionRequests DataDeletionRequest[]
   createdByAgent     User?       @relation("CreatedByAgent", fields: [createdByAgentId], references: [id], onDelete: SetNull)
   ownerAdmin        User?        @relation("OrganizationOwnerAdmin", fields: [ownerAdminId], references: [id], onDelete: SetNull)
 
@@ -2187,6 +2283,143 @@ model ProductionIncidentUpdate {
 
   @@index([incidentId, createdAt])
   @@map("production_incident_updates")
+}
+
+model DataRetentionPolicy {
+  id                         String                  @id @default(uuid())
+  entityType                 DataRetentionEntityType @unique
+  title                      String
+  description                String
+  retentionAction            DataRetentionAction
+  defaultRetentionDays       Int?
+  archiveAllowed             Boolean                 @default(false)
+  restoreAllowed             Boolean                 @default(false)
+  hardDeleteAllowed          Boolean                 @default(false)
+  anonymizationAllowed       Boolean                 @default(false)
+  requiresSuperadminApproval Boolean                 @default(false)
+  legalHoldSupported         Boolean                 @default(false)
+  isSystem                   Boolean                 @default(true)
+  isActive                   Boolean                 @default(true)
+  notes                      String?
+  createdById                String?
+  updatedById                String?
+  createdAt                  DateTime                @default(now())
+  updatedAt                  DateTime                @updatedAt
+
+  createdBy User? @relation("DataRetentionPolicyCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User? @relation("DataRetentionPolicyUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([retentionAction, isActive])
+  @@index([archiveAllowed, restoreAllowed])
+  @@map("data_retention_policies")
+}
+
+model ArchiveRecord {
+  id                String                  @id @default(uuid())
+  associationId     String?
+  entityType        DataRetentionEntityType
+  entityId          String
+  entityDisplayName String?
+  status            ArchiveStatus           @default(ARCHIVED)
+  archiveReason     String
+  archivedById      String
+  archivedAt        DateTime                @default(now())
+  restoredById      String?
+  restoredAt        DateTime?
+  restoreReason     String?
+  metadata          Json?
+  beforeSnapshot    Json?
+  afterSnapshot     Json?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  association Organization? @relation(fields: [associationId], references: [id], onDelete: SetNull)
+  archivedBy  User          @relation("ArchiveRecordArchivedBy", fields: [archivedById], references: [id], onDelete: Restrict)
+  restoredBy  User?         @relation("ArchiveRecordRestoredBy", fields: [restoredById], references: [id], onDelete: SetNull)
+
+  @@index([associationId, archivedAt])
+  @@index([entityType, entityId])
+  @@index([status, archivedAt])
+  @@map("archive_records")
+}
+
+model RetentionEvent {
+  id            String                  @id @default(uuid())
+  associationId String?
+  entityType    DataRetentionEntityType
+  entityId      String
+  action        RetentionEventAction
+  title         String
+  message       String
+  actorUserId   String?
+  reason        String?
+  metadata      Json?
+  createdAt     DateTime                @default(now())
+
+  association Organization? @relation(fields: [associationId], references: [id], onDelete: SetNull)
+  actor       User?         @relation("RetentionEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([associationId, createdAt])
+  @@index([entityType, entityId])
+  @@index([action, createdAt])
+  @@map("retention_events")
+}
+
+model LegalHold {
+  id             String                  @id @default(uuid())
+  associationId  String?
+  entityType     DataRetentionEntityType?
+  entityId       String?
+  title          String
+  reason         String
+  status         LegalHoldStatus         @default(ACTIVE)
+  appliedById    String
+  appliedAt      DateTime                @default(now())
+  releasedById   String?
+  releasedAt     DateTime?
+  releaseReason  String?
+  metadata       Json?
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+
+  association Organization? @relation(fields: [associationId], references: [id], onDelete: SetNull)
+  appliedBy   User          @relation("LegalHoldAppliedBy", fields: [appliedById], references: [id], onDelete: Restrict)
+  releasedBy  User?         @relation("LegalHoldReleasedBy", fields: [releasedById], references: [id], onDelete: SetNull)
+
+  @@index([associationId, status])
+  @@index([entityType, entityId, status])
+  @@map("legal_holds")
+}
+
+model DataDeletionRequest {
+  id                String                    @id @default(uuid())
+  associationId     String?
+  requestedByUserId String?
+  targetUserId      String?
+  targetResidentId  String?
+  entityType        DataRetentionEntityType?
+  entityId          String?
+  requestType       DataDeletionRequestType
+  status            DataDeletionRequestStatus @default(NEW)
+  reason            String
+  decisionNote      String?
+  reviewedById      String?
+  reviewedAt        DateTime?
+  completedAt       DateTime?
+  metadata          Json?
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+
+  association     Organization?     @relation(fields: [associationId], references: [id], onDelete: SetNull)
+  requestedByUser User?             @relation("DataDeletionRequestRequestedBy", fields: [requestedByUserId], references: [id], onDelete: SetNull)
+  targetUser      User?             @relation("DataDeletionRequestTargetUser", fields: [targetUserId], references: [id], onDelete: SetNull)
+  targetResident  ResidentProfile?  @relation("DataDeletionRequestTargetResident", fields: [targetResidentId], references: [id], onDelete: SetNull)
+  reviewedBy      User?             @relation("DataDeletionRequestReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([associationId, status])
+  @@index([entityType, entityId])
+  @@index([requestType, status])
+  @@map("data_deletion_requests")
 }
 
 model ClientNote {
@@ -2996,6 +3229,26 @@ model User {
   productionIncidentsOpened ProductionIncident[] @relation("ProductionIncidentOpenedBy")
   productionIncidentsAssigned ProductionIncident[] @relation("ProductionIncidentAssignedTo")
   productionIncidentUpdates ProductionIncidentUpdate[] @relation("ProductionIncidentUpdateActor")
+  dataRetentionPoliciesCreated DataRetentionPolicy[] @relation("DataRetentionPolicyCreatedBy")
+  dataRetentionPoliciesUpdated DataRetentionPolicy[] @relation("DataRetentionPolicyUpdatedBy")
+  archiveRecordsArchived ArchiveRecord[] @relation("ArchiveRecordArchivedBy")
+  archiveRecordsRestored ArchiveRecord[] @relation("ArchiveRecordRestoredBy")
+  retentionEvents RetentionEvent[] @relation("RetentionEventActor")
+  legalHoldsApplied LegalHold[] @relation("LegalHoldAppliedBy")
+  legalHoldsReleased LegalHold[] @relation("LegalHoldReleasedBy")
+  dataDeletionRequestsRequested DataDeletionRequest[] @relation("DataDeletionRequestRequestedBy")
+  dataDeletionRequestsTargetUser DataDeletionRequest[] @relation("DataDeletionRequestTargetUser")
+  dataDeletionRequestsReviewed DataDeletionRequest[] @relation("DataDeletionRequestReviewedBy")
+  apartmentsArchived Apartment[] @relation("ApartmentArchivedBy")
+  apartmentsRestored Apartment[] @relation("ApartmentRestoredBy")
+  residentsArchived ResidentProfile[] @relation("ResidentArchivedBy")
+  residentsRestored ResidentProfile[] @relation("ResidentRestoredBy")
+  metersArchived Meter[] @relation("MeterArchivedBy")
+  metersRestored Meter[] @relation("MeterRestoredBy")
+  issuesArchived Issue[] @relation("IssueArchivedBy")
+  issuesRestored Issue[] @relation("IssueRestoredBy")
+  announcementsArchived Announcement[] @relation("AnnouncementArchivedBy")
+  announcementsRestored Announcement[] @relation("AnnouncementRestoredBy")
 
   @@index([organizationId])
   @@index([deletedAt])
@@ -3342,6 +3595,12 @@ model Apartment {
   rooms          Int?
   status         ApartmentStatus @default(EMPTY)
   ownerResidentId String?
+  archivedAt      DateTime?
+  archivedById    String?
+  archiveReason   String?
+  restoredAt      DateTime?
+  restoredById    String?
+  restoreReason   String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -3349,6 +3608,8 @@ model Apartment {
   building     Building     @relation(fields: [buildingId], references: [id], onDelete: Cascade)
   staircase    Staircase    @relation(fields: [staircaseId], references: [id], onDelete: Cascade)
   ownerResident ResidentProfile? @relation("ApartmentOwnerResident", fields: [ownerResidentId], references: [id], onDelete: SetNull)
+  archivedBy   User?       @relation("ApartmentArchivedBy", fields: [archivedById], references: [id], onDelete: SetNull)
+  restoredBy   User?       @relation("ApartmentRestoredBy", fields: [restoredById], references: [id], onDelete: SetNull)
   residents    ResidentProfile[]
   apartmentResidents ApartmentResident[]
   meters       Meter[]
@@ -3380,6 +3641,7 @@ model Apartment {
   @@index([buildingId])
   @@index([staircaseId])
   @@index([ownerResidentId])
+  @@index([archivedAt])
   @@unique([staircaseId, number])
   @@map("apartments")
 }
@@ -3400,6 +3662,12 @@ model ResidentProfile {
   portalAccessRevokedById String?
   type           ResidentType @default(OWNER)
   isPrimary      Boolean  @default(false)
+  archivedAt     DateTime?
+  archivedById   String?
+  archiveReason  String?
+  restoredAt     DateTime?
+  restoredById   String?
+  restoreReason  String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -3407,6 +3675,8 @@ model ResidentProfile {
   apartment    Apartment?   @relation(fields: [apartmentId], references: [id], onDelete: SetNull)
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   portalAccessRevokedBy User? @relation("ResidentPortalAccessRevokedBy", fields: [portalAccessRevokedById], references: [id], onDelete: SetNull)
+  archivedBy   User?       @relation("ResidentArchivedBy", fields: [archivedById], references: [id], onDelete: SetNull)
+  restoredBy   User?       @relation("ResidentRestoredBy", fields: [restoredById], references: [id], onDelete: SetNull)
   portalInvitations ResidentPortalInvitation[]
   notificationDeliveries NotificationDelivery[]
   paymentIntents PaymentIntent[]
@@ -3414,6 +3684,7 @@ model ResidentProfile {
   ownedApartments Apartment[] @relation("ApartmentOwnerResident")
   issues       Issue[]
   messageThreads MessageThread[]
+  dataDeletionRequestsTarget DataDeletionRequest[] @relation("DataDeletionRequestTargetResident")
 
   @@index([organizationId])
   @@index([userId])
@@ -3423,6 +3694,7 @@ model ResidentProfile {
   @@unique([userId, apartmentId])
   @@index([organizationId, isPrimary])
   @@index([organizationId, createdAt])
+  @@index([archivedAt])
   @@map("resident_profiles")
 }
 
@@ -3490,15 +3762,24 @@ model Meter {
   type           MeterType
   serialNumber   String?
   status         MeterStatus @default(ACTIVE)
+  archivedAt      DateTime?
+  archivedById    String?
+  archiveReason   String?
+  restoredAt      DateTime?
+  restoredById    String?
+  restoreReason   String?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   apartment    Apartment    @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+  archivedBy   User?        @relation("MeterArchivedBy", fields: [archivedById], references: [id], onDelete: SetNull)
+  restoredBy   User?        @relation("MeterRestoredBy", fields: [restoredById], references: [id], onDelete: SetNull)
   readings     MeterReading[]
 
   @@index([organizationId])
   @@index([apartmentId])
+  @@index([archivedAt])
   @@map("meters")
 }
 
@@ -3694,6 +3975,12 @@ model Issue {
   status          IssueStatus   @default(NEW)
   priority        IssuePriority @default(MEDIUM)
   assignedToUserId String?
+  archivedAt      DateTime?
+  archivedById    String?
+  archiveReason   String?
+  restoredAt      DateTime?
+  restoredById    String?
+  restoreReason   String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   resolvedAt      DateTime?
@@ -3705,6 +3992,8 @@ model Issue {
   staircase    Staircase?   @relation(fields: [staircaseId], references: [id], onDelete: SetNull)
   createdBy    User         @relation("IssueCreatedByUser", fields: [createdByUserId], references: [id], onDelete: Restrict)
   assignedTo   User?        @relation("IssueAssignedToUser", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  archivedBy   User?        @relation("IssueArchivedBy", fields: [archivedById], references: [id], onDelete: SetNull)
+  restoredBy   User?        @relation("IssueRestoredBy", fields: [restoredById], references: [id], onDelete: SetNull)
   comments     IssueComment[]
   attachments  IssueAttachment[]
   maintenanceTasks MaintenanceTask[]
@@ -3717,6 +4006,7 @@ model Issue {
   @@index([createdByUserId])
   @@index([status, priority])
   @@index([organizationId, status, createdAt])
+  @@index([archivedAt])
   @@map("issues")
 }
 
@@ -4477,6 +4767,12 @@ model Announcement {
   content        String
   category       AnnouncementCategory @default(GENERAL)
   status         AnnouncementStatus @default(ACTIVE)
+  archivedAt      DateTime?
+  archivedById    String?
+  archiveReason   String?
+  restoredAt      DateTime?
+  restoredById    String?
+  restoreReason   String?
   contentType    AnnouncementContentType @default(ANNOUNCEMENT)
   importance     ContentImportance @default(NORMAL)
   isPinned       Boolean @default(false)
@@ -4495,6 +4791,8 @@ model Announcement {
   staircase    Staircase?   @relation(fields: [staircaseId], references: [id], onDelete: SetNull)
   apartment    Apartment?   @relation(fields: [apartmentId], references: [id], onDelete: SetNull)
   createdBy    User?        @relation("AnnouncementCreatedByUser", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  archivedBy   User?        @relation("AnnouncementArchivedBy", fields: [archivedById], references: [id], onDelete: SetNull)
+  restoredBy   User?        @relation("AnnouncementRestoredBy", fields: [restoredById], references: [id], onDelete: SetNull)
   comments     AnnouncementComment[]
 
   @@index([organizationId])
@@ -4504,6 +4802,7 @@ model Announcement {
   @@index([staircaseId])
   @@index([apartmentId])
   @@index([createdById])
+  @@index([archivedAt])
   @@map("announcements")
 }
 
