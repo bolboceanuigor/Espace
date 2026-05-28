@@ -565,6 +565,12 @@ export default function SuperadminPage() {
                 href={localizedPath('/superadmin/customer-success/reports')}
               />
               <QuickActionCard
+                icon={CreditCard}
+                title="Revenue Operations"
+                description="Facturi SaaS restante, promisiuni de plata si follow-up-uri comerciale"
+                href={localizedPath('/superadmin/revenue')}
+              />
+              <QuickActionCard
                 icon={Scale}
                 title="Legal & Trust"
                 description="Documente legale, versiuni si cereri privacy/security"

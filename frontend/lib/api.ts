@@ -3499,6 +3499,35 @@ export const superadminCustomerSuccessReportsApi = {
   exportDownloadUrl: (id: string) => `${requireApiUrl()}/api/superadmin/customer-success/reports/exports/${id}/download`,
 };
 
+export const superadminRevenueApi = {
+  dashboard: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/revenue/dashboard', { params }),
+  overdue: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/revenue/overdue', { params }),
+  aging: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/revenue/aging', { params }),
+  reports: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/revenue/reports', { params }),
+  collections: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/revenue/collections', { params }),
+  createCollection: (data: Record<string, unknown>) => apiRequest<any>('/api/superadmin/revenue/collections', { method: 'POST', body: data }),
+  collection: (id: string) => apiRequest<any>(`/api/superadmin/revenue/collections/${id}`),
+  updateStatus: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/revenue/collections/${id}/status`, { method: 'PATCH', body: data }),
+  updatePriority: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/revenue/collections/${id}/priority`, { method: 'PATCH', body: data }),
+  assign: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/revenue/collections/${id}/assign`, { method: 'PATCH', body: data }),
+  addNote: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/revenue/collections/${id}/notes`, { method: 'POST', body: data }),
+  recordContact: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/revenue/collections/${id}/record-contact`, { method: 'POST', body: data }),
+  createPromise: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/revenue/collections/${id}/promises`, { method: 'POST', body: data }),
+  scheduleFollowUp: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/revenue/collections/${id}/follow-ups`, { method: 'POST', body: data }),
+  createTask: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/revenue/collections/${id}/tasks`, { method: 'POST', body: data }),
+  escalate: (id: string) => apiRequest<any>(`/api/superadmin/revenue/collections/${id}/escalate`, { method: 'POST' }),
+  recommendSuspension: (id: string) => apiRequest<any>(`/api/superadmin/revenue/collections/${id}/recommend-suspension`, { method: 'POST' }),
+  close: (id: string, data: Record<string, unknown>) => apiRequest<any>(`/api/superadmin/revenue/collections/${id}/close`, { method: 'POST', body: data }),
+  promises: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/revenue/promises', { params }),
+  promise: (id: string) => apiRequest<any>(`/api/superadmin/revenue/promises/${id}`),
+  markPromiseKept: (id: string) => apiRequest<any>(`/api/superadmin/revenue/promises/${id}/kept`, { method: 'PATCH' }),
+  markPromiseMissed: (id: string) => apiRequest<any>(`/api/superadmin/revenue/promises/${id}/missed`, { method: 'PATCH' }),
+  cancelPromise: (id: string, reason: string) => apiRequest<any>(`/api/superadmin/revenue/promises/${id}/cancel`, { method: 'PATCH', body: { reason } }),
+  clientProfile: (clientId: string) => apiRequest<any>(`/api/superadmin/revenue/clients/${clientId}`),
+  associationProfile: (associationId: string) => apiRequest<any>(`/api/superadmin/revenue/associations/${associationId}`),
+  syncCollectionCases: () => apiRequest<any>('/api/superadmin/revenue/sync-collection-cases', { method: 'POST' }),
+};
+
 export const condoApi = {
   getOwnerDashboard: () =>
     apiRequest<{

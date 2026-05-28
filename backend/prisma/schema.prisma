@@ -1448,6 +1448,84 @@ enum CustomerSuccessReportExportStatus {
   EXPIRED
 }
 
+enum RevenueCollectionStatus {
+  NOT_STARTED
+  NEEDS_FOLLOW_UP
+  CONTACTED
+  PROMISE_TO_PAY
+  PARTIALLY_PAID
+  PAID
+  DISPUTED
+  ESCALATED
+  SUSPENSION_RECOMMENDED
+  CLOSED
+  WRITTEN_OFF
+}
+
+enum PaymentPromiseStatus {
+  OPEN
+  KEPT
+  MISSED
+  CANCELLED
+}
+
+enum RevenueCollectionPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum RevenueCollectionReason {
+  INVOICE_OVERDUE
+  INVOICE_DUE_SOON
+  PARTIAL_PAYMENT
+  MULTIPLE_OVERDUE_INVOICES
+  CLIENT_AT_RISK
+  SUBSCRIPTION_PAST_DUE
+  MANUAL_FOLLOW_UP
+  OTHER
+}
+
+enum RevenueAgingBucket {
+  CURRENT
+  DAYS_1_7
+  DAYS_8_15
+  DAYS_16_30
+  DAYS_31_60
+  DAYS_61_90
+  DAYS_90_PLUS
+}
+
+enum RevenueCollectionContactMethod {
+  PHONE
+  EMAIL
+  WHATSAPP
+  TELEGRAM
+  IN_PERSON
+  INTERNAL
+  OTHER
+}
+
+enum RevenueCollectionEventType {
+  COLLECTION_CASE_CREATED
+  COLLECTION_STATUS_CHANGED
+  COLLECTION_PRIORITY_CHANGED
+  COLLECTION_ASSIGNED
+  COLLECTION_NOTE_ADDED
+  CLIENT_CONTACTED
+  PAYMENT_PROMISE_CREATED
+  PAYMENT_PROMISE_KEPT
+  PAYMENT_PROMISE_MISSED
+  PAYMENT_PROMISE_CANCELLED
+  FOLLOW_UP_SCHEDULED
+  TASK_CREATED
+  CASE_ESCALATED
+  CASE_CLOSED
+  INVOICE_MARKED_PAID_LINKED
+  SUSPENSION_RECOMMENDED
+}
+
 enum LegalDocumentType {
   PRIVACY_POLICY
   TERMS_OF_USE
@@ -3308,6 +3386,125 @@ model CustomerSuccessReportExport {
   @@index([generatedById, createdAt])
   @@index([status, createdAt])
   @@map("customer_success_report_exports")
+}
+
+model RevenueCollectionCase {
+  id                 String                    @id @default(uuid())
+  associationId      String
+  clientAccountId    String?
+  saasInvoiceId      String?
+  saasSubscriptionId String?
+  status             RevenueCollectionStatus   @default(NOT_STARTED)
+  priority           RevenueCollectionPriority @default(NORMAL)
+  reason             RevenueCollectionReason
+  agingBucket        RevenueAgingBucket        @default(CURRENT)
+  title              String
+  description        String?
+  amountDue          Float                     @default(0)
+  currency           BillingCurrency           @default(MDL)
+  dueDate            DateTime?
+  daysOverdue        Int                       @default(0)
+  assignedToId       String?
+  lastContactedAt    DateTime?
+  nextFollowUpAt     DateTime?
+  closedAt           DateTime?
+  closedById         String?
+  closeReason        String?
+  metadata           Json?
+  createdById        String?
+  updatedById        String?
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
+
+  promises PaymentPromise[]
+  notes    RevenueCollectionNote[]
+  events   RevenueCollectionEvent[]
+
+  @@index([associationId, status])
+  @@index([clientAccountId, status])
+  @@index([saasInvoiceId, status])
+  @@index([status, priority, nextFollowUpAt])
+  @@index([agingBucket, status])
+  @@index([assignedToId, status, nextFollowUpAt])
+  @@map("revenue_collection_cases")
+}
+
+model PaymentPromise {
+  id                String               @id @default(uuid())
+  collectionCaseId  String
+  associationId     String
+  clientAccountId   String?
+  saasInvoiceId     String?
+  promisedAmount    Float
+  currency          BillingCurrency      @default(MDL)
+  promisedDate      DateTime
+  status            PaymentPromiseStatus @default(OPEN)
+  promisedByName    String?
+  promisedByContact String?
+  note              String?
+  keptAt            DateTime?
+  missedAt          DateTime?
+  cancelledAt       DateTime?
+  cancelledById     String?
+  cancellationReason String?
+  createdById       String
+  updatedById       String?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  collectionCase RevenueCollectionCase @relation(fields: [collectionCaseId], references: [id], onDelete: Cascade)
+
+  @@index([collectionCaseId, status])
+  @@index([associationId, status, promisedDate])
+  @@index([clientAccountId, status, promisedDate])
+  @@index([saasInvoiceId])
+  @@map("payment_promises")
+}
+
+model RevenueCollectionNote {
+  id                String                          @id @default(uuid())
+  collectionCaseId  String
+  associationId     String
+  clientAccountId   String?
+  saasInvoiceId     String?
+  authorUserId      String
+  note              String
+  contactMethod     RevenueCollectionContactMethod?
+  contactedPerson   String?
+  nextStep          String?
+  createdAt         DateTime                        @default(now())
+  updatedAt         DateTime                        @updatedAt
+
+  collectionCase RevenueCollectionCase @relation(fields: [collectionCaseId], references: [id], onDelete: Cascade)
+
+  @@index([collectionCaseId, createdAt])
+  @@index([associationId, createdAt])
+  @@index([clientAccountId, createdAt])
+  @@index([saasInvoiceId, createdAt])
+  @@map("revenue_collection_notes")
+}
+
+model RevenueCollectionEvent {
+  id                String                     @id @default(uuid())
+  collectionCaseId  String
+  associationId     String
+  clientAccountId   String?
+  saasInvoiceId     String?
+  actorUserId       String?
+  eventType         RevenueCollectionEventType
+  title             String
+  message           String
+  metadata          Json?
+  createdAt         DateTime                   @default(now())
+
+  collectionCase RevenueCollectionCase @relation(fields: [collectionCaseId], references: [id], onDelete: Cascade)
+
+  @@index([collectionCaseId, createdAt])
+  @@index([associationId, createdAt])
+  @@index([clientAccountId, createdAt])
+  @@index([saasInvoiceId, createdAt])
+  @@index([eventType, createdAt])
+  @@map("revenue_collection_events")
 }
 
 model LegalDocument {
