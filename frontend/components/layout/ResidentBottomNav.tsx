@@ -2,13 +2,13 @@
 
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
-import { FileText, Gauge, Home, Menu, Wrench } from 'lucide-react';
+import { FileText, Home, Menu, WalletCards, Wrench } from 'lucide-react';
 import { defaultLocale, isLocale } from '@/i18n';
 
 const ITEMS = [
   { href: '/resident', label: 'Acasă', icon: Home },
   { href: '/resident/invoices', label: 'Facturi', icon: FileText },
-  { href: '/resident/meters', label: 'Contoare', icon: Gauge },
+  { href: '/resident/balance', label: 'Sold', icon: WalletCards },
   { href: '/resident/requests', label: 'Solicitări', icon: Wrench },
   { href: '/resident/profile', label: 'Cont', icon: Menu },
 ];

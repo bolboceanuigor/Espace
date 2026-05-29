@@ -19,7 +19,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import { Badge, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
-import { communicationsApi, invoicesApi, metersApi, requestsApi, residentDemoApi } from '@/lib/api';
+import { communicationsApi, invoicesApi, metersApi, requestsApi, residentBalanceApi, residentDemoApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
@@ -162,6 +162,16 @@ type ResidentInvoicesOverview = {
   lastPublishedInvoice?: { invoiceNumber?: string | null; publishedAt?: string | null; billingMonth?: string | null } | null;
   apartmentsCount: number;
   currency: 'MDL';
+};
+
+type ResidentBalanceOverview = {
+  totalUnpaidAmount: number;
+  totalOverdueAmount: number;
+  unpaidInvoicesCount: number;
+  overdueInvoicesCount: number;
+  pendingPaymentProofsCount: number;
+  nextDueInvoice?: { dueDate?: string | null; invoiceNumber?: string | null } | null;
+  lastPayment?: { paidAt?: string | null; acceptedAt?: string | null; amount?: number | null } | null;
 };
 
 const emptyDashboard: ResidentDashboard = {
@@ -307,6 +317,7 @@ export default function ResidentDashboardPage() {
   const [requestStats, setRequestStats] = useState<any>({});
   const [meterStats, setMeterStats] = useState<any>({});
   const [invoiceOverview, setInvoiceOverview] = useState<ResidentInvoicesOverview | null>(null);
+  const [balanceOverview, setBalanceOverview] = useState<ResidentBalanceOverview | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -401,7 +412,26 @@ export default function ResidentDashboardPage() {
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    residentBalanceApi
+      .getResidentBalanceOverview()
+      .then((response) => {
+        if (!active) return;
+        setBalanceOverview(response.data || null);
+      })
+      .catch(() => {
+        if (!active) return;
+        setBalanceOverview(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const summary = dashboard.financialSummary;
+  const currentBalance = balanceOverview?.totalUnpaidAmount ?? summary.currentBalance;
+  const overdueBalance = balanceOverview?.totalOverdueAmount ?? 0;
   const currentStatus = useMemo(() => statusCopy(summary), [summary]);
   const apartmentLabel = dashboard.apartments.length
     ? dashboard.apartments.map((apartment) => `Apt. ${apartment.apartmentNumber}`).join(', ')
@@ -489,22 +519,23 @@ export default function ResidentDashboardPage() {
               <p className="text-sm opacity-75">Sold curent</p>
               <Badge variant={currentStatus.badge}>{currentStatus.label}</Badge>
             </div>
-            <h1 className="mt-3 text-4xl font-semibold tracking-normal">{formatMdl(summary.currentBalance)}</h1>
+            <h1 className="mt-3 text-4xl font-semibold tracking-normal">{formatMdl(currentBalance)}</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 opacity-80">
-              {summary.unpaidInvoices > 0 && summary.nextDueDate
-                ? `Ai ${summary.unpaidInvoices} facturi neachitate, cea mai apropiată scadență este ${formatDate(summary.nextDueDate)}.`
+              {(balanceOverview?.unpaidInvoicesCount || summary.unpaidInvoices) > 0 && (balanceOverview?.nextDueInvoice?.dueDate || summary.nextDueDate)
+                ? `Ai ${balanceOverview?.unpaidInvoicesCount ?? summary.unpaidInvoices} facturi neachitate, cea mai apropiată scadență este ${formatDate(balanceOverview?.nextDueInvoice?.dueDate || summary.nextDueDate)}.`
                 : currentStatus.text}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <ButtonLink href="/resident/balance" variant="secondary">Vezi sold</ButtonLink>
             <ButtonLink href="/resident/invoices" variant="secondary">Vezi facturi</ButtonLink>
             <ButtonLink href="/resident/payments" variant="secondary">Vezi plăți</ButtonLink>
           </div>
         </div>
         <div className="grid gap-3 p-4 md:grid-cols-3">
-          <MiniInfo label="Următoarea scadență" value={formatDate(summary.nextDueDate)} />
-          <MiniInfo label="Facturi neachitate" value={String(summary.unpaidInvoices)} />
-          <MiniInfo label="Ultima plată" value={formatDate(summary.lastPayment?.paymentDate)} />
+          <MiniInfo label="Următoarea scadență" value={formatDate(balanceOverview?.nextDueInvoice?.dueDate || summary.nextDueDate)} />
+          <MiniInfo label="Facturi neachitate" value={String(balanceOverview?.unpaidInvoicesCount ?? summary.unpaidInvoices)} />
+          <MiniInfo label="Ultima plată" value={formatDate(balanceOverview?.lastPayment?.acceptedAt || balanceOverview?.lastPayment?.paidAt || summary.lastPayment?.paymentDate)} />
         </div>
       </Card>
 
@@ -523,7 +554,10 @@ export default function ResidentDashboardPage() {
                 : 'Nu există facturi publicate încă. Când administrația publică o factură, aceasta va apărea aici.'}
             </p>
           </div>
-          <ButtonLink href="/resident/invoices" variant="primary">Vezi facturi</ButtonLink>
+          <div className="flex flex-wrap gap-2">
+            <ButtonLink href="/resident/balance" variant="secondary">Vezi sold</ButtonLink>
+            <ButtonLink href="/resident/invoices" variant="primary">Vezi facturi</ButtonLink>
+          </div>
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-4">
           <MiniInfo label="Total neachitat" value={formatMdl(invoiceOverview?.totalUnpaidAmount || 0)} danger={(invoiceOverview?.totalUnpaidAmount || 0) > 0} />
@@ -534,7 +568,7 @@ export default function ResidentDashboardPage() {
       </Card>
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Sold curent" value={formatMdl(summary.currentBalance)} description="Facturi active" icon={<Wallet className="h-5 w-5" />} tone={summary.currentBalance > 0 ? 'warning' : 'success'} />
+        <StatCard label="Sold curent" value={formatMdl(currentBalance)} description={`${formatMdl(overdueBalance)} restante`} icon={<Wallet className="h-5 w-5" />} tone={currentBalance > 0 ? 'warning' : 'success'} />
         <StatCard label="Total facturi" value={String(summary.totalInvoices)} description={`${summary.unpaidInvoices} neachitate`} icon={<FileText className="h-5 w-5" />} />
         <StatCard label="Total achitat" value={formatMdl(summary.totalPaidAmount)} description="Plăți confirmate" icon={<Banknote className="h-5 w-5" />} tone="success" />
         <StatCard label="Facturi întârziate" value={String(summary.overdueInvoices)} description="Scadență depășită" icon={<CalendarClock className="h-5 w-5" />} tone={summary.overdueInvoices > 0 ? 'warning' : 'success'} />

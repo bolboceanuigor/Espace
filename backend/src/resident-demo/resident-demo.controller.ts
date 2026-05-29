@@ -72,6 +72,31 @@ export class ResidentDemoController {
     return this.invoicePublishingService.listResidentInvoices(user, query);
   }
 
+  @Get(['resident/balance/overview', 'api/resident/balance/overview'])
+  getBalanceOverview(@CurrentUser() user: MvpUser) {
+    return this.invoicePublishingService.getResidentBalanceOverview(user);
+  }
+
+  @Get(['resident/balance/apartments', 'api/resident/balance/apartments'])
+  listApartmentBalances(@CurrentUser() user: MvpUser) {
+    return this.invoicePublishingService.listResidentApartmentBalances(user);
+  }
+
+  @Get(['resident/balance/apartments/:apartmentId', 'api/resident/balance/apartments/:apartmentId'])
+  getApartmentBalance(@CurrentUser() user: MvpUser, @Param('apartmentId') apartmentId: string) {
+    return this.invoicePublishingService.getResidentApartmentBalance(user, apartmentId);
+  }
+
+  @Get(['resident/financial-timeline', 'api/resident/financial-timeline'])
+  getFinancialTimeline(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.invoicePublishingService.getResidentFinancialTimeline(user, query);
+  }
+
+  @Get(['resident/balance/issues', 'api/resident/balance/issues'])
+  getBalanceIssues(@CurrentUser() user: MvpUser) {
+    return this.invoicePublishingService.getResidentBalanceIssues(user);
+  }
+
   @Get(['resident/invoices/overview', 'api/resident/invoices/overview'])
   getInvoicesOverview(@CurrentUser() user: MvpUser) {
     return this.invoicePublishingService.getResidentOverview(user);
@@ -119,17 +144,17 @@ export class ResidentDemoController {
 
   @Get(['resident/payments', 'api/resident/payments'])
   listPayments(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
-    return this.residentDemoService.listPayments(user, query);
+    return this.invoicePublishingService.listResidentPayments(user, query);
   }
 
   @Get(['resident/payments/stats', 'api/resident/payments/stats'])
   getPaymentStats(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
-    return this.residentDemoService.getInternalPaymentStats(user, query);
+    return this.invoicePublishingService.getResidentBalanceOverview(user);
   }
 
   @Get(['resident/payments/:id', 'api/resident/payments/:id'])
   getPayment(@CurrentUser() user: MvpUser, @Param('id') id: string) {
-    return this.residentDemoService.getInternalPayment(user, id);
+    return this.invoicePublishingService.getResidentPayment(user, id);
   }
 
   @Get(['resident/apartments/:id/financial-summary', 'api/resident/apartments/:id/financial-summary'])

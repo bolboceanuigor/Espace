@@ -8,7 +8,7 @@ import { useLocalizedPath } from '@/lib/use-localized-path';
 const ITEMS = [
   { href: '/resident', label: 'Acasă', icon: Home },
   { href: '/resident/invoices', label: 'Facturi', icon: FileText },
-  { href: '/resident/payments', label: 'Plăți', icon: CreditCard },
+  { href: '/resident/balance', label: 'Sold', icon: CreditCard },
   { href: '/resident/requests', label: 'Solicitări', icon: Wrench },
   { href: '/resident/profile', label: 'Cont', icon: UserRound },
 ];

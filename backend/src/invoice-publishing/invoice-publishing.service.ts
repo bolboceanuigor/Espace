@@ -630,6 +630,210 @@ export class InvoicePublishingService {
     return { intent: this.serializePaymentIntentPlaceholder(updated), message: 'Pregătirea plății a fost anulată.' };
   }
 
+  async getResidentBalanceOverview(user: MvpUser) {
+    const snapshot = await this.residentBalanceSnapshot(user);
+    const invoiceSummaries = snapshot.invoiceSummaries.filter((invoice) => invoice.status !== BillingDraftInvoiceStatus.CANCELLED);
+    const unpaidInvoices = invoiceSummaries.filter((invoice) => invoice.remainingAmount > 0);
+    const overdueInvoices = invoiceSummaries.filter((invoice) => invoice.paymentDisplayStatus === 'OVERDUE');
+    const partiallyPaidInvoices = invoiceSummaries.filter((invoice) => invoice.paymentDisplayStatus === 'PARTIALLY_PAID');
+    const paidInvoices = invoiceSummaries.filter((invoice) => invoice.paymentDisplayStatus === 'PAID');
+    const acceptedPayments = snapshot.payments.filter((payment) => ACCEPTED_PAYMENT_STATUSES.includes(payment.status));
+    const pendingPaymentProofs = snapshot.payments.filter((payment) => payment.source === PaymentSource.PAYMENT_PROOF && payment.status === PaymentStatus.PENDING);
+    const rejectedPaymentProofs = snapshot.payments.filter((payment) => payment.source === PaymentSource.PAYMENT_PROOF && payment.status === PaymentStatus.REJECTED);
+    const nextDueInvoice =
+      [...unpaidInvoices]
+        .filter((invoice) => invoice.dueDate)
+        .sort((a, b) => new Date(a.dueDate || 0).getTime() - new Date(b.dueDate || 0).getTime())[0] || null;
+    const lastPayment =
+      [...acceptedPayments].sort((a, b) => new Date(b.acceptedAt || b.paidAt || b.createdAt).getTime() - new Date(a.acceptedAt || a.paidAt || a.createdAt).getTime())[0] || null;
+
+    return {
+      currency: 'MDL',
+      apartmentsCount: snapshot.apartments.length,
+      totalInvoicedAmount: money(invoiceSummaries.reduce((sum, invoice) => sum + invoice.totalAmount, 0)),
+      totalPaidAmount: money(acceptedPayments.reduce((sum, payment) => sum + numberFromDecimal(payment.amount), 0)),
+      totalUnpaidAmount: money(unpaidInvoices.reduce((sum, invoice) => sum + invoice.remainingAmount, 0)),
+      totalOverdueAmount: money(overdueInvoices.reduce((sum, invoice) => sum + invoice.remainingAmount, 0)),
+      unpaidInvoicesCount: unpaidInvoices.length,
+      overdueInvoicesCount: overdueInvoices.length,
+      paidInvoicesCount: paidInvoices.length,
+      partiallyPaidInvoicesCount: partiallyPaidInvoices.length,
+      pendingPaymentProofsCount: pendingPaymentProofs.length,
+      rejectedPaymentProofsCount: rejectedPaymentProofs.length,
+      nextDueInvoice,
+      lastPayment: lastPayment ? this.serializeResidentPayment(lastPayment) : null,
+      lastPublishedInvoice: snapshot.invoiceSummaries[0] || null,
+    };
+  }
+
+  async listResidentApartmentBalances(user: MvpUser) {
+    const snapshot = await this.residentBalanceSnapshot(user);
+    return {
+      items: snapshot.apartmentBalances,
+      total: snapshot.apartmentBalances.length,
+      emptyStateCode: snapshot.apartmentBalances.length ? null : 'NO_APARTMENTS',
+      emptyStateMessage: snapshot.apartmentBalances.length ? null : 'Contul tău nu este legat încă de un apartament.',
+    };
+  }
+
+  async getResidentApartmentBalance(user: MvpUser, apartmentId: string) {
+    const snapshot = await this.residentBalanceSnapshot(user, apartmentId);
+    const balance = snapshot.apartmentBalances[0];
+    if (!balance) throw new NotFoundException('Apartamentul nu a fost găsit.');
+    const invoiceSummaries = snapshot.invoiceSummaries.filter((invoice) => invoice.apartmentId === apartmentId);
+    const payments = snapshot.payments.filter((payment) => payment.apartmentId === apartmentId);
+    return {
+      apartment: balance.apartment,
+      balance,
+      unpaidInvoices: invoiceSummaries.filter((invoice) => invoice.remainingAmount > 0),
+      overdueInvoices: invoiceSummaries.filter((invoice) => invoice.paymentDisplayStatus === 'OVERDUE'),
+      recentPayments: payments.slice(0, 10).map((payment) => this.serializeResidentPayment(payment)),
+      pendingPaymentProofs: payments
+        .filter((payment) => payment.source === PaymentSource.PAYMENT_PROOF && payment.status === PaymentStatus.PENDING)
+        .map((payment) => this.serializeResidentPayment(payment)),
+      timelinePreview: this.buildResidentFinancialTimeline(snapshot).slice(0, 10),
+    };
+  }
+
+  async listResidentPayments(user: MvpUser, query: Record<string, unknown> = {}) {
+    const { organizationId, apartmentIds } = await this.residentInvoiceScope(user);
+    if (!apartmentIds.length) {
+      const { page, limit } = resolvePagination(query, 20, 100);
+      return { items: [], meta: buildPaginationMeta(page, limit, 0), emptyStateCode: 'NO_APARTMENT', emptyStateMessage: 'Contul tău nu este legat încă de un apartament.' };
+    }
+    const { page, limit, skip } = resolvePagination(query, 20, 100);
+    const where = this.residentPaymentWhere(organizationId, apartmentIds, query);
+    const [rows, total] = await Promise.all([
+      this.prisma.payment.findMany({
+        where,
+        include: this.residentPaymentInclude(),
+        orderBy: [{ paidAt: 'desc' }, { acceptedAt: 'desc' }, { createdAt: 'desc' }],
+        skip,
+        take: limit,
+      }),
+      this.prisma.payment.count({ where }),
+    ]);
+    return {
+      items: rows.map((payment) => this.serializeResidentPayment(payment)),
+      meta: buildPaginationMeta(page, limit, total),
+      emptyStateCode: total === 0 ? 'NO_PAYMENTS' : null,
+      emptyStateMessage: total === 0 ? 'Nu există plăți acceptate încă.' : null,
+    };
+  }
+
+  async getResidentPayment(user: MvpUser, id: string) {
+    const { organizationId, apartmentIds } = await this.residentInvoiceScope(user);
+    const payment = await this.prisma.payment.findFirst({
+      where: { id, organizationId, apartmentId: { in: apartmentIds.length ? apartmentIds : ['__none__'] } },
+      include: this.residentPaymentInclude(),
+    });
+    if (!payment) throw new NotFoundException('Plata nu a fost găsită.');
+    return { payment: this.serializeResidentPayment(payment, true) };
+  }
+
+  async getResidentFinancialTimeline(user: MvpUser, query: Record<string, unknown> = {}) {
+    const snapshot = await this.residentBalanceSnapshot(user, optionalString(query.apartmentId));
+    const { page, limit, skip } = resolvePagination(query, 20, 100);
+    const dateFrom = parseDate(query.dateFrom);
+    const dateTo = parseDate(query.dateTo);
+    const type = optionalString(query.type)?.toUpperCase();
+    let entries = this.buildResidentFinancialTimeline(snapshot);
+    if (dateFrom) entries = entries.filter((entry) => new Date(String(entry.date || 0)).getTime() >= dateFrom.getTime());
+    if (dateTo) entries = entries.filter((entry) => new Date(String(entry.date || 0)).getTime() <= dateTo.getTime());
+    if (type) entries = entries.filter((entry) => entry.type === type);
+    return {
+      items: entries.slice(skip, skip + limit),
+      meta: buildPaginationMeta(page, limit, entries.length),
+      emptyStateCode: entries.length === 0 ? 'NO_FINANCIAL_ACTIVITY' : null,
+      emptyStateMessage: entries.length === 0 ? 'Nu există activitate financiară încă.' : null,
+    };
+  }
+
+  async getResidentBalanceIssues(user: MvpUser) {
+    const snapshot = await this.residentBalanceSnapshot(user);
+    const issues: Array<Record<string, unknown>> = [];
+    snapshot.invoiceSummaries.forEach((invoice) => {
+      if (invoice.status === BillingDraftInvoiceStatus.CANCELLED) return;
+      if (invoice.paymentDisplayStatus === 'OVERDUE') {
+        issues.push({
+          id: `OVERDUE_INVOICE-${invoice.id}`,
+          type: 'OVERDUE_INVOICE',
+          severity: 'WARNING',
+          invoice,
+          apartment: invoice.apartment,
+          amount: invoice.remainingAmount,
+          recommendation: 'Vezi factura și trimite dovada plății dacă ai achitat deja.',
+        });
+        return;
+      }
+      if (invoice.paymentDisplayStatus === 'PARTIALLY_PAID') {
+        issues.push({
+          id: `PARTIALLY_PAID_INVOICE-${invoice.id}`,
+          type: 'PARTIALLY_PAID_INVOICE',
+          severity: 'INFO',
+          invoice,
+          apartment: invoice.apartment,
+          amount: invoice.remainingAmount,
+          recommendation: 'Verifică suma rămasă de achitat pentru această factură.',
+        });
+        return;
+      }
+      if (invoice.remainingAmount > 0) {
+        issues.push({
+          id: `UNPAID_INVOICE-${invoice.id}`,
+          type: 'UNPAID_INVOICE',
+          severity: 'INFO',
+          invoice,
+          apartment: invoice.apartment,
+          amount: invoice.remainingAmount,
+          recommendation: 'Achită factura sau încarcă dovada plății dacă ai achitat deja.',
+        });
+      }
+    });
+    snapshot.payments.forEach((payment) => {
+      const serializedPayment = this.serializeResidentPayment(payment);
+      if (payment.source === PaymentSource.PAYMENT_PROOF && payment.status === PaymentStatus.PENDING) {
+        issues.push({
+          id: `PAYMENT_PROOF_PENDING-${payment.id}`,
+          type: 'PAYMENT_PROOF_PENDING',
+          severity: 'INFO',
+          payment: serializedPayment,
+          apartment: serializedPayment.apartment,
+          amount: serializedPayment.amount,
+          recommendation: 'Dovada este în verificare la administrație.',
+        });
+      }
+      if (payment.source === PaymentSource.PAYMENT_PROOF && payment.status === PaymentStatus.REJECTED) {
+        issues.push({
+          id: `PAYMENT_PROOF_REJECTED-${payment.id}`,
+          type: 'PAYMENT_PROOF_REJECTED',
+          severity: 'WARNING',
+          payment: serializedPayment,
+          apartment: serializedPayment.apartment,
+          amount: serializedPayment.amount,
+          recommendation: 'Verifică motivul respingerii și trimite o dovadă corectă.',
+        });
+      }
+      if (payment.status === PaymentStatus.REVERSED) {
+        issues.push({
+          id: `PAYMENT_REVERSED-${payment.id}`,
+          type: 'PAYMENT_REVERSED',
+          severity: 'WARNING',
+          payment: serializedPayment,
+          apartment: serializedPayment.apartment,
+          amount: serializedPayment.amount,
+          recommendation: 'Plata a fost inversată. Verifică soldul facturii asociate.',
+        });
+      }
+    });
+    return {
+      issues,
+      total: issues.length,
+      warningsCount: issues.filter((issue) => issue.severity === 'WARNING').length,
+      infoCount: issues.filter((issue) => issue.severity === 'INFO').length,
+    };
+  }
+
   async getAdminPaymentsOverview(user: MvpUser) {
     const organizationId = this.requireAdminOrganization(user);
     const [payments, invoices, apartments] = await Promise.all([
@@ -1007,6 +1211,14 @@ export class InvoicePublishingService {
       acceptedBy: { select: { id: true, firstName: true, lastName: true, fullName: true, email: true } },
       rejectedBy: { select: { id: true, firstName: true, lastName: true, fullName: true, email: true } },
       reversedBy: { select: { id: true, firstName: true, lastName: true, fullName: true, email: true } },
+    } satisfies Prisma.PaymentInclude;
+  }
+
+  private residentPaymentInclude() {
+    return {
+      apartment: { include: { building: { select: { id: true, name: true } }, staircase: { select: { id: true, name: true } } } },
+      billingDraftInvoice: { include: this.invoiceListInclude() },
+      residentUser: { select: { id: true, firstName: true, lastName: true, fullName: true, email: true, phone: true } },
     } satisfies Prisma.PaymentInclude;
   }
 
@@ -1509,6 +1721,111 @@ export class InvoicePublishingService {
     return where;
   }
 
+  private async residentBalanceSnapshot(user: MvpUser, apartmentId?: string): Promise<any> {
+    const { organizationId, apartmentIds } = await this.residentInvoiceScope(user);
+    if (apartmentId && !apartmentIds.includes(apartmentId)) throw new ForbiddenException('Nu ai acces la acest apartament.');
+    const scopedApartmentIds = apartmentId ? [apartmentId] : apartmentIds;
+    if (!scopedApartmentIds.length) {
+      return { organizationId, apartmentIds: [], apartments: [], invoices: [], invoiceSummaries: [], payments: [], apartmentBalances: [] };
+    }
+    const [apartments, invoices, payments] = await Promise.all([
+      this.prisma.apartment.findMany({
+        where: { organizationId, id: { in: scopedApartmentIds } },
+        include: this.apartmentLedgerInclude(),
+        orderBy: [{ building: { name: 'asc' } }, { staircase: { name: 'asc' } }, { number: 'asc' }],
+      }),
+      this.prisma.billingDraftInvoice.findMany({
+        where: this.residentInvoiceWhere(organizationId, scopedApartmentIds),
+        include: this.invoiceListInclude(),
+        orderBy: [{ publishedAt: 'desc' }, { updatedAt: 'desc' }],
+      }),
+      this.prisma.payment.findMany({
+        where: { organizationId, apartmentId: { in: scopedApartmentIds } },
+        include: this.residentPaymentInclude(),
+        orderBy: [{ paidAt: 'desc' }, { acceptedAt: 'desc' }, { createdAt: 'desc' }],
+      }),
+    ]);
+    const paidByInvoice = await this.paidAmountsForInvoices(
+      organizationId,
+      invoices.map((invoice) => invoice.id),
+    );
+    const invoiceSummaries = invoices.map((invoice) => this.serializeResidentInvoiceList(invoice, paidByInvoice.get(invoice.id) || 0));
+    return {
+      organizationId,
+      apartmentIds: scopedApartmentIds,
+      apartments,
+      invoices,
+      invoiceSummaries,
+      payments,
+      apartmentBalances: this.buildResidentApartmentBalances(apartments, invoiceSummaries, payments),
+    };
+  }
+
+  private buildResidentApartmentBalances(apartments: any[], invoiceSummaries: any[], payments: any[]) {
+    return apartments.map((apartment) => {
+      const apartmentInvoices = invoiceSummaries.filter((invoice) => invoice.apartmentId === apartment.id && invoice.status !== BillingDraftInvoiceStatus.CANCELLED);
+      const apartmentPayments = payments.filter((payment) => payment.apartmentId === apartment.id && ACCEPTED_PAYMENT_STATUSES.includes(payment.status));
+      const unpaidInvoices = apartmentInvoices.filter((invoice) => invoice.remainingAmount > 0);
+      const overdueInvoices = apartmentInvoices.filter((invoice) => invoice.paymentDisplayStatus === 'OVERDUE');
+      const partialInvoices = apartmentInvoices.filter((invoice) => invoice.paymentDisplayStatus === 'PARTIALLY_PAID');
+      const totalInvoicedAmount = money(apartmentInvoices.reduce((sum, invoice) => sum + invoice.totalAmount, 0));
+      const totalPaidAmount = money(apartmentPayments.reduce((sum, payment) => sum + numberFromDecimal(payment.amount), 0));
+      const totalUnpaidAmount = money(unpaidInvoices.reduce((sum, invoice) => sum + invoice.remainingAmount, 0));
+      const overdueAmount = money(overdueInvoices.reduce((sum, invoice) => sum + invoice.remainingAmount, 0));
+      const lastPayment =
+        [...apartmentPayments].sort((a, b) => new Date(b.acceptedAt || b.paidAt || b.createdAt).getTime() - new Date(a.acceptedAt || a.paidAt || a.createdAt).getTime())[0] || null;
+      const lastInvoice =
+        [...apartmentInvoices].sort((a, b) => new Date(b.publishedAt || b.updatedAt).getTime() - new Date(a.publishedAt || a.updatedAt).getTime())[0] || null;
+      const status = overdueAmount > 0 ? 'OVERDUE' : totalUnpaidAmount > 0 ? (partialInvoices.length ? 'PARTIALLY_PAID' : 'UNPAID') : 'CLEAR';
+      return {
+        apartmentId: apartment.id,
+        apartmentNumber: apartment.number,
+        buildingName: apartment.building?.name || null,
+        entranceName: apartment.staircase?.name || null,
+        apartment: apartmentInfo(apartment),
+        totalInvoicedAmount,
+        totalPaidAmount,
+        totalUnpaidAmount,
+        overdueAmount,
+        unpaidInvoicesCount: unpaidInvoices.length,
+        overdueInvoicesCount: overdueInvoices.length,
+        lastInvoice,
+        lastPayment: lastPayment ? this.serializeResidentPayment(lastPayment) : null,
+        status,
+      };
+    });
+  }
+
+  private residentPaymentWhere(organizationId: string, apartmentIds: string[], query: Record<string, unknown>): Prisma.PaymentWhereInput {
+    const where: Prisma.PaymentWhereInput = {
+      organizationId,
+      apartmentId: { in: apartmentIds.length ? apartmentIds : ['__none__'] },
+    };
+    const requestedApartmentId = optionalString(query.apartmentId);
+    if (requestedApartmentId) where.apartmentId = apartmentIds.includes(requestedApartmentId) ? requestedApartmentId : '__none__';
+    const status = optionalString(query.status)?.toUpperCase() as PaymentStatus | undefined;
+    if (status && Object.values(PaymentStatus).includes(status)) where.status = status;
+    const method = optionalString(query.method)?.toUpperCase() as PaymentMethod | undefined;
+    if (method && Object.values(PaymentMethod).includes(method)) where.method = method;
+    const source = optionalString(query.source)?.toUpperCase() as PaymentSource | undefined;
+    if (source && Object.values(PaymentSource).includes(source)) where.source = source;
+    const invoiceId = optionalString(query.invoiceId);
+    if (invoiceId) where.billingDraftInvoiceId = invoiceId;
+    const dateFrom = parseDate(query.dateFrom);
+    const dateTo = parseDate(query.dateTo);
+    if (dateFrom || dateTo) where.paidAt = { ...(dateFrom ? { gte: dateFrom } : {}), ...(dateTo ? { lte: dateTo } : {}) };
+    const search = optionalString(query.search);
+    if (search) {
+      where.OR = [
+        { externalReference: { contains: search, mode: 'insensitive' } },
+        { note: { contains: search, mode: 'insensitive' } },
+        { billingDraftInvoice: { invoiceNumber: { contains: search, mode: 'insensitive' } } },
+        { apartment: { number: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
+    return where;
+  }
+
   private async paidAmountsForInvoices(organizationId: string, invoiceIds: string[]) {
     const entries = await Promise.all(invoiceIds.map(async (invoiceId) => [invoiceId, await this.paidAmountForInvoice(organizationId, invoiceId)] as const));
     return new Map(entries);
@@ -1752,6 +2069,155 @@ export class InvoicePublishingService {
       paymentUnavailableMessage: 'Plata online va fi disponibilă ulterior.',
       payments: [],
     };
+  }
+
+  private serializeResidentPayment(payment: any, detail = false) {
+    const invoice = payment.billingDraftInvoice ? this.serializeResidentInvoiceList(payment.billingDraftInvoice, 0) : null;
+    const residentName = payment.residentUser?.fullName || fullName(payment.residentUser) || payment.residentUser?.email || payment.residentUser?.phone || null;
+    const payload: Record<string, unknown> = {
+      id: payment.id,
+      paymentId: payment.id,
+      invoiceId: payment.billingDraftInvoiceId || null,
+      invoiceNumber: payment.billingDraftInvoice?.invoiceNumber || null,
+      invoice: invoice
+        ? {
+            id: invoice.id,
+            invoiceNumber: invoice.invoiceNumber,
+            status: invoice.status,
+            totalAmount: invoice.totalAmount,
+            remainingAmount: invoice.remainingAmount,
+            billingPeriod: invoice.billingPeriod,
+            billingMonth: invoice.billingMonth,
+          }
+        : null,
+      apartmentId: payment.apartmentId,
+      apartment: apartmentInfo(payment.apartment || payment.billingDraftInvoice?.apartment),
+      resident: payment.residentUser ? { id: payment.residentUser.id, name: residentName, email: payment.residentUser.email || null, phone: payment.residentUser.phone || null } : null,
+      amount: numberFromDecimal(payment.amount),
+      currency: payment.currency,
+      method: payment.method,
+      status: payment.status,
+      source: payment.source,
+      paidAt: payment.paidAt,
+      acceptedAt: payment.acceptedAt,
+      externalReference: payment.externalReference || null,
+      linkedProof: payment.paymentProofId ? { id: payment.paymentProofId } : null,
+      note: payment.note || null,
+      createdAt: payment.createdAt,
+      updatedAt: payment.updatedAt,
+    };
+    if (detail) {
+      payload.provider = payment.provider || null;
+      payload.rejectedAt = payment.rejectedAt || null;
+      payload.rejectionReason = payment.rejectionReason || null;
+      payload.reversedAt = payment.reversedAt || null;
+      payload.reversalReason = payment.reversalReason || null;
+    }
+    return payload;
+  }
+
+  private buildResidentFinancialTimeline(snapshot: { invoiceSummaries: any[]; payments: any[] }) {
+    const entries: Array<Record<string, unknown>> = [];
+    snapshot.invoiceSummaries.forEach((invoice) => {
+      const publishedDate = invoice.publishedAt || invoice.updatedAt || invoice.createdAt;
+      if (publishedDate) {
+        entries.push({
+          id: `invoice-published-${invoice.id}`,
+          date: publishedDate,
+          type: 'INVOICE_PUBLISHED',
+          title: `Factura ${invoice.invoiceNumber || invoice.id} a fost publicată`,
+          description: `Factură pentru ${invoice.billingMonth || 'perioada curentă'}.`,
+          amount: invoice.totalAmount,
+          currency: invoice.currency,
+          invoiceId: invoice.id,
+          paymentId: null,
+          paymentProofId: null,
+          apartmentId: invoice.apartmentId,
+          apartment: invoice.apartment,
+          status: invoice.paymentDisplayStatus,
+        });
+      }
+      if (invoice.paymentDisplayStatus === 'PAID') {
+        entries.push({
+          id: `invoice-paid-${invoice.id}`,
+          date: invoice.updatedAt || invoice.publishedAt,
+          type: 'INVOICE_PAID',
+          title: `Factura ${invoice.invoiceNumber || invoice.id} este achitată`,
+          description: 'Soldul facturii este 0.',
+          amount: invoice.totalAmount,
+          currency: invoice.currency,
+          invoiceId: invoice.id,
+          paymentId: null,
+          paymentProofId: null,
+          apartmentId: invoice.apartmentId,
+          apartment: invoice.apartment,
+          status: 'PAID',
+        });
+      }
+      if (invoice.paymentDisplayStatus === 'PARTIALLY_PAID') {
+        entries.push({
+          id: `invoice-partial-${invoice.id}`,
+          date: invoice.updatedAt || invoice.publishedAt,
+          type: 'INVOICE_PARTIALLY_PAID',
+          title: `Factura ${invoice.invoiceNumber || invoice.id} este achitată parțial`,
+          description: `Mai rămâne de achitat ${invoice.remainingAmount} ${invoice.currency}.`,
+          amount: invoice.remainingAmount,
+          currency: invoice.currency,
+          invoiceId: invoice.id,
+          paymentId: null,
+          paymentProofId: null,
+          apartmentId: invoice.apartmentId,
+          apartment: invoice.apartment,
+          status: 'PARTIALLY_PAID',
+        });
+      }
+    });
+    snapshot.payments.forEach((payment) => {
+      const serialized = this.serializeResidentPayment(payment);
+      const accepted = ACCEPTED_PAYMENT_STATUSES.includes(payment.status);
+      const isProof = payment.source === PaymentSource.PAYMENT_PROOF;
+      let type: string | null = null;
+      let title = '';
+      let description = '';
+      if (isProof && payment.status === PaymentStatus.PENDING) {
+        type = 'PAYMENT_PROOF_SUBMITTED';
+        title = 'Dovadă de plată trimisă';
+        description = 'Dovada este în verificare la administrație.';
+      } else if (isProof && accepted) {
+        type = 'PAYMENT_PROOF_ACCEPTED';
+        title = 'Dovadă de plată acceptată';
+        description = 'Plata asociată dovezii a fost acceptată.';
+      } else if (isProof && payment.status === PaymentStatus.REJECTED) {
+        type = 'PAYMENT_PROOF_REJECTED';
+        title = 'Dovadă de plată respinsă';
+        description = payment.rejectionReason || 'Dovada a fost respinsă de administrație.';
+      } else if (accepted) {
+        type = 'PAYMENT_ACCEPTED';
+        title = 'Plată acceptată';
+        description = payment.billingDraftInvoice?.invoiceNumber ? `Plată pentru factura ${payment.billingDraftInvoice.invoiceNumber}.` : 'Plată înregistrată în contul apartamentului.';
+      } else if (payment.status === PaymentStatus.REVERSED || payment.status === PaymentStatus.CANCELLED) {
+        type = 'PAYMENT_REVERSED';
+        title = payment.status === PaymentStatus.REVERSED ? 'Plată inversată' : 'Plată anulată';
+        description = payment.reversalReason || payment.note || 'Soldul a fost recalculat după modificarea plății.';
+      }
+      if (!type) return;
+      entries.push({
+        id: `${type}-${payment.id}`,
+        date: payment.acceptedAt || payment.paidAt || payment.updatedAt || payment.createdAt,
+        type,
+        title,
+        description,
+        amount: numberFromDecimal(payment.amount),
+        currency: payment.currency,
+        invoiceId: payment.billingDraftInvoiceId || null,
+        paymentId: payment.id,
+        paymentProofId: payment.paymentProofId || null,
+        apartmentId: payment.apartmentId,
+        apartment: serialized.apartment,
+        status: payment.status,
+      });
+    });
+    return entries.sort((a, b) => new Date(String(b.date || 0)).getTime() - new Date(String(a.date || 0)).getTime());
   }
 
   private emptyResidentList(organizationId: string, code: string, message: string) {

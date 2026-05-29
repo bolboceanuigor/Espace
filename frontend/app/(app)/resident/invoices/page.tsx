@@ -6,6 +6,7 @@ import { AlertTriangle, CalendarClock, CheckCircle2, FileText, ReceiptText, Sear
 import {
   Badge,
   Button,
+  ButtonLink,
   Card,
   Input,
   PageHeader,
@@ -185,6 +186,7 @@ export default function ResidentInvoicesPage() {
             {data?.association ? <Badge variant="neutral">{data.association.shortName} · {data.association.associationCode || 'cod necompletat'}</Badge> : null}
             <Badge variant="neutral">{overview?.apartmentsCount || apartments.length || 0} apartamente</Badge>
             <Badge variant="neutral">MDL</Badge>
+            <ButtonLink href="/resident/balance" variant="secondary">Vezi soldul</ButtonLink>
           </div>
         }
       />

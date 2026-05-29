@@ -7,6 +7,7 @@ import {
   Home,
   FileText,
   Gauge,
+  WalletCards,
   CircleAlert,
   Megaphone,
   User,
@@ -19,6 +20,7 @@ import { defaultLocale, isLocale } from '@/i18n';
 const residentNavigation: { href: string; label: string; icon: LucideIcon; mobileOnly?: boolean }[] = [
   { href: '/resident', label: 'Acasă', icon: Home },
   { href: '/resident/invoices', label: 'Facturi', icon: FileText },
+  { href: '/resident/balance', label: 'Sold', icon: WalletCards },
   { href: '/resident/meters', label: 'Contoare', icon: Gauge },
   { href: '/resident/requests', label: 'Solicitări', icon: CircleAlert },
   { href: '/resident/announcements', label: 'Avizier', icon: Megaphone, mobileOnly: true },

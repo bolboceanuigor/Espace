@@ -2,123 +2,94 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Banknote, CalendarDays, CheckCircle2, Clock3, CreditCard, FileText, ReceiptText, Search, WalletCards } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import { Banknote, CheckCircle2, Clock3, CreditCard, FileText, ReceiptText, RefreshCw, Search, WalletCards } from 'lucide-react';
 import { Badge, Button, ButtonLink, Card, Input, PageHeader, StatCard } from '@/components/ui';
-import { residentDemoApi } from '@/lib/api';
+import { residentBalanceApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
-type PaymentStatus = 'CONFIRMED' | 'CANCELLED';
-type InvoiceStatus = 'ISSUED' | 'PARTIALLY_PAID' | 'PAID' | 'CANCELLED' | 'VOID';
-type PaymentMethod = 'CASH' | 'BANK_TRANSFER' | 'CARD_TERMINAL' | 'INFOCOM' | 'OPLATA' | 'OTHER';
-
-type ApartmentOption = {
+type Payment = {
   id: string;
-  apartmentNumber: string;
-  staircase?: string | null;
-  floor?: string | null;
-  isPrimary?: boolean;
-};
-
-type ResidentPayment = {
-  id: string;
+  invoiceId?: string | null;
+  invoiceNumber?: string | null;
+  invoice?: any | null;
+  apartment?: { id?: string; apartmentNumber?: string; number?: string; staircase?: { name?: string } | null; entrance?: { name?: string } | null } | null;
   amount: number;
-  currency: 'MDL';
-  paymentDate?: string | null;
-  method: PaymentMethod;
-  referenceNumber?: string;
-  payerName?: string;
-  status: PaymentStatus;
-  invoice: {
-    id: string;
-    invoiceNumber: string;
-    billingMonth: string;
-    status: InvoiceStatus;
-    totalAmount: number;
-    paidAmount: number;
-    balanceAmount: number;
-    dueDate?: string | null;
-  };
-  apartment: {
-    id: string;
-    apartmentNumber: string;
-    staircase?: string | null;
-    floor?: string | null;
-  };
-  association?: {
-    id?: string | null;
-    shortName: string;
-    associationCode?: string | null;
-  };
-  createdAt: string;
+  currency: string;
+  method: string;
+  status: string;
+  source: string;
+  paidAt?: string | null;
+  acceptedAt?: string | null;
+  externalReference?: string | null;
+  linkedProof?: { id: string } | null;
+  note?: string | null;
+  createdAt?: string | null;
 };
 
-type PaymentsResponse = {
-  items: ResidentPayment[];
-  meta: { page: number; limit: number; total: number };
-  stats: {
-    totalPayments: number;
-    confirmedPayments: number;
-    cancelledPayments: number;
-    totalPaidAmount: number;
-    currentMonthPaidAmount: number;
-    remainingBalance: number;
-    paidInvoices: number;
-    partiallyPaidInvoices: number;
-    lastPaymentDate?: string | null;
-  };
-  association?: { shortName: string; associationCode?: string | null };
-  apartments?: ApartmentOption[];
-  emptyStateCode?: 'NO_APARTMENT' | 'NO_PAYMENTS' | null;
-  emptyStateMessage?: string | null;
+type ApartmentBalance = {
+  apartmentId: string;
+  apartmentNumber: string;
+  buildingName?: string | null;
+  entranceName?: string | null;
 };
 
-const methodLabels: Record<PaymentMethod, string> = {
+type BalanceOverview = {
+  totalPaidAmount: number;
+  totalUnpaidAmount: number;
+  totalOverdueAmount: number;
+  paidInvoicesCount: number;
+  pendingPaymentProofsCount: number;
+  lastPayment?: Payment | null;
+};
+
+const statusLabels: Record<string, string> = {
+  PENDING: 'În verificare',
+  CONFIRMED: 'Confirmată',
+  ACCEPTED: 'Acceptată',
+  PARTIALLY_ACCEPTED: 'Acceptată parțial',
+  REJECTED: 'Respinsă',
+  FAILED: 'Eșuată',
+  CANCELLED: 'Anulată',
+  REVERSED: 'Inversată',
+};
+
+const methodLabels: Record<string, string> = {
   CASH: 'Numerar',
+  BANK: 'Bancă',
   BANK_TRANSFER: 'Transfer bancar',
-  CARD_TERMINAL: 'Terminal card',
-  INFOCOM: 'InfoCom',
-  OPLATA: 'Oplata',
+  MANUAL_BANK_TRANSFER: 'Transfer verificat manual',
+  TERMINAL: 'Terminal',
+  CARD_EXTERNAL: 'Card extern',
+  BANK_STATEMENT: 'Extras bancar',
+  ADJUSTMENT: 'Ajustare',
   OTHER: 'Altă metodă',
 };
 
-const statusLabels: Record<PaymentStatus, string> = {
-  CONFIRMED: 'Confirmată',
-  CANCELLED: 'Anulată',
+const sourceLabels: Record<string, string> = {
+  PAYMENT_PROOF: 'Dovadă plată',
+  MANUAL_ENTRY: 'Înregistrare manuală',
+  IMPORT: 'Import',
+  ADJUSTMENT: 'Ajustare',
+  SYSTEM: 'Sistem',
 };
 
-const invoiceStatusLabels: Record<InvoiceStatus, string> = {
-  ISSUED: 'Emisă',
-  PARTIALLY_PAID: 'Parțial achitată',
-  PAID: 'Achitată',
-  CANCELLED: 'Anulată',
-  VOID: 'Void',
-};
-
-const emptyStats = {
-  totalPayments: 0,
-  confirmedPayments: 0,
-  cancelledPayments: 0,
-  totalPaidAmount: 0,
-  currentMonthPaidAmount: 0,
-  remainingBalance: 0,
-  paidInvoices: 0,
-  partiallyPaidInvoices: 0,
-  lastPaymentDate: null,
-};
+const acceptedStatuses = ['ACCEPTED', 'PARTIALLY_ACCEPTED', 'CONFIRMED'];
 
 export default function ResidentPaymentsPage() {
   const localizedPath = useLocalizedPath();
-  const [data, setData] = useState<PaymentsResponse | null>(null);
-  const [apartmentId, setApartmentId] = useState('');
-  const [billingMonth, setBillingMonth] = useState('');
+  const searchParams = useSearchParams();
+  const [items, setItems] = useState<Payment[]>([]);
+  const [overview, setOverview] = useState<BalanceOverview>({ totalPaidAmount: 0, totalUnpaidAmount: 0, totalOverdueAmount: 0, paidInvoicesCount: 0, pendingPaymentProofsCount: 0 });
+  const [apartments, setApartments] = useState<ApartmentBalance[]>([]);
+  const [apartmentId, setApartmentId] = useState(searchParams.get('apartmentId') || '');
+  const [invoiceId] = useState(searchParams.get('invoiceId') || '');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [method, setMethod] = useState('');
   const [status, setStatus] = useState('');
-  const [confirmedOnly, setConfirmedOnly] = useState(true);
   const [query, setQuery] = useState('');
-  const [sortBy, setSortBy] = useState('newest');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -126,116 +97,98 @@ export default function ResidentPaymentsPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await residentDemoApi.payments({
-        apartmentId: apartmentId || undefined,
-        billingMonth: billingMonth || undefined,
-        dateFrom: dateFrom || undefined,
-        dateTo: dateTo || undefined,
-        method: method || undefined,
-        status: status || undefined,
-        confirmedOnly: confirmedOnly || undefined,
-        search: query || undefined,
-        sortBy,
-        page: 1,
-        limit: 50,
-      });
-      setData(res.data || null);
+      const [paymentsRes, overviewRes, apartmentsRes] = await Promise.all([
+        residentBalanceApi.getResidentPayments({
+          apartmentId: apartmentId || undefined,
+          invoiceId: invoiceId || undefined,
+          dateFrom: dateFrom || undefined,
+          dateTo: dateTo || undefined,
+          method: method || undefined,
+          status: status || undefined,
+          search: query || undefined,
+          page: 1,
+          limit: 50,
+        }),
+        residentBalanceApi.getResidentBalanceOverview(),
+        residentBalanceApi.getResidentApartmentBalances(),
+      ]);
+      setItems(paymentsRes.data?.items || []);
+      setOverview(overviewRes.data || { totalPaidAmount: 0, totalUnpaidAmount: 0, totalOverdueAmount: 0, paidInvoicesCount: 0, pendingPaymentProofsCount: 0 });
+      setApartments(apartmentsRes.data?.items || []);
     } catch (err: any) {
-      setData(null);
+      setItems([]);
       setError(String(err?.message || 'Nu am putut încărca istoricul plăților.'));
     } finally {
       setLoading(false);
     }
-  }, [apartmentId, billingMonth, confirmedOnly, dateFrom, dateTo, method, query, sortBy, status]);
+  }, [apartmentId, dateFrom, dateTo, invoiceId, method, query, status]);
 
   useEffect(() => {
     loadPayments();
   }, [loadPayments]);
 
-  const rows = data?.items || [];
-  const stats = data?.stats || emptyStats;
-  const apartments = useMemo(() => data?.apartments || [], [data?.apartments]);
-  const apartmentLabel = useMemo(() => {
-    if (!apartments.length) return 'fără apartament';
-    if (apartments.length === 1) return `Apt. ${apartments[0].apartmentNumber}`;
-    return `${apartments.length} apartamente`;
-  }, [apartments]);
-  const emptyTitle = data?.emptyStateCode === 'NO_APARTMENT' ? 'Nu ai un apartament asociat contului' : 'Nu ai plăți înregistrate';
-  const emptyText =
-    data?.emptyStateCode === 'NO_APARTMENT'
-      ? 'Contactează administratorul asociației pentru a lega contul tău de apartament.'
-      : 'Plățile vor apărea aici după ce administratorul le înregistrează în sistem.';
-  const canReset = Boolean(apartmentId || billingMonth || dateFrom || dateTo || method || status || query || !confirmedOnly || sortBy !== 'newest');
+  const acceptedTotalInList = useMemo(
+    () => items.filter((payment) => acceptedStatuses.includes(payment.status)).reduce((sum, payment) => sum + Number(payment.amount || 0), 0),
+    [items],
+  );
+  const canReset = Boolean(apartmentId || dateFrom || dateTo || method || status || query);
 
   function resetFilters() {
     setApartmentId('');
-    setBillingMonth('');
     setDateFrom('');
     setDateTo('');
     setMethod('');
     setStatus('');
-    setConfirmedOnly(true);
     setQuery('');
-    setSortBy('newest');
   }
 
   return (
     <div className="space-y-5 pb-8">
       <PageHeader
-        title="Istoricul plăților"
-        description="Vezi plățile înregistrate pentru facturile apartamentului tău."
+        title="Istoric plăți"
+        description="Vezi plățile acceptate și dovezile trimise."
         rightSlot={
           <div className="flex flex-wrap items-center gap-2">
-            {data?.association ? <Badge variant="neutral">{data.association.shortName} · {data.association.associationCode || 'cod necompletat'}</Badge> : null}
-            <Badge variant="neutral">{apartmentLabel}</Badge>
-            <Badge variant="neutral">MDL</Badge>
+            <Button type="button" variant="secondary" onClick={loadPayments} disabled={loading}>
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            <ButtonLink href="/resident/balance" variant="secondary">Vezi soldul</ButtonLink>
           </div>
         }
       />
 
       {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</div> : null}
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
-        <StatCard label="Total plăți" value={stats.totalPayments} description="Înregistrări vizibile" icon={<ReceiptText className="h-5 w-5" />} />
-        <StatCard label="Total achitat" value={formatMdl(stats.totalPaidAmount)} description="Plăți confirmate" icon={<CheckCircle2 className="h-5 w-5" />} tone="success" />
-        <StatCard label="Luna curentă" value={formatMdl(stats.currentMonthPaidAmount)} description="Achitat în această lună" icon={<CalendarDays className="h-5 w-5" />} />
-        <StatCard label="Ultima plată" value={formatDate(stats.lastPaymentDate)} description="Cea mai recentă confirmare" icon={<Banknote className="h-5 w-5" />} />
-        <StatCard label="Sold rămas" value={formatMdl(stats.remainingBalance)} description="Pe facturi interne" icon={<WalletCards className="h-5 w-5" />} tone={stats.remainingBalance > 0 ? 'warning' : 'success'} />
-        <StatCard label="Facturi achitate" value={stats.paidInvoices} description="Sold zero" icon={<CheckCircle2 className="h-5 w-5" />} tone="success" />
-        <StatCard label="Parțial achitate" value={stats.partiallyPaidInvoices} description="Cu sold rămas" icon={<Clock3 className="h-5 w-5" />} tone={stats.partiallyPaidInvoices ? 'warning' : 'neutral'} />
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+        <StatCard label="Achitat total" value={formatMdl(overview.totalPaidAmount)} description="Plăți acceptate" icon={<CheckCircle2 className="h-5 w-5" />} tone="success" />
+        <StatCard label="În listă" value={formatMdl(acceptedTotalInList)} description="După filtrele curente" icon={<ReceiptText className="h-5 w-5" />} />
+        <StatCard label="Total de achitat" value={formatMdl(overview.totalUnpaidAmount)} description="Facturi publicate neînchise" icon={<WalletCards className="h-5 w-5" />} tone={overview.totalUnpaidAmount > 0 ? 'warning' : 'success'} />
+        <StatCard label="Restanțe" value={formatMdl(overview.totalOverdueAmount)} description="Sume peste scadență" icon={<Clock3 className="h-5 w-5" />} tone={overview.totalOverdueAmount > 0 ? 'warning' : 'success'} />
+        <StatCard label="Dovezi în verificare" value={overview.pendingPaymentProofsCount} description="Trimise spre validare" icon={<FileText className="h-5 w-5" />} />
+        <StatCard label="Ultima plată" value={overview.lastPayment ? formatDate(overview.lastPayment.acceptedAt || overview.lastPayment.paidAt) : '-'} description={overview.lastPayment ? formatMdl(overview.lastPayment.amount) : 'Fără plăți'} icon={<Banknote className="h-5 w-5" />} />
       </section>
 
       <Card>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[1.2fr_0.9fr_0.8fr_0.8fr_0.9fr_auto]">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[1.2fr_0.9fr_0.8fr_0.8fr_0.8fr_auto]">
           <label className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input className="pl-9" placeholder="Caută factură, referință, plătitor sau apartament" value={query} onChange={(event) => setQuery(event.target.value)} />
+            <Input className="pl-9" placeholder="Caută factură, referință sau apartament" value={query} onChange={(event) => setQuery(event.target.value)} />
           </label>
           <Select label="Apartament" value={apartmentId} onChange={setApartmentId} options={[
             ['', 'Toate apartamentele'],
             ...apartments.map((apartment) => [
-              apartment.id,
-              `Apt. ${apartment.apartmentNumber}${apartment.staircase ? ` · sc. ${apartment.staircase}` : ''}`,
+              apartment.apartmentId,
+              `Apt. ${apartment.apartmentNumber}${apartment.entranceName ? ` · ${apartment.entranceName}` : ''}`,
             ] as [string, string]),
           ]} />
-          <Input label="Luna facturii" type="month" value={billingMonth} onChange={(event) => setBillingMonth(event.target.value)} />
           <Select label="Metodă" value={method} onChange={setMethod} options={[['', 'Toate metodele'], ...Object.entries(methodLabels)]} />
-          <Select label="Status" value={status} onChange={setStatus} options={[['', 'Toate'], ['CONFIRMED', 'Confirmate'], ['CANCELLED', 'Anulate']]} />
+          <Select label="Status" value={status} onChange={setStatus} options={[['', 'Toate statusurile'], ...Object.entries(statusLabels)]} />
+          <Input label="De la" type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} />
           <Button type="button" variant="secondary" disabled={!canReset} onClick={resetFilters} className="self-end">Resetează</Button>
         </div>
-        <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-[0.8fr_0.8fr_0.9fr_auto]">
-          <Input label="De la data" type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} />
-          <Input label="Până la data" type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} />
-          <Select label="Sortare" value={sortBy} onChange={setSortBy} options={[
-            ['newest', 'Cele mai noi'],
-            ['oldest', 'Cele mai vechi'],
-            ['amount_desc', 'Sumă descrescător'],
-            ['amount_asc', 'Sumă crescător'],
-            ['method', 'Metodă plată'],
-          ]} />
-          <Button type="button" variant={confirmedOnly ? 'primary' : 'secondary'} onClick={() => setConfirmedOnly((value) => !value)} className="self-end">
-            Doar confirmate
-          </Button>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:max-w-sm">
+          <Input label="Până la" type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} />
         </div>
       </Card>
 
@@ -245,57 +198,60 @@ export default function ResidentPaymentsPage() {
         </div>
       ) : null}
 
-      {!loading && !rows.length ? (
+      {!loading && !items.length ? (
         <Card className="p-8 text-center">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-muted/60 text-muted-foreground">
             <CreditCard className="h-5 w-5" />
           </div>
-          <h2 className="mt-4 text-lg font-semibold text-foreground">{emptyTitle}</h2>
-          <p className="mx-auto mt-2 max-w-lg text-sm text-muted-foreground">{emptyText}</p>
+          <h2 className="mt-4 text-lg font-semibold text-foreground">Nu există plăți acceptate încă.</h2>
+          <p className="mx-auto mt-2 max-w-lg text-sm text-muted-foreground">Plățile vor apărea aici după ce administrația le acceptă sau le înregistrează manual.</p>
           <ButtonLink href="/resident/invoices" className="mt-5">Vezi facturile mele</ButtonLink>
         </Card>
       ) : null}
 
       <section className="grid gap-3">
-        {rows.map((payment) => (
-          <Card key={payment.id} className="p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <p className="text-sm font-semibold text-foreground">{payment.invoice.invoiceNumber}</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {monthLabel(payment.invoice.billingMonth)} · Apt. {payment.apartment.apartmentNumber}
-                  {payment.apartment.staircase ? ` · sc. ${payment.apartment.staircase}` : ''}
-                </p>
+        {items.map((payment) => {
+          const apartmentNumber = payment.apartment?.apartmentNumber || payment.apartment?.number || '-';
+          const statusVariant = acceptedStatuses.includes(payment.status) ? 'success' : payment.status === 'PENDING' ? 'warning' : 'neutral';
+          return (
+            <Card key={payment.id} className="p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">{payment.invoiceNumber || payment.invoice?.invoiceNumber || 'Plată fără factură asociată'}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Apt. {apartmentNumber} · {sourceLabels[payment.source] || payment.source}
+                  </p>
+                </div>
+                <Badge variant={statusVariant}>{statusLabels[payment.status] || payment.status}</Badge>
               </div>
-              <Badge variant={payment.status === 'CANCELLED' ? 'neutral' : 'success'}>{statusLabels[payment.status]}</Badge>
-            </div>
 
-            <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
-              <Info label="Data plății" value={formatDate(payment.paymentDate)} />
-              <Info label="Sumă" value={formatMdl(payment.amount)} strong />
-              <Info label="Metodă" value={methodLabels[payment.method] || payment.method} />
-              <Info label="Referință" value={payment.referenceNumber || '-'} />
-              <Info label="Sold factură" value={formatMdl(payment.invoice.balanceAmount)} strong={payment.invoice.balanceAmount > 0} />
-              <Info label="Status factură" value={invoiceStatusLabels[payment.invoice.status]} />
-            </div>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
+                <Info label="Data plății" value={formatDate(payment.paidAt || payment.acceptedAt)} />
+                <Info label="Sumă" value={formatMdl(payment.amount)} strong />
+                <Info label="Metodă" value={methodLabels[payment.method] || payment.method} />
+                <Info label="Referință" value={payment.externalReference || '-'} />
+                <Info label="Factura" value={payment.invoiceNumber || '-'} />
+                <Info label="Dovadă" value={payment.linkedProof?.id ? 'Atașată' : '-'} />
+              </div>
 
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Link
-                href={localizedPath(`/resident/payments/${payment.id}`)}
-                className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-foreground px-4 text-sm font-semibold text-background transition hover:opacity-90 sm:w-auto"
-              >
-                Deschide
-              </Link>
-              <ButtonLink href={`/resident/invoices/${payment.invoice.id}`} variant="secondary">Vezi factura</ButtonLink>
-            </div>
-          </Card>
-        ))}
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Link
+                  href={localizedPath(`/resident/payments/${payment.id}`)}
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-foreground px-4 text-sm font-semibold text-background transition hover:opacity-90 sm:w-auto"
+                >
+                  Deschide
+                </Link>
+                {payment.invoiceId ? <ButtonLink href={`/resident/invoices/${payment.invoiceId}`} variant="secondary">Vezi factura</ButtonLink> : null}
+              </div>
+            </Card>
+          );
+        })}
       </section>
 
       <Card>
         <h2 className="font-semibold text-foreground">Notă</h2>
         <p className="mt-3 rounded-2xl bg-muted/35 px-4 py-3 text-sm text-muted-foreground">
-          Această pagină afișează doar plățile introduse de administratorul A.P.C. Nu poți crea, anula sau modifica plăți din portalul locatarului.
+          Această pagină afișează istoricul financiar disponibil pentru contul tău. Plățile online reale nu sunt procesate aici.
         </p>
       </Card>
     </div>
@@ -327,10 +283,4 @@ function formatDate(value?: string | null) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '-';
   return new Intl.DateTimeFormat('ro-RO', { day: '2-digit', month: 'long', year: 'numeric' }).format(date);
-}
-
-function monthLabel(value: string) {
-  const [year, month] = value.split('-').map(Number);
-  if (!year || !month) return value;
-  return new Intl.DateTimeFormat('ro-RO', { month: 'long', year: 'numeric' }).format(new Date(year, month - 1, 1));
 }

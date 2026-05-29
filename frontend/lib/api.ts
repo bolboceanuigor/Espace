@@ -1770,6 +1770,33 @@ export const residentDemoApi = {
   announcements: () => apiRequest<any[]>('/resident/announcements'),
 };
 
+export const residentBalanceApi = {
+  getResidentBalanceOverview: () => apiRequest<any>('/api/resident/balance/overview'),
+  getResidentApartmentBalances: () => apiRequest<any>('/api/resident/balance/apartments'),
+  getResidentApartmentBalance: (apartmentId: string) => apiRequest<any>(`/api/resident/balance/apartments/${apartmentId}`),
+  getResidentPayments: (params?: {
+    apartmentId?: string;
+    status?: string;
+    method?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    invoiceId?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+  }) => apiRequest<any>('/api/resident/payments', { params }),
+  getResidentPayment: (id: string) => apiRequest<any>(`/api/resident/payments/${id}`),
+  getResidentFinancialTimeline: (params?: {
+    apartmentId?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    type?: string;
+    page?: number;
+    limit?: number;
+  }) => apiRequest<any>('/api/resident/financial-timeline', { params }),
+  getResidentBalanceIssues: () => apiRequest<any>('/api/resident/balance/issues'),
+};
+
 export const votesApi = {
   adminList: (params?: { status?: 'DRAFT' | 'ACTIVE' | 'CLOSED' | 'PUBLISHED' }) =>
     apiRequest<any[]>('/api/admin/votes', { params }),

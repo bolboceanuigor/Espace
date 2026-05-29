@@ -56,6 +56,7 @@ const NAV_CONFIG: NavItemConfig[] = [
   { label: 'Acasă', href: '/resident', icon: 'home', allowedRoles: ['RESIDENT'], mobileVisible: true, moreMenu: false },
   { label: 'Apartamentele mele', href: '/resident/apartments', icon: 'building2', allowedRoles: ['RESIDENT'], mobileVisible: false, moreMenu: true },
   { label: 'Facturi', href: '/resident/invoices', icon: 'fileText', allowedRoles: ['RESIDENT'], requiredModule: 'internalInvoices', mobileVisible: true, moreMenu: false },
+  { label: 'Sold', href: '/resident/balance', icon: 'creditCard', allowedRoles: ['RESIDENT'], requiredModule: 'internalInvoices', mobileVisible: true, moreMenu: false },
   { label: 'Contoare', href: '/resident/meters', icon: 'chartColumnBig', allowedRoles: ['RESIDENT'], requiredModule: 'meterReadings', mobileVisible: true, moreMenu: false },
   { label: 'Solicitări', href: '/resident/requests', icon: 'circleAlert', allowedRoles: ['RESIDENT'], requiredModule: 'requests', mobileVisible: true, moreMenu: false },
   { label: 'Avizier', href: '/resident/announcements', icon: 'megaphone', allowedRoles: ['RESIDENT'], requiredModule: 'announcements', mobileVisible: false, moreMenu: true },

@@ -323,6 +323,10 @@ export default function ResidentInvoiceDetailsPage() {
                 {paymentError ? <p className="mt-3 text-sm font-semibold text-rose-700">{paymentError}</p> : null}
               </div>
               <div className="flex flex-wrap gap-2">
+                <ButtonLink href={`/resident/payments?invoiceId=${invoice.id}`} variant="secondary">
+                  <ReceiptText className="h-4 w-4" />
+                  Istoric plăți
+                </ButtonLink>
                 {data.canPayPlaceholder && displayStatus !== 'PAID' ? (
                   <Button type="button" onClick={preparePayment} disabled={paymentLoading}>
                     {paymentLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}

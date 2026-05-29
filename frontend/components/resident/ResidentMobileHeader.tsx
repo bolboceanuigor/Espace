@@ -15,6 +15,7 @@ type ResidentMobileHeaderProps = {
 };
 
 function routeTitle(pathname: string) {
+  if (pathname.includes('/resident/balance')) return 'Soldul meu';
   if (pathname.includes('/resident/invoices')) return 'Facturile mele';
   if (pathname.includes('/resident/payments')) return 'Plăți';
   if (pathname.includes('/resident/announcements')) return 'Avizier';
