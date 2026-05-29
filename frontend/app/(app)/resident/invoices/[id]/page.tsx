@@ -3,13 +3,28 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, CreditCard, FileText, Home, Printer, ReceiptText, UserRound } from 'lucide-react';
-import { Badge, Button, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
+import { ArrowLeft, CreditCard, FileText, Home, Loader2, Printer, ReceiptText, ShieldCheck, UserRound, XCircle } from 'lucide-react';
+import { Badge, Button, ButtonLink, Card, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
 import { invoicesApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 type ResidentInvoiceStatus = 'PUBLISHED' | 'PARTIALLY_PAID' | 'PAID' | 'CANCELLED';
+type PaymentDisplayStatus = 'UNPAID' | 'PARTIALLY_PAID' | 'PAID' | 'OVERDUE' | 'CANCELLED';
+
+type PaymentIntentPlaceholder = {
+  id: string;
+  invoiceId?: string | null;
+  invoiceNumber?: string | null;
+  amount: number;
+  currency: 'MDL';
+  status: 'CREATED' | 'VIEWED' | 'CANCELLED' | 'EXPIRED' | 'PAID_MANUALLY' | 'FAILED';
+  provider: 'NONE' | string;
+  expiresAt?: string | null;
+  createdAt?: string | null;
+  message?: string;
+  realMoneyProcessed?: boolean;
+};
 
 type InvoiceDetails = {
   invoice: {
@@ -22,10 +37,13 @@ type InvoiceDetails = {
     totalAmount: number;
     paidAmount: number;
     balanceAmount: number;
+    remainingAmount?: number;
+    paymentDisplayStatus?: PaymentDisplayStatus;
     issueDate?: string | null;
     dueDate?: string | null;
     isOverdue: boolean;
     publicNote?: string | null;
+    canPayPlaceholder?: boolean;
   };
   association: {
     id: string | null;
@@ -78,21 +96,29 @@ type InvoiceDetails = {
     status: string;
   }>;
   publicNote?: string | null;
+  paymentDisplayStatus?: PaymentDisplayStatus;
+  paidAmount?: number;
+  remainingAmount?: number;
+  canPayPlaceholder?: boolean;
+  activePaymentIntent?: PaymentIntentPlaceholder | null;
+  paymentUnavailableMessage?: string;
 };
 
-const statusLabels: Record<ResidentInvoiceStatus, string> = {
-  PUBLISHED: 'Publicată',
+const paymentStatusLabels: Record<PaymentDisplayStatus, string> = {
+  UNPAID: 'Neachitată',
   PARTIALLY_PAID: 'Parțial achitată',
   PAID: 'Achitată',
+  OVERDUE: 'Restantă',
   CANCELLED: 'Anulată',
 };
 
-const statusVariant = {
-  PUBLISHED: 'default',
+const paymentStatusVariant: Record<PaymentDisplayStatus, 'default' | 'warning' | 'success' | 'neutral' | 'error'> = {
+  UNPAID: 'default',
   PARTIALLY_PAID: 'warning',
   PAID: 'success',
+  OVERDUE: 'error',
   CANCELLED: 'neutral',
-} as const;
+};
 
 export default function ResidentInvoiceDetailsPage() {
   const params = useParams<{ id: string }>();
@@ -101,6 +127,10 @@ export default function ResidentInvoiceDetailsPage() {
   const [data, setData] = useState<InvoiceDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [paymentMessage, setPaymentMessage] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -127,7 +157,44 @@ export default function ResidentInvoiceDetailsPage() {
   }, [invoiceId]);
 
   const invoice = data?.invoice;
-  const statusLabel = invoice ? (invoice.isOverdue ? 'Scadentă / întârziată' : statusLabels[invoice.status]) : 'Se încarcă';
+  const displayStatus = data ? data.paymentDisplayStatus || invoice?.paymentDisplayStatus || fallbackPaymentStatus(invoice) : null;
+  const statusLabel = displayStatus ? paymentStatusLabels[displayStatus] : 'Se încarcă';
+  const remainingAmount = data ? data.remainingAmount ?? invoice?.remainingAmount ?? invoice?.balanceAmount ?? 0 : 0;
+  const paidAmount = data ? data.paidAmount ?? invoice?.paidAmount ?? 0 : 0;
+  const activeIntent = data?.activePaymentIntent || null;
+
+  async function preparePayment() {
+    if (!invoice) return;
+    setPaymentLoading(true);
+    setPaymentError('');
+    try {
+      const response = await invoicesApi.createResidentPaymentIntentPlaceholder(invoice.id, { confirm: true });
+      const intent = response.data?.intent || null;
+      setData((current) => (current ? { ...current, activePaymentIntent: intent } : current));
+      setPaymentMessage(response.data?.message || intent?.message || 'Plata online nu este activă încă. Această acțiune este doar o pregătire tehnică.');
+      setPaymentModalOpen(true);
+    } catch (err: any) {
+      setPaymentError(String(err?.message || 'Nu am putut pregăti plata.'));
+    } finally {
+      setPaymentLoading(false);
+    }
+  }
+
+  async function cancelPaymentIntent() {
+    if (!activeIntent) return;
+    setPaymentLoading(true);
+    setPaymentError('');
+    try {
+      await invoicesApi.cancelResidentPaymentIntentPlaceholder(activeIntent.id, { reason: 'Anulat de locatar.' });
+      setData((current) => (current ? { ...current, activePaymentIntent: null } : current));
+      setPaymentMessage('Pregătirea plății a fost anulată. Factura nu a fost modificată.');
+      setPaymentModalOpen(true);
+    } catch (err: any) {
+      setPaymentError(String(err?.message || 'Nu am putut anula pregătirea plății.'));
+    } finally {
+      setPaymentLoading(false);
+    }
+  }
 
   if (!loading && !data) {
     return (
@@ -143,8 +210,8 @@ export default function ResidentInvoiceDetailsPage() {
   }
 
   return (
-    <div className="space-y-5 pb-8">
-      <Link href={localizedPath('/resident/invoices')} className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground">
+    <div className="space-y-5 pb-8 print:pb-0">
+      <Link href={localizedPath('/resident/invoices')} className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground print:hidden">
         <ArrowLeft className="h-4 w-4" />
         Înapoi la facturi
       </Link>
@@ -155,7 +222,7 @@ export default function ResidentInvoiceDetailsPage() {
         rightSlot={
           <div className="flex flex-wrap items-center gap-2">
             {data?.association ? <Badge variant="neutral">{data.association.shortName} · {data.association.associationCode || 'cod necompletat'}</Badge> : null}
-            {invoice ? <Badge variant={invoice.isOverdue ? 'error' : statusVariant[invoice.status]}>{statusLabel}</Badge> : null}
+            {displayStatus ? <Badge variant={paymentStatusVariant[displayStatus]}>{statusLabel}</Badge> : null}
           </div>
         }
       />
@@ -166,9 +233,9 @@ export default function ResidentInvoiceDetailsPage() {
         <>
           <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             <StatCard label="Total" value={formatMdl(invoice.totalAmount)} description="Total factură" icon={<FileText className="h-5 w-5" />} />
-            <StatCard label="Achitat" value={formatMdl(invoice.paidAmount)} description="Înregistrat de admin" icon={<ReceiptText className="h-5 w-5" />} tone="success" />
-            <StatCard label="Sold rămas" value={formatMdl(invoice.balanceAmount)} description="Informativ" icon={<CreditCard className="h-5 w-5" />} tone={invoice.balanceAmount > 0 ? 'warning' : 'success'} />
-            <StatCard label="Scadență" value={formatDate(invoice.dueDate)} description={invoice.isOverdue ? 'Depășită' : 'Termen plată'} icon={<ReceiptText className="h-5 w-5" />} tone={invoice.isOverdue ? 'danger' : 'neutral'} />
+            <StatCard label="Achitat" value={formatMdl(paidAmount)} description="Înregistrat de admin" icon={<ReceiptText className="h-5 w-5" />} tone="success" />
+            <StatCard label="Sold rămas" value={formatMdl(remainingAmount)} description="Informativ" icon={<CreditCard className="h-5 w-5" />} tone={remainingAmount > 0 ? 'warning' : 'success'} />
+            <StatCard label="Scadență" value={formatDate(invoice.dueDate)} description={displayStatus === 'OVERDUE' ? 'Depășită' : 'Termen plată'} icon={<ReceiptText className="h-5 w-5" />} tone={displayStatus === 'OVERDUE' ? 'danger' : 'neutral'} />
             <StatCard label="Status" value={statusLabel} description={invoice.billingMonth} icon={<FileText className="h-5 w-5" />} />
           </section>
 
@@ -179,7 +246,7 @@ export default function ResidentInvoiceDetailsPage() {
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Factură / aviz</p>
                   <h2 className="mt-1 text-xl font-semibold text-foreground">{invoice.invoiceNumber}</h2>
                 </div>
-                <Badge variant={invoice.isOverdue ? 'error' : statusVariant[invoice.status]}>{statusLabel}</Badge>
+                {displayStatus ? <Badge variant={paymentStatusVariant[displayStatus]}>{statusLabel}</Badge> : null}
               </div>
 
               <div className="mt-5 grid gap-2 text-sm sm:grid-cols-2">
@@ -191,7 +258,7 @@ export default function ResidentInvoiceDetailsPage() {
                 <Info label="Suprafață" value={data.apartment.areaM2 ? `${data.apartment.areaM2} m²` : '-'} />
               </div>
 
-              <div className="mt-4 flex flex-wrap gap-2">
+              <div className="mt-4 flex flex-wrap gap-2 print:hidden">
                 <ButtonLink href={localizedPath('/resident/invoices')} variant="secondary">
                   <ArrowLeft className="h-4 w-4" />
                   Înapoi la facturi
@@ -202,7 +269,7 @@ export default function ResidentInvoiceDetailsPage() {
                 </Button>
               </div>
               <p className="mt-3 rounded-2xl bg-muted/35 px-4 py-3 text-sm text-muted-foreground">
-                Plata online va fi disponibilă ulterior. Pentru moment, folosește instrucțiunile comunicate de administrator.
+                {data.paymentUnavailableMessage || 'Plata online va fi disponibilă ulterior.'} Pentru moment, poți consulta factura și instrucțiunile administratorului.
               </p>
             </Card>
 
@@ -232,6 +299,46 @@ export default function ResidentInvoiceDetailsPage() {
             </Card>
           </div>
 
+          <Card className="print:hidden">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <h2 className="flex items-center gap-2 font-semibold text-foreground">
+                  <CreditCard className="h-4 w-4" />
+                  Plată online
+                </h2>
+                {displayStatus === 'PAID' ? (
+                  <p className="mt-3 rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">Factura este marcată ca achitată.</p>
+                ) : (
+                  <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">
+                    Plata online nu este activă încă. Butonul de mai jos creează doar o pregătire tehnică internă și nu retrage bani.
+                  </p>
+                )}
+                {activeIntent ? (
+                  <div className="mt-4 grid gap-2 rounded-2xl border border-border/70 bg-muted/25 p-4 text-sm sm:grid-cols-3">
+                    <Info label="Intent" value={activeIntent.id.slice(0, 8)} />
+                    <Info label="Status" value={activeIntent.status} />
+                    <Info label="Expiră" value={formatDateTime(activeIntent.expiresAt)} />
+                  </div>
+                ) : null}
+                {paymentError ? <p className="mt-3 text-sm font-semibold text-rose-700">{paymentError}</p> : null}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {data.canPayPlaceholder && displayStatus !== 'PAID' ? (
+                  <Button type="button" onClick={preparePayment} disabled={paymentLoading}>
+                    {paymentLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+                    Pregătește plata
+                  </Button>
+                ) : null}
+                {activeIntent ? (
+                  <Button type="button" variant="secondary" onClick={cancelPaymentIntent} disabled={paymentLoading}>
+                    <XCircle className="h-4 w-4" />
+                    Anulează intentul
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+          </Card>
+
           <Card>
             <h2 className="text-base font-semibold text-foreground">Linii factură</h2>
             <div className="mt-4 grid gap-2">
@@ -260,7 +367,7 @@ export default function ResidentInvoiceDetailsPage() {
             <div className="mt-4 rounded-2xl bg-muted/35 px-4 py-4 text-right">
               <p className="text-sm text-muted-foreground">Total</p>
               <p className="mt-1 text-2xl font-semibold text-foreground">{formatMdl(invoice.totalAmount)}</p>
-              <p className="mt-1 text-sm text-muted-foreground">Achitat: {formatMdl(invoice.paidAmount)} · Sold: {formatMdl(invoice.balanceAmount)}</p>
+              <p className="mt-1 text-sm text-muted-foreground">Achitat: {formatMdl(paidAmount)} · Sold: {formatMdl(remainingAmount)}</p>
             </div>
           </Card>
 
@@ -273,11 +380,36 @@ export default function ResidentInvoiceDetailsPage() {
               <p className="mt-3 rounded-2xl bg-muted/35 px-4 py-3 text-sm text-foreground">{data.publicNote || invoice.publicNote}</p>
             ) : null}
             <p className="mt-3 rounded-2xl bg-muted/35 px-4 py-3 text-sm text-muted-foreground">
-              Această pagină afișează factura publicată de administrator. Plata online și PDF-ul final vor fi disponibile ulterior.
+              Această pagină afișează factura publicată de administrator. Folosește butonul Print pentru o versiune potrivită pentru tipărire; PDF-ul final rămâne pentru o etapă viitoare.
             </p>
           </Card>
         </>
       ) : null}
+
+      <Modal isOpen={paymentModalOpen} onClose={() => setPaymentModalOpen(false)} maxWidth="lg">
+        <ModalHeader title="Plata online va fi disponibilă ulterior" onClose={() => setPaymentModalOpen(false)} />
+        <ModalBody className="space-y-4">
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            <div className="flex items-start gap-3">
+              <ShieldCheck className="mt-0.5 h-5 w-5" />
+              <div>
+                <p className="font-semibold">Nu s-au retras bani.</p>
+                <p className="mt-1 leading-6">{paymentMessage || 'Această acțiune este doar o pregătire tehnică pentru integrarea plăților reale.'}</p>
+              </div>
+            </div>
+          </div>
+          {invoice ? (
+            <div className="grid gap-2 sm:grid-cols-3">
+              <Info label="Factură" value={invoice.invoiceNumber} />
+              <Info label="Sumă" value={formatMdl(remainingAmount)} strong />
+              <Info label="Monedă" value={invoice.currency} />
+            </div>
+          ) : null}
+        </ModalBody>
+        <ModalFooter>
+          <Button type="button" onClick={() => setPaymentModalOpen(false)}>Am înțeles</Button>
+        </ModalFooter>
+      </Modal>
     </div>
   );
 }
@@ -298,8 +430,24 @@ function formatDate(value?: string | null) {
   return new Intl.DateTimeFormat('ro-RO', { day: '2-digit', month: 'long', year: 'numeric' }).format(date);
 }
 
+function formatDateTime(value?: string | null) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return new Intl.DateTimeFormat('ro-RO', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(date);
+}
+
 function monthLabel(value: string) {
   const [year, month] = value.split('-').map(Number);
   if (!year || !month) return value;
   return new Intl.DateTimeFormat('ro-RO', { month: 'long', year: 'numeric' }).format(new Date(year, month - 1, 1));
+}
+
+function fallbackPaymentStatus(invoice?: InvoiceDetails['invoice'] | null): PaymentDisplayStatus {
+  if (!invoice) return 'UNPAID';
+  if (invoice.status === 'CANCELLED') return 'CANCELLED';
+  if (invoice.status === 'PAID') return 'PAID';
+  if (invoice.status === 'PARTIALLY_PAID') return 'PARTIALLY_PAID';
+  if (invoice.isOverdue) return 'OVERDUE';
+  return 'UNPAID';
 }

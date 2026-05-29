@@ -19,7 +19,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import { Badge, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
-import { communicationsApi, metersApi, requestsApi, residentDemoApi } from '@/lib/api';
+import { communicationsApi, invoicesApi, metersApi, requestsApi, residentDemoApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
@@ -148,6 +148,20 @@ type ResidentDashboard = {
   alerts: DashboardAlert[];
   emptyStateCode?: string | null;
   emptyStateMessage?: string | null;
+};
+
+type ResidentInvoicesOverview = {
+  totalPublishedInvoices: number;
+  unpaidInvoices: number;
+  paidInvoices: number;
+  partiallyPaidInvoices: number;
+  overdueInvoices: number;
+  totalUnpaidAmount: number;
+  totalOverdueAmount: number;
+  nextDueInvoice?: { invoiceNumber?: string | null; dueDate?: string | null; remainingAmount?: number; billingMonth?: string | null } | null;
+  lastPublishedInvoice?: { invoiceNumber?: string | null; publishedAt?: string | null; billingMonth?: string | null } | null;
+  apartmentsCount: number;
+  currency: 'MDL';
 };
 
 const emptyDashboard: ResidentDashboard = {
@@ -292,6 +306,7 @@ export default function ResidentDashboardPage() {
   const [recentRequests, setRecentRequests] = useState<RecentRequest[]>([]);
   const [requestStats, setRequestStats] = useState<any>({});
   const [meterStats, setMeterStats] = useState<any>({});
+  const [invoiceOverview, setInvoiceOverview] = useState<ResidentInvoicesOverview | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -368,6 +383,23 @@ export default function ResidentDashboardPage() {
       active = false;
     };
   }, [selectedApartmentId]);
+
+  useEffect(() => {
+    let active = true;
+    invoicesApi
+      .getResidentInvoicesOverview()
+      .then((response) => {
+        if (!active) return;
+        setInvoiceOverview(response.data || null);
+      })
+      .catch(() => {
+        if (!active) return;
+        setInvoiceOverview(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const summary = dashboard.financialSummary;
   const currentStatus = useMemo(() => statusCopy(summary), [summary]);
@@ -473,6 +505,31 @@ export default function ResidentDashboardPage() {
           <MiniInfo label="Următoarea scadență" value={formatDate(summary.nextDueDate)} />
           <MiniInfo label="Facturi neachitate" value={String(summary.unpaidInvoices)} />
           <MiniInfo label="Ultima plată" value={formatDate(summary.lastPayment?.paymentDate)} />
+        </div>
+      </Card>
+
+      <Card className="border-border/70 bg-white p-4">
+        <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-base font-semibold text-foreground">Facturi</h2>
+              <Badge variant={(invoiceOverview?.overdueInvoices || 0) > 0 ? 'error' : (invoiceOverview?.totalUnpaidAmount || 0) > 0 ? 'warning' : 'success'}>
+                {(invoiceOverview?.overdueInvoices || 0) > 0 ? 'Restanțe' : (invoiceOverview?.totalUnpaidAmount || 0) > 0 ? 'Neachitate' : 'La zi'}
+              </Badge>
+            </div>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+              {invoiceOverview?.totalPublishedInvoices
+                ? `Ai ${invoiceOverview.unpaidInvoices} facturi neachitate și ${invoiceOverview.overdueInvoices} restante. Plata online va fi disponibilă ulterior.`
+                : 'Nu există facturi publicate încă. Când administrația publică o factură, aceasta va apărea aici.'}
+            </p>
+          </div>
+          <ButtonLink href="/resident/invoices" variant="primary">Vezi facturi</ButtonLink>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-4">
+          <MiniInfo label="Total neachitat" value={formatMdl(invoiceOverview?.totalUnpaidAmount || 0)} danger={(invoiceOverview?.totalUnpaidAmount || 0) > 0} />
+          <MiniInfo label="Următoarea scadență" value={formatDate(invoiceOverview?.nextDueInvoice?.dueDate)} danger={(invoiceOverview?.overdueInvoices || 0) > 0} />
+          <MiniInfo label="Restante" value={String(invoiceOverview?.overdueInvoices || 0)} danger={(invoiceOverview?.overdueInvoices || 0) > 0} />
+          <MiniInfo label="Achitate" value={String(invoiceOverview?.paidInvoices || 0)} />
         </div>
       </Card>
 

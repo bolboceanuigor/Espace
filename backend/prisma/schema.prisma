@@ -533,6 +533,7 @@ enum PaymentStatus {
 }
 
 enum PaymentProvider {
+  NONE
   MAIB
   PAYNET
   OPLATA
@@ -629,12 +630,14 @@ enum FileStorageProvider {
 enum PaymentIntentStatus {
   DRAFT
   CREATED
+  VIEWED
   PENDING_PROVIDER
   REQUIRES_ACTION
   PROCESSING
   SUCCEEDED
   REDIRECTED
   PAID
+  PAID_MANUALLY
   FAILED
   EXPIRED
   CANCELLED

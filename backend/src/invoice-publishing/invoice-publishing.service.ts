@@ -1,7 +1,13 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import {
+  BillingCurrency,
   BillingDraftInvoiceStatus,
   BillingPeriodStatus,
+  PaymentIntentEventType,
+  PaymentIntentSource,
+  PaymentIntentStatus,
+  PaymentProvider,
+  PaymentStatus,
   Prisma,
   Role,
 } from '@prisma/client';
@@ -54,6 +60,18 @@ const ADMIN_UPDATE_STATUSES: BillingDraftInvoiceStatus[] = [
   BillingDraftInvoiceStatus.IN_REVIEW,
   BillingDraftInvoiceStatus.APPROVED,
   BillingDraftInvoiceStatus.CANCELLED,
+];
+
+const RESIDENT_VISIBLE_INVOICE_STATUSES: BillingDraftInvoiceStatus[] = [
+  BillingDraftInvoiceStatus.PUBLISHED,
+  BillingDraftInvoiceStatus.PAID,
+  BillingDraftInvoiceStatus.PARTIALLY_PAID,
+  BillingDraftInvoiceStatus.CANCELLED,
+];
+
+const ACTIVE_PLACEHOLDER_INTENT_STATUSES: PaymentIntentStatus[] = [
+  PaymentIntentStatus.CREATED,
+  PaymentIntentStatus.VIEWED,
 ];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -309,18 +327,60 @@ export class InvoicePublishingService {
     };
   }
 
+  async getResidentOverview(user: MvpUser) {
+    const { organizationId, apartmentIds } = await this.residentInvoiceScope(user);
+    if (!apartmentIds.length) {
+      return {
+        totalPublishedInvoices: 0,
+        unpaidInvoices: 0,
+        paidInvoices: 0,
+        partiallyPaidInvoices: 0,
+        overdueInvoices: 0,
+        totalUnpaidAmount: 0,
+        totalOverdueAmount: 0,
+        nextDueInvoice: null,
+        lastPublishedInvoice: null,
+        apartmentsCount: 0,
+        currency: 'MDL',
+      };
+    }
+    const invoices = await this.prisma.billingDraftInvoice.findMany({
+      where: this.residentInvoiceWhere(organizationId, apartmentIds),
+      include: this.invoiceListInclude(),
+      orderBy: [{ publishedAt: 'desc' }, { updatedAt: 'desc' }],
+    });
+    const paidByInvoice = await this.paidAmountsForInvoices(organizationId, invoices.map((invoice) => invoice.id));
+    const enriched = invoices.map((invoice) => this.serializeResidentInvoiceList(invoice, paidByInvoice.get(invoice.id) || 0));
+    const unpaid = enriched.filter((invoice) => invoice.paymentDisplayStatus === 'UNPAID');
+    const overdue = enriched.filter((invoice) => invoice.paymentDisplayStatus === 'OVERDUE');
+    const partiallyPaid = enriched.filter((invoice) => invoice.paymentDisplayStatus === 'PARTIALLY_PAID');
+    const paid = enriched.filter((invoice) => invoice.paymentDisplayStatus === 'PAID');
+    const nextDueInvoice = [...enriched]
+      .filter((invoice) => invoice.remainingAmount > 0 && invoice.dueDate)
+      .sort((a, b) => new Date(a.dueDate || 0).getTime() - new Date(b.dueDate || 0).getTime())[0] || null;
+    return {
+      totalPublishedInvoices: enriched.length,
+      unpaidInvoices: unpaid.length + overdue.length,
+      paidInvoices: paid.length,
+      partiallyPaidInvoices: partiallyPaid.length,
+      overdueInvoices: overdue.length,
+      totalUnpaidAmount: money(enriched.reduce((sum, invoice) => sum + invoice.remainingAmount, 0)),
+      totalOverdueAmount: money(overdue.reduce((sum, invoice) => sum + invoice.remainingAmount, 0)),
+      nextDueInvoice,
+      lastPublishedInvoice: enriched[0] || null,
+      apartmentsCount: apartmentIds.length,
+      currency: 'MDL',
+    };
+  }
+
   async listResidentInvoices(user: MvpUser, query: Record<string, unknown> = {}) {
     const { organizationId, apartmentIds } = await this.residentInvoiceScope(user);
     if (!apartmentIds.length) {
       return this.emptyResidentList(organizationId, 'NO_APARTMENT', 'Contul tău nu este legat încă de un apartament.');
     }
     const { page, limit, skip } = resolvePagination(query, 20, 100);
-    const status = optionalString(query.status) as BillingDraftInvoiceStatus | undefined;
-    const where: Prisma.BillingDraftInvoiceWhereInput = {
-      organizationId,
-      apartmentId: { in: apartmentIds },
-      status: { in: this.residentVisibleStatuses(status) },
-    };
+    const status = optionalString(query.status);
+    const where = this.residentInvoiceWhere(organizationId, apartmentIds, status);
     if (optionalString(query.apartmentId)) {
       const requestedApartmentId = optionalString(query.apartmentId)!;
       if (!apartmentIds.includes(requestedApartmentId)) throw new ForbiddenException('Nu ai acces la acest apartament.');
@@ -336,33 +396,43 @@ export class InvoicePublishingService {
       const [year, month] = optionalString(query.billingMonth)!.split('-').map(Number);
       if (year && month) where.billingPeriod = { year, month };
     }
-    const [rows, total, association, apartments] = await Promise.all([
+    const search = optionalString(query.search);
+    if (search) {
+      where.OR = [
+        { invoiceNumber: { contains: search, mode: 'insensitive' } },
+        { apartment: { number: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
+    const [allRows, association, apartments] = await Promise.all([
       this.prisma.billingDraftInvoice.findMany({
         where,
         orderBy: [{ publishedAt: 'desc' }, { updatedAt: 'desc' }],
-        skip,
-        take: limit,
         include: this.invoiceListInclude(),
       }),
-      this.prisma.billingDraftInvoice.count({ where }),
       this.prisma.organization.findUnique({ where: { id: organizationId }, select: { id: true, name: true, legalName: true, fiscalCode: true } }),
       this.prisma.apartment.findMany({
         where: { id: { in: apartmentIds }, organizationId },
         include: { staircase: { select: { name: true } } },
       }),
     ]);
-    const items = rows.map((invoice) => this.serializeResidentInvoiceList(invoice));
+    const paidByInvoice = await this.paidAmountsForInvoices(organizationId, allRows.map((invoice) => invoice.id));
+    let items = allRows.map((invoice) => this.serializeResidentInvoiceList(invoice, paidByInvoice.get(invoice.id) || 0));
+    if (status && ['UNPAID', 'OVERDUE', 'PAID', 'PARTIALLY_PAID', 'CANCELLED'].includes(status.toUpperCase())) {
+      items = items.filter((invoice) => invoice.paymentDisplayStatus === status.toUpperCase());
+    }
+    const total = items.length;
+    const pagedItems = items.slice(skip, skip + limit);
     const stats = {
       totalInvoices: total,
       totalAmount: money(items.reduce((sum, invoice) => sum + invoice.totalAmount, 0)),
       paidAmount: money(items.reduce((sum, invoice) => sum + invoice.paidAmount, 0)),
-      balanceAmount: money(items.reduce((sum, invoice) => sum + invoice.balanceAmount, 0)),
-      unpaidInvoices: items.filter((invoice) => invoice.balanceAmount > 0).length,
-      paidInvoices: items.filter((invoice) => invoice.status === BillingDraftInvoiceStatus.PAID).length,
-      overdueInvoices: items.filter((invoice) => invoice.isOverdue).length,
+      balanceAmount: money(items.reduce((sum, invoice) => sum + invoice.remainingAmount, 0)),
+      unpaidInvoices: items.filter((invoice) => invoice.remainingAmount > 0).length,
+      paidInvoices: items.filter((invoice) => invoice.paymentDisplayStatus === 'PAID').length,
+      overdueInvoices: items.filter((invoice) => invoice.paymentDisplayStatus === 'OVERDUE').length,
     };
     return {
-      items,
+      items: pagedItems,
       meta: buildPaginationMeta(page, limit, total),
       stats,
       association: association ? { id: association.id, shortName: association.name, associationCode: association.fiscalCode } : null,
@@ -380,12 +450,7 @@ export class InvoicePublishingService {
   async getResidentInvoice(user: MvpUser, id: string) {
     const { organizationId, apartmentIds } = await this.residentInvoiceScope(user);
     const invoice = await this.prisma.billingDraftInvoice.findFirst({
-      where: {
-        id,
-        organizationId,
-        apartmentId: { in: apartmentIds.length ? apartmentIds : ['__none__'] },
-        status: { in: this.residentVisibleStatuses() },
-      },
+      where: { ...this.residentInvoiceWhere(organizationId, apartmentIds), id },
       include: this.invoiceDetailInclude(),
     });
     if (!invoice) throw new NotFoundException('Factura nu a fost găsită.');
@@ -404,27 +469,145 @@ export class InvoicePublishingService {
         paymentInstructions: true,
       },
     });
-    return this.serializeResidentInvoiceDetail(invoice, organization);
+    const [paidAmount, activePaymentIntent] = await Promise.all([
+      this.paidAmountForInvoice(organizationId, invoice.id),
+      this.findActivePaymentIntent(organizationId, invoice.id, invoice.apartmentId),
+    ]);
+    return this.serializeResidentInvoiceDetail(invoice, organization, paidAmount, activePaymentIntent);
   }
 
   async markResidentInvoiceViewed(user: MvpUser, id: string) {
     const { organizationId, apartmentIds } = await this.residentInvoiceScope(user);
     const invoice = await this.prisma.billingDraftInvoice.findFirst({
-      where: {
-        id,
-        organizationId,
-        apartmentId: { in: apartmentIds.length ? apartmentIds : ['__none__'] },
-        status: { in: this.residentVisibleStatuses() },
-      },
+      where: { ...this.residentInvoiceWhere(organizationId, apartmentIds), id },
     });
     if (!invoice) throw new NotFoundException('Factura nu a fost găsită.');
     const updated = invoice.viewedAt
       ? invoice
       : await this.prisma.billingDraftInvoice.update({ where: { id: invoice.id }, data: { viewedAt: new Date() } });
+    const intent = await this.findActivePaymentIntent(organizationId, invoice.id, invoice.apartmentId, [PaymentIntentStatus.CREATED]);
+    if (intent) {
+      const viewedIntent = await this.prisma.paymentIntent.update({
+        where: { id: intent.id },
+        data: { status: PaymentIntentStatus.VIEWED },
+      });
+      await this.addPaymentIntentEvent(viewedIntent.id, organizationId, user.id, PaymentIntentEventType.NOTE_ADDED, 'Intent vizualizat', 'Factura a fost deschisă în portalul locatarului.', {
+        internalInvoiceId: invoice.id,
+      });
+    }
     if (!invoice.viewedAt) {
       await this.log(user, 'RESIDENT_INVOICE_VIEWED', 'Factură vizualizată', `Factura ${updated.invoiceNumber || updated.id} a fost deschisă de locatar.`, updated.id);
     }
     return { viewedAt: updated.viewedAt };
+  }
+
+  async getResidentInvoicePrintData(user: MvpUser, id: string) {
+    const detail = await this.getResidentInvoice(user, id);
+    return {
+      organization: detail.association,
+      invoiceNumber: detail.invoice.invoiceNumber,
+      billingPeriod: detail.invoice.billingPeriod,
+      apartment: detail.apartment,
+      lines: detail.lines,
+      total: detail.invoice.totalAmount,
+      currency: detail.invoice.currency,
+      dueDate: detail.invoice.dueDate,
+      publicNote: detail.publicNote,
+    };
+  }
+
+  async createResidentPaymentIntentPlaceholder(user: MvpUser, id: string, body: unknown) {
+    const payload = isRecord(body) ? body : {};
+    if (payload.confirm !== true) throw new BadRequestException('Confirmarea este obligatorie.');
+    const { organizationId, apartmentIds, residentId } = await this.residentInvoiceScope(user);
+    const invoice = await this.prisma.billingDraftInvoice.findFirst({
+      where: { ...this.residentInvoiceWhere(organizationId, apartmentIds), id },
+      include: this.invoiceDetailInclude(),
+    });
+    if (!invoice) throw new NotFoundException('Factura nu a fost găsită.');
+    const paidAmount = await this.paidAmountForInvoice(organizationId, invoice.id);
+    const paymentState = this.paymentState(invoice, paidAmount);
+    if (!paymentState.canPayPlaceholder) throw new BadRequestException('Factura nu permite pregătirea unei plăți.');
+    const duplicate = await this.findActivePaymentIntent(organizationId, invoice.id, invoice.apartmentId);
+    if (duplicate) {
+      return {
+        intent: this.serializePaymentIntentPlaceholder(duplicate),
+        duplicate: true,
+        message: 'Plata online nu este activă încă. Această acțiune este doar o pregătire tehnică.',
+      };
+    }
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+    const created = await this.prisma.paymentIntent.create({
+      data: {
+        organizationId,
+        apartmentId: invoice.apartmentId,
+        residentId,
+        createdByUserId: user.id,
+        provider: PaymentProvider.NONE,
+        providerType: null,
+        source: PaymentIntentSource.RESIDENT_PORTAL,
+        paymentMethodType: null,
+        status: PaymentIntentStatus.CREATED,
+        currency: BillingCurrency.MDL,
+        amount: paymentState.remainingAmount,
+        description: `Pregătire plată pentru factura ${invoice.invoiceNumber || invoice.id}`,
+        expiresAt,
+        metadataJson: {
+          internalInvoiceId: invoice.id,
+          invoiceNumber: invoice.invoiceNumber,
+          billingMonth: monthKey(invoice.billingPeriod),
+          placeholder: true,
+          provider: 'NONE',
+          realMoneyProcessed: false,
+        },
+      },
+      include: this.paymentIntentInclude(),
+    });
+    await this.addPaymentIntentEvent(created.id, organizationId, user.id, PaymentIntentEventType.INTENT_CREATED, 'Intent placeholder creat', 'Plata online nu este activă încă. Nu s-au procesat bani.', {
+      internalInvoiceId: invoice.id,
+      amount: created.amount,
+      currency: created.currency,
+      realMoneyProcessed: false,
+    });
+    await this.log(user, 'PAYMENT_INTENT_PLACEHOLDER_CREATED', 'Pregătire plată creată', `Locatarul a pregătit plata pentru factura ${invoice.invoiceNumber || invoice.id}. Nu s-au procesat bani.`, invoice.id);
+    return {
+      intent: this.serializePaymentIntentPlaceholder(created),
+      duplicate: false,
+      message: 'Plata online nu este activă încă. Această acțiune este doar o pregătire tehnică.',
+    };
+  }
+
+  async cancelResidentPaymentIntentPlaceholder(user: MvpUser, id: string, body: unknown) {
+    const { organizationId, apartmentIds } = await this.residentInvoiceScope(user);
+    const payload = isRecord(body) ? body : {};
+    const reason = optionalString(payload.reason) || 'Anulat de locatar.';
+    const intent = await this.prisma.paymentIntent.findFirst({
+      where: {
+        id,
+        organizationId,
+        apartmentId: { in: apartmentIds.length ? apartmentIds : ['__none__'] },
+        source: PaymentIntentSource.RESIDENT_PORTAL,
+        status: { in: ACTIVE_PLACEHOLDER_INTENT_STATUSES },
+      },
+      include: this.paymentIntentInclude(),
+    });
+    if (!intent) throw new NotFoundException('Intenția de plată nu a fost găsită.');
+    const updated = await this.prisma.paymentIntent.update({
+      where: { id: intent.id },
+      data: {
+        status: PaymentIntentStatus.CANCELLED,
+        cancelledAt: new Date(),
+        cancelledById: user.id,
+        cancellationReason: reason,
+      },
+      include: this.paymentIntentInclude(),
+    });
+    await this.addPaymentIntentEvent(updated.id, organizationId, user.id, PaymentIntentEventType.INTENT_CANCELLED, 'Intent placeholder anulat', reason, {
+      internalInvoiceId: this.internalInvoiceIdFromIntent(updated),
+      realMoneyProcessed: false,
+    });
+    await this.log(user, 'PAYMENT_INTENT_PLACEHOLDER_CANCELLED', 'Pregătire plată anulată', reason, this.internalInvoiceIdFromIntent(updated));
+    return { intent: this.serializePaymentIntentPlaceholder(updated), message: 'Pregătirea plății a fost anulată.' };
   }
 
   private async adminInvoiceWhere(organizationId: string, query: Record<string, unknown>) {
@@ -477,7 +660,7 @@ export class InvoicePublishingService {
         dueDate: effectiveDueDate,
         publicNote: payload.publicNote === undefined ? invoice.publicNote : optionalString(payload.publicNote) || null,
         invoiceNumber,
-        // TODO(ES-182): create resident in-app/email notification when resident notification routing is finalized.
+        // TODO(ES-183): create resident in-app/email notification when resident notification routing is finalized.
       },
       include: this.invoiceDetailInclude(),
     });
@@ -584,17 +767,124 @@ export class InvoicePublishingService {
     const profiles = await this.prisma.residentProfile.findMany({
       where: { organizationId: user.organizationId, userId: user.id, archivedAt: null },
       select: {
+        id: true,
         apartmentId: true,
         apartmentResidents: { select: { apartmentId: true } },
       },
     });
     const apartmentIds = Array.from(new Set(profiles.flatMap((profile) => [profile.apartmentId, ...profile.apartmentResidents.map((link) => link.apartmentId)].filter(Boolean)))) as string[];
-    return { organizationId: user.organizationId, apartmentIds };
+    return { organizationId: user.organizationId, apartmentIds, residentId: profiles[0]?.id || null };
   }
 
-  private residentVisibleStatuses(status?: BillingDraftInvoiceStatus) {
-    const visible = PUBLISHED_OR_SETTLED_STATUSES;
-    return status && visible.includes(status) ? [status] : visible;
+  private residentInvoiceWhere(organizationId: string, apartmentIds: string[], status?: string | null): Prisma.BillingDraftInvoiceWhereInput {
+    const where: Prisma.BillingDraftInvoiceWhereInput = {
+      organizationId,
+      apartmentId: { in: apartmentIds.length ? apartmentIds : ['__none__'] },
+      publishedAt: { not: null },
+      status: { in: RESIDENT_VISIBLE_INVOICE_STATUSES },
+    };
+    const normalized = status?.trim().toUpperCase() as BillingDraftInvoiceStatus | undefined;
+    if (normalized && Object.values(BillingDraftInvoiceStatus).includes(normalized) && RESIDENT_VISIBLE_INVOICE_STATUSES.includes(normalized)) {
+      where.status = normalized;
+    }
+    return where;
+  }
+
+  private async paidAmountsForInvoices(organizationId: string, invoiceIds: string[]) {
+    const entries = await Promise.all(invoiceIds.map(async (invoiceId) => [invoiceId, await this.paidAmountForInvoice(organizationId, invoiceId)] as const));
+    return new Map(entries);
+  }
+
+  private async paidAmountForInvoice(organizationId: string, invoiceId: string) {
+    const rows: Array<{ amount: unknown }> = await this.prisma.payment.findMany({
+      where: {
+        organizationId,
+        status: PaymentStatus.CONFIRMED,
+        paymentIntent: { is: { metadataJson: { path: ['internalInvoiceId'], equals: invoiceId } } },
+      },
+      select: { amount: true },
+    }).catch(() => []);
+    return money(rows.reduce((sum, payment) => sum + Number(payment.amount || 0), 0));
+  }
+
+  private paymentState(invoice: any, paidAmountInput = 0) {
+    const total = money(numberFromDecimal(invoice.total));
+    let paidAmount = money(paidAmountInput);
+    if (invoice.status === BillingDraftInvoiceStatus.PAID && paidAmount <= 0) paidAmount = total;
+    const remainingAmount = money(Math.max(total - paidAmount, 0));
+    let paymentDisplayStatus: 'UNPAID' | 'PARTIALLY_PAID' | 'PAID' | 'OVERDUE' | 'CANCELLED' = 'UNPAID';
+    if (invoice.status === BillingDraftInvoiceStatus.CANCELLED) paymentDisplayStatus = 'CANCELLED';
+    else if (remainingAmount <= 0 || invoice.status === BillingDraftInvoiceStatus.PAID) paymentDisplayStatus = 'PAID';
+    else if (invoice.dueDate && new Date(invoice.dueDate).getTime() < Date.now()) paymentDisplayStatus = 'OVERDUE';
+    else if (paidAmount > 0 || invoice.status === BillingDraftInvoiceStatus.PARTIALLY_PAID) paymentDisplayStatus = 'PARTIALLY_PAID';
+    const canPayPlaceholder = ['UNPAID', 'PARTIALLY_PAID', 'OVERDUE'].includes(paymentDisplayStatus) && remainingAmount > 0;
+    return { total, paidAmount, remainingAmount, paymentDisplayStatus, canPayPlaceholder };
+  }
+
+  private async findActivePaymentIntent(
+    organizationId: string,
+    invoiceId: string,
+    apartmentId: string,
+    statuses: PaymentIntentStatus[] = ACTIVE_PLACEHOLDER_INTENT_STATUSES,
+  ) {
+    return this.prisma.paymentIntent.findFirst({
+      where: {
+        organizationId,
+        apartmentId,
+        source: PaymentIntentSource.RESIDENT_PORTAL,
+        status: { in: statuses },
+        metadataJson: { path: ['internalInvoiceId'], equals: invoiceId },
+        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+      },
+      include: this.paymentIntentInclude(),
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  private paymentIntentInclude() {
+    return {
+      apartment: { select: { id: true, number: true, staircase: { select: { name: true } }, building: { select: { name: true } } } },
+      resident: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } },
+      organization: { select: { id: true, name: true, legalName: true, fiscalCode: true } },
+    } satisfies Prisma.PaymentIntentInclude;
+  }
+
+  private serializePaymentIntentPlaceholder(intent: any) {
+    const metadata = intent.metadataJson && typeof intent.metadataJson === 'object' ? intent.metadataJson : {};
+    return {
+      id: intent.id,
+      invoiceId: metadata.internalInvoiceId || intent.invoiceId || null,
+      invoiceNumber: metadata.invoiceNumber || null,
+      amount: Number(intent.amount || 0),
+      currency: intent.currency,
+      status: intent.status,
+      provider: intent.provider,
+      providerReference: intent.providerReference || null,
+      expiresAt: intent.expiresAt,
+      createdAt: intent.createdAt,
+      updatedAt: intent.updatedAt,
+      message: 'Plata online nu este activă încă. Această acțiune nu retrage bani.',
+      realMoneyProcessed: false,
+    };
+  }
+
+  private internalInvoiceIdFromIntent(intent: any) {
+    const metadata = intent.metadataJson && typeof intent.metadataJson === 'object' ? intent.metadataJson : {};
+    return metadata.internalInvoiceId || null;
+  }
+
+  private async addPaymentIntentEvent(
+    paymentIntentId: string,
+    organizationId: string,
+    actorUserId: string | null,
+    eventType: PaymentIntentEventType,
+    title: string,
+    message: string,
+    metadata: Record<string, unknown>,
+  ) {
+    await this.prisma.paymentIntentEvent.create({
+      data: { paymentIntentId, associationId: organizationId, actorUserId, eventType, title, message, metadata: metadata as Prisma.InputJsonObject },
+    }).catch(() => undefined);
   }
 
   private invoiceListInclude() {
@@ -681,22 +971,30 @@ export class InvoicePublishingService {
     };
   }
 
-  private serializeResidentInvoiceList(invoice: any) {
+  private serializeResidentInvoiceList(invoice: any, paidAmount = 0) {
     const base = this.serializeInvoiceBase(invoice);
     const billingMonth = monthKey(invoice.billingPeriod);
+    const payment = this.paymentState(invoice, paidAmount);
     return {
       ...base,
+      paidAmount: payment.paidAmount,
+      balanceAmount: payment.remainingAmount,
+      remainingAmount: payment.remainingAmount,
+      paymentDisplayStatus: payment.paymentDisplayStatus,
       billingMonth,
+      billingPeriod: invoice.billingPeriod,
       apartmentId: invoice.apartmentId,
       apartment: apartmentInfo(invoice.apartment),
       association: { id: invoice.organizationId, shortName: '', associationCode: null },
       issueDate: invoice.publishedAt,
-      isOverdue: Boolean(invoice.dueDate && new Date(invoice.dueDate).getTime() < Date.now() && base.balanceAmount > 0),
+      isOverdue: payment.paymentDisplayStatus === 'OVERDUE',
+      canPayPlaceholder: payment.canPayPlaceholder,
+      canPrint: true,
     };
   }
 
-  private serializeResidentInvoiceDetail(invoice: any, organization: any) {
-    const base = this.serializeResidentInvoiceList(invoice);
+  private serializeResidentInvoiceDetail(invoice: any, organization: any, paidAmount = 0, activePaymentIntent: any = null) {
+    const base = this.serializeResidentInvoiceList(invoice, paidAmount);
     return {
       invoice: {
         ...base,
@@ -724,6 +1022,12 @@ export class InvoicePublishingService {
       },
       lines: invoice.lines.map((line: any) => this.serializeLine(line)),
       publicNote: invoice.publicNote,
+      paymentDisplayStatus: base.paymentDisplayStatus,
+      paidAmount: base.paidAmount,
+      remainingAmount: base.remainingAmount,
+      canPayPlaceholder: base.canPayPlaceholder,
+      activePaymentIntent: activePaymentIntent ? this.serializePaymentIntentPlaceholder(activePaymentIntent) : null,
+      paymentUnavailableMessage: 'Plata online va fi disponibilă ulterior.',
       payments: [],
     };
   }
@@ -760,6 +1064,7 @@ export class InvoicePublishingService {
   }
 
   private async log(user: MvpUser, type: Parameters<ActivityMvpService['createActivity']>[0]['type'], title: string, message: string, invoiceId?: string | null) {
+    const baseLink = user.role === Role.RESIDENT ? '/resident/invoices' : '/admin/invoices';
     await this.activity.createActivity({
       organizationId: user.organizationId,
       actorUserId: user.id,
@@ -768,7 +1073,7 @@ export class InvoicePublishingService {
       message,
       targetType: 'INVOICE',
       targetId: invoiceId || null,
-      link: invoiceId ? `/admin/invoices/${invoiceId}` : '/admin/invoices',
+      link: invoiceId ? `${baseLink}/${invoiceId}` : baseLink,
     });
   }
 }

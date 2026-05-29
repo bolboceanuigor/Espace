@@ -2013,9 +2013,16 @@ export const invoicesApi = {
   residentGetOne: (id: string) => apiRequest<any>(`/api/resident/invoices/${id}`),
   getResidentInvoices: (params?: Record<string, string | number | boolean | null | undefined>) =>
     apiRequest<any>('/api/resident/invoices', { params }),
+  getResidentInvoicesOverview: () => apiRequest<any>('/api/resident/invoices/overview'),
   getResidentInvoice: (id: string) => apiRequest<any>(`/api/resident/invoices/${id}`),
   markResidentInvoiceViewed: (id: string) =>
     apiRequest<any>(`/api/resident/invoices/${id}/mark-viewed`, { method: 'POST' }),
+  createResidentPaymentIntentPlaceholder: (invoiceId: string, data: { confirm: boolean }) =>
+    apiRequest<any>(`/api/resident/invoices/${invoiceId}/payment-intent-placeholder`, { method: 'POST', body: data }),
+  cancelResidentPaymentIntentPlaceholder: (intentId: string, data?: { reason?: string }) =>
+    apiRequest<any>(`/api/resident/payment-intents/${intentId}/cancel`, { method: 'POST', body: data || {} }),
+  getResidentInvoicePrintData: (id: string) =>
+    apiRequest<any>(`/api/resident/invoices/${id}/print-data`),
   residentDocument: (id: string) => apiRequest<any>(`/api/resident/invoices/${id}/document`),
   residentPdfFallback: (id: string) => apiRequest<any>(`/api/resident/invoices/${id}/pdf`),
   residentPdf: (id: string) => apiRequest<Blob>(`/api/resident/invoices/${id}/pdf`, { responseType: 'blob' }),

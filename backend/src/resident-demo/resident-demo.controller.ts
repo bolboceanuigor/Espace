@@ -72,6 +72,11 @@ export class ResidentDemoController {
     return this.invoicePublishingService.listResidentInvoices(user, query);
   }
 
+  @Get(['resident/invoices/overview', 'api/resident/invoices/overview'])
+  getInvoicesOverview(@CurrentUser() user: MvpUser) {
+    return this.invoicePublishingService.getResidentOverview(user);
+  }
+
   @Get(['resident/finance-summary', 'api/resident/finance-summary'])
   getFinanceSummary(@CurrentUser() user: MvpUser) {
     return this.residentDemoService.getFinanceSummary(user);
@@ -87,6 +92,16 @@ export class ResidentDemoController {
     return this.residentDemoService.listInternalInvoicePayments(user, id);
   }
 
+  @Post(['resident/invoices/:id/payment-intent-placeholder', 'api/resident/invoices/:id/payment-intent-placeholder'])
+  createPaymentIntentPlaceholder(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.invoicePublishingService.createResidentPaymentIntentPlaceholder(user, id, body);
+  }
+
+  @Get(['resident/invoices/:id/print-data', 'api/resident/invoices/:id/print-data'])
+  getInvoicePrintData(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.invoicePublishingService.getResidentInvoicePrintData(user, id);
+  }
+
   @Get(['resident/invoices/:id', 'api/resident/invoices/:id'])
   getInvoice(@CurrentUser() user: MvpUser, @Param('id') id: string) {
     return this.invoicePublishingService.getResidentInvoice(user, id);
@@ -95,6 +110,11 @@ export class ResidentDemoController {
   @Post(['resident/invoices/:id/mark-viewed', 'api/resident/invoices/:id/mark-viewed'])
   markInvoiceViewed(@CurrentUser() user: MvpUser, @Param('id') id: string) {
     return this.invoicePublishingService.markResidentInvoiceViewed(user, id);
+  }
+
+  @Post(['resident/payment-intents/:id/cancel', 'api/resident/payment-intents/:id/cancel'])
+  cancelPaymentIntentPlaceholder(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.invoicePublishingService.cancelResidentPaymentIntentPlaceholder(user, id, body);
   }
 
   @Get(['resident/payments', 'api/resident/payments'])
