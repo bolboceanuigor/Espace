@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { 
   Bell, Building2, ChevronLeft, CreditCard, FileText, 
-  HelpCircle, Home, LogOut, Search, Settings, Shield, 
+  HelpCircle, Home, ListChecks, LogOut, Search, Settings, Shield,
   Users, X, Menu, BarChart3
 } from 'lucide-react';
 import OrgSwitcher from './OrgSwitcher';
@@ -31,11 +31,22 @@ export default function AppShell({ children }: AppShellProps) {
   );
 }
 
+function notificationSeverityClass(value?: string) {
+  if (value === 'CRITICAL' || value === 'ERROR') return 'bg-rose-100 text-rose-700';
+  if (value === 'WARNING') return 'bg-amber-100 text-amber-700';
+  if (value === 'SUCCESS') return 'bg-emerald-100 text-emerald-700';
+  return 'bg-neutral-100 text-neutral-600';
+}
+
 // Sidebar navigation items per role
 const SUPER_ADMIN_NAV = [
   { key: 'platform', label: 'Platformă', href: '/superadmin', icon: Home },
   { key: 'organizations', label: 'Asociații', href: '/superadmin/organizations', icon: Building2 },
-  { key: 'administrators', label: 'Administratori', href: '/superadmin/administrators', icon: Users },
+  { key: 'administrators', label: 'Administratori', href: '/superadmin/admins', icon: Users },
+  { key: 'revenue', label: 'Venituri', href: '/superadmin/revenue', icon: BarChart3 },
+  { key: 'billing-tasks', label: 'Taskuri facturare', href: '/superadmin/billing-tasks', icon: ListChecks },
+  { key: 'notifications', label: 'Notificări', href: '/superadmin/notifications', icon: Bell },
+  { key: 'activity', label: 'Activitate', href: '/superadmin/activity', icon: ListChecks },
   { key: 'subscriptions', label: 'Abonamente', href: '/superadmin/subscriptions', icon: CreditCard },
   { key: 'reports', label: 'Rapoarte', href: '/superadmin/reports', icon: BarChart3 },
   { key: 'access-requests', label: 'Cereri acces', href: '/superadmin/access-requests', icon: FileText },
@@ -143,9 +154,15 @@ function AppShellContent({ children }: AppShellProps) {
     if (!isAuthenticated || isPreviewSession) return;
     const fetchNotifications = async () => {
       try {
+        if (normalizedRole === 'SUPER_ADMIN') {
+          const res = await superadminApi.getSuperadminNotificationsSummary();
+          setNotifications(res.data?.latestNotifications || []);
+          setNotificationsUnreadCount(res.data?.unreadCount || 0);
+          return;
+        }
         const mode = normalizedRole === 'RESIDENT' ? 'resident' : 'admin';
-        const res = mode === 'admin' 
-          ? await notificationsApi.adminList() 
+        const res = mode === 'admin'
+          ? await notificationsApi.adminList()
           : await notificationsApi.residentList();
         const items = res.data?.items || [];
         setNotifications(items);
@@ -205,6 +222,14 @@ function AppShellContent({ children }: AppShellProps) {
   const handleLogout = async () => {
     await logout();
     router.push(`/${locale}/login`);
+  };
+
+  const notificationTarget = (url?: string | null) => {
+    if (!url) return '';
+    if (/^https?:\/\//i.test(url)) return url;
+    if (url.startsWith(`/${locale}/`)) return url;
+    if (/^\/[a-z]{2}(\/|$)/i.test(url)) return url;
+    return `/${locale}${url.startsWith('/') ? url : `/${url}`}`;
   };
 
   if (loading || !activeUser) {
@@ -459,7 +484,9 @@ function AppShellContent({ children }: AppShellProps) {
                       <button
                         type="button"
                         onClick={async () => {
-                          if (normalizedRole === 'ADMIN') await notificationsApi.adminReadAll();
+                          if (normalizedRole === 'SUPER_ADMIN') await superadminApi.markAllSuperadminNotificationsRead();
+                          else if (normalizedRole === 'ADMIN') await notificationsApi.adminReadAll();
+                          else if (normalizedRole === 'RESIDENT') await notificationsApi.residentReadAll();
                           setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
                           setNotificationsUnreadCount(0);
                         }}
@@ -472,15 +499,26 @@ function AppShellContent({ children }: AppShellProps) {
                       {notifications.slice(0, 5).map((n) => (
                         <button
                           key={n.id}
-                          onClick={() => {
+                          onClick={async () => {
                             setNotificationsOpen(false);
-                            if (n.actionUrl) router.push(n.actionUrl);
+                            if (normalizedRole === 'SUPER_ADMIN' && n.status === 'UNREAD') {
+                              await superadminApi.markSuperadminNotificationRead(n.id).catch(() => undefined);
+                            }
+                            const target = notificationTarget(n.actionUrl || n.link);
+                            if (target) router.push(target);
                           }}
                           className={`w-full rounded-lg px-2 py-2 text-left text-sm transition-colors ${
                             n.isRead ? 'text-neutral-500' : 'bg-neutral-50 text-neutral-900'
                           } hover:bg-neutral-100`}
                         >
-                          <p className="font-medium">{n.title}</p>
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="min-w-0 truncate font-medium">{n.title}</p>
+                            {n.severity ? (
+                              <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${notificationSeverityClass(n.severity)}`}>
+                                {n.severity}
+                              </span>
+                            ) : null}
+                          </div>
                           <p className="line-clamp-1 text-xs text-neutral-500">{n.message}</p>
                         </button>
                       ))}
@@ -490,6 +528,13 @@ function AppShellContent({ children }: AppShellProps) {
                         </p>
                       )}
                     </div>
+                    <Link
+                      href={normalizedRole === 'SUPER_ADMIN' ? `/${locale}/superadmin/notifications` : normalizedRole === 'RESIDENT' ? `/${locale}/resident/notifications` : `/${locale}/admin/notifications`}
+                      onClick={() => setNotificationsOpen(false)}
+                      className="mt-2 flex min-h-9 items-center justify-center rounded-lg border border-neutral-200 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
+                    >
+                      Vezi toate notificările
+                    </Link>
                   </div>
                 )}
               </div>

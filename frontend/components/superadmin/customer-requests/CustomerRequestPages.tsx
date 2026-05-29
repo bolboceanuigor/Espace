@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
-import { accessRequestsApi } from '@/lib/api';
+import { accessRequestsApi, superadminApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 const statuses = ['NEW', 'CONTACTED', 'QUALIFIED', 'ONBOARDING', 'CONVERTED', 'REJECTED'];
@@ -199,11 +199,17 @@ export function CustomerRequestDetailsPage({ basePath = '/superadmin/customer-re
   const [convertError, setConvertError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [conversionResult, setConversionResult] = useState<any>(null);
+  const [activity, setActivity] = useState<any[]>([]);
   const load = useCallback(async () => {
-    const response = await accessRequestsApi.getSuperadminAccessRequest(params.id);
+    const [response, activityResponse] = await Promise.all([
+      accessRequestsApi.getSuperadminAccessRequest(params.id),
+      superadminApi.getSuperadminActivity({ accessRequestId: params.id, limit: 8 }).catch(() => null),
+    ]);
     const next = response.data;
+    const activityPayload = activityResponse?.data || {};
     setItem(next);
     setInternalNote(next?.internalNotes || '');
+    setActivity((activityPayload.items || activityPayload.data || []) as any[]);
   }, [params.id]);
   useEffect(() => { if (params.id) load().catch(() => {}); }, [params.id, load]);
   if (!item) return <main className="min-h-screen bg-slate-50 p-6 text-sm text-slate-500">Se incarca cererea...</main>;
@@ -350,6 +356,31 @@ export function CustomerRequestDetailsPage({ basePath = '/superadmin/customer-re
           <h2 className="font-semibold text-slate-950">Note interne</h2>
           <textarea value={internalNote} onChange={(e) => setInternalNote(e.target.value)} placeholder="Note interne pentru follow-up, calificare sau onboarding..." className="mt-3 min-h-36 w-full rounded-md border border-slate-200 p-3 text-sm text-slate-700" />
           <button onClick={() => update({ internalNote })} className="mt-3 rounded-md bg-slate-950 px-4 py-2 text-sm font-semibold text-white">Salveaza note</button>
+        </section>
+        <section className="rounded-lg border border-slate-200 bg-white p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="font-semibold text-slate-950">Istoric</h2>
+              <p className="mt-1 text-sm text-slate-500">Ultimele activități legate de această cerere.</p>
+            </div>
+            <Link href={localizedPath(`/superadmin/activity?accessRequestId=${item.id}`)} className="text-sm font-semibold text-emerald-700 hover:underline">Vezi audit</Link>
+          </div>
+          {activity.length ? (
+            <div className="mt-4 space-y-3">
+              {activity.map((event: any) => (
+                <div key={event.id} className="border-l-2 border-slate-200 pl-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-semibold text-slate-950">{event.title || event.action}</p>
+                    <Badge value={event.severity || 'INFO'} tone={event.severity === 'SUCCESS' ? 'emerald' : event.severity === 'WARNING' || event.severity === 'CRITICAL' ? 'amber' : 'slate'} />
+                  </div>
+                  <p className="mt-1 text-sm text-slate-600">{event.message || event.description || '-'}</p>
+                  <p className="mt-1 text-xs text-slate-500">{event.actor?.fullName || 'Sistem'} · {event.createdAt ? new Date(event.createdAt).toLocaleString('ro-MD') : '-'}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-4 rounded-md border border-dashed border-slate-200 p-4 text-sm text-slate-500">Nu există activități înregistrate pentru această cerere încă.</p>
+          )}
         </section>
       </div>
       {convertOpen ? (

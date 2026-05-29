@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
 import { formatMdl } from '@/lib/condo-admin-fallback';
-import { adminRbacApi, adminResidentUpdateRequestsApi, billingApi, communicationsApi, dataQualityApi, onboardingApi, workbenchApi } from '@/lib/api';
+import { adminRbacApi, adminResidentUpdateRequestsApi, billingApi, communicationsApi, dataQualityApi, invitationsApi, onboardingApi, workbenchApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 type CrmOrganization = {
@@ -287,6 +287,7 @@ export default function AdminPage() {
   const [dataQualitySummary, setDataQualitySummary] = useState<any>(null);
   const [teamStats, setTeamStats] = useState<any>(null);
   const [teamActivityStats, setTeamActivityStats] = useState<any>(null);
+  const [firstLogin, setFirstLogin] = useState<any>(null);
 
   useEffect(() => {
     let active = true;
@@ -388,6 +389,17 @@ export default function AdminPage() {
       .catch(() => {
         if (!active) return;
         setTeamActivityStats(null);
+      });
+
+    invitationsApi
+      .getAdminFirstLogin()
+      .then((response) => {
+        if (!active) return;
+        setFirstLogin(response.data || null);
+      })
+      .catch(() => {
+        if (!active) return;
+        setFirstLogin(null);
       });
 
     return () => {
@@ -609,6 +621,22 @@ export default function AdminPage() {
         </Card>
       ) : null}
 
+      {firstLogin?.organization && firstLogin.organization.adminHandoverStatus !== 'ACTIVE' ? (
+        <Card className="border-amber-200 bg-amber-50 p-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-amber-950">Finalizează verificarea inițială</p>
+              <p className="mt-1 text-sm text-amber-800">
+                Confirmă datele APC-ului și punctele de pornire înainte de lucrul operațional.
+              </p>
+            </div>
+            <ButtonLink href={localizedPath('/admin/first-login')} variant="secondary">
+              <ListChecks className="h-4 w-4" /> Deschide checklist
+            </ButtonLink>
+          </div>
+        </Card>
+      ) : null}
+
       <Card className="p-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
@@ -628,6 +656,22 @@ export default function AdminPage() {
       </Card>
 
       <SetupChecklistCard setup={setup} setupError={setupError} localizedPath={localizedPath} />
+
+      {dataQualitySummary?.criticalCount ? (
+        <Card className="border-amber-200 bg-amber-50 p-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-amber-950">Ai probleme în datele importate</p>
+              <p className="mt-1 text-sm text-amber-800">
+                {dataQualitySummary.criticalCount} probleme critice trebuie verificate înainte de facturare.
+              </p>
+            </div>
+            <ButtonLink href={localizedPath('/admin/data-quality')} variant="secondary">
+              <ListChecks className="h-4 w-4" /> Calitatea datelor
+            </ButtonLink>
+          </div>
+        </Card>
+      ) : null}
 
       <Card className="p-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">

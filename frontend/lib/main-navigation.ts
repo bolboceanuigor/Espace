@@ -4,6 +4,9 @@ export type MainNavigationKey =
   | 'platform'
   | 'organizations'
   | 'administrators'
+  | 'revenue'
+  | 'billingTasks'
+  | 'activity'
   | 'tasks'
   | 'subscriptions'
   | 'globalSettings'
@@ -53,6 +56,10 @@ export const SUPERADMIN_NAVIGATION_ITEMS: MainNavigationItem[] = [
   { key: 'platform', label: 'Platformă', href: '/superadmin' },
   { key: 'organizations', label: 'Asociații', href: '/superadmin/organizations' },
   { key: 'administrators', label: 'Administratori', href: '/superadmin/admins' },
+  { key: 'revenue', label: 'Venituri', href: '/superadmin/revenue' },
+  { key: 'billingTasks', label: 'Taskuri facturare', href: '/superadmin/billing-tasks' },
+  { key: 'notifications', label: 'Notificări', href: '/superadmin/notifications' },
+  { key: 'activity', label: 'Activitate', href: '/superadmin/activity' },
   { key: 'subscriptions', label: 'Abonamente', href: '/superadmin/subscriptions' },
   { key: 'tasks', label: 'Follow-up', href: '/superadmin/tasks' },
   { key: 'globalSettings', label: 'Status sistem', href: '/superadmin/system/status' },
