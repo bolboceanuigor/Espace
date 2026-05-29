@@ -1911,6 +1911,7 @@ export const invoicesApi = {
     apiRequest<any>('/api/admin/invoices/monthly-summary', { params }),
   adminList: (params?: {
     billingMonth?: string;
+    billingPeriodId?: string;
     status?: string;
     search?: string;
     apartmentNumber?: string;
@@ -1925,6 +1926,20 @@ export const invoicesApi = {
   }) =>
     apiRequest<any>('/api/admin/invoices', { params }),
   adminGetOne: (id: string) => apiRequest<any>(`/api/admin/invoices/${id}`),
+  getAdminInvoices: (params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>('/api/admin/invoices', { params }),
+  getAdminInvoicesOverview: () => apiRequest<any>('/api/admin/invoices/overview'),
+  getAdminInvoice: (id: string) => apiRequest<any>(`/api/admin/invoices/${id}`),
+  updateAdminInvoice: (id: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/admin/invoices/${id}`, { method: 'PATCH', body: data }),
+  publishAdminInvoice: (id: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/admin/invoices/${id}/publish`, { method: 'POST', body: data }),
+  bulkPublishAdminInvoices: (data: Record<string, unknown>) =>
+    apiRequest<any>('/api/admin/invoices/bulk-publish', { method: 'POST', body: data }),
+  unpublishAdminInvoice: (id: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/admin/invoices/${id}/unpublish`, { method: 'POST', body: data }),
+  getAdminInvoiceIssues: (params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>('/api/admin/invoices/issues', { params }),
   adminDocument: (id: string) => apiRequest<any>(`/api/admin/invoices/${id}/document`),
   adminPdfFallback: (id: string) => apiRequest<any>(`/api/admin/invoices/${id}/pdf`),
   adminUpdateStatus: (id: string, data: { status: 'CANCELLED' | 'VOID' }) =>
@@ -1986,6 +2001,8 @@ export const invoicesApi = {
     apartmentId?: string;
     billingMonth?: string;
     status?: string;
+    year?: number;
+    month?: number;
     unpaidOnly?: boolean;
     overdueOnly?: boolean;
     sortBy?: string;
@@ -1994,6 +2011,11 @@ export const invoicesApi = {
     limit?: number;
   }) => apiRequest<any>('/api/resident/invoices', { params }),
   residentGetOne: (id: string) => apiRequest<any>(`/api/resident/invoices/${id}`),
+  getResidentInvoices: (params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>('/api/resident/invoices', { params }),
+  getResidentInvoice: (id: string) => apiRequest<any>(`/api/resident/invoices/${id}`),
+  markResidentInvoiceViewed: (id: string) =>
+    apiRequest<any>(`/api/resident/invoices/${id}/mark-viewed`, { method: 'POST' }),
   residentDocument: (id: string) => apiRequest<any>(`/api/resident/invoices/${id}/document`),
   residentPdfFallback: (id: string) => apiRequest<any>(`/api/resident/invoices/${id}/pdf`),
   residentPdf: (id: string) => apiRequest<Blob>(`/api/resident/invoices/${id}/pdf`, { responseType: 'blob' }),

@@ -506,6 +506,9 @@ export function BillingDraftsPage() {
                   <Button variant="secondary" onClick={() => setShowApproveModal(true)} disabled={!overview?.canApprove}>
                     <CheckCircle2 className="h-4 w-4" /> Aprobă perioada
                   </Button>
+                  <ButtonLink href={`/admin/invoices?billingPeriodId=${selectedPeriodId}&status=APPROVED`} variant="secondary">
+                    <FileText className="h-4 w-4" /> Publică facturile către locatari
+                  </ButtonLink>
                   <Button variant="danger" onClick={() => setShowDeleteModal(true)}>
                     <Trash2 className="h-4 w-4" /> Șterge drafturi
                   </Button>

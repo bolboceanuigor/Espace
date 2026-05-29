@@ -4,12 +4,12 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, CreditCard, FileText, Home, Printer, ReceiptText, UserRound } from 'lucide-react';
-import { Badge, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
-import { residentDemoApi } from '@/lib/api';
+import { Badge, Button, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
+import { invoicesApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
-type ResidentInvoiceStatus = 'ISSUED' | 'PARTIALLY_PAID' | 'PAID' | 'CANCELLED' | 'VOID';
+type ResidentInvoiceStatus = 'PUBLISHED' | 'PARTIALLY_PAID' | 'PAID' | 'CANCELLED';
 
 type InvoiceDetails = {
   invoice: {
@@ -25,6 +25,7 @@ type InvoiceDetails = {
     issueDate?: string | null;
     dueDate?: string | null;
     isOverdue: boolean;
+    publicNote?: string | null;
   };
   association: {
     id: string | null;
@@ -60,7 +61,7 @@ type InvoiceDetails = {
     unit?: string | null;
     name: string;
     description?: string;
-    calculationType: string;
+    calculationType?: string;
     quantity: number;
     unitPrice: number;
     amount: number;
@@ -76,32 +77,22 @@ type InvoiceDetails = {
     referenceNumber?: string;
     status: string;
   }>;
+  publicNote?: string | null;
 };
 
 const statusLabels: Record<ResidentInvoiceStatus, string> = {
-  ISSUED: 'Emisă',
+  PUBLISHED: 'Publicată',
   PARTIALLY_PAID: 'Parțial achitată',
   PAID: 'Achitată',
   CANCELLED: 'Anulată',
-  VOID: 'Void',
 };
 
 const statusVariant = {
-  ISSUED: 'warning',
+  PUBLISHED: 'default',
   PARTIALLY_PAID: 'warning',
   PAID: 'success',
   CANCELLED: 'neutral',
-  VOID: 'neutral',
 } as const;
-
-const paymentMethodLabels: Record<string, string> = {
-  CASH: 'Numerar',
-  BANK_TRANSFER: 'Transfer bancar',
-  CARD_TERMINAL: 'Terminal card',
-  INFOCOM: 'InfoCom',
-  OPLATA: 'Oplata',
-  OTHER: 'Altă metodă',
-};
 
 export default function ResidentInvoiceDetailsPage() {
   const params = useParams<{ id: string }>();
@@ -115,11 +106,12 @@ export default function ResidentInvoiceDetailsPage() {
     let active = true;
     setLoading(true);
     setError('');
-    residentDemoApi
-      .invoice(invoiceId)
+    invoicesApi
+      .getResidentInvoice(invoiceId)
       .then((res) => {
         if (!active) return;
         setData(res.data || null);
+        invoicesApi.markResidentInvoiceViewed(invoiceId).catch(() => undefined);
       })
       .catch((err: any) => {
         if (!active) return;
@@ -159,7 +151,7 @@ export default function ResidentInvoiceDetailsPage() {
 
       <PageHeader
         title={invoice?.invoiceNumber || 'Detalii factură'}
-        description={invoice ? `${monthLabel(invoice.billingMonth)} · Apt. ${data?.apartment.apartmentNumber}` : 'Se încarcă factura internă.'}
+        description={invoice ? `${monthLabel(invoice.billingMonth)} · Apt. ${data?.apartment.apartmentNumber}` : 'Se încarcă factura.'}
         rightSlot={
           <div className="flex flex-wrap items-center gap-2">
             {data?.association ? <Badge variant="neutral">{data.association.shortName} · {data.association.associationCode || 'cod necompletat'}</Badge> : null}
@@ -184,7 +176,7 @@ export default function ResidentInvoiceDetailsPage() {
             <Card>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Factură internă</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Factură / aviz</p>
                   <h2 className="mt-1 text-xl font-semibold text-foreground">{invoice.invoiceNumber}</h2>
                 </div>
                 <Badge variant={invoice.isOverdue ? 'error' : statusVariant[invoice.status]}>{statusLabel}</Badge>
@@ -204,17 +196,13 @@ export default function ResidentInvoiceDetailsPage() {
                   <ArrowLeft className="h-4 w-4" />
                   Înapoi la facturi
                 </ButtonLink>
-                <ButtonLink href={localizedPath(`/resident/invoices/${invoice.id}/print`)} variant="secondary">
+                <Button type="button" variant="secondary" onClick={() => window.print()}>
                   <Printer className="h-4 w-4" />
-                  Print / Save as PDF
-                </ButtonLink>
-                <ButtonLink href={localizedPath(`/resident/invoices/${invoice.id}/pay`)} variant="secondary">
-                  <CreditCard className="h-4 w-4" />
-                  Achită online
-                </ButtonLink>
+                  Print
+                </Button>
               </div>
               <p className="mt-3 rounded-2xl bg-muted/35 px-4 py-3 text-sm text-muted-foreground">
-                Plățile online sunt în pregătire. Flow-ul creează doar intenții de plată test și nu procesează bani.
+                Plata online va fi disponibilă ulterior. Pentru moment, folosește instrucțiunile comunicate de administrator.
               </p>
             </Card>
 
@@ -245,32 +233,6 @@ export default function ResidentInvoiceDetailsPage() {
           </div>
 
           <Card>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-base font-semibold text-foreground">Plăți înregistrate</h2>
-              <ButtonLink href={localizedPath('/resident/payments')} variant="secondary" size="sm">
-                Vezi istoricul complet al plăților
-              </ButtonLink>
-            </div>
-            <div className="mt-4 grid gap-2">
-              {(data.payments || []).map((payment) => (
-                <div key={payment.id} className="grid gap-2 rounded-2xl border border-border/70 bg-white px-4 py-3 text-sm sm:grid-cols-[0.9fr_0.9fr_1fr_0.9fr] sm:items-center">
-                  <span className="text-muted-foreground">{formatDate(payment.paymentDate || payment.paidAt)}</span>
-                  <strong className="text-foreground">{formatMdl(payment.amount)}</strong>
-                  <span className="text-muted-foreground">{paymentMethodLabels[payment.method] || payment.method}</span>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant={payment.status === 'CANCELLED' ? 'neutral' : 'success'}>{payment.status === 'CANCELLED' ? 'Anulată' : 'Confirmată'}</Badge>
-                    <ButtonLink href={localizedPath(`/resident/payments/${payment.id}`)} variant="secondary" size="sm">Detalii</ButtonLink>
-                  </div>
-                  {payment.referenceNumber ? <p className="sm:col-span-4 text-xs text-muted-foreground">Referință: {payment.referenceNumber}</p> : null}
-                </div>
-              ))}
-              {!data.payments?.length ? (
-                <p className="rounded-2xl bg-muted/35 px-4 py-3 text-sm text-muted-foreground">Nu există plăți înregistrate pentru această factură.</p>
-              ) : null}
-            </div>
-          </Card>
-
-          <Card>
             <h2 className="text-base font-semibold text-foreground">Linii factură</h2>
             <div className="mt-4 grid gap-2">
               {data.lines.map((line) => (
@@ -290,7 +252,7 @@ export default function ResidentInvoiceDetailsPage() {
                   </div>
                   <Info label="Cantitate" value={String(line.quantity)} />
                   <Info label="Preț unitar" value={formatMdl(line.unitPrice)} />
-                  <Info label="Tip" value={line.calculationType} />
+                  <Info label="Unitate" value={line.unit || '-'} />
                   <strong className="text-right text-foreground">{formatMdl(line.amount)}</strong>
                 </div>
               ))}
@@ -307,8 +269,11 @@ export default function ResidentInvoiceDetailsPage() {
               <UserRound className="h-4 w-4" />
               Observații
             </h2>
+            {data.publicNote || invoice.publicNote ? (
+              <p className="mt-3 rounded-2xl bg-muted/35 px-4 py-3 text-sm text-foreground">{data.publicNote || invoice.publicNote}</p>
+            ) : null}
             <p className="mt-3 rounded-2xl bg-muted/35 px-4 py-3 text-sm text-muted-foreground">
-              Această pagină afișează facturi interne ale A.P.C. Plățile online, PDF-ul final și integrarea cu furnizori externi vor fi disponibile ulterior.
+              Această pagină afișează factura publicată de administrator. Plata online și PDF-ul final vor fi disponibile ulterior.
             </p>
           </Card>
         </>

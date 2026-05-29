@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
 import { formatMdl } from '@/lib/condo-admin-fallback';
-import { adminRbacApi, adminResidentUpdateRequestsApi, billingApi, billingDraftsApi, communicationsApi, dataQualityApi, invitationsApi, metersApi, onboardingApi, workbenchApi } from '@/lib/api';
+import { adminRbacApi, adminResidentUpdateRequestsApi, billingApi, billingDraftsApi, communicationsApi, dataQualityApi, invitationsApi, invoicesApi, metersApi, onboardingApi, workbenchApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 type CrmOrganization = {
@@ -290,6 +290,7 @@ export default function AdminPage() {
   const [firstLogin, setFirstLogin] = useState<any>(null);
   const [openMeterPeriod, setOpenMeterPeriod] = useState<any>(null);
   const [billingDraftPrompt, setBillingDraftPrompt] = useState<any>(null);
+  const [invoicePublishOverview, setInvoicePublishOverview] = useState<any>(null);
 
   useEffect(() => {
     let active = true;
@@ -369,6 +370,17 @@ export default function AdminPage() {
       .catch(() => {
         if (!active) return;
         setDataQualitySummary(null);
+      });
+
+    invoicesApi
+      .getAdminInvoicesOverview()
+      .then((response) => {
+        if (!active) return;
+        setInvoicePublishOverview(response.data || null);
+      })
+      .catch(() => {
+        if (!active) return;
+        setInvoicePublishOverview(null);
       });
 
     Promise.all([metersApi.getAdminMeterReadingPeriods(), billingDraftsApi.getAdminBillingPeriods()])
@@ -487,6 +499,15 @@ export default function AdminPage() {
         active: Boolean(billingOverview?.summary?.errorsCount || billingOverview?.summary?.warningsCount || !billingOverview?.billingRun),
       },
       {
+        title: 'Facturi aprobate',
+        value: String(invoicePublishOverview?.unpublishedApprovedInvoices || 0),
+        description: invoicePublishOverview?.unpublishedApprovedInvoices
+          ? `${formatMdl(invoicePublishOverview.totalApprovedAmount || 0)} pregătit pentru publicare`
+          : `${invoicePublishOverview?.publishedInvoices || 0} facturi publicate`,
+        href: '/admin/invoices?status=APPROVED',
+        active: Number(invoicePublishOverview?.unpublishedApprovedInvoices || 0) > 0,
+      },
+      {
         title: 'Calitatea datelor',
         value: dataQualitySummary ? `${dataQualitySummary.score || 0}/100` : 'Verifică',
         description: dataQualitySummary
@@ -514,7 +535,7 @@ export default function AdminPage() {
         active: Boolean(teamActivityStats?.critical || teamActivityStats?.sensitive || !teamActivityStats),
       },
     ],
-    [announcementStats, billingOverview, crm, dataQualitySummary, openMeterPeriod, pendingUpdateRequests, teamActivityStats, teamStats],
+    [announcementStats, billingOverview, crm, dataQualitySummary, invoicePublishOverview, openMeterPeriod, pendingUpdateRequests, teamActivityStats, teamStats],
   );
 
   const kpiCards = [

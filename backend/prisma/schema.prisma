@@ -6404,6 +6404,7 @@ model User {
   billingPeriodsCreated BillingPeriod[] @relation("BillingPeriodCreatedBy")
   billingPeriodsApproved BillingPeriod[] @relation("BillingPeriodApprovedBy")
   billingDraftInvoicesCreated BillingDraftInvoice[] @relation("BillingDraftInvoiceCreatedBy")
+  billingDraftInvoicesPublished BillingDraftInvoice[] @relation("BillingDraftInvoicePublishedBy")
   onlinePaymentProvidersCreated OnlinePaymentProvider[] @relation("OnlinePaymentProviderCreatedBy")
   onlinePaymentProvidersUpdated OnlinePaymentProvider[] @relation("OnlinePaymentProviderUpdatedBy")
   associationPaymentSettingsCreated AssociationPaymentSettings[] @relation("AssociationPaymentSettingsCreatedBy")
@@ -7179,7 +7180,12 @@ model BillingDraftInvoice {
   publishedAt     DateTime?
   paidAt          DateTime?
   note            String?
+  publicNote      String?
+  internalNote    String?
+  viewedAt        DateTime?
+  residentNotifiedAt DateTime?
   createdById     String?
+  publishedById   String?
   createdAt       DateTime                  @default(now())
   updatedAt       DateTime                  @updatedAt
 
@@ -7189,13 +7195,16 @@ model BillingDraftInvoice {
   resident      ResidentProfile?   @relation("BillingDraftInvoiceResident", fields: [residentId], references: [id], onDelete: SetNull)
   owner         ResidentProfile?   @relation("BillingDraftInvoiceOwner", fields: [ownerId], references: [id], onDelete: SetNull)
   createdBy     User?              @relation("BillingDraftInvoiceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  publishedBy   User?              @relation("BillingDraftInvoicePublishedBy", fields: [publishedById], references: [id], onDelete: SetNull)
   lines         BillingDraftInvoiceLine[]
 
   @@unique([billingPeriodId, apartmentId])
+  @@unique([organizationId, invoiceNumber])
   @@index([organizationId, status, updatedAt])
   @@index([apartmentId])
   @@index([residentId])
   @@index([ownerId])
+  @@index([publishedById])
   @@map("billing_draft_invoices")
 }
 

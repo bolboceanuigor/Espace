@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@ne
 import { Role } from '@prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { InvoicePublishingService } from '../invoice-publishing/invoice-publishing.service';
 import { MvpAuthGuard, MvpRolesGuard, MvpUser } from '../security/mvp-auth.guard';
 import { MetersService } from '../meters/meters.service';
 import { ResidentDemoService } from './resident-demo.service';
@@ -12,6 +13,7 @@ import { ResidentDemoService } from './resident-demo.service';
 export class ResidentDemoController {
   constructor(
     private readonly residentDemoService: ResidentDemoService,
+    private readonly invoicePublishingService: InvoicePublishingService,
     private readonly metersService: MetersService,
   ) {}
 
@@ -67,7 +69,7 @@ export class ResidentDemoController {
 
   @Get(['resident/invoices', 'api/resident/invoices'])
   listInvoices(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
-    return this.residentDemoService.listInternalInvoices(user, query);
+    return this.invoicePublishingService.listResidentInvoices(user, query);
   }
 
   @Get(['resident/finance-summary', 'api/resident/finance-summary'])
@@ -87,7 +89,12 @@ export class ResidentDemoController {
 
   @Get(['resident/invoices/:id', 'api/resident/invoices/:id'])
   getInvoice(@CurrentUser() user: MvpUser, @Param('id') id: string) {
-    return this.residentDemoService.getInternalInvoice(user, id);
+    return this.invoicePublishingService.getResidentInvoice(user, id);
+  }
+
+  @Post(['resident/invoices/:id/mark-viewed', 'api/resident/invoices/:id/mark-viewed'])
+  markInvoiceViewed(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.invoicePublishingService.markResidentInvoiceViewed(user, id);
   }
 
   @Get(['resident/payments', 'api/resident/payments'])

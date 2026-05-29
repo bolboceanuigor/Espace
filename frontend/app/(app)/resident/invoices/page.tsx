@@ -2,13 +2,13 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, Clock3, CreditCard, FileText, Home, ReceiptText, Search, WalletCards } from 'lucide-react';
-import { Badge, Button, Card, Input, PageHeader, StatCard, StatusBadge } from '@/components/ui';
-import { residentDemoApi } from '@/lib/api';
+import { CheckCircle2, Clock3, CreditCard, FileText, ReceiptText, Search, WalletCards } from 'lucide-react';
+import { Badge, Button, Card, Input, PageHeader, StatCard } from '@/components/ui';
+import { invoicesApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
-type ResidentInvoiceStatus = 'ISSUED' | 'PARTIALLY_PAID' | 'PAID' | 'CANCELLED' | 'VOID';
+type ResidentInvoiceStatus = 'PUBLISHED' | 'PARTIALLY_PAID' | 'PAID' | 'CANCELLED';
 
 type ResidentInvoice = {
   id: string;
@@ -63,19 +63,17 @@ type ResidentInvoicesResponse = {
 };
 
 const statusLabels: Record<ResidentInvoiceStatus, string> = {
-  ISSUED: 'Emisă',
+  PUBLISHED: 'Publicată',
   PARTIALLY_PAID: 'Parțial achitată',
   PAID: 'Achitată',
   CANCELLED: 'Anulată',
-  VOID: 'Void',
 };
 
-const statusToStatusBadge: Record<ResidentInvoiceStatus, 'sent' | 'partial' | 'paid' | 'cancelled' | 'draft'> = {
-  ISSUED: 'sent',
-  PARTIALLY_PAID: 'partial',
-  PAID: 'paid',
-  CANCELLED: 'cancelled',
-  VOID: 'draft',
+const statusVariant: Record<ResidentInvoiceStatus, 'default' | 'warning' | 'success' | 'neutral'> = {
+  PUBLISHED: 'default',
+  PARTIALLY_PAID: 'warning',
+  PAID: 'success',
+  CANCELLED: 'neutral',
 };
 
 export default function ResidentInvoicesPage() {
@@ -94,7 +92,7 @@ export default function ResidentInvoicesPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await residentDemoApi.invoices({
+      const res = await invoicesApi.getResidentInvoices({
         apartmentId: apartmentId || undefined,
         billingMonth: billingMonth || undefined,
         status: status || undefined,
@@ -134,17 +132,17 @@ export default function ResidentInvoicesPage() {
     return `${apartments.length} apartamente`;
   }, [apartments]);
 
-  const emptyTitle = data?.emptyStateCode === 'NO_APARTMENT' ? 'Nu ai un apartament asociat contului' : 'Nu ai facturi emise';
+  const emptyTitle = data?.emptyStateCode === 'NO_APARTMENT' ? 'Nu ai un apartament asociat contului' : 'Nu există facturi publicate încă';
   const emptyText =
     data?.emptyStateCode === 'NO_APARTMENT'
       ? 'Contactează administratorul asociației pentru a lega contul tău de apartament.'
-      : 'Facturile interne vor apărea aici după ce administratorul le generează.';
+      : 'Facturile vor apărea aici după ce administratorul le publică în portal.';
 
   return (
     <div className="space-y-5 pb-8">
       <PageHeader
         title="Facturile mele"
-        description="Vezi facturile interne emise pentru apartamentul tău."
+        description="Vezi facturile publicate pentru apartamentul tău."
         rightSlot={
           <div className="flex flex-wrap items-center gap-2">
             {data?.association ? <Badge variant="neutral">{data.association.shortName} · {data.association.associationCode || 'cod necompletat'}</Badge> : null}
@@ -157,8 +155,8 @@ export default function ResidentInvoicesPage() {
       {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</div> : null}
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
-        <StatCard label="Total facturi" value={stats.totalInvoices} description="Emise intern" icon={<FileText className="h-5 w-5" />} />
-        <StatCard label="Total emis" value={formatMdl(stats.totalAmount)} description="Informativ" icon={<WalletCards className="h-5 w-5" />} />
+        <StatCard label="Total facturi" value={stats.totalInvoices} description="Publicate în portal" icon={<FileText className="h-5 w-5" />} />
+        <StatCard label="Total publicat" value={formatMdl(stats.totalAmount)} description="Informativ" icon={<WalletCards className="h-5 w-5" />} />
         <StatCard label="Total achitat" value={formatMdl(stats.paidAmount)} description="Înregistrat de admin" icon={<CheckCircle2 className="h-5 w-5" />} tone="success" />
         <StatCard label="Sold rămas" value={formatMdl(stats.balanceAmount)} description="De achitat manual" icon={<ReceiptText className="h-5 w-5" />} tone={stats.balanceAmount > 0 ? 'warning' : 'success'} />
         <StatCard label="Neachitate" value={stats.unpaidInvoices} description="Cu sold deschis" icon={<Clock3 className="h-5 w-5" />} tone={stats.unpaidInvoices ? 'warning' : 'success'} />
@@ -184,11 +182,10 @@ export default function ResidentInvoicesPage() {
             <span className="text-xs font-medium text-muted-foreground">Status</span>
             <select value={status} onChange={(event) => setStatus(event.target.value)} className="h-11 rounded-2xl border border-border/70 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-foreground/10">
               <option value="">Toate</option>
-              <option value="ISSUED">Emisă</option>
+              <option value="PUBLISHED">Publicată</option>
               <option value="PARTIALLY_PAID">Parțial achitată</option>
               <option value="PAID">Achitată</option>
               <option value="CANCELLED">Anulată</option>
-              <option value="VOID">Void</option>
             </select>
           </label>
           <label className="grid gap-1">
@@ -238,10 +235,9 @@ export default function ResidentInvoicesPage() {
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <StatusBadge 
-                  status={invoice.isOverdue ? 'OVERDUE' : invoice.status} 
-                  label={invoice.isOverdue ? 'Scadentă / întârziată' : statusLabels[invoice.status]}
-                />
+                <Badge variant={invoice.isOverdue ? 'warning' : statusVariant[invoice.status]}>
+                  {invoice.isOverdue ? 'Scadentă / întârziată' : statusLabels[invoice.status]}
+                </Badge>
               </div>
             </div>
 
