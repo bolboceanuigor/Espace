@@ -14,6 +14,7 @@ import {
   ListChecks,
   AlertTriangle,
   ClipboardList,
+  ReceiptText,
 } from 'lucide-react';
 import { Badge, Card, PageHeader } from '@/components/ui';
 import { invitationsApi } from '@/lib/api';
@@ -26,6 +27,7 @@ const icons: Record<string, ReactNode> = {
   confirmResidents: <Users className="h-5 w-5" />,
   reviewDataQuality: <ListChecks className="h-5 w-5" />,
   createFirstMeterReadingPeriod: <Gauge className="h-5 w-5" />,
+  createFirstBillingDraft: <ReceiptText className="h-5 w-5" />,
   confirmDocuments: <FileText className="h-5 w-5" />,
   welcomeAnnouncementCreated: <Megaphone className="h-5 w-5" />,
 };

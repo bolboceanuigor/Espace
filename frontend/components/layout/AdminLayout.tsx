@@ -197,6 +197,7 @@ function generateBreadcrumbs(pathname: string, locale: string) {
     meters: 'Contoare',
     'meter-readings': 'Citiri contoare',
     billing: 'Facturare',
+    'billing-drafts': 'Drafturi facturi',
     invoices: 'Facturi',
     payments: 'Plăți',
     reports: 'Rapoarte',

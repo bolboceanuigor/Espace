@@ -2029,6 +2029,34 @@ export const billingApi = {
   recentActivity: (id: string) => apiRequest<any>(`/api/admin/billing/runs/${id}/activity/recent`),
 };
 
+export const billingDraftsApi = {
+  getAdminBillingPeriods: () => apiRequest<any>('/api/admin/billing-drafts/periods'),
+  createAdminBillingPeriod: (data: Record<string, unknown>) =>
+    apiRequest<any>('/api/admin/billing-drafts/periods', { method: 'POST', body: data }),
+  getAdminBillingPeriodOverview: (periodId: string) =>
+    apiRequest<any>(`/api/admin/billing-drafts/periods/${periodId}/overview`),
+  getAdminBillingPeriodTariffs: (periodId: string) =>
+    apiRequest<any>(`/api/admin/billing-drafts/periods/${periodId}/tariffs`),
+  updateAdminBillingPeriodTariffs: (periodId: string, data: { tariffs: Record<string, unknown>[] }) =>
+    apiRequest<any>(`/api/admin/billing-drafts/periods/${periodId}/tariffs`, { method: 'PUT', body: data }),
+  generateAdminBillingDrafts: (periodId: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/admin/billing-drafts/periods/${periodId}/generate`, { method: 'POST', body: data }),
+  getAdminBillingDraftInvoices: (periodId: string, params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>(`/api/admin/billing-drafts/periods/${periodId}/invoices`, { params }),
+  getAdminBillingDraftInvoice: (invoiceId: string) =>
+    apiRequest<any>(`/api/admin/billing-drafts/invoices/${invoiceId}`),
+  updateAdminBillingDraftInvoice: (invoiceId: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/admin/billing-drafts/invoices/${invoiceId}`, { method: 'PATCH', body: data }),
+  recalculateAdminBillingDrafts: (periodId: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/admin/billing-drafts/periods/${periodId}/recalculate`, { method: 'POST', body: data }),
+  getAdminBillingDraftIssues: (periodId: string, params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>(`/api/admin/billing-drafts/periods/${periodId}/issues`, { params }),
+  approveAdminBillingPeriod: (periodId: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/admin/billing-drafts/periods/${periodId}/approve`, { method: 'POST', body: data }),
+  deleteAdminBillingDrafts: (periodId: string, data: { confirm: boolean }) =>
+    apiRequest<any>(`/api/admin/billing-drafts/periods/${periodId}/delete-drafts`, { method: 'POST', body: data }),
+};
+
 export const tariffsApi = {
   list: () => apiRequest<any>('/api/admin/tariffs'),
   stats: () => apiRequest<any>('/api/admin/tariffs/stats'),

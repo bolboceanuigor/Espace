@@ -318,6 +318,10 @@ export function AdminMetersPage() {
               <ListChecks className="h-4 w-4" />
               Vezi indici transmiși
             </ButtonLink>
+            <ButtonLink href="/admin/meter-readings" variant="secondary">
+              <Gauge className="h-4 w-4" />
+              Adaugă citire lunară
+            </ButtonLink>
             <ButtonLink href="/admin/imports/meters" variant="secondary">
               <UploadCloud className="h-4 w-4" />
               Importă contoare
@@ -937,6 +941,20 @@ export function AdminMeterReadingsPage() {
               ) : null}
             </div>
           </Card>
+
+          {isLocked ? (
+            <Card className="border-sky-200 bg-sky-50">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-sky-950">Perioada este blocată și poate intra în facturare.</p>
+                  <p className="mt-1 text-sm text-sky-800">Generează drafturi de facturare din citirile verificate pentru perioada selectată.</p>
+                </div>
+                <ButtonLink href={`/admin/billing-drafts?meterReadingPeriodId=${selectedPeriodId}`} variant="secondary">
+                  Generează drafturi de facturare
+                </ButtonLink>
+              </div>
+            </Card>
+          ) : null}
 
           <Card className="grid gap-3 xl:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr_auto_auto]">
             <Input label="Caută" value={filters.search} onChange={(event) => setFilters({ ...filters, search: event.target.value })} placeholder="Apartament, contor, bloc" />

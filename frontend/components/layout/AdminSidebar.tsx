@@ -39,6 +39,7 @@ const adminNavigation = {
     { label: 'Contoare', href: '/admin/meters', icon: Gauge },
     { label: 'Citiri contoare', href: '/admin/meter-readings', icon: ListChecks },
     { label: 'Facturare', href: '/admin/billing', icon: Receipt },
+    { label: 'Drafturi facturi', href: '/admin/billing-drafts', icon: FileText },
     { label: 'Facturi', href: '/admin/invoices', icon: FileText },
     { label: 'Plăți', href: '/admin/payments', icon: CreditCard },
     { label: 'Rapoarte', href: '/admin/reports', icon: BarChart3 },

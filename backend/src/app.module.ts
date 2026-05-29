@@ -6,6 +6,7 @@ import { ApartmentsModule } from './apartments/apartments.module';
 import { ResidentsModule } from './residents/residents.module';
 import { MetersModule } from './meters/meters.module';
 import { BillingReadModule } from './billing-read/billing-read.module';
+import { BillingDraftsModule } from './billing-drafts/billing-drafts.module';
 import { CommunityReadModule } from './community-read/community-read.module';
 import { ResidentDemoModule } from './resident-demo/resident-demo.module';
 import { DemoAuthReadModule } from './demo-auth-read/demo-auth-read.module';
@@ -61,6 +62,7 @@ import { AppController } from './app.controller';
     ResidentsModule,
     MetersModule,
     BillingReadModule,
+    BillingDraftsModule,
     CommunityReadModule,
     ResidentDemoModule,
     DemoAuthReadModule,

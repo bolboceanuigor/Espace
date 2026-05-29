@@ -60,6 +60,7 @@ const sections: Array<{
     title: 'Financiar',
     items: [
       { label: 'Facturare lunară', href: '/admin/billing', icon: Receipt, permission: ['BILLING', 'VIEW'] },
+      { label: 'Drafturi facturi', href: '/admin/billing-drafts', icon: FileText, permission: ['BILLING', 'VIEW'] },
       { label: 'Facturi interne', href: '/admin/invoices', icon: FileText, permission: ['INVOICES', 'VIEW'] },
       { label: 'Plăți', href: '/admin/payments', icon: CreditCard, permission: ['PAYMENTS', 'VIEW'] },
       { label: 'Reconciliere', href: '/admin/payments/reconciliation', icon: ListChecks, permission: ['RECONCILIATION', 'VIEW'] },

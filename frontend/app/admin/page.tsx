@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
 import { formatMdl } from '@/lib/condo-admin-fallback';
-import { adminRbacApi, adminResidentUpdateRequestsApi, billingApi, communicationsApi, dataQualityApi, invitationsApi, metersApi, onboardingApi, workbenchApi } from '@/lib/api';
+import { adminRbacApi, adminResidentUpdateRequestsApi, billingApi, billingDraftsApi, communicationsApi, dataQualityApi, invitationsApi, metersApi, onboardingApi, workbenchApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 type CrmOrganization = {
@@ -289,6 +289,7 @@ export default function AdminPage() {
   const [teamActivityStats, setTeamActivityStats] = useState<any>(null);
   const [firstLogin, setFirstLogin] = useState<any>(null);
   const [openMeterPeriod, setOpenMeterPeriod] = useState<any>(null);
+  const [billingDraftPrompt, setBillingDraftPrompt] = useState<any>(null);
 
   useEffect(() => {
     let active = true;
@@ -370,16 +371,23 @@ export default function AdminPage() {
         setDataQualitySummary(null);
       });
 
-    metersApi
-      .getAdminMeterReadingPeriods()
-      .then((response) => {
+    Promise.all([metersApi.getAdminMeterReadingPeriods(), billingDraftsApi.getAdminBillingPeriods()])
+      .then(([response, billingResponse]) => {
         if (!active) return;
         const period = (response.data?.items || []).find((item: any) => item.status !== 'LOCKED' && item.status !== 'CANCELLED' && Number(item.missingReadingsCount || 0) > 0);
         setOpenMeterPeriod(period || null);
+        const readingPeriods = response.data?.items || [];
+        const billingPeriods = billingResponse.data?.periods || [];
+        const periodWithIssues = billingPeriods.find((item: any) => Number(item.issuesCount || 0) > 0);
+        const lockedWithoutDraft = readingPeriods.find(
+          (item: any) => item.status === 'LOCKED' && !billingPeriods.some((billingPeriod: any) => billingPeriod.meterReadingPeriodId === item.id),
+        );
+        setBillingDraftPrompt(periodWithIssues ? { type: 'issues', period: periodWithIssues } : lockedWithoutDraft ? { type: 'ready', period: lockedWithoutDraft } : null);
       })
       .catch(() => {
         if (!active) return;
         setOpenMeterPeriod(null);
+        setBillingDraftPrompt(null);
       });
 
     adminRbacApi
@@ -697,6 +705,33 @@ export default function AdminPage() {
             </div>
             <ButtonLink href={localizedPath(`/admin/meter-readings?periodId=${openMeterPeriod.id}`)} variant="secondary">
               <Gauge className="h-4 w-4" /> Deschide citiri
+            </ButtonLink>
+          </div>
+        </Card>
+      ) : null}
+
+      {billingDraftPrompt ? (
+        <Card className="border-sky-200 bg-sky-50 p-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-sky-950">
+                {billingDraftPrompt.type === 'ready' ? 'Poți genera drafturile de facturi' : 'Drafturile de facturare au probleme'}
+              </p>
+              <p className="mt-1 text-sm text-sky-800">
+                {billingDraftPrompt.type === 'ready'
+                  ? `Perioada de citiri ${billingDraftPrompt.period.label || billingDraftPrompt.period.periodMonth || ''} este blocată și poate fi legată de facturare.`
+                  : `${billingDraftPrompt.period.issuesCount || 0} probleme trebuie verificate înainte de aprobare.`}
+              </p>
+            </div>
+            <ButtonLink
+              href={localizedPath(
+                billingDraftPrompt.type === 'ready'
+                  ? `/admin/billing-drafts?meterReadingPeriodId=${billingDraftPrompt.period.id}`
+                  : `/admin/billing-drafts?periodId=${billingDraftPrompt.period.id}&tab=issues`,
+              )}
+              variant="secondary"
+            >
+              <FileText className="h-4 w-4" /> Drafturi facturi
             </ButtonLink>
           </div>
         </Card>

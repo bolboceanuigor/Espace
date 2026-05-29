@@ -788,6 +788,7 @@ export class InvitationsMvpService {
       'confirmResidents',
       'reviewDataQuality',
       'createFirstMeterReadingPeriod',
+      'createFirstBillingDraft',
       'confirmDocuments',
       'welcomeAnnouncementCreated',
     ];
@@ -1068,6 +1069,7 @@ export class InvitationsMvpService {
       dataQualityCriticalCount,
       dataQualityWarningCount,
       meterReadingPeriodsCount,
+      billingPeriodsCount,
     ] =
       await Promise.all([
         this.prisma.organization.findUnique({
@@ -1103,6 +1105,7 @@ export class InvitationsMvpService {
         this.prisma.dataQualityIssue.count({ where: { associationId: organizationId, status: 'OPEN', severity: 'CRITICAL' } }).catch(() => 0),
         this.prisma.dataQualityIssue.count({ where: { associationId: organizationId, status: 'OPEN', severity: 'WARNING' } }).catch(() => 0),
         this.prisma.meterReadingPeriod.count({ where: { organizationId } }).catch(() => 0),
+        this.prisma.billingPeriod.count({ where: { organizationId } }).catch(() => 0),
       ]);
     if (!organization) throw new NotFoundException('Organizația nu a fost găsită.');
 
@@ -1187,6 +1190,16 @@ export class InvitationsMvpService {
         missing: meterReadingPeriodsCount === 0 ? ['Nu există perioade de citiri încă'] : [],
       },
       {
+        key: 'createFirstBillingDraft',
+        title: 'Drafturi de facturare',
+        description: 'După configurarea contoarelor și citirilor, vei putea genera drafturi de facturare.',
+        confirmed: saved.createFirstBillingDraft === true,
+        status: this.checklistStatus(saved.createFirstBillingDraft === true || billingPeriodsCount > 0, billingPeriodsCount === 0),
+        actionLabel: 'Deschide drafturi',
+        actionUrl: '/ro/admin/billing-drafts',
+        missing: billingPeriodsCount === 0 ? ['Nu există perioade de facturare create încă'] : [],
+      },
+      {
         key: 'confirmDocuments',
         title: 'Documente',
         description: 'Verifică documentele de bază ale APC-ului.',
@@ -1220,6 +1233,7 @@ export class InvitationsMvpService {
         documentsCount,
         announcementsCount,
         meterReadingPeriodsCount,
+        billingPeriodsCount,
       },
       checklist: items,
       note: saved.note || organization.adminHandoverNote || null,

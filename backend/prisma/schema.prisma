@@ -2783,6 +2783,49 @@ enum MeterReadingPeriodStatus {
   CANCELLED
 }
 
+enum BillingPeriodStatus {
+  DRAFT
+  CALCULATED
+  IN_REVIEW
+  APPROVED
+  PUBLISHED
+  CANCELLED
+}
+
+enum UtilityTariffType {
+  COLD_WATER
+  HOT_WATER
+  ELECTRICITY
+  GAS
+  HEATING
+  MAINTENANCE
+  ELEVATOR
+  REPAIR_FUND
+  INVESTMENT_FUND
+  OTHER
+}
+
+enum UtilityTariffUnit {
+  M3
+  KWH
+  GJ
+  M2
+  APARTMENT
+  PERSON
+  FIXED
+  OTHER
+}
+
+enum BillingDraftInvoiceStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  PUBLISHED
+  PAID
+  PARTIALLY_PAID
+  CANCELLED
+}
+
 enum InvoiceStatus {
   PAID
   UNPAID
@@ -2905,6 +2948,10 @@ model Organization {
   meters             Meter[]
   meterReadings      MeterReading[]
   meterReadingPeriods MeterReadingPeriod[]
+  billingPeriods     BillingPeriod[]
+  utilityTariffs     UtilityTariff[]
+  billingDraftInvoices BillingDraftInvoice[]
+  billingDraftInvoiceLines BillingDraftInvoiceLine[]
   payments           Payment[]
   issues             Issue[]
   publicAnnouncements Announcement[]
@@ -6354,6 +6401,9 @@ model User {
   duplicateMergePlansCreated DuplicateMergePlan[] @relation("DuplicateMergePlanCreatedBy")
   duplicateMergePlansApplied DuplicateMergePlan[] @relation("DuplicateMergePlanAppliedBy")
   monthlyChargesCreated MonthlyCharge[] @relation("MonthlyChargeCreatedByUser")
+  billingPeriodsCreated BillingPeriod[] @relation("BillingPeriodCreatedBy")
+  billingPeriodsApproved BillingPeriod[] @relation("BillingPeriodApprovedBy")
+  billingDraftInvoicesCreated BillingDraftInvoice[] @relation("BillingDraftInvoiceCreatedBy")
   onlinePaymentProvidersCreated OnlinePaymentProvider[] @relation("OnlinePaymentProviderCreatedBy")
   onlinePaymentProvidersUpdated OnlinePaymentProvider[] @relation("OnlinePaymentProviderUpdatedBy")
   associationPaymentSettingsCreated AssociationPaymentSettings[] @relation("AssociationPaymentSettingsCreatedBy")
@@ -6841,6 +6891,8 @@ model Apartment {
   payments     Payment[]
   monthlyCharges MonthlyCharge[]
   residentInvoices ResidentInvoice[]
+  billingDraftInvoices BillingDraftInvoice[]
+  billingDraftInvoiceLines BillingDraftInvoiceLine[]
   receipts     Receipt[]
   paymentReminders PaymentReminder[]
   reminderSettings ApartmentReminderSettings[]
@@ -6910,6 +6962,8 @@ model ResidentProfile {
   dataDeletionRequestsTarget DataDeletionRequest[] @relation("DataDeletionRequestTargetResident")
   dataRequestsRequested DataRequest[] @relation("DataRequestRequesterResident")
   dataExportJobs DataExportJob[] @relation("DataExportJobResident")
+  billingDraftInvoicesResident BillingDraftInvoice[] @relation("BillingDraftInvoiceResident")
+  billingDraftInvoicesOwner BillingDraftInvoice[] @relation("BillingDraftInvoiceOwner")
 
   @@index([organizationId])
   @@index([userId])
@@ -7001,6 +7055,7 @@ model Meter {
   archivedBy   User?        @relation("MeterArchivedBy", fields: [archivedById], references: [id], onDelete: SetNull)
   restoredBy   User?        @relation("MeterRestoredBy", fields: [restoredById], references: [id], onDelete: SetNull)
   readings     MeterReading[]
+  billingDraftInvoiceLines BillingDraftInvoiceLine[]
 
   @@index([organizationId])
   @@index([apartmentId])
@@ -7023,6 +7078,7 @@ model MeterReading {
   apartment    Apartment    @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   period       MeterReadingPeriod? @relation(fields: [periodId], references: [id], onDelete: SetNull)
+  billingDraftInvoiceLines BillingDraftInvoiceLine[]
 
   @@index([meterId, readingDate])
   @@index([apartmentId, readingDate])
@@ -7047,10 +7103,132 @@ model MeterReadingPeriod {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   lockedBy     User?        @relation("MeterReadingPeriodLockedBy", fields: [lockedById], references: [id], onDelete: SetNull)
   readings     MeterReading[]
+  billingPeriods BillingPeriod[]
 
   @@unique([organizationId, year, month])
   @@index([organizationId, status, createdAt])
   @@map("meter_reading_periods")
+}
+
+model BillingPeriod {
+  id                   String              @id @default(uuid())
+  organizationId       String
+  year                 Int
+  month                Int
+  status               BillingPeriodStatus @default(DRAFT)
+  meterReadingPeriodId String?
+  title                String?
+  note                 String?
+  createdById          String?
+  approvedById         String?
+  approvedAt           DateTime?
+  publishedAt          DateTime?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  meterReadingPeriod MeterReadingPeriod? @relation(fields: [meterReadingPeriodId], references: [id], onDelete: SetNull)
+  createdBy          User?               @relation("BillingPeriodCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  approvedBy         User?               @relation("BillingPeriodApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  tariffs            UtilityTariff[]
+  invoices           BillingDraftInvoice[]
+
+  @@unique([organizationId, year, month])
+  @@index([organizationId, status, createdAt])
+  @@index([meterReadingPeriodId])
+  @@map("billing_periods")
+}
+
+model UtilityTariff {
+  id              String            @id @default(uuid())
+  organizationId  String
+  billingPeriodId String?
+  type            UtilityTariffType
+  name            String
+  unit            UtilityTariffUnit
+  price           Decimal
+  currency        BillingCurrency   @default(MDL)
+  isActive        Boolean           @default(true)
+  note            String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  billingPeriod BillingPeriod? @relation(fields: [billingPeriodId], references: [id], onDelete: Cascade)
+
+  @@unique([billingPeriodId, type])
+  @@index([organizationId, billingPeriodId])
+  @@index([organizationId, type, isActive])
+  @@map("utility_tariffs")
+}
+
+model BillingDraftInvoice {
+  id              String                    @id @default(uuid())
+  organizationId  String
+  billingPeriodId String
+  apartmentId     String
+  residentId      String?
+  ownerId         String?
+  invoiceNumber   String?
+  status          BillingDraftInvoiceStatus @default(DRAFT)
+  subtotal        Decimal                   @default(0)
+  total           Decimal                   @default(0)
+  currency        BillingCurrency           @default(MDL)
+  dueDate         DateTime?
+  issuedAt        DateTime?
+  publishedAt     DateTime?
+  paidAt          DateTime?
+  note            String?
+  createdById     String?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  organization  Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  billingPeriod BillingPeriod      @relation(fields: [billingPeriodId], references: [id], onDelete: Cascade)
+  apartment     Apartment          @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+  resident      ResidentProfile?   @relation("BillingDraftInvoiceResident", fields: [residentId], references: [id], onDelete: SetNull)
+  owner         ResidentProfile?   @relation("BillingDraftInvoiceOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  createdBy     User?              @relation("BillingDraftInvoiceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  lines         BillingDraftInvoiceLine[]
+
+  @@unique([billingPeriodId, apartmentId])
+  @@index([organizationId, status, updatedAt])
+  @@index([apartmentId])
+  @@index([residentId])
+  @@index([ownerId])
+  @@map("billing_draft_invoices")
+}
+
+model BillingDraftInvoiceLine {
+  id             String            @id @default(uuid())
+  invoiceId      String
+  organizationId String
+  apartmentId    String?
+  meterId        String?
+  meterReadingId String?
+  type           UtilityTariffType
+  description    String
+  quantity       Decimal
+  unit           String
+  unitPrice      Decimal
+  amount         Decimal
+  currency       BillingCurrency   @default(MDL)
+  metadataJson   Json?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  invoice       BillingDraftInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  organization  Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  apartment     Apartment?          @relation(fields: [apartmentId], references: [id], onDelete: SetNull)
+  meter         Meter?              @relation(fields: [meterId], references: [id], onDelete: SetNull)
+  meterReading  MeterReading?       @relation(fields: [meterReadingId], references: [id], onDelete: SetNull)
+
+  @@index([invoiceId])
+  @@index([organizationId])
+  @@index([apartmentId])
+  @@index([meterId])
+  @@index([meterReadingId])
+  @@map("billing_draft_invoice_lines")
 }
 
 model Payment {
