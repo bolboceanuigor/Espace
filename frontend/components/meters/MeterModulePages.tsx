@@ -596,6 +596,7 @@ export function AdminMeterReadingsPage() {
   const [periods, setPeriods] = useState<any[]>([]);
   const [selectedPeriodId, setSelectedPeriodId] = useState(initialPeriodId);
   const [overview, setOverview] = useState<any>(null);
+  const [residentReadingsOverview, setResidentReadingsOverview] = useState<any>(null);
   const [workspace, setWorkspace] = useState<any>(null);
   const [issues, setIssues] = useState<any[]>([]);
   const [tab, setTab] = useState<'workspace' | 'missing' | 'issues' | 'history'>('workspace');
@@ -673,6 +674,7 @@ export function AdminMeterReadingsPage() {
   const loadWorkspace = useCallback(async () => {
     if (!selectedPeriodId) {
       setOverview(null);
+      setResidentReadingsOverview(null);
       setWorkspace(null);
       setIssues([]);
       setLoading(false);
@@ -686,7 +688,9 @@ export function AdminMeterReadingsPage() {
         metersApi.getAdminMeterReadingWorkspace(selectedPeriodId, { ...filters, limit: 500 }),
         metersApi.getAdminMeterReadingIssues(selectedPeriodId, { limit: 500 }),
       ]);
+      const residentOverviewResponse = await metersApi.getAdminResidentReadingsOverview({ periodId: selectedPeriodId }).catch(() => ({ data: null }));
       setOverview(overviewResponse.data);
+      setResidentReadingsOverview(residentOverviewResponse.data);
       setWorkspace(workspaceResponse.data);
       setIssues(issuesResponse.data?.items || []);
       setDirty({});
@@ -871,6 +875,10 @@ export function AdminMeterReadingsPage() {
               <History className="h-4 w-4" />
               Rapoarte consum
             </ButtonLink>
+            <ButtonLink href="/admin/resident-readings" variant="secondary">
+              <ListChecks className="h-4 w-4" />
+              Citiri locatari
+            </ButtonLink>
             <ButtonLink href="/admin/meters" variant="secondary">
               <Gauge className="h-4 w-4" />
               Contoare
@@ -884,6 +892,22 @@ export function AdminMeterReadingsPage() {
       />
       <InlineError message={error} />
       {success ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">{success}</div> : null}
+
+      {residentReadingsOverview?.pendingReview ? (
+        <Card className="border-sky-200 bg-sky-50">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-sky-950">Citiri de la locatari în așteptare</p>
+              <p className="mt-1 text-sm text-sky-800">
+                {residentReadingsOverview.pendingReview} citiri trebuie aprobate înainte să fie folosite în perioada lunară.
+              </p>
+            </div>
+            <ButtonLink href={`/admin/resident-readings?periodId=${selectedPeriodId}&status=SUBMITTED`} variant="secondary">
+              Verifică citiri
+            </ButtonLink>
+          </div>
+        </Card>
+      ) : null}
 
       {!periods.length && !loading ? (
         <EmptyState

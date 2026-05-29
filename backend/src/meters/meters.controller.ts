@@ -234,6 +234,58 @@ export class MetersController {
     return this.metersService.unlockReadingPeriod(user, periodId);
   }
 
+  @Get(['admin/resident-readings/overview', 'api/admin/resident-readings/overview'])
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @RequirePermission('METER_READINGS', 'VIEW')
+  getResidentReadingsOverview(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.metersService.listAdminResidentReadingsOverview(user, query);
+  }
+
+  @Get(['admin/resident-readings/issues', 'api/admin/resident-readings/issues'])
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @RequirePermission('METER_READINGS', 'VIEW')
+  getResidentReadingIssues(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.metersService.listAdminResidentReadingIssues(user, query);
+  }
+
+  @Post(['admin/resident-readings/bulk-approve', 'api/admin/resident-readings/bulk-approve'])
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @RequirePermission('METER_READINGS', 'APPROVE')
+  async bulkApproveResidentReadings(@CurrentUser() user: MvpUser, @Body() body: unknown) {
+    await this.saasLimits.assertSubscriptionAllowsWrite(user.organizationId, user);
+    return this.metersService.bulkApproveAdminResidentReadings(user, body);
+  }
+
+  @Get(['admin/resident-readings', 'api/admin/resident-readings'])
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @RequirePermission('METER_READINGS', 'VIEW')
+  listResidentReadingsForReview(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.metersService.listAdminResidentReadings(user, query);
+  }
+
+  @Get(['admin/resident-readings/:id', 'api/admin/resident-readings/:id'])
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @RequirePermission('METER_READINGS', 'VIEW')
+  getResidentReadingForReview(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.metersService.getAdminResidentReading(user, id);
+  }
+
+  @Post(['admin/resident-readings/:id/approve', 'api/admin/resident-readings/:id/approve'])
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @RequirePermission('METER_READINGS', 'APPROVE')
+  async approveResidentReading(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    await this.saasLimits.assertSubscriptionAllowsWrite(user.organizationId, user);
+    return this.metersService.approveAdminResidentReading(user, id, body);
+  }
+
+  @Post(['admin/resident-readings/:id/reject', 'api/admin/resident-readings/:id/reject'])
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
+  @RequirePermission('METER_READINGS', 'APPROVE')
+  async rejectResidentReading(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    await this.saasLimits.assertSubscriptionAllowsWrite(user.organizationId, user);
+    return this.metersService.rejectAdminResidentReading(user, id, body);
+  }
+
   @Get(['admin/meter-readings', 'api/admin/meter-readings'])
   @Roles(Role.ADMIN, Role.SUPERADMIN)
   @RequirePermission('METER_READINGS', 'VIEW')

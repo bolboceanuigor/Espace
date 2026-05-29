@@ -56,6 +56,8 @@ type ApartmentForBilling = Prisma.ApartmentGetPayload<{
   };
 }>;
 
+const METER_WORKFLOW_METADATA_TITLE = 'ESPACE_METER_WORKFLOW_METADATA_V1';
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
@@ -573,7 +575,7 @@ export class BillingDraftsService {
       throw new BadRequestException('Există consumuri negative. Confirmă explicit după verificare pentru a genera parțial fără acele linii.');
     }
 
-    const [apartments, tariffs, meters] = await Promise.all([
+    const [apartments, tariffs, meters, meterWorkflow] = await Promise.all([
       this.prisma.apartment.findMany({
         where: { organizationId, archivedAt: null },
         orderBy: [{ buildingId: 'asc' }, { staircaseId: 'asc' }, { number: 'asc' }],
@@ -597,15 +599,21 @@ export class BillingDraftsService {
             },
           })
         : Promise.resolve([]),
+      this.loadMeterWorkflowMetadata(organizationId),
     ]);
+    const approvedMeters = meters.map((meter) => ({
+      ...meter,
+      readings: meter.readings.filter((reading) => this.meterReadingStatus(meterWorkflow, reading) === 'APPROVED').slice(0, 1),
+    }));
 
-    const meterIds = meters.map((meter) => meter.id);
-    const previousReadings = meterIds.length
+    const meterIds = approvedMeters.map((meter) => meter.id);
+    const previousReadingsRaw = meterIds.length
       ? await this.prisma.meterReading.findMany({
           where: { organizationId, meterId: { in: meterIds }, readingDate: { lt: periodStart(period.year, period.month) } },
           orderBy: [{ meterId: 'asc' }, { readingDate: 'desc' }],
         })
       : [];
+    const previousReadings = previousReadingsRaw.filter((reading) => this.meterReadingStatus(meterWorkflow, reading) === 'APPROVED');
     const previousByMeter = new Map<string, (typeof previousReadings)[number]>();
     previousReadings.forEach((reading) => {
       if (!previousByMeter.has(reading.meterId)) previousByMeter.set(reading.meterId, reading);
@@ -613,7 +621,7 @@ export class BillingDraftsService {
 
     const tariffByType = new Map(tariffs.map((tariff) => [tariff.type, tariff]));
     const metersByApartment = new Map<string, typeof meters>();
-    meters.forEach((meter) => metersByApartment.set(meter.apartmentId, [...(metersByApartment.get(meter.apartmentId) || []), meter]));
+    approvedMeters.forEach((meter) => metersByApartment.set(meter.apartmentId, [...(metersByApartment.get(meter.apartmentId) || []), meter]));
 
     const editableInvoices = await this.prisma.billingDraftInvoice.findMany({
       where: {
@@ -751,7 +759,7 @@ export class BillingDraftsService {
   private async buildIssues(organizationId: string, periodId: string): Promise<BillingDraftIssue[]> {
     const period = await this.requirePeriod(organizationId, periodId);
     const issues: BillingDraftIssue[] = [];
-    const [apartments, tariffs, invoices, meters] = await Promise.all([
+    const [apartments, tariffs, invoices, meters, meterWorkflow] = await Promise.all([
       this.prisma.apartment.findMany({
         where: { organizationId, archivedAt: null },
         include: {
@@ -775,7 +783,12 @@ export class BillingDraftsService {
             },
           })
         : Promise.resolve([]),
+      this.loadMeterWorkflowMetadata(organizationId),
     ]);
+    const officialMeters = meters.map((meter) => ({
+      ...meter,
+      readings: meter.readings.filter((reading) => this.meterReadingStatus(meterWorkflow, reading) === 'APPROVED').slice(0, 1),
+    }));
 
     if (period.status === BillingPeriodStatus.PUBLISHED) {
       issues.push(this.issue('PERIOD_ALREADY_PUBLISHED', 'WARNING', false, 'Perioada este publicată.', 'Nu mai recalcula drafturi într-o perioadă publicată.'));
@@ -783,25 +796,26 @@ export class BillingDraftsService {
 
     const tariffByType = new Map(tariffs.map((tariff) => [tariff.type, tariff]));
     const requiredMeterTypes = new Set<UtilityTariffType>();
-    meters.forEach((meter) => requiredMeterTypes.add(meterTypeToTariffType(meter.type)));
+    officialMeters.forEach((meter) => requiredMeterTypes.add(meterTypeToTariffType(meter.type)));
     requiredMeterTypes.forEach((type) => {
       if (!tariffByType.has(type)) {
         issues.push(this.issue('MISSING_TARIFF', 'CRITICAL', true, `Lipsește tariful pentru ${tariffTypeLabel(type)}.`, 'Setează tariful în tabul Tarife înainte de aprobare.'));
       }
     });
 
-    const previousReadings = meters.length
+    const previousReadingsRaw = officialMeters.length
       ? await this.prisma.meterReading.findMany({
-          where: { organizationId, meterId: { in: meters.map((meter) => meter.id) }, readingDate: { lt: periodStart(period.year, period.month) } },
+          where: { organizationId, meterId: { in: officialMeters.map((meter) => meter.id) }, readingDate: { lt: periodStart(period.year, period.month) } },
           orderBy: [{ meterId: 'asc' }, { readingDate: 'desc' }],
         })
       : [];
+    const previousReadings = previousReadingsRaw.filter((reading) => this.meterReadingStatus(meterWorkflow, reading) === 'APPROVED');
     const previousByMeter = new Map<string, (typeof previousReadings)[number]>();
     previousReadings.forEach((reading) => {
       if (!previousByMeter.has(reading.meterId)) previousByMeter.set(reading.meterId, reading);
     });
 
-    meters.forEach((meter) => {
+    officialMeters.forEach((meter) => {
       const current = meter.readings[0];
       if (!current) {
         issues.push(
@@ -1040,6 +1054,31 @@ export class BillingDraftsService {
         metadataJson: line.metadataJson,
       })),
     };
+  }
+
+  private async loadMeterWorkflowMetadata(organizationId: string) {
+    const note = await this.prisma.clientNote.findFirst({
+      where: {
+        organizationId,
+        title: METER_WORKFLOW_METADATA_TITLE,
+      },
+      orderBy: { updatedAt: 'desc' },
+      select: { content: true },
+    });
+    if (!note?.content) return { readings: {} as Record<string, { status?: string }> };
+    try {
+      const parsed = JSON.parse(note.content) as { readings?: Record<string, { status?: string }> };
+      return {
+        readings: isRecord(parsed?.readings) ? parsed.readings : {},
+      };
+    } catch {
+      return { readings: {} as Record<string, { status?: string }> };
+    }
+  }
+
+  private meterReadingStatus(store: { readings: Record<string, { status?: string }> }, reading: { id: string }) {
+    const raw = store.readings?.[reading.id]?.status;
+    return typeof raw === 'string' && raw.trim() ? raw.trim().toUpperCase() : 'APPROVED';
   }
 
   private async log(user: MvpUser, type: Parameters<ActivityMvpService['createActivity']>[0]['type'], title: string, message: string, periodId?: string, invoiceId?: string) {

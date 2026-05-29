@@ -59,6 +59,7 @@ const ADMIN_NAV = [
   { key: 'home', label: 'Acasă', href: '/admin', icon: Home },
   { key: 'apartments', label: 'Apartamente', href: '/admin/apartments', icon: Building2 },
   { key: 'residents', label: 'Locatari', href: '/admin/residents', icon: Users },
+  { key: 'resident-readings', label: 'Citiri locatari', href: '/admin/resident-readings', icon: ListChecks },
   { key: 'invoices', label: 'Facturi', href: '/admin/invoices', icon: FileText },
   { key: 'payments', label: 'Plăți', href: '/admin/payments', icon: CreditCard },
   { key: 'reports', label: 'Rapoarte', href: '/admin/reports', icon: BarChart3 },

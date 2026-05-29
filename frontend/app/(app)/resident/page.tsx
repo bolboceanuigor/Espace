@@ -316,6 +316,7 @@ export default function ResidentDashboardPage() {
   const [recentRequests, setRecentRequests] = useState<RecentRequest[]>([]);
   const [requestStats, setRequestStats] = useState<any>({});
   const [meterStats, setMeterStats] = useState<any>({});
+  const [readingPeriodSummary, setReadingPeriodSummary] = useState<any>(null);
   const [invoiceOverview, setInvoiceOverview] = useState<ResidentInvoicesOverview | null>(null);
   const [balanceOverview, setBalanceOverview] = useState<ResidentBalanceOverview | null>(null);
 
@@ -389,6 +390,17 @@ export default function ResidentDashboardPage() {
       .catch(() => {
         if (!active) return;
         setMeterStats({});
+      });
+    metersApi
+      .getResidentMeterReadingPeriods()
+      .then((response) => {
+        if (!active) return;
+        const period = (response.data?.items || []).find((item: any) => Number(item.missingCount || 0) > 0 || Number(item.rejectedCount || 0) > 0);
+        setReadingPeriodSummary(period || null);
+      })
+      .catch(() => {
+        if (!active) return;
+        setReadingPeriodSummary(null);
       });
     return () => {
       active = false;
@@ -579,6 +591,26 @@ export default function ResidentDashboardPage() {
         <StatCard label="Solicitări deschise" value={String(requestStats.open || 0)} description="Către administrație" icon={<MessageCircle className="h-5 w-5" />} tone={Number(requestStats.open || 0) > 0 ? 'warning' : 'neutral'} />
         <StatCard label="Contoare active" value={String(meterStats.activeMeters || 0)} description={`${meterStats.submittedCurrentMonth || 0} indici transmiși luna curentă`} icon={<Gauge className="h-5 w-5" />} />
       </section>
+
+      {readingPeriodSummary ? (
+        <Card className="border-amber-200 bg-amber-50">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-amber-950">
+                {Number(readingPeriodSummary.rejectedCount || 0) > 0 ? 'Ai citiri respinse' : 'Trimite citirile contoarelor'}
+              </p>
+              <p className="mt-1 text-sm text-amber-800">
+                {Number(readingPeriodSummary.rejectedCount || 0) > 0
+                  ? `${readingPeriodSummary.rejectedCount} citiri trebuie corectate pentru ${readingPeriodSummary.label || readingPeriodSummary.periodMonth}.`
+                  : `${readingPeriodSummary.missingCount || 0} contoare așteaptă citirea pentru ${readingPeriodSummary.label || readingPeriodSummary.periodMonth}.`}
+              </p>
+            </div>
+            <ButtonLink href="/resident/meters" variant="secondary">
+              <Gauge className="h-4 w-4" /> Deschide contoare
+            </ButtonLink>
+          </div>
+        </Card>
+      ) : null}
 
       <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
         <Card>

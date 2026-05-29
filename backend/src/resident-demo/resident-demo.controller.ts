@@ -197,6 +197,31 @@ export class ResidentDemoController {
     return this.metersService.listResidentReadings(user, query);
   }
 
+  @Get(['resident/meter-readings/periods', 'api/resident/meter-readings/periods'])
+  listMeterReadingPeriods(@CurrentUser() user: MvpUser) {
+    return this.metersService.listResidentReadingPeriods(user);
+  }
+
+  @Get(['resident/meter-readings/periods/:periodId/workspace', 'api/resident/meter-readings/periods/:periodId/workspace'])
+  getMeterReadingWorkspace(@CurrentUser() user: MvpUser, @Param('periodId') periodId: string, @Query() query: Record<string, unknown>) {
+    return this.metersService.getResidentReadingPeriodWorkspace(user, periodId, query);
+  }
+
+  @Post(['resident/meter-readings/periods/:periodId/meters/:meterId/submit', 'api/resident/meter-readings/periods/:periodId/meters/:meterId/submit'])
+  submitMeterReadingForPeriod(
+    @CurrentUser() user: MvpUser,
+    @Param('periodId') periodId: string,
+    @Param('meterId') meterId: string,
+    @Body() body: unknown,
+  ) {
+    return this.metersService.submitResidentReadingForPeriod(user, periodId, meterId, body);
+  }
+
+  @Get(['resident/meter-readings/history', 'api/resident/meter-readings/history'])
+  listMeterReadingHistory(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.metersService.listResidentReadingHistory(user, query);
+  }
+
   @Post(['resident/meter-readings', 'api/resident/meter-readings'])
   createMeterReading(@CurrentUser() user: MvpUser, @Body() body: unknown) {
     return this.metersService.createResidentReading(user, body);
@@ -209,6 +234,11 @@ export class ResidentDemoController {
 
   @Patch(['resident/meter-readings/:id/cancel', 'api/resident/meter-readings/:id/cancel'])
   cancelMeterReading(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.metersService.cancelResidentReading(user, id);
+  }
+
+  @Post(['resident/meter-readings/:id/cancel', 'api/resident/meter-readings/:id/cancel'])
+  cancelMeterReadingPost(@CurrentUser() user: MvpUser, @Param('id') id: string) {
     return this.metersService.cancelResidentReading(user, id);
   }
 

@@ -54,6 +54,7 @@ const sections: Array<{
       { label: 'Tarife', href: '/admin/tariffs', icon: Calculator, permission: ['TARIFFS', 'VIEW'] },
       { label: 'Contoare', href: '/admin/meters', icon: Gauge, permission: ['METERS', 'VIEW'] },
       { label: 'Citiri contoare', href: '/admin/meter-readings', icon: ListChecks, permission: ['METER_READINGS', 'VIEW'] },
+      { label: 'Citiri locatari', href: '/admin/resident-readings', icon: ListChecks, permission: ['METER_READINGS', 'VIEW'] },
     ],
   },
   {

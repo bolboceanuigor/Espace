@@ -289,6 +289,7 @@ export default function AdminPage() {
   const [teamActivityStats, setTeamActivityStats] = useState<any>(null);
   const [firstLogin, setFirstLogin] = useState<any>(null);
   const [openMeterPeriod, setOpenMeterPeriod] = useState<any>(null);
+  const [residentReadingsOverview, setResidentReadingsOverview] = useState<any>(null);
   const [billingDraftPrompt, setBillingDraftPrompt] = useState<any>(null);
   const [invoicePublishOverview, setInvoicePublishOverview] = useState<any>(null);
   const [paymentsOverview, setPaymentsOverview] = useState<any>(null);
@@ -393,6 +394,17 @@ export default function AdminPage() {
       .catch(() => {
         if (!active) return;
         setPaymentsOverview(null);
+      });
+
+    metersApi
+      .getAdminResidentReadingsOverview()
+      .then((response) => {
+        if (!active) return;
+        setResidentReadingsOverview(response.data || null);
+      })
+      .catch(() => {
+        if (!active) return;
+        setResidentReadingsOverview(null);
       });
 
     Promise.all([metersApi.getAdminMeterReadingPeriods(), billingDraftsApi.getAdminBillingPeriods()])
@@ -750,6 +762,22 @@ export default function AdminPage() {
         </Card>
       ) : null}
 
+      {residentReadingsOverview?.pendingReview ? (
+        <Card className="border-sky-200 bg-sky-50 p-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-sky-950">Citiri de aprobat</p>
+              <p className="mt-1 text-sm text-sky-800">
+                {residentReadingsOverview.pendingReview} citiri trimise de locatari așteaptă verificarea.
+              </p>
+            </div>
+            <ButtonLink href={localizedPath('/admin/resident-readings?status=SUBMITTED')} variant="secondary">
+              <ListChecks className="h-4 w-4" /> Verifică citiri
+            </ButtonLink>
+          </div>
+        </Card>
+      ) : null}
+
       {billingDraftPrompt ? (
         <Card className="border-sky-200 bg-sky-50 p-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -996,6 +1024,9 @@ export default function AdminPage() {
           </ButtonLink>
           <ButtonLink href={localizedPath('/admin/meter-readings')} variant="secondary">
             <Gauge className="h-4 w-4" /> Citiri contoare
+          </ButtonLink>
+          <ButtonLink href={localizedPath('/admin/resident-readings')} variant="secondary">
+            <ListChecks className="h-4 w-4" /> Citiri locatari
           </ButtonLink>
           <ButtonLink href={localizedPath('/admin/billing')} variant="secondary">
             <ListChecks className="h-4 w-4" /> Facturare lunară

@@ -1415,6 +1415,19 @@ export const metersApi = {
     apiRequest<any>(`/api/admin/meter-readings/periods/${periodId}/lock`, { method: 'POST', body: data || {} }),
   unlockAdminMeterReadingPeriod: (periodId: string) =>
     apiRequest<any>(`/api/admin/meter-readings/periods/${periodId}/unlock`, { method: 'POST' }),
+  getAdminResidentReadingsOverview: (params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>('/api/admin/resident-readings/overview', { params }),
+  getAdminResidentReadings: (params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>('/api/admin/resident-readings', { params }),
+  getAdminResidentReading: (id: string) => apiRequest<any>(`/api/admin/resident-readings/${id}`),
+  approveAdminResidentReading: (id: string, data?: Record<string, unknown>) =>
+    apiRequest<any>(`/api/admin/resident-readings/${id}/approve`, { method: 'POST', body: data || {} }),
+  rejectAdminResidentReading: (id: string, data: { rejectionReason: string; adminNote?: string }) =>
+    apiRequest<any>(`/api/admin/resident-readings/${id}/reject`, { method: 'POST', body: data }),
+  bulkApproveAdminResidentReadings: (data: { readingIds: string[]; confirmWarnings?: boolean }) =>
+    apiRequest<any>('/api/admin/resident-readings/bulk-approve', { method: 'POST', body: data }),
+  getAdminResidentReadingIssues: (params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>('/api/admin/resident-readings/issues', { params }),
   adminConsumptionReport: (params?: Record<string, string | number | boolean | null | undefined>) =>
     apiRequest<any>('/api/admin/meter-readings/reports/consumption', { params }),
   adminConsumptionDocument: (params?: Record<string, string | number | boolean | null | undefined>) =>
@@ -1439,11 +1452,20 @@ export const metersApi = {
   adminApartmentReadings: (apartmentId: string, params?: Record<string, string | number | boolean | null | undefined>) =>
     apiRequest<any>(`/api/admin/apartments/${apartmentId}/meter-readings`, { params }),
   residentList: (params?: Record<string, string | number | boolean | null | undefined>) => apiRequest<any>('/api/resident/meters', { params }),
+  getResidentMeters: (params?: Record<string, string | number | boolean | null | undefined>) => apiRequest<any>('/api/resident/meters', { params }),
   residentGet: (id: string) => apiRequest<any>(`/api/resident/meters/${id}`),
   residentReadings: (params?: Record<string, string | number | boolean | null | undefined>) => apiRequest<any>('/api/resident/meter-readings', { params }),
+  getResidentMeterReadingPeriods: () => apiRequest<any>('/api/resident/meter-readings/periods'),
+  getResidentMeterReadingWorkspace: (periodId: string, params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>(`/api/resident/meter-readings/periods/${periodId}/workspace`, { params }),
+  submitResidentMeterReading: (periodId: string, meterId: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/resident/meter-readings/periods/${periodId}/meters/${meterId}/submit`, { method: 'POST', body: data }),
+  getResidentMeterReadingHistory: (params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>('/api/resident/meter-readings/history', { params }),
   residentCreateReading: (data: Record<string, unknown>) => apiRequest<any>('/api/resident/meter-readings', { method: 'POST', body: data }),
   residentGetReading: (id: string) => apiRequest<any>(`/api/resident/meter-readings/${id}`),
-  residentCancelReading: (id: string) => apiRequest<any>(`/api/resident/meter-readings/${id}/cancel`, { method: 'PATCH', body: {} }),
+  residentCancelReading: (id: string) => apiRequest<any>(`/api/resident/meter-readings/${id}/cancel`, { method: 'POST', body: {} }),
+  cancelResidentMeterReading: (id: string) => apiRequest<any>(`/api/resident/meter-readings/${id}/cancel`, { method: 'POST', body: {} }),
 };
 
 export const adminStructureApi = {

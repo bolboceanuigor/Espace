@@ -38,6 +38,7 @@ const NAV_CONFIG: NavItemConfig[] = [
   { label: 'Apartamente', href: '/admin/apartments', icon: 'home', allowedRoles: ['ADMIN'], requiredPermission: 'apartments.view', requiredModule: 'apartmentsCrm', mobileVisible: true, moreMenu: false },
   { label: 'Locatari', href: '/admin/residents', icon: 'users', allowedRoles: ['ADMIN'], requiredPermission: 'residents.view', requiredModule: 'residentsCrm', mobileVisible: true, moreMenu: false },
   { label: 'Contoare', href: '/admin/meters', icon: 'chartColumnBig', allowedRoles: ['ADMIN'], requiredModule: 'meterReadings', mobileVisible: false, moreMenu: true },
+  { label: 'Citiri locatari', href: '/admin/resident-readings', icon: 'listChecks', allowedRoles: ['ADMIN'], requiredModule: 'meterReadings', mobileVisible: false, moreMenu: true },
   { label: 'Facturare', href: '/admin/billing', icon: 'fileText', allowedRoles: ['ADMIN'], requiredPermission: 'invoices.view', requiredModule: 'billingRun', mobileVisible: false, moreMenu: true },
   { label: 'Facturi', href: '/admin/invoices', icon: 'fileText', allowedRoles: ['ADMIN'], requiredPermission: 'invoices.view', requiredModule: 'internalInvoices', mobileVisible: true, moreMenu: false },
   { label: 'Calcul facturi', href: '/admin/invoices/draft', icon: 'fileText', allowedRoles: ['ADMIN'], requiredPermission: 'invoices.view', requiredModule: 'billingRun', mobileVisible: false, moreMenu: true },

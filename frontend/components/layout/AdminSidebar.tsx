@@ -38,6 +38,7 @@ const adminNavigation = {
     { label: 'Tarife', href: '/admin/tariffs', icon: Calculator },
     { label: 'Contoare', href: '/admin/meters', icon: Gauge },
     { label: 'Citiri contoare', href: '/admin/meter-readings', icon: ListChecks },
+    { label: 'Citiri locatari', href: '/admin/resident-readings', icon: ListChecks },
     { label: 'Facturare', href: '/admin/billing', icon: Receipt },
     { label: 'Drafturi facturi', href: '/admin/billing-drafts', icon: FileText },
     { label: 'Facturi', href: '/admin/invoices', icon: FileText },
