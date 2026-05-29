@@ -564,6 +564,48 @@ export class BillingReadController {
     return this.invoicePublishingService.getAdminPaymentsOverview(user);
   }
 
+  @Get(['admin/payment-proofs/overview', 'api/admin/payment-proofs/overview'])
+  @RequirePermission('PAYMENTS', 'VIEW')
+  getAdminPaymentProofsOverview(@CurrentUser() user: MvpUser) {
+    return this.invoicePublishingService.getAdminPaymentProofsOverview(user);
+  }
+
+  @Get(['admin/payment-proofs/issues', 'api/admin/payment-proofs/issues'])
+  @RequirePermission('PAYMENTS', 'VIEW')
+  getAdminPaymentProofIssues(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.invoicePublishingService.getAdminPaymentProofIssues(user, query);
+  }
+
+  @Get(['admin/payment-proofs', 'api/admin/payment-proofs'])
+  @RequirePermission('PAYMENTS', 'VIEW')
+  listAdminPaymentProofs(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.invoicePublishingService.listAdminPaymentProofs(user, query);
+  }
+
+  @Get(['admin/payment-proofs/:id', 'api/admin/payment-proofs/:id'])
+  @RequirePermission('PAYMENTS', 'VIEW')
+  getAdminPaymentProof(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.invoicePublishingService.getAdminPaymentProof(user, id);
+  }
+
+  @Post(['admin/payment-proofs/:id/start-review', 'api/admin/payment-proofs/:id/start-review'])
+  @RequirePermission('PAYMENTS', 'MANAGE')
+  startAdminPaymentProofReview(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.invoicePublishingService.startAdminPaymentProofReview(user, id);
+  }
+
+  @Post(['admin/payment-proofs/:id/accept', 'api/admin/payment-proofs/:id/accept'])
+  @RequirePermission('PAYMENTS', 'MANAGE')
+  acceptAdminPaymentProof(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.invoicePublishingService.acceptAdminPaymentProof(user, id, body);
+  }
+
+  @Post(['admin/payment-proofs/:id/reject', 'api/admin/payment-proofs/:id/reject'])
+  @RequirePermission('PAYMENTS', 'MANAGE')
+  rejectAdminPaymentProof(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.invoicePublishingService.rejectAdminPaymentProof(user, id, body);
+  }
+
   @Get(['admin/payments/invoice-search', 'api/admin/payments/invoice-search'])
   @RequirePermission('PAYMENTS', 'VIEW')
   searchAdminPaymentInvoices(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {

@@ -7,11 +7,13 @@ import {
   PaymentIntentEventType,
   PaymentIntentSource,
   PaymentIntentStatus,
+  PaymentProofStatus,
   PaymentProvider,
   PaymentSource,
   PaymentStatus,
   Prisma,
   Role,
+  NotificationType,
 } from '@prisma/client';
 import { ActivityMvpService } from '../activity-mvp/activity-mvp.service';
 import { buildPaginationMeta, resolvePagination } from '../common/pagination';
@@ -44,6 +46,29 @@ type InvoiceIssue = {
   invoice?: { id: string; invoiceNumber?: string | null; status: string; total: number } | null;
   apartment?: { id: string; number: string; building?: string | null; entrance?: string | null } | null;
   resident?: { id: string; name: string | null; hasUserAccount: boolean } | null;
+};
+
+type PaymentProofIssueType =
+  | 'AMOUNT_EXCEEDS_REMAINING'
+  | 'INVOICE_ALREADY_PAID'
+  | 'INVOICE_CANCELLED'
+  | 'MISSING_PROOF_FILE'
+  | 'MISSING_PAID_DATE'
+  | 'DUPLICATE_PROOF'
+  | 'CURRENCY_MISMATCH'
+  | 'PAYMENT_ALREADY_ACCEPTED'
+  | 'RESIDENT_NOT_LINKED_TO_INVOICE';
+
+type PaymentProofIssue = {
+  id: string;
+  type: PaymentProofIssueType;
+  severity: IssueSeverity;
+  blocking: boolean;
+  title: string;
+  recommendation: string;
+  proof?: Record<string, unknown> | null;
+  invoice?: Record<string, unknown> | null;
+  apartment?: Record<string, unknown> | null;
 };
 
 type PublishInput = {
@@ -86,6 +111,16 @@ const REVERSIBLE_PAYMENT_STATUSES: PaymentStatus[] = [
   PaymentStatus.ACCEPTED,
   PaymentStatus.PARTIALLY_ACCEPTED,
   PaymentStatus.CONFIRMED,
+];
+
+const REVIEWABLE_PAYMENT_PROOF_STATUSES: PaymentProofStatus[] = [
+  PaymentProofStatus.SUBMITTED,
+  PaymentProofStatus.IN_REVIEW,
+];
+
+const ACCEPTED_PAYMENT_PROOF_STATUSES: PaymentProofStatus[] = [
+  PaymentProofStatus.ACCEPTED,
+  PaymentProofStatus.PARTIALLY_ACCEPTED,
 ];
 
 const LEDGER_INVOICE_STATUSES: BillingDraftInvoiceStatus[] = [
@@ -224,15 +259,31 @@ export class InvoicePublishingService {
       include: this.invoiceDetailInclude(),
     });
     if (!invoice) throw new NotFoundException('Factura nu a fost găsită.');
-    const issues = (await this.getIssuesForOrganization(organizationId, { invoiceId: id })).filter((issue) => issue.invoice?.id === id);
-    const activity = await this.prisma.auditLog.findMany({
-      where: { organizationId, entityId: id },
-      orderBy: { createdAt: 'desc' },
-      take: 20,
-      include: { user: { select: { id: true, firstName: true, lastName: true, fullName: true, email: true } } },
-    });
+    const [issues, activity, paymentProofs] = await Promise.all([
+      this.getIssuesForOrganization(organizationId, { invoiceId: id }).then((items) => items.filter((issue) => issue.invoice?.id === id)),
+      this.prisma.auditLog.findMany({
+        where: { organizationId, entityId: id },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+        include: { user: { select: { id: true, firstName: true, lastName: true, fullName: true, email: true } } },
+      }),
+      this.prisma.paymentProof.findMany({
+        where: { organizationId, invoiceId: id },
+        include: this.paymentProofInclude(),
+        orderBy: [{ createdAt: 'desc' }],
+      }),
+    ]);
     return {
-      invoice: this.serializeAdminInvoiceDetail(invoice, issues),
+      invoice: {
+        ...this.serializeAdminInvoiceDetail(invoice, issues),
+        paymentProofs: paymentProofs.map((proof) => this.serializeAdminPaymentProof(proof)),
+        paymentProofsSummary: {
+          submitted: paymentProofs.filter((proof) => proof.status === PaymentProofStatus.SUBMITTED).length,
+          inReview: paymentProofs.filter((proof) => proof.status === PaymentProofStatus.IN_REVIEW).length,
+          accepted: paymentProofs.filter((proof) => proof.status === PaymentProofStatus.ACCEPTED || proof.status === PaymentProofStatus.PARTIALLY_ACCEPTED).length,
+          rejected: paymentProofs.filter((proof) => proof.status === PaymentProofStatus.REJECTED).length,
+        },
+      },
       activity: activity.map((item) => ({
         id: item.id,
         action: item.action,
@@ -489,11 +540,16 @@ export class InvoicePublishingService {
         paymentInstructions: true,
       },
     });
-    const [paidAmount, activePaymentIntent] = await Promise.all([
+    const [paidAmount, activePaymentIntent, paymentProofs] = await Promise.all([
       this.paidAmountForInvoice(organizationId, invoice.id),
       this.findActivePaymentIntent(organizationId, invoice.id, invoice.apartmentId),
+      this.prisma.paymentProof.findMany({
+        where: { organizationId, invoiceId: invoice.id, residentUserId: user.id },
+        include: this.paymentProofInclude(),
+        orderBy: [{ createdAt: 'desc' }],
+      }),
     ]);
-    return this.serializeResidentInvoiceDetail(invoice, organization, paidAmount, activePaymentIntent);
+    return this.serializeResidentInvoiceDetail(invoice, organization, paidAmount, activePaymentIntent, paymentProofs);
   }
 
   async markResidentInvoiceViewed(user: MvpUser, id: string) {
@@ -630,6 +686,345 @@ export class InvoicePublishingService {
     return { intent: this.serializePaymentIntentPlaceholder(updated), message: 'Pregătirea plății a fost anulată.' };
   }
 
+  async submitResidentPaymentProof(user: MvpUser, invoiceId: string, body: unknown) {
+    const payload = isRecord(body) ? body : {};
+    const amount = Number(payload.amount);
+    if (!Number.isFinite(amount) || amount <= 0) throw new BadRequestException('Suma achitată trebuie să fie mai mare decât 0.');
+    const method = this.parseLedgerPaymentMethod(payload.method || PaymentMethod.MANUAL_BANK_TRANSFER);
+    const currency = optionalString(payload.currency)?.toUpperCase() || 'MDL';
+    if (currency !== 'MDL') throw new BadRequestException('Momentan sunt acceptate doar dovezi în MDL.');
+    const { organizationId, apartmentIds } = await this.residentInvoiceScope(user);
+    const invoice = await this.prisma.billingDraftInvoice.findFirst({
+      where: { ...this.residentInvoiceWhere(organizationId, apartmentIds), id: invoiceId },
+      include: this.invoiceDetailInclude(),
+    });
+    if (!invoice) throw new NotFoundException('Factura nu a fost găsită.');
+    const paidAmount = await this.paidAmountForInvoice(organizationId, invoice.id);
+    const state = this.paymentState(invoice, paidAmount);
+    if (state.paymentDisplayStatus === 'CANCELLED') throw new BadRequestException('Nu poți trimite dovadă pentru o factură anulată.');
+    if (state.paymentDisplayStatus === 'PAID' || state.remainingAmount <= 0) throw new BadRequestException('Factura este deja achitată.');
+    if (money(amount) > state.remainingAmount) throw new BadRequestException('Suma dovezii depășește soldul rămas al facturii.');
+    const paidAt = parseDate(payload.paidAt) || null;
+    const externalReference = optionalString(payload.externalReference) || null;
+    const duplicate = await this.findPossibleDuplicatePaymentProof(organizationId, invoice.id, money(amount), paidAt, externalReference);
+    const created = await this.prisma.paymentProof.create({
+      data: {
+        organizationId,
+        invoiceId: invoice.id,
+        apartmentId: invoice.apartmentId,
+        residentUserId: user.id,
+        amount: money(amount),
+        currency: BillingCurrency.MDL,
+        method,
+        status: PaymentProofStatus.SUBMITTED,
+        paidAt,
+        externalReference,
+        residentNote: optionalString(payload.residentNote) || null,
+        proofFileUrl: optionalString(payload.proofFileUrl) || null,
+        proofFileName: optionalString(payload.proofFileName) || null,
+        proofFileMimeType: optionalString(payload.proofFileMimeType) || null,
+        proofFileSize: Number.isFinite(Number(payload.proofFileSize)) ? Number(payload.proofFileSize) : null,
+        possibleDuplicate: Boolean(duplicate),
+        duplicatePaymentProofId: duplicate?.id || null,
+        metadataJson: {
+          invoiceNumber: invoice.invoiceNumber,
+          remainingAmount: state.remainingAmount,
+          possibleDuplicate: Boolean(duplicate),
+          uploadStorage: 'TODO_REAL_STORAGE',
+          realMoneyProcessed: false,
+        },
+      },
+      include: this.paymentProofInclude(),
+    });
+    await this.log(user, 'PAYMENT_PROOF_SUBMITTED', 'Dovadă de plată trimisă', `Locatarul a trimis o dovadă pentru factura ${invoice.invoiceNumber || invoice.id}.`, invoice.id);
+    await this.activity.notifyOrganizationAdmins({
+      organizationId,
+      type: NotificationType.PAYMENT,
+      title: 'Dovadă de plată trimisă',
+      message: `A fost trimisă o dovadă de ${money(amount).toLocaleString('ro-RO')} MDL pentru factura ${invoice.invoiceNumber || invoice.id}.`,
+      link: '/admin/payment-proofs',
+    }).catch(() => undefined);
+    return {
+      proof: this.serializeResidentPaymentProof(created, true),
+      possibleDuplicate: Boolean(duplicate),
+      warning: duplicate ? 'Există deja o dovadă similară pentru această factură. Adminul o va verifica.' : null,
+      message: 'Dovada a fost trimisă spre verificare.',
+    };
+  }
+
+  async listResidentPaymentProofs(user: MvpUser, query: Record<string, unknown> = {}) {
+    const { organizationId, apartmentIds } = await this.residentInvoiceScope(user);
+    const { page, limit, skip } = resolvePagination(query, 20, 100);
+    const where: Prisma.PaymentProofWhereInput = {
+      organizationId,
+      residentUserId: user.id,
+      apartmentId: { in: apartmentIds.length ? apartmentIds : ['__none__'] },
+    };
+    const status = optionalString(query.status)?.toUpperCase() as PaymentProofStatus | undefined;
+    if (status && Object.values(PaymentProofStatus).includes(status)) where.status = status;
+    const invoiceId = optionalString(query.invoiceId);
+    if (invoiceId) where.invoiceId = invoiceId;
+    const [rows, total] = await Promise.all([
+      this.prisma.paymentProof.findMany({
+        where,
+        include: this.paymentProofInclude(),
+        orderBy: [{ createdAt: 'desc' }],
+        skip,
+        take: limit,
+      }),
+      this.prisma.paymentProof.count({ where }),
+    ]);
+    return {
+      items: rows.map((proof) => this.serializeResidentPaymentProof(proof)),
+      meta: buildPaginationMeta(page, limit, total),
+      emptyStateCode: total === 0 ? 'NO_PAYMENT_PROOFS' : null,
+      emptyStateMessage: total === 0 ? 'Nu ai trimis încă dovezi de plată.' : null,
+    };
+  }
+
+  async getResidentPaymentProof(user: MvpUser, id: string) {
+    const { organizationId, apartmentIds } = await this.residentInvoiceScope(user);
+    const proof = await this.prisma.paymentProof.findFirst({
+      where: {
+        id,
+        organizationId,
+        residentUserId: user.id,
+        apartmentId: { in: apartmentIds.length ? apartmentIds : ['__none__'] },
+      },
+      include: this.paymentProofInclude(),
+    });
+    if (!proof) throw new NotFoundException('Dovada de plată nu a fost găsită.');
+    return { proof: this.serializeResidentPaymentProof(proof, true) };
+  }
+
+  async cancelResidentPaymentProof(user: MvpUser, id: string) {
+    const { organizationId, apartmentIds } = await this.residentInvoiceScope(user);
+    const proof = await this.prisma.paymentProof.findFirst({
+      where: {
+        id,
+        organizationId,
+        residentUserId: user.id,
+        apartmentId: { in: apartmentIds.length ? apartmentIds : ['__none__'] },
+      },
+      include: this.paymentProofInclude(),
+    });
+    if (!proof) throw new NotFoundException('Dovada de plată nu a fost găsită.');
+    if (proof.status !== PaymentProofStatus.SUBMITTED) throw new BadRequestException('Poți anula doar dovezi trimise, neverificate încă.');
+    const updated = await this.prisma.paymentProof.update({
+      where: { id: proof.id },
+      data: { status: PaymentProofStatus.CANCELLED },
+      include: this.paymentProofInclude(),
+    });
+    await this.log(user, 'PAYMENT_PROOF_CANCELLED', 'Dovadă de plată anulată', `Locatarul a anulat dovada pentru factura ${proof.invoice?.invoiceNumber || proof.invoiceId}.`, proof.invoiceId);
+    return { proof: this.serializeResidentPaymentProof(updated, true), message: 'Dovada a fost anulată.' };
+  }
+
+  async getAdminPaymentProofsOverview(user: MvpUser) {
+    const organizationId = this.requireAdminOrganization(user);
+    const proofs = await this.prisma.paymentProof.findMany({
+      where: { organizationId },
+      include: this.paymentProofInclude(),
+    });
+    const now = new Date();
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const issues = proofs.flatMap((proof) => this.paymentProofIssuesForProof(proof));
+    return {
+      totalProofs: proofs.length,
+      submittedProofs: proofs.filter((proof) => proof.status === PaymentProofStatus.SUBMITTED).length,
+      inReviewProofs: proofs.filter((proof) => proof.status === PaymentProofStatus.IN_REVIEW).length,
+      acceptedProofs: proofs.filter((proof) => proof.status === PaymentProofStatus.ACCEPTED).length,
+      rejectedProofs: proofs.filter((proof) => proof.status === PaymentProofStatus.REJECTED).length,
+      partiallyAcceptedProofs: proofs.filter((proof) => proof.status === PaymentProofStatus.PARTIALLY_ACCEPTED).length,
+      totalSubmittedAmount: money(proofs.filter((proof) => REVIEWABLE_PAYMENT_PROOF_STATUSES.includes(proof.status)).reduce((sum, proof) => sum + Number(proof.amount || 0), 0)),
+      totalAcceptedAmount: money(proofs.filter((proof) => ACCEPTED_PAYMENT_PROOF_STATUSES.includes(proof.status)).reduce((sum, proof) => sum + Number(proof.acceptedAmount || proof.amount || 0), 0)),
+      proofsToday: proofs.filter((proof) => new Date(proof.createdAt).getTime() >= todayStart.getTime()).length,
+      proofsThisMonth: proofs.filter((proof) => new Date(proof.createdAt).getTime() >= monthStart.getTime()).length,
+      proofsWithIssues: new Set(issues.map((issue) => issue.proof?.id).filter(Boolean)).size,
+      criticalIssuesCount: issues.filter((issue) => issue.severity === 'CRITICAL').length,
+      warningsCount: issues.filter((issue) => issue.severity === 'WARNING').length,
+    };
+  }
+
+  async listAdminPaymentProofs(user: MvpUser, query: Record<string, unknown> = {}) {
+    const organizationId = this.requireAdminOrganization(user);
+    const { page, limit, skip } = resolvePagination(query, 50, 100);
+    const where = this.adminPaymentProofWhere(organizationId, query);
+    const [rows, total] = await Promise.all([
+      this.prisma.paymentProof.findMany({
+        where,
+        include: this.paymentProofInclude(),
+        orderBy: [{ createdAt: 'desc' }],
+        skip,
+        take: limit,
+      }),
+      this.prisma.paymentProof.count({ where }),
+    ]);
+    return {
+      items: rows.map((proof) => this.serializeAdminPaymentProof(proof)),
+      meta: buildPaginationMeta(page, limit, total),
+      emptyStateCode: total === 0 ? 'NO_PAYMENT_PROOFS' : null,
+      emptyStateMessage: total === 0 ? 'Nu există dovezi de plată trimise.' : null,
+    };
+  }
+
+  async getAdminPaymentProof(user: MvpUser, id: string) {
+    const organizationId = this.requireAdminOrganization(user);
+    const proof = await this.prisma.paymentProof.findFirst({ where: { id, organizationId }, include: this.paymentProofInclude() });
+    if (!proof) throw new NotFoundException('Dovada de plată nu a fost găsită.');
+    const paidAmount = await this.paidAmountForInvoice(organizationId, proof.invoiceId);
+    return {
+      proof: this.serializeAdminPaymentProof(proof, true),
+      invoice: proof.invoice ? this.serializeInvoiceForLedger(proof.invoice) : null,
+      existingPayments: (proof.invoice?.payments || []).map((payment: any) => this.serializeAdminPayment(payment)),
+      remainingAmount: proof.invoice ? this.paymentState(proof.invoice, paidAmount).remainingAmount : 0,
+      warnings: this.paymentProofIssuesForProof(proof),
+      activity: [],
+    };
+  }
+
+  async startAdminPaymentProofReview(user: MvpUser, id: string) {
+    const organizationId = this.requireAdminOrganization(user);
+    const proof = await this.prisma.paymentProof.findFirst({ where: { id, organizationId }, include: this.paymentProofInclude() });
+    if (!proof) throw new NotFoundException('Dovada de plată nu a fost găsită.');
+    if (proof.status !== PaymentProofStatus.SUBMITTED) throw new BadRequestException('Doar dovezile trimise pot intra în verificare.');
+    const updated = await this.prisma.paymentProof.update({
+      where: { id: proof.id },
+      data: { status: PaymentProofStatus.IN_REVIEW },
+      include: this.paymentProofInclude(),
+    });
+    await this.log(user, 'PAYMENT_PROOF_REVIEW_STARTED', 'Verificare dovadă începută', `Adminul a început verificarea dovezii pentru factura ${proof.invoice?.invoiceNumber || proof.invoiceId}.`, proof.invoiceId);
+    return { proof: this.serializeAdminPaymentProof(updated, true) };
+  }
+
+  async acceptAdminPaymentProof(user: MvpUser, id: string, body: unknown) {
+    const organizationId = this.requireAdminOrganization(user);
+    const payload = isRecord(body) ? body : {};
+    const acceptedAmount = money(Number(payload.acceptedAmount ?? payload.amount));
+    if (!Number.isFinite(acceptedAmount) || acceptedAmount <= 0) throw new BadRequestException('Suma acceptată trebuie să fie mai mare decât 0.');
+    const proof = await this.prisma.paymentProof.findFirst({ where: { id, organizationId }, include: this.paymentProofInclude() });
+    if (!proof) throw new NotFoundException('Dovada de plată nu a fost găsită.');
+    if (!REVIEWABLE_PAYMENT_PROOF_STATUSES.includes(proof.status)) throw new BadRequestException('Dovada nu mai poate fi acceptată.');
+    if (!proof.invoice) throw new BadRequestException('Factura asociată lipsește.');
+    const paidAmount = await this.paidAmountForInvoice(organizationId, proof.invoiceId);
+    const state = this.paymentState(proof.invoice, paidAmount);
+    if (state.paymentDisplayStatus === 'CANCELLED') throw new BadRequestException('Factura este anulată.');
+    if (state.remainingAmount <= 0) throw new BadRequestException('Factura este deja achitată.');
+    if (acceptedAmount > state.remainingAmount) throw new BadRequestException('Suma acceptată depășește soldul rămas.');
+    const paidAt = parseDate(payload.paidAt) || proof.paidAt || new Date();
+    const externalReference = optionalString(payload.externalReference) || proof.externalReference || null;
+    const nextProofStatus = acceptedAmount < Number(proof.amount || 0) ? PaymentProofStatus.PARTIALLY_ACCEPTED : PaymentProofStatus.ACCEPTED;
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const payment = await tx.payment.create({
+        data: {
+          organizationId,
+          apartmentId: proof.apartmentId,
+          billingDraftInvoiceId: proof.invoiceId,
+          residentUserId: proof.residentUserId,
+          amount: acceptedAmount,
+          currency: BillingCurrency.MDL,
+          method: proof.method,
+          status: PaymentStatus.ACCEPTED,
+          provider: proof.method === PaymentMethod.CASH ? PaymentProvider.CASH : PaymentProvider.MANUAL_BANK_TRANSFER,
+          externalReference,
+          source: PaymentSource.PAYMENT_PROOF,
+          paymentProofId: proof.id,
+          note: proof.residentNote || null,
+          internalNote: optionalString(payload.adminNote) || null,
+          paidAt,
+          acceptedAt: new Date(),
+          acceptedById: user.id,
+          confirmedAt: new Date(),
+          createdByUserId: user.id,
+          month: proof.invoice?.billingPeriod ? monthKey(proof.invoice.billingPeriod) : monthKey({ year: paidAt.getFullYear(), month: paidAt.getMonth() + 1 }),
+        },
+      });
+      const row = await tx.paymentProof.update({
+        where: { id: proof.id },
+        data: {
+          paymentId: payment.id,
+          status: nextProofStatus,
+          acceptedAmount,
+          paidAt,
+          reviewedAt: new Date(),
+          reviewedById: user.id,
+          adminNote: optionalString(payload.adminNote) || null,
+          externalReference,
+        },
+        include: this.paymentProofInclude(),
+      });
+      await this.recalculateInvoicePaymentStatus(proof.invoiceId, user.id, tx);
+      return row;
+    });
+    await this.log(user, nextProofStatus === PaymentProofStatus.PARTIALLY_ACCEPTED ? 'PAYMENT_PROOF_PARTIALLY_ACCEPTED' : 'PAYMENT_PROOF_ACCEPTED', nextProofStatus === PaymentProofStatus.PARTIALLY_ACCEPTED ? 'Dovadă acceptată parțial' : 'Dovadă acceptată', `Dovada pentru factura ${proof.invoice?.invoiceNumber || proof.invoiceId} a fost verificată.`, proof.invoiceId);
+    await this.log(user, 'PAYMENT_CREATED_MANUAL', 'Plată creată din dovadă', `Plata de ${acceptedAmount.toLocaleString('ro-RO')} MDL a fost creată manual din dovadă.`, proof.invoiceId);
+    await this.activity.notifyUsers({
+      organizationId,
+      userIds: [proof.residentUserId],
+      type: NotificationType.PAYMENT,
+      title: nextProofStatus === PaymentProofStatus.PARTIALLY_ACCEPTED ? 'Dovada de plată a fost acceptată parțial' : 'Dovada de plată a fost acceptată',
+      message: `Dovada pentru factura ${proof.invoice?.invoiceNumber || proof.invoiceId} a fost verificată.`,
+      link: `/resident/payment-proofs/${proof.id}`,
+    }).catch(() => undefined);
+    return {
+      proof: this.serializeAdminPaymentProof(updated, true),
+      message: nextProofStatus === PaymentProofStatus.PARTIALLY_ACCEPTED ? 'Dovada a fost acceptată parțial.' : 'Dovada a fost acceptată.',
+    };
+  }
+
+  async rejectAdminPaymentProof(user: MvpUser, id: string, body: unknown) {
+    const organizationId = this.requireAdminOrganization(user);
+    const payload = isRecord(body) ? body : {};
+    const rejectionReason = optionalString(payload.rejectionReason);
+    if (!rejectionReason) throw new BadRequestException('Motivul respingerii este obligatoriu.');
+    const proof = await this.prisma.paymentProof.findFirst({ where: { id, organizationId }, include: this.paymentProofInclude() });
+    if (!proof) throw new NotFoundException('Dovada de plată nu a fost găsită.');
+    if (!REVIEWABLE_PAYMENT_PROOF_STATUSES.includes(proof.status)) throw new BadRequestException('Dovada nu mai poate fi respinsă.');
+    const updated = await this.prisma.paymentProof.update({
+      where: { id: proof.id },
+      data: {
+        status: PaymentProofStatus.REJECTED,
+        reviewedAt: new Date(),
+        reviewedById: user.id,
+        rejectionReason,
+        adminNote: optionalString(payload.adminNote) || null,
+      },
+      include: this.paymentProofInclude(),
+    });
+    await this.log(user, 'PAYMENT_PROOF_REJECTED', 'Dovadă de plată respinsă', rejectionReason, proof.invoiceId);
+    await this.activity.notifyUsers({
+      organizationId,
+      userIds: [proof.residentUserId],
+      type: NotificationType.PAYMENT,
+      title: 'Dovada de plată a fost respinsă',
+      message: rejectionReason,
+      link: `/resident/payment-proofs/${proof.id}`,
+    }).catch(() => undefined);
+    return { proof: this.serializeAdminPaymentProof(updated, true), message: 'Dovada a fost respinsă.' };
+  }
+
+  async getAdminPaymentProofIssues(user: MvpUser, query: Record<string, unknown> = {}) {
+    const organizationId = this.requireAdminOrganization(user);
+    const proofs = await this.prisma.paymentProof.findMany({
+      where: this.adminPaymentProofWhere(organizationId, query),
+      include: this.paymentProofInclude(),
+      orderBy: [{ createdAt: 'desc' }],
+    });
+    const type = optionalString(query.type)?.toUpperCase();
+    const severity = optionalString(query.severity)?.toUpperCase();
+    const { page, limit, skip } = resolvePagination(query, 50, 100);
+    let issues = proofs.flatMap((proof) => this.paymentProofIssuesForProof(proof));
+    if (type) issues = issues.filter((issue) => issue.type === type);
+    if (severity) issues = issues.filter((issue) => issue.severity === severity);
+    return {
+      items: issues.slice(skip, skip + limit),
+      meta: buildPaginationMeta(page, limit, issues.length),
+      emptyStateCode: issues.length === 0 ? 'NO_PAYMENT_PROOF_ISSUES' : null,
+      emptyStateMessage: issues.length === 0 ? 'Nu există probleme detectate.' : null,
+    };
+  }
+
   async getResidentBalanceOverview(user: MvpUser) {
     const snapshot = await this.residentBalanceSnapshot(user);
     const invoiceSummaries = snapshot.invoiceSummaries.filter((invoice) => invoice.status !== BillingDraftInvoiceStatus.CANCELLED);
@@ -638,8 +1033,8 @@ export class InvoicePublishingService {
     const partiallyPaidInvoices = invoiceSummaries.filter((invoice) => invoice.paymentDisplayStatus === 'PARTIALLY_PAID');
     const paidInvoices = invoiceSummaries.filter((invoice) => invoice.paymentDisplayStatus === 'PAID');
     const acceptedPayments = snapshot.payments.filter((payment) => ACCEPTED_PAYMENT_STATUSES.includes(payment.status));
-    const pendingPaymentProofs = snapshot.payments.filter((payment) => payment.source === PaymentSource.PAYMENT_PROOF && payment.status === PaymentStatus.PENDING);
-    const rejectedPaymentProofs = snapshot.payments.filter((payment) => payment.source === PaymentSource.PAYMENT_PROOF && payment.status === PaymentStatus.REJECTED);
+    const pendingPaymentProofs = snapshot.paymentProofs.filter((proof: any) => [PaymentProofStatus.SUBMITTED, PaymentProofStatus.IN_REVIEW].includes(proof.status));
+    const rejectedPaymentProofs = snapshot.paymentProofs.filter((proof: any) => proof.status === PaymentProofStatus.REJECTED);
     const nextDueInvoice =
       [...unpaidInvoices]
         .filter((invoice) => invoice.dueDate)
@@ -688,9 +1083,9 @@ export class InvoicePublishingService {
       unpaidInvoices: invoiceSummaries.filter((invoice) => invoice.remainingAmount > 0),
       overdueInvoices: invoiceSummaries.filter((invoice) => invoice.paymentDisplayStatus === 'OVERDUE'),
       recentPayments: payments.slice(0, 10).map((payment) => this.serializeResidentPayment(payment)),
-      pendingPaymentProofs: payments
-        .filter((payment) => payment.source === PaymentSource.PAYMENT_PROOF && payment.status === PaymentStatus.PENDING)
-        .map((payment) => this.serializeResidentPayment(payment)),
+      pendingPaymentProofs: snapshot.paymentProofs
+        .filter((proof: any) => proof.apartmentId === apartmentId && [PaymentProofStatus.SUBMITTED, PaymentProofStatus.IN_REVIEW].includes(proof.status))
+        .map((proof: any) => this.serializeResidentPaymentProof(proof)),
       timelinePreview: this.buildResidentFinancialTimeline(snapshot).slice(0, 10),
     };
   }
@@ -790,30 +1185,33 @@ export class InvoicePublishingService {
         });
       }
     });
-    snapshot.payments.forEach((payment) => {
-      const serializedPayment = this.serializeResidentPayment(payment);
-      if (payment.source === PaymentSource.PAYMENT_PROOF && payment.status === PaymentStatus.PENDING) {
+    (snapshot.paymentProofs || []).forEach((proof: any) => {
+      const serializedProof = this.serializeResidentPaymentProof(proof);
+      if (proof.status === PaymentProofStatus.SUBMITTED || proof.status === PaymentProofStatus.IN_REVIEW) {
         issues.push({
-          id: `PAYMENT_PROOF_PENDING-${payment.id}`,
+          id: `PAYMENT_PROOF_PENDING-${proof.id}`,
           type: 'PAYMENT_PROOF_PENDING',
           severity: 'INFO',
-          payment: serializedPayment,
-          apartment: serializedPayment.apartment,
-          amount: serializedPayment.amount,
+          paymentProof: serializedProof,
+          apartment: serializedProof.apartment,
+          amount: serializedProof.amount,
           recommendation: 'Dovada este în verificare la administrație.',
         });
       }
-      if (payment.source === PaymentSource.PAYMENT_PROOF && payment.status === PaymentStatus.REJECTED) {
+      if (proof.status === PaymentProofStatus.REJECTED) {
         issues.push({
-          id: `PAYMENT_PROOF_REJECTED-${payment.id}`,
+          id: `PAYMENT_PROOF_REJECTED-${proof.id}`,
           type: 'PAYMENT_PROOF_REJECTED',
           severity: 'WARNING',
-          payment: serializedPayment,
-          apartment: serializedPayment.apartment,
-          amount: serializedPayment.amount,
+          paymentProof: serializedProof,
+          apartment: serializedProof.apartment,
+          amount: serializedProof.amount,
           recommendation: 'Verifică motivul respingerii și trimite o dovadă corectă.',
         });
       }
+    });
+    snapshot.payments.forEach((payment) => {
+      const serializedPayment = this.serializeResidentPayment(payment);
       if (payment.status === PaymentStatus.REVERSED) {
         issues.push({
           id: `PAYMENT_REVERSED-${payment.id}`,
@@ -1220,6 +1618,209 @@ export class InvoicePublishingService {
       billingDraftInvoice: { include: this.invoiceListInclude() },
       residentUser: { select: { id: true, firstName: true, lastName: true, fullName: true, email: true, phone: true } },
     } satisfies Prisma.PaymentInclude;
+  }
+
+  private paymentProofInclude() {
+    return {
+      apartment: { include: { building: { select: { id: true, name: true } }, staircase: { select: { id: true, name: true } } } },
+      invoice: {
+        include: {
+          billingPeriod: true,
+          apartment: {
+            include: {
+              building: { select: { id: true, name: true } },
+              staircase: { select: { id: true, name: true } },
+              residents: { select: { id: true, firstName: true, lastName: true, email: true, phone: true, userId: true }, take: 5 },
+              ownerResident: { select: { id: true, firstName: true, lastName: true, email: true, phone: true, userId: true } },
+            },
+          },
+          resident: true,
+          owner: true,
+          payments: { include: this.paymentLedgerInclude(), orderBy: [{ paidAt: 'desc' }, { acceptedAt: 'desc' }, { createdAt: 'desc' }] },
+        },
+      },
+      residentUser: { select: { id: true, firstName: true, lastName: true, fullName: true, email: true, phone: true } },
+      reviewedBy: { select: { id: true, firstName: true, lastName: true, fullName: true, email: true } },
+      payment: { include: this.paymentLedgerInclude() },
+    } satisfies Prisma.PaymentProofInclude;
+  }
+
+  private adminPaymentProofWhere(organizationId: string, query: Record<string, unknown>): Prisma.PaymentProofWhereInput {
+    const where: Prisma.PaymentProofWhereInput = { organizationId };
+    const status = optionalString(query.status)?.toUpperCase() as PaymentProofStatus | undefined;
+    if (status && Object.values(PaymentProofStatus).includes(status)) where.status = status;
+    const method = optionalString(query.method)?.toUpperCase() as PaymentMethod | undefined;
+    if (method && Object.values(PaymentMethod).includes(method)) where.method = method;
+    const invoiceId = optionalString(query.invoiceId);
+    if (invoiceId) where.invoiceId = invoiceId;
+    const apartmentId = optionalString(query.apartmentId);
+    if (apartmentId) where.apartmentId = apartmentId;
+    const dateFrom = parseDate(query.dateFrom);
+    const dateTo = parseDate(query.dateTo);
+    if (dateFrom || dateTo) where.createdAt = { ...(dateFrom ? { gte: dateFrom } : {}), ...(dateTo ? { lte: dateTo } : {}) };
+    const search = optionalString(query.search);
+    if (search) {
+      where.OR = [
+        { externalReference: { contains: search, mode: 'insensitive' } },
+        { residentNote: { contains: search, mode: 'insensitive' } },
+        { invoice: { invoiceNumber: { contains: search, mode: 'insensitive' } } },
+        { apartment: { number: { contains: search, mode: 'insensitive' } } },
+        { residentUser: { email: { contains: search, mode: 'insensitive' } } },
+        { residentUser: { firstName: { contains: search, mode: 'insensitive' } } },
+        { residentUser: { lastName: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
+    return where;
+  }
+
+  private async findPossibleDuplicatePaymentProof(organizationId: string, invoiceId: string, amount: number, paidAt: Date | null, externalReference: string | null) {
+    const where: Prisma.PaymentProofWhereInput = {
+      organizationId,
+      invoiceId,
+      amount,
+      status: { in: [PaymentProofStatus.SUBMITTED, PaymentProofStatus.IN_REVIEW, PaymentProofStatus.ACCEPTED, PaymentProofStatus.PARTIALLY_ACCEPTED] },
+    };
+    if (externalReference) where.externalReference = externalReference;
+    if (paidAt) {
+      const start = new Date(paidAt);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(paidAt);
+      end.setHours(23, 59, 59, 999);
+      where.paidAt = { gte: start, lte: end };
+    }
+    return this.prisma.paymentProof.findFirst({ where, select: { id: true } });
+  }
+
+  private serializeResidentPaymentProof(proof: any, detail = false) {
+    const invoiceState = proof.invoice ? this.invoicePaymentState(proof.invoice, proof.invoice.payments || []) : null;
+    const payload: Record<string, unknown> = {
+      id: proof.id,
+      proofId: proof.id,
+      invoiceId: proof.invoiceId,
+      invoiceNumber: proof.invoice?.invoiceNumber || null,
+      invoice: proof.invoice
+        ? {
+            id: proof.invoice.id,
+            invoiceNumber: proof.invoice.invoiceNumber,
+            billingMonth: proof.invoice.billingPeriod ? monthKey(proof.invoice.billingPeriod) : null,
+            status: proof.invoice.status,
+            totalAmount: numberFromDecimal(proof.invoice.total),
+            remainingAmount: invoiceState?.remainingAmount ?? null,
+          }
+        : null,
+      apartmentId: proof.apartmentId,
+      apartment: apartmentInfo(proof.apartment || proof.invoice?.apartment),
+      amount: numberFromDecimal(proof.amount),
+      acceptedAmount: proof.acceptedAmount === null || proof.acceptedAmount === undefined ? null : numberFromDecimal(proof.acceptedAmount),
+      currency: proof.currency,
+      method: proof.method,
+      status: proof.status,
+      paidAt: proof.paidAt,
+      createdAt: proof.createdAt,
+      reviewedAt: proof.reviewedAt,
+      rejectionReason: proof.rejectionReason || null,
+      paymentId: proof.paymentId || null,
+      possibleDuplicate: Boolean(proof.possibleDuplicate),
+    };
+    if (detail) {
+      payload.proofFileUrl = proof.proofFileUrl || null;
+      payload.proofFileName = proof.proofFileName || null;
+      payload.proofFileMimeType = proof.proofFileMimeType || null;
+      payload.proofFileSize = proof.proofFileSize || null;
+      payload.externalReference = proof.externalReference || null;
+      payload.residentNote = proof.residentNote || null;
+      payload.adminNote = proof.adminNote || null;
+    }
+    return payload;
+  }
+
+  private serializeAdminPaymentProof(proof: any, detail = false) {
+    const invoiceState = proof.invoice ? this.invoicePaymentState(proof.invoice, proof.invoice.payments || []) : null;
+    const residentName = proof.residentUser?.fullName || fullName(proof.residentUser) || proof.residentUser?.email || proof.residentUser?.phone || null;
+    const payload: Record<string, unknown> = {
+      id: proof.id,
+      proofId: proof.id,
+      invoiceId: proof.invoiceId,
+      invoiceNumber: proof.invoice?.invoiceNumber || null,
+      invoice: proof.invoice ? this.serializeInvoiceForLedger(proof.invoice) : null,
+      apartmentId: proof.apartmentId,
+      apartment: apartmentInfo(proof.apartment || proof.invoice?.apartment),
+      resident: proof.residentUser ? { id: proof.residentUser.id, name: residentName, email: proof.residentUser.email || null, phone: proof.residentUser.phone || null } : null,
+      owner: proof.invoice?.owner ? { id: proof.invoice.owner.id, name: fullName(proof.invoice.owner), email: proof.invoice.owner.email, phone: proof.invoice.owner.phone } : null,
+      amount: numberFromDecimal(proof.amount),
+      acceptedAmount: proof.acceptedAmount === null || proof.acceptedAmount === undefined ? null : numberFromDecimal(proof.acceptedAmount),
+      currency: proof.currency,
+      method: proof.method,
+      status: proof.status,
+      paidAt: proof.paidAt,
+      createdAt: proof.createdAt,
+      reviewedAt: proof.reviewedAt,
+      reviewedBy: proof.reviewedBy ? { id: proof.reviewedBy.id, name: fullName(proof.reviewedBy) || proof.reviewedBy.email } : null,
+      proofFileUrl: proof.proofFileUrl || null,
+      proofFileName: proof.proofFileName || null,
+      proofFileMimeType: proof.proofFileMimeType || null,
+      proofFileSize: proof.proofFileSize || null,
+      externalReference: proof.externalReference || null,
+      remainingAmount: invoiceState?.remainingAmount ?? null,
+      warnings: this.paymentProofIssuesForProof(proof),
+      paymentId: proof.paymentId || null,
+      linkedPayment: proof.payment ? this.serializeAdminPayment(proof.payment) : null,
+      possibleDuplicate: Boolean(proof.possibleDuplicate),
+    };
+    if (detail) {
+      payload.residentNote = proof.residentNote || null;
+      payload.adminNote = proof.adminNote || null;
+      payload.rejectionReason = proof.rejectionReason || null;
+      payload.existingPayments = (proof.invoice?.payments || []).map((payment: any) => this.serializeAdminPayment(payment));
+    }
+    return payload;
+  }
+
+  private paymentProofIssuesForProof(proof: any): PaymentProofIssue[] {
+    const issues: PaymentProofIssue[] = [];
+    const invoice = proof.invoice || null;
+    const serializedProof = { id: proof.id, status: proof.status, amount: numberFromDecimal(proof.amount) };
+    const serializedInvoice = invoice ? { id: invoice.id, invoiceNumber: invoice.invoiceNumber, status: invoice.status, total: numberFromDecimal(invoice.total) } : null;
+    const serializedApartment = apartmentInfo(proof.apartment || invoice?.apartment);
+    const push = (type: PaymentProofIssueType, severity: IssueSeverity, title: string, recommendation: string, blocking = severity === 'CRITICAL') => {
+      issues.push({
+        id: `${type}-${proof.id}`,
+        type,
+        severity,
+        blocking,
+        title,
+        recommendation,
+        proof: serializedProof,
+        invoice: serializedInvoice,
+        apartment: serializedApartment,
+      });
+    };
+    if (!invoice) {
+      push('RESIDENT_NOT_LINKED_TO_INVOICE', 'CRITICAL', 'Factura asociată nu mai există', 'Verifică manual factura și apartamentul înainte de acceptare.');
+      return issues;
+    }
+    const state = this.invoicePaymentState(invoice, invoice.payments || []);
+    const reviewable = REVIEWABLE_PAYMENT_PROOF_STATUSES.includes(proof.status);
+    if (invoice.status === BillingDraftInvoiceStatus.CANCELLED) push('INVOICE_CANCELLED', 'CRITICAL', 'Factura este anulată', 'Respinge dovada sau verifică dacă factura trebuie republicată.');
+    if (reviewable && state.remainingAmount <= 0) push('INVOICE_ALREADY_PAID', 'CRITICAL', 'Factura este deja achitată', 'Nu accepta dovada fără o verificare manuală a soldului.');
+    if (reviewable && numberFromDecimal(proof.amount) > state.remainingAmount) push('AMOUNT_EXCEEDS_REMAINING', 'WARNING', 'Suma depășește soldul rămas', 'Acceptă doar suma verificată sau respinge dovada.');
+    if (!proof.proofFileUrl) push('MISSING_PROOF_FILE', 'WARNING', 'Dovada nu are fișier/link atașat', 'Solicită locatarului un document sau verifică manual referința.', false);
+    if (!proof.paidAt) push('MISSING_PAID_DATE', 'WARNING', 'Data plății lipsește', 'Completează data la acceptare dacă extrasul o confirmă.', false);
+    if (proof.possibleDuplicate) push('DUPLICATE_PROOF', 'WARNING', 'Dovadă posibil duplicată', 'Compară referința, suma și data cu dovezile existente.', false);
+    if (String(proof.currency) !== String(invoice.currency)) push('CURRENCY_MISMATCH', 'CRITICAL', 'Moneda nu corespunde facturii', 'Respinge dovada sau cere corectare.');
+    if (proof.paymentId || ACCEPTED_PAYMENT_PROOF_STATUSES.includes(proof.status)) {
+      push('PAYMENT_ALREADY_ACCEPTED', 'INFO', 'Dovada are plată creată', 'Nu crea o plată dublă pentru aceeași dovadă.', false);
+    }
+    const linkedUserIds = [
+      invoice.resident?.userId,
+      invoice.owner?.userId,
+      invoice.apartment?.ownerResident?.userId,
+      ...(invoice.apartment?.residents || []).map((resident: any) => resident.userId),
+    ].filter(Boolean);
+    if (linkedUserIds.length && !linkedUserIds.includes(proof.residentUserId)) {
+      push('RESIDENT_NOT_LINKED_TO_INVOICE', 'CRITICAL', 'Locatarul nu mai este legat de factură', 'Verifică drepturile de acces înainte de acceptare.');
+    }
+    return issues;
   }
 
   private apartmentLedgerInclude() {
@@ -1726,9 +2327,9 @@ export class InvoicePublishingService {
     if (apartmentId && !apartmentIds.includes(apartmentId)) throw new ForbiddenException('Nu ai acces la acest apartament.');
     const scopedApartmentIds = apartmentId ? [apartmentId] : apartmentIds;
     if (!scopedApartmentIds.length) {
-      return { organizationId, apartmentIds: [], apartments: [], invoices: [], invoiceSummaries: [], payments: [], apartmentBalances: [] };
+      return { organizationId, apartmentIds: [], apartments: [], invoices: [], invoiceSummaries: [], payments: [], paymentProofs: [], apartmentBalances: [] };
     }
-    const [apartments, invoices, payments] = await Promise.all([
+    const [apartments, invoices, payments, paymentProofs] = await Promise.all([
       this.prisma.apartment.findMany({
         where: { organizationId, id: { in: scopedApartmentIds } },
         include: this.apartmentLedgerInclude(),
@@ -1744,6 +2345,11 @@ export class InvoicePublishingService {
         include: this.residentPaymentInclude(),
         orderBy: [{ paidAt: 'desc' }, { acceptedAt: 'desc' }, { createdAt: 'desc' }],
       }),
+      this.prisma.paymentProof.findMany({
+        where: { organizationId, apartmentId: { in: scopedApartmentIds }, residentUserId: user.id },
+        include: this.paymentProofInclude(),
+        orderBy: [{ createdAt: 'desc' }],
+      }),
     ]);
     const paidByInvoice = await this.paidAmountsForInvoices(
       organizationId,
@@ -1757,6 +2363,7 @@ export class InvoicePublishingService {
       invoices,
       invoiceSummaries,
       payments,
+      paymentProofs,
       apartmentBalances: this.buildResidentApartmentBalances(apartments, invoiceSummaries, payments),
     };
   }
@@ -2032,7 +2639,7 @@ export class InvoicePublishingService {
     };
   }
 
-  private serializeResidentInvoiceDetail(invoice: any, organization: any, paidAmount = 0, activePaymentIntent: any = null) {
+  private serializeResidentInvoiceDetail(invoice: any, organization: any, paidAmount = 0, activePaymentIntent: any = null, paymentProofs: any[] = []) {
     const base = this.serializeResidentInvoiceList(invoice, paidAmount);
     return {
       invoice: {
@@ -2066,6 +2673,7 @@ export class InvoicePublishingService {
       remainingAmount: base.remainingAmount,
       canPayPlaceholder: base.canPayPlaceholder,
       activePaymentIntent: activePaymentIntent ? this.serializePaymentIntentPlaceholder(activePaymentIntent) : null,
+      paymentProofs: paymentProofs.map((proof) => this.serializeResidentPaymentProof(proof, true)),
       paymentUnavailableMessage: 'Plata online va fi disponibilă ulterior.',
       payments: [],
     };
@@ -2116,7 +2724,7 @@ export class InvoicePublishingService {
     return payload;
   }
 
-  private buildResidentFinancialTimeline(snapshot: { invoiceSummaries: any[]; payments: any[] }) {
+  private buildResidentFinancialTimeline(snapshot: { invoiceSummaries: any[]; payments: any[]; paymentProofs?: any[] }) {
     const entries: Array<Record<string, unknown>> = [];
     snapshot.invoiceSummaries.forEach((invoice) => {
       const publishedDate = invoice.publishedAt || invoice.updatedAt || invoice.createdAt;
@@ -2215,6 +2823,40 @@ export class InvoicePublishingService {
         apartmentId: payment.apartmentId,
         apartment: serialized.apartment,
         status: payment.status,
+      });
+    });
+    (snapshot.paymentProofs || []).forEach((proof) => {
+      let type: string | null = null;
+      let title = '';
+      let description = '';
+      if (proof.status === PaymentProofStatus.SUBMITTED || proof.status === PaymentProofStatus.IN_REVIEW) {
+        type = 'PAYMENT_PROOF_SUBMITTED';
+        title = proof.status === PaymentProofStatus.IN_REVIEW ? 'Dovadă de plată în verificare' : 'Dovadă de plată trimisă';
+        description = 'Administrația verifică dovada transmisă.';
+      } else if (proof.status === PaymentProofStatus.ACCEPTED || proof.status === PaymentProofStatus.PARTIALLY_ACCEPTED) {
+        type = 'PAYMENT_PROOF_ACCEPTED';
+        title = proof.status === PaymentProofStatus.PARTIALLY_ACCEPTED ? 'Dovadă de plată acceptată parțial' : 'Dovadă de plată acceptată';
+        description = proof.status === PaymentProofStatus.PARTIALLY_ACCEPTED ? 'Doar o parte din sumă a fost acceptată.' : 'Plata asociată dovezii a fost acceptată.';
+      } else if (proof.status === PaymentProofStatus.REJECTED) {
+        type = 'PAYMENT_PROOF_REJECTED';
+        title = 'Dovadă de plată respinsă';
+        description = proof.rejectionReason || 'Dovada a fost respinsă de administrație.';
+      }
+      if (!type) return;
+      entries.push({
+        id: `${type}-${proof.id}`,
+        date: proof.reviewedAt || proof.createdAt,
+        type,
+        title,
+        description,
+        amount: numberFromDecimal(proof.acceptedAmount || proof.amount),
+        currency: proof.currency,
+        invoiceId: proof.invoiceId,
+        paymentId: proof.paymentId || null,
+        paymentProofId: proof.id,
+        apartmentId: proof.apartmentId,
+        apartment: apartmentInfo(proof.apartment || proof.invoice?.apartment),
+        status: proof.status,
       });
     });
     return entries.sort((a, b) => new Date(String(b.date || 0)).getTime() - new Date(String(a.date || 0)).getTime());

@@ -550,6 +550,15 @@ enum PaymentSource {
   SYSTEM
 }
 
+enum PaymentProofStatus {
+  SUBMITTED
+  IN_REVIEW
+  ACCEPTED
+  REJECTED
+  PARTIALLY_ACCEPTED
+  CANCELLED
+}
+
 enum PaymentProvider {
   NONE
   MAIB
@@ -2974,6 +2983,7 @@ model Organization {
   billingDraftInvoices BillingDraftInvoice[]
   billingDraftInvoiceLines BillingDraftInvoiceLine[]
   payments           Payment[]
+  paymentProofs      PaymentProof[]
   issues             Issue[]
   publicAnnouncements Announcement[]
   messageThreads    MessageThread[]
@@ -6438,6 +6448,8 @@ model User {
   paymentsRejected     Payment[]     @relation("PaymentRejectedByUser")
   paymentsReversed     Payment[]     @relation("PaymentReversedByUser")
   residentPayments     Payment[]     @relation("PaymentResidentUser")
+  residentPaymentProofs PaymentProof[] @relation("PaymentProofResidentUser")
+  reviewedPaymentProofs PaymentProof[] @relation("PaymentProofReviewedBy")
   meterReadingPeriodsLocked MeterReadingPeriod[] @relation("MeterReadingPeriodLockedBy")
   auditLogs            AuditLog[]    @relation("AuditLogUser")
   associationRolesCreated AssociationRole[] @relation("AssociationRoleCreatedBy")
@@ -6915,6 +6927,7 @@ model Apartment {
   meterReadings MeterReading[]
   invoices     Invoice[]
   payments     Payment[]
+  paymentProofs PaymentProof[]
   monthlyCharges MonthlyCharge[]
   residentInvoices ResidentInvoice[]
   billingDraftInvoices BillingDraftInvoice[]
@@ -7223,6 +7236,7 @@ model BillingDraftInvoice {
   publishedBy   User?              @relation("BillingDraftInvoicePublishedBy", fields: [publishedById], references: [id], onDelete: SetNull)
   lines         BillingDraftInvoiceLine[]
   payments      Payment[]
+  paymentProofs PaymentProof[]
 
   @@unique([billingPeriodId, apartmentId])
   @@unique([organizationId, invoiceNumber])
@@ -7310,6 +7324,7 @@ model Payment {
   rejectedBy   User?          @relation("PaymentRejectedByUser", fields: [rejectedById], references: [id], onDelete: SetNull)
   reversedBy   User?          @relation("PaymentReversedByUser", fields: [reversedById], references: [id], onDelete: SetNull)
   residentUser User?          @relation("PaymentResidentUser", fields: [residentUserId], references: [id], onDelete: SetNull)
+  paymentProof  PaymentProof? @relation("PaymentProofCreatedPayment")
   receipts     Receipt[]
   importedPayments ImportedPayment[]
 
@@ -7330,6 +7345,52 @@ model Payment {
   @@index([month])
   @@index([organizationId, apartmentId, createdAt])
   @@map("payments")
+}
+
+model PaymentProof {
+  id                    String             @id @default(uuid())
+  organizationId        String
+  invoiceId             String
+  apartmentId           String
+  residentUserId        String
+  paymentId             String?            @unique
+  amount                Float
+  currency              BillingCurrency    @default(MDL)
+  method                PaymentMethod
+  status                PaymentProofStatus @default(SUBMITTED)
+  proofFileUrl          String?
+  proofFileName         String?
+  proofFileMimeType     String?
+  proofFileSize         Int?
+  externalReference     String?
+  paidAt                DateTime?
+  residentNote          String?
+  adminNote             String?
+  reviewedAt            DateTime?
+  reviewedById          String?
+  acceptedAmount        Float?
+  rejectionReason       String?
+  possibleDuplicate     Boolean            @default(false)
+  duplicatePaymentProofId String?
+  metadataJson          Json?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice      BillingDraftInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  apartment    Apartment           @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+  residentUser User                @relation("PaymentProofResidentUser", fields: [residentUserId], references: [id], onDelete: Cascade)
+  reviewedBy   User?               @relation("PaymentProofReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+  payment      Payment?            @relation("PaymentProofCreatedPayment", fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status, createdAt])
+  @@index([organizationId, invoiceId])
+  @@index([apartmentId])
+  @@index([residentUserId])
+  @@index([paymentId])
+  @@index([reviewedById])
+  @@index([paidAt])
+  @@map("payment_proofs")
 }
 
 model PaymentIntent {

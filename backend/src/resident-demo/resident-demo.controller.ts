@@ -122,6 +122,11 @@ export class ResidentDemoController {
     return this.invoicePublishingService.createResidentPaymentIntentPlaceholder(user, id, body);
   }
 
+  @Post(['resident/invoices/:id/payment-proofs', 'api/resident/invoices/:id/payment-proofs'])
+  submitPaymentProof(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.invoicePublishingService.submitResidentPaymentProof(user, id, body);
+  }
+
   @Get(['resident/invoices/:id/print-data', 'api/resident/invoices/:id/print-data'])
   getInvoicePrintData(@CurrentUser() user: MvpUser, @Param('id') id: string) {
     return this.invoicePublishingService.getResidentInvoicePrintData(user, id);
@@ -140,6 +145,21 @@ export class ResidentDemoController {
   @Post(['resident/payment-intents/:id/cancel', 'api/resident/payment-intents/:id/cancel'])
   cancelPaymentIntentPlaceholder(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
     return this.invoicePublishingService.cancelResidentPaymentIntentPlaceholder(user, id, body);
+  }
+
+  @Get(['resident/payment-proofs', 'api/resident/payment-proofs'])
+  listPaymentProofs(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.invoicePublishingService.listResidentPaymentProofs(user, query);
+  }
+
+  @Get(['resident/payment-proofs/:id', 'api/resident/payment-proofs/:id'])
+  getPaymentProof(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.invoicePublishingService.getResidentPaymentProof(user, id);
+  }
+
+  @Post(['resident/payment-proofs/:id/cancel', 'api/resident/payment-proofs/:id/cancel'])
+  cancelPaymentProof(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.invoicePublishingService.cancelResidentPaymentProof(user, id);
   }
 
   @Get(['resident/payments', 'api/resident/payments'])

@@ -170,6 +170,7 @@ type ResidentBalanceOverview = {
   unpaidInvoicesCount: number;
   overdueInvoicesCount: number;
   pendingPaymentProofsCount: number;
+  rejectedPaymentProofsCount?: number;
   nextDueInvoice?: { dueDate?: string | null; invoiceNumber?: string | null } | null;
   lastPayment?: { paidAt?: string | null; acceptedAt?: string | null; amount?: number | null } | null;
 };
@@ -579,6 +580,26 @@ export default function ResidentDashboardPage() {
           <MiniInfo label="Achitate" value={String(invoiceOverview?.paidInvoices || 0)} />
         </div>
       </Card>
+
+      {Number(balanceOverview?.pendingPaymentProofsCount || 0) > 0 || Number(balanceOverview?.rejectedPaymentProofsCount || 0) > 0 ? (
+        <Card className={Number(balanceOverview?.rejectedPaymentProofsCount || 0) > 0 ? 'border-rose-200 bg-rose-50' : 'border-amber-200 bg-amber-50'}>
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className={Number(balanceOverview?.rejectedPaymentProofsCount || 0) > 0 ? 'text-sm font-semibold text-rose-950' : 'text-sm font-semibold text-amber-950'}>
+                {Number(balanceOverview?.rejectedPaymentProofsCount || 0) > 0 ? 'Ai dovezi de plată respinse' : 'Dovezi de plată în verificare'}
+              </p>
+              <p className={Number(balanceOverview?.rejectedPaymentProofsCount || 0) > 0 ? 'mt-1 text-sm text-rose-800' : 'mt-1 text-sm text-amber-800'}>
+                {Number(balanceOverview?.rejectedPaymentProofsCount || 0) > 0
+                  ? `${balanceOverview?.rejectedPaymentProofsCount} dovezi trebuie verificate sau retrimise.`
+                  : `${balanceOverview?.pendingPaymentProofsCount} dovezi sunt în așteptarea verificării de către administrație.`}
+              </p>
+            </div>
+            <ButtonLink href="/resident/payment-proofs" variant="secondary">
+              <ReceiptText className="h-4 w-4" /> Vezi dovezile
+            </ButtonLink>
+          </div>
+        </Card>
+      ) : null}
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Sold curent" value={formatMdl(currentBalance)} description={`${formatMdl(overdueBalance)} restante`} icon={<Wallet className="h-5 w-5" />} tone={currentBalance > 0 ? 'warning' : 'success'} />

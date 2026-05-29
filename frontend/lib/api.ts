@@ -2079,6 +2079,13 @@ export const invoicesApi = {
     apiRequest<any>(`/api/resident/invoices/${id}/mark-viewed`, { method: 'POST' }),
   createResidentPaymentIntentPlaceholder: (invoiceId: string, data: { confirm: boolean }) =>
     apiRequest<any>(`/api/resident/invoices/${invoiceId}/payment-intent-placeholder`, { method: 'POST', body: data }),
+  submitResidentPaymentProof: (invoiceId: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/resident/invoices/${invoiceId}/payment-proofs`, { method: 'POST', body: data }),
+  getResidentPaymentProofs: (params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>('/api/resident/payment-proofs', { params }),
+  getResidentPaymentProof: (id: string) => apiRequest<any>(`/api/resident/payment-proofs/${id}`),
+  cancelResidentPaymentProof: (id: string) =>
+    apiRequest<any>(`/api/resident/payment-proofs/${id}/cancel`, { method: 'POST' }),
   cancelResidentPaymentIntentPlaceholder: (intentId: string, data?: { reason?: string }) =>
     apiRequest<any>(`/api/resident/payment-intents/${intentId}/cancel`, { method: 'POST', body: data || {} }),
   getResidentInvoicePrintData: (id: string) =>
@@ -2250,6 +2257,18 @@ export const paymentsApi = {
   adminStats: (params?: { billingMonth?: string; dateFrom?: string; dateTo?: string }) =>
     apiRequest<any>('/api/admin/payments/stats', { params }),
   getAdminPaymentsOverview: () => apiRequest<any>('/api/admin/payments/overview'),
+  getAdminPaymentProofs: (params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>('/api/admin/payment-proofs', { params }),
+  getAdminPaymentProofsOverview: () => apiRequest<any>('/api/admin/payment-proofs/overview'),
+  getAdminPaymentProof: (id: string) => apiRequest<any>(`/api/admin/payment-proofs/${id}`),
+  startAdminPaymentProofReview: (id: string) =>
+    apiRequest<any>(`/api/admin/payment-proofs/${id}/start-review`, { method: 'POST' }),
+  acceptAdminPaymentProof: (id: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/admin/payment-proofs/${id}/accept`, { method: 'POST', body: data }),
+  rejectAdminPaymentProof: (id: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/admin/payment-proofs/${id}/reject`, { method: 'POST', body: data }),
+  getAdminPaymentProofIssues: (params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>('/api/admin/payment-proofs/issues', { params }),
   getAdminPayments: (params?: {
     status?: string;
     method?: string;

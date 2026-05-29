@@ -3,14 +3,15 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, CreditCard, FileText, Home, Loader2, Printer, ReceiptText, ShieldCheck, UserRound, XCircle } from 'lucide-react';
-import { Badge, Button, ButtonLink, Card, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
+import { ArrowLeft, CreditCard, FileCheck2, FileText, Home, Loader2, Printer, ReceiptText, ShieldCheck, UploadCloud, UserRound, XCircle } from 'lucide-react';
+import { Badge, Button, ButtonLink, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
 import { invoicesApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 type ResidentInvoiceStatus = 'PUBLISHED' | 'PARTIALLY_PAID' | 'PAID' | 'CANCELLED';
 type PaymentDisplayStatus = 'UNPAID' | 'PARTIALLY_PAID' | 'PAID' | 'OVERDUE' | 'CANCELLED';
+type PaymentProofStatus = 'SUBMITTED' | 'IN_REVIEW' | 'ACCEPTED' | 'REJECTED' | 'PARTIALLY_ACCEPTED' | 'CANCELLED';
 
 type PaymentIntentPlaceholder = {
   id: string;
@@ -101,7 +102,28 @@ type InvoiceDetails = {
   remainingAmount?: number;
   canPayPlaceholder?: boolean;
   activePaymentIntent?: PaymentIntentPlaceholder | null;
+  paymentProofs?: PaymentProofRow[];
   paymentUnavailableMessage?: string;
+};
+
+type PaymentProofRow = {
+  id: string;
+  invoiceId: string;
+  invoiceNumber?: string | null;
+  apartment?: { apartmentNumber?: string | null; number?: string | null } | null;
+  amount: number;
+  acceptedAmount?: number | null;
+  currency: 'MDL';
+  method: string;
+  status: PaymentProofStatus;
+  paidAt?: string | null;
+  createdAt?: string | null;
+  reviewedAt?: string | null;
+  rejectionReason?: string | null;
+  proofFileUrl?: string | null;
+  externalReference?: string | null;
+  residentNote?: string | null;
+  adminNote?: string | null;
 };
 
 const paymentStatusLabels: Record<PaymentDisplayStatus, string> = {
@@ -120,6 +142,33 @@ const paymentStatusVariant: Record<PaymentDisplayStatus, 'default' | 'warning' |
   CANCELLED: 'neutral',
 };
 
+const proofStatusLabels: Record<PaymentProofStatus, string> = {
+  SUBMITTED: 'Trimisă',
+  IN_REVIEW: 'În verificare',
+  ACCEPTED: 'Acceptată',
+  PARTIALLY_ACCEPTED: 'Acceptată parțial',
+  REJECTED: 'Respinsă',
+  CANCELLED: 'Anulată',
+};
+
+const proofStatusVariant: Record<PaymentProofStatus, 'default' | 'warning' | 'success' | 'neutral' | 'error'> = {
+  SUBMITTED: 'default',
+  IN_REVIEW: 'warning',
+  ACCEPTED: 'success',
+  PARTIALLY_ACCEPTED: 'warning',
+  REJECTED: 'error',
+  CANCELLED: 'neutral',
+};
+
+const methodLabels: Record<string, string> = {
+  MANUAL_BANK_TRANSFER: 'Transfer bancar',
+  BANK_TRANSFER: 'Transfer bancar',
+  CASH: 'Cash',
+  TERMINAL: 'Terminal',
+  CARD_EXTERNAL: 'Card extern',
+  OTHER: 'Altă metodă',
+};
+
 export default function ResidentInvoiceDetailsPage() {
   const params = useParams<{ id: string }>();
   const localizedPath = useLocalizedPath();
@@ -131,6 +180,19 @@ export default function ResidentInvoiceDetailsPage() {
   const [paymentError, setPaymentError] = useState('');
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [paymentMessage, setPaymentMessage] = useState('');
+  const [proofModalOpen, setProofModalOpen] = useState(false);
+  const [proofLoading, setProofLoading] = useState(false);
+  const [proofError, setProofError] = useState('');
+  const [proofSuccess, setProofSuccess] = useState('');
+  const [proofForm, setProofForm] = useState({
+    amount: '',
+    currency: 'MDL',
+    method: 'MANUAL_BANK_TRANSFER',
+    paidAt: new Date().toISOString().slice(0, 10),
+    externalReference: '',
+    proofFileUrl: '',
+    residentNote: '',
+  });
 
   useEffect(() => {
     let active = true;
@@ -193,6 +255,71 @@ export default function ResidentInvoiceDetailsPage() {
       setPaymentError(String(err?.message || 'Nu am putut anula pregătirea plății.'));
     } finally {
       setPaymentLoading(false);
+    }
+  }
+
+  function openProofModal() {
+    setProofError('');
+    setProofSuccess('');
+    setProofForm((current) => ({
+      ...current,
+      amount: remainingAmount > 0 ? String(remainingAmount) : current.amount,
+      paidAt: current.paidAt || new Date().toISOString().slice(0, 10),
+    }));
+    setProofModalOpen(true);
+  }
+
+  async function submitPaymentProof() {
+    if (!invoice) return;
+    const amount = Number(proofForm.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setProofError('Suma achitată trebuie să fie mai mare decât 0.');
+      return;
+    }
+    if (remainingAmount > 0 && amount > remainingAmount) {
+      setProofError('Suma introdusă depășește soldul rămas al facturii.');
+      return;
+    }
+    setProofLoading(true);
+    setProofError('');
+    setProofSuccess('');
+    try {
+      const response = await invoicesApi.submitResidentPaymentProof(invoice.id, {
+        amount,
+        currency: proofForm.currency,
+        method: proofForm.method,
+        paidAt: proofForm.paidAt || undefined,
+        externalReference: proofForm.externalReference || undefined,
+        proofFileUrl: proofForm.proofFileUrl || undefined,
+        proofFileName: proofForm.proofFileUrl ? proofForm.proofFileUrl.split('/').pop() : undefined,
+        residentNote: proofForm.residentNote || undefined,
+      });
+      const proof = response.data?.proof as PaymentProofRow | undefined;
+      setData((current) => (current && proof ? { ...current, paymentProofs: [proof, ...(current.paymentProofs || [])] } : current));
+      setProofSuccess(response.data?.message || 'Dovada a fost trimisă spre verificare.');
+      setProofForm((current) => ({ ...current, externalReference: '', proofFileUrl: '', residentNote: '' }));
+    } catch (err: any) {
+      setProofError(String(err?.message || 'Nu am putut trimite dovada plății.'));
+    } finally {
+      setProofLoading(false);
+    }
+  }
+
+  async function cancelPaymentProof(proof: PaymentProofRow) {
+    setProofLoading(true);
+    setProofError('');
+    try {
+      const response = await invoicesApi.cancelResidentPaymentProof(proof.id);
+      const updated = response.data?.proof as PaymentProofRow | undefined;
+      setData((current) =>
+        current && updated
+          ? { ...current, paymentProofs: (current.paymentProofs || []).map((item) => (item.id === updated.id ? updated : item)) }
+          : current,
+      );
+    } catch (err: any) {
+      setProofError(String(err?.message || 'Nu am putut anula dovada.'));
+    } finally {
+      setProofLoading(false);
     }
   }
 
@@ -327,6 +454,12 @@ export default function ResidentInvoiceDetailsPage() {
                   <ReceiptText className="h-4 w-4" />
                   Istoric plăți
                 </ButtonLink>
+                {displayStatus !== 'PAID' && displayStatus !== 'CANCELLED' ? (
+                  <Button type="button" variant="secondary" onClick={openProofModal}>
+                    <UploadCloud className="h-4 w-4" />
+                    Am achitat / Încarcă dovada
+                  </Button>
+                ) : null}
                 {data.canPayPlaceholder && displayStatus !== 'PAID' ? (
                   <Button type="button" onClick={preparePayment} disabled={paymentLoading}>
                     {paymentLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
@@ -341,6 +474,66 @@ export default function ResidentInvoiceDetailsPage() {
                 ) : null}
               </div>
             </div>
+          </Card>
+
+          <Card className="print:hidden">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="flex items-center gap-2 font-semibold text-foreground">
+                  <FileCheck2 className="h-4 w-4" />
+                  Dovezi de plată
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">Dacă ai achitat prin transfer sau altă metodă externă, încarcă dovada pentru verificare.</p>
+              </div>
+              {displayStatus !== 'PAID' && displayStatus !== 'CANCELLED' ? (
+                <Button type="button" onClick={openProofModal}>
+                  <UploadCloud className="h-4 w-4" />
+                  Încarcă dovada
+                </Button>
+              ) : null}
+            </div>
+            <div className="mt-4 grid gap-3">
+              {(data.paymentProofs || []).length ? (
+                (data.paymentProofs || []).map((proof) => (
+                  <div key={proof.id} className="grid gap-3 rounded-2xl border border-border/70 bg-white px-4 py-3 text-sm lg:grid-cols-[1fr_0.8fr_0.8fr_0.7fr_auto] lg:items-center">
+                    <div>
+                      <p className="font-semibold text-foreground">{formatMdl(proof.amount)} · {methodLabels[proof.method] || proof.method}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Trimisă la {formatDateTime(proof.createdAt)}{proof.paidAt ? ` · Plătită la ${formatDate(proof.paidAt)}` : ''}
+                      </p>
+                      {proof.rejectionReason ? <p className="mt-2 text-xs font-semibold text-rose-700">{proof.rejectionReason}</p> : null}
+                    </div>
+                    <Info label="Status" value={proofStatusLabels[proof.status] || proof.status} />
+                    <Info label="Acceptat" value={proof.acceptedAmount ? formatMdl(proof.acceptedAmount) : '-'} />
+                    <div>
+                      <Badge variant={proofStatusVariant[proof.status]}>{proofStatusLabels[proof.status] || proof.status}</Badge>
+                    </div>
+                    <div className="flex flex-wrap justify-end gap-2">
+                      {proof.proofFileUrl ? (
+                        <a
+                          href={proof.proofFileUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex h-10 items-center justify-center gap-1.5 rounded-2xl border border-border/70 bg-white px-4 text-sm font-medium text-foreground shadow-sm transition hover:bg-muted/80"
+                        >
+                          Dovadă
+                        </a>
+                      ) : null}
+                      {proof.status === 'SUBMITTED' ? (
+                        <Button type="button" variant="secondary" onClick={() => cancelPaymentProof(proof)} disabled={proofLoading}>
+                          Anulează
+                        </Button>
+                      ) : null}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-2xl border border-dashed border-border/80 bg-muted/20 p-5 text-sm text-muted-foreground">
+                  Nu ai trimis dovezi de plată pentru această factură.
+                </div>
+              )}
+            </div>
+            {proofError ? <p className="mt-3 text-sm font-semibold text-rose-700">{proofError}</p> : null}
           </Card>
 
           <Card>
@@ -389,6 +582,78 @@ export default function ResidentInvoiceDetailsPage() {
           </Card>
         </>
       ) : null}
+
+      <Modal isOpen={proofModalOpen} onClose={() => setProofModalOpen(false)} maxWidth="lg">
+        <ModalHeader title="Încarcă dovada plății" onClose={() => setProofModalOpen(false)} />
+        <ModalBody className="space-y-4">
+          <div className="rounded-2xl border border-border/70 bg-muted/25 p-4 text-sm text-muted-foreground">
+            <p className="font-semibold text-foreground">Dovada intră în verificare manuală.</p>
+            <p className="mt-1 leading-6">Nu se procesează plăți reale și factura nu este marcată achitată până când administratorul acceptă dovada.</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input
+              label="Suma achitată"
+              type="number"
+              min="0"
+              step="0.01"
+              value={proofForm.amount}
+              onChange={(event) => setProofForm((current) => ({ ...current, amount: event.target.value }))}
+              hint={`Sold rămas: ${formatMdl(remainingAmount)}`}
+            />
+            <label className="block space-y-1.5">
+              <span className="text-sm font-medium text-foreground">Metoda</span>
+              <select
+                className="h-11 w-full rounded-2xl border border-border/70 bg-white px-4 text-sm text-foreground shadow-sm outline-none focus:border-foreground/20 focus:ring-2 focus:ring-foreground/10"
+                value={proofForm.method}
+                onChange={(event) => setProofForm((current) => ({ ...current, method: event.target.value }))}
+              >
+                <option value="MANUAL_BANK_TRANSFER">Transfer bancar</option>
+                <option value="CASH">Cash</option>
+                <option value="TERMINAL">Terminal</option>
+                <option value="CARD_EXTERNAL">Card extern</option>
+                <option value="OTHER">Altă metodă</option>
+              </select>
+            </label>
+            <Input
+              label="Data plății"
+              type="date"
+              value={proofForm.paidAt}
+              onChange={(event) => setProofForm((current) => ({ ...current, paidAt: event.target.value }))}
+            />
+            <Input
+              label="Referință / ordin"
+              value={proofForm.externalReference}
+              onChange={(event) => setProofForm((current) => ({ ...current, externalReference: event.target.value }))}
+              placeholder="ordin-123"
+            />
+          </div>
+          <Input
+            label="Link dovadă"
+            value={proofForm.proofFileUrl}
+            onChange={(event) => setProofForm((current) => ({ ...current, proofFileUrl: event.target.value }))}
+            placeholder="https://..."
+            hint="Upload-ul real de fișiere va fi conectat ulterior; momentan poți adăuga un link."
+          />
+          <label className="block space-y-1.5">
+            <span className="text-sm font-medium text-foreground">Notă opțională</span>
+            <textarea
+              className="min-h-24 w-full rounded-2xl border border-border/70 bg-white px-4 py-3 text-sm text-foreground shadow-sm outline-none focus:border-foreground/20 focus:ring-2 focus:ring-foreground/10"
+              value={proofForm.residentNote}
+              onChange={(event) => setProofForm((current) => ({ ...current, residentNote: event.target.value }))}
+              placeholder="Ex: Am achitat prin transfer bancar."
+            />
+          </label>
+          {proofError ? <p className="text-sm font-semibold text-rose-700">{proofError}</p> : null}
+          {proofSuccess ? <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">{proofSuccess}</p> : null}
+        </ModalBody>
+        <ModalFooter>
+          <Button type="button" variant="secondary" onClick={() => setProofModalOpen(false)} disabled={proofLoading}>Închide</Button>
+          <Button type="button" onClick={submitPaymentProof} disabled={proofLoading}>
+            {proofLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
+            Trimite dovada
+          </Button>
+        </ModalFooter>
+      </Modal>
 
       <Modal isOpen={paymentModalOpen} onClose={() => setPaymentModalOpen(false)} maxWidth="lg">
         <ModalHeader title="Plata online va fi disponibilă ulterior" onClose={() => setPaymentModalOpen(false)} />

@@ -46,6 +46,17 @@ type InternalInvoice = {
   apartment: { id: string; apartmentNumber: string; staircase?: string; floor?: string | null };
   primaryContact?: { id: string; fullName: string; phone?: string | null } | null;
   lines: InternalInvoiceLine[];
+  paymentProofs?: Array<{
+    id: string;
+    amount: number;
+    acceptedAmount?: number | null;
+    method: string;
+    status: string;
+    createdAt?: string | null;
+    reviewedAt?: string | null;
+    proofFileUrl?: string | null;
+  }>;
+  paymentProofsSummary?: { submitted: number; inReview: number; accepted: number; rejected: number };
 };
 
 type InvoicePayment = {
@@ -78,7 +89,10 @@ const statusVariant = {
 const paymentMethodLabels: Record<string, string> = {
   CASH: 'Numerar',
   BANK_TRANSFER: 'Transfer bancar',
+  MANUAL_BANK_TRANSFER: 'Transfer bancar',
   CARD_TERMINAL: 'Terminal card',
+  TERMINAL: 'Terminal',
+  CARD_EXTERNAL: 'Card extern',
   INFOCOM: 'InfoCom',
   OPLATA: 'Oplata',
   OTHER: 'Altă metodă',
@@ -272,6 +286,39 @@ export default function AdminInvoiceDetailsPage() {
               ))}
               {!payments.length ? (
                 <p className="rounded-2xl bg-muted/35 px-4 py-4 text-sm text-muted-foreground">Nu există plăți înregistrate pentru această factură.</p>
+              ) : null}
+            </div>
+          </Card>
+
+          <Card>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold text-foreground">Dovezi de plată</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Dovezile trimise de locatari pentru această factură.</p>
+              </div>
+              <ButtonLink href={localizedPath(`/admin/payment-proofs?invoiceId=${invoice.invoiceId || invoice.id}`)} variant="secondary">
+                Vezi în verificare plăți
+              </ButtonLink>
+            </div>
+            <div className="mt-4 grid gap-2">
+              {(invoice.paymentProofs || []).map((proof) => (
+                <div key={proof.id} className="grid gap-3 rounded-2xl border border-border/70 bg-white px-4 py-3 text-sm md:grid-cols-[0.9fr_0.8fr_0.8fr_0.8fr_auto] md:items-center">
+                  <strong className="text-foreground">{formatMdl(proof.amount)}</strong>
+                  <span className="text-muted-foreground">{paymentMethodLabels[proof.method] || proof.method}</span>
+                  <Badge variant={proof.status === 'ACCEPTED' || proof.status === 'PARTIALLY_ACCEPTED' ? 'success' : proof.status === 'REJECTED' ? 'error' : proof.status === 'IN_REVIEW' ? 'warning' : 'default'}>
+                    {proof.status}
+                  </Badge>
+                  <span className="text-muted-foreground">{formatDate(proof.createdAt)}</span>
+                  <div className="flex justify-end gap-2">
+                    {proof.proofFileUrl ? (
+                      <a className="text-sm font-semibold text-primary hover:underline" href={proof.proofFileUrl} target="_blank" rel="noreferrer">Dovadă</a>
+                    ) : null}
+                    <Link className="text-sm font-semibold text-primary hover:underline" href={localizedPath(`/admin/payment-proofs?search=${proof.id}`)}>Deschide</Link>
+                  </div>
+                </div>
+              ))}
+              {!(invoice.paymentProofs || []).length ? (
+                <p className="rounded-2xl bg-muted/35 px-4 py-4 text-sm text-muted-foreground">Nu există dovezi de plată pentru această factură.</p>
               ) : null}
             </div>
           </Card>

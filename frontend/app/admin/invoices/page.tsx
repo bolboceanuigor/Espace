@@ -384,6 +384,9 @@ export default function AdminInvoicesPage() {
             <ButtonLink href="/admin/billing-drafts" variant="secondary">
               Mergi la drafturi
             </ButtonLink>
+            <ButtonLink href="/admin/payment-proofs" variant="secondary">
+              Dovezi plăți
+            </ButtonLink>
             <Button type="button" variant="secondary" onClick={load} isLoading={loading}>
               <RefreshCw className="h-4 w-4" />
               Refresh
