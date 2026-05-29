@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
 import { formatMdl } from '@/lib/condo-admin-fallback';
-import { adminRbacApi, adminResidentUpdateRequestsApi, billingApi, communicationsApi, dataQualityApi, invitationsApi, onboardingApi, workbenchApi } from '@/lib/api';
+import { adminRbacApi, adminResidentUpdateRequestsApi, billingApi, communicationsApi, dataQualityApi, invitationsApi, metersApi, onboardingApi, workbenchApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 type CrmOrganization = {
@@ -288,6 +288,7 @@ export default function AdminPage() {
   const [teamStats, setTeamStats] = useState<any>(null);
   const [teamActivityStats, setTeamActivityStats] = useState<any>(null);
   const [firstLogin, setFirstLogin] = useState<any>(null);
+  const [openMeterPeriod, setOpenMeterPeriod] = useState<any>(null);
 
   useEffect(() => {
     let active = true;
@@ -369,6 +370,18 @@ export default function AdminPage() {
         setDataQualitySummary(null);
       });
 
+    metersApi
+      .getAdminMeterReadingPeriods()
+      .then((response) => {
+        if (!active) return;
+        const period = (response.data?.items || []).find((item: any) => item.status !== 'LOCKED' && item.status !== 'CANCELLED' && Number(item.missingReadingsCount || 0) > 0);
+        setOpenMeterPeriod(period || null);
+      })
+      .catch(() => {
+        if (!active) return;
+        setOpenMeterPeriod(null);
+      });
+
     adminRbacApi
       .teamStats()
       .then((response) => {
@@ -425,10 +438,10 @@ export default function AdminPage() {
       },
       {
         title: 'Citiri lipsă',
-        value: String(crm.kpis.missingMeterReadings),
-        description: 'Contoare fără citire curentă',
-        href: '/admin/meter-readings/reports',
-        active: crm.kpis.missingMeterReadings > 0,
+        value: String(openMeterPeriod?.missingReadingsCount ?? crm.kpis.missingMeterReadings),
+        description: openMeterPeriod ? `${openMeterPeriod.label || openMeterPeriod.periodMonth} · perioadă deschisă` : 'Contoare fără citire curentă',
+        href: openMeterPeriod ? `/admin/meter-readings?periodId=${openMeterPeriod.id}` : '/admin/meter-readings',
+        active: Boolean(openMeterPeriod) || crm.kpis.missingMeterReadings > 0,
       },
       {
         title: 'Rapoarte consum',
@@ -493,7 +506,7 @@ export default function AdminPage() {
         active: Boolean(teamActivityStats?.critical || teamActivityStats?.sensitive || !teamActivityStats),
       },
     ],
-    [announcementStats, billingOverview, crm, dataQualitySummary, pendingUpdateRequests, teamActivityStats, teamStats],
+    [announcementStats, billingOverview, crm, dataQualitySummary, openMeterPeriod, pendingUpdateRequests, teamActivityStats, teamStats],
   );
 
   const kpiCards = [
@@ -673,6 +686,22 @@ export default function AdminPage() {
         </Card>
       ) : null}
 
+      {openMeterPeriod ? (
+        <Card className="border-amber-200 bg-amber-50 p-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-amber-950">Citiri contoare incomplete</p>
+              <p className="mt-1 text-sm text-amber-800">
+                {openMeterPeriod.missingReadingsCount || 0} contoare nu au citire în {openMeterPeriod.label || openMeterPeriod.periodMonth}.
+              </p>
+            </div>
+            <ButtonLink href={localizedPath(`/admin/meter-readings?periodId=${openMeterPeriod.id}`)} variant="secondary">
+              <Gauge className="h-4 w-4" /> Deschide citiri
+            </ButtonLink>
+          </div>
+        </Card>
+      ) : null}
+
       <Card className="p-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex items-start gap-3">
@@ -821,7 +850,7 @@ export default function AdminPage() {
         </Card>
 
         <Card>
-          <SectionHeader title="Citiri lipsă" description="Contoare fără citire în luna curentă." href={localizedPath('/admin/meter-readings/reports')} />
+          <SectionHeader title="Citiri lipsă" description="Contoare fără citire în luna curentă." href={localizedPath('/admin/meter-readings')} />
           <div className="mt-4 space-y-2">
             {crm.missingReadings.map((meter) => (
               <Link key={meter.id} href={safeLocalizedLink(localizedPath, meter.link, '/admin/meters')} className="block rounded-2xl border border-border/70 bg-white px-4 py-3 hover:bg-muted/40">
@@ -890,8 +919,8 @@ export default function AdminPage() {
           <ButtonLink href={localizedPath('/admin/meters')} variant="secondary">
             <Gauge className="h-4 w-4" /> Adaugă contor
           </ButtonLink>
-          <ButtonLink href={localizedPath('/admin/meter-readings/reports')} variant="secondary">
-            <Gauge className="h-4 w-4" /> Rapoarte consum
+          <ButtonLink href={localizedPath('/admin/meter-readings')} variant="secondary">
+            <Gauge className="h-4 w-4" /> Citiri contoare
           </ButtonLink>
           <ButtonLink href={localizedPath('/admin/billing')} variant="secondary">
             <ListChecks className="h-4 w-4" /> Facturare lunară

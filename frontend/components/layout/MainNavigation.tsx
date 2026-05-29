@@ -39,6 +39,7 @@ const ICONS: Record<MainNavigationKey, React.ComponentType<{ className?: string 
   notifications: CircleAlert,
   auditLog: ListChecks,
   meters: Gauge,
+  meterReadings: ListChecks,
   meterReports: BarChart3,
   payments: CreditCard,
   paymentReconciliation: FileText,

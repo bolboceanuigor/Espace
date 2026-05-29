@@ -1396,6 +1396,25 @@ export const metersApi = {
     apiRequest<any>(`/api/admin/meter-readings/${id}/reject`, { method: 'PATCH', body: data }),
   adminNeedsReviewReading: (id: string, data?: Record<string, unknown>) =>
     apiRequest<any>(`/api/admin/meter-readings/${id}/needs-review`, { method: 'PATCH', body: data || {} }),
+  getAdminMeterReadingPeriods: () => apiRequest<any>('/api/admin/meter-readings/periods'),
+  createAdminMeterReadingPeriod: (data: Record<string, unknown>) =>
+    apiRequest<any>('/api/admin/meter-readings/periods', { method: 'POST', body: data }),
+  getAdminMeterReadingPeriodOverview: (periodId: string) =>
+    apiRequest<any>(`/api/admin/meter-readings/periods/${periodId}/overview`),
+  getAdminMeterReadingWorkspace: (periodId: string, params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>(`/api/admin/meter-readings/periods/${periodId}/workspace`, { params }),
+  saveAdminMeterReading: (periodId: string, meterId: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/admin/meter-readings/periods/${periodId}/meters/${meterId}`, { method: 'PUT', body: data }),
+  bulkSaveAdminMeterReadings: (periodId: string, data: { readings: Record<string, unknown>[] }) =>
+    apiRequest<any>(`/api/admin/meter-readings/periods/${periodId}/bulk-save`, { method: 'POST', body: data }),
+  getAdminMeterReadingIssues: (periodId: string, params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>(`/api/admin/meter-readings/periods/${periodId}/issues`, { params }),
+  recalculateAdminMeterReadingPeriod: (periodId: string) =>
+    apiRequest<any>(`/api/admin/meter-readings/periods/${periodId}/recalculate`, { method: 'POST' }),
+  lockAdminMeterReadingPeriod: (periodId: string, data?: Record<string, unknown>) =>
+    apiRequest<any>(`/api/admin/meter-readings/periods/${periodId}/lock`, { method: 'POST', body: data || {} }),
+  unlockAdminMeterReadingPeriod: (periodId: string) =>
+    apiRequest<any>(`/api/admin/meter-readings/periods/${periodId}/unlock`, { method: 'POST' }),
   adminConsumptionReport: (params?: Record<string, string | number | boolean | null | undefined>) =>
     apiRequest<any>('/api/admin/meter-readings/reports/consumption', { params }),
   adminConsumptionDocument: (params?: Record<string, string | number | boolean | null | undefined>) =>

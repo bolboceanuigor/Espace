@@ -787,6 +787,7 @@ export class InvitationsMvpService {
       'confirmApartments',
       'confirmResidents',
       'reviewDataQuality',
+      'createFirstMeterReadingPeriod',
       'confirmDocuments',
       'welcomeAnnouncementCreated',
     ];
@@ -1066,6 +1067,7 @@ export class InvitationsMvpService {
       dataQualityRun,
       dataQualityCriticalCount,
       dataQualityWarningCount,
+      meterReadingPeriodsCount,
     ] =
       await Promise.all([
         this.prisma.organization.findUnique({
@@ -1100,6 +1102,7 @@ export class InvitationsMvpService {
         this.prisma.dataQualityRun.findFirst({ where: { associationId: organizationId }, orderBy: { createdAt: 'desc' }, select: { id: true, completedAt: true } }).catch(() => null),
         this.prisma.dataQualityIssue.count({ where: { associationId: organizationId, status: 'OPEN', severity: 'CRITICAL' } }).catch(() => 0),
         this.prisma.dataQualityIssue.count({ where: { associationId: organizationId, status: 'OPEN', severity: 'WARNING' } }).catch(() => 0),
+        this.prisma.meterReadingPeriod.count({ where: { organizationId } }).catch(() => 0),
       ]);
     if (!organization) throw new NotFoundException('Organizația nu a fost găsită.');
 
@@ -1174,6 +1177,16 @@ export class InvitationsMvpService {
         ],
       },
       {
+        key: 'createFirstMeterReadingPeriod',
+        title: 'Citiri contoare',
+        description: 'Creează prima perioadă de citiri când începi facturarea lunară.',
+        confirmed: saved.createFirstMeterReadingPeriod === true,
+        status: this.checklistStatus(saved.createFirstMeterReadingPeriod === true || meterReadingPeriodsCount > 0, meterReadingPeriodsCount === 0),
+        actionLabel: 'Deschide citiri',
+        actionUrl: '/ro/admin/meter-readings',
+        missing: meterReadingPeriodsCount === 0 ? ['Nu există perioade de citiri încă'] : [],
+      },
+      {
         key: 'confirmDocuments',
         title: 'Documente',
         description: 'Verifică documentele de bază ale APC-ului.',
@@ -1206,6 +1219,7 @@ export class InvitationsMvpService {
         residentsCount,
         documentsCount,
         announcementsCount,
+        meterReadingPeriodsCount,
       },
       checklist: items,
       note: saved.note || organization.adminHandoverNote || null,

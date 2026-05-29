@@ -54,6 +54,7 @@ export const NAVIGATION_CONFIG: NavigationItem[] = [
   { label: 'Locatari', href: '/admin/residents', icon: 'users', allowedRoles: ['ADMIN'], requiredModule: 'residentsCrm', mobileVisible: true, moreMenu: false },
   { label: 'Acces portal', href: '/admin/resident-access', icon: 'users', allowedRoles: ['ADMIN'], requiredModule: 'residentAccess', mobileVisible: false, moreMenu: true },
   { label: 'Contoare', href: '/admin/meters', icon: 'chartColumnBig', allowedRoles: ['ADMIN'], requiredModule: 'meterReadings', mobileVisible: false, moreMenu: true },
+  { label: 'Citiri contoare', href: '/admin/meter-readings', icon: 'listChecks', allowedRoles: ['ADMIN'], requiredModule: 'meterReadings', mobileVisible: false, moreMenu: true },
   { label: 'Rapoarte consum', href: '/admin/meter-readings/reports', icon: 'chartColumnBig', allowedRoles: ['ADMIN'], requiredModule: 'consumptionReports', mobileVisible: false, moreMenu: true },
   { label: 'Facturare', href: '/admin/billing', icon: 'fileText', allowedRoles: ['ADMIN'], requiredModule: 'billingRun', mobileVisible: false, moreMenu: true },
   { label: 'Calitatea datelor', href: '/admin/data-quality', icon: 'listChecks', allowedRoles: ['ADMIN'], requiredModule: 'dataQuality', mobileVisible: false, moreMenu: true },

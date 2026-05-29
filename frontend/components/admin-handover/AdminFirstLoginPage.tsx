@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   FileText,
   Home,
+  Gauge,
   Megaphone,
   Users,
   ListChecks,
@@ -24,6 +25,7 @@ const icons: Record<string, ReactNode> = {
   confirmApartments: <Home className="h-5 w-5" />,
   confirmResidents: <Users className="h-5 w-5" />,
   reviewDataQuality: <ListChecks className="h-5 w-5" />,
+  createFirstMeterReadingPeriod: <Gauge className="h-5 w-5" />,
   confirmDocuments: <FileText className="h-5 w-5" />,
   welcomeAnnouncementCreated: <Megaphone className="h-5 w-5" />,
 };

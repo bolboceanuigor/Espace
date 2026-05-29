@@ -2775,6 +2775,14 @@ enum MeterReadingSource {
   SYSTEM
 }
 
+enum MeterReadingPeriodStatus {
+  DRAFT
+  OPEN
+  IN_REVIEW
+  LOCKED
+  CANCELLED
+}
+
 enum InvoiceStatus {
   PAID
   UNPAID
@@ -2896,6 +2904,7 @@ model Organization {
   associationRoles AssociationRole[]
   meters             Meter[]
   meterReadings      MeterReading[]
+  meterReadingPeriods MeterReadingPeriod[]
   payments           Payment[]
   issues             Issue[]
   publicAnnouncements Announcement[]
@@ -6353,6 +6362,7 @@ model User {
   paymentIntentsCancelled PaymentIntent[] @relation("PaymentIntentCancelledBy")
   paymentIntentEvents PaymentIntentEvent[] @relation("PaymentIntentEventActor")
   paymentsCreated      Payment[]     @relation("PaymentCreatedByUser")
+  meterReadingPeriodsLocked MeterReadingPeriod[] @relation("MeterReadingPeriodLockedBy")
   auditLogs            AuditLog[]    @relation("AuditLogUser")
   associationRolesCreated AssociationRole[] @relation("AssociationRoleCreatedBy")
   associationRolesUpdated AssociationRole[] @relation("AssociationRoleUpdatedBy")
@@ -7003,6 +7013,7 @@ model MeterReading {
   meterId        String
   apartmentId    String
   organizationId String
+  periodId       String?
   value          Float
   readingDate    DateTime
   source         MeterReadingSource @default(ADMIN)
@@ -7011,11 +7022,35 @@ model MeterReading {
   meter        Meter        @relation(fields: [meterId], references: [id], onDelete: Cascade)
   apartment    Apartment    @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  period       MeterReadingPeriod? @relation(fields: [periodId], references: [id], onDelete: SetNull)
 
   @@index([meterId, readingDate])
   @@index([apartmentId, readingDate])
   @@index([organizationId])
+  @@index([periodId])
   @@map("meter_readings")
+}
+
+model MeterReadingPeriod {
+  id             String                   @id @default(uuid())
+  organizationId String
+  year           Int
+  month          Int
+  status         MeterReadingPeriodStatus @default(OPEN)
+  openedAt       DateTime?
+  lockedAt       DateTime?
+  lockedById     String?
+  note           String?
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  lockedBy     User?        @relation("MeterReadingPeriodLockedBy", fields: [lockedById], references: [id], onDelete: SetNull)
+  readings     MeterReading[]
+
+  @@unique([organizationId, year, month])
+  @@index([organizationId, status, createdAt])
+  @@map("meter_reading_periods")
 }
 
 model Payment {

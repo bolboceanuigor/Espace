@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   ClientNoteType,
+  MeterReadingPeriodStatus,
   MeterReadingSource,
   MeterStatus,
   MeterType,
@@ -49,6 +50,18 @@ type MeterWorkflowMetadata = {
   readings: Record<string, ReadingMetadata>;
 };
 
+type MeterReadingIssueSeverity = 'CRITICAL' | 'WARNING';
+type MeterReadingIssueType =
+  | 'MISSING_READING'
+  | 'NEGATIVE_CONSUMPTION'
+  | 'ZERO_CONSUMPTION'
+  | 'HIGH_CONSUMPTION'
+  | 'METER_INACTIVE'
+  | 'METER_WITHOUT_APARTMENT'
+  | 'DUPLICATE_READING'
+  | 'INVALID_DATE'
+  | 'VALUE_NOT_NUMERIC';
+
 const METER_METADATA_TITLE = 'ESPACE_METER_WORKFLOW_METADATA_V1';
 
 @Injectable()
@@ -66,6 +79,7 @@ export class MetersService {
       type: true,
       serialNumber: true,
       status: true,
+      archivedAt: true,
       createdAt: true,
       updatedAt: true,
       apartment: {
@@ -105,6 +119,7 @@ export class MetersService {
       meterId: true,
       apartmentId: true,
       organizationId: true,
+      periodId: true,
       value: true,
       readingDate: true,
       source: true,
@@ -379,6 +394,7 @@ export class MetersService {
       meterId: reading.meterId,
       apartmentId: reading.apartmentId,
       organizationId: reading.organizationId,
+      periodId: reading.periodId ?? null,
       periodMonth: meta.periodMonth,
       readingValue: Number(reading.value || 0),
       value: Number(reading.value || 0),
@@ -715,6 +731,232 @@ export class MetersService {
   async getReadingStats(user: MvpUser, query: Record<string, unknown> = {}) {
     const data = await this.listAdminReadings(user, { ...query, page: 1, limit: 100000 });
     return data.stats;
+  }
+
+  async listReadingPeriods(user: MvpUser) {
+    const organizationId = this.requireAdminOrganizationId(user);
+    const periods = await this.prisma.meterReadingPeriod.findMany({
+      where: { organizationId },
+      orderBy: [{ year: 'desc' }, { month: 'desc' }, { createdAt: 'desc' }],
+      take: 36,
+    });
+
+    const items = [];
+    for (const period of periods) {
+      const overview = await this.buildReadingPeriodOverview(period);
+      items.push(this.toReadingPeriod(period, overview));
+    }
+    return { items, meta: { total: items.length } };
+  }
+
+  async createReadingPeriod(user: MvpUser, body: unknown) {
+    const organizationId = this.requireAdminOrganizationId(user);
+    const input = this.parseReadingPeriodBody(body);
+    const existing = await this.prisma.meterReadingPeriod.findUnique({
+      where: {
+        organizationId_year_month: {
+          organizationId,
+          year: input.year,
+          month: input.month,
+        },
+      },
+    });
+    if (existing) {
+      const overview = await this.buildReadingPeriodOverview(existing);
+      return { period: this.toReadingPeriod(existing, overview), alreadyExists: true };
+    }
+
+    const period = await this.prisma.meterReadingPeriod.create({
+      data: {
+        organizationId,
+        year: input.year,
+        month: input.month,
+        note: input.note,
+        status: MeterReadingPeriodStatus.OPEN,
+        openedAt: new Date(),
+      },
+    });
+
+    await this.activity.createActivity({
+      organizationId,
+      actorUserId: user.id,
+      type: 'METER_READING_PERIOD_CREATED',
+      title: 'Perioadă citiri creată',
+      message: `A fost creată perioada de citiri ${this.periodLabel(period)}.`,
+      targetType: 'METER_READING_PERIOD',
+      targetId: period.id,
+      link: `/admin/meter-readings?periodId=${period.id}`,
+    });
+
+    const overview = await this.buildReadingPeriodOverview(period);
+    return { period: this.toReadingPeriod(period, overview), alreadyExists: false };
+  }
+
+  async getReadingPeriodOverview(user: MvpUser, periodId: string) {
+    const period = await this.requireReadingPeriod(user, periodId);
+    return this.buildReadingPeriodOverview(period);
+  }
+
+  async getReadingPeriodWorkspace(user: MvpUser, periodId: string, query: Record<string, unknown> = {}) {
+    const period = await this.requireReadingPeriod(user, periodId);
+    const rows = await this.buildReadingPeriodRows(period, query);
+    const filtered = this.filterReadingPeriodRows(rows, query);
+    const paged = this.paginate(filtered, query);
+    return {
+      period: this.toReadingPeriod(period),
+      items: paged.items,
+      meta: paged.meta,
+      filters: {
+        buildings: this.uniqueWorkspaceOptions(rows, 'building'),
+        entrances: this.uniqueWorkspaceOptions(rows, 'entrance'),
+        meterTypes: Array.from(new Set(rows.map((row) => row.meter?.type).filter(Boolean))).sort(),
+      },
+    };
+  }
+
+  async saveReadingForPeriod(user: MvpUser, periodId: string, meterId: string, body: unknown) {
+    const period = await this.requireReadingPeriod(user, periodId);
+    return this.saveReadingForPeriodInternal(user, period, meterId, body, { logActivity: true });
+  }
+
+  async bulkSaveReadingsForPeriod(user: MvpUser, periodId: string, body: unknown) {
+    const period = await this.requireReadingPeriod(user, periodId);
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const readings = Array.isArray(payload.readings) ? payload.readings : [];
+    if (!readings.length) throw new BadRequestException('Lista de citiri este obligatorie.');
+
+    const saved: any[] = [];
+    const errors: any[] = [];
+    for (const [index, reading] of readings.entries()) {
+      const meterId = this.optionalString((reading as Record<string, unknown>)?.meterId);
+      if (!meterId) {
+        errors.push({ index, meterId: null, message: 'Contorul este obligatoriu.' });
+        continue;
+      }
+      try {
+        const result = await this.saveReadingForPeriodInternal(user, period, meterId, reading, { logActivity: false });
+        saved.push(result);
+      } catch (error: any) {
+        errors.push({ index, meterId, message: String(error?.message || 'Citirea nu a putut fi salvată.') });
+      }
+    }
+
+    await this.activity.createActivity({
+      organizationId: period.organizationId,
+      actorUserId: user.id,
+      type: 'METER_READING_BULK_SAVED',
+      title: 'Citiri contoare salvate bulk',
+      message: `${saved.length} citiri au fost salvate pentru ${this.periodLabel(period)}.`,
+      targetType: 'METER_READING_PERIOD',
+      targetId: period.id,
+      link: `/admin/meter-readings?periodId=${period.id}`,
+    });
+
+    return { savedCount: saved.length, errorCount: errors.length, saved, errors };
+  }
+
+  async getReadingPeriodIssues(user: MvpUser, periodId: string, query: Record<string, unknown> = {}) {
+    const period = await this.requireReadingPeriod(user, periodId);
+    const rows = await this.buildReadingPeriodRows(period, { ...query, limit: 100000 });
+    const typeFilter = this.optionalString(query.type)?.toUpperCase();
+    const severityFilter = this.optionalString(query.severity)?.toUpperCase();
+    const issues = rows.flatMap((row) =>
+      row.issues
+        .filter((issue: any) => !typeFilter || issue.type === typeFilter)
+        .filter((issue: any) => !severityFilter || issue.severity === severityFilter)
+        .map((issue: any) => ({
+          ...issue,
+          meter: row.meter,
+          apartment: row.apartment,
+          building: row.building,
+          entrance: row.entrance,
+          currentValue: row.currentReading?.readingValue ?? null,
+          previousValue: row.previousReading?.readingValue ?? null,
+          consumption: row.consumption,
+          readingId: row.currentReading?.id ?? null,
+        })),
+    );
+    const paged = this.paginate(issues, query);
+    return { items: paged.items, meta: paged.meta, total: issues.length };
+  }
+
+  async recalculateReadingPeriod(user: MvpUser, periodId: string) {
+    const period = await this.requireReadingPeriod(user, periodId);
+    const overview = await this.buildReadingPeriodOverview(period);
+    await this.activity.createActivity({
+      organizationId: period.organizationId,
+      actorUserId: user.id,
+      type: 'METER_READING_PERIOD_RECALCULATED',
+      title: 'Perioadă citiri recalculată',
+      message: `Au fost recalculate citirile pentru ${this.periodLabel(period)}.`,
+      targetType: 'METER_READING_PERIOD',
+      targetId: period.id,
+      link: `/admin/meter-readings?periodId=${period.id}`,
+    });
+    return overview;
+  }
+
+  async lockReadingPeriod(user: MvpUser, periodId: string, body: unknown) {
+    const period = await this.requireReadingPeriod(user, periodId);
+    if (period.status === MeterReadingPeriodStatus.LOCKED) {
+      return this.buildReadingPeriodOverview(period);
+    }
+
+    const overview = await this.buildReadingPeriodOverview(period);
+    if (overview.blockingIssues.length) {
+      throw new BadRequestException('Perioada nu poate fi blocată până nu rezolvi problemele critice.');
+    }
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    if (overview.warningsCount > 0 && !this.booleanQuery(payload.confirmWarnings)) {
+      throw new BadRequestException('Confirmă că ai verificat warning-urile înainte de blocare.');
+    }
+
+    const updated = await this.prisma.meterReadingPeriod.update({
+      where: { id: period.id },
+      data: {
+        status: MeterReadingPeriodStatus.LOCKED,
+        lockedAt: new Date(),
+        lockedById: user.id,
+      },
+    });
+
+    await this.activity.createActivity({
+      organizationId: period.organizationId,
+      actorUserId: user.id,
+      type: 'METER_READING_PERIOD_LOCKED',
+      title: 'Perioadă citiri blocată',
+      message: `Perioada ${this.periodLabel(updated)} a fost blocată pentru facturare.`,
+      targetType: 'METER_READING_PERIOD',
+      targetId: updated.id,
+      link: `/admin/meter-readings?periodId=${updated.id}`,
+    });
+
+    return this.buildReadingPeriodOverview(updated);
+  }
+
+  async unlockReadingPeriod(user: MvpUser, periodId: string) {
+    const period = await this.requireReadingPeriod(user, periodId);
+    const updated = await this.prisma.meterReadingPeriod.update({
+      where: { id: period.id },
+      data: {
+        status: MeterReadingPeriodStatus.OPEN,
+        lockedAt: null,
+        lockedById: null,
+      },
+    });
+
+    await this.activity.createActivity({
+      organizationId: period.organizationId,
+      actorUserId: user.id,
+      type: 'METER_READING_PERIOD_UNLOCKED',
+      title: 'Perioadă citiri deblocată',
+      message: `Perioada ${this.periodLabel(updated)} a fost redeschisă pentru editare.`,
+      targetType: 'METER_READING_PERIOD',
+      targetId: updated.id,
+      link: `/admin/meter-readings?periodId=${updated.id}`,
+    });
+
+    return this.buildReadingPeriodOverview(updated);
   }
 
   async getAdminReading(user: MvpUser, id: string) {
@@ -1802,6 +2044,500 @@ export class MetersService {
     return months;
   }
 
+  private requireAdminOrganizationId(user: MvpUser) {
+    if (!user.organizationId) {
+      throw new ForbiddenException('Contul tău nu este conectat la o organizație.');
+    }
+    return user.organizationId;
+  }
+
+  private async requireReadingPeriod(user: MvpUser, id: string) {
+    const organizationId = this.requireAdminOrganizationId(user);
+    const period = await this.prisma.meterReadingPeriod.findFirst({
+      where: { id, organizationId },
+    });
+    if (!period) throw new NotFoundException('Perioada de citiri nu a fost găsită.');
+    return period;
+  }
+
+  private parseReadingPeriodBody(body: unknown) {
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const year = Math.trunc(this.requiredNumber(payload.year, 'Anul este obligatoriu.'));
+    const month = Math.trunc(this.requiredNumber(payload.month, 'Luna este obligatorie.'));
+    if (year < 2000 || year > 2100) throw new BadRequestException('Anul nu este valid.');
+    if (month < 1 || month > 12) throw new BadRequestException('Luna nu este validă.');
+    return {
+      year,
+      month,
+      note: this.optionalString(payload.note) ?? null,
+    };
+  }
+
+  private toReadingPeriod(period: any, overview?: any) {
+    return {
+      id: period.id,
+      organizationId: period.organizationId,
+      year: period.year,
+      month: period.month,
+      periodMonth: this.periodMonthFromParts(period.year, period.month),
+      label: this.periodLabel(period),
+      status: period.status,
+      openedAt: period.openedAt,
+      lockedAt: period.lockedAt,
+      lockedById: period.lockedById,
+      note: period.note,
+      createdAt: period.createdAt,
+      updatedAt: period.updatedAt,
+      readingsCount: overview?.readingsSubmitted ?? 0,
+      missingReadingsCount: overview?.readingsMissing ?? 0,
+      issuesCount: overview?.issuesCount ?? 0,
+      warningsCount: overview?.warningsCount ?? 0,
+    };
+  }
+
+  private periodMonthFromParts(year: number, month: number) {
+    return `${year}-${String(month).padStart(2, '0')}`;
+  }
+
+  private periodLabel(period: { year: number; month: number }) {
+    const date = new Date(Date.UTC(period.year, period.month - 1, 1, 12));
+    return new Intl.DateTimeFormat('ro-MD', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(date);
+  }
+
+  private periodBounds(period: { year: number; month: number }) {
+    const start = new Date(Date.UTC(period.year, period.month - 1, 1, 12));
+    const end = new Date(start);
+    end.setUTCMonth(end.getUTCMonth() + 1);
+    return { start, end, periodMonth: this.periodMonthFromParts(period.year, period.month) };
+  }
+
+  private async buildReadingPeriodOverview(period: any) {
+    const rows = await this.buildReadingPeriodRows(period, { limit: 100000 });
+    const issues = rows.flatMap((row) => row.issues || []);
+    const blockingIssues = issues.filter((issue) => issue.severity === 'CRITICAL');
+    const warnings = issues.filter((issue) => issue.severity === 'WARNING');
+    const totalActiveMeters = rows.length;
+    const readingsSubmitted = rows.filter((row) => row.currentReading).length;
+    const readingsApproved = rows.filter((row) => row.status === 'APPROVED').length;
+    const readingsRejected = rows.filter((row) => row.status === 'REJECTED').length;
+    const readingsMissing = rows.filter((row) => row.status === 'MISSING').length;
+    const issueCount = (type: MeterReadingIssueType) => issues.filter((issue) => issue.type === type).length;
+
+    return {
+      period: this.toReadingPeriod(period),
+      totalActiveMeters,
+      readingsSubmitted,
+      readingsMissing,
+      readingsApproved,
+      readingsRejected,
+      suspiciousReadings: rows.filter((row) => row.status === 'NEEDS_REVIEW' || row.issues.some((issue: any) => ['NEGATIVE_CONSUMPTION', 'HIGH_CONSUMPTION'].includes(issue.type))).length,
+      negativeConsumptionCount: issueCount('NEGATIVE_CONSUMPTION'),
+      zeroConsumptionCount: issueCount('ZERO_CONSUMPTION'),
+      highConsumptionCount: issueCount('HIGH_CONSUMPTION'),
+      progressPercent: totalActiveMeters ? Math.round((readingsSubmitted / totalActiveMeters) * 100) : 0,
+      status: period.status,
+      canLock: totalActiveMeters > 0 && period.status !== MeterReadingPeriodStatus.LOCKED && blockingIssues.length === 0,
+      issuesCount: issues.length,
+      criticalIssuesCount: blockingIssues.length,
+      warningsCount: warnings.length,
+      blockingIssues: blockingIssues.slice(0, 30),
+      warnings: warnings.slice(0, 30),
+    };
+  }
+
+  private async buildReadingPeriodRows(period: any, query: Record<string, unknown> = {}) {
+    const { start, end, periodMonth } = this.periodBounds(period);
+    const store = await this.loadWorkflowMetadata(period.organizationId);
+    const meterRows = await this.prisma.meter.findMany({
+      where: { organizationId: period.organizationId },
+      orderBy: [{ apartment: { staircase: { name: 'asc' } } }, { apartment: { number: 'asc' } }, { type: 'asc' }],
+      select: this.meterSelect(),
+    });
+
+    const activeMeterRows = meterRows.filter((meter) => {
+      const status = this.meterStatus(meter, this.meterMetadata(store, meter.id));
+      return status === 'ACTIVE' && meter.status === MeterStatus.ACTIVE && !meter.archivedAt;
+    });
+    const activeMeterIds = activeMeterRows.map((meter) => meter.id);
+    if (!activeMeterIds.length) return [];
+
+    const [periodReadingRows, previousRows] = await Promise.all([
+      this.prisma.meterReading.findMany({
+        where: {
+          organizationId: period.organizationId,
+          meterId: { in: activeMeterIds },
+          OR: [
+            { periodId: period.id },
+            {
+              periodId: null,
+              readingDate: { gte: start, lt: end },
+            },
+          ],
+        },
+        orderBy: [{ createdAt: 'desc' }, { readingDate: 'desc' }],
+        select: this.readingSelect(),
+      }),
+      this.prisma.meterReading.findMany({
+        where: {
+          organizationId: period.organizationId,
+          meterId: { in: activeMeterIds },
+          readingDate: { lt: start },
+        },
+        orderBy: [{ readingDate: 'desc' }, { createdAt: 'desc' }],
+        select: this.readingSelect(),
+      }),
+    ]);
+
+    const periodReadingsByMeter = new Map<string, any[]>();
+    for (const row of periodReadingRows) {
+      const dto = this.toReading(row, store);
+      if (!periodReadingsByMeter.has(row.meterId)) periodReadingsByMeter.set(row.meterId, []);
+      periodReadingsByMeter.get(row.meterId)?.push(dto);
+    }
+
+    const previousByMeter = new Map<string, any>();
+    for (const row of previousRows) {
+      if (previousByMeter.has(row.meterId)) continue;
+      const dto = this.toReading(row, store);
+      if (dto.status === 'APPROVED') previousByMeter.set(row.meterId, dto);
+    }
+
+    return activeMeterRows.map((meterRow) => {
+      const meter = this.toMeter(meterRow, store);
+      const readings = periodReadingsByMeter.get(meter.id) || [];
+      const currentReading = readings.find((reading) => reading.status !== 'CANCELLED') || null;
+      const previousReading = previousByMeter.get(meter.id) || null;
+      const consumption =
+        currentReading && previousReading
+          ? this.roundMoney(Number(currentReading.readingValue || 0) - Number(previousReading.readingValue || 0))
+          : currentReading?.consumptionValue ?? null;
+      const row = {
+        apartment: meter.apartment,
+        building: meter.building,
+        entrance: meter.staircase,
+        meter,
+        previousReading,
+        previousReadingDate: previousReading?.readingDate ?? null,
+        currentReading,
+        currentReadingDate: currentReading?.readingDate ?? null,
+        consumption,
+        status: currentReading?.status || 'MISSING',
+        duplicateReadingsCount: readings.length,
+        canEdit: period.status !== MeterReadingPeriodStatus.LOCKED,
+      };
+      const issues = this.buildReadingIssuesForRow(period, row, { start, end, periodMonth });
+      return {
+        ...row,
+        issues,
+        warnings: issues.filter((issue) => issue.severity === 'WARNING'),
+      };
+    });
+  }
+
+  private filterReadingPeriodRows(rows: any[], query: Record<string, unknown>) {
+    const buildingId = this.optionalString(query.buildingId);
+    const entranceId = this.optionalString(query.entranceId || query.staircaseId);
+    const apartmentId = this.optionalString(query.apartmentId);
+    const meterId = this.optionalString(query.meterId);
+    const meterType = this.reportMeterTypeFilter(query.meterType || query.type);
+    const status = this.optionalString(query.status)?.toUpperCase();
+    const search = this.optionalString(query.search)?.toLowerCase();
+    const onlyMissing = this.booleanQuery(query.onlyMissing);
+    const onlyIssues = this.booleanQuery(query.onlyIssues);
+
+    return rows.filter((row) => {
+      if (buildingId && row.building?.id !== buildingId) return false;
+      if (entranceId && row.entrance?.id !== entranceId) return false;
+      if (apartmentId && row.apartment?.id !== apartmentId) return false;
+      if (meterId && row.meter?.id !== meterId) return false;
+      if (meterType && row.meter?.rawType !== meterType && row.meter?.type !== meterType) return false;
+      if (status && row.status !== status) return false;
+      if (onlyMissing && row.status !== 'MISSING') return false;
+      if (onlyIssues && !row.issues?.length) return false;
+      if (search) {
+        const haystack = [
+          row.apartment?.number,
+          row.apartment?.apartmentNumber,
+          row.building?.name,
+          row.entrance?.name,
+          row.meter?.meterNumber,
+          row.meter?.serialNumber,
+          row.meter?.typeLabel,
+        ]
+          .join(' ')
+          .toLowerCase();
+        if (!haystack.includes(search)) return false;
+      }
+      return true;
+    });
+  }
+
+  private uniqueWorkspaceOptions(rows: any[], key: 'building' | 'entrance') {
+    const map = new Map<string, string>();
+    for (const row of rows) {
+      const value = row[key];
+      if (value?.id) map.set(value.id, value.name || value.address || value.id);
+    }
+    return Array.from(map.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => String(a.name).localeCompare(String(b.name), 'ro', { numeric: true }));
+  }
+
+  private async saveReadingForPeriodInternal(
+    user: MvpUser,
+    period: any,
+    meterId: string,
+    body: unknown,
+    options: { logActivity: boolean },
+  ) {
+    if (period.status === MeterReadingPeriodStatus.LOCKED) {
+      throw new BadRequestException('Perioada este blocată și nu mai poate fi editată.');
+    }
+
+    const meter = await this.prisma.meter.findFirst({
+      where: { id: meterId, organizationId: period.organizationId },
+      select: this.meterSelect(),
+    });
+    if (!meter) throw new NotFoundException('Contorul nu a fost găsit.');
+
+    const store = await this.loadWorkflowMetadata(period.organizationId);
+    if (this.meterStatus(meter, this.meterMetadata(store, meter.id)) !== 'ACTIVE' || meter.status !== MeterStatus.ACTIVE || meter.archivedAt) {
+      throw new BadRequestException('Citirile se pot adăuga doar pentru contoare active.');
+    }
+
+    const { start, end, periodMonth } = this.periodBounds(period);
+    const input = this.parsePeriodReadingBody(body, period);
+    const existing = await this.prisma.meterReading.findFirst({
+      where: {
+        organizationId: period.organizationId,
+        meterId: meter.id,
+        OR: [
+          { periodId: period.id },
+          {
+            periodId: null,
+            readingDate: { gte: start, lt: end },
+          },
+        ],
+      },
+      orderBy: [{ createdAt: 'desc' }, { readingDate: 'desc' }],
+      select: this.readingSelect(),
+    });
+    const previous = await this.findPreviousApprovedReading(meter.id, period.organizationId, periodMonth, store, existing?.id);
+    const consumption = previous ? this.roundMoney(input.value - previous.readingValue) : null;
+    const status: ReadingStatus = consumption !== null && consumption < 0 ? 'NEEDS_REVIEW' : 'APPROVED';
+
+    const reading = existing
+      ? await this.prisma.meterReading.update({
+          where: { id: existing.id },
+          data: {
+            periodId: period.id,
+            value: input.value,
+            readingDate: input.readingDate,
+            source: MeterReadingSource.ADMIN,
+          },
+          select: this.readingSelect(),
+        })
+      : await this.prisma.meterReading.create({
+          data: {
+            periodId: period.id,
+            meterId: meter.id,
+            apartmentId: meter.apartmentId,
+            organizationId: period.organizationId,
+            value: input.value,
+            readingDate: input.readingDate,
+            source: MeterReadingSource.ADMIN,
+          },
+          select: this.readingSelect(),
+        });
+
+    store.readings[reading.id] = {
+      ...this.readingMetadata(store, reading),
+      periodMonth,
+      status,
+      source: 'ADMIN',
+      unit: input.unit || this.meterMetadata(store, meter.id).unit || this.defaultUnit(meter.type),
+      previousReadingValue: previous?.readingValue ?? null,
+      consumptionValue: consumption,
+      submittedByUserId: user.id,
+      reviewedByUserId: status === 'APPROVED' ? user.id : null,
+      submittedAt: new Date().toISOString(),
+      reviewedAt: status === 'APPROVED' ? new Date().toISOString() : null,
+      adminComment: input.comment,
+    };
+    await this.saveWorkflowMetadata(period.organizationId, user.id, store);
+    await this.prisma.meter.update({
+      where: { id: meter.id },
+      data: { status: status === 'NEEDS_REVIEW' ? MeterStatus.SUSPICIOUS : MeterStatus.ACTIVE },
+    });
+
+    if (options.logActivity) {
+      await this.activity.createActivity({
+        organizationId: period.organizationId,
+        actorUserId: user.id,
+        type: 'METER_READING_SAVED',
+        title: 'Citire contor salvată',
+        message: `A fost salvată citirea ${input.value} pentru ${this.typeLabel(meter.type)} în ${this.periodLabel(period)}.`,
+        targetType: 'METER_READING',
+        targetId: reading.id,
+        link: `/admin/meter-readings?periodId=${period.id}&meterId=${meter.id}`,
+      });
+    }
+
+    const dto = this.toReading(reading, store);
+    const meterAny = meter as any;
+    const row = {
+      apartment: this.apartmentDto(meterAny.apartment),
+      building: meterAny.apartment?.building ?? null,
+      entrance: meterAny.apartment?.staircase ?? null,
+      meter: this.toMeter(meter, store),
+      previousReading: previous
+        ? { readingValue: previous.readingValue, consumptionValue: previous.consumptionValue ?? null, readingDate: previous.periodMonth }
+        : null,
+      currentReading: dto,
+      currentReadingDate: dto.readingDate,
+      consumption,
+      status: dto.status,
+      duplicateReadingsCount: 1,
+      canEdit: true,
+    };
+    const issues = this.buildReadingIssuesForRow(period, row, { start, end, periodMonth });
+    return { reading: dto, issues, warnings: issues.filter((issue) => issue.severity === 'WARNING') };
+  }
+
+  private parsePeriodReadingBody(body: unknown, period: any) {
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const rawValue = payload.value ?? payload.readingValue;
+    if (rawValue === undefined || rawValue === null || rawValue === '') {
+      throw new BadRequestException('Valoarea citirii este obligatorie.');
+    }
+    const value = this.requiredNumber(rawValue, 'Valoarea citirii trebuie să fie numerică.');
+    if (value < 0) throw new BadRequestException('Valoarea citirii trebuie să fie pozitivă sau zero.');
+
+    const rawDate = this.optionalString(payload.readingDate) || new Date().toISOString().slice(0, 10);
+    const readingDate = /^\d{4}-\d{2}-\d{2}$/.test(rawDate)
+      ? new Date(`${rawDate}T12:00:00.000Z`)
+      : new Date(rawDate);
+    if (Number.isNaN(readingDate.getTime())) throw new BadRequestException('Data citirii nu este validă.');
+
+    return {
+      value,
+      readingDate,
+      unit: this.optionalString(payload.unit) ?? null,
+      comment: this.optionalString(payload.comment) ?? this.optionalString(payload.adminComment) ?? null,
+      periodMonth: this.periodMonthFromParts(period.year, period.month),
+    };
+  }
+
+  private buildReadingIssuesForRow(
+    period: any,
+    row: any,
+    bounds: { start: Date; end: Date; periodMonth: string },
+  ) {
+    const issues: Array<{
+      type: MeterReadingIssueType;
+      severity: MeterReadingIssueSeverity;
+      title: string;
+      message: string;
+      recommendation: string;
+    }> = [];
+    const add = (type: MeterReadingIssueType, severity: MeterReadingIssueSeverity, message: string) => {
+      issues.push({
+        type,
+        severity,
+        title: this.issueTitle(type),
+        message,
+        recommendation: this.issueRecommendation(type),
+      });
+    };
+
+    if (!row.apartment?.id) {
+      add('METER_WITHOUT_APARTMENT', 'CRITICAL', 'Contorul nu este legat de un apartament.');
+    }
+    if (row.meter?.status !== 'ACTIVE') {
+      add('METER_INACTIVE', 'WARNING', 'Contorul nu este activ.');
+    }
+    if (!row.currentReading) {
+      add('MISSING_READING', 'CRITICAL', `Nu există citire pentru ${this.periodLabel(period)}.`);
+      return issues;
+    }
+
+    const value = Number(row.currentReading.readingValue);
+    if (!Number.isFinite(value)) {
+      add('VALUE_NOT_NUMERIC', 'CRITICAL', 'Valoarea citirii nu este numerică.');
+    }
+    if (row.duplicateReadingsCount > 1) {
+      add('DUPLICATE_READING', 'WARNING', 'Există mai multe citiri pentru același contor în această perioadă.');
+    }
+    const dateIssue = this.readingDateIssue(row.currentReading.readingDate, bounds);
+    if (dateIssue) add('INVALID_DATE', dateIssue.severity, dateIssue.message);
+
+    const previousValue = row.previousReading?.readingValue;
+    const consumption = row.consumption;
+    if (previousValue !== null && previousValue !== undefined && Number.isFinite(Number(consumption))) {
+      if (Number(consumption) < 0) {
+        add('NEGATIVE_CONSUMPTION', 'CRITICAL', 'Consumul calculat este negativ.');
+      } else if (Number(consumption) === 0) {
+        add('ZERO_CONSUMPTION', 'WARNING', 'Consumul calculat este zero.');
+      } else if (this.isHighConsumption(Number(consumption), Number(row.previousReading?.consumptionValue ?? 0))) {
+        add('HIGH_CONSUMPTION', 'WARNING', 'Consumul este mult peste consumul anterior.');
+      }
+    }
+
+    return issues;
+  }
+
+  private readingDateIssue(readingDate: unknown, bounds: { start: Date; end: Date }) {
+    const date = new Date(String(readingDate));
+    if (Number.isNaN(date.getTime())) {
+      return { severity: 'CRITICAL' as const, message: 'Data citirii nu este validă.' };
+    }
+    if (date >= bounds.start && date < bounds.end) return null;
+    const day = 24 * 60 * 60 * 1000;
+    const distance = date < bounds.start ? Math.abs(bounds.start.getTime() - date.getTime()) : Math.abs(date.getTime() - bounds.end.getTime());
+    if (distance <= 3 * day) {
+      return { severity: 'WARNING' as const, message: 'Data citirii este aproape de perioada selectată, dar în afara lunii.' };
+    }
+    return { severity: 'CRITICAL' as const, message: 'Data citirii este în afara perioadei lunare.' };
+  }
+
+  private isHighConsumption(consumption: number, previousConsumption: number) {
+    if (!Number.isFinite(consumption) || consumption <= 0) return false;
+    if (Number.isFinite(previousConsumption) && previousConsumption > 0) {
+      return consumption > Math.max(previousConsumption * 2.5, previousConsumption + 50);
+    }
+    return consumption > 10000;
+  }
+
+  private issueTitle(type: MeterReadingIssueType) {
+    const labels: Record<MeterReadingIssueType, string> = {
+      MISSING_READING: 'Citire lipsă',
+      NEGATIVE_CONSUMPTION: 'Consum negativ',
+      ZERO_CONSUMPTION: 'Consum zero',
+      HIGH_CONSUMPTION: 'Consum ridicat',
+      METER_INACTIVE: 'Contor inactiv',
+      METER_WITHOUT_APARTMENT: 'Contor fără apartament',
+      DUPLICATE_READING: 'Citire duplicată',
+      INVALID_DATE: 'Dată invalidă',
+      VALUE_NOT_NUMERIC: 'Valoare invalidă',
+    };
+    return labels[type] || type;
+  }
+
+  private issueRecommendation(type: MeterReadingIssueType) {
+    const recommendations: Record<MeterReadingIssueType, string> = {
+      MISSING_READING: 'Introdu citirea curentă înainte de blocarea perioadei.',
+      NEGATIVE_CONSUMPTION: 'Verifică citirea precedentă și valoarea introdusă.',
+      ZERO_CONSUMPTION: 'Confirmă că locuința nu a avut consum sau corectează valoarea.',
+      HIGH_CONSUMPTION: 'Compară cu istoricul contorului și verifică seria/valoarea.',
+      METER_INACTIVE: 'Activează contorul doar dacă trebuie citit în această perioadă.',
+      METER_WITHOUT_APARTMENT: 'Leagă contorul de apartamentul corect în registrul de contoare.',
+      DUPLICATE_READING: 'Păstrează o singură citire validă pentru perioada lunară.',
+      INVALID_DATE: 'Ajustează data citirii la luna selectată.',
+      VALUE_NOT_NUMERIC: 'Introdu o valoare numerică pozitivă sau zero.',
+    };
+    return recommendations[type] || 'Verifică datele și corectează problema.';
+  }
+
   private async requireAdminMeter(user: MvpUser, id: string) {
     const meter = await this.prisma.meter.findFirst({
       where: {
@@ -2016,10 +2752,12 @@ export class MetersService {
     });
     const row = rows.find((reading) => reading.id !== excludeReadingId && this.readingMetadata(store, reading).status === 'APPROVED');
     if (!row) return null;
+    const meta = this.readingMetadata(store, row);
     return {
       id: row.id,
       readingValue: Number(row.value || 0),
-      periodMonth: this.readingMetadata(store, row).periodMonth,
+      periodMonth: meta.periodMonth,
+      consumptionValue: meta.consumptionValue ?? null,
     };
   }
 

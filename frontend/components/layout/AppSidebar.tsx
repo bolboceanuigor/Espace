@@ -53,6 +53,7 @@ const sections: Array<{
       { label: 'Locatari', href: '/admin/residents', icon: Users, permission: ['RESIDENTS', 'VIEW'] },
       { label: 'Tarife', href: '/admin/tariffs', icon: Calculator, permission: ['TARIFFS', 'VIEW'] },
       { label: 'Contoare', href: '/admin/meters', icon: Gauge, permission: ['METERS', 'VIEW'] },
+      { label: 'Citiri contoare', href: '/admin/meter-readings', icon: ListChecks, permission: ['METER_READINGS', 'VIEW'] },
     ],
   },
   {
