@@ -243,9 +243,10 @@ const announcementCategoryLabels: Record<string, string> = {
 
 const requestStatusLabels: Record<string, string> = {
   NEW: 'Nouă',
-  IN_REVIEW: 'În verificare',
+  OPEN: 'Deschisă',
   IN_PROGRESS: 'În lucru',
-  WAITING_FOR_RESIDENT: 'Așteaptă răspunsul tău',
+  WAITING_RESIDENT: 'Așteaptă răspunsul tău',
+  WAITING_VENDOR: 'Așteaptă prestator',
   RESOLVED: 'Rezolvată',
   CLOSED: 'Închisă',
   CANCELLED: 'Anulată',
@@ -607,6 +608,22 @@ export default function ResidentDashboardPage() {
             </div>
             <ButtonLink href="/resident/meters" variant="secondary">
               <Gauge className="h-4 w-4" /> Deschide contoare
+            </ButtonLink>
+          </div>
+        </Card>
+      ) : null}
+
+      {Number(requestStats.waitingResident || requestStats.waitingForResident || 0) > 0 ? (
+        <Card className="border-amber-200 bg-amber-50">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-amber-950">Adminul a cerut informații</p>
+              <p className="mt-1 text-sm text-amber-800">
+                Ai {requestStats.waitingResident || requestStats.waitingForResident} cereri care așteaptă răspunsul tău.
+              </p>
+            </div>
+            <ButtonLink href="/resident/requests?status=WAITING_RESIDENT" variant="secondary">
+              Deschide cererile
             </ButtonLink>
           </div>
         </Card>

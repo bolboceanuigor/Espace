@@ -22,9 +22,25 @@ const ANNOUNCEMENT_STATUSES = ['DRAFT', 'SCHEDULED', 'PUBLISHED', 'ARCHIVED'] as
 const ANNOUNCEMENT_VISIBILITY_TYPES = ['ALL_RESIDENTS', 'BY_STAIRCASE', 'BY_APARTMENTS', 'BY_ROLE'] as const;
 const ANNOUNCEMENT_ROLES = ['OWNER', 'TENANT', 'RESIDENT', 'REPRESENTATIVE'] as const;
 const REQUEST_METADATA_TITLE = 'Resident request module metadata';
-const REQUEST_CATEGORIES = ['MAINTENANCE', 'CLEANING', 'PAYMENTS', 'DOCUMENTS', 'ACCESS', 'NOISE', 'COMMON_AREA', 'TECHNICAL', 'OTHER'] as const;
+const REQUEST_CATEGORIES = [
+  'REPAIR',
+  'WATER_LEAK',
+  'ELECTRICITY',
+  'ELEVATOR',
+  'CLEANING',
+  'HEATING',
+  'INTERCOM',
+  'PARKING',
+  'COURTYARD',
+  'DOCUMENTS',
+  'PAYMENT',
+  'METER',
+  'NEIGHBOR_ISSUE',
+  'GENERAL_QUESTION',
+  'OTHER',
+] as const;
 const REQUEST_PRIORITIES = ['LOW', 'NORMAL', 'HIGH', 'URGENT'] as const;
-const REQUEST_STATUSES = ['NEW', 'IN_REVIEW', 'IN_PROGRESS', 'WAITING_FOR_RESIDENT', 'RESOLVED', 'CLOSED', 'CANCELLED'] as const;
+const REQUEST_STATUSES = ['NEW', 'OPEN', 'IN_PROGRESS', 'WAITING_RESIDENT', 'WAITING_VENDOR', 'RESOLVED', 'CLOSED', 'CANCELLED'] as const;
 const REQUEST_MESSAGE_TYPES = ['PUBLIC_COMMENT', 'INTERNAL_NOTE', 'STATUS_CHANGE'] as const;
 
 type AnnouncementCategoryValue = (typeof ANNOUNCEMENT_CATEGORIES)[number];
@@ -72,12 +88,23 @@ type RequestMetadata = {
   priority: RequestPriorityValue;
   status: RequestStatusValue;
   locationDetails: string | null;
+  locationText?: string | null;
+  visibility?: 'PRIVATE' | 'BUILDING' | 'ENTRANCE' | 'PUBLIC_TO_ORG';
   preferredContactMethod: string | null;
   createdByResidentId: string | null;
+  dueDate?: string | null;
   resolvedAt: string | null;
   closedAt: string | null;
   cancelledAt: string | null;
   assignedToId?: string | null;
+  internalNote?: string | null;
+  attachmentUrl?: string | null;
+  attachmentFileName?: string | null;
+  attachmentMimeType?: string | null;
+  attachmentFileSize?: number | null;
+  lastResidentMessageAt?: string | null;
+  lastAdminMessageAt?: string | null;
+  possibleDuplicateIds?: string[];
   timeline: Array<{
     type: RequestMessageTypeValue;
     oldStatus?: string | null;
@@ -174,6 +201,17 @@ export class CommunityReadService {
         },
         orderBy: { createdAt: 'asc' },
       },
+      attachments: {
+        select: {
+          id: true,
+          fileUrl: true,
+          fileName: true,
+          fileType: true,
+          uploadedByUserId: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: 'asc' },
+      },
     };
   }
 
@@ -251,8 +289,36 @@ export class CommunityReadService {
   private toRequest(row: any, store?: RequestMetadataStore, includeInternal = false) {
     const meta = this.requestMeta(row, store);
     const publicComments = (row.comments || []).filter((comment: any) => !comment.isInternal);
+    const internalComments = (row.comments || []).filter((comment: any) => comment.isInternal);
     const visibleComments = (row.comments || []).filter((comment: any) => includeInternal || !comment.isInternal);
     const lastMessage = publicComments[publicComments.length - 1];
+    const lastResidentComment = publicComments
+      .filter((comment: any) => String(comment.user?.role || '').toUpperCase() === Role.RESIDENT)
+      .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+    const lastAdminComment = publicComments
+      .filter((comment: any) => String(comment.user?.role || '').toUpperCase() === Role.ADMIN || String(comment.user?.role || '').toUpperCase() === Role.SUPERADMIN)
+      .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+    const attachments = (row.attachments || []).map((attachment: any) => ({
+      id: attachment.id,
+      fileUrl: attachment.fileUrl,
+      fileName: attachment.fileName,
+      fileType: attachment.fileType,
+      uploadedByUserId: attachment.uploadedByUserId,
+      createdAt: attachment.createdAt,
+    }));
+    const primaryAttachment = meta.attachmentUrl
+      ? {
+          id: null,
+          fileUrl: meta.attachmentUrl,
+          fileName: meta.attachmentFileName || 'Atașament',
+          fileType: meta.attachmentMimeType || 'link',
+          uploadedByUserId: row.createdByUserId,
+          createdAt: row.createdAt,
+          fileSize: meta.attachmentFileSize || null,
+        }
+      : attachments[0] || null;
+    const dueDate = meta.dueDate || null;
+    const isOverdue = Boolean(dueDate && !['RESOLVED', 'CLOSED', 'CANCELLED'].includes(meta.status) && new Date(dueDate) < new Date());
     const apartment = row.apartment
       ? {
           id: row.apartment.id,
@@ -286,8 +352,12 @@ export class CommunityReadService {
       category: meta.category,
       priority: meta.priority,
       status: meta.status,
-      locationDetails: meta.locationDetails,
+      visibility: meta.visibility || 'PRIVATE',
+      locationText: meta.locationText || meta.locationDetails,
+      locationDetails: meta.locationText || meta.locationDetails,
       preferredContactMethod: meta.preferredContactMethod,
+      dueDate,
+      isOverdue,
       apartmentId: row.apartmentId,
       residentId: row.residentId,
       createdByUserId: row.createdByUserId,
@@ -297,6 +367,17 @@ export class CommunityReadService {
       staircase: row.staircase ? { id: row.staircase.id, name: row.staircase.name } : row.apartment?.staircase || null,
       resident,
       assignedTo,
+      internalNote: includeInternal ? meta.internalNote || null : undefined,
+      attachments,
+      attachment: primaryAttachment,
+      attachmentUrl: primaryAttachment?.fileUrl || null,
+      hasAttachment: Boolean(primaryAttachment || attachments.length),
+      commentsCount: visibleComments.length,
+      publicCommentsCount: publicComments.length,
+      internalCommentsCount: includeInternal ? internalComments.length : undefined,
+      lastResidentMessageAt: meta.lastResidentMessageAt || lastResidentComment?.createdAt || null,
+      lastAdminMessageAt: meta.lastAdminMessageAt || lastAdminComment?.createdAt || null,
+      possibleDuplicateIds: includeInternal ? meta.possibleDuplicateIds || [] : undefined,
       lastMessagePreview: lastMessage?.message ? this.preview(lastMessage.message, 120) : null,
       messages: visibleComments.map((comment: any) => ({
         id: comment.id,
@@ -378,12 +459,30 @@ export class CommunityReadService {
       priority: this.normalizeRequestPriority(existing.priority || this.requestPriorityFromPrisma(row.priority)),
       status: this.normalizeRequestStatus(existing.status || this.requestStatusFromPrisma(row.status)),
       locationDetails: typeof existing.locationDetails === 'string' && existing.locationDetails ? existing.locationDetails : null,
+      locationText:
+        typeof existing.locationText === 'string' && existing.locationText
+          ? existing.locationText
+          : typeof existing.locationDetails === 'string' && existing.locationDetails
+            ? existing.locationDetails
+            : null,
+      visibility: ['PRIVATE', 'BUILDING', 'ENTRANCE', 'PUBLIC_TO_ORG'].includes(String(existing.visibility || '').toUpperCase())
+        ? (String(existing.visibility).toUpperCase() as any)
+        : 'PRIVATE',
       preferredContactMethod: typeof existing.preferredContactMethod === 'string' && existing.preferredContactMethod ? existing.preferredContactMethod : null,
       createdByResidentId: typeof existing.createdByResidentId === 'string' ? existing.createdByResidentId : row.residentId || null,
+      dueDate: typeof existing.dueDate === 'string' && existing.dueDate ? existing.dueDate : null,
       resolvedAt: typeof existing.resolvedAt === 'string' ? existing.resolvedAt : row.resolvedAt?.toISOString?.() || null,
       closedAt: typeof existing.closedAt === 'string' ? existing.closedAt : null,
       cancelledAt: typeof existing.cancelledAt === 'string' ? existing.cancelledAt : null,
       assignedToId: typeof existing.assignedToId === 'string' ? existing.assignedToId : row.assignedToUserId || null,
+      internalNote: typeof existing.internalNote === 'string' && existing.internalNote ? existing.internalNote : null,
+      attachmentUrl: typeof existing.attachmentUrl === 'string' && existing.attachmentUrl ? existing.attachmentUrl : null,
+      attachmentFileName: typeof existing.attachmentFileName === 'string' && existing.attachmentFileName ? existing.attachmentFileName : null,
+      attachmentMimeType: typeof existing.attachmentMimeType === 'string' && existing.attachmentMimeType ? existing.attachmentMimeType : null,
+      attachmentFileSize: Number.isFinite(Number(existing.attachmentFileSize)) ? Number(existing.attachmentFileSize) : null,
+      lastResidentMessageAt: typeof existing.lastResidentMessageAt === 'string' && existing.lastResidentMessageAt ? existing.lastResidentMessageAt : null,
+      lastAdminMessageAt: typeof existing.lastAdminMessageAt === 'string' && existing.lastAdminMessageAt ? existing.lastAdminMessageAt : null,
+      possibleDuplicateIds: Array.isArray(existing.possibleDuplicateIds) ? existing.possibleDuplicateIds.map(String).filter(Boolean) : [],
       timeline: Array.isArray(existing.timeline) ? existing.timeline : [],
     };
   }
@@ -407,9 +506,24 @@ export class CommunityReadService {
 
   private normalizeRequestCategory(value: unknown): RequestCategoryValue {
     const normalized = typeof value === 'string' ? value.trim().toUpperCase() : 'OTHER';
+    const aliases: Record<string, RequestCategoryValue> = {
+      MAINTENANCE: 'REPAIR',
+      REPAIR_REQUEST: 'REPAIR',
+      WATER: 'WATER_LEAK',
+      WATER_LEAKAGE: 'WATER_LEAK',
+      PAYMENTS: 'PAYMENT',
+      PAYMENT_REQUEST: 'PAYMENT',
+      ACCESS: 'INTERCOM',
+      NOISE: 'NEIGHBOR_ISSUE',
+      NEIGHBOR: 'NEIGHBOR_ISSUE',
+      COMMON_AREA: 'COURTYARD',
+      TECHNICAL: 'REPAIR',
+      GENERAL: 'GENERAL_QUESTION',
+      QUESTION: 'GENERAL_QUESTION',
+    };
+    if (aliases[normalized]) return aliases[normalized];
     if (REQUEST_CATEGORIES.includes(normalized as RequestCategoryValue)) return normalized as RequestCategoryValue;
-    if (normalized === 'REPAIR' || normalized === 'WATER' || normalized === 'HEATING' || normalized === 'ELEVATOR' || normalized === 'ELECTRICITY') return 'MAINTENANCE';
-    if (normalized === 'SECURITY') return 'ACCESS';
+    if (normalized === 'SECURITY') return 'INTERCOM';
     throw new BadRequestException('Categoria solicitării nu este validă.');
   }
 
@@ -423,21 +537,30 @@ export class CommunityReadService {
   private normalizeRequestStatus(value: unknown): RequestStatusValue {
     const normalized = typeof value === 'string' ? value.trim().toUpperCase() : 'NEW';
     if (REQUEST_STATUSES.includes(normalized as RequestStatusValue)) return normalized as RequestStatusValue;
-    if (normalized === 'WAITING') return 'WAITING_FOR_RESIDENT';
+    if (normalized === 'WAITING' || normalized === 'WAITING_FOR_RESIDENT') return 'WAITING_RESIDENT';
+    if (normalized === 'IN_REVIEW') return 'OPEN';
     throw new BadRequestException('Statusul solicitării nu este valid.');
   }
 
   private requestCategoryFromPrisma(value?: string | null): RequestCategoryValue {
     if (value === IssueCategory.CLEANING) return 'CLEANING';
-    if (value === IssueCategory.SECURITY) return 'ACCESS';
-    if (value && value !== IssueCategory.OTHER) return 'MAINTENANCE';
+    if (value === IssueCategory.SECURITY) return 'INTERCOM';
+    if (value === IssueCategory.WATER) return 'WATER_LEAK';
+    if (value === IssueCategory.ELECTRICITY) return 'ELECTRICITY';
+    if (value === IssueCategory.ELEVATOR) return 'ELEVATOR';
+    if (value === IssueCategory.HEATING) return 'HEATING';
+    if (value === IssueCategory.REPAIR) return 'REPAIR';
     return 'OTHER';
   }
 
   private requestCategoryToPrisma(value: RequestCategoryValue): IssueCategory {
     if (value === 'CLEANING') return IssueCategory.CLEANING;
-    if (value === 'ACCESS') return IssueCategory.SECURITY;
-    if (value === 'MAINTENANCE' || value === 'TECHNICAL' || value === 'COMMON_AREA') return IssueCategory.REPAIR;
+    if (value === 'INTERCOM') return IssueCategory.SECURITY;
+    if (value === 'WATER_LEAK') return IssueCategory.WATER;
+    if (value === 'ELECTRICITY') return IssueCategory.ELECTRICITY;
+    if (value === 'ELEVATOR') return IssueCategory.ELEVATOR;
+    if (value === 'HEATING') return IssueCategory.HEATING;
+    if (value === 'REPAIR') return IssueCategory.REPAIR;
     return IssueCategory.OTHER;
   }
 
@@ -457,7 +580,7 @@ export class CommunityReadService {
 
   private requestStatusFromPrisma(value?: string | null): RequestStatusValue {
     if (value === IssueStatus.IN_PROGRESS) return 'IN_PROGRESS';
-    if (value === IssueStatus.WAITING) return 'WAITING_FOR_RESIDENT';
+    if (value === IssueStatus.WAITING) return 'WAITING_RESIDENT';
     if (value === IssueStatus.RESOLVED) return 'RESOLVED';
     if (value === IssueStatus.CLOSED) return 'CLOSED';
     return 'NEW';
@@ -465,7 +588,7 @@ export class CommunityReadService {
 
   private requestStatusToPrisma(value: RequestStatusValue): IssueStatus {
     if (value === 'IN_PROGRESS') return IssueStatus.IN_PROGRESS;
-    if (value === 'WAITING_FOR_RESIDENT') return IssueStatus.WAITING;
+    if (value === 'WAITING_RESIDENT' || value === 'WAITING_VENDOR') return IssueStatus.WAITING;
     if (value === 'RESOLVED') return IssueStatus.RESOLVED;
     if (value === 'CLOSED' || value === 'CANCELLED') return IssueStatus.CLOSED;
     return IssueStatus.NEW;
@@ -896,6 +1019,23 @@ export class CommunityReadService {
     return result.stats;
   }
 
+  async getResidentRequestsOverview(user: MvpUser) {
+    const result = await this.listResidentRequests(user, { limit: '1000' });
+    return {
+      ...result.stats,
+      totalRequests: result.stats.total,
+      openRequests: result.stats.open,
+      inProgressRequests: result.stats.inProgress,
+      waitingResidentRequests: result.stats.waitingResident,
+      resolvedRequests: result.stats.resolved,
+      closedRequests: result.stats.closed,
+      urgentRequests: result.stats.urgent,
+      lastRequest: result.items?.[0] || null,
+      unreadAdminRepliesCount: result.items?.filter((item: any) => item.lastAdminMessageAt && (!item.lastResidentMessageAt || new Date(item.lastAdminMessageAt) > new Date(item.lastResidentMessageAt))).length || 0,
+      byCategory: result.stats.byCategory,
+    };
+  }
+
   async createResidentRequest(user: MvpUser, body: unknown) {
     const payload = this.objectPayload(body);
     const scope = await this.residentScope(user.organizationId, user.id);
@@ -916,6 +1056,24 @@ export class CommunityReadService {
     const residentId = scope.residentIds[0] || null;
     const store = await this.readRequestMetadata(user.organizationId);
     const requestNumber = this.nextRequestNumber(store);
+    const recentCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const possibleDuplicates = await this.prisma.issue.findMany({
+      where: {
+        organizationId: user.organizationId,
+        apartmentId,
+        createdAt: { gte: recentCutoff },
+        status: { in: [IssueStatus.NEW, IssueStatus.IN_PROGRESS, IssueStatus.WAITING] },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: this.issueSelect(),
+      take: 20,
+    });
+    const possibleDuplicateIds = possibleDuplicates
+      .filter((item) => {
+        const existingMeta = this.requestMeta(item, store);
+        return existingMeta.category === category && !['RESOLVED', 'CLOSED', 'CANCELLED'].includes(existingMeta.status);
+      })
+      .map((item) => item.id);
 
     const issue = await this.prisma.issue.create({
       data: {
@@ -934,21 +1092,51 @@ export class CommunityReadService {
       },
       select: this.issueSelect(),
     });
+    const attachment = this.parseAttachmentPayload(payload);
+    if (attachment) {
+      await this.prisma.issueAttachment.create({
+        data: {
+          issueId: issue.id,
+          fileUrl: attachment.fileUrl,
+          fileName: attachment.fileName,
+          fileType: attachment.fileType,
+          uploadedByUserId: user.id,
+        },
+      });
+      await this.prisma.fileAsset.updateMany({
+        where: { organizationId: user.organizationId, entityType: 'ISSUE_ATTACHMENT', fileUrl: attachment.fileUrl, entityId: null },
+        data: { entityId: issue.id },
+      });
+    }
     store.items[issue.id] = {
       requestNumber,
       category,
       priority,
       status: 'NEW',
       locationDetails: typeof payload.locationDetails === 'string' && payload.locationDetails.trim() ? payload.locationDetails.trim() : null,
+      locationText:
+        typeof payload.locationText === 'string' && payload.locationText.trim()
+          ? payload.locationText.trim()
+          : typeof payload.locationDetails === 'string' && payload.locationDetails.trim()
+            ? payload.locationDetails.trim()
+            : null,
+      visibility: 'PRIVATE',
       preferredContactMethod:
         typeof payload.preferredContactMethod === 'string' && payload.preferredContactMethod.trim()
           ? payload.preferredContactMethod.trim().toUpperCase()
           : null,
       createdByResidentId: residentId,
+      dueDate: null,
       resolvedAt: null,
       closedAt: null,
       cancelledAt: null,
       assignedToId: null,
+      internalNote: null,
+      attachmentUrl: attachment?.fileUrl || null,
+      attachmentFileName: attachment?.fileName || null,
+      attachmentMimeType: attachment?.fileType || null,
+      attachmentFileSize: Number.isFinite(Number(payload.attachmentFileSize)) ? Number(payload.attachmentFileSize) : null,
+      possibleDuplicateIds,
       timeline: [],
     };
     await this.writeRequestMetadata(user.organizationId, user.id, store);
@@ -956,7 +1144,7 @@ export class CommunityReadService {
     await this.activity.createActivity({
       organizationId: user.organizationId,
       actorUserId: user.id,
-      type: 'ISSUE_CREATED',
+      type: 'SERVICE_TICKET_CREATED',
       title: 'Solicitare nouă',
       message: `Solicitarea „${title}” a fost trimisă de locatar.`,
       targetType: 'ISSUE',
@@ -971,7 +1159,12 @@ export class CommunityReadService {
       link: `/admin/requests/${issue.id}`,
     });
 
-    return this.toRequest(issue, store, false);
+    return {
+      ...this.toRequest({ ...issue, attachments: attachment ? [{ id: null, fileUrl: attachment.fileUrl, fileName: attachment.fileName, fileType: attachment.fileType, uploadedByUserId: user.id, createdAt: issue.createdAt }] : [] }, store, false),
+      possibleDuplicate: possibleDuplicateIds.length > 0,
+      possibleDuplicateIds,
+      warning: possibleDuplicateIds.length ? 'Există deja o cerere similară deschisă pentru acest apartament.' : null,
+    };
   }
 
   async getResidentRequest(user: MvpUser, id: string) {
@@ -984,15 +1177,39 @@ export class CommunityReadService {
   }
 
   async addResidentRequestComment(user: MvpUser, id: string, body: unknown) {
-    const { row } = await this.findResidentRequest(user, id);
-    const message = this.requiredString(this.objectPayload(body).message, 'Comentariul este obligatoriu.');
+    const { row, store } = await this.findResidentRequest(user, id);
+    const meta = this.requestMeta(row, store);
+    if (['CLOSED', 'CANCELLED'].includes(meta.status)) throw new BadRequestException('Nu poți comenta pe o solicitare închisă sau anulată.');
+    const payload = this.objectPayload(body);
+    const message = this.requiredString(payload.message, 'Comentariul este obligatoriu.');
     const comment = await this.prisma.issueComment.create({
       data: { issueId: row.id, userId: user.id, message, isInternal: false },
     });
+    const attachment = this.parseAttachmentPayload(payload);
+    if (attachment) {
+      await this.prisma.issueAttachment.create({
+        data: {
+          issueId: row.id,
+          fileUrl: attachment.fileUrl,
+          fileName: attachment.fileName,
+          fileType: attachment.fileType,
+          uploadedByUserId: user.id,
+        },
+      });
+    }
+    store.items[row.id] = {
+      ...meta,
+      status: meta.status === 'WAITING_RESIDENT' ? 'OPEN' : meta.status,
+      lastResidentMessageAt: new Date().toISOString(),
+    };
+    await this.writeRequestMetadata(row.organizationId, user.id, store);
+    if (meta.status === 'WAITING_RESIDENT') {
+      await this.prisma.issue.update({ where: { id: row.id }, data: { status: IssueStatus.NEW } });
+    }
     await this.activity.createActivity({
       organizationId: row.organizationId,
       actorUserId: user.id,
-      type: 'ISSUE_STATUS_UPDATED',
+      type: 'SERVICE_TICKET_COMMENT_ADDED',
       title: 'Comentariu nou la solicitare',
       message: `Locatarul a adăugat un comentariu la „${row.title}”.`,
       targetType: 'ISSUE',
@@ -1013,7 +1230,7 @@ export class CommunityReadService {
   async cancelResidentRequest(user: MvpUser, id: string) {
     const { row, store } = await this.findResidentRequest(user, id);
     const meta = this.requestMeta(row, store);
-    if (!['NEW', 'IN_REVIEW'].includes(meta.status)) throw new BadRequestException('Solicitarea nu mai poate fi anulată.');
+    if (!['NEW', 'OPEN'].includes(meta.status)) throw new BadRequestException('Solicitarea nu mai poate fi anulată.');
     const updated = await this.changeRequestStatus(row, store, user.id, meta.status, 'CANCELLED', 'Solicitarea a fost anulată de locatar.');
     await this.activity.notifyOrganizationAdmins({
       organizationId: row.organizationId,
@@ -1026,11 +1243,16 @@ export class CommunityReadService {
     return updated;
   }
 
-  async closeResidentRequest(user: MvpUser, id: string) {
+  async closeResidentRequest(user: MvpUser, id: string, body: unknown = {}) {
     const { row, store } = await this.findResidentRequest(user, id);
     const meta = this.requestMeta(row, store);
-    if (meta.status !== 'RESOLVED') throw new BadRequestException('Poți închide doar o solicitare rezolvată.');
-    const updated = await this.changeRequestStatus(row, store, user.id, meta.status, 'CLOSED', 'Solicitarea a fost închisă de locatar.');
+    if (['CLOSED', 'CANCELLED'].includes(meta.status)) throw new BadRequestException('Solicitarea este deja închisă sau anulată.');
+    const payload = this.objectPayload(body);
+    const message = typeof payload.message === 'string' && payload.message.trim() ? payload.message.trim() : '';
+    if (message) {
+      await this.prisma.issueComment.create({ data: { issueId: row.id, userId: user.id, message, isInternal: false } });
+    }
+    const updated = await this.changeRequestStatus(row, store, user.id, meta.status, 'CLOSED', message || 'Solicitarea a fost închisă de locatar.');
     await this.activity.notifyOrganizationAdmins({
       organizationId: row.organizationId,
       assignedUserId: row.assignedToUserId,
@@ -1042,10 +1264,39 @@ export class CommunityReadService {
     return updated;
   }
 
+  async reopenResidentRequest(user: MvpUser, id: string, body: unknown = {}) {
+    const { row, store } = await this.findResidentRequest(user, id);
+    const meta = this.requestMeta(row, store);
+    if (!['RESOLVED', 'CLOSED'].includes(meta.status)) throw new BadRequestException('Poți redeschide doar o solicitare rezolvată sau închisă.');
+    const payload = this.objectPayload(body);
+    const message = typeof payload.message === 'string' && payload.message.trim() ? payload.message.trim() : 'Problema a reapărut.';
+    await this.prisma.issueComment.create({ data: { issueId: row.id, userId: user.id, message, isInternal: false } });
+    const updated = await this.changeRequestStatus(row, store, user.id, meta.status, 'OPEN', 'Solicitarea a fost redeschisă de locatar.');
+    await this.activity.createActivity({
+      organizationId: row.organizationId,
+      actorUserId: user.id,
+      type: 'SERVICE_TICKET_REOPENED',
+      title: 'Solicitare redeschisă',
+      message: `Locatarul a redeschis solicitarea „${row.title}”.`,
+      targetType: 'ISSUE',
+      targetId: row.id,
+      link: `/admin/requests/${row.id}`,
+    });
+    await this.activity.notifyOrganizationAdmins({
+      organizationId: row.organizationId,
+      assignedUserId: row.assignedToUserId,
+      type: NotificationType.ISSUE,
+      title: 'Solicitare redeschisă de locatar',
+      message: `Locatarul a redeschis solicitarea „${row.title}”.`,
+      link: `/admin/requests/${row.id}`,
+    });
+    return updated;
+  }
+
   async markResidentRequestResolved(user: MvpUser, id: string) {
     const { row, store } = await this.findResidentRequest(user, id);
     const meta = this.requestMeta(row, store);
-    if (!['WAITING_FOR_RESIDENT', 'IN_PROGRESS'].includes(meta.status)) {
+    if (!['WAITING_RESIDENT', 'IN_PROGRESS', 'OPEN'].includes(meta.status)) {
       throw new BadRequestException('Solicitarea nu poate fi marcată ca rezolvată în acest status.');
     }
     const updated = await this.changeRequestStatus(row, store, user.id, meta.status, 'RESOLVED', 'Locatarul a confirmat rezolvarea solicitării.');
@@ -1088,6 +1339,28 @@ export class CommunityReadService {
     return result.stats;
   }
 
+  async getAdminRequestsOverview(user: MvpUser) {
+    const result = await this.listAdminRequests(user, { limit: '1000' });
+    const items = result.items || [];
+    return {
+      ...result.stats,
+      totalRequests: result.stats.total,
+      newRequests: result.stats.new,
+      openRequests: result.stats.open,
+      inProgressRequests: result.stats.inProgress,
+      waitingResidentRequests: result.stats.waitingResident,
+      waitingVendorRequests: result.stats.waitingVendor,
+      resolvedRequests: result.stats.resolved,
+      closedRequests: result.stats.closed,
+      urgentRequests: result.stats.urgent,
+      overdueRequests: result.stats.overdue,
+      averageResolutionTimeHours: result.stats.averageResolutionHours,
+      byCategory: result.stats.byCategory,
+      byPriority: result.stats.byPriority,
+      latestRequests: items.slice(0, 5),
+    };
+  }
+
   async getAdminRequest(user: MvpUser, id: string) {
     const row = await this.findAdminRequest(user, id);
     const store = await this.readRequestMetadata(row.organizationId);
@@ -1095,6 +1368,95 @@ export class CommunityReadService {
       request: this.toRequest(row, store, true),
       association: await this.getOrganizationBadge(row.organizationId),
     };
+  }
+
+  async updateAdminRequest(user: MvpUser, id: string, body: unknown) {
+    const row = await this.findAdminRequest(user, id);
+    const payload = this.objectPayload(body);
+    const store = await this.readRequestMetadata(row.organizationId);
+    const meta = this.requestMeta(row, store);
+    const nextStatus = payload.status !== undefined ? this.normalizeRequestStatus(payload.status) : meta.status;
+    const nextPriority = payload.priority !== undefined ? this.normalizeRequestPriority(payload.priority) : meta.priority;
+    const nextCategory = payload.category !== undefined ? this.normalizeRequestCategory(payload.category) : meta.category;
+    const nextAssignedToId =
+      payload.assignedToId !== undefined || payload.assignedToUserId !== undefined
+        ? this.optionalString(payload.assignedToId ?? payload.assignedToUserId)
+        : row.assignedToUserId || meta.assignedToId || null;
+    if (nextAssignedToId) {
+      const assignee = await this.prisma.user.findFirst({
+        where: { id: nextAssignedToId, organizationId: row.organizationId, role: Role.ADMIN, deletedAt: null },
+        select: { id: true },
+      });
+      if (!assignee) throw new BadRequestException('Administratorul selectat nu este valid.');
+    }
+    const now = new Date().toISOString();
+    const timeline = [...(meta.timeline || [])];
+    if (nextStatus !== meta.status) {
+      timeline.push({
+        type: 'STATUS_CHANGE',
+        oldStatus: meta.status,
+        newStatus: nextStatus,
+        message: `Status schimbat la ${nextStatus}.`,
+        createdAt: now,
+        authorUserId: user.id,
+      });
+    }
+    const internalNote = payload.internalNote !== undefined ? this.optionalString(payload.internalNote) : meta.internalNote || null;
+    const nextMeta: RequestMetadata = {
+      ...meta,
+      status: nextStatus,
+      priority: nextPriority,
+      category: nextCategory,
+      assignedToId: nextAssignedToId,
+      dueDate: payload.dueDate !== undefined ? this.optionalDateString(payload.dueDate, 'Data scadentă nu este validă.') : meta.dueDate || null,
+      locationText:
+        payload.locationText !== undefined || payload.locationDetails !== undefined
+          ? this.optionalString(payload.locationText ?? payload.locationDetails)
+          : meta.locationText || meta.locationDetails || null,
+      locationDetails:
+        payload.locationText !== undefined || payload.locationDetails !== undefined
+          ? this.optionalString(payload.locationText ?? payload.locationDetails)
+          : meta.locationDetails,
+      internalNote,
+      resolvedAt: nextStatus === 'RESOLVED' ? now : ['NEW', 'OPEN', 'IN_PROGRESS'].includes(nextStatus) ? null : meta.resolvedAt,
+      closedAt: nextStatus === 'CLOSED' ? now : ['NEW', 'OPEN', 'IN_PROGRESS'].includes(nextStatus) ? null : meta.closedAt,
+      cancelledAt: nextStatus === 'CANCELLED' ? now : ['NEW', 'OPEN', 'IN_PROGRESS'].includes(nextStatus) ? null : meta.cancelledAt,
+      timeline,
+    };
+    store.items[row.id] = nextMeta;
+    const updated = await this.prisma.issue.update({
+      where: { id: row.id },
+      data: {
+        status: this.requestStatusToPrisma(nextStatus),
+        priority: this.requestPriorityToPrisma(nextPriority),
+        category: this.requestCategoryToPrisma(nextCategory),
+        assignedToUserId: nextAssignedToId,
+        resolvedAt: nextStatus === 'RESOLVED' ? new Date(now) : ['NEW', 'OPEN', 'IN_PROGRESS'].includes(nextStatus) ? null : row.resolvedAt,
+      },
+      select: this.issueSelect(),
+    });
+    if (internalNote && internalNote !== meta.internalNote) {
+      await this.prisma.issueComment.create({ data: { issueId: row.id, userId: user.id, message: internalNote, isInternal: true } });
+    }
+    await this.writeRequestMetadata(row.organizationId, user.id, store);
+    await this.activity.createActivity({
+      organizationId: row.organizationId,
+      actorUserId: user.id,
+      type: 'SERVICE_TICKET_UPDATED',
+      title: 'Solicitare actualizată',
+      message: `Solicitarea „${row.title}” a fost actualizată.`,
+      targetType: 'ISSUE',
+      targetId: row.id,
+      link: `/admin/requests/${row.id}`,
+    });
+    if (nextStatus !== meta.status) {
+      await this.notifyRequestResident(row, {
+        title: 'Status solicitare actualizat',
+        message: `Solicitarea „${row.title}” are acum statusul ${nextStatus}.`,
+        link: `/resident/requests/${row.id}`,
+      });
+    }
+    return this.toRequest(updated, store, true);
   }
 
   async updateAdminRequestStatus(user: MvpUser, id: string, body: unknown) {
@@ -1144,43 +1506,127 @@ export class CommunityReadService {
     }
     const store = await this.readRequestMetadata(row.organizationId);
     const meta = this.requestMeta(row, store);
-    store.items[row.id] = { ...meta, assignedToId: assignedToId || null };
+    const nextStatus = ['NEW', 'OPEN'].includes(meta.status) && assignedToId ? 'IN_PROGRESS' : meta.status;
+    store.items[row.id] = {
+      ...meta,
+      assignedToId: assignedToId || null,
+      status: nextStatus,
+      timeline:
+        nextStatus !== meta.status
+          ? [
+              ...(meta.timeline || []),
+              {
+                type: 'STATUS_CHANGE',
+                oldStatus: meta.status,
+                newStatus: nextStatus,
+                message: 'Solicitarea a fost preluată de administrator.',
+                createdAt: new Date().toISOString(),
+                authorUserId: user.id,
+              },
+            ]
+          : meta.timeline,
+    };
     const updated = await this.prisma.issue.update({
       where: { id: row.id },
-      data: { assignedToUserId: assignedToId || null },
+      data: { assignedToUserId: assignedToId || null, status: this.requestStatusToPrisma(nextStatus) },
       select: this.issueSelect(),
     });
     await this.writeRequestMetadata(row.organizationId, user.id, store);
+    await this.activity.createActivity({
+      organizationId: row.organizationId,
+      actorUserId: user.id,
+      type: 'SERVICE_TICKET_ASSIGNED',
+      title: 'Solicitare asignată',
+      message: assignedToId ? `Solicitarea „${row.title}” a fost asignată.` : `Asignarea solicitării „${row.title}” a fost curățată.`,
+      targetType: 'ISSUE',
+      targetId: row.id,
+      link: `/admin/requests/${row.id}`,
+    });
     return this.toRequest(updated, store, true);
   }
 
   async addAdminRequestComment(user: MvpUser, id: string, body: unknown) {
     const row = await this.findAdminRequest(user, id);
-    const message = this.requiredString(this.objectPayload(body).message, 'Comentariul este obligatoriu.');
+    const payload = this.objectPayload(body);
+    const message = this.requiredString(payload.message, 'Comentariul este obligatoriu.');
+    const isInternal = payload.isInternal === true || String(payload.isInternal || '').toLowerCase() === 'true';
     const comment = await this.prisma.issueComment.create({
-      data: { issueId: row.id, userId: user.id, message, isInternal: false },
+      data: { issueId: row.id, userId: user.id, message, isInternal },
     });
-    await this.notifyRequestResident(row, {
-      title: 'Răspuns nou la solicitare',
-      message: `Administratorul a răspuns la „${row.title}”: ${this.preview(message, 120)}`,
-      link: `/resident/requests/${row.id}`,
+    const attachment = this.parseAttachmentPayload(payload);
+    if (attachment) {
+      await this.prisma.issueAttachment.create({
+        data: {
+          issueId: row.id,
+          fileUrl: attachment.fileUrl,
+          fileName: attachment.fileName,
+          fileType: attachment.fileType,
+          uploadedByUserId: user.id,
+        },
+      });
+    }
+    const store = await this.readRequestMetadata(row.organizationId);
+    const meta = this.requestMeta(row, store);
+    const nextStatus = !isInternal && ['NEW'].includes(meta.status) ? 'OPEN' : meta.status;
+    store.items[row.id] = {
+      ...meta,
+      status: nextStatus,
+      lastAdminMessageAt: !isInternal ? new Date().toISOString() : meta.lastAdminMessageAt,
+    };
+    await this.writeRequestMetadata(row.organizationId, user.id, store);
+    if (nextStatus !== meta.status) {
+      await this.prisma.issue.update({ where: { id: row.id }, data: { status: this.requestStatusToPrisma(nextStatus) } });
+    }
+    await this.activity.createActivity({
+      organizationId: row.organizationId,
+      actorUserId: user.id,
+      type: isInternal ? 'SERVICE_TICKET_INTERNAL_NOTE_ADDED' : 'SERVICE_TICKET_COMMENT_ADDED',
+      title: isInternal ? 'Notă internă adăugată' : 'Răspuns adăugat',
+      message: isInternal ? `Administratorul a adăugat o notă internă la „${row.title}”.` : `Administratorul a răspuns la „${row.title}”.`,
+      targetType: 'ISSUE',
+      targetId: row.id,
+      link: `/admin/requests/${row.id}`,
     });
+    if (!isInternal) {
+      await this.notifyRequestResident(row, {
+        title: 'Răspuns nou la solicitare',
+        message: `Administratorul a răspuns la „${row.title}”: ${this.preview(message, 120)}`,
+        link: `/resident/requests/${row.id}`,
+      });
+    }
     return comment;
   }
 
   async addAdminRequestInternalNote(user: MvpUser, id: string, body: unknown) {
-    const row = await this.findAdminRequest(user, id);
-    const message = this.requiredString(this.objectPayload(body).message, 'Nota internă este obligatorie.');
-    return this.prisma.issueComment.create({
-      data: { issueId: row.id, userId: user.id, message, isInternal: true },
-    });
+    return this.addAdminRequestComment(user, id, { ...this.objectPayload(body), isInternal: true });
   }
 
-  async resolveAdminRequest(user: MvpUser, id: string) {
+  async resolveAdminRequest(user: MvpUser, id: string, body: unknown = {}) {
     const row = await this.findAdminRequest(user, id);
     const store = await this.readRequestMetadata(row.organizationId);
     const meta = this.requestMeta(row, store);
-    const updated = await this.changeRequestStatus(row, store, user.id, meta.status, 'RESOLVED', 'Solicitarea a fost marcată ca rezolvată.');
+    const payload = this.objectPayload(body);
+    const publicMessage = typeof payload.message === 'string' && payload.message.trim() ? payload.message.trim() : '';
+    const internalNote = typeof payload.internalNote === 'string' && payload.internalNote.trim() ? payload.internalNote.trim() : '';
+    if (publicMessage) await this.prisma.issueComment.create({ data: { issueId: row.id, userId: user.id, message: publicMessage, isInternal: false } });
+    if (internalNote) await this.prisma.issueComment.create({ data: { issueId: row.id, userId: user.id, message: internalNote, isInternal: true } });
+    let updated = await this.changeRequestStatus(row, store, user.id, meta.status, 'RESOLVED', publicMessage || 'Solicitarea a fost marcată ca rezolvată.');
+    if (payload.closeImmediately === true || String(payload.closeImmediately || '').toLowerCase() === 'true') {
+      const closedRow = await this.findAdminRequest(user, id);
+      const closedStore = await this.readRequestMetadata(row.organizationId);
+      const closedMeta = this.requestMeta(closedRow, closedStore);
+      updated = await this.changeRequestStatus(closedRow, closedStore, user.id, closedMeta.status, 'CLOSED', 'Solicitarea a fost închisă după rezolvare.');
+    }
+    await this.activity.createActivity({
+      organizationId: row.organizationId,
+      actorUserId: user.id,
+      type: 'SERVICE_TICKET_RESOLVED',
+      title: 'Solicitare rezolvată',
+      message: `Solicitarea „${row.title}” a fost rezolvată.`,
+      targetType: 'ISSUE',
+      targetId: row.id,
+      link: `/admin/requests/${row.id}`,
+    });
     await this.notifyRequestResident(row, {
       title: 'Solicitare marcată rezolvată',
       message: `Solicitarea „${row.title}” a fost marcată ca rezolvată.`,
@@ -1189,14 +1635,57 @@ export class CommunityReadService {
     return updated;
   }
 
-  async closeAdminRequest(user: MvpUser, id: string) {
+  async closeAdminRequest(user: MvpUser, id: string, body: unknown = {}) {
     const row = await this.findAdminRequest(user, id);
     const store = await this.readRequestMetadata(row.organizationId);
     const meta = this.requestMeta(row, store);
-    const updated = await this.changeRequestStatus(row, store, user.id, meta.status, 'CLOSED', 'Solicitarea a fost închisă.');
+    const payload = this.objectPayload(body);
+    const publicMessage = typeof payload.message === 'string' && payload.message.trim() ? payload.message.trim() : '';
+    const internalNote = typeof payload.internalNote === 'string' && payload.internalNote.trim() ? payload.internalNote.trim() : '';
+    if (publicMessage) await this.prisma.issueComment.create({ data: { issueId: row.id, userId: user.id, message: publicMessage, isInternal: false } });
+    if (internalNote) await this.prisma.issueComment.create({ data: { issueId: row.id, userId: user.id, message: internalNote, isInternal: true } });
+    const updated = await this.changeRequestStatus(row, store, user.id, meta.status, 'CLOSED', publicMessage || 'Solicitarea a fost închisă.');
+    await this.activity.createActivity({
+      organizationId: row.organizationId,
+      actorUserId: user.id,
+      type: 'SERVICE_TICKET_CLOSED',
+      title: 'Solicitare închisă',
+      message: `Solicitarea „${row.title}” a fost închisă.`,
+      targetType: 'ISSUE',
+      targetId: row.id,
+      link: `/admin/requests/${row.id}`,
+    });
     await this.notifyRequestResident(row, {
       title: 'Solicitare închisă',
       message: `Solicitarea „${row.title}” a fost închisă.`,
+      link: `/resident/requests/${row.id}`,
+    });
+    return updated;
+  }
+
+  async cancelAdminRequest(user: MvpUser, id: string, body: unknown = {}) {
+    const row = await this.findAdminRequest(user, id);
+    const store = await this.readRequestMetadata(row.organizationId);
+    const meta = this.requestMeta(row, store);
+    const payload = this.objectPayload(body);
+    const reason = this.requiredString(payload.reason || payload.message, 'Motivul anulării este obligatoriu.');
+    const internalNote = typeof payload.internalNote === 'string' && payload.internalNote.trim() ? payload.internalNote.trim() : '';
+    await this.prisma.issueComment.create({ data: { issueId: row.id, userId: user.id, message: `Anulat: ${reason}`, isInternal: false } });
+    if (internalNote) await this.prisma.issueComment.create({ data: { issueId: row.id, userId: user.id, message: internalNote, isInternal: true } });
+    const updated = await this.changeRequestStatus(row, store, user.id, meta.status, 'CANCELLED', `Solicitarea a fost anulată: ${reason}`);
+    await this.activity.createActivity({
+      organizationId: row.organizationId,
+      actorUserId: user.id,
+      type: 'SERVICE_TICKET_CANCELLED',
+      title: 'Solicitare anulată',
+      message: `Solicitarea „${row.title}” a fost anulată.`,
+      targetType: 'ISSUE',
+      targetId: row.id,
+      link: `/admin/requests/${row.id}`,
+    });
+    await this.notifyRequestResident(row, {
+      title: 'Solicitare anulată',
+      message: `Solicitarea „${row.title}” a fost anulată: ${reason}`,
       link: `/resident/requests/${row.id}`,
     });
     return updated;
@@ -1206,7 +1695,17 @@ export class CommunityReadService {
     const row = await this.findAdminRequest(user, id);
     const store = await this.readRequestMetadata(row.organizationId);
     const meta = this.requestMeta(row, store);
-    const updated = await this.changeRequestStatus(row, store, user.id, meta.status, 'IN_PROGRESS', 'Solicitarea a fost redeschisă.');
+    const updated = await this.changeRequestStatus(row, store, user.id, meta.status, 'OPEN', 'Solicitarea a fost redeschisă.');
+    await this.activity.createActivity({
+      organizationId: row.organizationId,
+      actorUserId: user.id,
+      type: 'SERVICE_TICKET_REOPENED',
+      title: 'Solicitare redeschisă',
+      message: `Solicitarea „${row.title}” a fost redeschisă.`,
+      targetType: 'ISSUE',
+      targetId: row.id,
+      link: `/admin/requests/${row.id}`,
+    });
     await this.notifyRequestResident(row, {
       title: 'Solicitare redeschisă',
       message: `Solicitarea „${row.title}” a fost redeschisă.`,
@@ -1237,6 +1736,78 @@ export class CommunityReadService {
       select: this.issueSelect(),
     });
     return { items: rows.map((row) => this.toRequest(row, store, true)), meta: { total: rows.length } };
+  }
+
+  async listAdminRequestIssues(user: MvpUser, query: Record<string, string | undefined>) {
+    const result = await this.listAdminRequests(user, { limit: '1000' });
+    const tickets = result.items || [];
+    const issues: any[] = [];
+    const now = Date.now();
+    const openTickets = tickets.filter((item: any) => !['RESOLVED', 'CLOSED', 'CANCELLED'].includes(item.status));
+
+    for (const ticket of tickets) {
+      if (ticket.priority === 'URGENT' && !ticket.assignedTo?.id && !['RESOLVED', 'CLOSED', 'CANCELLED'].includes(ticket.status)) {
+        issues.push(this.requestIssue('URGENT_NOT_ASSIGNED', 'CRITICAL', ticket, 'Atribuie cererea urgentă unui responsabil.', true));
+      }
+      if (ticket.isOverdue) {
+        issues.push(this.requestIssue('OVERDUE_REQUEST', 'WARNING', ticket, 'Actualizează statusul sau stabilește o nouă scadență.', false));
+      }
+      if (['NEW', 'OPEN'].includes(ticket.status) && !ticket.lastAdminMessageAt && now - new Date(ticket.createdAt).getTime() > 24 * 60 * 60 * 1000) {
+        issues.push(this.requestIssue('NEW_REQUEST_NO_RESPONSE', 'WARNING', ticket, 'Trimite un răspuns locatarului sau marchează cererea în lucru.', false));
+      }
+      if (ticket.status === 'WAITING_RESIDENT' && ticket.lastAdminMessageAt && now - new Date(ticket.lastAdminMessageAt).getTime() > 5 * 24 * 60 * 60 * 1000) {
+        issues.push(this.requestIssue('WAITING_RESIDENT_TOO_LONG', 'INFO', ticket, 'Verifică dacă locatarul trebuie contactat din nou.', false));
+      }
+      if (ticket.possibleDuplicateIds?.length) {
+        issues.push(this.requestIssue('DUPLICATE_REQUEST_POSSIBLE', 'INFO', ticket, 'Verifică cererile similare înainte de închidere.', false));
+      }
+      if (!ticket.apartment?.id) {
+        issues.push(this.requestIssue('REQUEST_WITHOUT_APARTMENT', 'WARNING', ticket, 'Leagă cererea de un apartament dacă este relevant.', false));
+      }
+      if (!ticket.category) {
+        issues.push(this.requestIssue('REQUEST_WITHOUT_CATEGORY', 'WARNING', ticket, 'Setează categoria pentru raportare corectă.', false));
+      }
+    }
+
+    const byApartment = openTickets.reduce<Record<string, any[]>>((acc, ticket: any) => {
+      const key = ticket.apartment?.id || '';
+      if (!key) return acc;
+      acc[key] = [...(acc[key] || []), ticket];
+      return acc;
+    }, {});
+    Object.values(byApartment).forEach((group: any[]) => {
+      if (group.length >= 4) {
+        issues.push(this.requestIssue('MANY_REQUESTS_SAME_APARTMENT', 'INFO', group[0], `${group.length} cereri active pentru același apartament.`, false));
+      }
+    });
+    const byCategory = openTickets.reduce<Record<string, any[]>>((acc, ticket: any) => {
+      const key = ticket.category || 'OTHER';
+      acc[key] = [...(acc[key] || []), ticket];
+      return acc;
+    }, {});
+    Object.values(byCategory).forEach((group: any[]) => {
+      if (group.length >= 8) {
+        issues.push(this.requestIssue('MANY_REQUESTS_SAME_CATEGORY', 'INFO', group[0], `${group.length} cereri active în aceeași categorie.`, false));
+      }
+    });
+
+    const filtered = issues.filter((issue) => {
+      if (query.type && issue.type !== query.type) return false;
+      if (query.severity && issue.severity !== String(query.severity).toUpperCase()) return false;
+      return true;
+    });
+    const page = this.positiveInt(query.page, 1);
+    const limit = Math.min(this.positiveInt(query.limit, 50), 100);
+    const start = (page - 1) * limit;
+    return {
+      items: filtered.slice(start, start + limit),
+      meta: { page, limit, total: filtered.length },
+      counts: {
+        critical: filtered.filter((issue) => issue.severity === 'CRITICAL').length,
+        warning: filtered.filter((issue) => issue.severity === 'WARNING').length,
+        info: filtered.filter((issue) => issue.severity === 'INFO').length,
+      },
+    };
   }
 
   async listAnnouncements(user: MvpUser) {
@@ -1567,6 +2138,24 @@ export class CommunityReadService {
     }));
   }
 
+  private requestIssue(type: string, severity: 'INFO' | 'WARNING' | 'CRITICAL', ticket: any, recommendation: string, blocking: boolean) {
+    return {
+      type,
+      severity,
+      ticket: {
+        id: ticket.id,
+        requestNumber: ticket.requestNumber,
+        title: ticket.title,
+        status: ticket.status,
+        priority: ticket.priority,
+      },
+      apartment: ticket.apartment || null,
+      resident: ticket.resident || null,
+      recommendation,
+      blocking,
+    };
+  }
+
   private async notifyRequestResident(
     row: any,
     input: {
@@ -1670,6 +2259,8 @@ export class CommunityReadService {
     const priority = query.priority ? this.normalizeRequestPriority(query.priority) : null;
     const openOnly = query.openOnly === 'true' || query.unresolvedOnly === 'true';
     const resolvedOnly = query.resolvedOnly === 'true';
+    const onlyUrgent = query.onlyUrgent === 'true';
+    const onlyOverdue = query.onlyOverdue === 'true';
     const dateFrom = query.dateFrom ? new Date(query.dateFrom) : null;
     const dateTo = query.dateTo ? new Date(query.dateTo) : null;
     return items.filter((item) => {
@@ -1679,7 +2270,11 @@ export class CommunityReadService {
       if (query.apartmentId && item.apartment?.id !== query.apartmentId) return false;
       if (query.residentId && item.resident?.id !== query.residentId) return false;
       if (query.assignedToId && item.assignedTo?.id !== query.assignedToId) return false;
+      if (query.buildingId && item.building?.id !== query.buildingId) return false;
+      if ((query.entranceId || query.staircaseId) && item.staircase?.id !== (query.entranceId || query.staircaseId)) return false;
       if (query.staircase && String(item.apartment?.staircase || item.staircase?.name || '').toLowerCase() !== String(query.staircase).toLowerCase()) return false;
+      if (onlyUrgent && item.priority !== 'URGENT') return false;
+      if (onlyOverdue && !item.isOverdue) return false;
       if (openOnly && ['RESOLVED', 'CLOSED', 'CANCELLED'].includes(item.status)) return false;
       if (resolvedOnly && item.status !== 'RESOLVED' && item.status !== 'CLOSED') return false;
       if (dateFrom && new Date(item.createdAt) < dateFrom) return false;
@@ -1719,7 +2314,7 @@ export class CommunityReadService {
   }
 
   private requestStats(items: any[]) {
-    const openStatuses = ['NEW', 'IN_REVIEW', 'IN_PROGRESS', 'WAITING_FOR_RESIDENT'];
+    const openStatuses = ['NEW', 'OPEN', 'IN_PROGRESS', 'WAITING_RESIDENT', 'WAITING_VENDOR'];
     const last = [...items].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
     const resolved = items.filter((item) => item.status === 'RESOLVED');
     const resolutionHours = resolved
@@ -1729,17 +2324,30 @@ export class CommunityReadService {
         return end && start ? (end - start) / 36e5 : 0;
       })
       .filter((value) => value > 0);
+    const byCategory = items.reduce<Record<string, number>>((acc, item) => {
+      const key = item.category || 'OTHER';
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
+    const byPriority = items.reduce<Record<string, number>>((acc, item) => {
+      const key = item.priority || 'NORMAL';
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
     return {
       total: items.length,
       open: items.filter((item) => openStatuses.includes(item.status)).length,
       new: items.filter((item) => item.status === 'NEW').length,
-      inReview: items.filter((item) => item.status === 'IN_REVIEW').length,
+      inReview: items.filter((item) => item.status === 'OPEN').length,
       inProgress: items.filter((item) => item.status === 'IN_PROGRESS').length,
-      waitingForResident: items.filter((item) => item.status === 'WAITING_FOR_RESIDENT').length,
+      waitingResident: items.filter((item) => item.status === 'WAITING_RESIDENT').length,
+      waitingForResident: items.filter((item) => item.status === 'WAITING_RESIDENT').length,
+      waitingVendor: items.filter((item) => item.status === 'WAITING_VENDOR').length,
       resolved: items.filter((item) => item.status === 'RESOLVED').length,
       closed: items.filter((item) => item.status === 'CLOSED').length,
       cancelled: items.filter((item) => item.status === 'CANCELLED').length,
       urgent: items.filter((item) => item.priority === 'URGENT').length,
+      overdue: items.filter((item) => item.isOverdue).length,
       currentMonth: items.filter((item) => {
         const date = new Date(item.createdAt);
         const now = new Date();
@@ -1749,6 +2357,15 @@ export class CommunityReadService {
       averageResolutionHours: resolutionHours.length
         ? Math.round((resolutionHours.reduce((sum, value) => sum + value, 0) / resolutionHours.length) * 10) / 10
         : null,
+      resolvedThisMonth: items.filter((item) => {
+        const value = item.resolvedAt || item.updatedAt;
+        if (item.status !== 'RESOLVED' || !value) return false;
+        const date = new Date(value);
+        const now = new Date();
+        return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+      }).length,
+      byCategory,
+      byPriority,
     };
   }
 
@@ -1793,9 +2410,9 @@ export class CommunityReadService {
     const nextMeta: RequestMetadata = {
       ...meta,
       status: newStatus,
-      resolvedAt: newStatus === 'RESOLVED' ? now : meta.resolvedAt,
-      closedAt: newStatus === 'CLOSED' ? now : meta.closedAt,
-      cancelledAt: newStatus === 'CANCELLED' ? now : meta.cancelledAt,
+      resolvedAt: newStatus === 'RESOLVED' ? now : ['NEW', 'OPEN', 'IN_PROGRESS'].includes(newStatus) ? null : meta.resolvedAt,
+      closedAt: newStatus === 'CLOSED' ? now : ['NEW', 'OPEN', 'IN_PROGRESS'].includes(newStatus) ? null : meta.closedAt,
+      cancelledAt: newStatus === 'CANCELLED' ? now : ['NEW', 'OPEN', 'IN_PROGRESS'].includes(newStatus) ? null : meta.cancelledAt,
       timeline: [
         ...(meta.timeline || []),
         {
@@ -1813,11 +2430,21 @@ export class CommunityReadService {
       where: { id: row.id },
       data: {
         status: this.requestStatusToPrisma(newStatus),
-        resolvedAt: newStatus === 'RESOLVED' ? new Date(now) : newStatus === 'IN_PROGRESS' ? null : row.resolvedAt || null,
+        resolvedAt: newStatus === 'RESOLVED' ? new Date(now) : ['NEW', 'OPEN', 'IN_PROGRESS'].includes(newStatus) ? null : row.resolvedAt || null,
       },
       select: this.issueSelect(),
     });
     await this.writeRequestMetadata(row.organizationId, userId, store);
+    await this.activity.createActivity({
+      organizationId: row.organizationId,
+      actorUserId: userId,
+      type: 'SERVICE_TICKET_UPDATED',
+      title: 'Status solicitare actualizat',
+      message,
+      targetType: 'ISSUE',
+      targetId: row.id,
+      link: `/admin/requests/${row.id}`,
+    });
     return this.toRequest(updated, store, true);
   }
 
@@ -1833,6 +2460,30 @@ export class CommunityReadService {
 
   private objectPayload(body: unknown): Record<string, unknown> {
     return body && typeof body === 'object' && !Array.isArray(body) ? (body as Record<string, unknown>) : {};
+  }
+
+  private optionalString(value: unknown) {
+    if (value === undefined || value === null) return null;
+    const text = String(value).trim();
+    return text || null;
+  }
+
+  private optionalDateString(value: unknown, message: string) {
+    const text = this.optionalString(value);
+    if (!text) return null;
+    const date = new Date(text);
+    if (Number.isNaN(date.getTime())) throw new BadRequestException(message);
+    return date.toISOString();
+  }
+
+  private parseAttachmentPayload(payload: Record<string, unknown>) {
+    const fileUrl = this.optionalString(payload.attachmentUrl ?? payload.fileUrl);
+    if (!fileUrl) return null;
+    return {
+      fileUrl,
+      fileName: this.optionalString(payload.attachmentFileName ?? payload.fileName) || 'Atașament solicitare',
+      fileType: this.optionalString(payload.attachmentMimeType ?? payload.fileType ?? payload.attachmentType) || 'link',
+    };
   }
 
   private parseAnnouncementInput(

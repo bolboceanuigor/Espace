@@ -11,24 +11,31 @@ import { useLocalizedPath } from '@/lib/use-localized-path';
 
 const statusLabels: Record<string, string> = {
   NEW: 'Nouă',
-  IN_REVIEW: 'În verificare',
+  OPEN: 'Deschisă',
   IN_PROGRESS: 'În lucru',
-  WAITING_FOR_RESIDENT: 'Așteaptă răspunsul tău',
+  WAITING_RESIDENT: 'Așteaptă răspunsul tău',
+  WAITING_VENDOR: 'Așteaptă prestator',
   RESOLVED: 'Rezolvată',
   CLOSED: 'Închisă',
   CANCELLED: 'Anulată',
 };
 
 const categoryLabels: Record<string, string> = {
-  MAINTENANCE: 'Mentenanță',
+  REPAIR: 'Reparație',
+  WATER_LEAK: 'Scurgere apă',
+  ELECTRICITY: 'Electricitate',
+  ELEVATOR: 'Lift',
   CLEANING: 'Curățenie',
-  PAYMENTS: 'Plăți',
+  HEATING: 'Încălzire',
+  INTERCOM: 'Interfon',
+  PARKING: 'Parcare',
+  COURTYARD: 'Curte',
   DOCUMENTS: 'Documente',
-  ACCESS: 'Acces',
-  NOISE: 'Zgomot',
-  COMMON_AREA: 'Spații comune',
-  TECHNICAL: 'Tehnic',
-  OTHER: 'Altul',
+  PAYMENT: 'Plăți',
+  METER: 'Contoare',
+  NEIGHBOR_ISSUE: 'Vecini / zgomot',
+  GENERAL_QUESTION: 'Întrebare generală',
+  OTHER: 'Altceva',
 };
 
 const priorityLabels: Record<string, string> = {
@@ -48,7 +55,7 @@ function formatDate(value?: string | null) {
 function statusVariant(status?: string) {
   if (status === 'RESOLVED' || status === 'CLOSED') return 'success';
   if (status === 'CANCELLED') return 'neutral';
-  if (status === 'WAITING_FOR_RESIDENT') return 'warning';
+  if (status === 'WAITING_RESIDENT' || status === 'WAITING_VENDOR') return 'warning';
   return 'warning';
 }
 
@@ -136,9 +143,11 @@ export default function ResidentRequestDetailsPage() {
     );
   }
 
-  const canCancel = ['NEW', 'IN_REVIEW'].includes(request.status);
-  const canMarkResolved = ['WAITING_FOR_RESIDENT', 'IN_PROGRESS'].includes(request.status);
+  const canCancel = ['NEW', 'OPEN'].includes(request.status);
+  const canMarkResolved = ['WAITING_RESIDENT', 'IN_PROGRESS', 'OPEN'].includes(request.status);
   const canClose = request.status === 'RESOLVED';
+  const canReopen = ['RESOLVED', 'CLOSED'].includes(request.status);
+  const canComment = !['CLOSED', 'CANCELLED'].includes(request.status);
 
   return (
     <div className="space-y-5 overflow-x-hidden pb-24 md:pb-6">
@@ -190,6 +199,15 @@ export default function ResidentRequestDetailsPage() {
               Închide solicitarea
             </Button>
           ) : null}
+          {canReopen ? (
+            <Button
+              variant="secondary"
+              isLoading={saving === 'reopen'}
+              onClick={() => runAction('reopen', async () => requestsApi.residentReopen(request.id, { message: 'Problema a reapărut.' }), 'Solicitarea a fost redeschisă.')}
+            >
+              Redeschide
+            </Button>
+          ) : null}
           {canCancel ? (
             <Button
               variant="danger"
@@ -209,14 +227,21 @@ export default function ResidentRequestDetailsPage() {
           <div className="grid gap-3 text-sm md:grid-cols-2">
             <InfoLine label="Categorie" value={categoryLabels[request.category] || request.category} />
             <InfoLine label="Prioritate" value={priorityLabels[request.priority] || request.priority} />
-            <InfoLine label="Locație" value={request.locationDetails || 'Necompletat'} />
+            <InfoLine label="Locație" value={request.locationText || request.locationDetails || 'Necompletat'} />
             <InfoLine label="Metodă contact" value={request.preferredContactMethod || 'Necompletat'} />
           </div>
           <p className="mt-4 rounded-2xl border border-border/70 bg-muted/25 p-4 text-sm leading-7 text-muted-foreground">{request.description}</p>
-          <div className="mt-4 rounded-2xl border border-dashed border-border/80 bg-muted/25 p-4 text-sm text-muted-foreground">
-            <Paperclip className="mb-2 h-4 w-4" />
-            Atașamentele nu sunt active în acest pas.
-          </div>
+          {request.attachmentUrl ? (
+            <a href={request.attachmentUrl} target="_blank" rel="noreferrer" className="mt-4 flex items-center gap-2 rounded-2xl border border-border/70 bg-muted/25 p-4 text-sm font-semibold text-foreground hover:bg-white">
+              <Paperclip className="h-4 w-4" />
+              Deschide atașamentul
+            </a>
+          ) : (
+            <div className="mt-4 rounded-2xl border border-dashed border-border/80 bg-muted/25 p-4 text-sm text-muted-foreground">
+              <Paperclip className="mb-2 h-4 w-4" />
+              Nu există atașamente pentru această cerere.
+            </div>
+          )}
         </Card>
 
         <Card className="p-5">
@@ -255,11 +280,13 @@ export default function ResidentRequestDetailsPage() {
             value={comment}
             onChange={(event) => setComment(event.target.value)}
             placeholder="Adaugă un comentariu pentru administrație"
+            disabled={!canComment}
           />
-          <Button onClick={submitComment} isLoading={saving === 'comment'} disabled={!comment.trim()}>
+          <Button onClick={submitComment} isLoading={saving === 'comment'} disabled={!comment.trim() || !canComment}>
             <MessageCircle className="h-4 w-4" />
             Trimite comentariu
           </Button>
+          {!canComment ? <p className="text-xs text-muted-foreground">Cererea este închisă sau anulată și nu mai acceptă comentarii.</p> : null}
         </div>
       </Card>
     </div>

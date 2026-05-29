@@ -1667,34 +1667,45 @@ export const issuesApi = {
 };
 
 export const requestsApi = {
+  getResidentRequestsOverview: () => apiRequest<any>('/api/resident/requests/overview'),
   residentList: (params?: Record<string, string | number | boolean | undefined | null>) =>
     apiRequest<any>('/api/resident/requests', { params }),
-  residentStats: () => apiRequest<any>('/api/resident/requests/stats'),
+  residentStats: () => apiRequest<any>('/api/resident/requests/overview'),
   residentCreate: (data: Record<string, unknown>) =>
     apiRequest<any>('/api/resident/requests', { method: 'POST', body: data }),
   residentGet: (id: string) => apiRequest<any>(`/api/resident/requests/${id}`),
-  residentAddComment: (id: string, data: { message: string }) =>
+  residentAddComment: (id: string, data: { message: string; attachmentUrl?: string; attachmentFileName?: string; attachmentMimeType?: string; attachmentFileSize?: number }) =>
     apiRequest<any>(`/api/resident/requests/${id}/comments`, { method: 'POST', body: data }),
   residentCancel: (id: string) => apiRequest<any>(`/api/resident/requests/${id}/cancel`, { method: 'PATCH' }),
-  residentClose: (id: string) => apiRequest<any>(`/api/resident/requests/${id}/close`, { method: 'PATCH' }),
+  residentClose: (id: string, data?: { message?: string }) => apiRequest<any>(`/api/resident/requests/${id}/close`, { method: 'POST', body: data || {} }),
+  residentReopen: (id: string, data?: { message?: string }) => apiRequest<any>(`/api/resident/requests/${id}/reopen`, { method: 'POST', body: data || {} }),
   residentMarkResolved: (id: string) => apiRequest<any>(`/api/resident/requests/${id}/mark-resolved`, { method: 'PATCH' }),
 
+  getAdminRequestsOverview: () => apiRequest<any>('/api/admin/requests/overview'),
   adminList: (params?: Record<string, string | number | boolean | undefined | null>) =>
     apiRequest<any>('/api/admin/requests', { params }),
-  adminStats: () => apiRequest<any>('/api/admin/requests/stats'),
+  adminStats: () => apiRequest<any>('/api/admin/requests/overview'),
+  getAdminRequestIssues: (params?: Record<string, string | number | boolean | undefined | null>) =>
+    apiRequest<any>('/api/admin/requests/issues', { params }),
   adminGet: (id: string) => apiRequest<any>(`/api/admin/requests/${id}`),
+  updateAdminRequest: (id: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/admin/requests/${id}`, { method: 'PATCH', body: data }),
   adminUpdateStatus: (id: string, status: string) =>
     apiRequest<any>(`/api/admin/requests/${id}/status`, { method: 'PATCH', body: { status } }),
   adminUpdatePriority: (id: string, priority: string) =>
     apiRequest<any>(`/api/admin/requests/${id}/priority`, { method: 'PATCH', body: { priority } }),
   adminAssign: (id: string, assignedToId?: string | null) =>
-    apiRequest<any>(`/api/admin/requests/${id}/assign`, { method: 'PATCH', body: { assignedToId } }),
-  adminAddComment: (id: string, data: { message: string }) =>
+    apiRequest<any>(`/api/admin/requests/${id}/assign`, { method: 'POST', body: { assignedToId } }),
+  adminAddComment: (id: string, data: { message: string; isInternal?: boolean; attachmentUrl?: string; attachmentFileName?: string; attachmentMimeType?: string; attachmentFileSize?: number }) =>
     apiRequest<any>(`/api/admin/requests/${id}/comments`, { method: 'POST', body: data }),
   adminAddInternalNote: (id: string, data: { message: string }) =>
-    apiRequest<any>(`/api/admin/requests/${id}/internal-notes`, { method: 'POST', body: data }),
-  adminResolve: (id: string) => apiRequest<any>(`/api/admin/requests/${id}/resolve`, { method: 'PATCH' }),
-  adminClose: (id: string) => apiRequest<any>(`/api/admin/requests/${id}/close`, { method: 'PATCH' }),
+    apiRequest<any>(`/api/admin/requests/${id}/comments`, { method: 'POST', body: { ...data, isInternal: true } }),
+  adminResolve: (id: string, data?: { message?: string; internalNote?: string; closeImmediately?: boolean }) =>
+    apiRequest<any>(`/api/admin/requests/${id}/resolve`, { method: 'POST', body: data || {} }),
+  adminClose: (id: string, data?: { message?: string; internalNote?: string }) =>
+    apiRequest<any>(`/api/admin/requests/${id}/close`, { method: 'POST', body: data || {} }),
+  adminCancel: (id: string, data: { reason: string; internalNote?: string }) =>
+    apiRequest<any>(`/api/admin/requests/${id}/cancel`, { method: 'POST', body: data }),
   adminReopen: (id: string) => apiRequest<any>(`/api/admin/requests/${id}/reopen`, { method: 'PATCH' }),
   adminResidentRequests: (residentId: string) => apiRequest<any>(`/api/admin/residents/${residentId}/requests`),
   adminApartmentRequests: (apartmentId: string) => apiRequest<any>(`/api/admin/apartments/${apartmentId}/requests`),

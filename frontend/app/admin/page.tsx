@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
 import { formatMdl } from '@/lib/condo-admin-fallback';
-import { adminRbacApi, adminResidentUpdateRequestsApi, billingApi, billingDraftsApi, communicationsApi, dataQualityApi, invitationsApi, invoicesApi, metersApi, onboardingApi, paymentsApi, workbenchApi } from '@/lib/api';
+import { adminRbacApi, adminResidentUpdateRequestsApi, billingApi, billingDraftsApi, communicationsApi, dataQualityApi, invitationsApi, invoicesApi, metersApi, onboardingApi, paymentsApi, requestsApi, workbenchApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 type CrmOrganization = {
@@ -215,9 +215,12 @@ const issuePriorityLabels: Record<string, string> = {
 
 const issueStatusLabels: Record<string, string> = {
   NEW: 'Nouă',
+  OPEN: 'Deschisă',
   IN_PROGRESS: 'În lucru',
   RESOLVED: 'Rezolvată',
   WAITING: 'În așteptare',
+  WAITING_RESIDENT: 'Așteaptă locatar',
+  WAITING_VENDOR: 'Așteaptă prestator',
   CLOSED: 'Închisă',
 };
 
@@ -293,6 +296,7 @@ export default function AdminPage() {
   const [billingDraftPrompt, setBillingDraftPrompt] = useState<any>(null);
   const [invoicePublishOverview, setInvoicePublishOverview] = useState<any>(null);
   const [paymentsOverview, setPaymentsOverview] = useState<any>(null);
+  const [requestsOverview, setRequestsOverview] = useState<any>(null);
 
   useEffect(() => {
     let active = true;
@@ -339,6 +343,17 @@ export default function AdminPage() {
       .catch(() => {
         if (!active) return;
         setPendingUpdateRequests(0);
+      });
+
+    requestsApi
+      .getAdminRequestsOverview()
+      .then((response) => {
+        if (!active) return;
+        setRequestsOverview(response.data || null);
+      })
+      .catch(() => {
+        if (!active) return;
+        setRequestsOverview(null);
       });
 
     communicationsApi
@@ -482,10 +497,10 @@ export default function AdminPage() {
       },
       {
         title: 'Solicitări urgente',
-        value: String(crm.kpis.urgentIssues),
-        description: 'Necesită răspuns rapid',
+        value: String(requestsOverview?.urgentRequests ?? crm.kpis.urgentIssues),
+        description: `${requestsOverview?.newRequests ?? 0} noi · ${requestsOverview?.overdueRequests ?? 0} restante`,
         href: '/admin/requests',
-        active: crm.kpis.urgentIssues > 0,
+        active: Number(requestsOverview?.urgentRequests ?? crm.kpis.urgentIssues) > 0 || Number(requestsOverview?.newRequests || 0) > 0 || Number(requestsOverview?.overdueRequests || 0) > 0,
       },
       {
         title: 'Citiri lipsă',
@@ -566,7 +581,7 @@ export default function AdminPage() {
         active: Boolean(teamActivityStats?.critical || teamActivityStats?.sensitive || !teamActivityStats),
       },
     ],
-    [announcementStats, billingOverview, crm, dataQualitySummary, invoicePublishOverview, openMeterPeriod, paymentsOverview, pendingUpdateRequests, teamActivityStats, teamStats],
+    [announcementStats, billingOverview, crm, dataQualitySummary, invoicePublishOverview, openMeterPeriod, paymentsOverview, pendingUpdateRequests, requestsOverview, teamActivityStats, teamStats],
   );
 
   const kpiCards = [
@@ -598,10 +613,10 @@ export default function AdminPage() {
     },
     {
       label: 'Cereri urgente',
-      value: String(crm.kpis.urgentIssues),
-      description: `${crm.kpis.openIssues} cereri active`,
+      value: String(requestsOverview?.urgentRequests ?? crm.kpis.urgentIssues),
+      description: `${requestsOverview?.openRequests ?? crm.kpis.openIssues} cereri active`,
       icon: <MessageCircle className="h-5 w-5" />,
-      tone: crm.kpis.urgentIssues > 0 ? ('warning' as const) : ('success' as const),
+      tone: Number(requestsOverview?.urgentRequests ?? crm.kpis.urgentIssues) > 0 ? ('warning' as const) : ('success' as const),
     },
     {
       label: 'Acțiuni sensibile',

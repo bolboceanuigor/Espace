@@ -11,24 +11,31 @@ import { useLocalizedPath } from '@/lib/use-localized-path';
 
 const statusLabels: Record<string, string> = {
   NEW: 'Nouă',
-  IN_REVIEW: 'În verificare',
+  OPEN: 'Deschisă',
   IN_PROGRESS: 'În lucru',
-  WAITING_FOR_RESIDENT: 'Așteaptă locatar',
+  WAITING_RESIDENT: 'Așteaptă locatar',
+  WAITING_VENDOR: 'Așteaptă prestator',
   RESOLVED: 'Rezolvată',
   CLOSED: 'Închisă',
   CANCELLED: 'Anulată',
 };
 
 const categoryLabels: Record<string, string> = {
-  MAINTENANCE: 'Mentenanță',
+  REPAIR: 'Reparație',
+  WATER_LEAK: 'Scurgere apă',
+  ELECTRICITY: 'Electricitate',
+  ELEVATOR: 'Lift',
   CLEANING: 'Curățenie',
-  PAYMENTS: 'Plăți',
+  HEATING: 'Încălzire',
+  INTERCOM: 'Interfon',
+  PARKING: 'Parcare',
+  COURTYARD: 'Curte',
   DOCUMENTS: 'Documente',
-  ACCESS: 'Acces',
-  NOISE: 'Zgomot',
-  COMMON_AREA: 'Spații comune',
-  TECHNICAL: 'Tehnic',
-  OTHER: 'Altul',
+  PAYMENT: 'Plăți',
+  METER: 'Contoare',
+  NEIGHBOR_ISSUE: 'Vecini / zgomot',
+  GENERAL_QUESTION: 'Întrebare generală',
+  OTHER: 'Altceva',
 };
 
 const priorityLabels: Record<string, string> = {
@@ -48,7 +55,7 @@ function formatDate(value?: string | null) {
 function statusVariant(status?: string) {
   if (status === 'RESOLVED' || status === 'CLOSED') return 'success';
   if (status === 'CANCELLED') return 'neutral';
-  if (status === 'WAITING_FOR_RESIDENT') return 'warning';
+  if (status === 'WAITING_RESIDENT' || status === 'WAITING_VENDOR') return 'warning';
   return 'warning';
 }
 
@@ -208,12 +215,15 @@ export default function AdminRequestDetailsPage() {
           <Button variant="secondary" isLoading={saving === 'assign'} disabled={isReadonly} onClick={() => runAction('assign', async () => requestsApi.adminAssign(request.id), 'Solicitarea a fost asignată către tine.')}>
             Preia solicitarea
           </Button>
-          <Button variant="secondary" isLoading={saving === 'resolve'} disabled={isReadonly || request.status === 'RESOLVED'} onClick={() => runAction('resolve', async () => requestsApi.adminResolve(request.id), 'Solicitarea a fost marcată ca rezolvată.')}>
+          <Button variant="secondary" isLoading={saving === 'resolve'} disabled={isReadonly || request.status === 'RESOLVED'} onClick={() => runAction('resolve', async () => requestsApi.adminResolve(request.id, { message: 'Problema a fost rezolvată.' }), 'Solicitarea a fost marcată ca rezolvată.')}>
             <CheckCircle2 className="h-4 w-4" />
             Marchează rezolvată
           </Button>
-          <Button variant="secondary" isLoading={saving === 'close'} disabled={isReadonly || request.status === 'CLOSED'} onClick={() => runAction('close', async () => requestsApi.adminClose(request.id), 'Solicitarea a fost închisă.')}>
+          <Button variant="secondary" isLoading={saving === 'close'} disabled={isReadonly || request.status === 'CLOSED'} onClick={() => runAction('close', async () => requestsApi.adminClose(request.id, { message: 'Ticket închis.' }), 'Solicitarea a fost închisă.')}>
             Închide
+          </Button>
+          <Button variant="danger" isLoading={saving === 'cancel'} disabled={isReadonly} onClick={() => runAction('cancel', async () => requestsApi.adminCancel(request.id, { reason: 'Cerere anulată de administrator.' }), 'Solicitarea a fost anulată.')}>
+            Anulează
           </Button>
           {(request.status === 'CLOSED' || request.status === 'RESOLVED') ? (
             <Button variant="secondary" isLoading={saving === 'reopen'} onClick={() => runAction('reopen', async () => requestsApi.adminReopen(request.id), 'Solicitarea a fost redeschisă.')}>
@@ -228,11 +238,17 @@ export default function AdminRequestDetailsPage() {
           <SectionTitle title="Date solicitare" description="Contextul transmis de locatar." />
           <div className="grid gap-3 text-sm md:grid-cols-2">
             <InfoLine label="Categorie" value={categoryLabels[request.category] || request.category} />
-            <InfoLine label="Locație" value={request.locationDetails || 'Necompletat'} />
+            <InfoLine label="Locație" value={request.locationText || request.locationDetails || 'Necompletat'} />
             <InfoLine label="Metodă contact" value={request.preferredContactMethod || 'Necompletat'} />
             <InfoLine label="Asignat" value={request.assignedTo?.fullName || 'Neasignată'} />
+            <InfoLine label="Scadență" value={formatDate(request.dueDate)} />
           </div>
           <p className="mt-4 rounded-2xl border border-border/70 bg-muted/25 p-4 text-sm leading-7 text-muted-foreground">{request.description}</p>
+          {request.attachmentUrl ? (
+            <a href={request.attachmentUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold hover:bg-muted/60">
+              Deschide atașamentul
+            </a>
+          ) : null}
           <div className="mt-4 flex flex-wrap gap-2">
             {request.apartment?.id ? <ButtonLink href={`/admin/apartments/${request.apartment.id}`} variant="secondary">Vezi apartament</ButtonLink> : null}
             {request.resident?.id ? <ButtonLink href={`/admin/residents/${request.resident.id}`} variant="secondary">Vezi locatar</ButtonLink> : null}
