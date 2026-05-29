@@ -2189,14 +2189,70 @@ export const paymentsApi = {
   }) => apiRequest<any>('/api/admin/payments', { params }),
   adminStats: (params?: { billingMonth?: string; dateFrom?: string; dateTo?: string }) =>
     apiRequest<any>('/api/admin/payments/stats', { params }),
-  adminCreate: (data: {
-    invoiceId: string;
+  getAdminPaymentsOverview: () => apiRequest<any>('/api/admin/payments/overview'),
+  getAdminPayments: (params?: {
+    status?: string;
+    method?: string;
+    source?: string;
+    invoiceId?: string;
+    apartmentId?: string;
+    residentUserId?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+  }) => apiRequest<any>('/api/admin/payments', { params }),
+  getAdminPayment: (id: string) => apiRequest<any>(`/api/admin/payments/${id}`),
+  createAdminManualPayment: (data: {
+    invoiceId?: string;
+    apartmentId?: string;
     amount: number;
-    paymentDate: string;
-    method: 'CASH' | 'BANK_TRANSFER' | 'CARD_TERMINAL' | 'INFOCOM' | 'OPLATA' | 'OTHER';
+    currency?: string;
+    method: string;
+    paidAt?: string;
+    paymentDate?: string;
+    externalReference?: string;
+    note?: string;
+    internalNote?: string;
+  }) => apiRequest<any>('/api/admin/payments/manual', { method: 'POST', body: data }),
+  updateAdminPayment: (id: string, data: { paidAt?: string; externalReference?: string; note?: string; internalNote?: string }) =>
+    apiRequest<any>(`/api/admin/payments/${id}`, { method: 'PATCH', body: data }),
+  reverseAdminPayment: (id: string, data: { reason: string; confirm: boolean }) =>
+    apiRequest<any>(`/api/admin/payments/${id}/reverse`, { method: 'POST', body: data }),
+  getAdminApartmentBalances: (params?: {
+    buildingId?: string;
+    entranceId?: string;
+    onlyWithDebt?: boolean;
+    onlyOverpaid?: boolean;
+    search?: string;
+    page?: number;
+    limit?: number;
+  }) => apiRequest<any>('/api/admin/payments/apartment-balances', { params }),
+  getAdminApartmentLedger: (apartmentId: string) => apiRequest<any>(`/api/admin/payments/apartments/${apartmentId}/ledger`),
+  getAdminReconciliationIssues: (params?: {
+    type?: string;
+    severity?: string;
+    apartmentId?: string;
+    invoiceId?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+  }) => apiRequest<any>('/api/admin/reconciliation/issues', { params }),
+  recalculateAdminReconciliation: () => apiRequest<any>('/api/admin/reconciliation/recalculate', { method: 'POST' }),
+  adminCreate: (data: {
+    invoiceId?: string;
+    apartmentId?: string;
+    amount: number;
+    paymentDate?: string;
+    paidAt?: string;
+    method: string;
     referenceNumber?: string;
+    externalReference?: string;
     payerName?: string;
     notes?: string;
+    note?: string;
+    internalNote?: string;
   }) => apiRequest<any>('/api/admin/payments', { method: 'POST', body: data }),
   adminGetOne: (id: string) => apiRequest<any>(`/api/admin/payments/${id}`),
   adminReceiptDocument: (id: string) => apiRequest<any>(`/api/admin/payments/${id}/receipt-document`),

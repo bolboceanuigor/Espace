@@ -521,15 +521,33 @@ enum PaymentMethod {
   CASH
   BANK
   BANK_TRANSFER
+  MANUAL_BANK_TRANSFER
   CARD
+  TERMINAL
+  CARD_EXTERNAL
+  BANK_STATEMENT
+  ADJUSTMENT
   ONLINE
+  OTHER
 }
 
 enum PaymentStatus {
   PENDING
   CONFIRMED
+  ACCEPTED
+  PARTIALLY_ACCEPTED
   FAILED
+  REJECTED
   CANCELLED
+  REVERSED
+}
+
+enum PaymentSource {
+  PAYMENT_PROOF
+  MANUAL_ENTRY
+  IMPORT
+  ADJUSTMENT
+  SYSTEM
 }
 
 enum PaymentProvider {
@@ -6416,6 +6434,10 @@ model User {
   paymentIntentsCancelled PaymentIntent[] @relation("PaymentIntentCancelledBy")
   paymentIntentEvents PaymentIntentEvent[] @relation("PaymentIntentEventActor")
   paymentsCreated      Payment[]     @relation("PaymentCreatedByUser")
+  paymentsAccepted     Payment[]     @relation("PaymentAcceptedByUser")
+  paymentsRejected     Payment[]     @relation("PaymentRejectedByUser")
+  paymentsReversed     Payment[]     @relation("PaymentReversedByUser")
+  residentPayments     Payment[]     @relation("PaymentResidentUser")
   meterReadingPeriodsLocked MeterReadingPeriod[] @relation("MeterReadingPeriodLockedBy")
   auditLogs            AuditLog[]    @relation("AuditLogUser")
   associationRolesCreated AssociationRole[] @relation("AssociationRoleCreatedBy")
@@ -7200,6 +7222,7 @@ model BillingDraftInvoice {
   createdBy     User?              @relation("BillingDraftInvoiceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   publishedBy   User?              @relation("BillingDraftInvoicePublishedBy", fields: [publishedById], references: [id], onDelete: SetNull)
   lines         BillingDraftInvoiceLine[]
+  payments      Payment[]
 
   @@unique([billingPeriodId, apartmentId])
   @@unique([organizationId, invoiceNumber])
@@ -7248,17 +7271,31 @@ model Payment {
   organizationId    String
   apartmentId       String
   invoiceId         String?
+  billingDraftInvoiceId String?
   paymentIntentId   String?
+  residentUserId    String?
   amount            Float
   currency          BillingCurrency @default(MDL)
   method            PaymentMethod
   status            PaymentStatus   @default(PENDING)
   provider          PaymentProvider?
   providerPaymentId String?
+  externalReference String?
+  source            PaymentSource   @default(MANUAL_ENTRY)
+  paymentProofId    String?
   note              String?
+  internalNote      String?
   createdByUserId   String?
   confirmedAt       DateTime?
   paidAt            DateTime?
+  acceptedAt        DateTime?
+  acceptedById      String?
+  rejectedAt        DateTime?
+  rejectedById      String?
+  rejectionReason   String?
+  reversedAt        DateTime?
+  reversedById      String?
+  reversalReason    String?
   month             String
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
@@ -7266,8 +7303,13 @@ model Payment {
   organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   apartment    Apartment      @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
   invoice      ResidentInvoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  billingDraftInvoice BillingDraftInvoice? @relation(fields: [billingDraftInvoiceId], references: [id], onDelete: SetNull)
   paymentIntent PaymentIntent? @relation(fields: [paymentIntentId], references: [id], onDelete: SetNull)
   createdBy    User?          @relation("PaymentCreatedByUser", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  acceptedBy   User?          @relation("PaymentAcceptedByUser", fields: [acceptedById], references: [id], onDelete: SetNull)
+  rejectedBy   User?          @relation("PaymentRejectedByUser", fields: [rejectedById], references: [id], onDelete: SetNull)
+  reversedBy   User?          @relation("PaymentReversedByUser", fields: [reversedById], references: [id], onDelete: SetNull)
+  residentUser User?          @relation("PaymentResidentUser", fields: [residentUserId], references: [id], onDelete: SetNull)
   receipts     Receipt[]
   importedPayments ImportedPayment[]
 
@@ -7275,8 +7317,15 @@ model Payment {
   @@index([organizationId, status, createdAt])
   @@index([apartmentId])
   @@index([invoiceId])
+  @@index([billingDraftInvoiceId])
   @@index([paymentIntentId])
   @@index([status])
+  @@index([source])
+  @@index([paymentProofId])
+  @@index([residentUserId])
+  @@index([acceptedById])
+  @@index([rejectedById])
+  @@index([reversedById])
   @@index([createdByUserId])
   @@index([month])
   @@index([organizationId, apartmentId, createdAt])

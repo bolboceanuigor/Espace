@@ -476,6 +476,8 @@ export default function AdminInvoicesPage() {
                 <TableHeaderCell>Locatar / proprietar</TableHeaderCell>
                 <TableHeaderCell>Status</TableHeaderCell>
                 <TableHeaderCell>Total</TableHeaderCell>
+                <TableHeaderCell>Achitat</TableHeaderCell>
+                <TableHeaderCell>Sold</TableHeaderCell>
                 <TableHeaderCell>Scadență</TableHeaderCell>
                 <TableHeaderCell>Publicată</TableHeaderCell>
                 <TableHeaderCell>Vizualizată</TableHeaderCell>
@@ -502,6 +504,8 @@ export default function AdminInvoicesPage() {
                   <TableCell>{contactLabel(invoice)}</TableCell>
                   <TableCell><Badge variant={statusVariant[invoice.status]}>{statusLabels[invoice.status]}</Badge></TableCell>
                   <TableCell className="font-semibold">{formatMdl(invoice.totalAmount ?? invoice.total)}</TableCell>
+                  <TableCell>{formatMdl(invoice.paidAmount || 0)}</TableCell>
+                  <TableCell className={(invoice.balanceAmount || 0) > 0 ? 'font-semibold text-amber-700' : 'font-semibold text-emerald-700'}>{formatMdl(invoice.balanceAmount || 0)}</TableCell>
                   <TableCell>{formatDate(invoice.dueDate)}</TableCell>
                   <TableCell>{formatDate(invoice.publishedAt)}</TableCell>
                   <TableCell>{formatDate(invoice.viewedAt)}</TableCell>
@@ -530,6 +534,11 @@ export default function AdminInvoicesPage() {
                           Retrage
                         </Button>
                       ) : null}
+                      {['PUBLISHED', 'PARTIALLY_PAID'].includes(invoice.status) ? (
+                        <ButtonLink href={`/admin/payments?invoiceId=${invoice.id}`} size="sm" variant="secondary">
+                          Adaugă plată
+                        </ButtonLink>
+                      ) : null}
                       <ButtonLink href={`/admin/billing-drafts?periodId=${invoice.billingPeriod?.id || ''}`} size="sm" variant="secondary">
                         Drafturi
                       </ButtonLink>
@@ -538,7 +547,7 @@ export default function AdminInvoicesPage() {
                 </TableRow>
               ))}
               {!loading && !visibleRows.length ? (
-                <TableEmpty colSpan={11}>
+                <TableEmpty colSpan={13}>
                   Nu există facturi încă. Generează mai întâi drafturi de facturare.
                 </TableEmpty>
               ) : null}
@@ -557,6 +566,8 @@ export default function AdminInvoicesPage() {
                 <Info label="Status" value={statusLabels[detail.status]} />
                 <Info label="Apartament" value={apartmentLabel(detail)} />
                 <Info label="Total" value={formatMdl(detail.totalAmount ?? detail.total)} strong />
+                <Info label="Achitat" value={formatMdl(detail.paidAmount || 0)} />
+                <Info label="Sold" value={formatMdl(detail.balanceAmount || 0)} strong />
               </div>
               {detail.issues?.length ? (
                 <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm">
@@ -612,6 +623,9 @@ export default function AdminInvoicesPage() {
             <Button type="button" variant="secondary" onClick={saveInvoice} isLoading={saving === 'save'}>Salvează note/scadență</Button>
           ) : null}
           {detail?.status === 'APPROVED' ? <Button type="button" onClick={() => openPublish(detail)}>Publică</Button> : null}
+          {detail && ['PUBLISHED', 'PARTIALLY_PAID'].includes(detail.status) ? (
+            <ButtonLink href={`/admin/payments?invoiceId=${detail.id}`} variant="secondary">Adaugă plată manuală</ButtonLink>
+          ) : null}
           {detail?.status === 'PUBLISHED' ? (
             <Button type="button" variant="danger" onClick={() => unpublish(detail)} isLoading={saving === `unpublish:${detail.id}`}>Anulează publicarea</Button>
           ) : null}

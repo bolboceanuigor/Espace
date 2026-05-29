@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
 import { formatMdl } from '@/lib/condo-admin-fallback';
-import { adminRbacApi, adminResidentUpdateRequestsApi, billingApi, billingDraftsApi, communicationsApi, dataQualityApi, invitationsApi, invoicesApi, metersApi, onboardingApi, workbenchApi } from '@/lib/api';
+import { adminRbacApi, adminResidentUpdateRequestsApi, billingApi, billingDraftsApi, communicationsApi, dataQualityApi, invitationsApi, invoicesApi, metersApi, onboardingApi, paymentsApi, workbenchApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 type CrmOrganization = {
@@ -291,6 +291,7 @@ export default function AdminPage() {
   const [openMeterPeriod, setOpenMeterPeriod] = useState<any>(null);
   const [billingDraftPrompt, setBillingDraftPrompt] = useState<any>(null);
   const [invoicePublishOverview, setInvoicePublishOverview] = useState<any>(null);
+  const [paymentsOverview, setPaymentsOverview] = useState<any>(null);
 
   useEffect(() => {
     let active = true;
@@ -383,6 +384,17 @@ export default function AdminPage() {
         setInvoicePublishOverview(null);
       });
 
+    paymentsApi
+      .getAdminPaymentsOverview()
+      .then((response) => {
+        if (!active) return;
+        setPaymentsOverview(response.data || null);
+      })
+      .catch(() => {
+        if (!active) return;
+        setPaymentsOverview(null);
+      });
+
     Promise.all([metersApi.getAdminMeterReadingPeriods(), billingDraftsApi.getAdminBillingPeriods()])
       .then(([response, billingResponse]) => {
         if (!active) return;
@@ -444,10 +456,17 @@ export default function AdminPage() {
     () => [
       {
         title: 'Datorii mari',
-        value: formatMdl(crm.kpis.totalDebt),
-        description: `${crm.kpis.apartmentsWithDebt} apartamente cu datorii`,
+        value: formatMdl(paymentsOverview?.totalOutstandingAmount ?? crm.kpis.totalDebt),
+        description: `${paymentsOverview?.apartmentsWithDebt ?? crm.kpis.apartmentsWithDebt} apartamente cu datorii`,
+        href: '/admin/payments?tab=debts',
+        active: Number(paymentsOverview?.totalOutstandingAmount ?? crm.kpis.totalDebt) > 0,
+      },
+      {
+        title: 'Încasări luna curentă',
+        value: formatMdl(paymentsOverview?.paymentsThisMonth || 0),
+        description: `${paymentsOverview?.acceptedPayments || 0} plăți acceptate`,
         href: '/admin/payments',
-        active: crm.kpis.totalDebt > 0,
+        active: Number(paymentsOverview?.paymentsThisMonth || 0) > 0,
       },
       {
         title: 'Solicitări urgente',
@@ -535,7 +554,7 @@ export default function AdminPage() {
         active: Boolean(teamActivityStats?.critical || teamActivityStats?.sensitive || !teamActivityStats),
       },
     ],
-    [announcementStats, billingOverview, crm, dataQualitySummary, invoicePublishOverview, openMeterPeriod, pendingUpdateRequests, teamActivityStats, teamStats],
+    [announcementStats, billingOverview, crm, dataQualitySummary, invoicePublishOverview, openMeterPeriod, paymentsOverview, pendingUpdateRequests, teamActivityStats, teamStats],
   );
 
   const kpiCards = [

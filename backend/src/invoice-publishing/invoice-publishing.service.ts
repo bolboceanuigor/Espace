@@ -3,10 +3,12 @@ import {
   BillingCurrency,
   BillingDraftInvoiceStatus,
   BillingPeriodStatus,
+  PaymentMethod,
   PaymentIntentEventType,
   PaymentIntentSource,
   PaymentIntentStatus,
   PaymentProvider,
+  PaymentSource,
   PaymentStatus,
   Prisma,
   Role,
@@ -72,6 +74,24 @@ const RESIDENT_VISIBLE_INVOICE_STATUSES: BillingDraftInvoiceStatus[] = [
 const ACTIVE_PLACEHOLDER_INTENT_STATUSES: PaymentIntentStatus[] = [
   PaymentIntentStatus.CREATED,
   PaymentIntentStatus.VIEWED,
+];
+
+const ACCEPTED_PAYMENT_STATUSES: PaymentStatus[] = [
+  PaymentStatus.ACCEPTED,
+  PaymentStatus.PARTIALLY_ACCEPTED,
+  PaymentStatus.CONFIRMED,
+];
+
+const REVERSIBLE_PAYMENT_STATUSES: PaymentStatus[] = [
+  PaymentStatus.ACCEPTED,
+  PaymentStatus.PARTIALLY_ACCEPTED,
+  PaymentStatus.CONFIRMED,
+];
+
+const LEDGER_INVOICE_STATUSES: BillingDraftInvoiceStatus[] = [
+  BillingDraftInvoiceStatus.PUBLISHED,
+  BillingDraftInvoiceStatus.PARTIALLY_PAID,
+  BillingDraftInvoiceStatus.PAID,
 ];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -610,6 +630,705 @@ export class InvoicePublishingService {
     return { intent: this.serializePaymentIntentPlaceholder(updated), message: 'Pregătirea plății a fost anulată.' };
   }
 
+  async getAdminPaymentsOverview(user: MvpUser) {
+    const organizationId = this.requireAdminOrganization(user);
+    const [payments, invoices, apartments] = await Promise.all([
+      this.prisma.payment.findMany({ where: { organizationId }, include: { billingDraftInvoice: true } }),
+      this.prisma.billingDraftInvoice.findMany({
+        where: { organizationId, status: { in: LEDGER_INVOICE_STATUSES } },
+        include: { payments: true },
+      }),
+      this.prisma.apartment.findMany({ where: { organizationId }, select: { id: true } }),
+    ]);
+    const now = new Date();
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const acceptedPayments = payments.filter((payment) => ACCEPTED_PAYMENT_STATUSES.includes(payment.status));
+    const rejectedPayments = payments.filter((payment) => payment.status === PaymentStatus.REJECTED || payment.status === PaymentStatus.FAILED);
+    const reversedPayments = payments.filter((payment) => payment.status === PaymentStatus.REVERSED || payment.status === PaymentStatus.CANCELLED);
+    const invoiceStates = invoices.map((invoice) => this.invoicePaymentState(invoice, invoice.payments || []));
+    const balances = await Promise.all(apartments.map((apartment) => this.calculateApartmentBalance(organizationId, apartment.id)));
+    const issues = await this.reconciliationIssuesForOrganization(organizationId, {});
+    return {
+      totalPayments: payments.length,
+      acceptedPayments: acceptedPayments.length,
+      pendingPayments: payments.filter((payment) => payment.status === PaymentStatus.PENDING).length,
+      rejectedPayments: rejectedPayments.length,
+      reversedPayments: reversedPayments.length,
+      totalAcceptedAmount: money(acceptedPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0)),
+      totalPendingAmount: money(payments.filter((payment) => payment.status === PaymentStatus.PENDING).reduce((sum, payment) => sum + Number(payment.amount || 0), 0)),
+      paymentsToday: acceptedPayments.filter((payment) => new Date(payment.paidAt || payment.acceptedAt || payment.createdAt) >= todayStart).length,
+      paymentsThisMonth: money(acceptedPayments.filter((payment) => new Date(payment.paidAt || payment.acceptedAt || payment.createdAt) >= monthStart).reduce((sum, payment) => sum + Number(payment.amount || 0), 0)),
+      unpaidInvoices: invoiceStates.filter((state) => state.remainingAmount > 0 && state.paidAmount <= 0).length,
+      partiallyPaidInvoices: invoiceStates.filter((state) => state.remainingAmount > 0 && state.paidAmount > 0).length,
+      paidInvoices: invoiceStates.filter((state) => state.remainingAmount <= 0).length,
+      overdueInvoices: invoiceStates.filter((state) => state.remainingAmount > 0 && state.invoice.dueDate && new Date(state.invoice.dueDate).getTime() < Date.now()).length,
+      totalOutstandingAmount: money(invoiceStates.reduce((sum, state) => sum + Math.max(state.remainingAmount, 0), 0)),
+      totalOverdueAmount: money(
+        invoiceStates
+          .filter((state) => state.remainingAmount > 0 && state.invoice.dueDate && new Date(state.invoice.dueDate).getTime() < Date.now())
+          .reduce((sum, state) => sum + state.remainingAmount, 0),
+      ),
+      apartmentsWithDebt: balances.filter((balance) => balance.totalRemaining > 0).length,
+      apartmentsWithOverpayment: balances.filter((balance) => balance.overpaidAmount > 0).length,
+      warningsCount: issues.filter((issue) => issue.severity === 'WARNING').length,
+      criticalIssuesCount: issues.filter((issue) => issue.severity === 'CRITICAL').length,
+    };
+  }
+
+  async listAdminPaymentsLedger(user: MvpUser, query: Record<string, unknown> = {}) {
+    const organizationId = this.requireAdminOrganization(user);
+    const { page, limit, skip } = resolvePagination(query, 50, 100);
+    const where = this.adminLedgerPaymentWhere(organizationId, query);
+    const [rows, total] = await Promise.all([
+      this.prisma.payment.findMany({
+        where,
+        include: this.paymentLedgerInclude(),
+        orderBy: [{ paidAt: 'desc' }, { acceptedAt: 'desc' }, { createdAt: 'desc' }],
+        skip,
+        take: limit,
+      }),
+      this.prisma.payment.count({ where }),
+    ]);
+    return {
+      items: rows.map((payment) => this.serializeAdminPayment(payment)),
+      meta: buildPaginationMeta(page, limit, total),
+    };
+  }
+
+  async getAdminPaymentLedger(user: MvpUser, id: string) {
+    const organizationId = this.requireAdminOrganization(user);
+    const payment = await this.prisma.payment.findFirst({
+      where: { id, organizationId },
+      include: this.paymentLedgerInclude(),
+    });
+    if (!payment) throw new NotFoundException('Plata nu a fost găsită.');
+    return {
+      payment: this.serializeAdminPayment(payment, true),
+      reconciliation: await this.reconciliationInfoForPayment(organizationId, payment),
+      activity: [],
+    };
+  }
+
+  async createAdminManualLedgerPayment(user: MvpUser, body: unknown) {
+    const organizationId = this.requireAdminOrganization(user);
+    const payload = isRecord(body) ? body : {};
+    const invoiceId = optionalString(payload.invoiceId);
+    const apartmentId = optionalString(payload.apartmentId);
+    const amount = Number(payload.amount);
+    if (!invoiceId && !apartmentId) throw new BadRequestException('Alege factura sau apartamentul.');
+    if (!Number.isFinite(amount) || amount <= 0) throw new BadRequestException('Suma trebuie să fie mai mare decât 0.');
+    const method = this.parseLedgerPaymentMethod(payload.method);
+    const paidAt = parseDate(payload.paidAt || payload.paymentDate) || new Date();
+    const invoice = invoiceId
+      ? await this.prisma.billingDraftInvoice.findFirst({ where: { id: invoiceId, organizationId }, include: this.invoiceDetailInclude() })
+      : null;
+    if (invoiceId && !invoice) throw new NotFoundException('Factura nu a fost găsită.');
+    const resolvedApartmentId = apartmentId || invoice?.apartmentId;
+    if (!resolvedApartmentId) throw new BadRequestException('Apartamentul este obligatoriu.');
+    if (invoice && invoice.apartmentId !== resolvedApartmentId) throw new BadRequestException('Factura nu aparține apartamentului ales.');
+    const apartment = await this.prisma.apartment.findFirst({
+      where: { id: resolvedApartmentId, organizationId },
+      include: { residents: { take: 1 }, ownerResident: true },
+    });
+    if (!apartment) throw new NotFoundException('Apartamentul nu a fost găsit.');
+    const residentUserId = invoice?.resident?.userId || invoice?.owner?.userId || apartment.residents?.[0]?.userId || apartment.ownerResident?.userId || null;
+    const created = await this.prisma.$transaction(async (tx) => {
+      const payment = await tx.payment.create({
+        data: {
+          organizationId,
+          apartmentId: resolvedApartmentId,
+          billingDraftInvoiceId: invoice?.id || null,
+          residentUserId,
+          amount: money(amount),
+          currency: BillingCurrency.MDL,
+          method,
+          status: PaymentStatus.ACCEPTED,
+          provider: method === PaymentMethod.CASH ? PaymentProvider.CASH : PaymentProvider.MANUAL_BANK_TRANSFER,
+          source: PaymentSource.MANUAL_ENTRY,
+          paidAt,
+          acceptedAt: new Date(),
+          acceptedById: user.id,
+          confirmedAt: new Date(),
+          createdByUserId: user.id,
+          externalReference: optionalString(payload.externalReference) || null,
+          note: optionalString(payload.note) || null,
+          internalNote: optionalString(payload.internalNote) || null,
+          month: invoice?.billingPeriod ? monthKey(invoice.billingPeriod) : monthKey({ year: paidAt.getFullYear(), month: paidAt.getMonth() + 1 }),
+        },
+        include: this.paymentLedgerInclude(),
+      });
+      if (invoice) await this.recalculateInvoicePaymentStatus(invoice.id, user.id, tx);
+      return payment;
+    });
+    await this.log(user, 'PAYMENT_MANUAL_CREATED', 'Plată manuală înregistrată', `Plata de ${money(amount).toLocaleString('ro-RO')} MDL a fost înregistrată manual.`, created.id);
+    return {
+      payment: this.serializeAdminPayment(created, true),
+      message: 'Plata manuală a fost înregistrată.',
+    };
+  }
+
+  async updateAdminLedgerPayment(user: MvpUser, id: string, body: unknown) {
+    const organizationId = this.requireAdminOrganization(user);
+    const payment = await this.prisma.payment.findFirst({ where: { id, organizationId } });
+    if (!payment) throw new NotFoundException('Plata nu a fost găsită.');
+    if (payment.source === PaymentSource.PAYMENT_PROOF) throw new BadRequestException('Plățile create din dovezi acceptate nu se editează aici.');
+    if (!REVERSIBLE_PAYMENT_STATUSES.includes(payment.status) && payment.status !== PaymentStatus.PENDING) {
+      throw new BadRequestException('Această plată nu mai poate fi editată.');
+    }
+    const payload = isRecord(body) ? body : {};
+    const updated = await this.prisma.payment.update({
+      where: { id: payment.id },
+      data: {
+        note: payload.note === undefined ? undefined : optionalString(payload.note) || null,
+        internalNote: payload.internalNote === undefined ? undefined : optionalString(payload.internalNote) || null,
+        externalReference: payload.externalReference === undefined ? undefined : optionalString(payload.externalReference) || null,
+        paidAt: payload.paidAt === undefined ? undefined : parseDate(payload.paidAt) || null,
+      },
+      include: this.paymentLedgerInclude(),
+    });
+    await this.log(user, 'PAYMENT_UPDATED', 'Plată actualizată', 'Detaliile plății au fost actualizate.', updated.id);
+    return { payment: this.serializeAdminPayment(updated, true) };
+  }
+
+  async reverseAdminLedgerPayment(user: MvpUser, id: string, body: unknown) {
+    const organizationId = this.requireAdminOrganization(user);
+    const payload = isRecord(body) ? body : {};
+    if (payload.confirm !== true) throw new BadRequestException('Confirmarea este obligatorie.');
+    const reason = optionalString(payload.reason);
+    if (!reason) throw new BadRequestException('Motivul reversal este obligatoriu.');
+    const payment = await this.prisma.payment.findFirst({ where: { id, organizationId }, include: this.paymentLedgerInclude() });
+    if (!payment) throw new NotFoundException('Plata nu a fost găsită.');
+    if (!REVERSIBLE_PAYMENT_STATUSES.includes(payment.status)) throw new BadRequestException('Doar plățile acceptate pot fi reversate.');
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const row = await tx.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: PaymentStatus.REVERSED,
+          reversedAt: new Date(),
+          reversedById: user.id,
+          reversalReason: reason,
+          internalNote: [payment.internalNote, `Reversed: ${reason}`].filter(Boolean).join('\n'),
+        },
+        include: this.paymentLedgerInclude(),
+      });
+      if (payment.billingDraftInvoiceId) await this.recalculateInvoicePaymentStatus(payment.billingDraftInvoiceId, user.id, tx);
+      return row;
+    });
+    await this.log(user, 'PAYMENT_REVERSED', 'Plată reversată', reason, updated.id);
+    return { payment: this.serializeAdminPayment(updated, true), message: 'Plata a fost marcată ca reversed.' };
+  }
+
+  async getAdminApartmentBalances(user: MvpUser, query: Record<string, unknown> = {}) {
+    const organizationId = this.requireAdminOrganization(user);
+    const { page, limit, skip } = resolvePagination(query, 50, 100);
+    const apartmentWhere: Prisma.ApartmentWhereInput = { organizationId };
+    if (optionalString(query.buildingId)) apartmentWhere.buildingId = optionalString(query.buildingId);
+    if (optionalString(query.entranceId)) apartmentWhere.staircaseId = optionalString(query.entranceId);
+    const search = optionalString(query.search);
+    if (search) {
+      apartmentWhere.OR = [
+        { number: { contains: search, mode: 'insensitive' } },
+        { building: { name: { contains: search, mode: 'insensitive' } } },
+        { staircase: { name: { contains: search, mode: 'insensitive' } } },
+        { residents: { some: { firstName: { contains: search, mode: 'insensitive' } } } },
+        { residents: { some: { lastName: { contains: search, mode: 'insensitive' } } } },
+      ];
+    }
+    const apartments = await this.prisma.apartment.findMany({
+      where: apartmentWhere,
+      include: this.apartmentLedgerInclude(),
+      orderBy: [{ building: { name: 'asc' } }, { staircase: { name: 'asc' } }, { number: 'asc' }],
+    });
+    let balances = await Promise.all(apartments.map((apartment) => this.calculateApartmentBalance(organizationId, apartment.id, apartment)));
+    if (this.bool(query.onlyWithDebt)) balances = balances.filter((row) => row.totalRemaining > 0);
+    if (this.bool(query.onlyOverpaid)) balances = balances.filter((row) => row.overpaidAmount > 0);
+    return {
+      items: balances.slice(skip, skip + limit),
+      meta: buildPaginationMeta(page, limit, balances.length),
+    };
+  }
+
+  async getAdminApartmentLedger(user: MvpUser, apartmentId: string) {
+    const organizationId = this.requireAdminOrganization(user);
+    const apartment = await this.prisma.apartment.findFirst({ where: { id: apartmentId, organizationId }, include: this.apartmentLedgerInclude() });
+    if (!apartment) throw new NotFoundException('Apartamentul nu a fost găsit.');
+    const [invoices, payments] = await Promise.all([
+      this.prisma.billingDraftInvoice.findMany({
+        where: { organizationId, apartmentId, status: { in: LEDGER_INVOICE_STATUSES } },
+        include: { billingPeriod: true },
+        orderBy: [{ billingPeriod: { year: 'asc' } }, { billingPeriod: { month: 'asc' } }, { createdAt: 'asc' }],
+      }),
+      this.prisma.payment.findMany({
+        where: { organizationId, apartmentId },
+        include: this.paymentLedgerInclude(),
+        orderBy: [{ paidAt: 'asc' }, { createdAt: 'asc' }],
+      }),
+    ]);
+    const entries = [
+      ...invoices.map((invoice) => ({
+        id: invoice.id,
+        type: 'INVOICE',
+        date: invoice.publishedAt || invoice.createdAt,
+        invoice: this.serializeInvoiceForLedger(invoice),
+        amount: numberFromDecimal(invoice.total),
+      })),
+      ...payments.map((payment) => ({
+        id: payment.id,
+        type: payment.status === PaymentStatus.REVERSED || payment.status === PaymentStatus.CANCELLED ? 'REVERSAL' : payment.method === PaymentMethod.ADJUSTMENT ? 'ADJUSTMENT' : 'PAYMENT',
+        date: payment.paidAt || payment.acceptedAt || payment.createdAt,
+        payment: this.serializeAdminPayment(payment),
+        amount: ACCEPTED_PAYMENT_STATUSES.includes(payment.status) ? -Number(payment.amount || 0) : 0,
+      })),
+    ].sort((a, b) => new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime());
+    let runningBalance = 0;
+    const chronologicalEntries = entries.map((entry) => {
+      runningBalance = money(runningBalance + Number(entry.amount || 0));
+      return { ...entry, runningBalance };
+    });
+    return {
+      apartment: this.serializeApartment(apartment),
+      resident: this.primaryApartmentContact(apartment),
+      summary: await this.calculateApartmentBalance(organizationId, apartmentId, apartment),
+      entries: chronologicalEntries,
+    };
+  }
+
+  async getAdminReconciliationIssues(user: MvpUser, query: Record<string, unknown> = {}) {
+    const organizationId = this.requireAdminOrganization(user);
+    let issues = await this.reconciliationIssuesForOrganization(organizationId, query);
+    const type = optionalString(query.type);
+    const severity = optionalString(query.severity);
+    if (type) issues = issues.filter((issue) => issue.type === type);
+    if (severity) issues = issues.filter((issue) => issue.severity === severity);
+    const search = optionalString(query.search)?.toLowerCase();
+    if (search) {
+      issues = issues.filter((issue) => JSON.stringify(issue).toLowerCase().includes(search));
+    }
+    const { page, limit, skip } = resolvePagination(query, 50, 100);
+    return { issues: issues.slice(skip, skip + limit), meta: buildPaginationMeta(page, limit, issues.length) };
+  }
+
+  async recalculateAdminReconciliation(user: MvpUser) {
+    const organizationId = this.requireAdminOrganization(user);
+    const invoices = await this.prisma.billingDraftInvoice.findMany({ where: { organizationId, status: { in: LEDGER_INVOICE_STATUSES } }, select: { id: true } });
+    for (const invoice of invoices) {
+      await this.recalculateInvoicePaymentStatus(invoice.id, user.id);
+    }
+    const issues = await this.reconciliationIssuesForOrganization(organizationId, {});
+    await this.log(user, 'RECONCILIATION_RUN', 'Reconciliere recalculată', `Au fost recalculate ${invoices.length} facturi.`, null);
+    return { recalculatedInvoices: invoices.length, issuesCount: issues.length, message: 'Soldurile au fost recalculate.' };
+  }
+
+  async searchAdminLedgerInvoices(user: MvpUser, query: Record<string, unknown> = {}) {
+    const organizationId = this.requireAdminOrganization(user);
+    const search = optionalString(query.search);
+    const where: Prisma.BillingDraftInvoiceWhereInput = { organizationId, status: { in: LEDGER_INVOICE_STATUSES } };
+    if (this.bool(query.unpaidOnly)) where.status = { in: [BillingDraftInvoiceStatus.PUBLISHED, BillingDraftInvoiceStatus.PARTIALLY_PAID] };
+    if (search) {
+      where.OR = [
+        { invoiceNumber: { contains: search, mode: 'insensitive' } },
+        { apartment: { number: { contains: search, mode: 'insensitive' } } },
+        { resident: { firstName: { contains: search, mode: 'insensitive' } } },
+        { resident: { lastName: { contains: search, mode: 'insensitive' } } },
+        { owner: { firstName: { contains: search, mode: 'insensitive' } } },
+        { owner: { lastName: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
+    const rows = await this.prisma.billingDraftInvoice.findMany({
+      where,
+      include: { ...this.invoiceListInclude(), payments: true },
+      orderBy: [{ updatedAt: 'desc' }],
+      take: 25,
+    });
+    return { items: rows.map((invoice) => this.serializeInvoicePaymentOption(invoice)).filter((invoice) => !this.bool(query.unpaidOnly) || invoice.remainingAmount > 0) };
+  }
+
+  async listAdminBillingDraftInvoicePayments(user: MvpUser, id: string) {
+    const organizationId = this.requireAdminOrganization(user);
+    const invoice = await this.prisma.billingDraftInvoice.findFirst({ where: { id, organizationId }, include: { ...this.invoiceDetailInclude(), payments: { include: this.paymentLedgerInclude() } } });
+    if (!invoice) throw new NotFoundException('Factura nu a fost găsită.');
+    const items = (invoice.payments || []).map((payment: any) => this.serializeAdminPayment(payment));
+    return {
+      items,
+      stats: {
+        totalPaid: money(items.filter((item: any) => ACCEPTED_PAYMENT_STATUSES.includes(item.status)).reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0)),
+        acceptedCount: items.filter((item: any) => ACCEPTED_PAYMENT_STATUSES.includes(item.status)).length,
+        reversedCount: items.filter((item: any) => item.status === PaymentStatus.REVERSED || item.status === PaymentStatus.CANCELLED).length,
+      },
+    };
+  }
+
+  private adminLedgerPaymentWhere(organizationId: string, query: Record<string, unknown>): Prisma.PaymentWhereInput {
+    const where: Prisma.PaymentWhereInput = { organizationId };
+    const status = optionalString(query.status) as PaymentStatus | undefined;
+    if (status && Object.values(PaymentStatus).includes(status)) where.status = status;
+    const method = optionalString(query.method) as PaymentMethod | undefined;
+    if (method && Object.values(PaymentMethod).includes(method)) where.method = method;
+    const source = optionalString(query.source) as PaymentSource | undefined;
+    if (source && Object.values(PaymentSource).includes(source)) where.source = source;
+    if (optionalString(query.invoiceId)) where.billingDraftInvoiceId = optionalString(query.invoiceId);
+    if (optionalString(query.apartmentId)) where.apartmentId = optionalString(query.apartmentId);
+    if (optionalString(query.residentUserId)) where.residentUserId = optionalString(query.residentUserId);
+    const dateFrom = parseDate(query.dateFrom);
+    const dateTo = parseDate(query.dateTo);
+    if (dateFrom || dateTo) where.paidAt = { ...(dateFrom ? { gte: dateFrom } : {}), ...(dateTo ? { lte: dateTo } : {}) };
+    const search = optionalString(query.search);
+    if (search) {
+      where.OR = [
+        { externalReference: { contains: search, mode: 'insensitive' } },
+        { note: { contains: search, mode: 'insensitive' } },
+        { internalNote: { contains: search, mode: 'insensitive' } },
+        { billingDraftInvoice: { invoiceNumber: { contains: search, mode: 'insensitive' } } },
+        { apartment: { number: { contains: search, mode: 'insensitive' } } },
+        { billingDraftInvoice: { resident: { firstName: { contains: search, mode: 'insensitive' } } } },
+        { billingDraftInvoice: { resident: { lastName: { contains: search, mode: 'insensitive' } } } },
+        { billingDraftInvoice: { owner: { firstName: { contains: search, mode: 'insensitive' } } } },
+        { billingDraftInvoice: { owner: { lastName: { contains: search, mode: 'insensitive' } } } },
+      ];
+    }
+    return where;
+  }
+
+  private paymentLedgerInclude() {
+    return {
+      apartment: { include: { building: { select: { id: true, name: true } }, staircase: { select: { id: true, name: true } } } },
+      billingDraftInvoice: {
+        include: {
+          billingPeriod: true,
+          apartment: { include: { building: { select: { id: true, name: true } }, staircase: { select: { id: true, name: true } } } },
+          resident: true,
+          owner: true,
+        },
+      },
+      residentUser: { select: { id: true, firstName: true, lastName: true, fullName: true, email: true, phone: true } },
+      createdBy: { select: { id: true, firstName: true, lastName: true, fullName: true, email: true } },
+      acceptedBy: { select: { id: true, firstName: true, lastName: true, fullName: true, email: true } },
+      rejectedBy: { select: { id: true, firstName: true, lastName: true, fullName: true, email: true } },
+      reversedBy: { select: { id: true, firstName: true, lastName: true, fullName: true, email: true } },
+    } satisfies Prisma.PaymentInclude;
+  }
+
+  private apartmentLedgerInclude() {
+    return {
+      building: { select: { id: true, name: true } },
+      staircase: { select: { id: true, name: true } },
+      ownerResident: { select: { id: true, firstName: true, lastName: true, email: true, phone: true, userId: true } },
+      residents: {
+        select: { id: true, firstName: true, lastName: true, email: true, phone: true, userId: true },
+        take: 3,
+      },
+    } satisfies Prisma.ApartmentInclude;
+  }
+
+  private parseLedgerPaymentMethod(value: unknown): PaymentMethod {
+    const normalized = optionalString(value)?.toUpperCase() || 'CASH';
+    const map: Record<string, PaymentMethod> = {
+      CASH: PaymentMethod.CASH,
+      BANK: PaymentMethod.BANK,
+      BANK_TRANSFER: PaymentMethod.BANK_TRANSFER,
+      MANUAL_BANK_TRANSFER: PaymentMethod.MANUAL_BANK_TRANSFER,
+      TERMINAL: PaymentMethod.TERMINAL,
+      CARD_TERMINAL: PaymentMethod.TERMINAL,
+      CARD_EXTERNAL: PaymentMethod.CARD_EXTERNAL,
+      BANK_STATEMENT: PaymentMethod.BANK_STATEMENT,
+      ADJUSTMENT: PaymentMethod.ADJUSTMENT,
+      OTHER: PaymentMethod.OTHER,
+    };
+    const method = map[normalized];
+    if (!method) throw new BadRequestException('Metoda de plată nu este validă.');
+    return method;
+  }
+
+  private async recalculateInvoicePaymentStatus(invoiceId: string, actorUserId?: string | null, client: any = this.prisma) {
+    const invoice = await client.billingDraftInvoice.findUnique({
+      where: { id: invoiceId },
+      include: { payments: true },
+    });
+    if (!invoice) return null;
+    if (![BillingDraftInvoiceStatus.PUBLISHED, BillingDraftInvoiceStatus.PARTIALLY_PAID, BillingDraftInvoiceStatus.PAID].includes(invoice.status)) {
+      return { invoice, paidAmount: 0, remainingAmount: numberFromDecimal(invoice.total) };
+    }
+    const state = this.invoicePaymentState(invoice, invoice.payments || []);
+    const nextStatus =
+      state.remainingAmount <= 0
+        ? BillingDraftInvoiceStatus.PAID
+        : state.paidAmount > 0
+          ? BillingDraftInvoiceStatus.PARTIALLY_PAID
+          : BillingDraftInvoiceStatus.PUBLISHED;
+    const updated = await client.billingDraftInvoice.update({
+      where: { id: invoice.id },
+      data: {
+        status: nextStatus,
+        paidAt: nextStatus === BillingDraftInvoiceStatus.PAID ? new Date() : null,
+      },
+    });
+    if (actorUserId) {
+      await this.activity.createActivity({
+        organizationId: invoice.organizationId,
+        actorUserId,
+        type: 'INVOICE_PAYMENT_STATUS_RECALCULATED',
+        title: 'Status factură recalculat',
+        message: `Factura ${invoice.invoiceNumber || invoice.id} are status ${nextStatus}.`,
+        targetType: 'INVOICE',
+        targetId: invoice.id,
+        link: `/admin/invoices/${invoice.id}`,
+      }).catch(() => undefined);
+    }
+    return { invoice: updated, paidAmount: state.paidAmount, remainingAmount: state.remainingAmount };
+  }
+
+  private invoicePaymentState(invoice: any, payments: any[] = []) {
+    const total = money(numberFromDecimal(invoice.total));
+    const paidAmount = money(
+      payments
+        .filter((payment) => ACCEPTED_PAYMENT_STATUSES.includes(payment.status))
+        .reduce((sum, payment) => sum + Number(payment.amount || 0), 0),
+    );
+    const remainingAmount = money(Math.max(total - paidAmount, 0));
+    const overpaidAmount = money(Math.max(paidAmount - total, 0));
+    return { invoice, total, paidAmount, remainingAmount, overpaidAmount };
+  }
+
+  private async calculateApartmentBalance(organizationId: string, apartmentId: string, apartmentInput?: any) {
+    const [apartment, invoices, payments] = await Promise.all([
+      apartmentInput ||
+        this.prisma.apartment.findFirst({
+          where: { id: apartmentId, organizationId },
+          include: this.apartmentLedgerInclude(),
+        }),
+      this.prisma.billingDraftInvoice.findMany({
+        where: { organizationId, apartmentId, status: { in: LEDGER_INVOICE_STATUSES } },
+        include: { payments: true },
+      }),
+      this.prisma.payment.findMany({
+        where: { organizationId, apartmentId, status: { in: ACCEPTED_PAYMENT_STATUSES } },
+        orderBy: [{ paidAt: 'desc' }, { acceptedAt: 'desc' }, { createdAt: 'desc' }],
+      }),
+    ]);
+    const invoiceStates = invoices.map((invoice) => this.invoicePaymentState(invoice, invoice.payments || []));
+    const totalInvoiced = money(invoiceStates.reduce((sum, state) => sum + state.total, 0));
+    const totalPaid = money(payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0));
+    const totalRemaining = money(Math.max(totalInvoiced - totalPaid, 0));
+    const overpaidAmount = money(Math.max(totalPaid - totalInvoiced, 0));
+    const overdueAmount = money(
+      invoiceStates
+        .filter((state) => state.remainingAmount > 0 && state.invoice.dueDate && new Date(state.invoice.dueDate).getTime() < Date.now())
+        .reduce((sum, state) => sum + state.remainingAmount, 0),
+    );
+    const partiallyPaidInvoicesCount = invoiceStates.filter((state) => state.paidAmount > 0 && state.remainingAmount > 0).length;
+    let status: 'CLEAR' | 'DEBT' | 'OVERPAID' | 'PARTIAL' = 'CLEAR';
+    if (overpaidAmount > 0) status = 'OVERPAID';
+    else if (partiallyPaidInvoicesCount > 0) status = 'PARTIAL';
+    else if (totalRemaining > 0) status = 'DEBT';
+    return {
+      apartment: this.serializeApartment(apartment),
+      building: apartment?.building || null,
+      entrance: apartment?.staircase || null,
+      resident: this.primaryApartmentContact(apartment),
+      totalInvoiced,
+      totalPaid,
+      totalRemaining,
+      balance: totalRemaining,
+      overdueAmount,
+      overpaidAmount,
+      invoicesCount: invoices.length,
+      unpaidInvoicesCount: invoiceStates.filter((state) => state.remainingAmount > 0 && state.paidAmount <= 0).length,
+      partiallyPaidInvoicesCount,
+      paidInvoicesCount: invoiceStates.filter((state) => state.remainingAmount <= 0).length,
+      lastPaymentAt: payments[0]?.paidAt || payments[0]?.acceptedAt || payments[0]?.createdAt || null,
+      status,
+    };
+  }
+
+  private async reconciliationInfoForPayment(organizationId: string, payment: any) {
+    if (!payment.billingDraftInvoiceId) {
+      return { type: 'PAYMENT_WITHOUT_INVOICE', severity: 'WARNING', message: 'Plata nu este legată de o factură.' };
+    }
+    const invoice = await this.prisma.billingDraftInvoice.findFirst({
+      where: { id: payment.billingDraftInvoiceId, organizationId },
+      include: { payments: true },
+    });
+    if (!invoice) return { type: 'PAYMENT_WITHOUT_INVOICE', severity: 'WARNING', message: 'Factura legată nu mai există.' };
+    const state = this.invoicePaymentState(invoice, invoice.payments || []);
+    if (state.overpaidAmount > 0) return { type: 'OVERPAYMENT', severity: 'WARNING', amount: state.overpaidAmount };
+    if (state.remainingAmount > 0) return { type: 'PARTIAL_PAYMENT', severity: 'INFO', amount: state.remainingAmount };
+    return { type: 'PAYMENT_MATCHED', severity: 'INFO', amount: Number(payment.amount || 0) };
+  }
+
+  private async reconciliationIssuesForOrganization(organizationId: string, query: Record<string, unknown>) {
+    const [payments, invoices, apartments] = await Promise.all([
+      this.prisma.payment.findMany({
+        where: { organizationId },
+        include: this.paymentLedgerInclude(),
+      }),
+      this.prisma.billingDraftInvoice.findMany({
+        where: { organizationId, status: { in: LEDGER_INVOICE_STATUSES } },
+        include: { payments: true, apartment: { include: { building: true, staircase: true } }, resident: true, owner: true, billingPeriod: true },
+      }),
+      this.prisma.apartment.findMany({ where: { organizationId }, include: this.apartmentLedgerInclude() }),
+    ]);
+    const issues: any[] = [];
+    payments.forEach((payment) => {
+      const base = {
+        payment: this.serializeAdminPayment(payment),
+        invoice: payment.billingDraftInvoice ? this.serializeInvoiceForLedger(payment.billingDraftInvoice) : null,
+        apartment: this.serializeApartment(payment.apartment),
+        amount: Number(payment.amount || 0),
+      };
+      if (!payment.billingDraftInvoiceId && ACCEPTED_PAYMENT_STATUSES.includes(payment.status)) {
+        issues.push({ id: `PAYMENT_WITHOUT_INVOICE:${payment.id}`, type: 'PAYMENT_WITHOUT_INVOICE', severity: 'WARNING', blocking: false, recommendation: 'Leagă plata de o factură sau verifică dacă este avans.', ...base });
+      }
+      if (!payment.paymentProofId && payment.source === PaymentSource.MANUAL_ENTRY) {
+        issues.push({ id: `PAYMENT_WITHOUT_PROOF:${payment.id}`, type: 'PAYMENT_WITHOUT_PROOF', severity: 'INFO', blocking: false, recommendation: 'Păstrează referința sau nota internă pentru audit.', ...base });
+      }
+      if (payment.status === PaymentStatus.REVERSED) {
+        issues.push({ id: `PAYMENT_REVERSED:${payment.id}`, type: 'PAYMENT_REVERSED', severity: 'INFO', blocking: false, recommendation: 'Verifică soldul recalculat al facturii.', ...base });
+      }
+    });
+    const duplicateReferences = new Map<string, any[]>();
+    payments
+      .filter((payment) => payment.externalReference && ACCEPTED_PAYMENT_STATUSES.includes(payment.status))
+      .forEach((payment) => {
+        const key = `${payment.externalReference}`.toLowerCase();
+        duplicateReferences.set(key, [...(duplicateReferences.get(key) || []), payment]);
+      });
+    duplicateReferences.forEach((rows) => {
+      if (rows.length <= 1) return;
+      rows.forEach((payment) => {
+        issues.push({
+          id: `DUPLICATE_PAYMENT_REFERENCE:${payment.id}`,
+          type: 'DUPLICATE_PAYMENT_REFERENCE',
+          severity: 'WARNING',
+          blocking: false,
+          payment: this.serializeAdminPayment(payment),
+          invoice: payment.billingDraftInvoice ? this.serializeInvoiceForLedger(payment.billingDraftInvoice) : null,
+          apartment: this.serializeApartment(payment.apartment),
+          amount: Number(payment.amount || 0),
+          recommendation: 'Verifică dacă referința externă a fost introdusă de două ori.',
+        });
+      });
+    });
+    invoices.forEach((invoice) => {
+      const state = this.invoicePaymentState(invoice, invoice.payments || []);
+      const invoiceSummary = this.serializeInvoiceForLedger(invoice);
+      const apartment = this.serializeApartment(invoice.apartment);
+      if (state.overpaidAmount > 0) {
+        issues.push({ id: `PAYMENT_AMOUNT_EXCEEDS_REMAINING:${invoice.id}`, type: 'PAYMENT_AMOUNT_EXCEEDS_REMAINING', severity: 'WARNING', blocking: false, invoice: invoiceSummary, apartment, amount: state.overpaidAmount, recommendation: 'Verifică dacă diferența este avans sau eroare de introducere.' });
+      }
+      if (state.paidAmount > 0 && state.remainingAmount > 0) {
+        issues.push({ id: `INVOICE_PARTIALLY_PAID:${invoice.id}`, type: 'INVOICE_PARTIALLY_PAID', severity: 'INFO', blocking: false, invoice: invoiceSummary, apartment, amount: state.remainingAmount, recommendation: 'Urmărește diferența restantă.' });
+      }
+      if (state.remainingAmount > 0 && invoice.dueDate && new Date(invoice.dueDate).getTime() < Date.now()) {
+        issues.push({ id: `INVOICE_OVERDUE:${invoice.id}`, type: 'INVOICE_OVERDUE', severity: 'WARNING', blocking: false, invoice: invoiceSummary, apartment, amount: state.remainingAmount, recommendation: 'Contactează locatarul sau verifică dacă plata a fost înregistrată.' });
+      }
+    });
+    for (const apartment of apartments) {
+      const balance = await this.calculateApartmentBalance(organizationId, apartment.id, apartment);
+      if (balance.totalRemaining > 0) {
+        issues.push({ id: `APARTMENT_HAS_DEBT:${apartment.id}`, type: 'APARTMENT_HAS_DEBT', severity: 'WARNING', blocking: false, apartment: balance.apartment, amount: balance.totalRemaining, recommendation: 'Verifică ledgerul apartamentului și facturile restante.' });
+      }
+      if (balance.overpaidAmount > 0) {
+        issues.push({ id: `APARTMENT_OVERPAID:${apartment.id}`, type: 'APARTMENT_OVERPAID', severity: 'INFO', blocking: false, apartment: balance.apartment, amount: balance.overpaidAmount, recommendation: 'Marchează diferența ca avans sau corectează plata într-un task viitor.' });
+      }
+    }
+    if (optionalString(query.apartmentId)) return issues.filter((issue) => issue.apartment?.id === optionalString(query.apartmentId));
+    if (optionalString(query.invoiceId)) return issues.filter((issue) => issue.invoice?.id === optionalString(query.invoiceId));
+    return issues;
+  }
+
+  private serializeAdminPayment(payment: any, detail = false) {
+    const invoice = payment.billingDraftInvoice || null;
+    const contact = invoice?.resident || invoice?.owner || null;
+    const serialized = {
+      id: payment.id,
+      paymentId: payment.id,
+      invoiceId: payment.billingDraftInvoiceId || null,
+      invoiceNumber: invoice?.invoiceNumber || null,
+      billingMonth: invoice?.billingPeriod ? monthKey(invoice.billingPeriod) : payment.month,
+      apartment: this.serializeApartment(payment.apartment || invoice?.apartment),
+      resident: contact ? { id: contact.id, fullName: fullName(contact), phone: contact.phone, email: contact.email, hasUserAccount: Boolean(contact.userId) } : null,
+      owner: invoice?.owner ? { id: invoice.owner.id, fullName: fullName(invoice.owner), phone: invoice.owner.phone, email: invoice.owner.email, hasUserAccount: Boolean(invoice.owner.userId) } : null,
+      amount: Number(payment.amount || 0),
+      currency: payment.currency,
+      method: payment.method,
+      status: payment.status,
+      source: payment.source || 'MANUAL_ENTRY',
+      paidAt: payment.paidAt,
+      paymentDate: payment.paidAt,
+      acceptedAt: payment.acceptedAt || payment.confirmedAt,
+      externalReference: payment.externalReference || null,
+      referenceNumber: payment.externalReference || null,
+      note: payment.note || null,
+      notes: payment.note || null,
+      internalNote: detail ? payment.internalNote || null : undefined,
+      linkedProof: payment.paymentProofId ? { id: payment.paymentProofId } : null,
+      paymentProofId: payment.paymentProofId || null,
+      createdBy: payment.createdBy ? { id: payment.createdBy.id, fullName: fullName(payment.createdBy), email: payment.createdBy.email } : null,
+      acceptedBy: payment.acceptedBy ? { id: payment.acceptedBy.id, fullName: fullName(payment.acceptedBy), email: payment.acceptedBy.email } : null,
+      reversedAt: payment.reversedAt || null,
+      reversalReason: detail ? payment.reversalReason || null : undefined,
+      createdAt: payment.createdAt,
+      updatedAt: payment.updatedAt,
+    };
+    return detail ? { ...serialized, invoice: invoice ? this.serializeInvoiceForLedger(invoice) : null } : serialized;
+  }
+
+  private serializeInvoiceForLedger(invoice: any) {
+    if (!invoice) return null;
+    return {
+      id: invoice.id,
+      invoiceId: invoice.id,
+      invoiceNumber: invoice.invoiceNumber,
+      billingMonth: invoice.billingPeriod ? monthKey(invoice.billingPeriod) : null,
+      status: invoice.status,
+      total: numberFromDecimal(invoice.total),
+      totalAmount: numberFromDecimal(invoice.total),
+      dueDate: invoice.dueDate,
+      publishedAt: invoice.publishedAt,
+      apartment: invoice.apartment ? this.serializeApartment(invoice.apartment) : null,
+    };
+  }
+
+  private serializeInvoicePaymentOption(invoice: any) {
+    const state = this.invoicePaymentState(invoice, invoice.payments || []);
+    return {
+      id: invoice.id,
+      invoiceNumber: invoice.invoiceNumber,
+      billingMonth: invoice.billingPeriod ? monthKey(invoice.billingPeriod) : null,
+      status: invoice.status,
+      totalAmount: state.total,
+      paidAmount: state.paidAmount,
+      balanceAmount: state.remainingAmount,
+      remainingAmount: state.remainingAmount,
+      dueDate: invoice.dueDate,
+      apartment: this.serializeApartment(invoice.apartment),
+      resident: invoice.resident ? { id: invoice.resident.id, fullName: fullName(invoice.resident), phone: invoice.resident.phone, email: invoice.resident.email } : null,
+      owner: invoice.owner ? { id: invoice.owner.id, fullName: fullName(invoice.owner), phone: invoice.owner.phone, email: invoice.owner.email } : null,
+    };
+  }
+
+  private serializeApartment(apartment?: any) {
+    if (!apartment) return null;
+    return {
+      id: apartment.id,
+      number: apartment.number,
+      apartmentNumber: apartment.number,
+      building: apartment.building ? { id: apartment.building.id, name: apartment.building.name } : null,
+      staircase: apartment.staircase ? { id: apartment.staircase.id, name: apartment.staircase.name } : null,
+      entrance: apartment.staircase ? { id: apartment.staircase.id, name: apartment.staircase.name } : null,
+      floor: apartment.floor,
+      areaM2: apartment.areaM2,
+    };
+  }
+
+  private primaryApartmentContact(apartment?: any) {
+    const resident = apartment?.ownerResident || apartment?.residents?.[0];
+    if (!resident) return null;
+    return { id: resident.id, fullName: fullName(resident), phone: resident.phone, email: resident.email, hasUserAccount: Boolean(resident.userId) };
+  }
+
   private async adminInvoiceWhere(organizationId: string, query: Record<string, unknown>) {
     const where: Prisma.BillingDraftInvoiceWhereInput = { organizationId };
     const status = optionalString(query.status) as BillingDraftInvoiceStatus | undefined;
@@ -799,8 +1518,11 @@ export class InvoicePublishingService {
     const rows: Array<{ amount: unknown }> = await this.prisma.payment.findMany({
       where: {
         organizationId,
-        status: PaymentStatus.CONFIRMED,
-        paymentIntent: { is: { metadataJson: { path: ['internalInvoiceId'], equals: invoiceId } } },
+        status: { in: ACCEPTED_PAYMENT_STATUSES },
+        OR: [
+          { billingDraftInvoiceId: invoiceId },
+          { paymentIntent: { is: { metadataJson: { path: ['internalInvoiceId'], equals: invoiceId } } } },
+        ],
       },
       select: { amount: true },
     }).catch(() => []);
