@@ -52,6 +52,8 @@ export type { KpiCardProps } from './KpiCard';
 // States
 export { default as EmptyState, EmptyStateInline } from './EmptyState';
 export type { EmptyStateType, EmptyStateProps } from './EmptyState';
+export { default as LoadingSkeleton } from './LoadingSkeleton';
+export { default as ErrorState } from './ErrorState';
 export { default as Skeleton, SkeletonText, SkeletonCard, SkeletonKpiCard, SkeletonTable, SkeletonAvatar, SkeletonButton } from './Skeleton';
 
 // Containers

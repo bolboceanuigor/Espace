@@ -18,10 +18,10 @@ export interface KpiCardProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 const variantStyles = {
-  default: 'bg-card border-border/60',
-  accent: 'bg-emerald-50/50 border-emerald-200/60',
-  warning: 'bg-amber-50/50 border-amber-200/60',
-  error: 'bg-rose-50/50 border-rose-200/60',
+  default: 'bg-card border-border/75',
+  accent: 'bg-emerald-50/55 border-emerald-200/75',
+  warning: 'bg-amber-50/60 border-amber-200/75',
+  error: 'bg-rose-50/60 border-rose-200/75',
 } as const;
 
 const iconVariantStyles = {
@@ -63,17 +63,17 @@ const KpiCard = forwardRef<HTMLDivElement, KpiCardProps>(function KpiCard(
   return (
     <div
       ref={ref}
-      className={`rounded-xl border shadow-card transition-shadow hover:shadow-card-hover ${variantStyles[variant]} ${styles.card} ${className}`.trim()}
+      className={`rounded-2xl border shadow-card transition-all duration-200 hover:border-foreground/10 hover:shadow-card-hover ${variantStyles[variant]} ${styles.card} ${className}`.trim()}
       {...props}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <p className={`font-medium text-muted-foreground ${styles.title}`}>{title}</p>
+          <p className={`font-semibold uppercase tracking-[0.08em] text-muted-foreground ${styles.title}`}>{title}</p>
           <p className={`font-semibold text-foreground tracking-tight mt-1 ${styles.value}`}>
             {typeof value === 'number' ? value.toLocaleString('ro-MD') : value}
           </p>
           {subtitle && (
-            <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">{subtitle}</p>
           )}
           {trend && (
             <div className="flex items-center gap-1 mt-2">

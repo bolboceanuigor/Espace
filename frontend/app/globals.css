@@ -4,9 +4,10 @@
 
 :root {
   /* Espace Premium Design - Fresha Inspired */
+  /* TODO: Figma node context missing; implemented local design polish based on existing design system. */
   
   /* Background & Surface */
-  --background: 210 40% 98%;
+  --background: 210 33% 98%;
   --foreground: 222 47% 11%;
   --card: 0 0% 100%;
   --card-foreground: 222 47% 11%;
@@ -14,12 +15,12 @@
   --popover-foreground: 222 47% 11%;
   
   /* Muted */
-  --muted: 210 40% 96%;
+  --muted: 210 32% 96%;
   --muted-foreground: 215 16% 47%;
   
   /* Borders */
-  --border: 214 32% 91%;
-  --input: 214 32% 91%;
+  --border: 214 28% 90%;
+  --input: 214 28% 90%;
   --ring: 160 84% 39%;
   
   /* Primary - Emerald */
@@ -39,7 +40,7 @@
   --destructive-foreground: 0 0% 100%;
   
   /* Radius */
-  --radius: 0.75rem;
+  --radius: 0.5rem;
   
   /* Sidebar */
   --sidebar-bg: 0 0% 100%;
@@ -49,6 +50,14 @@
   --sidebar-border: 214 32% 91%;
   
   /* Status Colors */
+  --success: 160 84% 35%;
+  --success-foreground: 0 0% 100%;
+  --warning: 38 92% 44%;
+  --warning-foreground: 25 95% 12%;
+  --info: 199 89% 44%;
+  --info-foreground: 0 0% 100%;
+  --critical: 0 72% 48%;
+  --critical-foreground: 0 0% 100%;
   --status-active: 160 84% 39%;
   --status-draft: 215 16% 47%;
   --status-pending: 38 92% 50%;
@@ -93,6 +102,14 @@ html[data-theme='dark'] {
   --secondary: 222 47% 12%;
   --secondary-foreground: 210 40% 98%;
   --sidebar-bg: 222 47% 9%;
+  --success: 160 84% 45%;
+  --success-foreground: 222 47% 8%;
+  --warning: 38 92% 56%;
+  --warning-foreground: 25 95% 10%;
+  --info: 199 89% 58%;
+  --info-foreground: 222 47% 8%;
+  --critical: 0 72% 58%;
+  --critical-foreground: 0 0% 100%;
 }
 
 * {
@@ -105,7 +122,9 @@ body {
   font-family: var(--font-onest), system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: hsl(var(--background));
+  background:
+    linear-gradient(180deg, rgba(248, 250, 252, 0.92), rgba(248, 250, 252, 1) 280px),
+    hsl(var(--background));
   color: hsl(var(--foreground));
 }
 
@@ -122,7 +141,7 @@ html {
 @layer components {
   /* Premium Button Styles */
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-600 text-white font-medium rounded-xl shadow-sm transition-all duration-200 hover:bg-emerald-700 hover:shadow-md;
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-slate-950 text-white font-medium rounded-xl shadow-sm transition-all duration-200 hover:bg-slate-800 hover:shadow-md;
   }
   
   .btn-secondary {
@@ -135,7 +154,7 @@ html {
   
   /* Premium Card */
   .card-premium {
-    @apply bg-white rounded-2xl border border-slate-200 shadow-sm transition-all duration-200;
+    @apply bg-white rounded-2xl border border-slate-200/80 shadow-sm transition-all duration-200;
   }
   
   .card-premium:hover {
@@ -187,16 +206,16 @@ html {
   
   /* Inputs */
   .input-field {
-    @apply w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-white placeholder-slate-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500;
+    @apply w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-white placeholder-slate-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400;
   }
   
   /* Legacy support */
   .input {
-    @apply w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500;
+    @apply w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400;
   }
   
   .select {
-    @apply w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500;
+    @apply w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400;
   }
   
   .label {
@@ -290,7 +309,7 @@ html {
 }
 
 ::-webkit-scrollbar-track {
-  background: #F1F5F9;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {

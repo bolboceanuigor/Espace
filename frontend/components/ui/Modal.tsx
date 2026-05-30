@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect } from 'react';
+import { X } from 'lucide-react';
 import Button from './Button';
 
 const overlayClass = 'fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm';
 const panelBase =
-  'w-full max-h-[90vh] overflow-y-auto rounded-2xl border border-border/70 bg-white shadow-[0_8px_24px_-12px_rgba(15,23,42,0.16)] animate-modal-in';
+  'w-full max-h-[90vh] overflow-hidden rounded-2xl border border-border/70 bg-card shadow-[0_24px_60px_-28px_rgba(15,23,42,0.45)] animate-modal-in';
 
 export interface ModalProps {
   isOpen: boolean;
@@ -69,18 +70,16 @@ export function ModalHeader({
   className?: string;
 }) {
   return (
-    <div className={`flex items-center justify-between border-b border-border/70 p-6 ${className}`.trim()}>
-      <h2 className="text-xl font-semibold tracking-tight text-foreground">{title}</h2>
+    <div className={`flex items-start justify-between gap-4 border-b border-border/70 p-5 ${className}`.trim()}>
+      <h2 className="text-lg font-semibold tracking-tight text-foreground">{title}</h2>
       {onClose && (
         <button
           type="button"
           onClick={onClose}
-          className="rounded p-1 text-muted-foreground transition hover:bg-muted/60 hover:text-foreground"
-          aria-label="Close"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-2xl text-muted-foreground transition hover:bg-muted/70 hover:text-foreground"
+          aria-label="Închide"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
+          <X className="h-4 w-4" />
         </button>
       )}
     </div>
@@ -88,12 +87,12 @@ export function ModalHeader({
 }
 
 export function ModalBody({ className = '', ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={`p-6 ${className}`.trim()} {...props} />;
+  return <div className={`max-h-[calc(90vh-9rem)] overflow-y-auto p-5 ${className}`.trim()} {...props} />;
 }
 
 export function ModalFooter({ className = '', ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={`flex flex-wrap justify-end gap-3 border-t border-border/70 p-6 ${className}`.trim()} {...props} />
+    <div className={`flex flex-wrap justify-end gap-3 border-t border-border/70 bg-muted/25 p-5 ${className}`.trim()} {...props} />
   );
 }
 

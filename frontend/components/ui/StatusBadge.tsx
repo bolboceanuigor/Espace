@@ -45,6 +45,14 @@ const statusConfig = {
   CONFIRMED: { label: 'Confirmat', variant: 'success' },
   COMPLETED: { label: 'Completat', variant: 'success' },
   WAITING: { label: 'În așteptare', variant: 'warning' },
+  WAITING_RESIDENT: { label: 'Așteaptă locatar', variant: 'warning' },
+  WAITING_VENDOR: { label: 'Așteaptă prestator', variant: 'warning' },
+  CONTACTED: { label: 'Contactat', variant: 'info' },
+  QUALIFIED: { label: 'Calificat', variant: 'success' },
+  ONBOARDING: { label: 'În onboarding', variant: 'warning' },
+  IN_ONBOARDING: { label: 'În onboarding', variant: 'warning' },
+  CONVERTED: { label: 'Convertit', variant: 'success' },
+  SPAM: { label: 'Spam', variant: 'neutral' },
   PAST_DUE: { label: 'Scadent', variant: 'error' },
   ERROR: { label: 'Eroare', variant: 'error' },
   FAILED: { label: 'Eșuat', variant: 'error' },
@@ -60,9 +68,9 @@ const variants = {
 } as const;
 
 const sizes = {
-  sm: 'px-1.5 py-0.5 text-[10px]',
-  default: 'px-2 py-0.5 text-xs',
-  lg: 'px-2.5 py-1 text-xs',
+  sm: 'px-2 py-0.5 text-[10px]',
+  default: 'px-2.5 py-1 text-xs',
+  lg: 'px-3 py-1.5 text-xs',
 } as const;
 
 export type StatusType = keyof typeof statusConfig;

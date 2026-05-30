@@ -17,7 +17,7 @@ export interface PageHeaderProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 const variantStyles = {
-  default: 'rounded-2xl border border-border/60 bg-card p-5 shadow-card',
+  default: 'py-1',
   transparent: 'py-4',
   compact: 'py-3',
 } as const;
@@ -41,8 +41,8 @@ const PageHeader = forwardRef<HTMLDivElement, PageHeaderProps>(function PageHead
       )}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl text-balance">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-[1.65rem] font-semibold leading-tight tracking-tight text-foreground md:text-3xl text-balance">
               {title}
             </h1>
             {badge}
@@ -53,9 +53,9 @@ const PageHeader = forwardRef<HTMLDivElement, PageHeaderProps>(function PageHead
             </p>
           )}
         </div>
-        {actionsContent && <div className="flex items-center gap-2 flex-shrink-0">{actionsContent}</div>}
+        {actionsContent && <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-2">{actionsContent}</div>}
       </div>
-      {tabs && <div className="mt-5 -mb-5 border-t border-border/60 pt-4">{tabs}</div>}
+      {tabs && <div className="mt-4 overflow-x-auto border-b border-border/70">{tabs}</div>}
     </div>
   );
 });

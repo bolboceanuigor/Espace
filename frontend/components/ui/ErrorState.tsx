@@ -17,9 +17,9 @@ export default function ErrorState({
   onRetry,
 }: ErrorStateProps) {
   return (
-    <div className="rounded-2xl border border-rose-200 bg-rose-50/80 p-5 text-rose-900">
+    <div className="rounded-2xl border border-rose-200/90 bg-rose-50/80 p-5 text-rose-900 shadow-card">
       <div className="flex items-start gap-3">
-        <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-rose-600 shadow-sm">
+        <span className="flex h-10 w-10 items-center justify-center rounded-2xl border border-rose-100 bg-white text-rose-600 shadow-sm">
           <AlertTriangle className="h-5 w-5" />
         </span>
         <div className="min-w-0 flex-1">

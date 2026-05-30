@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
+import { BarChart3, Kanban, RefreshCw, Search } from 'lucide-react';
+import { Button, Card, EmptyState, LoadingSkeleton, PageHeader, StatCard } from '@/components/ui';
 import { accessRequestsApi, superadminApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
@@ -41,12 +43,12 @@ function fmt(value?: string | null) {
 
 function Badge({ value, tone = 'slate' }: { value: string; tone?: 'slate' | 'emerald' | 'amber' | 'red' }) {
   const classes = {
-    slate: 'bg-slate-100 text-slate-700',
-    emerald: 'bg-emerald-50 text-emerald-700',
-    amber: 'bg-amber-50 text-amber-700',
-    red: 'bg-red-50 text-red-700',
+    slate: 'border-slate-200/80 bg-slate-50 text-slate-700',
+    emerald: 'border-emerald-200/80 bg-emerald-50 text-emerald-700',
+    amber: 'border-amber-200/80 bg-amber-50 text-amber-700',
+    red: 'border-rose-200/80 bg-rose-50 text-rose-700',
   };
-  return <span className={`rounded-full px-2 py-1 text-xs font-semibold ${classes[tone]}`}>{value}</span>;
+  return <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${classes[tone]}`}>{value}</span>;
 }
 
 export function CustomerRequestsListPage({ kanban = false, statsOnly = false, basePath = '/superadmin/customer-requests', title = 'Cereri acces', subtitle = 'Proceseaza cererile primite de la APC-uri si administratori interesati de Espace.' }: { kanban?: boolean; statsOnly?: boolean; basePath?: string; title?: string; subtitle?: string }) {
@@ -72,78 +74,80 @@ export function CustomerRequestsListPage({ kanban = false, statsOnly = false, ba
   const stats = data.stats || {};
   if (statsOnly) {
     return (
-      <main className="min-h-screen bg-slate-50 p-4 md:p-8">
-        <div className="mx-auto max-w-6xl space-y-5">
-          <h1 className="text-2xl font-semibold text-slate-950">Statistici cereri acces</h1>
-          <StatsGrid stats={stats} />
-        </div>
-      </main>
+      <div className="space-y-5 pb-4">
+        <PageHeader title="Statistici cereri acces" description="Volum, status și conversii pentru cererile reale primite." />
+        <StatsGrid stats={stats} />
+      </div>
     );
   }
   if (kanban) {
     return (
-      <main className="min-h-screen bg-slate-50 p-4 md:p-8">
-        <div className="mx-auto max-w-7xl space-y-5">
-          <Header title="Kanban cereri acces" subtitle="Urmareste cererile pe etape." basePath={basePath} />
-          <div className="grid gap-4 lg:grid-cols-3 xl:grid-cols-6">
-            {statuses.filter((item) => item !== 'SPAM').map((column) => (
-              <section key={column} className="rounded-lg border border-slate-200 bg-white p-3">
-                <h2 className="text-sm font-semibold text-slate-950">{statusLabels[column]}</h2>
-                <div className="mt-3 space-y-2">
-                  {items.filter((item: any) => item.status === column).map((item: any) => (
-                    <Link key={item.id} href={localizedPath(`${basePath}/${item.id}`)} className="block rounded-lg border border-slate-200 p-3 hover:border-emerald-300">
-                      <p className="text-sm font-semibold text-slate-950">{item.associationName || item.legalName || item.fullName}</p>
-                      <p className="mt-1 text-xs text-slate-500">{item.fullName} · {item.phone}</p>
-                    </Link>
-                  ))}
-                  {!items.filter((item: any) => item.status === column).length ? <p className="text-xs text-slate-400">Nu exista cereri in aceasta etapa.</p> : null}
-                </div>
-              </section>
-            ))}
-          </div>
+      <div className="space-y-5 pb-4">
+        <Header title="Kanban cereri acces" subtitle="Urmărește cererile pe etape." basePath={basePath} />
+        <div className="grid gap-4 lg:grid-cols-3 xl:grid-cols-6">
+          {statuses.filter((item) => item !== 'SPAM').map((column) => (
+            <Card key={column} className="p-3">
+              <h2 className="text-sm font-semibold text-foreground">{statusLabels[column]}</h2>
+              <div className="mt-3 space-y-2">
+                {items.filter((item: any) => item.status === column).map((item: any) => (
+                  <Link key={item.id} href={localizedPath(`${basePath}/${item.id}`)} className="block rounded-2xl border border-border/70 p-3 transition hover:border-foreground/15 hover:bg-muted/40">
+                    <p className="text-sm font-semibold text-foreground">{item.associationName || item.legalName || item.fullName}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{item.fullName} · {item.phone}</p>
+                  </Link>
+                ))}
+                {!items.filter((item: any) => item.status === column).length ? <p className="rounded-2xl border border-dashed border-border/70 p-3 text-xs text-muted-foreground">Nu există cereri în această etapă.</p> : null}
+              </div>
+            </Card>
+          ))}
         </div>
-      </main>
+      </div>
     );
   }
   return (
-    <main className="min-h-screen bg-slate-50 p-4 md:p-8">
-      <div className="mx-auto max-w-7xl space-y-5">
-        <Header title={title} subtitle={subtitle} basePath={basePath} />
-        <StatsGrid stats={stats} />
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <div className="mb-4 grid gap-2 md:grid-cols-[1fr_160px_170px_170px_150px_auto]">
-            <input value={filters.search} onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))} placeholder="Cauta nume, telefon, email, asociatie..." className="h-10 rounded-md border border-slate-200 px-3 text-sm" />
-            <input value={filters.city} onChange={(e) => setFilters((prev) => ({ ...prev, city: e.target.value }))} placeholder="Oras" className="h-10 rounded-md border border-slate-200 px-3 text-sm" />
-            <select value={filters.status} onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))} className="h-10 rounded-md border border-slate-200 px-3 text-sm">
+    <div className="space-y-5 pb-4">
+      <Header title={title} subtitle={subtitle} basePath={basePath} />
+      <StatsGrid stats={stats} />
+      <Card>
+        <div className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-[1fr_160px_170px_170px_150px_auto]">
+          <label className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input value={filters.search} onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))} placeholder="Caută nume, telefon, email, asociație..." className="input pl-9" />
+          </label>
+            <input value={filters.city} onChange={(e) => setFilters((prev) => ({ ...prev, city: e.target.value }))} placeholder="Oraș" className="input" />
+            <select value={filters.status} onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))} className="select">
               <option value="">Toate statusurile</option>
               {statuses.map((item) => <option key={item} value={item}>{statusLabels[item]}</option>)}
             </select>
-            <select value={filters.type} onChange={(e) => setFilters((prev) => ({ ...prev, type: e.target.value }))} className="h-10 rounded-md border border-slate-200 px-3 text-sm">
+            <select value={filters.type} onChange={(e) => setFilters((prev) => ({ ...prev, type: e.target.value }))} className="select">
               <option value="">Toate tipurile</option>
               {Object.entries(typeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
-            <select value={filters.priority} onChange={(e) => setFilters((prev) => ({ ...prev, priority: e.target.value }))} className="h-10 rounded-md border border-slate-200 px-3 text-sm">
+            <select value={filters.priority} onChange={(e) => setFilters((prev) => ({ ...prev, priority: e.target.value }))} className="select">
               <option value="">Prioritate</option>
               {Object.keys(priorityLabels).map((item) => <option key={item} value={item}>{priorityLabels[item]}</option>)}
             </select>
-            <button onClick={load} className="h-10 rounded-md bg-slate-950 px-4 text-sm font-semibold text-white">Filtreaza</button>
+            <Button onClick={load} isLoading={loading}>
+              <RefreshCw className="h-4 w-4" />
+              Filtrează
+            </Button>
           </div>
-          {loading ? <p className="p-4 text-sm text-slate-500">Se incarca cererile...</p> : null}
+          {loading ? <LoadingSkeleton variant="table" rows={4} /> : null}
           {!loading && !items.length ? (
-            <div className="rounded-lg border border-dashed border-slate-300 p-8 text-center">
-              <h2 className="font-semibold text-slate-950">Nu exista cereri de acces inca.</h2>
-              <p className="mt-1 text-sm text-slate-500">Cand cineva completeaza formularul Cere acces, cererea va aparea aici.</p>
-            </div>
+            <EmptyState
+              type="users"
+              title="Nu există cereri de acces încă."
+              description="Când cineva completează formularul Cere acces, cererea va apărea aici."
+            />
           ) : null}
           {items.length ? (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-2xl border border-border/70">
               <table className="w-full min-w-[980px] text-left text-sm">
-                <thead className="text-xs uppercase text-slate-500"><tr><th className="p-3">Data</th><th>Contact</th><th>Telefon</th><th>Oras</th><th>Tip</th><th>Asociatie</th><th>Apartamente</th><th>Status</th><th>Prioritate</th><th>Actiuni</th></tr></thead>
-                <tbody className="divide-y divide-slate-100">
+                <thead className="bg-muted/45 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground"><tr><th className="p-3">Data</th><th>Contact</th><th>Telefon</th><th>Oraș</th><th>Tip</th><th>Asociație</th><th>Apartamente</th><th>Status</th><th>Prioritate</th><th>Acțiuni</th></tr></thead>
+                <tbody className="divide-y divide-border/50">
                   {items.map((item: any) => (
-                    <tr key={item.id}>
+                    <tr key={item.id} className="transition hover:bg-muted/40">
                       <td className="p-3">{fmt(item.createdAt)}</td>
-                      <td className="font-medium text-slate-950">{item.fullName}</td>
+                      <td className="font-medium text-foreground">{item.fullName}</td>
                       <td>{item.phone}</td>
                       <td>{item.city || '-'}</td>
                       <td>{typeLabels[item.type] || item.type || '-'}</td>
@@ -151,26 +155,37 @@ export function CustomerRequestsListPage({ kanban = false, statsOnly = false, ba
                       <td>{item.apartmentsCount || '-'}</td>
                       <td><Badge value={statusLabels[item.status] || item.status} tone={item.status === 'NEW' ? 'amber' : item.status === 'CONVERTED' ? 'emerald' : 'slate'} /></td>
                       <td><Badge value={priorityLabels[item.priority] || item.priority} tone={item.priority === 'HIGH' ? 'red' : 'slate'} /></td>
-                      <td><Link href={localizedPath(`${basePath}/${item.id}`)} className="text-emerald-700 hover:underline">Deschide</Link></td>
+                      <td><Link href={localizedPath(`${basePath}/${item.id}`)} className="font-semibold text-foreground hover:underline">Deschide</Link></td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           ) : null}
-        </div>
-      </div>
-    </main>
+      </Card>
+    </div>
   );
 }
 
 function Header({ title, subtitle, basePath }: { title: string; subtitle: string; basePath: string }) {
   const localizedPath = useLocalizedPath();
   return (
-    <header className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-5 md:flex-row md:items-center md:justify-between">
-      <div><h1 className="text-2xl font-semibold text-slate-950">{title}</h1><p className="mt-1 text-sm text-slate-500">{subtitle}</p></div>
-      <div className="flex gap-2"><Link href={localizedPath(`${basePath}/kanban`)} className="rounded-md border border-slate-200 px-3 py-2 text-sm">Kanban</Link><Link href={localizedPath('/superadmin/customer-requests/stats')} className="rounded-md border border-slate-200 px-3 py-2 text-sm">Stats</Link></div>
-    </header>
+    <PageHeader
+      title={title}
+      description={subtitle}
+      rightSlot={
+        <div className="flex flex-wrap gap-2">
+          <Link href={localizedPath(`${basePath}/kanban`)} className="inline-flex min-h-10 items-center gap-2 rounded-2xl border border-border/80 bg-card px-3 text-sm font-semibold text-foreground shadow-sm transition hover:bg-muted/65">
+            <Kanban className="h-4 w-4" />
+            Kanban
+          </Link>
+          <Link href={localizedPath('/superadmin/customer-requests/stats')} className="inline-flex min-h-10 items-center gap-2 rounded-2xl border border-border/80 bg-card px-3 text-sm font-semibold text-foreground shadow-sm transition hover:bg-muted/65">
+            <BarChart3 className="h-4 w-4" />
+            Stats
+          </Link>
+        </div>
+      }
+    />
   );
 }
 
@@ -185,7 +200,7 @@ function StatsGrid({ stats }: { stats: any }) {
     ['Cereri luna curenta', stats.currentMonth || 0],
     ['Ultima cerere', fmt(stats.lastRequestAt)],
   ];
-  return <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{cards.map(([label, value]) => <div key={label as string} className="rounded-lg border border-slate-200 bg-white p-4"><p className="text-sm text-slate-500">{label}</p><p className="mt-2 text-2xl font-semibold text-slate-950">{value}</p></div>)}</div>;
+  return <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{cards.map(([label, value]) => <StatCard key={label as string} label={label as string} value={value} />)}</div>;
 }
 
 export function CustomerRequestDetailsPage({ basePath = '/superadmin/customer-requests' }: { basePath?: string }) {
@@ -212,7 +227,7 @@ export function CustomerRequestDetailsPage({ basePath = '/superadmin/customer-re
     setActivity((activityPayload.items || activityPayload.data || []) as any[]);
   }, [params.id]);
   useEffect(() => { if (params.id) load().catch(() => {}); }, [params.id, load]);
-  if (!item) return <main className="min-h-screen bg-slate-50 p-6 text-sm text-slate-500">Se incarca cererea...</main>;
+  if (!item) return <LoadingSkeleton variant="page" rows={3} label="Se încarcă cererea..." />;
   const update = async (payload: Record<string, unknown>) => { await accessRequestsApi.updateSuperadminAccessRequest(item.id, payload); await load(); };
   const updateStatus = async (status: string) => update({ status });
   const convertedOrganizationId = item.convertedOrganizationId || item.convertedOrganization?.id || item.convertedAssociationId || item.convertedAssociation?.id;
@@ -280,26 +295,26 @@ export function CustomerRequestDetailsPage({ basePath = '/superadmin/customer-re
     }
   };
   return (
-    <main className="min-h-screen bg-slate-50 p-4 md:p-8">
+    <div className="space-y-5 pb-4">
       <div className="mx-auto max-w-5xl space-y-5">
-        <Link href={localizedPath(basePath)} className="text-sm font-medium text-emerald-700 hover:underline">Inapoi la cereri</Link>
-        <header className="rounded-lg border border-slate-200 bg-white p-5">
+        <Link href={localizedPath(basePath)} className="text-sm font-semibold text-foreground hover:underline">Înapoi la cereri</Link>
+        <header className="rounded-2xl border border-border/70 bg-card p-5 shadow-card">
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div><h1 className="text-2xl font-semibold text-slate-950">{item.associationName || item.legalName || 'Cerere acces'}</h1><p className="mt-1 text-sm text-slate-500">{item.fullName} · {item.phone} · {item.email || 'email necompletat'}</p></div>
+            <div><h1 className="text-2xl font-semibold tracking-tight text-foreground">{item.associationName || item.legalName || 'Cerere acces'}</h1><p className="mt-1 text-sm text-muted-foreground">{item.fullName} · {item.phone} · {item.email || 'email necompletat'}</p></div>
             <Badge value={statusLabels[item.status] || item.status} tone={isConverted ? 'emerald' : item.status === 'NEW' ? 'amber' : 'slate'} />
           </div>
           {successMessage ? (
-            <div className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-800">
+            <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-800">
               {successMessage}
               {conversionResult?.invitation?.inviteLink ? (
                 <div className="mt-2">
-                  <input className="h-10 w-full rounded-md border border-emerald-200 bg-white px-3 text-xs text-emerald-950" readOnly value={conversionResult.invitation.inviteLink} />
+                  <input className="h-10 w-full rounded-2xl border border-emerald-200 bg-white px-3 text-xs text-emerald-950" readOnly value={conversionResult.invitation.inviteLink} />
                 </div>
               ) : null}
             </div>
           ) : null}
           {isConverted ? (
-            <div className="mt-4 flex flex-wrap items-center gap-3 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+            <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
               <Badge value="Convertita" tone="emerald" />
               <span>Onboarding initial creat</span>
               {convertedOrganizationId ? (
@@ -310,76 +325,76 @@ export function CustomerRequestDetailsPage({ basePath = '/superadmin/customer-re
             </div>
           ) : null}
           {item.possibleDuplicate ? (
-            <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
               Posibil duplicat: exista o cerere similara in ultimele 30 zile pentru acelasi contact si oras/adresa.
             </div>
           ) : null}
           <div className="mt-4 flex flex-wrap gap-2">
-            <button onClick={() => updateStatus('CONTACTED')} className="rounded-md border border-slate-200 px-3 py-2 text-sm">Marcheaza contactat</button>
-            <button onClick={() => updateStatus('ONBOARDING')} className="rounded-md border border-slate-200 px-3 py-2 text-sm">Muta in onboarding</button>
-            <button onClick={() => updateStatus('REJECTED')} className="rounded-md border border-red-200 px-3 py-2 text-sm text-red-700">Respinge</button>
+            <button onClick={() => updateStatus('CONTACTED')} className="rounded-2xl border border-border/70 px-3 py-2 text-sm font-semibold hover:bg-muted/60">Marchează contactat</button>
+            <button onClick={() => updateStatus('ONBOARDING')} className="rounded-2xl border border-border/70 px-3 py-2 text-sm font-semibold hover:bg-muted/60">Mută în onboarding</button>
+            <button onClick={() => updateStatus('REJECTED')} className="rounded-2xl border border-rose-200 px-3 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50">Respinge</button>
             {isConverted ? (
-              convertedOrganizationId ? <Link href={localizedPath(`/superadmin/organizations/${convertedOrganizationId}`)} className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white">Deschide organizatia</Link> : null
+              convertedOrganizationId ? <Link href={localizedPath(`/superadmin/organizations/${convertedOrganizationId}`)} className="rounded-2xl bg-foreground px-3 py-2 text-sm font-semibold text-background">Deschide organizația</Link> : null
             ) : (
-              <button onClick={openConvertModal} className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white">Convertește în APC/client</button>
+              <button onClick={openConvertModal} className="rounded-2xl bg-foreground px-3 py-2 text-sm font-semibold text-background">Convertește în APC/client</button>
             )}
           </div>
         </header>
-        <section className="rounded-lg border border-slate-200 bg-white p-5">
-          <h2 className="font-semibold text-slate-950">Procesare CRM</h2>
+        <section className="rounded-2xl border border-border/70 bg-card p-5 shadow-card">
+          <h2 className="font-semibold text-foreground">Procesare CRM</h2>
           <div className="mt-4 grid gap-3 md:grid-cols-3">
-            <select value={item.status} onChange={(event) => update({ status: event.target.value })} className="h-10 rounded-md border border-slate-200 px-3 text-sm">
+            <select value={item.status} onChange={(event) => update({ status: event.target.value })} className="select">
               {statuses.map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}
             </select>
-            <select value={item.priority} onChange={(event) => update({ priority: event.target.value })} className="h-10 rounded-md border border-slate-200 px-3 text-sm">
+            <select value={item.priority} onChange={(event) => update({ priority: event.target.value })} className="select">
               {Object.keys(priorityLabels).map((priority) => <option key={priority} value={priority}>{priorityLabels[priority]}</option>)}
             </select>
-            <button onClick={() => update({ status: 'CONTACTED', lastContactedAt: new Date().toISOString() })} className="h-10 rounded-md border border-slate-200 px-3 text-sm">Actualizeaza ultimul contact</button>
+            <button onClick={() => update({ status: 'CONTACTED', lastContactedAt: new Date().toISOString() })} className="h-10 rounded-2xl border border-border/70 px-3 text-sm font-semibold hover:bg-muted/60">Actualizează ultimul contact</button>
           </div>
-          <p className="mt-3 text-sm text-slate-500">Ultimul contact: {item.lastContactedAt ? new Date(item.lastContactedAt).toLocaleString('ro-MD') : '-'}</p>
+          <p className="mt-3 text-sm text-muted-foreground">Ultimul contact: {item.lastContactedAt ? new Date(item.lastContactedAt).toLocaleString('ro-MD') : '-'}</p>
         </section>
         <section className="grid gap-4 md:grid-cols-2">
           <Info title="Date contact" rows={[['Nume', item.fullName], ['Telefon', item.phone], ['Email', item.email || '-'], ['Oras', item.city || '-'], ['Rol', item.contactRole || item.role || '-']]} />
           <Info title="Date APC/asociatie" rows={[['Tip solicitant', typeLabels[item.type] || item.type || '-'], ['Asociatie', item.associationName || '-'], ['Nume legal', item.legalName || '-'], ['Cod APC', item.apcCode || item.associationCode || '-'], ['Adresa', item.address || '-'], ['Blocuri', item.blocksCount || '-'], ['Apartamente', item.apartmentsCount || '-']]} />
         </section>
-        <section className="rounded-lg border border-slate-200 bg-white p-5">
-          <h2 className="font-semibold text-slate-950">Mesaj</h2>
-          <p className="mt-3 text-sm leading-6 text-slate-600">{item.message || 'Fara mesaj.'}</p>
+        <section className="rounded-2xl border border-border/70 bg-card p-5 shadow-card">
+          <h2 className="font-semibold text-foreground">Mesaj</h2>
+          <p className="mt-3 text-sm leading-6 text-muted-foreground">{item.message || 'Fără mesaj.'}</p>
           {item.possibleDuplicates?.length ? (
             <div className="mt-5">
-              <h3 className="text-sm font-semibold text-slate-950">Cereri similare</h3>
-              <div className="mt-2 space-y-2">{item.possibleDuplicates.map((duplicate: any) => <Link key={duplicate.id} href={localizedPath(`${basePath}/${duplicate.id}`)} className="block rounded-md border border-slate-200 p-3 text-sm text-slate-700 hover:border-amber-300">{duplicate.fullName} · {duplicate.phone} · {fmt(duplicate.createdAt)}</Link>)}</div>
+              <h3 className="text-sm font-semibold text-foreground">Cereri similare</h3>
+              <div className="mt-2 space-y-2">{item.possibleDuplicates.map((duplicate: any) => <Link key={duplicate.id} href={localizedPath(`${basePath}/${duplicate.id}`)} className="block rounded-2xl border border-border/70 p-3 text-sm text-foreground hover:border-amber-300">{duplicate.fullName} · {duplicate.phone} · {fmt(duplicate.createdAt)}</Link>)}</div>
             </div>
           ) : null}
         </section>
-        <section className="rounded-lg border border-slate-200 bg-white p-5">
-          <h2 className="font-semibold text-slate-950">Note interne</h2>
-          <textarea value={internalNote} onChange={(e) => setInternalNote(e.target.value)} placeholder="Note interne pentru follow-up, calificare sau onboarding..." className="mt-3 min-h-36 w-full rounded-md border border-slate-200 p-3 text-sm text-slate-700" />
-          <button onClick={() => update({ internalNote })} className="mt-3 rounded-md bg-slate-950 px-4 py-2 text-sm font-semibold text-white">Salveaza note</button>
+        <section className="rounded-2xl border border-border/70 bg-card p-5 shadow-card">
+          <h2 className="font-semibold text-foreground">Note interne</h2>
+          <textarea value={internalNote} onChange={(e) => setInternalNote(e.target.value)} placeholder="Note interne pentru follow-up, calificare sau onboarding..." className="mt-3 min-h-36 w-full rounded-2xl border border-border/70 p-3 text-sm text-foreground outline-none focus:border-foreground/25 focus:ring-2 focus:ring-foreground/10" />
+          <button onClick={() => update({ internalNote })} className="mt-3 rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background">Salvează note</button>
         </section>
-        <section className="rounded-lg border border-slate-200 bg-white p-5">
+        <section className="rounded-2xl border border-border/70 bg-card p-5 shadow-card">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h2 className="font-semibold text-slate-950">Istoric</h2>
-              <p className="mt-1 text-sm text-slate-500">Ultimele activități legate de această cerere.</p>
+              <h2 className="font-semibold text-foreground">Istoric</h2>
+              <p className="mt-1 text-sm text-muted-foreground">Ultimele activități legate de această cerere.</p>
             </div>
-            <Link href={localizedPath(`/superadmin/activity?accessRequestId=${item.id}`)} className="text-sm font-semibold text-emerald-700 hover:underline">Vezi audit</Link>
+            <Link href={localizedPath(`/superadmin/activity?accessRequestId=${item.id}`)} className="text-sm font-semibold text-foreground hover:underline">Vezi audit</Link>
           </div>
           {activity.length ? (
             <div className="mt-4 space-y-3">
               {activity.map((event: any) => (
-                <div key={event.id} className="border-l-2 border-slate-200 pl-4">
+                <div key={event.id} className="border-l-2 border-border pl-4">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-semibold text-slate-950">{event.title || event.action}</p>
+                    <p className="text-sm font-semibold text-foreground">{event.title || event.action}</p>
                     <Badge value={event.severity || 'INFO'} tone={event.severity === 'SUCCESS' ? 'emerald' : event.severity === 'WARNING' || event.severity === 'CRITICAL' ? 'amber' : 'slate'} />
                   </div>
-                  <p className="mt-1 text-sm text-slate-600">{event.message || event.description || '-'}</p>
-                  <p className="mt-1 text-xs text-slate-500">{event.actor?.fullName || 'Sistem'} · {event.createdAt ? new Date(event.createdAt).toLocaleString('ro-MD') : '-'}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{event.message || event.description || '-'}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{event.actor?.fullName || 'Sistem'} · {event.createdAt ? new Date(event.createdAt).toLocaleString('ro-MD') : '-'}</p>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="mt-4 rounded-md border border-dashed border-slate-200 p-4 text-sm text-slate-500">Nu există activități înregistrate pentru această cerere încă.</p>
+            <p className="mt-4 rounded-2xl border border-dashed border-border/70 p-4 text-sm text-muted-foreground">Nu există activități înregistrate pentru această cerere încă.</p>
           )}
         </section>
       </div>
@@ -426,12 +441,12 @@ export function CustomerRequestDetailsPage({ basePath = '/superadmin/customer-re
           </div>
         </div>
       ) : null}
-    </main>
+    </div>
   );
 }
 
 function Info({ title, rows }: { title: string; rows: Array<[string, any]> }) {
-  return <section className="rounded-lg border border-slate-200 bg-white p-5"><h2 className="font-semibold text-slate-950">{title}</h2><dl className="mt-4 space-y-3">{rows.map(([label, value]) => <div key={label} className="flex justify-between gap-4 text-sm"><dt className="text-slate-500">{label}</dt><dd className="text-right font-medium text-slate-900">{value}</dd></div>)}</dl></section>;
+  return <section className="rounded-2xl border border-border/70 bg-card p-5 shadow-card"><h2 className="font-semibold text-foreground">{title}</h2><dl className="mt-4 space-y-3">{rows.map(([label, value]) => <div key={label} className="flex justify-between gap-4 text-sm"><dt className="text-muted-foreground">{label}</dt><dd className="text-right font-medium text-foreground">{value}</dd></div>)}</dl></section>;
 }
 
 function ConvertField({ label, value, onChange, required, type = 'text' }: { label: string; value: string; onChange: (value: string) => void; required?: boolean; type?: string }) {

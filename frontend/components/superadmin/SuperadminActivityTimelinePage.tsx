@@ -5,7 +5,6 @@ import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Activity,
-  AlertTriangle,
   Building2,
   CalendarClock,
   CheckCircle2,
@@ -17,6 +16,7 @@ import {
   UserRound,
   X,
 } from 'lucide-react';
+import { Button, EmptyState, LoadingSkeleton, PageHeader, StatCard } from '@/components/ui';
 import { superadminApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
@@ -147,22 +147,23 @@ export function SuperadminActivityTimelinePage() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 p-4 md:p-8">
+    <div className="space-y-5 pb-4">
       <div className="mx-auto max-w-7xl space-y-5">
-        <header className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-5 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-slate-950">Activity Timeline</h1>
-            <p className="mt-1 text-sm text-slate-500">Istoricul acțiunilor importante din platformă.</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button onClick={load} className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-              <RefreshCw className="h-4 w-4" /> Refresh
-            </button>
-            <button disabled title="TODO ES-175" className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 px-3 text-sm font-semibold text-slate-400">
-              Export CSV
-            </button>
-          </div>
-        </header>
+        <PageHeader
+          title="Activity Timeline"
+          description="Istoricul acțiunilor importante din platformă."
+          actions={
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" onClick={load} disabled={loading}>
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+              <Button variant="outline" disabled title="TODO ES-175">
+                Export CSV
+              </Button>
+            </div>
+          }
+        />
 
         <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
           <Kpi label="Activități astăzi" value={stats.today || 0} />
@@ -173,28 +174,28 @@ export function SuperadminActivityTimelinePage() {
           <Kpi label="Acțiuni sistem" value={stats.systemActions || 0} />
         </section>
 
-        <section className="rounded-lg border border-slate-200 bg-white p-4">
+        <section className="rounded-2xl border border-border/70 bg-card p-4 shadow-card">
           <div className="grid gap-2 lg:grid-cols-[1fr_150px_150px_150px_150px_150px_auto]">
             <label className="relative">
               <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400" />
-              <input value={filters.search} onChange={(event) => { setPage(1); setFilters({ ...filters, search: event.target.value }); }} placeholder="Search acțiune, actor, organizație..." className="h-10 w-full rounded-md border border-slate-200 pl-9 pr-3 text-sm outline-none focus:border-emerald-400" />
+              <input value={filters.search} onChange={(event) => { setPage(1); setFilters({ ...filters, search: event.target.value }); }} placeholder="Search acțiune, actor, organizație..." className="input pl-9" />
             </label>
-            <input value={filters.organizationId} onChange={(event) => { setPage(1); setFilters({ ...filters, organizationId: event.target.value }); }} placeholder="Organization ID" className="h-10 rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-emerald-400" />
-            <input value={filters.actorId} onChange={(event) => { setPage(1); setFilters({ ...filters, actorId: event.target.value }); }} placeholder="Actor ID" className="h-10 rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-emerald-400" />
-            <input value={filters.action} onChange={(event) => { setPage(1); setFilters({ ...filters, action: event.target.value }); }} placeholder="Action" className="h-10 rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-emerald-400" />
-            <select value={filters.entityType} onChange={(event) => { setPage(1); setFilters({ ...filters, entityType: event.target.value }); }} className="h-10 rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-emerald-400">
+            <input value={filters.organizationId} onChange={(event) => { setPage(1); setFilters({ ...filters, organizationId: event.target.value }); }} placeholder="Organization ID" className="input" />
+            <input value={filters.actorId} onChange={(event) => { setPage(1); setFilters({ ...filters, actorId: event.target.value }); }} placeholder="Actor ID" className="input" />
+            <input value={filters.action} onChange={(event) => { setPage(1); setFilters({ ...filters, action: event.target.value }); }} placeholder="Action" className="input" />
+            <select value={filters.entityType} onChange={(event) => { setPage(1); setFilters({ ...filters, entityType: event.target.value }); }} className="select">
               <option value="">Entity type</option>
               {entityOptions.map((entity) => <option key={entity} value={entity}>{entityLabels[entity] || entity}</option>)}
             </select>
-            <select value={filters.severity} onChange={(event) => { setPage(1); setFilters({ ...filters, severity: event.target.value }); }} className="h-10 rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-emerald-400">
+            <select value={filters.severity} onChange={(event) => { setPage(1); setFilters({ ...filters, severity: event.target.value }); }} className="select">
               <option value="">Severity</option>
               {Object.keys(severityLabels).map((severity) => <option key={severity} value={severity}>{severityLabels[severity]}</option>)}
             </select>
-            <button onClick={load} className="h-10 rounded-md bg-slate-950 px-4 text-sm font-semibold text-white">Filtrează</button>
+            <Button onClick={load}>Filtrează</Button>
           </div>
           <div className="mt-3 grid gap-2 sm:grid-cols-2 md:max-w-lg">
-            <input type="date" value={filters.dateFrom} onChange={(event) => { setPage(1); setFilters({ ...filters, dateFrom: event.target.value }); }} className="h-10 rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-emerald-400" />
-            <input type="date" value={filters.dateTo} onChange={(event) => { setPage(1); setFilters({ ...filters, dateTo: event.target.value }); }} className="h-10 rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-emerald-400" />
+            <input type="date" value={filters.dateFrom} onChange={(event) => { setPage(1); setFilters({ ...filters, dateFrom: event.target.value }); }} className="input" />
+            <input type="date" value={filters.dateTo} onChange={(event) => { setPage(1); setFilters({ ...filters, dateTo: event.target.value }); }} className="input" />
           </div>
           {filters.accessRequestId || filters.billingTaskId ? (
             <div className="mt-3 flex flex-wrap gap-2 text-xs">
@@ -204,43 +205,43 @@ export function SuperadminActivityTimelinePage() {
           ) : null}
         </section>
 
-        {error ? <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm font-medium text-rose-700">{error}</div> : null}
+        {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700">{error}</div> : null}
 
-        <section className="rounded-lg border border-slate-200 bg-white">
-          {loading ? <p className="p-6 text-sm text-slate-500">Se încarcă activitatea...</p> : null}
+        <section className="rounded-2xl border border-border/70 bg-card shadow-card">
+          {loading ? <div className="p-4"><LoadingSkeleton variant="table" rows={5} /></div> : null}
           {!loading && !items.length ? (
-            <div className="p-10 text-center">
-              <AlertTriangle className="mx-auto h-8 w-8 text-slate-300" />
-              <h2 className="mt-3 font-semibold text-slate-950">Nu există activități înregistrate încă.</h2>
-              <p className="mt-1 text-sm text-slate-500">Pe măsură ce sunt create cereri, organizații, contracte și taskuri, istoricul va apărea aici.</p>
-            </div>
+            <EmptyState
+              type="default"
+              title="Nu există activități înregistrate încă."
+              description="Pe măsură ce sunt create cereri, organizații, contracte și taskuri, istoricul va apărea aici."
+            />
           ) : null}
           {items.length ? (
-            <div className="divide-y divide-slate-100">
+            <div className="divide-y divide-border/50">
               {items.map((item) => {
                 const Icon = actionIcon(item);
                 const actionUrl = item.actionUrl ? localizedPath(item.actionUrl.replace(/^\/ro/, '')) : null;
                 return (
-                  <article key={item.id} className="grid gap-3 p-4 md:grid-cols-[44px_1fr_auto]">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 text-slate-700">
+                  <article key={item.id} className="grid gap-3 p-4 transition hover:bg-muted/35 md:grid-cols-[44px_1fr_auto]">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
                       <Icon className="h-5 w-5" />
                     </div>
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="font-semibold text-slate-950">{item.title || item.action}</h3>
+                        <h3 className="font-semibold text-foreground">{item.title || item.action}</h3>
                         <Badge value={severityLabels[item.severity || 'INFO'] || item.severity || 'Info'} className={severityClass(item.severity)} />
                         <Badge value={entityLabels[item.entityType] || item.entityType || 'Entity'} className="bg-slate-100 text-slate-700 ring-slate-200" />
                       </div>
-                      <p className="mt-1 text-sm leading-6 text-slate-600">{item.message || item.description || '-'}</p>
-                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                      <p className="mt-1 text-sm leading-6 text-muted-foreground">{item.message || item.description || '-'}</p>
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                         <span>{item.actor?.fullName || 'Sistem'}{item.actor?.role ? ` · ${item.actor.role}` : ''}</span>
-                        {item.organization ? <Link href={localizedPath(`/superadmin/organizations/${item.organization.id}`)} className="font-medium text-emerald-700 hover:underline">{item.organization.name}</Link> : null}
+                        {item.organization ? <Link href={localizedPath(`/superadmin/organizations/${item.organization.id}`)} className="font-semibold text-foreground hover:underline">{item.organization.name}</Link> : null}
                         <span>{formatDateTime(item.createdAt)}</span>
                       </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 md:justify-end">
-                      {actionUrl ? <Link href={actionUrl} className="rounded-md border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Deschide</Link> : null}
-                      <button onClick={() => openDetail(item)} className="rounded-md bg-slate-950 px-3 py-2 text-sm font-semibold text-white">Detalii</button>
+                      {actionUrl ? <Link href={actionUrl} className="rounded-2xl border border-border/70 px-3 py-2 text-sm font-semibold text-foreground hover:bg-muted/60">Deschide</Link> : null}
+                      <button onClick={() => openDetail(item)} className="rounded-2xl bg-foreground px-3 py-2 text-sm font-semibold text-background">Detalii</button>
                     </div>
                   </article>
                 );
@@ -248,28 +249,24 @@ export function SuperadminActivityTimelinePage() {
             </div>
           ) : null}
           {items.length ? (
-            <div className="flex items-center justify-between border-t border-slate-100 p-4 text-sm text-slate-500">
+            <div className="flex items-center justify-between border-t border-border/70 p-4 text-sm text-muted-foreground">
               <span>Pagina {meta.page || page} din {meta.totalPages || 1} · {meta.total || items.length} activități</span>
               <div className="flex gap-2">
-                <button disabled={page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))} className="rounded-md border border-slate-200 px-3 py-2 disabled:opacity-40">Înapoi</button>
-                <button disabled={page >= (meta.totalPages || 1)} onClick={() => setPage((value) => value + 1)} className="rounded-md border border-slate-200 px-3 py-2 disabled:opacity-40">Înainte</button>
+                <button disabled={page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))} className="rounded-2xl border border-border/70 px-3 py-2 font-semibold disabled:opacity-40">Înapoi</button>
+                <button disabled={page >= (meta.totalPages || 1)} onClick={() => setPage((value) => value + 1)} className="rounded-2xl border border-border/70 px-3 py-2 font-semibold disabled:opacity-40">Înainte</button>
               </div>
             </div>
           ) : null}
         </section>
       </div>
       <ActivityDetailDrawer item={selected} loading={detailLoading} onClose={() => setSelected(null)} />
-    </main>
+    </div>
   );
 }
 
 function Kpi({ label, value, tone = 'neutral' }: { label: string; value: number | string; tone?: 'neutral' | 'warning' | 'danger' }) {
-  const toneClass = tone === 'danger' ? 'text-rose-700' : tone === 'warning' ? 'text-amber-700' : 'text-slate-950';
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4">
-      <p className="text-sm text-slate-500">{label}</p>
-      <p className={`mt-2 text-2xl font-semibold ${toneClass}`}>{value}</p>
-    </div>
+    <StatCard label={label} value={value} tone={tone === 'danger' ? 'danger' : tone === 'warning' ? 'warning' : 'neutral'} />
   );
 }
 
