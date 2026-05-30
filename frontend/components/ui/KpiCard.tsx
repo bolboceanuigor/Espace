@@ -19,14 +19,14 @@ export interface KpiCardProps extends React.HTMLAttributes<HTMLDivElement> {
 
 const variantStyles = {
   default: 'bg-card border-border/75',
-  accent: 'bg-emerald-50/55 border-emerald-200/75',
+  accent: 'bg-accent/35 border-primary/15',
   warning: 'bg-amber-50/60 border-amber-200/75',
   error: 'bg-rose-50/60 border-rose-200/75',
 } as const;
 
 const iconVariantStyles = {
   default: 'bg-muted text-muted-foreground',
-  accent: 'bg-emerald-100 text-emerald-600',
+  accent: 'bg-primary/10 text-primary',
   warning: 'bg-amber-100 text-amber-600',
   error: 'bg-rose-100 text-rose-600',
 } as const;
@@ -63,7 +63,7 @@ const KpiCard = forwardRef<HTMLDivElement, KpiCardProps>(function KpiCard(
   return (
     <div
       ref={ref}
-      className={`rounded-2xl border shadow-card transition-all duration-200 hover:border-foreground/10 hover:shadow-card-hover ${variantStyles[variant]} ${styles.card} ${className}`.trim()}
+      className={`rounded-2xl border shadow-card transition-all duration-200 hover:border-primary/20 hover:shadow-card-hover ${variantStyles[variant]} ${styles.card} ${className}`.trim()}
       {...props}
     >
       <div className="flex items-start justify-between gap-3">

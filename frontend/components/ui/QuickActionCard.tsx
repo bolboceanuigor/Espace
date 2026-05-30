@@ -14,11 +14,11 @@ export interface QuickActionCardProps {
 
 const variantStyles = {
   default: {
-    card: 'border-border/60 bg-card hover:border-border',
+    card: 'border-border/70 bg-card hover:border-primary/20 hover:bg-accent/15',
     icon: 'bg-muted text-muted-foreground',
   },
   primary: {
-    card: 'border-primary/30 bg-primary/5 hover:border-primary/50',
+    card: 'border-primary/20 bg-accent/35 hover:border-primary/35',
     icon: 'bg-primary/10 text-primary',
   },
   success: {

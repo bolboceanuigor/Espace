@@ -3,37 +3,38 @@
 @tailwind utilities;
 
 :root {
-  /* Espace Premium Design - Fresha Inspired */
+  /* Espace Premium Design - Fresha-inspired, original Espace palette */
+  /* Chrome reference used: Fresha Partners internal screens; no Fresha assets, icons, logo or copy were copied. */
   /* TODO: Figma node context missing; implemented local design polish based on existing design system. */
   
   /* Background & Surface */
-  --background: 210 33% 98%;
-  --foreground: 222 47% 11%;
+  --background: 120 18% 98%;
+  --foreground: 220 43% 11%;
   --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
+  --card-foreground: 220 43% 11%;
   --popover: 0 0% 100%;
-  --popover-foreground: 222 47% 11%;
+  --popover-foreground: 220 43% 11%;
   
   /* Muted */
-  --muted: 210 32% 96%;
-  --muted-foreground: 215 16% 47%;
+  --muted: 150 24% 95%;
+  --muted-foreground: 218 12% 43%;
   
   /* Borders */
-  --border: 214 28% 90%;
-  --input: 214 28% 90%;
-  --ring: 160 84% 39%;
+  --border: 150 18% 88%;
+  --input: 150 18% 88%;
+  --ring: 174 44% 26%;
   
-  /* Primary - Emerald */
-  --primary: 160 84% 39%;
+  /* Primary - Espace deep teal */
+  --primary: 174 49% 16%;
   --primary-foreground: 0 0% 100%;
   
   /* Secondary */
-  --secondary: 210 40% 96%;
-  --secondary-foreground: 222 47% 11%;
+  --secondary: 150 24% 95%;
+  --secondary-foreground: 220 43% 11%;
   
   /* Accent */
-  --accent: 160 84% 39%;
-  --accent-foreground: 0 0% 100%;
+  --accent: 150 40% 90%;
+  --accent-foreground: 174 49% 16%;
   
   /* Destructive */
   --destructive: 0 72% 51%;
@@ -43,31 +44,31 @@
   --radius: 0.5rem;
   
   /* Sidebar */
-  --sidebar-bg: 0 0% 100%;
-  --sidebar-foreground: 222 47% 11%;
-  --sidebar-muted: 210 40% 96%;
-  --sidebar-accent: 160 84% 39%;
-  --sidebar-border: 214 32% 91%;
+  --sidebar-bg: 174 42% 10%;
+  --sidebar-foreground: 0 0% 100%;
+  --sidebar-muted: 174 30% 15%;
+  --sidebar-accent: 152 38% 82%;
+  --sidebar-border: 174 28% 18%;
   
   /* Status Colors */
-  --success: 160 84% 35%;
+  --success: 158 64% 32%;
   --success-foreground: 0 0% 100%;
   --warning: 38 92% 44%;
   --warning-foreground: 25 95% 12%;
-  --info: 199 89% 44%;
+  --info: 198 72% 38%;
   --info-foreground: 0 0% 100%;
   --critical: 0 72% 48%;
   --critical-foreground: 0 0% 100%;
-  --status-active: 160 84% 39%;
+  --status-active: 158 64% 32%;
   --status-draft: 215 16% 47%;
   --status-pending: 38 92% 50%;
   --status-warning: 38 92% 50%;
   --status-critical: 0 72% 51%;
   --status-issued: 214 32% 55%;
-  --status-paid: 160 84% 39%;
+  --status-paid: 158 64% 32%;
   --status-partial: 38 92% 50%;
   --status-overdue: 0 72% 51%;
-  --status-resolved: 160 84% 39%;
+  --status-resolved: 158 64% 32%;
   --status-open: 214 76% 50%;
   
   /* Grays */
@@ -82,8 +83,8 @@
   --gray-800: #1E293B;
   --gray-900: #0F172A;
   
-  --brand-primary-hex: #059669;
-  --brand-accent-hex: #10B981;
+  --brand-primary-hex: #153E3B;
+  --brand-accent-hex: #A8D8C4;
 }
 
 html[data-theme='dark'] {
@@ -97,12 +98,12 @@ html[data-theme='dark'] {
   --muted-foreground: 215 20% 65%;
   --border: 222 30% 18%;
   --input: 222 30% 18%;
-  --primary: 160 84% 45%;
+  --primary: 163 51% 52%;
   --primary-foreground: 222 47% 11%;
   --secondary: 222 47% 12%;
   --secondary-foreground: 210 40% 98%;
-  --sidebar-bg: 222 47% 9%;
-  --success: 160 84% 45%;
+  --sidebar-bg: 174 42% 10%;
+  --success: 158 64% 46%;
   --success-foreground: 222 47% 8%;
   --warning: 38 92% 56%;
   --warning-foreground: 25 95% 10%;
@@ -123,7 +124,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background:
-    linear-gradient(180deg, rgba(248, 250, 252, 0.92), rgba(248, 250, 252, 1) 280px),
+    linear-gradient(180deg, rgba(248, 250, 248, 0.96), rgba(248, 250, 248, 1) 280px),
     hsl(var(--background));
   color: hsl(var(--foreground));
 }
@@ -141,29 +142,29 @@ html {
 @layer components {
   /* Premium Button Styles */
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-slate-950 text-white font-medium rounded-xl shadow-sm transition-all duration-200 hover:bg-slate-800 hover:shadow-md;
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground font-semibold rounded-xl shadow-button transition-all duration-200 hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-offset-2;
   }
   
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-white text-slate-700 font-medium rounded-xl border border-slate-200 shadow-sm transition-all duration-200 hover:bg-slate-50 hover:border-slate-300;
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-white text-slate-800 font-semibold rounded-xl border border-border shadow-sm transition-all duration-200 hover:bg-muted/60 hover:border-primary/20 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-offset-2;
   }
   
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 px-4 py-2 text-slate-600 font-medium rounded-xl transition-all duration-200 hover:bg-slate-100 hover:text-slate-900;
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 text-muted-foreground font-semibold rounded-xl transition-all duration-200 hover:bg-muted/70 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20;
   }
   
   /* Premium Card */
   .card-premium {
-    @apply bg-white rounded-2xl border border-slate-200/80 shadow-sm transition-all duration-200;
+    @apply bg-white rounded-2xl border border-border/80 shadow-card transition-all duration-200;
   }
   
   .card-premium:hover {
-    @apply shadow-md border-slate-300;
+    @apply shadow-card-hover border-primary/20;
   }
   
   /* KPI Card */
   .kpi-card {
-    @apply bg-white rounded-2xl border border-slate-200 p-6 transition-all duration-200 hover:shadow-md hover:border-slate-300;
+    @apply bg-white rounded-2xl border border-border/80 p-6 shadow-card transition-all duration-200 hover:shadow-card-hover hover:border-primary/20;
   }
   
   /* Status Badges */
@@ -197,25 +198,25 @@ html {
   
   /* Sidebar */
   .sidebar-item {
-    @apply flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-xl transition-all duration-150 hover:bg-slate-100 hover:text-slate-900;
+    @apply flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-white/70 rounded-xl transition-all duration-150 hover:bg-white/10 hover:text-white;
   }
   
   .sidebar-item.active {
-    @apply bg-emerald-50 text-emerald-700;
+    @apply bg-white/20 text-white;
   }
   
   /* Inputs */
   .input-field {
-    @apply w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-white placeholder-slate-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400;
+    @apply w-full px-4 py-2.5 text-sm border border-border rounded-xl bg-white placeholder:text-muted-foreground/60 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30;
   }
   
   /* Legacy support */
   .input {
-    @apply w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400;
+    @apply w-full rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 shadow-sm transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30;
   }
   
   .select {
-    @apply w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400;
+    @apply w-full rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-foreground shadow-sm transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30;
   }
   
   .label {
@@ -228,11 +229,11 @@ html {
   
   /* Tables */
   .table-header {
-    @apply text-xs font-medium text-slate-500 uppercase tracking-wider;
+    @apply text-xs font-semibold text-muted-foreground uppercase tracking-wider;
   }
   
   .table-row {
-    @apply border-b border-slate-100 transition-colors duration-150 hover:bg-slate-50;
+    @apply border-b border-border/50 transition-colors duration-150 hover:bg-accent/25;
   }
   
   /* Empty State */
@@ -313,10 +314,10 @@ html {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #CBD5E1;
+  background: #C8D8D0;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94A3B8;
+  background: #9DB8AD;
 }

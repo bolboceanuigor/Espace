@@ -6,7 +6,7 @@ import Button from './Button';
 
 const overlayClass = 'fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm';
 const panelBase =
-  'w-full max-h-[90vh] overflow-hidden rounded-2xl border border-border/70 bg-card shadow-[0_24px_60px_-28px_rgba(15,23,42,0.45)] animate-modal-in';
+  'w-full max-h-[90vh] overflow-hidden rounded-2xl border border-border/75 bg-card shadow-[0_24px_60px_-32px_rgba(17,24,39,0.45)] animate-modal-in';
 
 export interface ModalProps {
   isOpen: boolean;
@@ -76,7 +76,7 @@ export function ModalHeader({
         <button
           type="button"
           onClick={onClose}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-2xl text-muted-foreground transition hover:bg-muted/70 hover:text-foreground"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-2xl text-muted-foreground transition hover:bg-accent/35 hover:text-foreground"
           aria-label="Închide"
         >
           <X className="h-4 w-4" />
@@ -92,7 +92,7 @@ export function ModalBody({ className = '', ...props }: React.HTMLAttributes<HTM
 
 export function ModalFooter({ className = '', ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={`flex flex-wrap justify-end gap-3 border-t border-border/70 bg-muted/25 p-5 ${className}`.trim()} {...props} />
+    <div className={`flex flex-wrap justify-end gap-3 border-t border-border/70 bg-muted/35 p-5 ${className}`.trim()} {...props} />
   );
 }
 

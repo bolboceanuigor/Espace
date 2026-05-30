@@ -81,7 +81,7 @@ function AdminAppShellContent({
     () => (
       <button
         type="button"
-        className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:text-slate-950"
+        className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-border bg-white text-muted-foreground shadow-sm transition hover:bg-accent/25 hover:text-foreground"
         aria-label="Notificări"
       >
         <Bell className="h-4 w-4" />
@@ -91,7 +91,7 @@ function AdminAppShellContent({
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="min-h-screen bg-background text-foreground">
       <div className="fixed inset-y-0 left-0 z-40 hidden lg:block">
         <AppSidebar
           organizationName={displayOrgName}
@@ -125,12 +125,12 @@ function AdminAppShellContent({
       ) : null}
 
       <div className="lg:pl-72">
-        <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-slate-50/85 backdrop-blur-xl">
+        <header className="sticky top-0 z-30 border-b border-border/75 bg-background/95 backdrop-blur-xl">
           <div className="flex min-h-16 items-center gap-3 px-4 md:px-6">
             <button
               type="button"
               onClick={() => setMobileOpen(true)}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm lg:hidden"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-border bg-white text-muted-foreground shadow-sm transition hover:bg-accent/25 hover:text-foreground lg:hidden"
               aria-label="Deschide meniul"
             >
               <Menu className="h-5 w-5" />
@@ -138,19 +138,19 @@ function AdminAppShellContent({
 
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <p className="truncate text-sm font-semibold text-slate-950">{displayOrgName}</p>
+                <p className="truncate text-sm font-semibold text-foreground">{displayOrgName}</p>
                 <span className="hidden rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 sm:inline-flex">
                   {statusText}
                 </span>
               </div>
-              <p className="truncate text-xs text-slate-500">{displayOrgCode} · {roleName}</p>
+              <p className="truncate text-xs text-muted-foreground">{displayOrgCode} · {roleName}</p>
             </div>
 
             {adminContext.availableAssociations.length > 1 ? (
               <select
                 value={activeAssociation?.id || ''}
                 onChange={(event) => void adminContext.switchAssociation(event.target.value)}
-                className="hidden h-10 max-w-56 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm outline-none transition focus:border-slate-300 focus:ring-2 focus:ring-slate-200 md:block"
+                className="hidden h-10 max-w-56 rounded-2xl border border-border bg-white px-3 text-sm font-medium text-foreground shadow-sm outline-none transition focus:border-primary/30 focus:ring-2 focus:ring-primary/15 md:block"
                 aria-label="Schimbă asociația activă"
               >
                 {adminContext.availableAssociations.map((association) => (
@@ -165,7 +165,7 @@ function AdminAppShellContent({
             <button
               type="button"
               onClick={() => setCommandOpen(true)}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm md:hidden"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-border bg-white text-muted-foreground shadow-sm transition hover:bg-accent/25 hover:text-foreground md:hidden"
               aria-label="Caută"
             >
               <Search className="h-5 w-5" />
@@ -173,15 +173,15 @@ function AdminAppShellContent({
 
             {notificationsSlot || defaultNotifications}
 
-            <div className="hidden items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm md:flex">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-950 text-[11px] font-semibold text-white">{displayInitials}</span>
+            <div className="hidden items-center gap-3 rounded-2xl border border-border bg-white px-3 py-2 shadow-sm md:flex">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-[11px] font-semibold text-primary-foreground">{displayInitials}</span>
               <span className="min-w-0">
-                <span className="block max-w-36 truncate text-xs font-semibold text-slate-900">{displayName}</span>
-                <span className="block max-w-36 truncate text-[11px] text-slate-500">{displayEmail}</span>
+                <span className="block max-w-36 truncate text-xs font-semibold text-foreground">{displayName}</span>
+                <span className="block max-w-36 truncate text-[11px] text-muted-foreground">{displayEmail}</span>
               </span>
             </div>
           </div>
-          {topContent ? <div className="border-t border-slate-200/70 px-4 py-3 md:px-6">{topContent}</div> : null}
+          {topContent ? <div className="border-t border-border/70 px-4 py-3 md:px-6">{topContent}</div> : null}
         </header>
 
         <main className="mx-auto w-full max-w-7xl px-4 py-5 md:px-6 md:py-7">{children}</main>

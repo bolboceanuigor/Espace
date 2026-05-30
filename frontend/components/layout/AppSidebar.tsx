@@ -117,13 +117,13 @@ export default function AppSidebar({
   }
 
   return (
-    <aside className="flex h-full min-h-0 w-72 flex-col border-r border-slate-200/80 bg-white/95 text-slate-900 shadow-[16px_0_50px_rgba(15,23,42,0.04)] backdrop-blur-xl">
-      <div className="border-b border-slate-200/80 p-4">
-        <Link href={localizedHref('/admin')} className="flex items-center gap-3 rounded-2xl p-2 transition hover:bg-slate-50" onClick={onNavigate}>
-          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-950 text-sm font-semibold text-white shadow-sm">ES</span>
+    <aside className="flex h-full min-h-0 w-72 flex-col border-r border-border/75 bg-white/96 text-slate-900 shadow-[18px_0_54px_rgba(16,36,33,0.06)] backdrop-blur-xl">
+      <div className="border-b border-border/75 p-4">
+        <Link href={localizedHref('/admin')} className="flex items-center gap-3 rounded-2xl p-2 transition hover:bg-accent/20" onClick={onNavigate}>
+          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary text-sm font-semibold text-primary-foreground shadow-sm">ES</span>
           <span className="min-w-0">
             <span className="block truncate text-sm font-semibold">{organizationName}</span>
-            <span className="block truncate text-xs text-slate-500">{organizationCode}</span>
+            <span className="block truncate text-xs text-muted-foreground">{organizationCode}</span>
           </span>
         </Link>
       </div>
@@ -139,7 +139,7 @@ export default function AppSidebar({
             if (visibleItems.length === 0) return null;
             return (
             <div key={section.title}>
-              <p className="px-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">{section.title}</p>
+              <p className="px-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/80">{section.title}</p>
               <div className="mt-2 space-y-1">
                 {visibleItems.map((item) => {
                   const Icon = item.icon;
@@ -151,11 +151,11 @@ export default function AppSidebar({
                       onClick={onNavigate}
                       className={`group flex min-h-10 items-center gap-3 rounded-2xl px-3 text-sm font-medium transition ${
                         active
-                          ? 'bg-slate-950 text-white shadow-[0_14px_28px_-20px_rgba(15,23,42,0.9)]'
-                          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950'
+                          ? 'bg-primary text-primary-foreground shadow-button'
+                          : 'text-muted-foreground hover:bg-accent/25 hover:text-foreground'
                       }`}
                     >
-                      <Icon className={`h-4 w-4 ${active ? 'text-white' : 'text-slate-400 group-hover:text-slate-700'}`} />
+                      <Icon className={`h-4 w-4 ${active ? 'text-primary-foreground' : 'text-muted-foreground/80 group-hover:text-foreground'}`} />
                       <span className="truncate">{item.label}</span>
                     </Link>
                   );
@@ -167,12 +167,12 @@ export default function AppSidebar({
         </div>
       </nav>
 
-      <div className="border-t border-slate-200/80 p-4">
-        <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-xs font-semibold text-slate-900 shadow-sm">{userInitials}</span>
+      <div className="border-t border-border/75 p-4">
+        <div className="flex items-center gap-3 rounded-2xl border border-border/75 bg-muted/45 p-3">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-xs font-semibold text-primary shadow-sm">{userInitials}</span>
           <span className="min-w-0">
             <span className="block truncate text-xs font-semibold text-slate-900">Administrator</span>
-            <span className="block truncate text-xs text-slate-500">{userEmail}</span>
+            <span className="block truncate text-xs text-muted-foreground">{userEmail}</span>
           </span>
         </div>
       </div>

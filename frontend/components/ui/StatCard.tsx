@@ -14,9 +14,9 @@ type StatCardProps = {
 
 const toneConfig = {
   neutral: {
-    iconBg: 'bg-gray-100',
-    iconColor: 'text-gray-600',
-    accentLine: 'bg-gray-300',
+    iconBg: 'bg-muted',
+    iconColor: 'text-muted-foreground',
+    accentLine: 'bg-primary/30',
   },
   success: {
     iconBg: 'bg-emerald-50',
@@ -39,7 +39,7 @@ export default function StatCard({ label, value, description, icon, tone = 'neut
   const config = toneConfig[tone];
   
   return (
-    <div className={`group relative overflow-hidden rounded-2xl border border-border/75 bg-card shadow-card transition-all duration-200 hover:border-foreground/10 hover:shadow-card-hover ${className}`}>
+    <div className={`group relative overflow-hidden rounded-2xl border border-border/75 bg-card shadow-card transition-all duration-200 hover:border-primary/20 hover:shadow-card-hover ${className}`}>
       {/* Accent line */}
       <div className={`absolute top-0 left-0 right-0 h-[2px] ${config.accentLine} opacity-0 group-hover:opacity-100 transition-opacity`} />
       

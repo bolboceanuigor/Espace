@@ -24,7 +24,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         className={`h-11 w-full rounded-2xl border bg-card px-4 text-sm text-foreground shadow-sm outline-none transition placeholder:text-muted-foreground/70 focus:ring-2 disabled:cursor-not-allowed disabled:bg-muted/45 disabled:text-muted-foreground ${
           error
             ? 'border-rose-200 focus:border-rose-300 focus:ring-rose-100'
-            : 'border-border/80 focus:border-foreground/25 focus:ring-foreground/10'
+            : 'border-border/80 focus:border-primary/30 focus:ring-primary/15'
         } ${className}`.trim()}
         aria-invalid={error ? true : undefined}
         {...props}

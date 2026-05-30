@@ -7,8 +7,11 @@ const statusConfig = {
   ACTIVE: { label: 'Activ', variant: 'success' },
   INACTIVE: { label: 'Inactiv', variant: 'neutral' },
   DRAFT: { label: 'Ciornă', variant: 'neutral' },
+  LOCKED: { label: 'Blocat', variant: 'neutral' },
   PENDING: { label: 'În așteptare', variant: 'warning' },
   SENT: { label: 'Trimis', variant: 'info' },
+  APPROVED: { label: 'Aprobat', variant: 'success' },
+  PUBLISHED: { label: 'Publicat', variant: 'success' },
   ACCEPTED: { label: 'Acceptat', variant: 'success' },
   REJECTED: { label: 'Respins', variant: 'error' },
   EXPIRED: { label: 'Expirat', variant: 'error' },
@@ -16,6 +19,7 @@ const statusConfig = {
   
   // Invoice statuses
   ISSUED: { label: 'Emisă', variant: 'info' },
+  UNPAID: { label: 'Neachitată', variant: 'warning' },
   PAID: { label: 'Achitată', variant: 'success' },
   PARTIALLY_PAID: { label: 'Parțial achitată', variant: 'warning' },
   OVERDUE: { label: 'Întârziată', variant: 'error' },
@@ -56,6 +60,8 @@ const statusConfig = {
   PAST_DUE: { label: 'Scadent', variant: 'error' },
   ERROR: { label: 'Eroare', variant: 'error' },
   FAILED: { label: 'Eșuat', variant: 'error' },
+  PARTIALLY_ACCEPTED: { label: 'Parțial acceptat', variant: 'warning' },
+  REVERSED: { label: 'Stornat', variant: 'neutral' },
   URGENT: { label: 'Urgent', variant: 'error' },
 } as const;
 
@@ -63,7 +69,7 @@ const variants = {
   success: 'border-emerald-200/80 bg-emerald-50 text-emerald-700',
   warning: 'border-amber-200/80 bg-amber-50 text-amber-700',
   error: 'border-rose-200/80 bg-rose-50 text-rose-700',
-  info: 'border-sky-200/80 bg-sky-50 text-sky-700',
+  info: 'border-primary/20 bg-accent/45 text-primary',
   neutral: 'border-slate-200/80 bg-slate-50 text-slate-600',
 } as const;
 
@@ -109,7 +115,7 @@ const StatusBadge = forwardRef<HTMLSpanElement, StatusBadgeProps>(function Statu
                 : variant === 'error'
                   ? 'bg-rose-500'
                   : variant === 'info'
-                    ? 'bg-sky-500'
+                    ? 'bg-primary'
                     : 'bg-slate-400'
           }`}
         />
@@ -151,7 +157,7 @@ export function VariantBadge({
                 : variant === 'error'
                   ? 'bg-rose-500'
                   : variant === 'info'
-                    ? 'bg-sky-500'
+                    ? 'bg-primary'
                     : 'bg-slate-400'
           }`}
         />

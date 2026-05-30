@@ -35,16 +35,16 @@ export default function SidebarItem({ item, showLabels, badgeCount, localePrefix
       <Link
         href={target}
         aria-disabled={locked}
-        className={`group flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition duration-150 ease-out text-muted-foreground hover:text-foreground hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${
-          active ? 'bg-muted/90 text-foreground' : ''
+        className={`group flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition duration-150 ease-out text-muted-foreground hover:text-foreground hover:bg-accent/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${
+          active ? 'bg-accent/45 text-primary' : ''
         } ${locked ? 'opacity-60 cursor-not-allowed hover:bg-transparent' : ''}`}
       >
         <div
           className={`flex h-7 w-7 items-center justify-center rounded-md transition ${
-            active ? 'bg-background' : ''
+            active ? 'bg-white text-primary shadow-sm' : ''
           }`}
         >
-          <Icon className="h-5 w-5 shrink-0 text-gray-500" />
+          <Icon className={`h-5 w-5 shrink-0 ${active ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`} />
         </div>
         {showLabels ? <span className="truncate">{label}</span> : null}
         {showLabels && locked ? (

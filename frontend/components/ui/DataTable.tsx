@@ -55,9 +55,9 @@ function DataTableInner<T>(
   const allVisibleSelected = data.length > 0 && data.every((item) => selectedIds?.includes(keyExtractor(item)));
 
   return (
-    <div ref={ref} className={`overflow-x-auto rounded-2xl border border-border/70 bg-card shadow-card ${className}`.trim()}>
+    <div ref={ref} className={`overflow-x-auto rounded-2xl border border-border/75 bg-card shadow-card ${className}`.trim()}>
       <table className="w-full border-collapse">
-        <thead className="bg-muted/45">
+        <thead className="bg-muted/55">
           <tr className={`border-b border-border/60 ${stickyHeader ? 'sticky top-0 z-10' : ''}`}>
             {selectionEnabled ? (
               <th className="w-10 px-4 py-3 text-left">
@@ -105,7 +105,7 @@ function DataTableInner<T>(
               <tr key={`skeleton-${i}`}>
                 {columns.map((col) => (
                   <td key={col.key} className="px-4 py-3.5">
-                    <div className="h-4 animate-pulse rounded-full bg-muted/70" />
+                    <div className="h-4 animate-pulse rounded-full bg-muted/80" />
                   </td>
                 ))}
               </tr>
@@ -126,8 +126,8 @@ function DataTableInner<T>(
                 key={keyExtractor(item)}
                 className={`transition-colors ${
                   onRowClick
-                    ? 'cursor-pointer hover:bg-muted/45'
-                    : 'hover:bg-muted/35'
+                    ? 'cursor-pointer hover:bg-accent/20'
+                    : 'hover:bg-accent/15'
                 }`}
                 onClick={onRowClick ? () => onRowClick(item) : undefined}
               >
@@ -174,7 +174,7 @@ export function RowActions({ onClick }: { onClick?: () => void }) {
   return (
     <button
       type="button"
-      className="inline-flex size-8 items-center justify-center rounded-2xl text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground"
+      className="inline-flex size-8 items-center justify-center rounded-2xl text-muted-foreground transition-colors hover:bg-accent/35 hover:text-foreground"
       aria-label="Acțiuni rând"
       onClick={(e) => {
         e.stopPropagation();

@@ -19,7 +19,7 @@ export default function ResidentEmptyState({
 }) {
   return (
     <Card className="p-8 text-center">
-      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-border/70 bg-muted text-muted-foreground">
+      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-primary/15 bg-accent/35 text-primary/75">
         {icon || <Inbox className="h-5 w-5" />}
       </div>
       <h2 className="mt-4 text-lg font-semibold tracking-tight text-foreground">{title}</h2>

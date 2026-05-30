@@ -1,6 +1,6 @@
 'use client';
 
-const tableWrapper = 'overflow-x-auto rounded-2xl border border-border/70 bg-card shadow-card';
+const tableWrapper = 'overflow-x-auto rounded-2xl border border-border/75 bg-card shadow-card';
 
 export function TableWrapper({ className = '', ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return <div className={`${tableWrapper} ${className}`.trim()} {...props} />;
@@ -13,7 +13,7 @@ export function Table({ className = '', ...props }: React.HTMLAttributes<HTMLTab
 export function TableHead({ className = '', ...props }: React.HTMLAttributes<HTMLTableSectionElement>) {
   return (
     <thead
-      className={`bg-muted/45 text-left text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground ${className}`.trim()}
+      className={`bg-muted/55 text-left text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground ${className}`.trim()}
       {...props}
     />
   );
@@ -30,7 +30,7 @@ export function TableRow({
 }: React.HTMLAttributes<HTMLTableRowElement> & { hover?: boolean }) {
   return (
     <tr
-      className={`${hover ? 'transition hover:bg-muted/45' : ''} ${className}`.trim()}
+      className={`${hover ? 'transition hover:bg-accent/20' : ''} ${className}`.trim()}
       {...props}
     />
   );

@@ -6,15 +6,15 @@ import { Loader2 } from 'lucide-react';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 const base =
-  'inline-flex min-w-0 items-center justify-center gap-1.5 rounded-2xl font-semibold transition duration-150 ease-out focus:outline-none focus:ring-2 focus:ring-foreground/15 focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50';
+  'inline-flex min-w-0 items-center justify-center gap-1.5 rounded-2xl font-semibold transition duration-150 ease-out focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50';
 
 const variants = {
   primary:
-    'bg-foreground text-background shadow-[0_12px_28px_-22px_rgba(15,23,42,0.95)] hover:bg-foreground/90',
-  secondary: 'border border-border/80 bg-card text-foreground shadow-sm hover:border-border hover:bg-muted/65',
+    'bg-primary text-primary-foreground shadow-button hover:bg-primary/90',
+  secondary: 'border border-border/80 bg-card text-foreground shadow-sm hover:border-primary/20 hover:bg-muted/65',
   ghost: 'text-foreground/75 hover:bg-muted/70 hover:text-foreground',
   danger: 'border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100',
-  outline: 'border border-border/80 bg-transparent text-foreground hover:bg-muted/70',
+  outline: 'border border-border/80 bg-transparent text-foreground hover:border-primary/20 hover:bg-muted/70',
 } as const;
 
 const sizes = {

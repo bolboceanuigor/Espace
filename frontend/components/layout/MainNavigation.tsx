@@ -92,7 +92,7 @@ export default function MainNavigation({ role, variant = 'responsive' }: MainNav
       >
         <div className="flex w-full items-center justify-center">
           <div
-            className={`w-full rounded-[1.65rem] border border-border/70 bg-white/88 p-1.5 shadow-[0_24px_70px_rgba(15,23,42,0.16)] backdrop-blur-2xl supports-[backdrop-filter]:bg-white/78 ${
+            className={`w-full rounded-2xl border border-border/75 bg-white/90 p-1.5 shadow-dropdown backdrop-blur-2xl supports-[backdrop-filter]:bg-white/80 ${
               isWideMenu
                 ? 'flex max-w-6xl gap-1 overflow-x-auto'
                 : 'grid max-w-5xl gap-1'
@@ -115,10 +115,10 @@ export default function MainNavigation({ role, variant = 'responsive' }: MainNav
                   } ${
                     item.center
                       ? active
-                        ? 'bg-foreground text-background shadow-[0_12px_28px_rgba(15,23,42,0.16)]'
+                        ? 'bg-primary text-primary-foreground shadow-button'
                         : 'bg-muted/70 text-foreground hover:bg-muted'
                       : active
-                        ? 'bg-foreground/[0.08] text-foreground'
+                        ? 'bg-accent/55 text-primary'
                         : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
                   }`}
                 >
@@ -136,7 +136,7 @@ export default function MainNavigation({ role, variant = 'responsive' }: MainNav
         <>
           <nav
             aria-label="Navigare principală mobilă"
-            className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-40 rounded-[1.65rem] border border-border/70 bg-white/92 shadow-[0_24px_70px_rgba(15,23,42,0.18)] backdrop-blur-2xl supports-[backdrop-filter]:bg-white/82 md:hidden"
+            className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-40 rounded-2xl border border-border/75 bg-white/94 shadow-dropdown backdrop-blur-2xl supports-[backdrop-filter]:bg-white/84 md:hidden"
           >
             <div
               className="mx-auto grid max-w-md items-end gap-1 px-2.5 py-2"
@@ -154,7 +154,7 @@ export default function MainNavigation({ role, variant = 'responsive' }: MainNav
                     href={target}
                     aria-current={active ? 'page' : undefined}
                     className={`group flex min-h-[60px] min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[11px] font-semibold leading-none transition duration-200 ease-out ${
-                      active ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+                      active ? 'bg-accent/60 text-primary' : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
                     }`}
                   >
                     <span className={`flex h-8 w-8 items-center justify-center rounded-full transition ${active ? 'bg-white' : 'bg-transparent group-hover:bg-background'}`}>
@@ -180,7 +180,7 @@ export default function MainNavigation({ role, variant = 'responsive' }: MainNav
           {moreOpen ? (
             <div className="fixed inset-0 z-50 bg-black/40 md:hidden" onClick={() => setMoreOpen(false)}>
               <div
-                className="absolute inset-x-0 bottom-0 max-h-[72vh] overflow-y-auto rounded-t-[1.75rem] border-t border-border/70 bg-white p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-[0_-24px_70px_rgba(15,23,42,0.18)]"
+                className="absolute inset-x-0 bottom-0 max-h-[72vh] overflow-y-auto rounded-t-2xl border-t border-border/75 bg-white p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-dropdown"
                 onClick={(event) => event.stopPropagation()}
               >
                 <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-muted" />
@@ -197,7 +197,7 @@ export default function MainNavigation({ role, variant = 'responsive' }: MainNav
                         onClick={() => setMoreOpen(false)}
                         className={`flex min-h-12 items-center justify-between rounded-2xl border px-3 text-sm font-semibold ${
                           active
-                            ? 'border-foreground/20 bg-muted text-foreground'
+                            ? 'border-primary/20 bg-accent/45 text-primary'
                             : 'border-border/70 bg-white text-foreground hover:bg-muted/50'
                         }`}
                       >

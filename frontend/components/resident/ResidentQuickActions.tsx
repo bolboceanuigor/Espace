@@ -12,9 +12,9 @@ export default function ResidentQuickActions({ items }: { items: Array<{ href: s
         <Link
           key={item.href}
           href={localizedPath(item.href)}
-          className="flex min-h-24 flex-col justify-between rounded-2xl border border-slate-200 bg-white p-4 text-sm font-semibold text-slate-950 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50"
+          className="flex min-h-24 flex-col justify-between rounded-2xl border border-border/75 bg-white p-4 text-sm font-semibold text-foreground shadow-card transition hover:border-primary/20 hover:bg-accent/20"
         >
-          <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-100 text-slate-600">{item.icon}</span>
+          <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-accent/45 text-primary">{item.icon}</span>
           {item.label}
         </Link>
       ))}

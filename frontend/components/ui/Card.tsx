@@ -16,7 +16,7 @@ const Card = forwardRef<HTMLDivElement, CardProps>(function Card(
   return (
     <div
       ref={ref}
-      className={`rounded-2xl border border-border/75 bg-card shadow-card ${hoverable ? 'transition-all duration-200 hover:border-foreground/10 hover:shadow-card-hover' : ''} ${noPadding ? '' : 'p-5'} ${className}`.trim()}
+      className={`rounded-2xl border border-border/75 bg-card shadow-card ${hoverable ? 'transition-all duration-200 hover:border-primary/20 hover:shadow-card-hover' : ''} ${noPadding ? '' : 'p-5'} ${className}`.trim()}
       {...props}
     >
       {children}

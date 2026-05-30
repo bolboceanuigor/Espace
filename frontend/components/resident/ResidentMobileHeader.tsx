@@ -40,15 +40,15 @@ export default function ResidentMobileHeader({
   const displayTitle = title || routeTitle(pathname);
 
   return (
-    <header className="sticky top-0 z-30 border-b border-border/70 bg-background/90 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
+    <header className="sticky top-0 z-30 border-b border-border/75 bg-background/94 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
       <div className="mx-auto flex min-h-16 max-w-2xl items-center gap-3 px-4">
         {isDetail ? (
-          <Link href={localizedPath('/resident')} className="flex h-10 w-10 items-center justify-center rounded-2xl border border-border/70 bg-card text-foreground shadow-sm">
+          <Link href={localizedPath('/resident')} className="flex h-10 w-10 items-center justify-center rounded-2xl border border-border/75 bg-card text-foreground shadow-sm transition hover:bg-accent/25" aria-label="Înapoi la acasă">
             <ChevronLeft className="h-5 w-5" />
           </Link>
         ) : (
-          <Link href={localizedPath('/resident')} className="flex h-10 w-10 items-center justify-center rounded-2xl bg-foreground text-sm font-semibold text-background shadow-sm">
-            E
+          <Link href={localizedPath('/resident')} className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary text-xs font-semibold text-primary-foreground shadow-sm" aria-label="Espace resident">
+            ES
           </Link>
         )}
         <div className="min-w-0 flex-1">
@@ -60,12 +60,12 @@ export default function ResidentMobileHeader({
         <button
           type="button"
           onClick={onRefresh}
-          className="hidden h-10 w-10 items-center justify-center rounded-2xl border border-border/70 bg-card text-muted-foreground shadow-sm transition hover:bg-muted/65 hover:text-foreground sm:flex"
+          className="hidden h-10 w-10 items-center justify-center rounded-2xl border border-border/75 bg-card text-muted-foreground shadow-sm transition hover:bg-accent/30 hover:text-foreground sm:flex"
           aria-label="Actualizează"
         >
           <RefreshCw className="h-4 w-4" />
         </button>
-        <Link href={localizedPath('/resident/notifications')} className="relative flex h-10 w-10 items-center justify-center rounded-2xl border border-border/70 bg-card text-muted-foreground shadow-sm transition hover:bg-muted/65 hover:text-foreground" aria-label="Notificări">
+        <Link href={localizedPath('/resident/notifications')} className="relative flex h-10 w-10 items-center justify-center rounded-2xl border border-border/75 bg-card text-muted-foreground shadow-sm transition hover:bg-accent/30 hover:text-foreground" aria-label="Notificări">
           <Bell className="h-5 w-5" />
           {unreadNotifications > 0 ? (
             <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold text-white">
@@ -73,7 +73,7 @@ export default function ResidentMobileHeader({
             </span>
           ) : null}
         </Link>
-        <Link href={localizedPath('/resident/profile')} className="hidden h-10 w-10 items-center justify-center rounded-2xl border border-border/70 bg-card text-muted-foreground shadow-sm transition hover:bg-muted/65 hover:text-foreground md:flex" aria-label="Profil">
+        <Link href={localizedPath('/resident/profile')} className="hidden h-10 w-10 items-center justify-center rounded-2xl border border-border/75 bg-card text-muted-foreground shadow-sm transition hover:bg-accent/30 hover:text-foreground md:flex" aria-label="Profil">
           <UserRound className="h-5 w-5" />
         </Link>
       </div>
