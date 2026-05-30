@@ -24,7 +24,7 @@ const SectionCard = forwardRef<HTMLDivElement, SectionCardProps>(function Sectio
   return (
     <div
       ref={ref}
-      className={`rounded-xl ${variantStyles[variant]} ${className}`.trim()}
+      className={`rounded-2xl ${variantStyles[variant]} ${className}`.trim()}
       {...props}
     >
       {(title || description || actions) && (
@@ -40,7 +40,7 @@ const SectionCard = forwardRef<HTMLDivElement, SectionCardProps>(function Sectio
       )}
       <div className={noPadding ? '' : 'p-5'}>{children}</div>
       {footer && (
-        <div className="border-t border-border/60 px-5 py-3 bg-muted/30 rounded-b-xl">
+        <div className="rounded-b-2xl border-t border-border/60 bg-muted/30 px-5 py-3">
           {footer}
         </div>
       )}

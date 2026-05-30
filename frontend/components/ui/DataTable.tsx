@@ -55,12 +55,12 @@ function DataTableInner<T>(
   const allVisibleSelected = data.length > 0 && data.every((item) => selectedIds?.includes(keyExtractor(item)));
 
   return (
-    <div ref={ref} className={`overflow-x-auto rounded-2xl border border-border/75 bg-card shadow-card ${className}`.trim()}>
+    <div ref={ref} className={`overflow-x-auto rounded-2xl border border-border/80 bg-card shadow-card ${className}`.trim()}>
       <table className="w-full border-collapse">
-        <thead className="bg-muted/55">
+        <thead className="bg-card">
           <tr className={`border-b border-border/60 ${stickyHeader ? 'sticky top-0 z-10' : ''}`}>
             {selectionEnabled ? (
-              <th className="w-10 px-4 py-3 text-left">
+              <th className="w-10 px-5 py-3.5 text-left">
                 <input
                   type="checkbox"
                   checked={allVisibleSelected}
@@ -72,7 +72,7 @@ function DataTableInner<T>(
             {columns.map((col) => (
               <th
                 key={col.key}
-                className={`px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide ${alignClass(col.align)}`}
+                className={`px-5 py-3.5 text-xs font-semibold text-muted-foreground uppercase tracking-[0.08em] ${alignClass(col.align)}`}
                 style={{ width: col.width }}
               >
                 {col.sortable && onSort ? (
@@ -132,7 +132,7 @@ function DataTableInner<T>(
                 onClick={onRowClick ? () => onRowClick(item) : undefined}
               >
                 {selectionEnabled ? (
-                  <td className="px-4 py-3.5" onClick={(event) => event.stopPropagation()}>
+                  <td className="px-5 py-4" onClick={(event) => event.stopPropagation()}>
                     <input
                       type="checkbox"
                       checked={Boolean(selectedIds?.includes(keyExtractor(item)))}
@@ -147,7 +147,7 @@ function DataTableInner<T>(
                 {columns.map((col) => (
                   <td
                     key={col.key}
-                    className={`px-4 py-3.5 text-sm text-foreground ${alignClass(col.align)}`}
+                    className={`px-5 py-4 text-sm text-foreground ${alignClass(col.align)}`}
                   >
                     {col.render
                       ? col.render(item, index)

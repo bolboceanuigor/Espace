@@ -19,19 +19,19 @@ const toneConfig = {
     accentLine: 'bg-primary/30',
   },
   success: {
-    iconBg: 'bg-emerald-50',
-    iconColor: 'text-emerald-600',
-    accentLine: 'bg-emerald-400',
+    iconBg: 'bg-success/10',
+    iconColor: 'text-success',
+    accentLine: 'bg-success/50',
   },
   warning: {
-    iconBg: 'bg-amber-50',
-    iconColor: 'text-amber-600',
-    accentLine: 'bg-amber-400',
+    iconBg: 'bg-warning/10',
+    iconColor: 'text-warning',
+    accentLine: 'bg-warning/50',
   },
   danger: {
-    iconBg: 'bg-rose-50',
-    iconColor: 'text-rose-600',
-    accentLine: 'bg-rose-400',
+    iconBg: 'bg-critical/10',
+    iconColor: 'text-critical',
+    accentLine: 'bg-critical/50',
   },
 } as const;
 
@@ -50,7 +50,7 @@ export default function StatCard({ label, value, description, icon, tone = 'neut
             <div className="mt-2 flex items-baseline gap-2">
               <p className="min-w-0 truncate text-2xl font-semibold tracking-tight text-foreground">{value}</p>
               {trend && (
-                <span className={`inline-flex items-center gap-0.5 text-xs font-medium ${trend.value >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                <span className={`inline-flex items-center gap-0.5 text-xs font-medium ${trend.value >= 0 ? 'text-success' : 'text-critical'}`}>
                   {trend.value >= 0 ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />}
                   {Math.abs(trend.value)}%
                 </span>

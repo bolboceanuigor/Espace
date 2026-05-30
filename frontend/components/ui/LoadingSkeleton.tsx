@@ -27,7 +27,7 @@ export default function LoadingSkeleton({ rows = 4, variant = 'cards', label }: 
 
   return (
     <div className="space-y-3" aria-live="polite" aria-busy="true">
-      {label ? <p className="text-sm font-medium text-slate-500">{label}</p> : null}
+      {label ? <p className="text-sm font-medium text-muted-foreground">{label}</p> : null}
       <div className={`grid gap-3 ${variant === 'page' ? 'md:grid-cols-3' : ''}`}>
         {Array.from({ length: rows }).map((_, index) => (
           <div key={index} className="h-28 animate-pulse rounded-2xl border border-border/75 bg-card shadow-card">

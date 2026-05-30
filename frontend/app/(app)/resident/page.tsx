@@ -527,7 +527,7 @@ export default function ResidentDashboardPage() {
       </Card>
 
       <Card className="overflow-hidden p-0">
-        <div className="grid gap-4 bg-foreground p-5 text-background lg:grid-cols-[1fr_auto] lg:items-center">
+        <div className="grid gap-4 bg-primary p-5 text-primary-foreground lg:grid-cols-[1fr_auto] lg:items-center">
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-sm opacity-75">Sold curent</p>

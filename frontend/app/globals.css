@@ -6,9 +6,21 @@
   /* Espace Premium Design - Fresha-inspired, original Espace palette */
   /* Chrome reference used: Fresha Partners internal screens; no Fresha assets, icons, logo or copy were copied. */
   /* TODO: Figma node context missing; implemented local design polish based on existing design system. */
+  --espace-bg: #F7F8F6;
+  --espace-surface: #FFFFFF;
+  --espace-sidebar: #0F172A;
+  --espace-primary: #145C55;
+  --espace-primary-soft: #E7F3EF;
+  --espace-border: #E6E8EC;
+  --espace-text: #101828;
+  --espace-muted: #667085;
+  --espace-success: #138A5B;
+  --espace-warning: #B7791F;
+  --espace-error: #C2410C;
+  --espace-info: #2563EB;
   
   /* Background & Surface */
-  --background: 120 18% 98%;
+  --background: 90 13% 97%;
   --foreground: 220 43% 11%;
   --card: 0 0% 100%;
   --card-foreground: 220 43% 11%;
@@ -16,16 +28,16 @@
   --popover-foreground: 220 43% 11%;
   
   /* Muted */
-  --muted: 150 24% 95%;
-  --muted-foreground: 218 12% 43%;
+  --muted: 100 9% 94%;
+  --muted-foreground: 220 9% 43%;
   
   /* Borders */
-  --border: 150 18% 88%;
-  --input: 150 18% 88%;
-  --ring: 174 44% 26%;
+  --border: 220 17% 91%;
+  --input: 220 17% 91%;
+  --ring: 174 64% 22%;
   
   /* Primary - Espace deep teal */
-  --primary: 174 49% 16%;
+  --primary: 174 64% 22%;
   --primary-foreground: 0 0% 100%;
   
   /* Secondary */
@@ -33,31 +45,35 @@
   --secondary-foreground: 220 43% 11%;
   
   /* Accent */
-  --accent: 150 40% 90%;
-  --accent-foreground: 174 49% 16%;
+  --accent: 156 43% 93%;
+  --accent-foreground: 174 64% 22%;
   
   /* Destructive */
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
   
   /* Radius */
-  --radius: 0.5rem;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-pill: 999px;
+  --radius: var(--radius-lg);
   
   /* Sidebar */
-  --sidebar-bg: 174 42% 10%;
+  --sidebar-bg: 222 47% 11%;
   --sidebar-foreground: 0 0% 100%;
-  --sidebar-muted: 174 30% 15%;
-  --sidebar-accent: 152 38% 82%;
-  --sidebar-border: 174 28% 18%;
+  --sidebar-muted: 217 33% 17%;
+  --sidebar-accent: 156 43% 93%;
+  --sidebar-border: 217 33% 17%;
   
   /* Status Colors */
-  --success: 158 64% 32%;
+  --success: 157 75% 31%;
   --success-foreground: 0 0% 100%;
-  --warning: 38 92% 44%;
+  --warning: 38 71% 42%;
   --warning-foreground: 25 95% 12%;
-  --info: 198 72% 38%;
+  --info: 221 83% 53%;
   --info-foreground: 0 0% 100%;
-  --critical: 0 72% 48%;
+  --critical: 19 88% 40%;
   --critical-foreground: 0 0% 100%;
   --status-active: 158 64% 32%;
   --status-draft: 215 16% 47%;
@@ -83,8 +99,8 @@
   --gray-800: #1E293B;
   --gray-900: #0F172A;
   
-  --brand-primary-hex: #153E3B;
-  --brand-accent-hex: #A8D8C4;
+  --brand-primary-hex: var(--espace-primary);
+  --brand-accent-hex: var(--espace-primary-soft);
 }
 
 html[data-theme='dark'] {
@@ -123,9 +139,7 @@ body {
   font-family: var(--font-onest), system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background:
-    linear-gradient(180deg, rgba(248, 250, 248, 0.96), rgba(248, 250, 248, 1) 280px),
-    hsl(var(--background));
+  background: var(--espace-bg);
   color: hsl(var(--foreground));
 }
 
@@ -142,15 +156,15 @@ html {
 @layer components {
   /* Premium Button Styles */
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground font-semibold rounded-xl shadow-button transition-all duration-200 hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-offset-2;
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground font-semibold rounded-full shadow-button transition-all duration-200 hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-offset-2;
   }
   
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-white text-slate-800 font-semibold rounded-xl border border-border shadow-sm transition-all duration-200 hover:bg-muted/60 hover:border-primary/20 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-offset-2;
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-white text-foreground font-semibold rounded-full border border-border shadow-sm transition-all duration-200 hover:bg-muted/60 hover:border-primary/20 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-offset-2;
   }
   
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 px-4 py-2 text-muted-foreground font-semibold rounded-xl transition-all duration-200 hover:bg-muted/70 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20;
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 text-muted-foreground font-semibold rounded-full transition-all duration-200 hover:bg-muted/70 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20;
   }
   
   /* Premium Card */
@@ -169,31 +183,31 @@ html {
   
   /* Status Badges */
   .badge-active {
-    @apply inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200;
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-success/10 text-success border border-success/20;
   }
   
   .badge-draft {
-    @apply inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-slate-100 text-slate-600 border border-slate-200;
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-muted text-muted-foreground border border-border;
   }
   
   .badge-pending {
-    @apply inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-amber-50 text-amber-700 border border-amber-200;
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-warning/10 text-warning border border-warning/20;
   }
   
   .badge-warning {
-    @apply inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-amber-50 text-amber-700 border border-amber-200;
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-warning/10 text-warning border border-warning/20;
   }
   
   .badge-critical {
-    @apply inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-red-50 text-red-700 border border-red-200;
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-critical/10 text-critical border border-critical/20;
   }
   
   .badge-paid {
-    @apply inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200;
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-success/10 text-success border border-success/20;
   }
   
   .badge-overdue {
-    @apply inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-red-50 text-red-700 border border-red-200;
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-critical/10 text-critical border border-critical/20;
   }
   
   /* Sidebar */
@@ -202,7 +216,7 @@ html {
   }
   
   .sidebar-item.active {
-    @apply bg-white/20 text-white;
+    @apply bg-white/15 text-white;
   }
   
   /* Inputs */
@@ -224,7 +238,7 @@ html {
   }
   
   .error-box {
-    @apply rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700;
+    @apply rounded-xl border border-critical/20 bg-critical/10 px-4 py-3 text-sm text-critical;
   }
   
   /* Tables */

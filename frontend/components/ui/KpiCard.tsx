@@ -20,15 +20,15 @@ export interface KpiCardProps extends React.HTMLAttributes<HTMLDivElement> {
 const variantStyles = {
   default: 'bg-card border-border/75',
   accent: 'bg-accent/35 border-primary/15',
-  warning: 'bg-amber-50/60 border-amber-200/75',
-  error: 'bg-rose-50/60 border-rose-200/75',
+  warning: 'bg-warning/10 border-warning/20',
+  error: 'bg-critical/10 border-critical/20',
 } as const;
 
 const iconVariantStyles = {
   default: 'bg-muted text-muted-foreground',
   accent: 'bg-primary/10 text-primary',
-  warning: 'bg-amber-100 text-amber-600',
-  error: 'bg-rose-100 text-rose-600',
+  warning: 'bg-warning/10 text-warning',
+  error: 'bg-critical/10 text-critical',
 } as const;
 
 const sizeStyles = {
@@ -78,13 +78,13 @@ const KpiCard = forwardRef<HTMLDivElement, KpiCardProps>(function KpiCard(
           {trend && (
             <div className="flex items-center gap-1 mt-2">
               {trendIsPositive ? (
-                <TrendingUp className="size-3.5 text-emerald-600" />
+                <TrendingUp className="size-3.5 text-success" />
               ) : (
-                <TrendingDown className="size-3.5 text-rose-600" />
+                <TrendingDown className="size-3.5 text-critical" />
               )}
               <span
                 className={`text-xs font-medium ${
-                  trendIsPositive ? 'text-emerald-600' : 'text-rose-600'
+                  trendIsPositive ? 'text-success' : 'text-critical'
                 }`}
               >
                 {trend.value > 0 ? '+' : ''}{trend.value}%
@@ -118,9 +118,9 @@ export interface KpiInlineProps {
 
 const inlineVariants = {
   default: 'text-foreground',
-  success: 'text-emerald-600',
-  warning: 'text-amber-600',
-  error: 'text-rose-600',
+  success: 'text-success',
+  warning: 'text-warning',
+  error: 'text-critical',
 } as const;
 
 export function KpiInline({ label, value, variant = 'default' }: KpiInlineProps) {

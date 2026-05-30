@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { AdminContextProvider, useAdminContext } from '@/context/AdminContext';
 import { PermissionsProvider } from '@/hooks/usePermissions';
 import { AdminCommandPalette, AdminGlobalSearchInput } from '@/components/admin-search/AdminCommandPalette';
+import { StatusBadge } from '@/components/ui';
 import AppSidebar from './AppSidebar';
 
 type AdminAppShellProps = {
@@ -81,7 +82,7 @@ function AdminAppShellContent({
     () => (
       <button
         type="button"
-        className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-border bg-white text-muted-foreground shadow-sm transition hover:bg-accent/25 hover:text-foreground"
+        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-white text-muted-foreground shadow-sm transition hover:bg-accent/25 hover:text-foreground"
         aria-label="Notificări"
       >
         <Bell className="h-4 w-4" />
@@ -130,7 +131,7 @@ function AdminAppShellContent({
             <button
               type="button"
               onClick={() => setMobileOpen(true)}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-border bg-white text-muted-foreground shadow-sm transition hover:bg-accent/25 hover:text-foreground lg:hidden"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-white text-muted-foreground shadow-sm transition hover:bg-accent/25 hover:text-foreground lg:hidden"
               aria-label="Deschide meniul"
             >
               <Menu className="h-5 w-5" />
@@ -139,9 +140,7 @@ function AdminAppShellContent({
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <p className="truncate text-sm font-semibold text-foreground">{displayOrgName}</p>
-                <span className="hidden rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 sm:inline-flex">
-                  {statusText}
-                </span>
+                <StatusBadge status={statusValue} label={statusText} size="sm" className="hidden sm:inline-flex" />
               </div>
               <p className="truncate text-xs text-muted-foreground">{displayOrgCode} · {roleName}</p>
             </div>
@@ -150,7 +149,7 @@ function AdminAppShellContent({
               <select
                 value={activeAssociation?.id || ''}
                 onChange={(event) => void adminContext.switchAssociation(event.target.value)}
-                className="hidden h-10 max-w-56 rounded-2xl border border-border bg-white px-3 text-sm font-medium text-foreground shadow-sm outline-none transition focus:border-primary/30 focus:ring-2 focus:ring-primary/15 md:block"
+                className="hidden h-10 max-w-56 rounded-full border border-border bg-white px-3 text-sm font-medium text-foreground shadow-sm outline-none transition focus:border-primary/30 focus:ring-2 focus:ring-primary/15 md:block"
                 aria-label="Schimbă asociația activă"
               >
                 {adminContext.availableAssociations.map((association) => (
@@ -165,7 +164,7 @@ function AdminAppShellContent({
             <button
               type="button"
               onClick={() => setCommandOpen(true)}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-border bg-white text-muted-foreground shadow-sm transition hover:bg-accent/25 hover:text-foreground md:hidden"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-white text-muted-foreground shadow-sm transition hover:bg-accent/25 hover:text-foreground md:hidden"
               aria-label="Caută"
             >
               <Search className="h-5 w-5" />

@@ -77,3 +77,5 @@ export type { ProgressScoreProps, ProgressBarProps } from './ProgressScore';
 // Actions
 export { default as QuickActionCard } from './QuickActionCard';
 export type { QuickActionCardProps } from './QuickActionCard';
+export { default as FeatureActionCard } from './FeatureActionCard';
+export type { FeatureActionCardProps } from './FeatureActionCard';

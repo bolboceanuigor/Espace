@@ -37,7 +37,7 @@ export default function ResidentFinancialCard({
               Situația este calculată din facturile interne și plățile înregistrate de administrator.
             </p>
           </div>
-          <Link href={href} className="inline-flex min-h-10 items-center gap-2 rounded-2xl bg-white px-4 text-sm font-semibold text-primary shadow-sm transition hover:bg-accent/90">
+          <Link href={href} className="inline-flex min-h-10 items-center gap-2 rounded-full bg-white px-4 text-sm font-semibold text-primary shadow-sm transition hover:bg-accent/90">
             Vezi facturi
             <ArrowRight className="h-4 w-4" />
           </Link>

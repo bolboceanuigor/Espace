@@ -32,10 +32,10 @@ export default function AppShell({ children }: AppShellProps) {
 }
 
 function notificationSeverityClass(value?: string) {
-  if (value === 'CRITICAL' || value === 'ERROR') return 'bg-rose-100 text-rose-700';
-  if (value === 'WARNING') return 'bg-amber-100 text-amber-700';
-  if (value === 'SUCCESS') return 'bg-emerald-100 text-emerald-700';
-  return 'bg-neutral-100 text-neutral-600';
+  if (value === 'CRITICAL' || value === 'ERROR') return 'border border-critical/20 bg-critical/10 text-critical';
+  if (value === 'WARNING') return 'border border-warning/20 bg-warning/10 text-warning';
+  if (value === 'SUCCESS') return 'border border-success/20 bg-success/10 text-success';
+  return 'border border-border bg-muted text-muted-foreground';
 }
 
 // Sidebar navigation items per role
@@ -235,7 +235,7 @@ function AppShellContent({ children }: AppShellProps) {
 
   if (loading || !activeUser) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-white">
+      <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
           <div className="size-8 animate-spin rounded-full border-2 border-neutral-200 border-t-neutral-900" />
           <p className="text-sm text-neutral-500">Se încarcă...</p>
@@ -273,19 +273,19 @@ function AppShellContent({ children }: AppShellProps) {
     <div className="flex min-h-screen bg-background">
       {/* Sidebar - Desktop */}
       <aside 
-        className={`fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-white/10 bg-[#102421] text-white shadow-[18px_0_54px_rgba(16,36,33,0.18)] transition-all duration-200 lg:flex ${
+        className={`fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-white/10 bg-sidebar text-white shadow-[18px_0_54px_rgba(15,23,42,0.20)] transition-all duration-200 lg:flex ${
           sidebarCollapsed ? 'w-16' : 'w-60'
         }`}
       >
         {/* Logo */}
         <div className="flex h-16 items-center justify-between border-b border-white/10 px-4">
           {sidebarCollapsed ? (
-            <Link href={homeRoute} className="flex h-9 w-9 items-center justify-center rounded-2xl bg-white text-xs font-semibold text-[#153E3B] shadow-sm">
+            <Link href={homeRoute} className="flex h-9 w-9 items-center justify-center rounded-2xl bg-white text-xs font-semibold text-primary shadow-sm">
               ES
             </Link>
           ) : (
             <Link href={homeRoute} className="flex min-w-0 items-center gap-3">
-              <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-white text-xs font-semibold text-[#153E3B] shadow-sm">ES</span>
+              <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-white text-xs font-semibold text-primary shadow-sm">ES</span>
               <span className="min-w-0">
                 <span className="block truncate text-sm font-semibold tracking-tight text-white">Espace</span>
                 <span className="block truncate text-[11px] text-white/50">Management APC</span>
@@ -316,7 +316,7 @@ function AppShellContent({ children }: AppShellProps) {
                     href={href}
                   className={`flex min-h-10 items-center gap-3 rounded-2xl px-3 text-sm font-semibold transition-colors ${
                       isActive
-                        ? 'bg-white/15 text-white shadow-[0_16px_32px_-24px_rgba(255,255,255,0.6)]'
+                        ? 'bg-white/15 text-white shadow-[0_16px_32px_-24px_rgba(255,255,255,0.45)]'
                         : 'text-white/60 hover:bg-white/10 hover:text-white'
                     }`}
                     title={sidebarCollapsed ? item.label : undefined}
@@ -365,7 +365,7 @@ function AppShellContent({ children }: AppShellProps) {
 
       {/* Mobile sidebar */}
       <aside 
-        className={`fixed inset-y-0 left-0 z-50 w-72 transform border-r border-white/10 bg-[#102421] text-white shadow-xl transition-transform duration-200 lg:hidden ${
+        className={`fixed inset-y-0 left-0 z-50 w-72 transform border-r border-white/10 bg-sidebar text-white shadow-xl transition-transform duration-200 lg:hidden ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -434,7 +434,7 @@ function AppShellContent({ children }: AppShellProps) {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Caută... (⌘K)"
-                  className="h-10 w-full rounded-2xl border border-border/80 bg-card pl-9 pr-3 text-sm text-foreground shadow-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/30 focus:ring-2 focus:ring-primary/15"
+                className="h-10 w-full rounded-full border border-border/80 bg-card pl-9 pr-3 text-sm text-foreground shadow-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/30 focus:ring-2 focus:ring-primary/15"
                 />
               </div>
               )}
@@ -447,7 +447,7 @@ function AppShellContent({ children }: AppShellProps) {
                 <button
                   type="button"
                   onClick={() => setSuperadminSearchOpen(true)}
-                  className="rounded-2xl p-2 text-muted-foreground hover:bg-muted/70 lg:hidden"
+                  className="rounded-full p-2 text-muted-foreground hover:bg-muted/70 lg:hidden"
                   aria-label="Caută global"
                 >
                   <Search className="size-5" />
@@ -458,14 +458,14 @@ function AppShellContent({ children }: AppShellProps) {
                   href={`/${locale}/superadmin/monitoring`}
                   className="hidden min-h-9 items-center gap-2 rounded-full border border-primary/15 bg-accent/45 px-3 text-xs font-semibold text-primary sm:inline-flex"
                 >
-                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                  <span className="h-2 w-2 rounded-full bg-success" />
                   Monitoring
                 </Link>
               )}
               
               {/* Demo badge */}
               {(activeUser?.isDemoUser || activeOrg?.isDemo) && (
-                <span className="hidden rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 sm:inline-flex">
+                <span className="hidden rounded-full border border-warning/20 bg-warning/10 px-2.5 py-1 text-xs font-semibold text-warning sm:inline-flex">
                   Demo
                 </span>
               )}
@@ -475,11 +475,11 @@ function AppShellContent({ children }: AppShellProps) {
                 <button
                   type="button"
                   onClick={() => setNotificationsOpen(!notificationsOpen)}
-                  className="relative rounded-2xl p-2 text-muted-foreground hover:bg-accent/35 hover:text-foreground"
+                  className="relative rounded-full p-2 text-muted-foreground hover:bg-accent/45 hover:text-foreground"
                 >
                   <Bell className="size-5" />
                   {notificationsUnreadCount > 0 && (
-                    <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white">
+                    <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-critical text-[10px] font-medium text-white">
                       {notificationsUnreadCount}
                     </span>
                   )}
@@ -540,7 +540,7 @@ function AppShellContent({ children }: AppShellProps) {
                     <Link
                       href={normalizedRole === 'SUPER_ADMIN' ? `/${locale}/superadmin/notifications` : normalizedRole === 'RESIDENT' ? `/${locale}/resident/notifications` : `/${locale}/admin/notifications`}
                       onClick={() => setNotificationsOpen(false)}
-                      className="mt-2 flex min-h-9 items-center justify-center rounded-2xl border border-border/70 text-xs font-semibold text-foreground hover:bg-accent/35"
+                    className="mt-2 flex min-h-9 items-center justify-center rounded-full border border-border/70 text-xs font-semibold text-foreground hover:bg-accent/35"
                     >
                       Vezi toate notificările
                     </Link>

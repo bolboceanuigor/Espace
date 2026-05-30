@@ -66,11 +66,11 @@ const statusConfig = {
 } as const;
 
 const variants = {
-  success: 'border-emerald-200/80 bg-emerald-50 text-emerald-700',
-  warning: 'border-amber-200/80 bg-amber-50 text-amber-700',
-  error: 'border-rose-200/80 bg-rose-50 text-rose-700',
-  info: 'border-primary/20 bg-accent/45 text-primary',
-  neutral: 'border-slate-200/80 bg-slate-50 text-slate-600',
+  success: 'border-success/20 bg-success/10 text-success',
+  warning: 'border-warning/20 bg-warning/10 text-warning',
+  error: 'border-critical/20 bg-critical/10 text-critical',
+  info: 'border-info/20 bg-info/10 text-info',
+  neutral: 'border-border/90 bg-muted/70 text-muted-foreground',
 } as const;
 
 const sizes = {
@@ -109,13 +109,13 @@ const StatusBadge = forwardRef<HTMLSpanElement, StatusBadgeProps>(function Statu
         <span
           className={`size-1.5 rounded-full ${
             variant === 'success'
-              ? 'bg-emerald-500'
+              ? 'bg-success'
               : variant === 'warning'
-                ? 'bg-amber-500'
+                ? 'bg-warning'
                 : variant === 'error'
-                  ? 'bg-rose-500'
+                  ? 'bg-critical'
                   : variant === 'info'
-                    ? 'bg-primary'
+                    ? 'bg-info'
                     : 'bg-slate-400'
           }`}
         />
@@ -151,13 +151,13 @@ export function VariantBadge({
         <span
           className={`size-1.5 rounded-full ${
             variant === 'success'
-              ? 'bg-emerald-500'
+              ? 'bg-success'
               : variant === 'warning'
-                ? 'bg-amber-500'
+                ? 'bg-warning'
                 : variant === 'error'
-                  ? 'bg-rose-500'
+                  ? 'bg-critical'
                   : variant === 'info'
-                    ? 'bg-primary'
+                    ? 'bg-info'
                     : 'bg-slate-400'
           }`}
         />

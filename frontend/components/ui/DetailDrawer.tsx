@@ -23,7 +23,7 @@ export default function DetailDrawer({ open, title, description, onClose, childr
             <h2 className="text-base font-semibold tracking-tight text-foreground">{title}</h2>
             {description ? <p className="mt-1 text-sm text-muted-foreground">{description}</p> : null}
           </div>
-          <button type="button" onClick={onClose} className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-border/70 text-muted-foreground transition hover:bg-accent/35 hover:text-foreground">
+          <button type="button" onClick={onClose} className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/70 text-muted-foreground transition hover:bg-accent/45 hover:text-foreground">
             <X className="h-4 w-4" />
           </button>
         </header>

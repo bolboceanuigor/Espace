@@ -76,7 +76,7 @@ export function ModalHeader({
         <button
           type="button"
           onClick={onClose}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-2xl text-muted-foreground transition hover:bg-accent/35 hover:text-foreground"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition hover:bg-accent/45 hover:text-foreground"
           aria-label="Închide"
         >
           <X className="h-4 w-4" />

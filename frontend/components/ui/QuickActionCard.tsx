@@ -14,7 +14,7 @@ export interface QuickActionCardProps {
 
 const variantStyles = {
   default: {
-    card: 'border-border/70 bg-card hover:border-primary/20 hover:bg-accent/15',
+    card: 'border-border/80 bg-card hover:border-primary/20 hover:bg-accent/25',
     icon: 'bg-muted text-muted-foreground',
   },
   primary: {
@@ -22,12 +22,12 @@ const variantStyles = {
     icon: 'bg-primary/10 text-primary',
   },
   success: {
-    card: 'border-emerald-200/70 bg-emerald-50/50 hover:border-emerald-200',
-    icon: 'bg-emerald-100 text-emerald-600',
+    card: 'border-success/20 bg-success/10 hover:border-success/30',
+    icon: 'bg-success/10 text-success',
   },
   warning: {
-    card: 'border-amber-200/70 bg-amber-50/50 hover:border-amber-200',
-    icon: 'bg-amber-100 text-amber-600',
+    card: 'border-warning/20 bg-warning/10 hover:border-warning/30',
+    icon: 'bg-warning/10 text-warning',
   },
 } as const;
 
@@ -44,22 +44,22 @@ export default function QuickActionCard({
   return (
     <Link
       href={href}
-      className={`group flex items-center gap-3 rounded-xl border p-4 transition-colors shadow-card ${styles.card}`}
+      className={`group flex min-h-24 items-center gap-3 rounded-2xl border p-4 shadow-card transition-all duration-200 hover:shadow-card-hover ${styles.card}`}
     >
-      <div className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${styles.icon}`}>
+      <div className={`flex size-11 shrink-0 items-center justify-center rounded-xl ${styles.icon}`}>
         <Icon className="size-5" />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+          <h3 className="text-sm font-semibold tracking-tight text-foreground">{title}</h3>
           {badge !== undefined && (
-            <span className="rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+            <span className="rounded-full bg-critical px-1.5 py-0.5 text-[10px] font-semibold text-white">
               {badge}
             </span>
           )}
         </div>
         {description && (
-          <p className="mt-0.5 text-xs text-muted-foreground truncate">{description}</p>
+          <p className="mt-0.5 truncate text-xs leading-5 text-muted-foreground">{description}</p>
         )}
       </div>
       <ChevronRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />

@@ -6,6 +6,7 @@ import Link from 'next/link';
 
 export interface PageHeaderProps extends React.HTMLAttributes<HTMLDivElement> {
   title: string;
+  eyebrow?: string;
   description?: string;
   badge?: ReactNode;
   backHref?: string;
@@ -23,7 +24,7 @@ const variantStyles = {
 } as const;
 
 const PageHeader = forwardRef<HTMLDivElement, PageHeaderProps>(function PageHeader(
-  { title, description, badge, backHref, backLabel, actions, rightSlot, tabs, variant = 'default', className = '', ...props },
+  { title, eyebrow, description, badge, backHref, backLabel, actions, rightSlot, tabs, variant = 'default', className = '', ...props },
   ref
 ) {
   // Support both actions and rightSlot for backwards compatibility
@@ -41,6 +42,11 @@ const PageHeader = forwardRef<HTMLDivElement, PageHeaderProps>(function PageHead
       )}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
+          {eyebrow ? (
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+              {eyebrow}
+            </p>
+          ) : null}
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-[1.55rem] font-semibold leading-tight tracking-tight text-foreground md:text-[1.9rem] text-balance">
               {title}
@@ -53,7 +59,7 @@ const PageHeader = forwardRef<HTMLDivElement, PageHeaderProps>(function PageHead
             </p>
           )}
         </div>
-        {actionsContent && <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-2">{actionsContent}</div>}
+        {actionsContent && <div className="flex w-full flex-shrink-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end">{actionsContent}</div>}
       </div>
       {tabs && <div className="mt-4 overflow-x-auto border-b border-border/70">{tabs}</div>}
     </div>
