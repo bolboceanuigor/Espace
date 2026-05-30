@@ -24,6 +24,7 @@ import {
   Bell,
   Calculator,
   Wallet,
+  MessageCircle,
   type LucideIcon,
 } from 'lucide-react';
 import { Tooltip } from '@/components/ui';
@@ -48,6 +49,7 @@ const adminNavigation = {
   secondary: [
     { label: 'Avizier', href: '/admin/announcements', icon: Megaphone },
     { label: 'Solicitări', href: '/admin/requests', icon: CircleAlert },
+    { label: 'Connect', href: '/admin/connect', icon: MessageCircle },
     { label: 'Calitatea datelor', href: '/admin/data-quality', icon: ListChecks },
     { label: 'Import / Export', href: '/admin/imports', icon: Upload },
   ],

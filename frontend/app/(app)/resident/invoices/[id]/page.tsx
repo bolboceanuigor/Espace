@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, CreditCard, FileCheck2, FileText, Home, Loader2, Printer, ReceiptText, ShieldCheck, UploadCloud, UserRound, XCircle } from 'lucide-react';
+import { ArrowLeft, CreditCard, FileCheck2, FileText, Home, Loader2, MessageCircle, Printer, ReceiptText, ShieldCheck, UploadCloud, UserRound, XCircle } from 'lucide-react';
 import { Badge, Button, ButtonLink, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
 import { invoicesApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
@@ -224,6 +224,9 @@ export default function ResidentInvoiceDetailsPage() {
   const remainingAmount = data ? data.remainingAmount ?? invoice?.remainingAmount ?? invoice?.balanceAmount ?? 0 : 0;
   const paidAmount = data ? data.paidAmount ?? invoice?.paidAmount ?? 0 : 0;
   const activeIntent = data?.activePaymentIntent || null;
+  const connectInvoiceHref = invoice
+    ? `/resident/connect?new=1&type=INVOICE&relatedInvoiceId=${encodeURIComponent(invoice.id)}${data?.apartment?.id ? `&apartmentId=${encodeURIComponent(data.apartment.id)}` : ''}&subject=${encodeURIComponent(`Întrebare despre factura ${invoice.invoiceNumber}`)}`
+    : '/resident/connect';
 
   async function preparePayment() {
     if (!invoice) return;
@@ -394,6 +397,10 @@ export default function ResidentInvoiceDetailsPage() {
                   <Printer className="h-4 w-4" />
                   Print
                 </Button>
+                <ButtonLink href={connectInvoiceHref} variant="secondary">
+                  <MessageCircle className="h-4 w-4" />
+                  Scrie administrației
+                </ButtonLink>
               </div>
               <p className="mt-3 rounded-2xl bg-muted/35 px-4 py-3 text-sm text-muted-foreground">
                 {data.paymentUnavailableMessage || 'Plata online va fi disponibilă ulterior.'} Pentru moment, poți consulta factura și instrucțiunile administratorului.

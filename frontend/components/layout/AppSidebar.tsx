@@ -16,6 +16,7 @@ import {
   Home,
   ListChecks,
   Megaphone,
+  MessageCircle,
   Receipt,
   Settings,
   ShieldAlert,
@@ -73,6 +74,7 @@ const sections: Array<{
     items: [
       { label: 'Anunțuri', href: '/admin/announcements', icon: Megaphone, permission: ['ANNOUNCEMENTS', 'VIEW'] },
       { label: 'Solicitări', href: '/admin/requests', icon: CircleAlert, permission: ['REQUESTS', 'VIEW'] },
+      { label: 'Connect', href: '/admin/connect', icon: MessageCircle, permission: ['REQUESTS', 'VIEW'] },
       { label: 'Importuri', href: '/admin/imports', icon: Upload, permission: ['IMPORTS', 'VIEW'] },
       { label: 'Exporturi', href: '/admin/exports', icon: Download, permission: ['EXPORTS', 'VIEW'] },
       { label: 'Calitatea datelor', href: '/admin/data-quality', icon: ListChecks, permission: ['DATA_QUALITY', 'VIEW'] },

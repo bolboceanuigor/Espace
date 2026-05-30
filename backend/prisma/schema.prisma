@@ -461,6 +461,57 @@ enum ChatMessageStatus {
   DELETED
 }
 
+enum ConnectConversationType {
+  GENERAL
+  APARTMENT
+  INVOICE
+  PAYMENT
+  PAYMENT_PROOF
+  METER_READING
+  SERVICE_TICKET
+  DOCUMENT
+  ANNOUNCEMENT
+  SYSTEM
+}
+
+enum ConnectConversationStatus {
+  OPEN
+  PENDING_RESIDENT
+  PENDING_ADMIN
+  RESOLVED
+  CLOSED
+  ARCHIVED
+}
+
+enum ConnectPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum ConnectSenderRole {
+  ADMIN
+  RESIDENT
+  SUPERADMIN
+  SYSTEM
+}
+
+enum ConnectMessageType {
+  TEXT
+  SYSTEM
+  ATTACHMENT
+  IMAGE
+  DOCUMENT
+}
+
+enum ConnectMessageStatus {
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
 enum MaintenanceTaskPriority {
   LOW
   MEDIUM
@@ -3026,6 +3077,8 @@ model Organization {
   fileAssets         FileAsset[]
   chatConversations  ChatConversation[]
   supportChatMessages ChatMessage[]
+  connectConversations ConnectConversation[]
+  connectMessages      ConnectMessage[]
   pushSubscriptions  PushSubscription[]
   systemErrorLogs    SystemErrorLog[]
   systemErrorEvents  SystemErrorEvent[]
@@ -6408,6 +6461,11 @@ model User {
   residentChatConversations ChatConversation[] @relation("ChatConversationResidentUser")
   assignedChatConversations ChatConversation[] @relation("ChatConversationAssignedToUser")
   chatMessagesSent          ChatMessage[]      @relation("ChatMessageSenderUser")
+  connectResidentConversations ConnectConversation[] @relation("ConnectConversationResidentUser")
+  connectAdminConversations    ConnectConversation[] @relation("ConnectConversationAdminUser")
+  connectCreatedConversations  ConnectConversation[] @relation("ConnectConversationCreatedBy")
+  connectLastMessageConversations ConnectConversation[] @relation("ConnectConversationLastMessageBy")
+  connectMessagesSent          ConnectMessage[]       @relation("ConnectMessageSenderUser")
   uploadedFiles        FileAsset[]        @relation("FileAssetUploadedByUser")
   publicAnnouncementsCreated Announcement[] @relation("AnnouncementCreatedByUser")
   announcementComments AnnouncementComment[]
@@ -6948,6 +7006,7 @@ model Apartment {
   documents    Document[]
   maintenanceEvents MaintenanceEvent[]
   chatConversations ChatConversation[]
+  connectConversations ConnectConversation[]
 
   @@index([organizationId])
   @@index([organizationId, status, createdAt])
@@ -7701,6 +7760,85 @@ model ChatMessage {
   @@index([senderUserId])
   @@index([fileAssetId])
   @@map("chat_messages")
+}
+
+model ConnectConversation {
+  id                       String                    @id @default(uuid())
+  organizationId           String
+  apartmentId              String?
+  residentUserId           String?
+  adminUserId              String?
+  createdById              String
+  subject                  String?
+  type                     ConnectConversationType   @default(GENERAL)
+  status                   ConnectConversationStatus @default(OPEN)
+  priority                 ConnectPriority           @default(NORMAL)
+  relatedInvoiceId         String?
+  relatedPaymentProofId    String?
+  relatedMeterReadingId    String?
+  relatedServiceTicketId   String?
+  relatedDocumentId        String?
+  relatedAnnouncementId    String?
+  lastMessageAt            DateTime?
+  lastMessagePreview       String?
+  lastMessageById          String?
+  adminUnreadCount         Int                       @default(0)
+  residentUnreadCount      Int                       @default(0)
+  closedAt                 DateTime?
+  resolvedAt               DateTime?
+  internalNote             String?
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+
+  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  apartment     Apartment?   @relation(fields: [apartmentId], references: [id], onDelete: SetNull)
+  residentUser  User?        @relation("ConnectConversationResidentUser", fields: [residentUserId], references: [id], onDelete: SetNull)
+  adminUser     User?        @relation("ConnectConversationAdminUser", fields: [adminUserId], references: [id], onDelete: SetNull)
+  createdBy     User         @relation("ConnectConversationCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  lastMessageBy User?        @relation("ConnectConversationLastMessageBy", fields: [lastMessageById], references: [id], onDelete: SetNull)
+  messages      ConnectMessage[]
+
+  @@index([organizationId, status, lastMessageAt])
+  @@index([organizationId, type, priority])
+  @@index([organizationId, residentUserId])
+  @@index([organizationId, adminUserId])
+  @@index([apartmentId])
+  @@index([relatedInvoiceId])
+  @@index([relatedPaymentProofId])
+  @@index([relatedMeterReadingId])
+  @@index([relatedServiceTicketId])
+  @@index([relatedDocumentId])
+  @@index([relatedAnnouncementId])
+  @@map("connect_conversations")
+}
+
+model ConnectMessage {
+  id                     String               @id @default(uuid())
+  conversationId         String
+  organizationId         String
+  senderId               String?
+  senderRole             ConnectSenderRole
+  messageType            ConnectMessageType   @default(TEXT)
+  body                   String?
+  attachmentUrl          String?
+  attachmentFileName     String?
+  attachmentMimeType     String?
+  attachmentFileSize     Int?
+  status                 ConnectMessageStatus @default(SENT)
+  deliveredAt            DateTime?
+  readAt                 DateTime?
+  metadataJson           Json?
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+
+  conversation ConnectConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sender       User?               @relation("ConnectMessageSenderUser", fields: [senderId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, conversationId, createdAt])
+  @@index([conversationId, messageType, createdAt])
+  @@index([senderId])
+  @@map("connect_messages")
 }
 
 model PushSubscription {

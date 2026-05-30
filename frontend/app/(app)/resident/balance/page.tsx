@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { AlertTriangle, ArrowRight, Building2, CalendarClock, CheckCircle2, Clock3, FileText, ReceiptText, RefreshCw, WalletCards } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Building2, CalendarClock, CheckCircle2, Clock3, FileText, MessageCircle, ReceiptText, RefreshCw, WalletCards } from 'lucide-react';
 import { Badge, Button, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
 import { residentBalanceApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
@@ -186,6 +186,10 @@ export default function ResidentBalancePage() {
           <div className="flex flex-wrap gap-2">
             <ButtonLink href="/resident/invoices">Vezi facturile</ButtonLink>
             <ButtonLink href="/resident/payments" variant="secondary">Vezi plățile</ButtonLink>
+            <ButtonLink href="/resident/connect?new=1&type=PAYMENT&subject=%C3%8Entrebare%20despre%20sold" variant="secondary">
+              <MessageCircle className="h-4 w-4" />
+              Întreabă despre sold
+            </ButtonLink>
           </div>
         </div>
       </Card>

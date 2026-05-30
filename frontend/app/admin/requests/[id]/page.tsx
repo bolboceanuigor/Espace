@@ -141,6 +141,7 @@ export default function AdminRequestDetailsPage() {
   }
 
   const isReadonly = ['CANCELLED'].includes(request.status);
+  const connectRequestHref = `/admin/connect?new=1&type=SERVICE_TICKET&relatedServiceTicketId=${encodeURIComponent(request.id)}${request.apartment?.id ? `&apartmentId=${encodeURIComponent(request.apartment.id)}` : ''}&subject=${encodeURIComponent(`Discuție despre ${request.requestNumber}`)}`;
 
   return (
     <div className="space-y-5 overflow-x-hidden pb-6">
@@ -230,6 +231,10 @@ export default function AdminRequestDetailsPage() {
               Redeschide
             </Button>
           ) : null}
+          <ButtonLink href={connectRequestHref} variant="secondary">
+            <MessageCircle className="h-4 w-4" />
+            Continuă în Connect
+          </ButtonLink>
         </div>
       </Card>
 

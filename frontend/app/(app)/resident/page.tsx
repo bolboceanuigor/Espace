@@ -19,7 +19,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import { Badge, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
-import { communicationsApi, invoicesApi, metersApi, requestsApi, residentBalanceApi, residentDemoApi } from '@/lib/api';
+import { communicationsApi, connectApi, invoicesApi, metersApi, requestsApi, residentBalanceApi, residentDemoApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
@@ -321,6 +321,7 @@ export default function ResidentDashboardPage() {
   const [readingPeriodSummary, setReadingPeriodSummary] = useState<any>(null);
   const [invoiceOverview, setInvoiceOverview] = useState<ResidentInvoicesOverview | null>(null);
   const [balanceOverview, setBalanceOverview] = useState<ResidentBalanceOverview | null>(null);
+  const [connectOverview, setConnectOverview] = useState<any>(null);
 
   useEffect(() => {
     let active = true;
@@ -443,6 +444,23 @@ export default function ResidentDashboardPage() {
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    connectApi
+      .residentOverview()
+      .then((response) => {
+        if (!active) return;
+        setConnectOverview(response.data || null);
+      })
+      .catch(() => {
+        if (!active) return;
+        setConnectOverview(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const summary = dashboard.financialSummary;
   const currentBalance = balanceOverview?.totalUnpaidAmount ?? summary.currentBalance;
   const overdueBalance = balanceOverview?.totalOverdueAmount ?? 0;
@@ -544,6 +562,7 @@ export default function ResidentDashboardPage() {
             <ButtonLink href="/resident/balance" variant="secondary">Vezi sold</ButtonLink>
             <ButtonLink href="/resident/invoices" variant="secondary">Vezi facturi</ButtonLink>
             <ButtonLink href="/resident/payments" variant="secondary">Vezi plăți</ButtonLink>
+            <ButtonLink href="/resident/connect" variant="secondary">Mesaje</ButtonLink>
           </div>
         </div>
         <div className="grid gap-3 p-4 md:grid-cols-3">
@@ -610,6 +629,7 @@ export default function ResidentDashboardPage() {
         <StatCard label="Ultima plată" value={summary.lastPayment ? formatMdl(summary.lastPayment.amount) : '-'} description={formatDate(summary.lastPayment?.paymentDate)} icon={<CreditCard className="h-5 w-5" />} />
         <StatCard label="Achitate" value={String(summary.paidInvoices)} description="Facturi fără sold" icon={<CheckCircle2 className="h-5 w-5" />} tone="success" />
         <StatCard label="Parțial achitate" value={String(summary.partiallyPaidInvoices)} description="Facturi cu sold rămas" icon={<AlertCircle className="h-5 w-5" />} tone={summary.partiallyPaidInvoices > 0 ? 'warning' : 'neutral'} />
+        <StatCard label="Mesaje necitite" value={String(connectOverview?.unreadCount || 0)} description={`${connectOverview?.openConversations || 0} conversații deschise`} icon={<MessageCircle className="h-5 w-5" />} tone={Number(connectOverview?.unreadCount || 0) > 0 ? 'warning' : 'neutral'} />
         <StatCard label="Solicitări deschise" value={String(requestStats.open || 0)} description="Către administrație" icon={<MessageCircle className="h-5 w-5" />} tone={Number(requestStats.open || 0) > 0 ? 'warning' : 'neutral'} />
         <StatCard label="Contoare active" value={String(meterStats.activeMeters || 0)} description={`${meterStats.submittedCurrentMonth || 0} indici transmiși luna curentă`} icon={<Gauge className="h-5 w-5" />} />
       </section>

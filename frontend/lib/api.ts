@@ -2546,6 +2546,45 @@ export const supportChatApi = {
   adminDeleteMessage: (messageId: string) => apiRequest<any>(`/api/admin/chat/messages/${messageId}`, { method: 'DELETE' }),
 };
 
+export const connectApi = {
+  adminOverview: () => apiRequest<any>('/api/admin/connect/overview'),
+  adminResidents: (params?: Record<string, string | number | boolean | undefined | null>) =>
+    apiRequest<any[]>('/api/admin/connect/residents', { params }),
+  adminConversations: (params?: Record<string, string | number | boolean | undefined | null>) =>
+    apiRequest<any>('/api/admin/connect/conversations', { params }),
+  adminCreateConversation: (data: Record<string, unknown>) =>
+    apiRequest<any>('/api/admin/connect/conversations', { method: 'POST', body: data }),
+  adminConversation: (conversationId: string) =>
+    apiRequest<any>(`/api/admin/connect/conversations/${conversationId}`),
+  adminSendMessage: (conversationId: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/admin/connect/conversations/${conversationId}/messages`, { method: 'POST', body: data }),
+  adminRead: (conversationId: string) =>
+    apiRequest<any>(`/api/admin/connect/conversations/${conversationId}/read`, { method: 'POST' }),
+  adminUpdateConversation: (conversationId: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/admin/connect/conversations/${conversationId}`, { method: 'PATCH', body: data }),
+  adminResolve: (conversationId: string, data?: Record<string, unknown>) =>
+    apiRequest<any>(`/api/admin/connect/conversations/${conversationId}/resolve`, { method: 'POST', body: data || {} }),
+  adminClose: (conversationId: string, data?: Record<string, unknown>) =>
+    apiRequest<any>(`/api/admin/connect/conversations/${conversationId}/close`, { method: 'POST', body: data || {} }),
+  adminReopen: (conversationId: string) =>
+    apiRequest<any>(`/api/admin/connect/conversations/${conversationId}/reopen`, { method: 'POST' }),
+
+  residentOverview: () => apiRequest<any>('/api/resident/connect/overview'),
+  residentContext: () => apiRequest<any>('/api/resident/connect/context'),
+  residentConversations: (params?: Record<string, string | number | boolean | undefined | null>) =>
+    apiRequest<any>('/api/resident/connect/conversations', { params }),
+  residentCreateConversation: (data: Record<string, unknown>) =>
+    apiRequest<any>('/api/resident/connect/conversations', { method: 'POST', body: data }),
+  residentConversation: (conversationId: string) =>
+    apiRequest<any>(`/api/resident/connect/conversations/${conversationId}`),
+  residentSendMessage: (conversationId: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/resident/connect/conversations/${conversationId}/messages`, { method: 'POST', body: data }),
+  residentRead: (conversationId: string) =>
+    apiRequest<any>(`/api/resident/connect/conversations/${conversationId}/read`, { method: 'POST' }),
+  residentReopen: (conversationId: string, data?: Record<string, unknown>) =>
+    apiRequest<any>(`/api/resident/connect/conversations/${conversationId}/reopen`, { method: 'POST', body: data || {} }),
+};
+
 export const notificationsApi = {
   adminList: (params?: Record<string, string | number | boolean | undefined | null>) => apiRequest<any>('/api/admin/notifications', { params }),
   adminUnreadCount: () => apiRequest<any>('/api/admin/notifications/unread-count'),

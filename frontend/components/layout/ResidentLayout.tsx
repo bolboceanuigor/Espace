@@ -9,6 +9,7 @@ import {
   Gauge,
   WalletCards,
   CircleAlert,
+  MessageCircle,
   Megaphone,
   User,
   Bell,
@@ -23,6 +24,7 @@ const residentNavigation: { href: string; label: string; icon: LucideIcon; mobil
   { href: '/resident/balance', label: 'Sold', icon: WalletCards },
   { href: '/resident/meters', label: 'Contoare', icon: Gauge },
   { href: '/resident/requests', label: 'Solicitări', icon: CircleAlert },
+  { href: '/resident/connect', label: 'Mesaje', icon: MessageCircle },
   { href: '/resident/announcements', label: 'Avizier', icon: Megaphone, mobileOnly: true },
   { href: '/resident/profile', label: 'Cont', icon: User },
 ];

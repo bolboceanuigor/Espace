@@ -148,6 +148,7 @@ export default function ResidentRequestDetailsPage() {
   const canClose = request.status === 'RESOLVED';
   const canReopen = ['RESOLVED', 'CLOSED'].includes(request.status);
   const canComment = !['CLOSED', 'CANCELLED'].includes(request.status);
+  const connectRequestHref = `/resident/connect?new=1&type=SERVICE_TICKET&relatedServiceTicketId=${encodeURIComponent(request.id)}${request.apartment?.id ? `&apartmentId=${encodeURIComponent(request.apartment.id)}` : ''}&subject=${encodeURIComponent(`Discuție despre ${request.requestNumber}`)}`;
 
   return (
     <div className="space-y-5 overflow-x-hidden pb-24 md:pb-6">
@@ -218,6 +219,10 @@ export default function ResidentRequestDetailsPage() {
               Anulează
             </Button>
           ) : null}
+          <ButtonLink href={connectRequestHref} variant="secondary">
+            <MessageCircle className="h-4 w-4" />
+            Continuă în Connect
+          </ButtonLink>
         </div>
       </Card>
 

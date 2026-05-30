@@ -49,6 +49,7 @@ import { ResidentAccessModule } from './resident-access/resident-access.module';
 import { TeamModule } from './team/team.module';
 import { AdminRbacModule } from './rbac/admin-rbac.module';
 import { AssociationContextModule } from './association-context/association-context.module';
+import { ConnectModule } from './connect/connect.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -105,6 +106,7 @@ import { AppController } from './app.controller';
     TeamModule,
     AdminRbacModule,
     AssociationContextModule,
+    ConnectModule,
   ],
   controllers: [AppController],
   providers: [],

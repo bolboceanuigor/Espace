@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, CreditCard, FileText, Home, Printer, ReceiptText, UserRound, WalletCards, XCircle } from 'lucide-react';
+import { ArrowLeft, CreditCard, FileText, Home, MessageCircle, Printer, ReceiptText, UserRound, WalletCards, XCircle } from 'lucide-react';
 import { Badge, Button, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
 import { invoicesApi, paymentsApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
@@ -163,6 +163,9 @@ export default function AdminInvoiceDetailsPage() {
 
   const canRegisterPayment = invoice ? (invoice.status === 'ISSUED' || invoice.status === 'PARTIALLY_PAID') && Number(invoice.balanceAmount || 0) > 0 : false;
   const canCancel = invoice?.status === 'ISSUED';
+  const connectInvoiceHref = invoice
+    ? `/admin/connect?new=1&type=INVOICE&relatedInvoiceId=${encodeURIComponent(invoice.invoiceId || invoice.id)}&apartmentId=${encodeURIComponent(invoice.apartment.id)}&subject=${encodeURIComponent(`Discuție despre factura ${invoice.invoiceNumber}`)}`
+    : '/admin/connect';
 
   return (
     <div className="space-y-5 pb-8">
@@ -224,6 +227,10 @@ export default function AdminInvoiceDetailsPage() {
                     Vezi locatar
                   </ButtonLink>
                 ) : null}
+                <ButtonLink href={connectInvoiceHref} variant="secondary">
+                  <MessageCircle className="h-4 w-4" />
+                  Deschide conversație
+                </ButtonLink>
                 <ButtonLink href={localizedPath(`/admin/invoices/draft/${invoice.sourceDraftId}/review`)} variant="secondary">
                   Vezi draft
                 </ButtonLink>

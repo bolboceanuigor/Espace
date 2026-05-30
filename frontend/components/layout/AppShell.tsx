@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { 
   Bell, Building2, ChevronLeft, CreditCard, FileText, 
-  HelpCircle, Home, ListChecks, LogOut, Search, Settings, Shield,
+  HelpCircle, Home, ListChecks, LogOut, MessageCircle, Search, Settings, Shield,
   Users, X, Menu, BarChart3
 } from 'lucide-react';
 import OrgSwitcher from './OrgSwitcher';
@@ -62,6 +62,7 @@ const ADMIN_NAV = [
   { key: 'resident-readings', label: 'Citiri locatari', href: '/admin/resident-readings', icon: ListChecks },
   { key: 'invoices', label: 'Facturi', href: '/admin/invoices', icon: FileText },
   { key: 'payments', label: 'Plăți', href: '/admin/payments', icon: CreditCard },
+  { key: 'connect', label: 'Connect', href: '/admin/connect', icon: MessageCircle },
   { key: 'reports', label: 'Rapoarte', href: '/admin/reports', icon: BarChart3 },
   { key: 'settings', label: 'Setări', href: '/admin/settings', icon: Settings },
 ];

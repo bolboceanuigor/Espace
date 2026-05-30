@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
 import { formatMdl } from '@/lib/condo-admin-fallback';
-import { adminRbacApi, adminResidentUpdateRequestsApi, billingApi, billingDraftsApi, communicationsApi, dataQualityApi, invitationsApi, invoicesApi, metersApi, onboardingApi, paymentsApi, requestsApi, workbenchApi } from '@/lib/api';
+import { adminRbacApi, adminResidentUpdateRequestsApi, billingApi, billingDraftsApi, communicationsApi, connectApi, dataQualityApi, invitationsApi, invoicesApi, metersApi, onboardingApi, paymentsApi, requestsApi, workbenchApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 type CrmOrganization = {
@@ -297,6 +297,7 @@ export default function AdminPage() {
   const [invoicePublishOverview, setInvoicePublishOverview] = useState<any>(null);
   const [paymentsOverview, setPaymentsOverview] = useState<any>(null);
   const [requestsOverview, setRequestsOverview] = useState<any>(null);
+  const [connectOverview, setConnectOverview] = useState<any>(null);
 
   useEffect(() => {
     let active = true;
@@ -354,6 +355,17 @@ export default function AdminPage() {
       .catch(() => {
         if (!active) return;
         setRequestsOverview(null);
+      });
+
+    connectApi
+      .adminOverview()
+      .then((response) => {
+        if (!active) return;
+        setConnectOverview(response.data || null);
+      })
+      .catch(() => {
+        if (!active) return;
+        setConnectOverview(null);
       });
 
     communicationsApi
@@ -496,6 +508,13 @@ export default function AdminPage() {
         active: Number(paymentsOverview?.paymentsThisMonth || 0) > 0,
       },
       {
+        title: 'Mesaje necitite',
+        value: String(connectOverview?.unreadCount || 0),
+        description: `${connectOverview?.pendingAdminConversations || 0} conversații așteaptă Admin`,
+        href: '/admin/connect',
+        active: Number(connectOverview?.unreadCount || 0) > 0 || Number(connectOverview?.pendingAdminConversations || 0) > 0,
+      },
+      {
         title: 'Solicitări urgente',
         value: String(requestsOverview?.urgentRequests ?? crm.kpis.urgentIssues),
         description: `${requestsOverview?.newRequests ?? 0} noi · ${requestsOverview?.overdueRequests ?? 0} restante`,
@@ -581,7 +600,7 @@ export default function AdminPage() {
         active: Boolean(teamActivityStats?.critical || teamActivityStats?.sensitive || !teamActivityStats),
       },
     ],
-    [announcementStats, billingOverview, crm, dataQualitySummary, invoicePublishOverview, openMeterPeriod, paymentsOverview, pendingUpdateRequests, requestsOverview, teamActivityStats, teamStats],
+    [announcementStats, billingOverview, connectOverview, crm, dataQualitySummary, invoicePublishOverview, openMeterPeriod, paymentsOverview, pendingUpdateRequests, requestsOverview, teamActivityStats, teamStats],
   );
 
   const kpiCards = [
@@ -610,6 +629,13 @@ export default function AdminPage() {
       description: formatMdl(crm.kpis.totalDebt),
       icon: <CreditCard className="h-5 w-5" />,
       tone: crm.kpis.apartmentsWithDebt > 0 ? ('danger' as const) : ('success' as const),
+    },
+    {
+      label: 'Mesaje necitite',
+      value: String(connectOverview?.unreadCount || 0),
+      description: `${connectOverview?.openConversations || 0} conversații deschise`,
+      icon: <MessageCircle className="h-5 w-5" />,
+      tone: Number(connectOverview?.unreadCount || 0) > 0 ? ('warning' as const) : ('neutral' as const),
     },
     {
       label: 'Cereri urgente',
