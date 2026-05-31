@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from './prisma/prisma.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { ApartmentsModule } from './apartments/apartments.module';
@@ -57,6 +58,13 @@ import { AppController } from './app.controller';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    ThrottlerModule.forRoot([
+      {
+        name: 'default',
+        ttl: 60000,
+        limit: 60,
+      },
+    ]),
     PrismaModule,
     OrganizationsModule,
     ApartmentsModule,
