@@ -2,7 +2,16 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { settingsApi } from '@/lib/api';
-import { DEFAULT_BRANDING_MENU, hexToHslTriplet, normalizeMenuConfig, type BrandingMenuItem } from '@/lib/branding';
+import {
+  DEFAULT_BRANDING_MENU,
+  DEFAULT_PRIMARY_COLOR,
+  DEFAULT_SIDEBAR_COLOR,
+  hexToHslTriplet,
+  normalizeMenuConfig,
+  normalizePrimaryColor,
+  normalizeSidebarColor,
+  type BrandingMenuItem,
+} from '@/lib/branding';
 import { useAuth } from './AuthContext';
 
 type BrandingState = {
@@ -22,10 +31,10 @@ type BrandingContextValue = {
 };
 
 const DEFAULT_BRANDING: BrandingState = {
-  appName: 'CondoFlow',
+  appName: 'Espace',
   logoUrl: null,
-  primaryColor: '#2563eb',
-  sidebarColor: '#ffffff',
+  primaryColor: DEFAULT_PRIMARY_COLOR,
+  sidebarColor: DEFAULT_SIDEBAR_COLOR,
   themeMode: 'LIGHT',
   menuConfig: DEFAULT_BRANDING_MENU,
 };
@@ -35,9 +44,12 @@ const BrandingContext = createContext<BrandingContextValue | null>(null);
 function applyBrandingToDom(branding: BrandingState) {
   if (typeof document === 'undefined') return;
   const root = document.documentElement;
-  root.style.setProperty('--primary', hexToHslTriplet(branding.primaryColor));
-  root.style.setProperty('--sidebar-bg', branding.sidebarColor);
-  root.style.setProperty('--brand-primary-hex', branding.primaryColor);
+  const primaryColor = normalizePrimaryColor(branding.primaryColor);
+  const sidebarColor = normalizeSidebarColor(branding.sidebarColor);
+  root.style.setProperty('--primary', hexToHslTriplet(primaryColor));
+  root.style.setProperty('--sidebar-bg', hexToHslTriplet(sidebarColor));
+  root.style.setProperty('--brand-primary-hex', primaryColor);
+  root.style.setProperty('--brand-sidebar-hex', sidebarColor);
   root.dataset.theme = branding.themeMode.toLowerCase();
 }
 
@@ -58,10 +70,10 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
       const response = await settingsApi.get();
       const org = response.data?.org;
       setBrandingState({
-        appName: org?.appName || 'CondoFlow',
+        appName: org?.appName || 'Espace',
         logoUrl: org?.logoUrl || null,
-        primaryColor: org?.primaryColor || '#2563eb',
-        sidebarColor: org?.sidebarColor || '#ffffff',
+        primaryColor: normalizePrimaryColor(org?.primaryColor),
+        sidebarColor: normalizeSidebarColor(org?.sidebarColor),
         themeMode: org?.themeMode === 'DARK' ? 'DARK' : 'LIGHT',
         menuConfig: normalizeMenuConfig(org?.menuConfig),
       });
@@ -89,6 +101,8 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
         setBrandingState((prev) => ({
           ...prev,
           ...next,
+          primaryColor: next.primaryColor ? normalizePrimaryColor(next.primaryColor) : prev.primaryColor,
+          sidebarColor: next.sidebarColor ? normalizeSidebarColor(next.sidebarColor) : prev.sidebarColor,
           menuConfig: next.menuConfig ? normalizeMenuConfig(next.menuConfig) : prev.menuConfig,
         })),
     }),

@@ -11,7 +11,15 @@ import { getApiErrorMessage } from '@/lib/apiError';
 import { Button, PageHeader, useToast } from '@/components/ui';
 import { defaultLocale, isLocale } from '@/i18n';
 import { featureFlags } from '@/lib/featureFlags';
-import { BRANDING_MENU_LABELS, normalizeMenuConfig, type BrandingMenuItem } from '@/lib/branding';
+import {
+  BRANDING_MENU_LABELS,
+  DEFAULT_PRIMARY_COLOR,
+  DEFAULT_SIDEBAR_COLOR,
+  normalizeMenuConfig,
+  normalizePrimaryColor,
+  normalizeSidebarColor,
+  type BrandingMenuItem,
+} from '@/lib/branding';
 
 export default function SettingsPage() {
   const tPages = useTranslations('pages.settings');
@@ -38,8 +46,8 @@ export default function SettingsPage() {
   const [supportEmail, setSupportEmail] = useState('support@espace.md');
   const [appName, setAppName] = useState('Espace');
   const [logoUrl, setLogoUrl] = useState('');
-  const [primaryColor, setPrimaryColor] = useState('#2563eb');
-  const [sidebarColor, setSidebarColor] = useState('#ffffff');
+  const [primaryColor, setPrimaryColor] = useState(DEFAULT_PRIMARY_COLOR);
+  const [sidebarColor, setSidebarColor] = useState(DEFAULT_SIDEBAR_COLOR);
   const [themeMode, setThemeMode] = useState<'LIGHT' | 'DARK'>('LIGHT');
   const [menuConfig, setMenuConfig] = useState<BrandingMenuItem[]>(normalizeMenuConfig([]));
   const [feedbackSubject, setFeedbackSubject] = useState('');
@@ -59,8 +67,8 @@ export default function SettingsPage() {
         setWeekStart((res.data?.org?.weekStart || 'MONDAY') as 'MONDAY' | 'SUNDAY');
         setAppName(res.data?.org?.appName || 'Espace');
         setLogoUrl(res.data?.org?.logoUrl || '');
-        setPrimaryColor(res.data?.org?.primaryColor || '#2563eb');
-        setSidebarColor(res.data?.org?.sidebarColor || '#ffffff');
+        setPrimaryColor(normalizePrimaryColor(res.data?.org?.primaryColor));
+        setSidebarColor(normalizeSidebarColor(res.data?.org?.sidebarColor));
         setThemeMode(res.data?.org?.themeMode === 'DARK' ? 'DARK' : 'LIGHT');
         setMenuConfig(normalizeMenuConfig(res.data?.org?.menuConfig));
         setFirstName(res.data?.profile?.firstName || '');
@@ -90,8 +98,8 @@ export default function SettingsPage() {
         weekStart,
         appName: appName.trim() || 'Espace',
         logoUrl: logoUrl.trim() || '',
-        primaryColor,
-        sidebarColor,
+        primaryColor: normalizePrimaryColor(primaryColor),
+        sidebarColor: normalizeSidebarColor(sidebarColor),
         themeMode,
         menuConfig,
       });

@@ -28,6 +28,35 @@ export const BRANDING_MENU_LABELS: Record<string, string> = {
   settings: 'Setări',
 };
 
+export const DEFAULT_PRIMARY_COLOR = '#145C55';
+export const DEFAULT_SIDEBAR_COLOR = '#0F172A';
+
+function normalizeHexColor(input: string | null | undefined, fallback: string) {
+  const raw = String(input || '').trim();
+  const hex = raw.startsWith('#') ? raw.slice(1) : raw;
+  const normalized = hex.length === 3 ? hex.split('').map((c) => `${c}${c}`).join('') : hex;
+  if (!/^[0-9a-fA-F]{6}$/.test(normalized)) return fallback;
+  return `#${normalized.toUpperCase()}`;
+}
+
+function relativeLuminance(hexColor: string) {
+  const hex = normalizeHexColor(hexColor, '#000000').slice(1);
+  const [r, g, b] = [0, 2, 4].map((offset) => {
+    const channel = parseInt(hex.slice(offset, offset + 2), 16) / 255;
+    return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+export function normalizePrimaryColor(input: string | null | undefined) {
+  return normalizeHexColor(input, DEFAULT_PRIMARY_COLOR);
+}
+
+export function normalizeSidebarColor(input: string | null | undefined) {
+  const normalized = normalizeHexColor(input, DEFAULT_SIDEBAR_COLOR);
+  return relativeLuminance(normalized) > 0.72 ? DEFAULT_SIDEBAR_COLOR : normalized;
+}
+
 export function normalizeMenuConfig(input: unknown): BrandingMenuItem[] {
   const raw = Array.isArray(input) ? input : [];
   const map = new Map<string, BrandingMenuItem>();
@@ -53,11 +82,7 @@ export function normalizeMenuConfig(input: unknown): BrandingMenuItem[] {
 }
 
 export function hexToHslTriplet(hexColor: string): string {
-  const hex = hexColor.replace('#', '').trim();
-  const normalized = hex.length === 3 ? hex.split('').map((c) => `${c}${c}`).join('') : hex;
-  if (!/^[0-9a-fA-F]{6}$/.test(normalized)) {
-    return '220 78% 54%';
-  }
+  const normalized = normalizeHexColor(hexColor, DEFAULT_PRIMARY_COLOR).slice(1);
 
   const r = parseInt(normalized.slice(0, 2), 16) / 255;
   const g = parseInt(normalized.slice(2, 4), 16) / 255;
