@@ -1,5 +1,5 @@
-import { SuperadminNotificationsOverviewPage } from '@/components/notifications/NotificationProviderPages';
+import SuperadminNotificationsCenterPage from '@/components/superadmin/SuperadminNotificationsCenterPage';
 
 export default function Page() {
-  return <SuperadminNotificationsOverviewPage />;
+  return <SuperadminNotificationsCenterPage />;
 }

@@ -18,17 +18,17 @@ export interface KpiCardProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 const variantStyles = {
-  default: 'bg-card border-border/60',
-  accent: 'bg-emerald-50/50 border-emerald-200/60',
-  warning: 'bg-amber-50/50 border-amber-200/60',
-  error: 'bg-rose-50/50 border-rose-200/60',
+  default: 'bg-card border-border/75',
+  accent: 'bg-accent/35 border-primary/15',
+  warning: 'bg-warning/10 border-warning/20',
+  error: 'bg-critical/10 border-critical/20',
 } as const;
 
 const iconVariantStyles = {
   default: 'bg-muted text-muted-foreground',
-  accent: 'bg-emerald-100 text-emerald-600',
-  warning: 'bg-amber-100 text-amber-600',
-  error: 'bg-rose-100 text-rose-600',
+  accent: 'bg-primary/10 text-primary',
+  warning: 'bg-warning/10 text-warning',
+  error: 'bg-critical/10 text-critical',
 } as const;
 
 const sizeStyles = {
@@ -63,28 +63,28 @@ const KpiCard = forwardRef<HTMLDivElement, KpiCardProps>(function KpiCard(
   return (
     <div
       ref={ref}
-      className={`rounded-xl border shadow-card transition-shadow hover:shadow-card-hover ${variantStyles[variant]} ${styles.card} ${className}`.trim()}
+      className={`rounded-2xl border shadow-card transition-all duration-200 hover:border-primary/20 hover:shadow-card-hover ${variantStyles[variant]} ${styles.card} ${className}`.trim()}
       {...props}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <p className={`font-medium text-muted-foreground ${styles.title}`}>{title}</p>
+          <p className={`font-semibold uppercase tracking-[0.08em] text-muted-foreground ${styles.title}`}>{title}</p>
           <p className={`font-semibold text-foreground tracking-tight mt-1 ${styles.value}`}>
             {typeof value === 'number' ? value.toLocaleString('ro-MD') : value}
           </p>
           {subtitle && (
-            <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">{subtitle}</p>
           )}
           {trend && (
             <div className="flex items-center gap-1 mt-2">
               {trendIsPositive ? (
-                <TrendingUp className="size-3.5 text-emerald-600" />
+                <TrendingUp className="size-3.5 text-success" />
               ) : (
-                <TrendingDown className="size-3.5 text-rose-600" />
+                <TrendingDown className="size-3.5 text-critical" />
               )}
               <span
                 className={`text-xs font-medium ${
-                  trendIsPositive ? 'text-emerald-600' : 'text-rose-600'
+                  trendIsPositive ? 'text-success' : 'text-critical'
                 }`}
               >
                 {trend.value > 0 ? '+' : ''}{trend.value}%
@@ -118,9 +118,9 @@ export interface KpiInlineProps {
 
 const inlineVariants = {
   default: 'text-foreground',
-  success: 'text-emerald-600',
-  warning: 'text-amber-600',
-  error: 'text-rose-600',
+  success: 'text-success',
+  warning: 'text-warning',
+  error: 'text-critical',
 } as const;
 
 export function KpiInline({ label, value, variant = 'default' }: KpiInlineProps) {

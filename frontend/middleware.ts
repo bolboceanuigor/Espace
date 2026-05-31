@@ -13,6 +13,7 @@ const PUBLIC_ROUTES = [
   '/reset-password',
   '/accept-invite',
   '/accept-invitation',
+  '/invitatie-admin',
   '/pricing',
   '/features',
   '/contact',

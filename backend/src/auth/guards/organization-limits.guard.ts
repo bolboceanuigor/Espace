@@ -7,6 +7,7 @@ export class OrganizationLimitsGuard implements CanActivate {
 
   private readonly moduleByPrefix: Array<{ prefix: string; moduleKey: string }> = [
     { prefix: '/api/admin/payments', moduleKey: 'payments' },
+    { prefix: '/api/admin/payment-proofs', moduleKey: 'payments' },
     { prefix: '/api/admin/invoices', moduleKey: 'invoices' },
     { prefix: '/api/admin/reports', moduleKey: 'reports' },
     { prefix: '/api/admin/issues', moduleKey: 'issues' },
@@ -45,4 +46,3 @@ export class OrganizationLimitsGuard implements CanActivate {
     return true;
   }
 }
-

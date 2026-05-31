@@ -34,9 +34,9 @@ const sizeStyles = {
 
 const variantColors = {
   default: { stroke: 'stroke-primary', bg: 'stroke-muted' },
-  success: { stroke: 'stroke-emerald-500', bg: 'stroke-emerald-100' },
-  warning: { stroke: 'stroke-amber-500', bg: 'stroke-amber-100' },
-  error: { stroke: 'stroke-rose-500', bg: 'stroke-rose-100' },
+  success: { stroke: 'stroke-success', bg: 'stroke-success/20' },
+  warning: { stroke: 'stroke-warning', bg: 'stroke-warning/20' },
+  error: { stroke: 'stroke-critical', bg: 'stroke-critical/20' },
 } as const;
 
 const ProgressScore = forwardRef<HTMLDivElement, ProgressScoreProps>(function ProgressScore(
@@ -123,9 +123,9 @@ const barSizes = {
 
 const barColors = {
   default: 'bg-primary',
-  success: 'bg-emerald-500',
-  warning: 'bg-amber-500',
-  error: 'bg-rose-500',
+  success: 'bg-success',
+  warning: 'bg-warning',
+  error: 'bg-critical',
 } as const;
 
 export function ProgressBar({

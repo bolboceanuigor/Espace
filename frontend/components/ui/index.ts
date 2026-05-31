@@ -33,6 +33,10 @@ export {
 // Form Components
 export { default as Switch } from './Switch';
 export { default as Input } from './Input';
+export { default as Select } from './Select';
+export type { SelectProps } from './Select';
+export { default as Textarea } from './Textarea';
+export type { TextareaProps } from './Textarea';
 
 // Navigation & Layout
 export { default as Tooltip } from './Tooltip';
@@ -52,6 +56,8 @@ export type { KpiCardProps } from './KpiCard';
 // States
 export { default as EmptyState, EmptyStateInline } from './EmptyState';
 export type { EmptyStateType, EmptyStateProps } from './EmptyState';
+export { default as LoadingSkeleton } from './LoadingSkeleton';
+export { default as ErrorState } from './ErrorState';
 export { default as Skeleton, SkeletonText, SkeletonCard, SkeletonKpiCard, SkeletonTable, SkeletonAvatar, SkeletonButton } from './Skeleton';
 
 // Containers
@@ -71,3 +77,5 @@ export type { ProgressScoreProps, ProgressBarProps } from './ProgressScore';
 // Actions
 export { default as QuickActionCard } from './QuickActionCard';
 export type { QuickActionCardProps } from './QuickActionCard';
+export { default as FeatureActionCard } from './FeatureActionCard';
+export type { FeatureActionCardProps } from './FeatureActionCard';

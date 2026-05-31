@@ -55,12 +55,12 @@ function DataTableInner<T>(
   const allVisibleSelected = data.length > 0 && data.every((item) => selectedIds?.includes(keyExtractor(item)));
 
   return (
-    <div ref={ref} className={`overflow-x-auto ${className}`.trim()}>
+    <div ref={ref} className={`overflow-x-auto rounded-2xl border border-border/80 bg-card shadow-card ${className}`.trim()}>
       <table className="w-full border-collapse">
-        <thead>
-          <tr className={`border-b border-border/60 ${stickyHeader ? 'sticky top-0 bg-card z-10' : ''}`}>
+        <thead className="bg-card">
+          <tr className={`border-b border-border/60 ${stickyHeader ? 'sticky top-0 z-10' : ''}`}>
             {selectionEnabled ? (
-              <th className="w-10 px-4 py-3 text-left">
+              <th className="w-10 px-5 py-3.5 text-left">
                 <input
                   type="checkbox"
                   checked={allVisibleSelected}
@@ -72,13 +72,13 @@ function DataTableInner<T>(
             {columns.map((col) => (
               <th
                 key={col.key}
-                className={`px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide ${alignClass(col.align)}`}
+                className={`px-5 py-3.5 text-xs font-semibold text-muted-foreground uppercase tracking-[0.08em] ${alignClass(col.align)}`}
                 style={{ width: col.width }}
               >
                 {col.sortable && onSort ? (
                   <button
                     type="button"
-                    className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                  className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
                     onClick={() => onSort(col.key)}
                   >
                     {col.header}
@@ -105,7 +105,7 @@ function DataTableInner<T>(
               <tr key={`skeleton-${i}`}>
                 {columns.map((col) => (
                   <td key={col.key} className="px-4 py-3.5">
-                    <div className="h-4 bg-muted/60 rounded animate-pulse" />
+                    <div className="h-4 animate-pulse rounded-full bg-muted/80" />
                   </td>
                 ))}
               </tr>
@@ -114,7 +114,7 @@ function DataTableInner<T>(
             <tr>
               <td colSpan={columns.length + (selectionEnabled ? 1 : 0)} className="px-4 py-8">
                 {emptyState || (
-                  <div className="text-center text-sm text-muted-foreground">
+                  <div className="py-4 text-center text-sm text-muted-foreground">
                     Nu există date de afișat.
                   </div>
                 )}
@@ -126,13 +126,13 @@ function DataTableInner<T>(
                 key={keyExtractor(item)}
                 className={`transition-colors ${
                   onRowClick
-                    ? 'cursor-pointer hover:bg-muted/30'
-                    : 'hover:bg-muted/20'
+                    ? 'cursor-pointer hover:bg-accent/20'
+                    : 'hover:bg-accent/15'
                 }`}
                 onClick={onRowClick ? () => onRowClick(item) : undefined}
               >
                 {selectionEnabled ? (
-                  <td className="px-4 py-3.5" onClick={(event) => event.stopPropagation()}>
+                  <td className="px-5 py-4" onClick={(event) => event.stopPropagation()}>
                     <input
                       type="checkbox"
                       checked={Boolean(selectedIds?.includes(keyExtractor(item)))}
@@ -147,7 +147,7 @@ function DataTableInner<T>(
                 {columns.map((col) => (
                   <td
                     key={col.key}
-                    className={`px-4 py-3.5 text-sm text-foreground ${alignClass(col.align)}`}
+                    className={`px-5 py-4 text-sm text-foreground ${alignClass(col.align)}`}
                   >
                     {col.render
                       ? col.render(item, index)
@@ -174,7 +174,8 @@ export function RowActions({ onClick }: { onClick?: () => void }) {
   return (
     <button
       type="button"
-      className="inline-flex items-center justify-center size-8 rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors"
+      className="inline-flex size-8 items-center justify-center rounded-2xl text-muted-foreground transition-colors hover:bg-accent/35 hover:text-foreground"
+      aria-label="Acțiuni rând"
       onClick={(e) => {
         e.stopPropagation();
         onClick?.();

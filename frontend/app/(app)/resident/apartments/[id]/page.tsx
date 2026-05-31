@@ -151,9 +151,10 @@ const invoiceStatusLabels: Record<InvoiceStatus, string> = {
 
 const requestStatusLabels: Record<string, string> = {
   NEW: 'Nouă',
-  IN_REVIEW: 'În verificare',
+  OPEN: 'Deschisă',
   IN_PROGRESS: 'În lucru',
-  WAITING_FOR_RESIDENT: 'Așteaptă răspunsul tău',
+  WAITING_RESIDENT: 'Așteaptă răspunsul tău',
+  WAITING_VENDOR: 'Așteaptă prestator',
   RESOLVED: 'Rezolvată',
   CLOSED: 'Închisă',
   CANCELLED: 'Anulată',

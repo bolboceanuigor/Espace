@@ -4,10 +4,11 @@ import { BillingReadService } from './billing-read.service';
 import { MvpSecurityModule } from '../security/mvp-security.module';
 import { ActivityMvpModule } from '../activity-mvp/activity-mvp.module';
 import { AuditModule } from '../audit/audit.module';
+import { InvoicePublishingModule } from '../invoice-publishing/invoice-publishing.module';
 import { SaasUsageModule } from '../saas-usage/saas-usage.module';
 
 @Module({
-  imports: [MvpSecurityModule, ActivityMvpModule, AuditModule, SaasUsageModule],
+  imports: [MvpSecurityModule, ActivityMvpModule, AuditModule, SaasUsageModule, InvoicePublishingModule],
   controllers: [BillingReadController],
   providers: [BillingReadService],
 })

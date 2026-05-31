@@ -29,7 +29,7 @@ function ResidentAppShellInner({ children, unreadNotifications = 0, unpaidInvoic
   const organizationName = context.activeAssociation?.shortName || firstApartment?.association?.shortName || 'A.P.C.';
 
   return (
-    <div className="min-h-dvh bg-slate-50 text-slate-900">
+    <div className="min-h-dvh bg-background text-foreground">
       <OfflineBanner />
       <ResidentMobileHeader
         userName={userName}
@@ -45,7 +45,7 @@ function ResidentAppShellInner({ children, unreadNotifications = 0, unpaidInvoic
           <PwaInstallPrompt />
         </div>
         {context.error ? (
-          <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
+          <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900 shadow-card">
             {context.error}
           </div>
         ) : null}

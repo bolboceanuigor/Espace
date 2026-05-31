@@ -11,24 +11,31 @@ import { useLocalizedPath } from '@/lib/use-localized-path';
 
 const statusLabels: Record<string, string> = {
   NEW: 'Nouă',
-  IN_REVIEW: 'În verificare',
+  OPEN: 'Deschisă',
   IN_PROGRESS: 'În lucru',
-  WAITING_FOR_RESIDENT: 'Așteaptă răspunsul tău',
+  WAITING_RESIDENT: 'Așteaptă răspunsul tău',
+  WAITING_VENDOR: 'Așteaptă prestator',
   RESOLVED: 'Rezolvată',
   CLOSED: 'Închisă',
   CANCELLED: 'Anulată',
 };
 
 const categoryLabels: Record<string, string> = {
-  MAINTENANCE: 'Mentenanță',
+  REPAIR: 'Reparație',
+  WATER_LEAK: 'Scurgere apă',
+  ELECTRICITY: 'Electricitate',
+  ELEVATOR: 'Lift',
   CLEANING: 'Curățenie',
-  PAYMENTS: 'Plăți',
+  HEATING: 'Încălzire',
+  INTERCOM: 'Interfon',
+  PARKING: 'Parcare',
+  COURTYARD: 'Curte',
   DOCUMENTS: 'Documente',
-  ACCESS: 'Acces',
-  NOISE: 'Zgomot',
-  COMMON_AREA: 'Spații comune',
-  TECHNICAL: 'Tehnic',
-  OTHER: 'Altul',
+  PAYMENT: 'Plăți',
+  METER: 'Contoare',
+  NEIGHBOR_ISSUE: 'Vecini / zgomot',
+  GENERAL_QUESTION: 'Întrebare generală',
+  OTHER: 'Altceva',
 };
 
 const priorityLabels: Record<string, string> = {
@@ -46,7 +53,7 @@ function formatDate(value?: string | null) {
 function statusVariant(status?: string) {
   if (status === 'RESOLVED' || status === 'CLOSED') return 'success';
   if (status === 'CANCELLED') return 'neutral';
-  if (status === 'WAITING_FOR_RESIDENT') return 'warning';
+  if (status === 'WAITING_RESIDENT' || status === 'WAITING_VENDOR') return 'warning';
   return 'warning';
 }
 
@@ -61,13 +68,23 @@ export default function ResidentRequestsPage() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [category, setCategory] = useState('');
+  const [priority, setPriority] = useState('');
   const [apartmentId, setApartmentId] = useState('');
   const [openOnly, setOpenOnly] = useState(false);
 
   const query = useMemo(
-    () => ({ search, status, category, apartmentId, openOnly, limit: 50 }),
-    [apartmentId, category, openOnly, search, status],
+    () => ({ search, status, category, priority, apartmentId, openOnly, limit: 50 }),
+    [apartmentId, category, openOnly, priority, search, status],
   );
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    setStatus(params.get('status') || '');
+    setCategory(params.get('category') || '');
+    setPriority(params.get('priority') || '');
+    setApartmentId(params.get('apartmentId') || '');
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -93,8 +110,8 @@ export default function ResidentRequestsPage() {
   return (
     <div className="space-y-5 overflow-x-hidden pb-24 md:pb-6">
       <PageHeader
-        title="Solicitările mele"
-        description="Trimite și urmărește solicitările către administrația asociației."
+        title="Cereri către administrație"
+        description="Trimite probleme, întrebări sau solicitări către administrator."
         rightSlot={
           <div className="flex flex-wrap items-center justify-end gap-2">
             <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
@@ -102,18 +119,18 @@ export default function ResidentRequestsPage() {
             </span>
             <ButtonLink href={localizedPath('/resident/requests/new')}>
               <PlusCircle className="h-4 w-4" />
-              Creează solicitare
+              Cerere nouă
             </ButtonLink>
           </div>
         }
       />
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <StatCard label="Total solicitări" value={stats.total || 0} icon={<MessageCircle className="h-5 w-5" />} />
-        <StatCard label="Deschise" value={stats.open || 0} tone={stats.open ? 'warning' : 'success'} />
+        <StatCard label="Cereri deschise" value={stats.open || 0} icon={<MessageCircle className="h-5 w-5" />} tone={stats.open ? 'warning' : 'success'} />
         <StatCard label="În lucru" value={stats.inProgress || 0} icon={<Wrench className="h-5 w-5" />} />
+        <StatCard label="Așteaptă răspunsul tău" value={stats.waitingResident || stats.waitingForResident || 0} tone={stats.waitingResident ? 'warning' : 'neutral'} />
         <StatCard label="Rezolvate" value={stats.resolved || 0} tone="success" />
-        <StatCard label="Ultima solicitare" value={formatDate(stats.lastRequestAt)} icon={<CalendarClock className="h-5 w-5" />} />
+        <StatCard label="Urgente" value={stats.urgent || 0} icon={<CalendarClock className="h-5 w-5" />} tone={stats.urgent ? 'danger' : 'neutral'} />
       </section>
 
       <Card className="space-y-3 p-4">
@@ -121,9 +138,10 @@ export default function ResidentRequestsPage() {
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input className="input pl-10" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Caută titlu, descriere sau număr solicitare" />
         </label>
-        <div className="grid gap-3 md:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-5">
           <Filter value={status} onChange={setStatus} options={statusLabels} placeholder="Status" />
           <Filter value={category} onChange={setCategory} options={categoryLabels} placeholder="Categorie" />
+          <Filter value={priority} onChange={setPriority} options={priorityLabels} placeholder="Prioritate" />
           <select className="select" value={apartmentId} onChange={(event) => setApartmentId(event.target.value)}>
             <option value="">Toate apartamentele</option>
             {apartments.map((apartment) => (
@@ -143,9 +161,9 @@ export default function ResidentRequestsPage() {
       {loading ? <LoadingState label="Se încarcă solicitările..." rows={4} /> : null}
       {!loading && !items.length ? (
         <EmptyState
-          title="Nu ai solicitări trimise"
-          description="Creează o solicitare către administrație pentru probleme, întrebări sau cereri legate de apartament sau spațiile comune."
-          actionLabel="Creează solicitare"
+          title="Nu ai trimis nicio cerere încă."
+          description="Creează o cerere către administrație pentru probleme, întrebări sau solicitări administrative."
+          actionLabel="Trimite prima cerere"
           onAction={() => {
             window.location.href = localizedPath('/resident/requests/new');
           }}
@@ -172,7 +190,7 @@ export default function ResidentRequestsPage() {
                   <Badge variant={request.priority === 'URGENT' ? 'error' : request.priority === 'HIGH' ? 'warning' : 'neutral'}>
                     {priorityLabels[request.priority] || request.priority}
                   </Badge>
-                  {request.lastMessagePreview ? <span className="text-xs text-muted-foreground">Ultimul răspuns: {request.lastMessagePreview}</span> : null}
+                  {request.lastAdminMessageAt ? <span className="text-xs text-muted-foreground">Ultimul răspuns admin: {formatDate(request.lastAdminMessageAt)}</span> : null}
                 </div>
                 <Link href={localizedPath(`/resident/requests/${request.id}`)} className="inline-flex min-h-10 items-center rounded-2xl border border-border/70 px-4 text-sm font-semibold hover:bg-muted/60">
                   Deschide

@@ -25,16 +25,16 @@ const iconMap = {
 } as const;
 
 const toneMap = {
-  COMPLETE: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-  WARNING: 'border-amber-200 bg-amber-50 text-amber-700',
-  ERROR: 'border-rose-200 bg-rose-50 text-rose-700',
-  PENDING: 'border-slate-200 bg-white text-slate-500',
+  COMPLETE: 'border-success/20 bg-success/10 text-success',
+  WARNING: 'border-warning/20 bg-warning/10 text-warning',
+  ERROR: 'border-critical/20 bg-critical/10 text-critical',
+  PENDING: 'border-border bg-white text-muted-foreground',
 } as const;
 
 export default function BillingTimeline({ items }: BillingTimelineProps) {
   return (
     <div className="relative">
-      <div className="hidden absolute left-6 right-6 top-6 h-px bg-slate-200 lg:block" />
+      <div className="absolute left-6 right-6 top-6 hidden h-px bg-border lg:block" />
       <div className="grid gap-3 lg:grid-cols-8">
         {items.map((item, index) => {
           const Icon = iconMap[item.status] || CircleAlert;

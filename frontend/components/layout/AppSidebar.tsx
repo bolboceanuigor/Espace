@@ -16,6 +16,7 @@ import {
   Home,
   ListChecks,
   Megaphone,
+  MessageCircle,
   Receipt,
   Settings,
   ShieldAlert,
@@ -53,12 +54,15 @@ const sections: Array<{
       { label: 'Locatari', href: '/admin/residents', icon: Users, permission: ['RESIDENTS', 'VIEW'] },
       { label: 'Tarife', href: '/admin/tariffs', icon: Calculator, permission: ['TARIFFS', 'VIEW'] },
       { label: 'Contoare', href: '/admin/meters', icon: Gauge, permission: ['METERS', 'VIEW'] },
+      { label: 'Citiri contoare', href: '/admin/meter-readings', icon: ListChecks, permission: ['METER_READINGS', 'VIEW'] },
+      { label: 'Citiri locatari', href: '/admin/resident-readings', icon: ListChecks, permission: ['METER_READINGS', 'VIEW'] },
     ],
   },
   {
     title: 'Financiar',
     items: [
       { label: 'Facturare lunară', href: '/admin/billing', icon: Receipt, permission: ['BILLING', 'VIEW'] },
+      { label: 'Drafturi facturi', href: '/admin/billing-drafts', icon: FileText, permission: ['BILLING', 'VIEW'] },
       { label: 'Facturi interne', href: '/admin/invoices', icon: FileText, permission: ['INVOICES', 'VIEW'] },
       { label: 'Plăți', href: '/admin/payments', icon: CreditCard, permission: ['PAYMENTS', 'VIEW'] },
       { label: 'Reconciliere', href: '/admin/payments/reconciliation', icon: ListChecks, permission: ['RECONCILIATION', 'VIEW'] },
@@ -70,6 +74,7 @@ const sections: Array<{
     items: [
       { label: 'Anunțuri', href: '/admin/announcements', icon: Megaphone, permission: ['ANNOUNCEMENTS', 'VIEW'] },
       { label: 'Solicitări', href: '/admin/requests', icon: CircleAlert, permission: ['REQUESTS', 'VIEW'] },
+      { label: 'Connect', href: '/admin/connect', icon: MessageCircle, permission: ['REQUESTS', 'VIEW'] },
       { label: 'Importuri', href: '/admin/imports', icon: Upload, permission: ['IMPORTS', 'VIEW'] },
       { label: 'Exporturi', href: '/admin/exports', icon: Download, permission: ['EXPORTS', 'VIEW'] },
       { label: 'Calitatea datelor', href: '/admin/data-quality', icon: ListChecks, permission: ['DATA_QUALITY', 'VIEW'] },
@@ -114,13 +119,13 @@ export default function AppSidebar({
   }
 
   return (
-    <aside className="flex h-full min-h-0 w-72 flex-col border-r border-slate-200/80 bg-white/95 text-slate-900 shadow-[16px_0_50px_rgba(15,23,42,0.04)] backdrop-blur-xl">
-      <div className="border-b border-slate-200/80 p-4">
-        <Link href={localizedHref('/admin')} className="flex items-center gap-3 rounded-2xl p-2 transition hover:bg-slate-50" onClick={onNavigate}>
-          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-950 text-sm font-semibold text-white shadow-sm">ES</span>
+    <aside className="flex h-full min-h-0 w-72 flex-col border-r border-white/10 bg-sidebar text-white shadow-[18px_0_54px_rgba(15,23,42,0.20)]">
+      <div className="border-b border-white/10 p-4">
+        <Link href={localizedHref('/admin')} className="flex items-center gap-3 rounded-2xl p-2 transition hover:bg-white/10" onClick={onNavigate}>
+          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-sm font-semibold text-primary shadow-sm">ES</span>
           <span className="min-w-0">
-            <span className="block truncate text-sm font-semibold">{organizationName}</span>
-            <span className="block truncate text-xs text-slate-500">{organizationCode}</span>
+            <span className="block truncate text-sm font-semibold text-white">{organizationName}</span>
+            <span className="block truncate text-xs text-white/50">{organizationCode}</span>
           </span>
         </Link>
       </div>
@@ -136,7 +141,7 @@ export default function AppSidebar({
             if (visibleItems.length === 0) return null;
             return (
             <div key={section.title}>
-              <p className="px-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">{section.title}</p>
+              <p className="px-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/35">{section.title}</p>
               <div className="mt-2 space-y-1">
                 {visibleItems.map((item) => {
                   const Icon = item.icon;
@@ -148,11 +153,11 @@ export default function AppSidebar({
                       onClick={onNavigate}
                       className={`group flex min-h-10 items-center gap-3 rounded-2xl px-3 text-sm font-medium transition ${
                         active
-                          ? 'bg-slate-950 text-white shadow-[0_14px_28px_-20px_rgba(15,23,42,0.9)]'
-                          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950'
+                          ? 'bg-white/15 text-white shadow-[0_16px_32px_-24px_rgba(255,255,255,0.45)]'
+                          : 'text-white/60 hover:bg-white/10 hover:text-white'
                       }`}
                     >
-                      <Icon className={`h-4 w-4 ${active ? 'text-white' : 'text-slate-400 group-hover:text-slate-700'}`} />
+                      <Icon className={`h-4 w-4 ${active ? 'text-white' : 'text-white/55 group-hover:text-white'}`} />
                       <span className="truncate">{item.label}</span>
                     </Link>
                   );
@@ -164,12 +169,12 @@ export default function AppSidebar({
         </div>
       </nav>
 
-      <div className="border-t border-slate-200/80 p-4">
-        <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-xs font-semibold text-slate-900 shadow-sm">{userInitials}</span>
+      <div className="border-t border-white/10 p-4">
+        <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/10 p-3">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-xs font-semibold text-primary shadow-sm">{userInitials}</span>
           <span className="min-w-0">
-            <span className="block truncate text-xs font-semibold text-slate-900">Administrator</span>
-            <span className="block truncate text-xs text-slate-500">{userEmail}</span>
+            <span className="block truncate text-xs font-semibold text-white">Administrator</span>
+            <span className="block truncate text-xs text-white/50">{userEmail}</span>
           </span>
         </div>
       </div>

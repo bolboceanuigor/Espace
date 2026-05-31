@@ -19,6 +19,7 @@ import {
   ResidentPortalAccessStatus,
   ResidentPortalInvitationStatus,
   ResidentInvoiceStatus,
+  ResidentType,
   Role,
 } from '@prisma/client';
 import { randomUUID } from 'crypto';
@@ -183,6 +184,35 @@ function monthFromDate(value: Date | string) {
 function fullName(resident?: { firstName?: string | null; lastName?: string | null; email?: string | null; phone?: string | null } | null) {
   const name = [resident?.firstName, resident?.lastName].filter(Boolean).join(' ').trim();
   return name || resident?.email || resident?.phone || 'Locatar';
+}
+
+function normalizeTextKey(value?: string | null) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ');
+}
+
+function normalizeApartmentNumber(value?: string | null) {
+  const normalized = normalizeTextKey(value).replace(/\s+/g, '');
+  return normalized.replace(/^0+(\d)/, '$1');
+}
+
+function normalizePhone(value?: string | null) {
+  const digits = String(value || '').replace(/\D/g, '');
+  return digits.length >= 6 ? digits : '';
+}
+
+function normalizeEmail(value?: string | null) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function isValidEmail(value?: string | null) {
+  const email = normalizeEmail(value);
+  if (!email) return true;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
 function scoreFromCounts(critical: number, warning: number, info: number) {
@@ -559,6 +589,7 @@ export class DataQualityService {
           email: true,
           accountStatus: true,
           portalAccessStatus: true,
+          type: true,
           userId: true,
           apartmentId: true,
           isPrimary: true,
@@ -823,10 +854,22 @@ export class DataQualityService {
       });
     }
 
-    const apartmentNumbers = new Map<string, typeof ctx.apartments>();
+    const apartmentNumbers = new Map<string, { label: string; rows: typeof ctx.apartments }>();
     ctx.apartments.forEach((apartment) => {
-      const key = String(apartment.number || '').trim().toLowerCase();
-      apartmentNumbers.set(key, [...(apartmentNumbers.get(key) || []), apartment]);
+      const numberKey = normalizeApartmentNumber(apartment.number);
+      const locationKey = [
+        apartment.building?.id || normalizeTextKey(apartment.building?.name) || 'missing-building',
+        apartment.staircase?.id || normalizeTextKey(apartment.staircase?.name) || 'missing-staircase',
+        numberKey,
+      ].join(':');
+      if (numberKey) {
+        const current = apartmentNumbers.get(locationKey) || {
+          label: `${apartment.building?.name || 'fără bloc'} / ${apartment.staircase?.name || 'fără scară'} / ap. ${apartment.number}`,
+          rows: [],
+        };
+        current.rows.push(apartment);
+        apartmentNumbers.set(locationKey, current);
+      }
       if (!String(apartment.number || '').trim()) {
         this.issue(issues, {
           key: `APARTMENT_MISSING_NUMBER:${apartment.id}`,
@@ -855,6 +898,21 @@ export class DataQualityService {
           billingImpact: DataQualityBillingImpact.AFFECTS_BILLING,
         });
       }
+      if (!apartment.building?.name) {
+        this.issue(issues, {
+          key: `APARTMENT_WITHOUT_BUILDING:${apartment.id}`,
+          category: DataQualityCategory.APARTMENTS,
+          severity: DataQualitySeverity.WARNING,
+          entityType: DataQualityEntityType.APARTMENT,
+          entityId: apartment.id,
+          title: 'Apartament fără bloc',
+          description: `Apartamentul ${apartment.number || '-'} nu are blocul completat.`,
+          recommendation: 'Completează blocul înainte de verificarea finală a importului.',
+          actionUrl: `/admin/apartments/${apartment.id}`,
+          billingImpact: DataQualityBillingImpact.AFFECTS_BILLING,
+          metadata: { es177Type: 'MISSING_BUILDING' },
+        });
+      }
       if (!apartment.staircase?.name) {
         this.issue(issues, {
           key: `APARTMENT_WITHOUT_STAIRCASE:${apartment.id}`,
@@ -866,6 +924,7 @@ export class DataQualityService {
           description: `Apartamentul ${apartment.number || '-'} nu are scara completată.`,
           recommendation: 'Completează scara pentru filtre și rapoarte mai clare.',
           actionUrl: `/admin/apartments/${apartment.id}`,
+          metadata: { es177Type: 'MISSING_ENTRANCE' },
         });
       }
       if (apartment.status === ApartmentStatus.EMPTY) {
@@ -882,6 +941,24 @@ export class DataQualityService {
         });
       }
       const primaryContacts = apartment.apartmentResidents.filter((item) => item.isPrimary);
+      const hasOwner =
+        Boolean(apartment.ownerResident) ||
+        apartment.apartmentResidents.some((item) => item.role === ApartmentResidentRole.OWNER);
+      if (!hasOwner) {
+        this.issue(issues, {
+          key: `APARTMENT_WITHOUT_OWNER:${apartment.id}`,
+          category: DataQualityCategory.RESIDENTS,
+          severity: DataQualitySeverity.CRITICAL,
+          entityType: DataQualityEntityType.APARTMENT,
+          entityId: apartment.id,
+          title: 'Apartament fără proprietar',
+          description: `Apartamentul ${apartment.number || '-'} nu are proprietar asociat.`,
+          recommendation: 'Leagă proprietarul real de apartament înainte de facturare.',
+          actionUrl: `/admin/apartments/${apartment.id}`,
+          billingImpact: DataQualityBillingImpact.BLOCKS_BILLING,
+          metadata: { es177Type: 'APARTMENT_WITHOUT_OWNER' },
+        });
+      }
       if (!primaryContacts.length && !apartment.ownerResident) {
         this.issue(issues, {
           key: `APARTMENT_WITHOUT_PRIMARY_CONTACT:${apartment.id}`,
@@ -908,6 +985,7 @@ export class DataQualityService {
           recommendation: 'Leagă proprietarul sau reprezentantul de apartament.',
           actionUrl: `/admin/apartments/${apartment.id}`,
           billingImpact: DataQualityBillingImpact.AFFECTS_BILLING,
+          metadata: { es177Type: 'APARTMENT_WITHOUT_RESIDENT' },
         });
       }
       if (primaryContacts.length > 1) {
@@ -941,19 +1019,20 @@ export class DataQualityService {
         }
       });
     });
-    for (const [number, rows] of apartmentNumbers.entries()) {
-      if (number && rows.length > 1) {
+    for (const [key, group] of apartmentNumbers.entries()) {
+      const rows = group.rows;
+      if (key && rows.length > 1) {
         this.issue(issues, {
-          key: `APARTMENT_DUPLICATE_NUMBER:${number}`,
+          key: `DUPLICATE_APARTMENT:${key}`,
           category: DataQualityCategory.APARTMENTS,
-          severity: DataQualitySeverity.WARNING,
+          severity: DataQualitySeverity.CRITICAL,
           entityType: DataQualityEntityType.SYSTEM,
           title: 'Număr de apartament duplicat',
-          description: `Numărul ${rows[0]?.number} apare la ${rows.length} apartamente.`,
-          recommendation: 'Verifică scările și numerotarea apartamentelor.',
+          description: `${group.label} apare la ${rows.length} apartamente.`,
+          recommendation: 'Păstrează un singur apartament real și corectează sau arhivează duplicatele.',
           actionUrl: '/admin/apartments',
-          billingImpact: DataQualityBillingImpact.AFFECTS_BILLING,
-          metadata: { apartmentIds: rows.map((row) => row.id) },
+          billingImpact: DataQualityBillingImpact.BLOCKS_BILLING,
+          metadata: { es177Type: 'DUPLICATE_APARTMENT', apartmentIds: rows.map((row) => row.id) },
         });
       }
     }
@@ -972,6 +1051,36 @@ export class DataQualityService {
       });
     }
     ctx.residents.forEach((resident) => {
+      if (!resident.phone) {
+        this.issue(issues, {
+          key: `RESIDENT_MISSING_PHONE:${resident.id}`,
+          category: DataQualityCategory.RESIDENTS,
+          severity: DataQualitySeverity.WARNING,
+          entityType: DataQualityEntityType.RESIDENT,
+          entityId: resident.id,
+          title: 'Telefon lipsă',
+          description: `${fullName(resident)} nu are telefon completat.`,
+          recommendation: 'Completează telefonul real pentru contact și follow-up.',
+          actionUrl: `/admin/residents/${resident.id}`,
+          billingImpact: DataQualityBillingImpact.AFFECTS_BILLING,
+          metadata: { es177Type: 'MISSING_PHONE' },
+        });
+      }
+      if (resident.email && !isValidEmail(resident.email)) {
+        this.issue(issues, {
+          key: `RESIDENT_INVALID_EMAIL:${resident.id}`,
+          category: DataQualityCategory.RESIDENTS,
+          severity: DataQualitySeverity.WARNING,
+          entityType: DataQualityEntityType.RESIDENT,
+          entityId: resident.id,
+          title: 'Email invalid',
+          description: `${fullName(resident)} are un email care nu pare valid.`,
+          recommendation: 'Corectează emailul sau lasă câmpul gol dacă nu există o adresă confirmată.',
+          actionUrl: `/admin/residents/${resident.id}`,
+          billingImpact: DataQualityBillingImpact.AFFECTS_BILLING,
+          metadata: { es177Type: 'INVALID_EMAIL', email: resident.email },
+        });
+      }
       if (!resident.phone && !resident.email) {
         this.issue(issues, {
           key: `RESIDENT_WITHOUT_CONTACT:${resident.id}`,
@@ -1045,6 +1154,44 @@ export class DataQualityService {
         });
       }
     });
+
+    const duplicateResidentGroups = (label: 'OWNER' | 'RESIDENT', rows: typeof ctx.residents) => {
+      const groups = new Map<string, { label: string; residents: typeof ctx.residents }>();
+      rows.forEach((resident) => {
+        const email = normalizeEmail(resident.email);
+        const phone = normalizePhone(resident.phone);
+        const name = normalizeTextKey([resident.firstName, resident.lastName].filter(Boolean).join(' '));
+        const identity = email ? `email:${email}` : phone ? `phone:${phone}` : name ? `name:${name}` : '';
+        if (!identity) return;
+        const current = groups.get(identity) || { label: fullName(resident), residents: [] };
+        current.residents.push(resident);
+        groups.set(identity, current);
+      });
+      for (const [identity, group] of groups.entries()) {
+        if (group.residents.length <= 1) continue;
+        const issueType = label === 'OWNER' ? 'DUPLICATE_OWNER' : 'DUPLICATE_RESIDENT';
+        this.issue(issues, {
+          key: `${issueType}:${identity}`,
+          category: DataQualityCategory.RESIDENTS,
+          severity: DataQualitySeverity.WARNING,
+          entityType: DataQualityEntityType.SYSTEM,
+          title: label === 'OWNER' ? 'Proprietar posibil duplicat' : 'Locatar posibil duplicat',
+          description: `${group.label} apare în ${group.residents.length} profiluri similare.`,
+          recommendation: 'Verifică profilurile și păstrează o singură înregistrare reală înainte de facturare.',
+          actionUrl: `/admin/residents?search=${encodeURIComponent(group.label)}`,
+          billingImpact: DataQualityBillingImpact.AFFECTS_BILLING,
+          metadata: { es177Type: issueType, residentIds: group.residents.map((item) => item.id), identity },
+        });
+      }
+    };
+    const ownerResidents = ctx.residents.filter(
+      (resident) =>
+        resident.type === ResidentType.OWNER ||
+        resident.apartmentResidents.some((relation) => relation.role === ApartmentResidentRole.OWNER),
+    );
+    const nonOwnerResidents = ctx.residents.filter((resident) => !ownerResidents.some((owner) => owner.id === resident.id));
+    duplicateResidentGroups('OWNER', ownerResidents);
+    duplicateResidentGroups('RESIDENT', nonOwnerResidents);
 
     const activeTariffs = ctx.tariffs.filter((tariff) => tariff.status === 'ACTIVE');
     if (!activeTariffs.length) {
@@ -1686,9 +1833,11 @@ export class DataQualityService {
   }
 
   private serializeIssue(issue: any) {
+    const es177Type = this.es177IssueType(issue);
     return {
       id: issue.id,
       key: issue.key,
+      type: es177Type,
       category: issue.category,
       categoryLabel: CATEGORY_LABELS[issue.category as DataQualityCategory] || issue.category,
       severity: issue.severity,
@@ -1707,6 +1856,69 @@ export class DataQualityService {
       ignoreReason: issue.ignoreReason || null,
       runId: issue.runId || null,
       quickFixes: this.quickFixes(issue),
+    };
+  }
+
+  private es177IssueType(issue: any) {
+    const metadataType = isRecord(issue?.metadata) ? optionalString(issue.metadata.es177Type) : '';
+    if (metadataType) return metadataType;
+    const key = String(issue?.key || '');
+    if (key.startsWith('DUPLICATE_APARTMENT:') || key.startsWith('APARTMENT_DUPLICATE_NUMBER:')) return 'DUPLICATE_APARTMENT';
+    if (key.startsWith('APARTMENT_WITHOUT_OWNER:')) return 'APARTMENT_WITHOUT_OWNER';
+    if (key.startsWith('APARTMENT_WITHOUT_RESIDENTS:')) return 'APARTMENT_WITHOUT_RESIDENT';
+    if (key.startsWith('DUPLICATE_OWNER:')) return 'DUPLICATE_OWNER';
+    if (key.startsWith('DUPLICATE_RESIDENT:')) return 'DUPLICATE_RESIDENT';
+    if (key.startsWith('RESIDENT_MISSING_PHONE:')) return 'MISSING_PHONE';
+    if (key.startsWith('RESIDENT_INVALID_EMAIL:')) return 'INVALID_EMAIL';
+    if (key.startsWith('APARTMENT_MISSING_AREA:')) return 'MISSING_SURFACE';
+    if (key.startsWith('APARTMENT_WITHOUT_BUILDING:')) return 'MISSING_BUILDING';
+    if (key.startsWith('APARTMENT_WITHOUT_STAIRCASE:')) return 'MISSING_ENTRANCE';
+    return null;
+  }
+
+  private es177KeyPrefixes(type: string) {
+    const normalized = optionalString(type).toUpperCase();
+    const prefixes: Record<string, string[]> = {
+      DUPLICATE_APARTMENT: ['DUPLICATE_APARTMENT:', 'APARTMENT_DUPLICATE_NUMBER:'],
+      APARTMENT_WITHOUT_OWNER: ['APARTMENT_WITHOUT_OWNER:'],
+      APARTMENT_WITHOUT_RESIDENT: ['APARTMENT_WITHOUT_RESIDENTS:'],
+      DUPLICATE_OWNER: ['DUPLICATE_OWNER:'],
+      DUPLICATE_RESIDENT: ['DUPLICATE_RESIDENT:'],
+      MISSING_PHONE: ['RESIDENT_MISSING_PHONE:'],
+      INVALID_EMAIL: ['RESIDENT_INVALID_EMAIL:'],
+      MISSING_SURFACE: ['APARTMENT_MISSING_AREA:'],
+      MISSING_BUILDING: ['APARTMENT_WITHOUT_BUILDING:'],
+      MISSING_ENTRANCE: ['APARTMENT_WITHOUT_STAIRCASE:'],
+    };
+    return prefixes[normalized] || [];
+  }
+
+  private es177IssueTypes() {
+    return [
+      'DUPLICATE_APARTMENT',
+      'APARTMENT_WITHOUT_OWNER',
+      'APARTMENT_WITHOUT_RESIDENT',
+      'DUPLICATE_OWNER',
+      'DUPLICATE_RESIDENT',
+      'MISSING_PHONE',
+      'INVALID_EMAIL',
+      'MISSING_SURFACE',
+      'MISSING_BUILDING',
+      'MISSING_ENTRANCE',
+    ];
+  }
+
+  private es177TypeCondition(type: string): Prisma.DataQualityIssueWhereInput | null {
+    const prefixes = this.es177KeyPrefixes(type);
+    if (!prefixes.length) return null;
+    return { OR: prefixes.map((prefix) => ({ key: { startsWith: prefix } })) };
+  }
+
+  private es177ScopeCondition(): Prisma.DataQualityIssueWhereInput {
+    return {
+      OR: this.es177IssueTypes()
+        .flatMap((type) => this.es177KeyPrefixes(type))
+        .map((prefix) => ({ key: { startsWith: prefix } })),
     };
   }
 
@@ -2733,6 +2945,129 @@ export class DataQualityService {
     };
   }
 
+  async es177Overview(user: MvpUser, query: Record<string, unknown> = {}, activeOrganizationId?: string) {
+    const { associationId } = this.assertAdmin(user, activeOrganizationId);
+    const base = await this.overview(user, query, activeOrganizationId);
+    const openScope: Prisma.DataQualityIssueWhereInput = {
+      associationId,
+      status: DataQualityIssueStatus.OPEN,
+      AND: [this.es177ScopeCondition()],
+    };
+    const countByType = async (type: string) => {
+      const condition = this.es177TypeCondition(type);
+      return this.prisma.dataQualityIssue.count({
+        where: {
+          associationId,
+          status: DataQualityIssueStatus.OPEN,
+          ...(condition ? { AND: [condition] } : {}),
+        },
+      });
+    };
+    const [
+      totalApartments,
+      apartmentsWithoutOwner,
+      apartmentsWithoutResident,
+      duplicateApartments,
+      duplicateOwners,
+      duplicateResidents,
+      missingPhones,
+      invalidEmails,
+      missingSurface,
+      missingBuilding,
+      missingEntrance,
+      issuesCount,
+      criticalIssuesCount,
+      warningsCount,
+    ] = await Promise.all([
+      this.prisma.apartment.count({ where: { organizationId: associationId, archivedAt: null } }),
+      countByType('APARTMENT_WITHOUT_OWNER'),
+      countByType('APARTMENT_WITHOUT_RESIDENT'),
+      countByType('DUPLICATE_APARTMENT'),
+      countByType('DUPLICATE_OWNER'),
+      countByType('DUPLICATE_RESIDENT'),
+      countByType('MISSING_PHONE'),
+      countByType('INVALID_EMAIL'),
+      countByType('MISSING_SURFACE'),
+      countByType('MISSING_BUILDING'),
+      countByType('MISSING_ENTRANCE'),
+      this.prisma.dataQualityIssue.count({ where: openScope }),
+      this.prisma.dataQualityIssue.count({ where: { ...openScope, severity: DataQualitySeverity.CRITICAL } }),
+      this.prisma.dataQualityIssue.count({ where: { ...openScope, severity: { in: [DataQualitySeverity.WARNING, DataQualitySeverity.INFO] } } }),
+    ]);
+    const recommendations = [
+      duplicateApartments ? 'Verifică apartamentele duplicate înainte de facturare.' : null,
+      apartmentsWithoutOwner ? 'Leagă proprietarii reali de apartamentele fără proprietar.' : null,
+      apartmentsWithoutResident ? 'Completează locatarii sau reprezentanții pentru apartamentele goale.' : null,
+      duplicateOwners || duplicateResidents ? 'Revizuiește profilurile duplicate de proprietari și locatari.' : null,
+      missingPhones || invalidEmails ? 'Corectează datele de contact lipsă sau invalide.' : null,
+      missingSurface || missingBuilding || missingEntrance ? 'Completează structura și suprafețele lipsă importate.' : null,
+    ].filter(Boolean);
+    return {
+      ...base,
+      totalApartments,
+      apartmentsWithoutOwner,
+      apartmentsWithoutResident,
+      duplicateApartments,
+      duplicateOwners,
+      duplicateResidents,
+      missingPhones,
+      invalidEmails,
+      missingSurface,
+      missingBuildingOrEntrance: missingBuilding + missingEntrance,
+      issuesCount,
+      criticalIssuesCount,
+      warningsCount,
+      recommendations,
+    };
+  }
+
+  async recalculateEs177(user: MvpUser, body: Record<string, unknown> = {}, activeOrganizationId?: string) {
+    const { associationId, actorUserId } = this.assertAdmin(user, activeOrganizationId);
+    await this.run(user, body, activeOrganizationId);
+    await this.audit.createLog({
+      associationId,
+      actorUserId,
+      actorRole: 'ADMIN',
+      action: 'DATA_QUALITY_RECALCULATED',
+      entityType: 'SYSTEM',
+      entityId: associationId,
+      title: 'Calitatea datelor recalculată',
+      message: 'Problemele de calitate a datelor au fost recalculate din date reale.',
+      severity: 'INFO',
+      metadata: { billingMonth: parseBillingMonth(body?.billingMonth), source: 'ES-177' },
+      actionUrl: '/admin/data-quality',
+    }).catch(() => null);
+    return {
+      ...(await this.es177Overview(user, body, activeOrganizationId)),
+      recalculated: true,
+    };
+  }
+
+  async resolveEs177Issue(user: MvpUser, body: Record<string, unknown> = {}, activeOrganizationId?: string) {
+    const { associationId } = this.assertAdmin(user, activeOrganizationId);
+    const action = optionalString(body.action).toUpperCase() || 'MARK_RESOLVED';
+    if (action !== 'MARK_RESOLVED') throw new BadRequestException('Acțiunea suportată acum este MARK_RESOLVED.');
+    const issueId = optionalString(body.issueId);
+    if (issueId) return this.resolveIssue(user, issueId, { note: optionalString(body.note) || 'Rezolvat din Data Quality.' }, activeOrganizationId);
+    const issueType = optionalString(body.issueType).toUpperCase();
+    const entityId = optionalString(body.entityId);
+    if (!issueType) throw new BadRequestException('issueType este obligatoriu.');
+    const condition = this.es177TypeCondition(issueType);
+    if (!condition) throw new BadRequestException('Tipul problemei nu este valid.');
+    const issue = await this.prisma.dataQualityIssue.findFirst({
+      where: {
+        associationId,
+        status: DataQualityIssueStatus.OPEN,
+        ...(entityId ? { entityId } : {}),
+        AND: [condition],
+      },
+      orderBy: [{ severity: 'asc' }, { detectedAt: 'desc' }],
+      select: { id: true },
+    });
+    if (!issue) throw new NotFoundException('Problema nu a fost găsită sau este deja rezolvată.');
+    return this.resolveIssue(user, issue.id, { note: optionalString(body.note) || 'Rezolvat din Data Quality.' }, activeOrganizationId);
+  }
+
   async run(user: MvpUser, body: Record<string, unknown> = {}, activeOrganizationId?: string) {
     const { associationId, actorUserId } = this.assertAdmin(user, activeOrganizationId);
     const billingMonth = parseBillingMonth(body?.billingMonth);
@@ -2776,6 +3111,11 @@ export class DataQualityService {
   async listIssues(user: MvpUser, query: Record<string, unknown> = {}, activeOrganizationId?: string) {
     const { associationId } = this.assertAdmin(user, activeOrganizationId);
     const { page, limit, skip } = resolvePagination(query);
+    const filters: Prisma.DataQualityIssueWhereInput[] = [];
+    const requestedType = optionalString(query.type).toUpperCase();
+    const typeCondition = requestedType ? this.es177TypeCondition(requestedType) : null;
+    if (typeCondition) filters.push(typeCondition);
+    if (optionalString(query.scope).toUpperCase() === 'ES177') filters.push(this.es177ScopeCondition());
     const where: Prisma.DataQualityIssueWhereInput = {
       associationId,
       ...(optionalString(query.category) ? { category: optionalString(query.category) as DataQualityCategory } : {}),
@@ -2794,14 +3134,17 @@ export class DataQualityService {
     };
     const search = optionalString(query.search);
     if (search) {
-      where.OR = [
-        { title: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-        { recommendation: { contains: search, mode: 'insensitive' } },
-        { key: { contains: search, mode: 'insensitive' } },
-        { entityId: { contains: search, mode: 'insensitive' } },
-      ];
+      filters.push({
+        OR: [
+          { title: { contains: search, mode: 'insensitive' } },
+          { description: { contains: search, mode: 'insensitive' } },
+          { recommendation: { contains: search, mode: 'insensitive' } },
+          { key: { contains: search, mode: 'insensitive' } },
+          { entityId: { contains: search, mode: 'insensitive' } },
+        ],
+      });
     }
+    if (filters.length) where.AND = filters;
     const orderBy = this.issueOrderBy(query);
     const [items, total, stats] = await Promise.all([
       this.prisma.dataQualityIssue.findMany({ where, orderBy, skip, take: limit }),

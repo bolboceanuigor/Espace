@@ -29,6 +29,15 @@ export class DataQualityController {
     return this.dataQualityService.overview(user, query, activeOrganizationId);
   }
 
+  @Get(['admin/data-quality/overview', 'api/admin/data-quality/overview'])
+  es177Overview(
+    @CurrentUser() user: MvpUser,
+    @Query() query: Record<string, unknown>,
+    @Headers('x-org-id') activeOrganizationId?: string,
+  ) {
+    return this.dataQualityService.es177Overview(user, query, activeOrganizationId);
+  }
+
   @Post(['admin/data-quality/run', 'api/admin/data-quality/run'])
   @RequirePermission('DATA_QUALITY', 'MANAGE')
   async run(
@@ -38,6 +47,17 @@ export class DataQualityController {
   ) {
     await this.saasLimits.assertFeatureEnabled(activeOrganizationId || user.organizationId, 'dataQuality', user);
     return this.dataQualityService.run(user, body, activeOrganizationId);
+  }
+
+  @Post(['admin/data-quality/recalculate', 'api/admin/data-quality/recalculate'])
+  @RequirePermission('DATA_QUALITY', 'MANAGE')
+  async recalculate(
+    @CurrentUser() user: MvpUser,
+    @Body() body: Record<string, unknown>,
+    @Headers('x-org-id') activeOrganizationId?: string,
+  ) {
+    await this.saasLimits.assertFeatureEnabled(activeOrganizationId || user.organizationId, 'dataQuality', user);
+    return this.dataQualityService.recalculateEs177(user, body, activeOrganizationId);
   }
 
   @Get(['admin/data-quality/stats', 'api/admin/data-quality/stats'])
@@ -249,6 +269,16 @@ export class DataQualityController {
     @Headers('x-org-id') activeOrganizationId?: string,
   ) {
     return this.dataQualityService.applyBulkFix(user, body, activeOrganizationId);
+  }
+
+  @Patch(['admin/data-quality/resolve', 'api/admin/data-quality/resolve'])
+  @RequirePermission('DATA_QUALITY', 'MANAGE')
+  resolveEs177Issue(
+    @CurrentUser() user: MvpUser,
+    @Body() body: Record<string, unknown>,
+    @Headers('x-org-id') activeOrganizationId?: string,
+  ) {
+    return this.dataQualityService.resolveEs177Issue(user, body, activeOrganizationId);
   }
 
   @Patch(['admin/data-quality/issues/:id/resolve', 'api/admin/data-quality/issues/:id/resolve'])
