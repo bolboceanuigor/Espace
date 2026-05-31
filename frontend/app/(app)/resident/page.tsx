@@ -19,7 +19,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import { Badge, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
-import { communicationsApi, metersApi, requestsApi, residentDemoApi } from '@/lib/api';
+import { communicationsApi, connectApi, invoicesApi, metersApi, requestsApi, residentBalanceApi, residentDemoApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
@@ -150,6 +150,31 @@ type ResidentDashboard = {
   emptyStateMessage?: string | null;
 };
 
+type ResidentInvoicesOverview = {
+  totalPublishedInvoices: number;
+  unpaidInvoices: number;
+  paidInvoices: number;
+  partiallyPaidInvoices: number;
+  overdueInvoices: number;
+  totalUnpaidAmount: number;
+  totalOverdueAmount: number;
+  nextDueInvoice?: { invoiceNumber?: string | null; dueDate?: string | null; remainingAmount?: number; billingMonth?: string | null } | null;
+  lastPublishedInvoice?: { invoiceNumber?: string | null; publishedAt?: string | null; billingMonth?: string | null } | null;
+  apartmentsCount: number;
+  currency: 'MDL';
+};
+
+type ResidentBalanceOverview = {
+  totalUnpaidAmount: number;
+  totalOverdueAmount: number;
+  unpaidInvoicesCount: number;
+  overdueInvoicesCount: number;
+  pendingPaymentProofsCount: number;
+  rejectedPaymentProofsCount?: number;
+  nextDueInvoice?: { dueDate?: string | null; invoiceNumber?: string | null } | null;
+  lastPayment?: { paidAt?: string | null; acceptedAt?: string | null; amount?: number | null } | null;
+};
+
 const emptyDashboard: ResidentDashboard = {
   user: { id: '', fullName: 'Locatar' },
   association: {
@@ -219,9 +244,10 @@ const announcementCategoryLabels: Record<string, string> = {
 
 const requestStatusLabels: Record<string, string> = {
   NEW: 'Nouă',
-  IN_REVIEW: 'În verificare',
+  OPEN: 'Deschisă',
   IN_PROGRESS: 'În lucru',
-  WAITING_FOR_RESIDENT: 'Așteaptă răspunsul tău',
+  WAITING_RESIDENT: 'Așteaptă răspunsul tău',
+  WAITING_VENDOR: 'Așteaptă prestator',
   RESOLVED: 'Rezolvată',
   CLOSED: 'Închisă',
   CANCELLED: 'Anulată',
@@ -292,6 +318,10 @@ export default function ResidentDashboardPage() {
   const [recentRequests, setRecentRequests] = useState<RecentRequest[]>([]);
   const [requestStats, setRequestStats] = useState<any>({});
   const [meterStats, setMeterStats] = useState<any>({});
+  const [readingPeriodSummary, setReadingPeriodSummary] = useState<any>(null);
+  const [invoiceOverview, setInvoiceOverview] = useState<ResidentInvoicesOverview | null>(null);
+  const [balanceOverview, setBalanceOverview] = useState<ResidentBalanceOverview | null>(null);
+  const [connectOverview, setConnectOverview] = useState<any>(null);
 
   useEffect(() => {
     let active = true;
@@ -364,12 +394,76 @@ export default function ResidentDashboardPage() {
         if (!active) return;
         setMeterStats({});
       });
+    metersApi
+      .getResidentMeterReadingPeriods()
+      .then((response) => {
+        if (!active) return;
+        const period = (response.data?.items || []).find((item: any) => Number(item.missingCount || 0) > 0 || Number(item.rejectedCount || 0) > 0);
+        setReadingPeriodSummary(period || null);
+      })
+      .catch(() => {
+        if (!active) return;
+        setReadingPeriodSummary(null);
+      });
     return () => {
       active = false;
     };
   }, [selectedApartmentId]);
 
+  useEffect(() => {
+    let active = true;
+    invoicesApi
+      .getResidentInvoicesOverview()
+      .then((response) => {
+        if (!active) return;
+        setInvoiceOverview(response.data || null);
+      })
+      .catch(() => {
+        if (!active) return;
+        setInvoiceOverview(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    residentBalanceApi
+      .getResidentBalanceOverview()
+      .then((response) => {
+        if (!active) return;
+        setBalanceOverview(response.data || null);
+      })
+      .catch(() => {
+        if (!active) return;
+        setBalanceOverview(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    connectApi
+      .residentOverview()
+      .then((response) => {
+        if (!active) return;
+        setConnectOverview(response.data || null);
+      })
+      .catch(() => {
+        if (!active) return;
+        setConnectOverview(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const summary = dashboard.financialSummary;
+  const currentBalance = balanceOverview?.totalUnpaidAmount ?? summary.currentBalance;
+  const overdueBalance = balanceOverview?.totalOverdueAmount ?? 0;
   const currentStatus = useMemo(() => statusCopy(summary), [summary]);
   const apartmentLabel = dashboard.apartments.length
     ? dashboard.apartments.map((apartment) => `Apt. ${apartment.apartmentNumber}`).join(', ')
@@ -451,33 +545,83 @@ export default function ResidentDashboardPage() {
       </Card>
 
       <Card className="overflow-hidden p-0">
-        <div className="grid gap-4 bg-foreground p-5 text-background lg:grid-cols-[1fr_auto] lg:items-center">
+        <div className="grid gap-4 bg-primary p-5 text-primary-foreground lg:grid-cols-[1fr_auto] lg:items-center">
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-sm opacity-75">Sold curent</p>
               <Badge variant={currentStatus.badge}>{currentStatus.label}</Badge>
             </div>
-            <h1 className="mt-3 text-4xl font-semibold tracking-normal">{formatMdl(summary.currentBalance)}</h1>
+            <h1 className="mt-3 text-4xl font-semibold tracking-normal">{formatMdl(currentBalance)}</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 opacity-80">
-              {summary.unpaidInvoices > 0 && summary.nextDueDate
-                ? `Ai ${summary.unpaidInvoices} facturi neachitate, cea mai apropiată scadență este ${formatDate(summary.nextDueDate)}.`
+              {(balanceOverview?.unpaidInvoicesCount || summary.unpaidInvoices) > 0 && (balanceOverview?.nextDueInvoice?.dueDate || summary.nextDueDate)
+                ? `Ai ${balanceOverview?.unpaidInvoicesCount ?? summary.unpaidInvoices} facturi neachitate, cea mai apropiată scadență este ${formatDate(balanceOverview?.nextDueInvoice?.dueDate || summary.nextDueDate)}.`
                 : currentStatus.text}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <ButtonLink href="/resident/balance" variant="secondary">Vezi sold</ButtonLink>
             <ButtonLink href="/resident/invoices" variant="secondary">Vezi facturi</ButtonLink>
             <ButtonLink href="/resident/payments" variant="secondary">Vezi plăți</ButtonLink>
+            <ButtonLink href="/resident/connect" variant="secondary">Mesaje</ButtonLink>
           </div>
         </div>
         <div className="grid gap-3 p-4 md:grid-cols-3">
-          <MiniInfo label="Următoarea scadență" value={formatDate(summary.nextDueDate)} />
-          <MiniInfo label="Facturi neachitate" value={String(summary.unpaidInvoices)} />
-          <MiniInfo label="Ultima plată" value={formatDate(summary.lastPayment?.paymentDate)} />
+          <MiniInfo label="Următoarea scadență" value={formatDate(balanceOverview?.nextDueInvoice?.dueDate || summary.nextDueDate)} />
+          <MiniInfo label="Facturi neachitate" value={String(balanceOverview?.unpaidInvoicesCount ?? summary.unpaidInvoices)} />
+          <MiniInfo label="Ultima plată" value={formatDate(balanceOverview?.lastPayment?.acceptedAt || balanceOverview?.lastPayment?.paidAt || summary.lastPayment?.paymentDate)} />
         </div>
       </Card>
 
+      <Card className="border-border/70 bg-white p-4">
+        <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-base font-semibold text-foreground">Facturi</h2>
+              <Badge variant={(invoiceOverview?.overdueInvoices || 0) > 0 ? 'error' : (invoiceOverview?.totalUnpaidAmount || 0) > 0 ? 'warning' : 'success'}>
+                {(invoiceOverview?.overdueInvoices || 0) > 0 ? 'Restanțe' : (invoiceOverview?.totalUnpaidAmount || 0) > 0 ? 'Neachitate' : 'La zi'}
+              </Badge>
+            </div>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+              {invoiceOverview?.totalPublishedInvoices
+                ? `Ai ${invoiceOverview.unpaidInvoices} facturi neachitate și ${invoiceOverview.overdueInvoices} restante. Plata online va fi disponibilă ulterior.`
+                : 'Nu există facturi publicate încă. Când administrația publică o factură, aceasta va apărea aici.'}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <ButtonLink href="/resident/balance" variant="secondary">Vezi sold</ButtonLink>
+            <ButtonLink href="/resident/invoices" variant="primary">Vezi facturi</ButtonLink>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-4">
+          <MiniInfo label="Total neachitat" value={formatMdl(invoiceOverview?.totalUnpaidAmount || 0)} danger={(invoiceOverview?.totalUnpaidAmount || 0) > 0} />
+          <MiniInfo label="Următoarea scadență" value={formatDate(invoiceOverview?.nextDueInvoice?.dueDate)} danger={(invoiceOverview?.overdueInvoices || 0) > 0} />
+          <MiniInfo label="Restante" value={String(invoiceOverview?.overdueInvoices || 0)} danger={(invoiceOverview?.overdueInvoices || 0) > 0} />
+          <MiniInfo label="Achitate" value={String(invoiceOverview?.paidInvoices || 0)} />
+        </div>
+      </Card>
+
+      {Number(balanceOverview?.pendingPaymentProofsCount || 0) > 0 || Number(balanceOverview?.rejectedPaymentProofsCount || 0) > 0 ? (
+        <Card className={Number(balanceOverview?.rejectedPaymentProofsCount || 0) > 0 ? 'border-rose-200 bg-rose-50' : 'border-amber-200 bg-amber-50'}>
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className={Number(balanceOverview?.rejectedPaymentProofsCount || 0) > 0 ? 'text-sm font-semibold text-rose-950' : 'text-sm font-semibold text-amber-950'}>
+                {Number(balanceOverview?.rejectedPaymentProofsCount || 0) > 0 ? 'Ai dovezi de plată respinse' : 'Dovezi de plată în verificare'}
+              </p>
+              <p className={Number(balanceOverview?.rejectedPaymentProofsCount || 0) > 0 ? 'mt-1 text-sm text-rose-800' : 'mt-1 text-sm text-amber-800'}>
+                {Number(balanceOverview?.rejectedPaymentProofsCount || 0) > 0
+                  ? `${balanceOverview?.rejectedPaymentProofsCount} dovezi trebuie verificate sau retrimise.`
+                  : `${balanceOverview?.pendingPaymentProofsCount} dovezi sunt în așteptarea verificării de către administrație.`}
+              </p>
+            </div>
+            <ButtonLink href="/resident/payment-proofs" variant="secondary">
+              <ReceiptText className="h-4 w-4" /> Vezi dovezile
+            </ButtonLink>
+          </div>
+        </Card>
+      ) : null}
+
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Sold curent" value={formatMdl(summary.currentBalance)} description="Facturi active" icon={<Wallet className="h-5 w-5" />} tone={summary.currentBalance > 0 ? 'warning' : 'success'} />
+        <StatCard label="Sold curent" value={formatMdl(currentBalance)} description={`${formatMdl(overdueBalance)} restante`} icon={<Wallet className="h-5 w-5" />} tone={currentBalance > 0 ? 'warning' : 'success'} />
         <StatCard label="Total facturi" value={String(summary.totalInvoices)} description={`${summary.unpaidInvoices} neachitate`} icon={<FileText className="h-5 w-5" />} />
         <StatCard label="Total achitat" value={formatMdl(summary.totalPaidAmount)} description="Plăți confirmate" icon={<Banknote className="h-5 w-5" />} tone="success" />
         <StatCard label="Facturi întârziate" value={String(summary.overdueInvoices)} description="Scadență depășită" icon={<CalendarClock className="h-5 w-5" />} tone={summary.overdueInvoices > 0 ? 'warning' : 'success'} />
@@ -485,9 +629,46 @@ export default function ResidentDashboardPage() {
         <StatCard label="Ultima plată" value={summary.lastPayment ? formatMdl(summary.lastPayment.amount) : '-'} description={formatDate(summary.lastPayment?.paymentDate)} icon={<CreditCard className="h-5 w-5" />} />
         <StatCard label="Achitate" value={String(summary.paidInvoices)} description="Facturi fără sold" icon={<CheckCircle2 className="h-5 w-5" />} tone="success" />
         <StatCard label="Parțial achitate" value={String(summary.partiallyPaidInvoices)} description="Facturi cu sold rămas" icon={<AlertCircle className="h-5 w-5" />} tone={summary.partiallyPaidInvoices > 0 ? 'warning' : 'neutral'} />
+        <StatCard label="Mesaje necitite" value={String(connectOverview?.unreadCount || 0)} description={`${connectOverview?.openConversations || 0} conversații deschise`} icon={<MessageCircle className="h-5 w-5" />} tone={Number(connectOverview?.unreadCount || 0) > 0 ? 'warning' : 'neutral'} />
         <StatCard label="Solicitări deschise" value={String(requestStats.open || 0)} description="Către administrație" icon={<MessageCircle className="h-5 w-5" />} tone={Number(requestStats.open || 0) > 0 ? 'warning' : 'neutral'} />
         <StatCard label="Contoare active" value={String(meterStats.activeMeters || 0)} description={`${meterStats.submittedCurrentMonth || 0} indici transmiși luna curentă`} icon={<Gauge className="h-5 w-5" />} />
       </section>
+
+      {readingPeriodSummary ? (
+        <Card className="border-amber-200 bg-amber-50">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-amber-950">
+                {Number(readingPeriodSummary.rejectedCount || 0) > 0 ? 'Ai citiri respinse' : 'Trimite citirile contoarelor'}
+              </p>
+              <p className="mt-1 text-sm text-amber-800">
+                {Number(readingPeriodSummary.rejectedCount || 0) > 0
+                  ? `${readingPeriodSummary.rejectedCount} citiri trebuie corectate pentru ${readingPeriodSummary.label || readingPeriodSummary.periodMonth}.`
+                  : `${readingPeriodSummary.missingCount || 0} contoare așteaptă citirea pentru ${readingPeriodSummary.label || readingPeriodSummary.periodMonth}.`}
+              </p>
+            </div>
+            <ButtonLink href="/resident/meters" variant="secondary">
+              <Gauge className="h-4 w-4" /> Deschide contoare
+            </ButtonLink>
+          </div>
+        </Card>
+      ) : null}
+
+      {Number(requestStats.waitingResident || requestStats.waitingForResident || 0) > 0 ? (
+        <Card className="border-amber-200 bg-amber-50">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-amber-950">Adminul a cerut informații</p>
+              <p className="mt-1 text-sm text-amber-800">
+                Ai {requestStats.waitingResident || requestStats.waitingForResident} cereri care așteaptă răspunsul tău.
+              </p>
+            </div>
+            <ButtonLink href="/resident/requests?status=WAITING_RESIDENT" variant="secondary">
+              Deschide cererile
+            </ButtonLink>
+          </div>
+        </Card>
+      ) : null}
 
       <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
         <Card>

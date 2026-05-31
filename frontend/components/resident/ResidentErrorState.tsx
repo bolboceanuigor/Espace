@@ -17,8 +17,8 @@ export default function ResidentErrorState({
       <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-600">
         <AlertTriangle className="h-5 w-5" />
       </div>
-      <h2 className="mt-4 text-lg font-semibold text-slate-950">{title}</h2>
-      <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-500">{message}</p>
+      <h2 className="mt-4 text-lg font-semibold text-foreground">{title}</h2>
+      <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-muted-foreground">{message}</p>
       <div className="mt-5 flex flex-wrap justify-center gap-2">
         {onRetry ? <Button onClick={onRetry}>Actualizează</Button> : null}
         <ButtonLink href="/resident" variant="secondary">

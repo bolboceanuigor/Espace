@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
 import { formatMdl } from '@/lib/condo-admin-fallback';
-import { adminRbacApi, adminResidentUpdateRequestsApi, billingApi, communicationsApi, dataQualityApi, onboardingApi, workbenchApi } from '@/lib/api';
+import { adminRbacApi, adminResidentUpdateRequestsApi, billingApi, billingDraftsApi, communicationsApi, connectApi, dataQualityApi, invitationsApi, invoicesApi, metersApi, onboardingApi, paymentsApi, requestsApi, workbenchApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 type CrmOrganization = {
@@ -215,9 +215,12 @@ const issuePriorityLabels: Record<string, string> = {
 
 const issueStatusLabels: Record<string, string> = {
   NEW: 'Nouă',
+  OPEN: 'Deschisă',
   IN_PROGRESS: 'În lucru',
   RESOLVED: 'Rezolvată',
   WAITING: 'În așteptare',
+  WAITING_RESIDENT: 'Așteaptă locatar',
+  WAITING_VENDOR: 'Așteaptă prestator',
   CLOSED: 'Închisă',
 };
 
@@ -287,6 +290,14 @@ export default function AdminPage() {
   const [dataQualitySummary, setDataQualitySummary] = useState<any>(null);
   const [teamStats, setTeamStats] = useState<any>(null);
   const [teamActivityStats, setTeamActivityStats] = useState<any>(null);
+  const [firstLogin, setFirstLogin] = useState<any>(null);
+  const [openMeterPeriod, setOpenMeterPeriod] = useState<any>(null);
+  const [residentReadingsOverview, setResidentReadingsOverview] = useState<any>(null);
+  const [billingDraftPrompt, setBillingDraftPrompt] = useState<any>(null);
+  const [invoicePublishOverview, setInvoicePublishOverview] = useState<any>(null);
+  const [paymentsOverview, setPaymentsOverview] = useState<any>(null);
+  const [requestsOverview, setRequestsOverview] = useState<any>(null);
+  const [connectOverview, setConnectOverview] = useState<any>(null);
 
   useEffect(() => {
     let active = true;
@@ -335,6 +346,28 @@ export default function AdminPage() {
         setPendingUpdateRequests(0);
       });
 
+    requestsApi
+      .getAdminRequestsOverview()
+      .then((response) => {
+        if (!active) return;
+        setRequestsOverview(response.data || null);
+      })
+      .catch(() => {
+        if (!active) return;
+        setRequestsOverview(null);
+      });
+
+    connectApi
+      .adminOverview()
+      .then((response) => {
+        if (!active) return;
+        setConnectOverview(response.data || null);
+      })
+      .catch(() => {
+        if (!active) return;
+        setConnectOverview(null);
+      });
+
     communicationsApi
       .adminAnnouncementStats()
       .then((response) => {
@@ -368,6 +401,58 @@ export default function AdminPage() {
         setDataQualitySummary(null);
       });
 
+    invoicesApi
+      .getAdminInvoicesOverview()
+      .then((response) => {
+        if (!active) return;
+        setInvoicePublishOverview(response.data || null);
+      })
+      .catch(() => {
+        if (!active) return;
+        setInvoicePublishOverview(null);
+      });
+
+    paymentsApi
+      .getAdminPaymentsOverview()
+      .then((response) => {
+        if (!active) return;
+        setPaymentsOverview(response.data || null);
+      })
+      .catch(() => {
+        if (!active) return;
+        setPaymentsOverview(null);
+      });
+
+    metersApi
+      .getAdminResidentReadingsOverview()
+      .then((response) => {
+        if (!active) return;
+        setResidentReadingsOverview(response.data || null);
+      })
+      .catch(() => {
+        if (!active) return;
+        setResidentReadingsOverview(null);
+      });
+
+    Promise.all([metersApi.getAdminMeterReadingPeriods(), billingDraftsApi.getAdminBillingPeriods()])
+      .then(([response, billingResponse]) => {
+        if (!active) return;
+        const period = (response.data?.items || []).find((item: any) => item.status !== 'LOCKED' && item.status !== 'CANCELLED' && Number(item.missingReadingsCount || 0) > 0);
+        setOpenMeterPeriod(period || null);
+        const readingPeriods = response.data?.items || [];
+        const billingPeriods = billingResponse.data?.periods || [];
+        const periodWithIssues = billingPeriods.find((item: any) => Number(item.issuesCount || 0) > 0);
+        const lockedWithoutDraft = readingPeriods.find(
+          (item: any) => item.status === 'LOCKED' && !billingPeriods.some((billingPeriod: any) => billingPeriod.meterReadingPeriodId === item.id),
+        );
+        setBillingDraftPrompt(periodWithIssues ? { type: 'issues', period: periodWithIssues } : lockedWithoutDraft ? { type: 'ready', period: lockedWithoutDraft } : null);
+      })
+      .catch(() => {
+        if (!active) return;
+        setOpenMeterPeriod(null);
+        setBillingDraftPrompt(null);
+      });
+
     adminRbacApi
       .teamStats()
       .then((response) => {
@@ -390,6 +475,17 @@ export default function AdminPage() {
         setTeamActivityStats(null);
       });
 
+    invitationsApi
+      .getAdminFirstLogin()
+      .then((response) => {
+        if (!active) return;
+        setFirstLogin(response.data || null);
+      })
+      .catch(() => {
+        if (!active) return;
+        setFirstLogin(null);
+      });
+
     return () => {
       active = false;
     };
@@ -399,24 +495,38 @@ export default function AdminPage() {
     () => [
       {
         title: 'Datorii mari',
-        value: formatMdl(crm.kpis.totalDebt),
-        description: `${crm.kpis.apartmentsWithDebt} apartamente cu datorii`,
+        value: formatMdl(paymentsOverview?.totalOutstandingAmount ?? crm.kpis.totalDebt),
+        description: `${paymentsOverview?.apartmentsWithDebt ?? crm.kpis.apartmentsWithDebt} apartamente cu datorii`,
+        href: '/admin/payments?tab=debts',
+        active: Number(paymentsOverview?.totalOutstandingAmount ?? crm.kpis.totalDebt) > 0,
+      },
+      {
+        title: 'Încasări luna curentă',
+        value: formatMdl(paymentsOverview?.paymentsThisMonth || 0),
+        description: `${paymentsOverview?.acceptedPayments || 0} plăți acceptate`,
         href: '/admin/payments',
-        active: crm.kpis.totalDebt > 0,
+        active: Number(paymentsOverview?.paymentsThisMonth || 0) > 0,
+      },
+      {
+        title: 'Mesaje necitite',
+        value: String(connectOverview?.unreadCount || 0),
+        description: `${connectOverview?.pendingAdminConversations || 0} conversații așteaptă Admin`,
+        href: '/admin/connect',
+        active: Number(connectOverview?.unreadCount || 0) > 0 || Number(connectOverview?.pendingAdminConversations || 0) > 0,
       },
       {
         title: 'Solicitări urgente',
-        value: String(crm.kpis.urgentIssues),
-        description: 'Necesită răspuns rapid',
+        value: String(requestsOverview?.urgentRequests ?? crm.kpis.urgentIssues),
+        description: `${requestsOverview?.newRequests ?? 0} noi · ${requestsOverview?.overdueRequests ?? 0} restante`,
         href: '/admin/requests',
-        active: crm.kpis.urgentIssues > 0,
+        active: Number(requestsOverview?.urgentRequests ?? crm.kpis.urgentIssues) > 0 || Number(requestsOverview?.newRequests || 0) > 0 || Number(requestsOverview?.overdueRequests || 0) > 0,
       },
       {
         title: 'Citiri lipsă',
-        value: String(crm.kpis.missingMeterReadings),
-        description: 'Contoare fără citire curentă',
-        href: '/admin/meter-readings/reports',
-        active: crm.kpis.missingMeterReadings > 0,
+        value: String(openMeterPeriod?.missingReadingsCount ?? crm.kpis.missingMeterReadings),
+        description: openMeterPeriod ? `${openMeterPeriod.label || openMeterPeriod.periodMonth} · perioadă deschisă` : 'Contoare fără citire curentă',
+        href: openMeterPeriod ? `/admin/meter-readings?periodId=${openMeterPeriod.id}` : '/admin/meter-readings',
+        active: Boolean(openMeterPeriod) || crm.kpis.missingMeterReadings > 0,
       },
       {
         title: 'Rapoarte consum',
@@ -454,6 +564,15 @@ export default function AdminPage() {
         active: Boolean(billingOverview?.summary?.errorsCount || billingOverview?.summary?.warningsCount || !billingOverview?.billingRun),
       },
       {
+        title: 'Facturi aprobate',
+        value: String(invoicePublishOverview?.unpublishedApprovedInvoices || 0),
+        description: invoicePublishOverview?.unpublishedApprovedInvoices
+          ? `${formatMdl(invoicePublishOverview.totalApprovedAmount || 0)} pregătit pentru publicare`
+          : `${invoicePublishOverview?.publishedInvoices || 0} facturi publicate`,
+        href: '/admin/invoices?status=APPROVED',
+        active: Number(invoicePublishOverview?.unpublishedApprovedInvoices || 0) > 0,
+      },
+      {
         title: 'Calitatea datelor',
         value: dataQualitySummary ? `${dataQualitySummary.score || 0}/100` : 'Verifică',
         description: dataQualitySummary
@@ -481,7 +600,7 @@ export default function AdminPage() {
         active: Boolean(teamActivityStats?.critical || teamActivityStats?.sensitive || !teamActivityStats),
       },
     ],
-    [announcementStats, billingOverview, crm, dataQualitySummary, pendingUpdateRequests, teamActivityStats, teamStats],
+    [announcementStats, billingOverview, connectOverview, crm, dataQualitySummary, invoicePublishOverview, openMeterPeriod, paymentsOverview, pendingUpdateRequests, requestsOverview, teamActivityStats, teamStats],
   );
 
   const kpiCards = [
@@ -512,11 +631,18 @@ export default function AdminPage() {
       tone: crm.kpis.apartmentsWithDebt > 0 ? ('danger' as const) : ('success' as const),
     },
     {
-      label: 'Cereri urgente',
-      value: String(crm.kpis.urgentIssues),
-      description: `${crm.kpis.openIssues} cereri active`,
+      label: 'Mesaje necitite',
+      value: String(connectOverview?.unreadCount || 0),
+      description: `${connectOverview?.openConversations || 0} conversații deschise`,
       icon: <MessageCircle className="h-5 w-5" />,
-      tone: crm.kpis.urgentIssues > 0 ? ('warning' as const) : ('success' as const),
+      tone: Number(connectOverview?.unreadCount || 0) > 0 ? ('warning' as const) : ('neutral' as const),
+    },
+    {
+      label: 'Cereri urgente',
+      value: String(requestsOverview?.urgentRequests ?? crm.kpis.urgentIssues),
+      description: `${requestsOverview?.openRequests ?? crm.kpis.openIssues} cereri active`,
+      icon: <MessageCircle className="h-5 w-5" />,
+      tone: Number(requestsOverview?.urgentRequests ?? crm.kpis.urgentIssues) > 0 ? ('warning' as const) : ('success' as const),
     },
     {
       label: 'Acțiuni sensibile',
@@ -609,6 +735,22 @@ export default function AdminPage() {
         </Card>
       ) : null}
 
+      {firstLogin?.organization && firstLogin.organization.adminHandoverStatus !== 'ACTIVE' ? (
+        <Card className="border-amber-200 bg-amber-50 p-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-amber-950">Finalizează verificarea inițială</p>
+              <p className="mt-1 text-sm text-amber-800">
+                Confirmă datele APC-ului și punctele de pornire înainte de lucrul operațional.
+              </p>
+            </div>
+            <ButtonLink href={localizedPath('/admin/first-login')} variant="secondary">
+              <ListChecks className="h-4 w-4" /> Deschide checklist
+            </ButtonLink>
+          </div>
+        </Card>
+      ) : null}
+
       <Card className="p-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
@@ -628,6 +770,81 @@ export default function AdminPage() {
       </Card>
 
       <SetupChecklistCard setup={setup} setupError={setupError} localizedPath={localizedPath} />
+
+      {dataQualitySummary?.criticalCount ? (
+        <Card className="border-amber-200 bg-amber-50 p-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-amber-950">Ai probleme în datele importate</p>
+              <p className="mt-1 text-sm text-amber-800">
+                {dataQualitySummary.criticalCount} probleme critice trebuie verificate înainte de facturare.
+              </p>
+            </div>
+            <ButtonLink href={localizedPath('/admin/data-quality')} variant="secondary">
+              <ListChecks className="h-4 w-4" /> Calitatea datelor
+            </ButtonLink>
+          </div>
+        </Card>
+      ) : null}
+
+      {openMeterPeriod ? (
+        <Card className="border-amber-200 bg-amber-50 p-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-amber-950">Citiri contoare incomplete</p>
+              <p className="mt-1 text-sm text-amber-800">
+                {openMeterPeriod.missingReadingsCount || 0} contoare nu au citire în {openMeterPeriod.label || openMeterPeriod.periodMonth}.
+              </p>
+            </div>
+            <ButtonLink href={localizedPath(`/admin/meter-readings?periodId=${openMeterPeriod.id}`)} variant="secondary">
+              <Gauge className="h-4 w-4" /> Deschide citiri
+            </ButtonLink>
+          </div>
+        </Card>
+      ) : null}
+
+      {residentReadingsOverview?.pendingReview ? (
+        <Card className="border-sky-200 bg-sky-50 p-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-sky-950">Citiri de aprobat</p>
+              <p className="mt-1 text-sm text-sky-800">
+                {residentReadingsOverview.pendingReview} citiri trimise de locatari așteaptă verificarea.
+              </p>
+            </div>
+            <ButtonLink href={localizedPath('/admin/resident-readings?status=SUBMITTED')} variant="secondary">
+              <ListChecks className="h-4 w-4" /> Verifică citiri
+            </ButtonLink>
+          </div>
+        </Card>
+      ) : null}
+
+      {billingDraftPrompt ? (
+        <Card className="border-sky-200 bg-sky-50 p-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-sky-950">
+                {billingDraftPrompt.type === 'ready' ? 'Poți genera drafturile de facturi' : 'Drafturile de facturare au probleme'}
+              </p>
+              <p className="mt-1 text-sm text-sky-800">
+                {billingDraftPrompt.type === 'ready'
+                  ? `Perioada de citiri ${billingDraftPrompt.period.label || billingDraftPrompt.period.periodMonth || ''} este blocată și poate fi legată de facturare.`
+                  : `${billingDraftPrompt.period.issuesCount || 0} probleme trebuie verificate înainte de aprobare.`}
+              </p>
+            </div>
+            <ButtonLink
+              href={localizedPath(
+                billingDraftPrompt.type === 'ready'
+                  ? `/admin/billing-drafts?meterReadingPeriodId=${billingDraftPrompt.period.id}`
+                  : `/admin/billing-drafts?periodId=${billingDraftPrompt.period.id}&tab=issues`,
+              )}
+              variant="secondary"
+            >
+              <FileText className="h-4 w-4" /> Drafturi facturi
+            </ButtonLink>
+          </div>
+        </Card>
+      ) : null}
 
       <Card className="p-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -777,7 +994,7 @@ export default function AdminPage() {
         </Card>
 
         <Card>
-          <SectionHeader title="Citiri lipsă" description="Contoare fără citire în luna curentă." href={localizedPath('/admin/meter-readings/reports')} />
+          <SectionHeader title="Citiri lipsă" description="Contoare fără citire în luna curentă." href={localizedPath('/admin/meter-readings')} />
           <div className="mt-4 space-y-2">
             {crm.missingReadings.map((meter) => (
               <Link key={meter.id} href={safeLocalizedLink(localizedPath, meter.link, '/admin/meters')} className="block rounded-2xl border border-border/70 bg-white px-4 py-3 hover:bg-muted/40">
@@ -846,8 +1063,11 @@ export default function AdminPage() {
           <ButtonLink href={localizedPath('/admin/meters')} variant="secondary">
             <Gauge className="h-4 w-4" /> Adaugă contor
           </ButtonLink>
-          <ButtonLink href={localizedPath('/admin/meter-readings/reports')} variant="secondary">
-            <Gauge className="h-4 w-4" /> Rapoarte consum
+          <ButtonLink href={localizedPath('/admin/meter-readings')} variant="secondary">
+            <Gauge className="h-4 w-4" /> Citiri contoare
+          </ButtonLink>
+          <ButtonLink href={localizedPath('/admin/resident-readings')} variant="secondary">
+            <ListChecks className="h-4 w-4" /> Citiri locatari
           </ButtonLink>
           <ButtonLink href={localizedPath('/admin/billing')} variant="secondary">
             <ListChecks className="h-4 w-4" /> Facturare lunară

@@ -5,6 +5,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { PermissionGuard } from '../auth/permission.guard';
+import { InvoicePublishingService } from '../invoice-publishing/invoice-publishing.service';
 import { MvpAuthGuard, MvpRolesGuard, MvpUser } from '../security/mvp-auth.guard';
 import { SaasLimitEnforcementService } from '../saas-usage/saas-limit-enforcement.service';
 import { BillingReadService } from './billing-read.service';
@@ -15,6 +16,7 @@ import { BillingReadService } from './billing-read.service';
 export class BillingReadController {
   constructor(
     private readonly billingReadService: BillingReadService,
+    private readonly invoicePublishingService: InvoicePublishingService,
     private readonly saasLimits: SaasLimitEnforcementService,
   ) {}
 
@@ -484,22 +486,58 @@ export class BillingReadController {
     return this.billingReadService.getMonthlySummary(user, query);
   }
 
+  @Get(['admin/invoices/overview', 'api/admin/invoices/overview'])
+  @RequirePermission('INVOICES', 'VIEW')
+  getAdminInvoicesOverview(@CurrentUser() user: MvpUser) {
+    return this.invoicePublishingService.getAdminOverview(user);
+  }
+
+  @Get(['admin/invoices/issues', 'api/admin/invoices/issues'])
+  @RequirePermission('INVOICES', 'VIEW')
+  getAdminInvoiceIssues(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.invoicePublishingService.getAdminIssues(user, query);
+  }
+
+  @Post(['admin/invoices/bulk-publish', 'api/admin/invoices/bulk-publish'])
+  @RequirePermission('INVOICES', 'FINALIZE')
+  bulkPublishAdminInvoices(@CurrentUser() user: MvpUser, @Body() body: unknown) {
+    return this.invoicePublishingService.bulkPublishAdminInvoices(user, body);
+  }
+
   @Get(['admin/invoices', 'api/admin/invoices'])
   @RequirePermission('INVOICES', 'VIEW')
   listAdminInternalInvoices(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
-    return this.billingReadService.listAdminInternalInvoices(user, query);
+    return this.invoicePublishingService.listAdminInvoices(user, query);
   }
 
   @Get(['admin/invoices/:id/payments', 'api/admin/invoices/:id/payments'])
   @RequirePermission('INVOICES', 'VIEW')
   listAdminInvoicePayments(@CurrentUser() user: MvpUser, @Param('id') id: string) {
-    return this.billingReadService.listAdminInvoicePayments(user, id);
+    return this.invoicePublishingService.listAdminBillingDraftInvoicePayments(user, id);
   }
 
   @Get(['admin/invoices/:id', 'api/admin/invoices/:id'])
   @RequirePermission('INVOICES', 'VIEW')
   getAdminInternalInvoice(@CurrentUser() user: MvpUser, @Param('id') id: string) {
-    return this.billingReadService.getAdminInternalInvoice(user, id);
+    return this.invoicePublishingService.getAdminInvoice(user, id);
+  }
+
+  @Patch(['admin/invoices/:id', 'api/admin/invoices/:id'])
+  @RequirePermission('INVOICES', 'UPDATE')
+  updateAdminInvoice(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.invoicePublishingService.updateAdminInvoice(user, id, body);
+  }
+
+  @Post(['admin/invoices/:id/publish', 'api/admin/invoices/:id/publish'])
+  @RequirePermission('INVOICES', 'FINALIZE')
+  publishAdminInvoice(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.invoicePublishingService.publishAdminInvoice(user, id, body);
+  }
+
+  @Post(['admin/invoices/:id/unpublish', 'api/admin/invoices/:id/unpublish'])
+  @RequirePermission('INVOICES', 'CANCEL')
+  unpublishAdminInvoice(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.invoicePublishingService.unpublishAdminInvoice(user, id, body);
   }
 
   @Patch(['admin/invoices/:id/status', 'api/admin/invoices/:id/status'])
@@ -517,13 +555,85 @@ export class BillingReadController {
   @Get(['admin/payments/stats', 'api/admin/payments/stats'])
   @RequirePermission('PAYMENTS', 'VIEW')
   getAdminPaymentStats(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
-    return this.billingReadService.getAdminPaymentStats(user, query);
+    return this.invoicePublishingService.getAdminPaymentsOverview(user);
+  }
+
+  @Get(['admin/payments/overview', 'api/admin/payments/overview'])
+  @RequirePermission('PAYMENTS', 'VIEW')
+  getAdminPaymentsOverview(@CurrentUser() user: MvpUser) {
+    return this.invoicePublishingService.getAdminPaymentsOverview(user);
+  }
+
+  @Get(['admin/payment-proofs/overview', 'api/admin/payment-proofs/overview'])
+  @RequirePermission('PAYMENTS', 'VIEW')
+  getAdminPaymentProofsOverview(@CurrentUser() user: MvpUser) {
+    return this.invoicePublishingService.getAdminPaymentProofsOverview(user);
+  }
+
+  @Get(['admin/payment-proofs/issues', 'api/admin/payment-proofs/issues'])
+  @RequirePermission('PAYMENTS', 'VIEW')
+  getAdminPaymentProofIssues(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.invoicePublishingService.getAdminPaymentProofIssues(user, query);
+  }
+
+  @Get(['admin/payment-proofs', 'api/admin/payment-proofs'])
+  @RequirePermission('PAYMENTS', 'VIEW')
+  listAdminPaymentProofs(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.invoicePublishingService.listAdminPaymentProofs(user, query);
+  }
+
+  @Get(['admin/payment-proofs/:id', 'api/admin/payment-proofs/:id'])
+  @RequirePermission('PAYMENTS', 'VIEW')
+  getAdminPaymentProof(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.invoicePublishingService.getAdminPaymentProof(user, id);
+  }
+
+  @Post(['admin/payment-proofs/:id/start-review', 'api/admin/payment-proofs/:id/start-review'])
+  @RequirePermission('PAYMENTS', 'MANAGE')
+  startAdminPaymentProofReview(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.invoicePublishingService.startAdminPaymentProofReview(user, id);
+  }
+
+  @Post(['admin/payment-proofs/:id/accept', 'api/admin/payment-proofs/:id/accept'])
+  @RequirePermission('PAYMENTS', 'MANAGE')
+  acceptAdminPaymentProof(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.invoicePublishingService.acceptAdminPaymentProof(user, id, body);
+  }
+
+  @Post(['admin/payment-proofs/:id/reject', 'api/admin/payment-proofs/:id/reject'])
+  @RequirePermission('PAYMENTS', 'MANAGE')
+  rejectAdminPaymentProof(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.invoicePublishingService.rejectAdminPaymentProof(user, id, body);
   }
 
   @Get(['admin/payments/invoice-search', 'api/admin/payments/invoice-search'])
   @RequirePermission('PAYMENTS', 'VIEW')
   searchAdminPaymentInvoices(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
-    return this.billingReadService.searchAdminPaymentInvoices(user, query);
+    return this.invoicePublishingService.searchAdminLedgerInvoices(user, query);
+  }
+
+  @Get(['admin/payments/apartment-balances', 'api/admin/payments/apartment-balances'])
+  @RequirePermission('PAYMENTS', 'VIEW')
+  getAdminPaymentApartmentBalances(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.invoicePublishingService.getAdminApartmentBalances(user, query);
+  }
+
+  @Get(['admin/payments/apartments/:apartmentId/ledger', 'api/admin/payments/apartments/:apartmentId/ledger'])
+  @RequirePermission('PAYMENTS', 'VIEW')
+  getAdminApartmentLedger(@CurrentUser() user: MvpUser, @Param('apartmentId') apartmentId: string) {
+    return this.invoicePublishingService.getAdminApartmentLedger(user, apartmentId);
+  }
+
+  @Get(['admin/reconciliation/issues', 'api/admin/reconciliation/issues'])
+  @RequirePermission('RECONCILIATION', 'VIEW')
+  getAdminReconciliationIssues(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.invoicePublishingService.getAdminReconciliationIssues(user, query);
+  }
+
+  @Post(['admin/reconciliation/recalculate', 'api/admin/reconciliation/recalculate'])
+  @RequirePermission('RECONCILIATION', 'MANAGE')
+  recalculateAdminReconciliation(@CurrentUser() user: MvpUser) {
+    return this.invoicePublishingService.recalculateAdminReconciliation(user);
   }
 
   @Get(['admin/payments/reconciliation/stats', 'api/admin/payments/reconciliation/stats'])
@@ -563,26 +673,38 @@ export class BillingReadController {
   @Get(['admin/payments', 'api/admin/payments'])
   @RequirePermission('PAYMENTS', 'VIEW')
   listAdminPayments(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
-    return this.billingReadService.listAdminPayments(user, query);
+    return this.invoicePublishingService.listAdminPaymentsLedger(user, query);
   }
 
-  @Post(['admin/payments', 'api/admin/payments'])
+  @Post(['admin/payments', 'api/admin/payments', 'admin/payments/manual', 'api/admin/payments/manual'])
   @RequirePermission('PAYMENTS', 'CREATE')
   async createAdminPayment(@CurrentUser() user: MvpUser, @Body() body: unknown) {
     await this.saasLimits.assertFeatureEnabled(user.organizationId, 'manualPayments', user);
-    return this.billingReadService.createAdminPayment(user, body);
+    return this.invoicePublishingService.createAdminManualLedgerPayment(user, body);
   }
 
   @Get(['admin/payments/:id', 'api/admin/payments/:id'])
   @RequirePermission('PAYMENTS', 'VIEW')
   getAdminPayment(@CurrentUser() user: MvpUser, @Param('id') id: string) {
-    return this.billingReadService.getAdminPayment(user, id);
+    return this.invoicePublishingService.getAdminPaymentLedger(user, id);
+  }
+
+  @Patch(['admin/payments/:id', 'api/admin/payments/:id'])
+  @RequirePermission('PAYMENTS', 'MANAGE')
+  updateAdminPayment(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.invoicePublishingService.updateAdminLedgerPayment(user, id, body);
+  }
+
+  @Post(['admin/payments/:id/reverse', 'api/admin/payments/:id/reverse'])
+  @RequirePermission('PAYMENTS', 'CANCEL')
+  reverseAdminPayment(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.invoicePublishingService.reverseAdminLedgerPayment(user, id, body);
   }
 
   @Patch(['admin/payments/:id/cancel', 'api/admin/payments/:id/cancel'])
   @RequirePermission('PAYMENTS', 'CANCEL')
   cancelAdminPayment(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
-    return this.billingReadService.cancelAdminPayment(user, id, body);
+    return this.invoicePublishingService.reverseAdminLedgerPayment(user, id, { ...(body as Record<string, unknown>), confirm: true });
   }
 
   @Post(['invoices', 'api/invoices'])

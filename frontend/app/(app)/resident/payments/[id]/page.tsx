@@ -3,91 +3,72 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, Banknote, CreditCard, FileText, Home, Printer, ReceiptText } from 'lucide-react';
+import { ArrowLeft, Banknote, CreditCard, FileText, Home, ReceiptText } from 'lucide-react';
 import { Badge, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
-import { residentDemoApi } from '@/lib/api';
+import { residentBalanceApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
-type PaymentStatus = 'CONFIRMED' | 'CANCELLED';
-type InvoiceStatus = 'ISSUED' | 'PARTIALLY_PAID' | 'PAID' | 'CANCELLED' | 'VOID';
+type Payment = {
+  id: string;
+  invoiceId?: string | null;
+  invoiceNumber?: string | null;
+  invoice?: any | null;
+  apartment?: { apartmentNumber?: string; number?: string; building?: { name?: string } | null; staircase?: { name?: string } | null; entrance?: { name?: string } | null } | null;
+  resident?: { name?: string | null; email?: string | null; phone?: string | null } | null;
+  amount: number;
+  currency: string;
+  method: string;
+  status: string;
+  source: string;
+  paidAt?: string | null;
+  acceptedAt?: string | null;
+  externalReference?: string | null;
+  linkedProof?: { id: string } | null;
+  note?: string | null;
+  rejectionReason?: string | null;
+  reversalReason?: string | null;
+  createdAt?: string | null;
+};
 
-type PaymentDetails = {
-  payment: {
-    id: string;
-    amount: number;
-    currency: 'MDL';
-    paymentDate?: string | null;
-    method: string;
-    referenceNumber?: string;
-    payerName?: string;
-    notes?: string;
-    status: PaymentStatus;
-    createdAt: string;
-  };
-  invoice: {
-    id: string;
-    invoiceNumber: string;
-    billingMonth: string;
-    status: InvoiceStatus;
-    currency: 'MDL';
-    totalAmount: number;
-    paidAmount: number;
-    balanceAmount: number;
-    issueDate?: string | null;
-    dueDate?: string | null;
-  };
-  apartment: {
-    id: string;
-    apartmentNumber: string;
-    staircase?: string | null;
-    floor?: string | null;
-  };
-  association: {
-    id: string | null;
-    legalName: string;
-    shortName: string;
-    associationCode?: string | null;
-    address?: string | null;
-  };
-  invoiceBalanceAfterPayment?: number;
+const statusLabels: Record<string, string> = {
+  PENDING: 'În verificare',
+  CONFIRMED: 'Confirmată',
+  ACCEPTED: 'Acceptată',
+  PARTIALLY_ACCEPTED: 'Acceptată parțial',
+  REJECTED: 'Respinsă',
+  FAILED: 'Eșuată',
+  CANCELLED: 'Anulată',
+  REVERSED: 'Inversată',
 };
 
 const methodLabels: Record<string, string> = {
   CASH: 'Numerar',
+  BANK: 'Bancă',
   BANK_TRANSFER: 'Transfer bancar',
-  CARD_TERMINAL: 'Terminal card',
-  INFOCOM: 'InfoCom',
-  OPLATA: 'Oplata',
+  MANUAL_BANK_TRANSFER: 'Transfer verificat manual',
+  TERMINAL: 'Terminal',
+  CARD_EXTERNAL: 'Card extern',
+  BANK_STATEMENT: 'Extras bancar',
+  ADJUSTMENT: 'Ajustare',
   OTHER: 'Altă metodă',
 };
 
-const paymentStatusLabels: Record<PaymentStatus, string> = {
-  CONFIRMED: 'Confirmată',
-  CANCELLED: 'Anulată',
+const sourceLabels: Record<string, string> = {
+  PAYMENT_PROOF: 'Dovadă plată',
+  MANUAL_ENTRY: 'Înregistrare manuală',
+  IMPORT: 'Import',
+  ADJUSTMENT: 'Ajustare',
+  SYSTEM: 'Sistem',
 };
 
-const invoiceStatusLabels: Record<InvoiceStatus, string> = {
-  ISSUED: 'Emisă',
-  PARTIALLY_PAID: 'Parțial achitată',
-  PAID: 'Achitată',
-  CANCELLED: 'Anulată',
-  VOID: 'Void',
-};
-
-const invoiceStatusVariant = {
-  ISSUED: 'warning',
-  PARTIALLY_PAID: 'warning',
-  PAID: 'success',
-  CANCELLED: 'neutral',
-  VOID: 'neutral',
-} as const;
+const acceptedStatuses = ['ACCEPTED', 'PARTIALLY_ACCEPTED', 'CONFIRMED'];
 
 export default function ResidentPaymentDetailsPage() {
   const params = useParams<{ id: string }>();
   const localizedPath = useLocalizedPath();
   const paymentId = String(params?.id || '');
-  const [data, setData] = useState<PaymentDetails | null>(null);
+  const [payment, setPayment] = useState<Payment | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -95,15 +76,15 @@ export default function ResidentPaymentDetailsPage() {
     let active = true;
     setLoading(true);
     setError('');
-    residentDemoApi
-      .payment(paymentId)
+    residentBalanceApi
+      .getResidentPayment(paymentId)
       .then((res) => {
         if (!active) return;
-        setData(res.data || null);
+        setPayment(res.data?.payment || null);
       })
       .catch((err: any) => {
         if (!active) return;
-        setData(null);
+        setPayment(null);
         setError(String(err?.message || 'Nu am putut încărca plata.'));
       })
       .finally(() => {
@@ -114,7 +95,7 @@ export default function ResidentPaymentDetailsPage() {
     };
   }, [paymentId]);
 
-  if (!loading && !data) {
+  if (!loading && !payment) {
     return (
       <div className="space-y-5 pb-8">
         <Card className="p-8 text-center">
@@ -127,8 +108,9 @@ export default function ResidentPaymentDetailsPage() {
     );
   }
 
-  const payment = data?.payment;
-  const invoice = data?.invoice;
+  const invoice = payment?.invoice;
+  const apartmentNumber = payment?.apartment?.apartmentNumber || payment?.apartment?.number || '-';
+  const statusVariant = payment && acceptedStatuses.includes(payment.status) ? 'success' : payment?.status === 'PENDING' ? 'warning' : 'neutral';
 
   return (
     <div className="space-y-5 pb-8">
@@ -138,26 +120,21 @@ export default function ResidentPaymentDetailsPage() {
       </Link>
 
       <PageHeader
-        title={payment ? `${formatMdl(payment.amount)} · ${paymentStatusLabels[payment.status]}` : 'Detalii plată'}
-        description={invoice ? `${invoice.invoiceNumber} · ${monthLabel(invoice.billingMonth)}` : 'Se încarcă plata.'}
-        rightSlot={
-          <div className="flex flex-wrap items-center gap-2">
-            {data?.association ? <Badge variant="neutral">{data.association.shortName} · {data.association.associationCode || 'cod necompletat'}</Badge> : null}
-            {payment ? <Badge variant={payment.status === 'CANCELLED' ? 'neutral' : 'success'}>{paymentStatusLabels[payment.status]}</Badge> : null}
-          </div>
-        }
+        title={payment ? `${formatMdl(payment.amount)} · ${statusLabels[payment.status] || payment.status}` : 'Detalii plată'}
+        description={payment?.invoiceNumber ? `Factura ${payment.invoiceNumber}` : 'Plată înregistrată în contul tău.'}
+        rightSlot={payment ? <Badge variant={statusVariant}>{statusLabels[payment.status] || payment.status}</Badge> : null}
       />
 
       {loading ? <Card className="h-32 animate-pulse bg-muted/40" /> : null}
 
-      {data && payment && invoice ? (
+      {payment ? (
         <>
           <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-            <StatCard label="Suma plății" value={formatMdl(payment.amount)} description="Înregistrată de administrator" icon={<Banknote className="h-5 w-5" />} tone={payment.status === 'CANCELLED' ? 'neutral' : 'success'} />
-            <StatCard label="Data plății" value={formatDate(payment.paymentDate)} description="Data confirmării" icon={<ReceiptText className="h-5 w-5" />} />
-            <StatCard label="Metodă" value={methodLabels[payment.method] || payment.method} description="Metoda raportată" icon={<CreditCard className="h-5 w-5" />} />
-            <StatCard label="Sold factură" value={formatMdl(invoice.balanceAmount)} description="Sold curent" icon={<FileText className="h-5 w-5" />} tone={invoice.balanceAmount > 0 ? 'warning' : 'success'} />
-            <StatCard label="Status factură" value={invoiceStatusLabels[invoice.status]} description={invoice.billingMonth} icon={<FileText className="h-5 w-5" />} />
+            <StatCard label="Suma plății" value={formatMdl(payment.amount)} description={sourceLabels[payment.source] || payment.source} icon={<Banknote className="h-5 w-5" />} tone={acceptedStatuses.includes(payment.status) ? 'success' : 'neutral'} />
+            <StatCard label="Data plății" value={formatDate(payment.paidAt || payment.acceptedAt)} description="Data raportată" icon={<ReceiptText className="h-5 w-5" />} />
+            <StatCard label="Metodă" value={methodLabels[payment.method] || payment.method} description="Metoda înregistrată" icon={<CreditCard className="h-5 w-5" />} />
+            <StatCard label="Factură" value={payment.invoiceNumber || '-'} description={invoice?.billingMonth || 'Fără factură asociată'} icon={<FileText className="h-5 w-5" />} />
+            <StatCard label="Apartament" value={`Apt. ${apartmentNumber}`} description={payment.apartment?.staircase?.name || payment.apartment?.entrance?.name || '-'} icon={<Home className="h-5 w-5" />} />
           </section>
 
           <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
@@ -166,15 +143,18 @@ export default function ResidentPaymentDetailsPage() {
               <div className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
                 <Info label="Sumă" value={formatMdl(payment.amount)} strong />
                 <Info label="Monedă" value={payment.currency} />
-                <Info label="Data plății" value={formatDate(payment.paymentDate)} />
+                <Info label="Data plății" value={formatDate(payment.paidAt)} />
+                <Info label="Acceptată la" value={formatDate(payment.acceptedAt)} />
                 <Info label="Metodă" value={methodLabels[payment.method] || payment.method} />
-                <Info label="Status" value={paymentStatusLabels[payment.status]} />
-                <Info label="Referință" value={payment.referenceNumber || '-'} />
-                <Info label="Plătitor" value={payment.payerName || '-'} />
-                <Info label="Înregistrată la" value={formatDate(payment.createdAt)} />
+                <Info label="Status" value={statusLabels[payment.status] || payment.status} />
+                <Info label="Sursă" value={sourceLabels[payment.source] || payment.source} />
+                <Info label="Referință" value={payment.externalReference || '-'} />
+                <Info label="Dovadă" value={payment.linkedProof?.id ? 'Atașată' : '-'} />
+                <Info label="Locatar" value={payment.resident?.name || '-'} />
               </div>
-              {payment.notes ? (
-                <p className="mt-4 rounded-2xl bg-muted/35 px-4 py-3 text-sm text-muted-foreground">{payment.notes}</p>
+              {payment.note ? <p className="mt-4 rounded-2xl bg-muted/35 px-4 py-3 text-sm text-muted-foreground">{payment.note}</p> : null}
+              {payment.rejectionReason || payment.reversalReason ? (
+                <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{payment.rejectionReason || payment.reversalReason}</p>
               ) : null}
             </Card>
 
@@ -183,43 +163,26 @@ export default function ResidentPaymentDetailsPage() {
                 <FileText className="h-4 w-4" />
                 Factura asociată
               </h2>
-              <div className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
-                <Info label="Număr factură" value={invoice.invoiceNumber} strong />
-                <Info label="Luna" value={monthLabel(invoice.billingMonth)} />
-                <Info label="Total" value={formatMdl(invoice.totalAmount)} />
-                <Info label="Achitat" value={formatMdl(invoice.paidAmount)} />
-                <Info label="Sold" value={formatMdl(invoice.balanceAmount)} strong={invoice.balanceAmount > 0} />
-                <Info label="Scadență" value={formatDate(invoice.dueDate)} />
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <ButtonLink href={`/resident/invoices/${invoice.id}`} variant="secondary">Vezi factura</ButtonLink>
-                <ButtonLink href={`/resident/payments/${payment.id}/receipt/print`} variant="secondary">
-                  <Printer className="h-4 w-4" />
-                  Confirmare plată
-                </ButtonLink>
-                <ButtonLink href="/resident/payments" variant="secondary">Înapoi la plăți</ButtonLink>
-              </div>
+              {invoice ? (
+                <>
+                  <div className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
+                    <Info label="Număr factură" value={invoice.invoiceNumber || payment.invoiceNumber || '-'} strong />
+                    <Info label="Perioadă" value={invoice.billingMonth || '-'} />
+                    <Info label="Status" value={invoice.status || '-'} />
+                    <Info label="Total" value={formatMdl(invoice.totalAmount || 0)} />
+                    <Info label="Achitat" value={formatMdl(invoice.paidAmount || 0)} />
+                    <Info label="Rămas" value={formatMdl(invoice.remainingAmount || 0)} strong={(invoice.remainingAmount || 0) > 0} />
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <ButtonLink href={`/resident/invoices/${payment.invoiceId}`} variant="secondary">Vezi factura</ButtonLink>
+                    <ButtonLink href="/resident/balance" variant="secondary">Vezi soldul</ButtonLink>
+                  </div>
+                </>
+              ) : (
+                <p className="mt-4 rounded-2xl bg-muted/35 px-4 py-3 text-sm text-muted-foreground">Această plată nu este legată de o factură publicată.</p>
+              )}
             </Card>
           </div>
-
-          <Card>
-            <h2 className="flex items-center gap-2 text-base font-semibold text-foreground">
-              <Home className="h-4 w-4" />
-              Apartament și A.P.C.
-            </h2>
-            <div className="mt-4 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
-              <Info label="Apartament" value={`Apt. ${data.apartment.apartmentNumber}`} strong />
-              <Info label="Scara" value={data.apartment.staircase || '-'} />
-              <Info label="Etaj" value={data.apartment.floor || '-'} />
-              <Info label="A.P.C." value={data.association.shortName} />
-              <Info label="Denumire" value={data.association.legalName} strong />
-              <Info label="Cod A.P.C." value={data.association.associationCode || '-'} />
-              <Info label="Adresă" value={data.association.address || '-'} />
-            </div>
-            <p className="mt-4 rounded-2xl bg-muted/35 px-4 py-3 text-sm text-muted-foreground">
-              Istoricul este informativ. Locatarul nu poate modifica, anula sau crea plăți din această pagină.
-            </p>
-          </Card>
         </>
       ) : null}
     </div>
@@ -240,10 +203,4 @@ function formatDate(value?: string | null) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '-';
   return new Intl.DateTimeFormat('ro-RO', { day: '2-digit', month: 'long', year: 'numeric' }).format(date);
-}
-
-function monthLabel(value: string) {
-  const [year, month] = value.split('-').map(Number);
-  if (!year || !month) return value;
-  return new Intl.DateTimeFormat('ro-RO', { month: 'long', year: 'numeric' }).format(new Date(year, month - 1, 1));
 }

@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { 
   Bell, Building2, ChevronLeft, CreditCard, FileText, 
-  HelpCircle, Home, LogOut, Search, Settings, Shield, 
+  HelpCircle, Home, ListChecks, LogOut, MessageCircle, Search, Settings, Shield,
   Users, X, Menu, BarChart3
 } from 'lucide-react';
 import OrgSwitcher from './OrgSwitcher';
@@ -31,11 +31,22 @@ export default function AppShell({ children }: AppShellProps) {
   );
 }
 
+function notificationSeverityClass(value?: string) {
+  if (value === 'CRITICAL' || value === 'ERROR') return 'border border-critical/20 bg-critical/10 text-critical';
+  if (value === 'WARNING') return 'border border-warning/20 bg-warning/10 text-warning';
+  if (value === 'SUCCESS') return 'border border-success/20 bg-success/10 text-success';
+  return 'border border-border bg-muted text-muted-foreground';
+}
+
 // Sidebar navigation items per role
 const SUPER_ADMIN_NAV = [
   { key: 'platform', label: 'Platformă', href: '/superadmin', icon: Home },
   { key: 'organizations', label: 'Asociații', href: '/superadmin/organizations', icon: Building2 },
-  { key: 'administrators', label: 'Administratori', href: '/superadmin/administrators', icon: Users },
+  { key: 'administrators', label: 'Administratori', href: '/superadmin/admins', icon: Users },
+  { key: 'revenue', label: 'Venituri', href: '/superadmin/revenue', icon: BarChart3 },
+  { key: 'billing-tasks', label: 'Taskuri facturare', href: '/superadmin/billing-tasks', icon: ListChecks },
+  { key: 'notifications', label: 'Notificări', href: '/superadmin/notifications', icon: Bell },
+  { key: 'activity', label: 'Activitate', href: '/superadmin/activity', icon: ListChecks },
   { key: 'subscriptions', label: 'Abonamente', href: '/superadmin/subscriptions', icon: CreditCard },
   { key: 'reports', label: 'Rapoarte', href: '/superadmin/reports', icon: BarChart3 },
   { key: 'access-requests', label: 'Cereri acces', href: '/superadmin/access-requests', icon: FileText },
@@ -48,8 +59,10 @@ const ADMIN_NAV = [
   { key: 'home', label: 'Acasă', href: '/admin', icon: Home },
   { key: 'apartments', label: 'Apartamente', href: '/admin/apartments', icon: Building2 },
   { key: 'residents', label: 'Locatari', href: '/admin/residents', icon: Users },
+  { key: 'resident-readings', label: 'Citiri locatari', href: '/admin/resident-readings', icon: ListChecks },
   { key: 'invoices', label: 'Facturi', href: '/admin/invoices', icon: FileText },
   { key: 'payments', label: 'Plăți', href: '/admin/payments', icon: CreditCard },
+  { key: 'connect', label: 'Connect', href: '/admin/connect', icon: MessageCircle },
   { key: 'reports', label: 'Rapoarte', href: '/admin/reports', icon: BarChart3 },
   { key: 'settings', label: 'Setări', href: '/admin/settings', icon: Settings },
 ];
@@ -143,9 +156,15 @@ function AppShellContent({ children }: AppShellProps) {
     if (!isAuthenticated || isPreviewSession) return;
     const fetchNotifications = async () => {
       try {
+        if (normalizedRole === 'SUPER_ADMIN') {
+          const res = await superadminApi.getSuperadminNotificationsSummary();
+          setNotifications(res.data?.latestNotifications || []);
+          setNotificationsUnreadCount(res.data?.unreadCount || 0);
+          return;
+        }
         const mode = normalizedRole === 'RESIDENT' ? 'resident' : 'admin';
-        const res = mode === 'admin' 
-          ? await notificationsApi.adminList() 
+        const res = mode === 'admin'
+          ? await notificationsApi.adminList()
           : await notificationsApi.residentList();
         const items = res.data?.items || [];
         setNotifications(items);
@@ -207,9 +226,17 @@ function AppShellContent({ children }: AppShellProps) {
     router.push(`/${locale}/login`);
   };
 
+  const notificationTarget = (url?: string | null) => {
+    if (!url) return '';
+    if (/^https?:\/\//i.test(url)) return url;
+    if (url.startsWith(`/${locale}/`)) return url;
+    if (/^\/[a-z]{2}(\/|$)/i.test(url)) return url;
+    return `/${locale}${url.startsWith('/') ? url : `/${url}`}`;
+  };
+
   if (loading || !activeUser) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-white">
+      <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
           <div className="size-8 animate-spin rounded-full border-2 border-neutral-200 border-t-neutral-900" />
           <p className="text-sm text-neutral-500">Se încarcă...</p>
@@ -244,24 +271,32 @@ function AppShellContent({ children }: AppShellProps) {
 
   // Admin & SuperAdmin layout - Fresha-style with sidebar
   return (
-    <div className="flex min-h-screen bg-neutral-50">
+    <div className="flex min-h-screen bg-background">
       {/* Sidebar - Desktop */}
       <aside 
-        className={`fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-neutral-200 bg-white transition-all duration-200 lg:flex ${
-          sidebarCollapsed ? 'w-16' : 'w-56'
+        className={`fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-white/10 bg-sidebar text-white shadow-[18px_0_54px_rgba(15,23,42,0.20)] transition-all duration-200 lg:flex ${
+          sidebarCollapsed ? 'w-16' : 'w-60'
         }`}
       >
         {/* Logo */}
-        <div className="flex h-14 items-center justify-between border-b border-neutral-200 px-4">
-          {!sidebarCollapsed && (
-            <Link href={homeRoute} className="text-lg font-semibold text-neutral-900">
-              Espace
+        <div className="flex h-16 items-center justify-between border-b border-white/10 px-4">
+          {sidebarCollapsed ? (
+            <Link href={homeRoute} className="flex h-9 w-9 items-center justify-center rounded-2xl bg-white text-xs font-semibold text-primary shadow-sm">
+              ES
+            </Link>
+          ) : (
+            <Link href={homeRoute} className="flex min-w-0 items-center gap-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-white text-xs font-semibold text-primary shadow-sm">ES</span>
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-semibold tracking-tight text-white">Espace</span>
+                <span className="block truncate text-[11px] text-white/50">Management APC</span>
+              </span>
             </Link>
           )}
           <button
             type="button"
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600"
+            className="rounded-2xl p-1.5 text-white/55 transition hover:bg-white/10 hover:text-white"
           >
             <ChevronLeft className={`size-4 transition-transform ${sidebarCollapsed ? 'rotate-180' : ''}`} />
           </button>
@@ -280,10 +315,10 @@ function AppShellContent({ children }: AppShellProps) {
                 <li key={item.key}>
                   <Link
                     href={href}
-                    className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                  className={`flex min-h-10 items-center gap-3 rounded-2xl px-3 text-sm font-semibold transition-colors ${
                       isActive
-                        ? 'bg-neutral-100 text-neutral-900'
-                        : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'
+                        ? 'bg-white/15 text-white shadow-[0_16px_32px_-24px_rgba(255,255,255,0.45)]'
+                        : 'text-white/60 hover:bg-white/10 hover:text-white'
                     }`}
                     title={sidebarCollapsed ? item.label : undefined}
                   >
@@ -297,11 +332,11 @@ function AppShellContent({ children }: AppShellProps) {
         </nav>
 
         {/* Bottom section */}
-        <div className="border-t border-neutral-200 p-3">
+        <div className="border-t border-white/10 p-3">
           <button
             type="button"
             onClick={() => setFeedbackOpen(true)}
-            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900 ${
+            className={`flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-sm font-semibold text-white/60 transition hover:bg-white/10 hover:text-white ${
               sidebarCollapsed ? 'justify-center' : ''
             }`}
           >
@@ -311,7 +346,7 @@ function AppShellContent({ children }: AppShellProps) {
           <button
             type="button"
             onClick={handleLogout}
-            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-50 hover:text-red-600 ${
+            className={`flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-sm font-semibold text-white/60 transition hover:bg-white/10 hover:text-rose-200 ${
               sidebarCollapsed ? 'justify-center' : ''
             }`}
           >
@@ -324,23 +359,23 @@ function AppShellContent({ children }: AppShellProps) {
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div 
-          className="fixed inset-0 z-40 bg-black/20 lg:hidden" 
+          className="fixed inset-0 z-40 bg-slate-950/30 backdrop-blur-sm lg:hidden"
           onClick={() => setSidebarOpen(false)} 
         />
       )}
 
       {/* Mobile sidebar */}
       <aside 
-        className={`fixed inset-y-0 left-0 z-50 w-64 transform bg-white shadow-xl transition-transform duration-200 lg:hidden ${
+        className={`fixed inset-y-0 left-0 z-50 w-72 transform border-r border-white/10 bg-sidebar text-white shadow-xl transition-transform duration-200 lg:hidden ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex h-14 items-center justify-between border-b border-neutral-200 px-4">
-          <span className="text-lg font-semibold text-neutral-900">Espace</span>
+        <div className="flex h-16 items-center justify-between border-b border-white/10 px-4">
+          <span className="text-lg font-semibold tracking-tight text-white">Espace</span>
           <button
             type="button"
             onClick={() => setSidebarOpen(false)}
-            className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-100"
+            className="rounded-2xl p-1.5 text-white/60 hover:bg-white/10 hover:text-white"
           >
             <X className="size-5" />
           </button>
@@ -357,10 +392,10 @@ function AppShellContent({ children }: AppShellProps) {
                   <Link
                     href={href}
                     onClick={() => setSidebarOpen(false)}
-                    className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                    className={`flex min-h-10 items-center gap-3 rounded-2xl px-3 text-sm font-semibold transition-colors ${
                       isActive
-                        ? 'bg-neutral-100 text-neutral-900'
-                        : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'
+                        ? 'bg-white/15 text-white'
+                        : 'text-white/60 hover:bg-white/10 hover:text-white'
                     }`}
                   >
                     <Icon className="size-4" />
@@ -374,15 +409,15 @@ function AppShellContent({ children }: AppShellProps) {
       </aside>
 
       {/* Main content */}
-      <div className={`flex-1 ${sidebarCollapsed ? 'lg:pl-16' : 'lg:pl-56'}`}>
+      <div className={`flex-1 ${sidebarCollapsed ? 'lg:pl-16' : 'lg:pl-60'}`}>
         {/* Header */}
-        <header className="sticky top-0 z-30 border-b border-neutral-200 bg-white">
-          <div className="flex h-14 items-center justify-between gap-4 px-4 lg:px-6">
+        <header className="sticky top-0 z-30 border-b border-border/75 bg-background/95 backdrop-blur-xl">
+          <div className="flex min-h-16 items-center justify-between gap-4 px-4 lg:px-7">
             {/* Mobile menu button */}
             <button
               type="button"
               onClick={() => setSidebarOpen(true)}
-              className="rounded-lg p-2 text-neutral-600 hover:bg-neutral-100 lg:hidden"
+              className="rounded-2xl p-2 text-muted-foreground hover:bg-muted/70 lg:hidden"
             >
               <Menu className="size-5" />
             </button>
@@ -393,14 +428,14 @@ function AppShellContent({ children }: AppShellProps) {
                 <SuperadminGlobalSearchInput onOpen={() => setSuperadminSearchOpen(true)} />
               ) : (
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
+                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <input
                   ref={searchInputRef}
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Caută... (⌘K)"
-                  className="h-9 w-full rounded-lg border border-neutral-200 bg-neutral-50 pl-9 pr-3 text-sm text-neutral-900 placeholder-neutral-400 outline-none transition-colors focus:border-neutral-300 focus:bg-white focus:ring-1 focus:ring-neutral-200"
+                className="h-10 w-full rounded-full border border-border/80 bg-card pl-9 pr-3 text-sm text-foreground shadow-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/30 focus:ring-2 focus:ring-primary/15"
                 />
               </div>
               )}
@@ -413,7 +448,7 @@ function AppShellContent({ children }: AppShellProps) {
                 <button
                   type="button"
                   onClick={() => setSuperadminSearchOpen(true)}
-                  className="rounded-lg p-2 text-neutral-600 hover:bg-neutral-100 lg:hidden"
+                  className="rounded-full p-2 text-muted-foreground hover:bg-muted/70 lg:hidden"
                   aria-label="Caută global"
                 >
                   <Search className="size-5" />
@@ -422,16 +457,16 @@ function AppShellContent({ children }: AppShellProps) {
               {normalizedRole === 'SUPER_ADMIN' && (
                 <Link
                   href={`/${locale}/superadmin/monitoring`}
-                  className="hidden min-h-9 items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-xs font-semibold text-emerald-700 sm:inline-flex"
+                  className="hidden min-h-9 items-center gap-2 rounded-full border border-primary/15 bg-accent/45 px-3 text-xs font-semibold text-primary sm:inline-flex"
                 >
-                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                  <span className="h-2 w-2 rounded-full bg-success" />
                   Monitoring
                 </Link>
               )}
               
               {/* Demo badge */}
               {(activeUser?.isDemoUser || activeOrg?.isDemo) && (
-                <span className="hidden rounded-md bg-amber-100 px-2 py-1 text-xs font-medium text-amber-700 sm:inline-flex">
+                <span className="hidden rounded-full border border-warning/20 bg-warning/10 px-2.5 py-1 text-xs font-semibold text-warning sm:inline-flex">
                   Demo
                 </span>
               )}
@@ -441,11 +476,11 @@ function AppShellContent({ children }: AppShellProps) {
                 <button
                   type="button"
                   onClick={() => setNotificationsOpen(!notificationsOpen)}
-                  className="relative rounded-lg p-2 text-neutral-600 hover:bg-neutral-100"
+                  className="relative rounded-full p-2 text-muted-foreground hover:bg-accent/45 hover:text-foreground"
                 >
                   <Bell className="size-5" />
                   {notificationsUnreadCount > 0 && (
-                    <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white">
+                    <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-critical text-[10px] font-medium text-white">
                       {notificationsUnreadCount}
                     </span>
                   )}
@@ -453,17 +488,19 @@ function AppShellContent({ children }: AppShellProps) {
 
                 {/* Notifications dropdown */}
                 {notificationsOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-80 rounded-lg border border-neutral-200 bg-white p-2 shadow-lg">
+                  <div className="absolute right-0 top-full mt-2 w-80 rounded-2xl border border-border/75 bg-card p-2 shadow-dropdown">
                     <div className="mb-2 flex items-center justify-between px-2">
-                      <span className="text-sm font-medium text-neutral-900">Notificări</span>
+                      <span className="text-sm font-semibold text-foreground">Notificări</span>
                       <button
                         type="button"
                         onClick={async () => {
-                          if (normalizedRole === 'ADMIN') await notificationsApi.adminReadAll();
+                          if (normalizedRole === 'SUPER_ADMIN') await superadminApi.markAllSuperadminNotificationsRead();
+                          else if (normalizedRole === 'ADMIN') await notificationsApi.adminReadAll();
+                          else if (normalizedRole === 'RESIDENT') await notificationsApi.residentReadAll();
                           setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
                           setNotificationsUnreadCount(0);
                         }}
-                        className="text-xs text-neutral-500 hover:text-neutral-700"
+                        className="text-xs font-semibold text-muted-foreground hover:text-foreground"
                       >
                         Marchează citite
                       </button>
@@ -472,24 +509,42 @@ function AppShellContent({ children }: AppShellProps) {
                       {notifications.slice(0, 5).map((n) => (
                         <button
                           key={n.id}
-                          onClick={() => {
+                          onClick={async () => {
                             setNotificationsOpen(false);
-                            if (n.actionUrl) router.push(n.actionUrl);
+                            if (normalizedRole === 'SUPER_ADMIN' && n.status === 'UNREAD') {
+                              await superadminApi.markSuperadminNotificationRead(n.id).catch(() => undefined);
+                            }
+                            const target = notificationTarget(n.actionUrl || n.link);
+                            if (target) router.push(target);
                           }}
-                          className={`w-full rounded-lg px-2 py-2 text-left text-sm transition-colors ${
-                            n.isRead ? 'text-neutral-500' : 'bg-neutral-50 text-neutral-900'
-                          } hover:bg-neutral-100`}
+                          className={`w-full rounded-2xl px-2 py-2 text-left text-sm transition-colors ${
+                            n.isRead ? 'text-muted-foreground' : 'bg-muted/50 text-foreground'
+                          } hover:bg-muted/70`}
                         >
-                          <p className="font-medium">{n.title}</p>
-                          <p className="line-clamp-1 text-xs text-neutral-500">{n.message}</p>
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="min-w-0 truncate font-medium">{n.title}</p>
+                            {n.severity ? (
+                              <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${notificationSeverityClass(n.severity)}`}>
+                                {n.severity}
+                              </span>
+                            ) : null}
+                          </div>
+                          <p className="line-clamp-1 text-xs text-muted-foreground">{n.message}</p>
                         </button>
                       ))}
                       {!notifications.length && (
-                        <p className="px-2 py-4 text-center text-sm text-neutral-500">
+                        <p className="px-2 py-4 text-center text-sm text-muted-foreground">
                           Nicio notificare
                         </p>
                       )}
                     </div>
+                    <Link
+                      href={normalizedRole === 'SUPER_ADMIN' ? `/${locale}/superadmin/notifications` : normalizedRole === 'RESIDENT' ? `/${locale}/resident/notifications` : `/${locale}/admin/notifications`}
+                      onClick={() => setNotificationsOpen(false)}
+                    className="mt-2 flex min-h-9 items-center justify-center rounded-full border border-border/70 text-xs font-semibold text-foreground hover:bg-accent/35"
+                    >
+                      Vezi toate notificările
+                    </Link>
                   </div>
                 )}
               </div>
@@ -497,12 +552,12 @@ function AppShellContent({ children }: AppShellProps) {
               {/* User menu */}
               <div className="hidden items-center gap-2 lg:flex">
                 <div className="text-right">
-                  <p className="text-sm font-medium text-neutral-900">
+                  <p className="text-sm font-semibold text-foreground">
                     {activeUser.firstName} {activeUser.lastName}
                   </p>
-                  <p className="text-xs text-neutral-500">{activeUser.email}</p>
+                  <p className="text-xs text-muted-foreground">{activeUser.email}</p>
                 </div>
-                <div className="flex size-8 items-center justify-center rounded-full bg-neutral-900 text-xs font-medium text-white">
+                <div className="flex size-8 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
                   {activeUser.firstName?.[0]}{activeUser.lastName?.[0]}
                 </div>
               </div>
@@ -511,7 +566,7 @@ function AppShellContent({ children }: AppShellProps) {
         </header>
 
         {/* Page content */}
-        <main className="p-4 lg:p-6">
+        <main className="mx-auto w-full max-w-7xl px-4 py-5 lg:px-7 lg:py-7">
           {children}
         </main>
       </div>

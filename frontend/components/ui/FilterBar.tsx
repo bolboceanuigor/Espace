@@ -41,13 +41,14 @@ const FilterBar = forwardRef<HTMLDivElement, FilterBarProps>(function FilterBar(
             value={search || ''}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder={searchPlaceholder}
-            className="w-full rounded-xl border border-border/70 bg-card pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-colors"
+            className="w-full rounded-full border border-border/80 bg-card py-2 pl-9 pr-3 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus:border-primary/30 focus:outline-none focus:ring-2 focus:ring-primary/15"
           />
           {search && (
             <button
               type="button"
               onClick={() => onSearchChange('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+          aria-label="Șterge căutarea"
             >
               <X className="size-4" />
             </button>
@@ -89,10 +90,10 @@ export function FilterButton({
   return (
     <button
       type="button"
-      className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
         active
-          ? 'border-primary/30 bg-primary/5 text-foreground'
-          : 'border-border/70 bg-card text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+          ? 'border-primary/25 bg-accent/45 text-primary'
+          : 'border-border/70 bg-card text-muted-foreground hover:border-primary/20 hover:bg-muted/50 hover:text-foreground'
       } ${className}`.trim()}
       {...props}
     >
@@ -143,7 +144,7 @@ export function FilterDropdownTrigger({
   return (
     <button
       type="button"
-      className={`inline-flex items-center gap-2 rounded-lg border border-border/70 bg-card px-3 py-2 text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors ${className}`.trim()}
+      className={`inline-flex items-center gap-2 rounded-full border border-border/70 bg-card px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-primary/20 hover:bg-muted/50 hover:text-foreground ${className}`.trim()}
       {...props}
     >
       <SlidersHorizontal className="size-4" />

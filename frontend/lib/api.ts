@@ -31,7 +31,7 @@ export type PaginatedResponse<T> = {
   totalPages: number;
 };
 
-type ApiMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
+type ApiMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 type ApiOptions = {
   method?: ApiMethod;
@@ -638,8 +638,8 @@ export const activityApi = {
     apiRequest<any[]>('/api/activity', { params }),
   adminList: (params?: { limit?: number }) =>
     apiRequest<any[]>('/api/admin/activity', { params }),
-  superadminList: (params?: { limit?: number }) =>
-    apiRequest<any[]>('/api/superadmin/activity', { params }),
+  superadminList: (params?: Record<string, string | number | boolean | undefined | null>) =>
+    apiRequest<any>('/api/superadmin/activity', { params }),
 };
 
 export const channelsApi = {
@@ -1051,7 +1051,29 @@ export const invitationsApi = {
       phone?: string;
       sendEmail?: boolean;
     },
-  ) => apiRequest<any>(`/organizations/${organizationId}/admin-invitations`, { method: 'POST', body: data }),
+  ) => apiRequest<any>(`/api/superadmin/organizations/${organizationId}/admin-invitations`, { method: 'POST', body: data }),
+  createAdminInvitation: (
+    organizationId: string,
+    data: {
+      name: string;
+      email: string;
+      phone?: string;
+      expiresInDays?: number;
+      sendEmail?: boolean;
+    },
+  ) => apiRequest<any>(`/api/superadmin/organizations/${organizationId}/admin-invitations`, { method: 'POST', body: data }),
+  resendAdminInvitation: (invitationId: string, data?: { expiresInDays?: number }) =>
+    apiRequest<any>(`/api/superadmin/admin-invitations/${invitationId}/resend`, { method: 'POST', body: data || {} }),
+  cancelAdminInvitation: (invitationId: string) =>
+    apiRequest<any>(`/api/superadmin/admin-invitations/${invitationId}/cancel`, { method: 'POST' }),
+  getPublicAdminInvitation: (token: string) =>
+    apiRequest<any>(`/api/public/admin-invitations/${encodeURIComponent(token)}`),
+  acceptPublicAdminInvitation: (token: string, data: { password: string; confirmPassword?: string }) =>
+    apiRequest<any>(`/api/public/admin-invitations/${encodeURIComponent(token)}/accept`, { method: 'POST', body: data }),
+  getAdminFirstLogin: () => apiRequest<any>('/api/admin/first-login'),
+  updateAdminFirstLogin: (data: Record<string, unknown>) =>
+    apiRequest<any>('/api/admin/first-login', { method: 'PATCH', body: data }),
+  completeAdminFirstLogin: () => apiRequest<any>('/api/admin/first-login/complete', { method: 'POST' }),
   createResident: (
     residentId: string,
     data: {
@@ -1374,6 +1396,38 @@ export const metersApi = {
     apiRequest<any>(`/api/admin/meter-readings/${id}/reject`, { method: 'PATCH', body: data }),
   adminNeedsReviewReading: (id: string, data?: Record<string, unknown>) =>
     apiRequest<any>(`/api/admin/meter-readings/${id}/needs-review`, { method: 'PATCH', body: data || {} }),
+  getAdminMeterReadingPeriods: () => apiRequest<any>('/api/admin/meter-readings/periods'),
+  createAdminMeterReadingPeriod: (data: Record<string, unknown>) =>
+    apiRequest<any>('/api/admin/meter-readings/periods', { method: 'POST', body: data }),
+  getAdminMeterReadingPeriodOverview: (periodId: string) =>
+    apiRequest<any>(`/api/admin/meter-readings/periods/${periodId}/overview`),
+  getAdminMeterReadingWorkspace: (periodId: string, params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>(`/api/admin/meter-readings/periods/${periodId}/workspace`, { params }),
+  saveAdminMeterReading: (periodId: string, meterId: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/admin/meter-readings/periods/${periodId}/meters/${meterId}`, { method: 'PUT', body: data }),
+  bulkSaveAdminMeterReadings: (periodId: string, data: { readings: Record<string, unknown>[] }) =>
+    apiRequest<any>(`/api/admin/meter-readings/periods/${periodId}/bulk-save`, { method: 'POST', body: data }),
+  getAdminMeterReadingIssues: (periodId: string, params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>(`/api/admin/meter-readings/periods/${periodId}/issues`, { params }),
+  recalculateAdminMeterReadingPeriod: (periodId: string) =>
+    apiRequest<any>(`/api/admin/meter-readings/periods/${periodId}/recalculate`, { method: 'POST' }),
+  lockAdminMeterReadingPeriod: (periodId: string, data?: Record<string, unknown>) =>
+    apiRequest<any>(`/api/admin/meter-readings/periods/${periodId}/lock`, { method: 'POST', body: data || {} }),
+  unlockAdminMeterReadingPeriod: (periodId: string) =>
+    apiRequest<any>(`/api/admin/meter-readings/periods/${periodId}/unlock`, { method: 'POST' }),
+  getAdminResidentReadingsOverview: (params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>('/api/admin/resident-readings/overview', { params }),
+  getAdminResidentReadings: (params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>('/api/admin/resident-readings', { params }),
+  getAdminResidentReading: (id: string) => apiRequest<any>(`/api/admin/resident-readings/${id}`),
+  approveAdminResidentReading: (id: string, data?: Record<string, unknown>) =>
+    apiRequest<any>(`/api/admin/resident-readings/${id}/approve`, { method: 'POST', body: data || {} }),
+  rejectAdminResidentReading: (id: string, data: { rejectionReason: string; adminNote?: string }) =>
+    apiRequest<any>(`/api/admin/resident-readings/${id}/reject`, { method: 'POST', body: data }),
+  bulkApproveAdminResidentReadings: (data: { readingIds: string[]; confirmWarnings?: boolean }) =>
+    apiRequest<any>('/api/admin/resident-readings/bulk-approve', { method: 'POST', body: data }),
+  getAdminResidentReadingIssues: (params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>('/api/admin/resident-readings/issues', { params }),
   adminConsumptionReport: (params?: Record<string, string | number | boolean | null | undefined>) =>
     apiRequest<any>('/api/admin/meter-readings/reports/consumption', { params }),
   adminConsumptionDocument: (params?: Record<string, string | number | boolean | null | undefined>) =>
@@ -1398,11 +1452,20 @@ export const metersApi = {
   adminApartmentReadings: (apartmentId: string, params?: Record<string, string | number | boolean | null | undefined>) =>
     apiRequest<any>(`/api/admin/apartments/${apartmentId}/meter-readings`, { params }),
   residentList: (params?: Record<string, string | number | boolean | null | undefined>) => apiRequest<any>('/api/resident/meters', { params }),
+  getResidentMeters: (params?: Record<string, string | number | boolean | null | undefined>) => apiRequest<any>('/api/resident/meters', { params }),
   residentGet: (id: string) => apiRequest<any>(`/api/resident/meters/${id}`),
   residentReadings: (params?: Record<string, string | number | boolean | null | undefined>) => apiRequest<any>('/api/resident/meter-readings', { params }),
+  getResidentMeterReadingPeriods: () => apiRequest<any>('/api/resident/meter-readings/periods'),
+  getResidentMeterReadingWorkspace: (periodId: string, params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>(`/api/resident/meter-readings/periods/${periodId}/workspace`, { params }),
+  submitResidentMeterReading: (periodId: string, meterId: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/resident/meter-readings/periods/${periodId}/meters/${meterId}/submit`, { method: 'POST', body: data }),
+  getResidentMeterReadingHistory: (params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>('/api/resident/meter-readings/history', { params }),
   residentCreateReading: (data: Record<string, unknown>) => apiRequest<any>('/api/resident/meter-readings', { method: 'POST', body: data }),
   residentGetReading: (id: string) => apiRequest<any>(`/api/resident/meter-readings/${id}`),
-  residentCancelReading: (id: string) => apiRequest<any>(`/api/resident/meter-readings/${id}/cancel`, { method: 'PATCH', body: {} }),
+  residentCancelReading: (id: string) => apiRequest<any>(`/api/resident/meter-readings/${id}/cancel`, { method: 'POST', body: {} }),
+  cancelResidentMeterReading: (id: string) => apiRequest<any>(`/api/resident/meter-readings/${id}/cancel`, { method: 'POST', body: {} }),
 };
 
 export const adminStructureApi = {
@@ -1604,34 +1667,45 @@ export const issuesApi = {
 };
 
 export const requestsApi = {
+  getResidentRequestsOverview: () => apiRequest<any>('/api/resident/requests/overview'),
   residentList: (params?: Record<string, string | number | boolean | undefined | null>) =>
     apiRequest<any>('/api/resident/requests', { params }),
-  residentStats: () => apiRequest<any>('/api/resident/requests/stats'),
+  residentStats: () => apiRequest<any>('/api/resident/requests/overview'),
   residentCreate: (data: Record<string, unknown>) =>
     apiRequest<any>('/api/resident/requests', { method: 'POST', body: data }),
   residentGet: (id: string) => apiRequest<any>(`/api/resident/requests/${id}`),
-  residentAddComment: (id: string, data: { message: string }) =>
+  residentAddComment: (id: string, data: { message: string; attachmentUrl?: string; attachmentFileName?: string; attachmentMimeType?: string; attachmentFileSize?: number }) =>
     apiRequest<any>(`/api/resident/requests/${id}/comments`, { method: 'POST', body: data }),
   residentCancel: (id: string) => apiRequest<any>(`/api/resident/requests/${id}/cancel`, { method: 'PATCH' }),
-  residentClose: (id: string) => apiRequest<any>(`/api/resident/requests/${id}/close`, { method: 'PATCH' }),
+  residentClose: (id: string, data?: { message?: string }) => apiRequest<any>(`/api/resident/requests/${id}/close`, { method: 'POST', body: data || {} }),
+  residentReopen: (id: string, data?: { message?: string }) => apiRequest<any>(`/api/resident/requests/${id}/reopen`, { method: 'POST', body: data || {} }),
   residentMarkResolved: (id: string) => apiRequest<any>(`/api/resident/requests/${id}/mark-resolved`, { method: 'PATCH' }),
 
+  getAdminRequestsOverview: () => apiRequest<any>('/api/admin/requests/overview'),
   adminList: (params?: Record<string, string | number | boolean | undefined | null>) =>
     apiRequest<any>('/api/admin/requests', { params }),
-  adminStats: () => apiRequest<any>('/api/admin/requests/stats'),
+  adminStats: () => apiRequest<any>('/api/admin/requests/overview'),
+  getAdminRequestIssues: (params?: Record<string, string | number | boolean | undefined | null>) =>
+    apiRequest<any>('/api/admin/requests/issues', { params }),
   adminGet: (id: string) => apiRequest<any>(`/api/admin/requests/${id}`),
+  updateAdminRequest: (id: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/admin/requests/${id}`, { method: 'PATCH', body: data }),
   adminUpdateStatus: (id: string, status: string) =>
     apiRequest<any>(`/api/admin/requests/${id}/status`, { method: 'PATCH', body: { status } }),
   adminUpdatePriority: (id: string, priority: string) =>
     apiRequest<any>(`/api/admin/requests/${id}/priority`, { method: 'PATCH', body: { priority } }),
   adminAssign: (id: string, assignedToId?: string | null) =>
-    apiRequest<any>(`/api/admin/requests/${id}/assign`, { method: 'PATCH', body: { assignedToId } }),
-  adminAddComment: (id: string, data: { message: string }) =>
+    apiRequest<any>(`/api/admin/requests/${id}/assign`, { method: 'POST', body: { assignedToId } }),
+  adminAddComment: (id: string, data: { message: string; isInternal?: boolean; attachmentUrl?: string; attachmentFileName?: string; attachmentMimeType?: string; attachmentFileSize?: number }) =>
     apiRequest<any>(`/api/admin/requests/${id}/comments`, { method: 'POST', body: data }),
   adminAddInternalNote: (id: string, data: { message: string }) =>
-    apiRequest<any>(`/api/admin/requests/${id}/internal-notes`, { method: 'POST', body: data }),
-  adminResolve: (id: string) => apiRequest<any>(`/api/admin/requests/${id}/resolve`, { method: 'PATCH' }),
-  adminClose: (id: string) => apiRequest<any>(`/api/admin/requests/${id}/close`, { method: 'PATCH' }),
+    apiRequest<any>(`/api/admin/requests/${id}/comments`, { method: 'POST', body: { ...data, isInternal: true } }),
+  adminResolve: (id: string, data?: { message?: string; internalNote?: string; closeImmediately?: boolean }) =>
+    apiRequest<any>(`/api/admin/requests/${id}/resolve`, { method: 'POST', body: data || {} }),
+  adminClose: (id: string, data?: { message?: string; internalNote?: string }) =>
+    apiRequest<any>(`/api/admin/requests/${id}/close`, { method: 'POST', body: data || {} }),
+  adminCancel: (id: string, data: { reason: string; internalNote?: string }) =>
+    apiRequest<any>(`/api/admin/requests/${id}/cancel`, { method: 'POST', body: data }),
   adminReopen: (id: string) => apiRequest<any>(`/api/admin/requests/${id}/reopen`, { method: 'PATCH' }),
   adminResidentRequests: (residentId: string) => apiRequest<any>(`/api/admin/residents/${residentId}/requests`),
   adminApartmentRequests: (apartmentId: string) => apiRequest<any>(`/api/admin/apartments/${apartmentId}/requests`),
@@ -1727,6 +1801,33 @@ export const residentDemoApi = {
     description: string;
   }) => apiRequest<any>('/resident/issues', { method: 'POST', body: data }),
   announcements: () => apiRequest<any[]>('/resident/announcements'),
+};
+
+export const residentBalanceApi = {
+  getResidentBalanceOverview: () => apiRequest<any>('/api/resident/balance/overview'),
+  getResidentApartmentBalances: () => apiRequest<any>('/api/resident/balance/apartments'),
+  getResidentApartmentBalance: (apartmentId: string) => apiRequest<any>(`/api/resident/balance/apartments/${apartmentId}`),
+  getResidentPayments: (params?: {
+    apartmentId?: string;
+    status?: string;
+    method?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    invoiceId?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+  }) => apiRequest<any>('/api/resident/payments', { params }),
+  getResidentPayment: (id: string) => apiRequest<any>(`/api/resident/payments/${id}`),
+  getResidentFinancialTimeline: (params?: {
+    apartmentId?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    type?: string;
+    page?: number;
+    limit?: number;
+  }) => apiRequest<any>('/api/resident/financial-timeline', { params }),
+  getResidentBalanceIssues: () => apiRequest<any>('/api/resident/balance/issues'),
 };
 
 export const votesApi = {
@@ -1870,6 +1971,7 @@ export const invoicesApi = {
     apiRequest<any>('/api/admin/invoices/monthly-summary', { params }),
   adminList: (params?: {
     billingMonth?: string;
+    billingPeriodId?: string;
     status?: string;
     search?: string;
     apartmentNumber?: string;
@@ -1884,6 +1986,20 @@ export const invoicesApi = {
   }) =>
     apiRequest<any>('/api/admin/invoices', { params }),
   adminGetOne: (id: string) => apiRequest<any>(`/api/admin/invoices/${id}`),
+  getAdminInvoices: (params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>('/api/admin/invoices', { params }),
+  getAdminInvoicesOverview: () => apiRequest<any>('/api/admin/invoices/overview'),
+  getAdminInvoice: (id: string) => apiRequest<any>(`/api/admin/invoices/${id}`),
+  updateAdminInvoice: (id: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/admin/invoices/${id}`, { method: 'PATCH', body: data }),
+  publishAdminInvoice: (id: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/admin/invoices/${id}/publish`, { method: 'POST', body: data }),
+  bulkPublishAdminInvoices: (data: Record<string, unknown>) =>
+    apiRequest<any>('/api/admin/invoices/bulk-publish', { method: 'POST', body: data }),
+  unpublishAdminInvoice: (id: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/admin/invoices/${id}/unpublish`, { method: 'POST', body: data }),
+  getAdminInvoiceIssues: (params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>('/api/admin/invoices/issues', { params }),
   adminDocument: (id: string) => apiRequest<any>(`/api/admin/invoices/${id}/document`),
   adminPdfFallback: (id: string) => apiRequest<any>(`/api/admin/invoices/${id}/pdf`),
   adminUpdateStatus: (id: string, data: { status: 'CANCELLED' | 'VOID' }) =>
@@ -1945,6 +2061,8 @@ export const invoicesApi = {
     apartmentId?: string;
     billingMonth?: string;
     status?: string;
+    year?: number;
+    month?: number;
     unpaidOnly?: boolean;
     overdueOnly?: boolean;
     sortBy?: string;
@@ -1953,6 +2071,25 @@ export const invoicesApi = {
     limit?: number;
   }) => apiRequest<any>('/api/resident/invoices', { params }),
   residentGetOne: (id: string) => apiRequest<any>(`/api/resident/invoices/${id}`),
+  getResidentInvoices: (params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>('/api/resident/invoices', { params }),
+  getResidentInvoicesOverview: () => apiRequest<any>('/api/resident/invoices/overview'),
+  getResidentInvoice: (id: string) => apiRequest<any>(`/api/resident/invoices/${id}`),
+  markResidentInvoiceViewed: (id: string) =>
+    apiRequest<any>(`/api/resident/invoices/${id}/mark-viewed`, { method: 'POST' }),
+  createResidentPaymentIntentPlaceholder: (invoiceId: string, data: { confirm: boolean }) =>
+    apiRequest<any>(`/api/resident/invoices/${invoiceId}/payment-intent-placeholder`, { method: 'POST', body: data }),
+  submitResidentPaymentProof: (invoiceId: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/resident/invoices/${invoiceId}/payment-proofs`, { method: 'POST', body: data }),
+  getResidentPaymentProofs: (params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>('/api/resident/payment-proofs', { params }),
+  getResidentPaymentProof: (id: string) => apiRequest<any>(`/api/resident/payment-proofs/${id}`),
+  cancelResidentPaymentProof: (id: string) =>
+    apiRequest<any>(`/api/resident/payment-proofs/${id}/cancel`, { method: 'POST' }),
+  cancelResidentPaymentIntentPlaceholder: (intentId: string, data?: { reason?: string }) =>
+    apiRequest<any>(`/api/resident/payment-intents/${intentId}/cancel`, { method: 'POST', body: data || {} }),
+  getResidentInvoicePrintData: (id: string) =>
+    apiRequest<any>(`/api/resident/invoices/${id}/print-data`),
   residentDocument: (id: string) => apiRequest<any>(`/api/resident/invoices/${id}/document`),
   residentPdfFallback: (id: string) => apiRequest<any>(`/api/resident/invoices/${id}/pdf`),
   residentPdf: (id: string) => apiRequest<Blob>(`/api/resident/invoices/${id}/pdf`, { responseType: 'blob' }),
@@ -1986,6 +2123,34 @@ export const billingApi = {
   activity: (id: string, params?: Record<string, string | number | boolean | undefined>) =>
     apiRequest<any>(`/api/admin/billing/runs/${id}/activity`, { params }),
   recentActivity: (id: string) => apiRequest<any>(`/api/admin/billing/runs/${id}/activity/recent`),
+};
+
+export const billingDraftsApi = {
+  getAdminBillingPeriods: () => apiRequest<any>('/api/admin/billing-drafts/periods'),
+  createAdminBillingPeriod: (data: Record<string, unknown>) =>
+    apiRequest<any>('/api/admin/billing-drafts/periods', { method: 'POST', body: data }),
+  getAdminBillingPeriodOverview: (periodId: string) =>
+    apiRequest<any>(`/api/admin/billing-drafts/periods/${periodId}/overview`),
+  getAdminBillingPeriodTariffs: (periodId: string) =>
+    apiRequest<any>(`/api/admin/billing-drafts/periods/${periodId}/tariffs`),
+  updateAdminBillingPeriodTariffs: (periodId: string, data: { tariffs: Record<string, unknown>[] }) =>
+    apiRequest<any>(`/api/admin/billing-drafts/periods/${periodId}/tariffs`, { method: 'PUT', body: data }),
+  generateAdminBillingDrafts: (periodId: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/admin/billing-drafts/periods/${periodId}/generate`, { method: 'POST', body: data }),
+  getAdminBillingDraftInvoices: (periodId: string, params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>(`/api/admin/billing-drafts/periods/${periodId}/invoices`, { params }),
+  getAdminBillingDraftInvoice: (invoiceId: string) =>
+    apiRequest<any>(`/api/admin/billing-drafts/invoices/${invoiceId}`),
+  updateAdminBillingDraftInvoice: (invoiceId: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/admin/billing-drafts/invoices/${invoiceId}`, { method: 'PATCH', body: data }),
+  recalculateAdminBillingDrafts: (periodId: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/admin/billing-drafts/periods/${periodId}/recalculate`, { method: 'POST', body: data }),
+  getAdminBillingDraftIssues: (periodId: string, params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>(`/api/admin/billing-drafts/periods/${periodId}/issues`, { params }),
+  approveAdminBillingPeriod: (periodId: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/admin/billing-drafts/periods/${periodId}/approve`, { method: 'POST', body: data }),
+  deleteAdminBillingDrafts: (periodId: string, data: { confirm: boolean }) =>
+    apiRequest<any>(`/api/admin/billing-drafts/periods/${periodId}/delete-drafts`, { method: 'POST', body: data }),
 };
 
 export const tariffsApi = {
@@ -2091,14 +2256,82 @@ export const paymentsApi = {
   }) => apiRequest<any>('/api/admin/payments', { params }),
   adminStats: (params?: { billingMonth?: string; dateFrom?: string; dateTo?: string }) =>
     apiRequest<any>('/api/admin/payments/stats', { params }),
-  adminCreate: (data: {
-    invoiceId: string;
+  getAdminPaymentsOverview: () => apiRequest<any>('/api/admin/payments/overview'),
+  getAdminPaymentProofs: (params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>('/api/admin/payment-proofs', { params }),
+  getAdminPaymentProofsOverview: () => apiRequest<any>('/api/admin/payment-proofs/overview'),
+  getAdminPaymentProof: (id: string) => apiRequest<any>(`/api/admin/payment-proofs/${id}`),
+  startAdminPaymentProofReview: (id: string) =>
+    apiRequest<any>(`/api/admin/payment-proofs/${id}/start-review`, { method: 'POST' }),
+  acceptAdminPaymentProof: (id: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/admin/payment-proofs/${id}/accept`, { method: 'POST', body: data }),
+  rejectAdminPaymentProof: (id: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/admin/payment-proofs/${id}/reject`, { method: 'POST', body: data }),
+  getAdminPaymentProofIssues: (params?: Record<string, string | number | boolean | null | undefined>) =>
+    apiRequest<any>('/api/admin/payment-proofs/issues', { params }),
+  getAdminPayments: (params?: {
+    status?: string;
+    method?: string;
+    source?: string;
+    invoiceId?: string;
+    apartmentId?: string;
+    residentUserId?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+  }) => apiRequest<any>('/api/admin/payments', { params }),
+  getAdminPayment: (id: string) => apiRequest<any>(`/api/admin/payments/${id}`),
+  createAdminManualPayment: (data: {
+    invoiceId?: string;
+    apartmentId?: string;
     amount: number;
-    paymentDate: string;
-    method: 'CASH' | 'BANK_TRANSFER' | 'CARD_TERMINAL' | 'INFOCOM' | 'OPLATA' | 'OTHER';
+    currency?: string;
+    method: string;
+    paidAt?: string;
+    paymentDate?: string;
+    externalReference?: string;
+    note?: string;
+    internalNote?: string;
+  }) => apiRequest<any>('/api/admin/payments/manual', { method: 'POST', body: data }),
+  updateAdminPayment: (id: string, data: { paidAt?: string; externalReference?: string; note?: string; internalNote?: string }) =>
+    apiRequest<any>(`/api/admin/payments/${id}`, { method: 'PATCH', body: data }),
+  reverseAdminPayment: (id: string, data: { reason: string; confirm: boolean }) =>
+    apiRequest<any>(`/api/admin/payments/${id}/reverse`, { method: 'POST', body: data }),
+  getAdminApartmentBalances: (params?: {
+    buildingId?: string;
+    entranceId?: string;
+    onlyWithDebt?: boolean;
+    onlyOverpaid?: boolean;
+    search?: string;
+    page?: number;
+    limit?: number;
+  }) => apiRequest<any>('/api/admin/payments/apartment-balances', { params }),
+  getAdminApartmentLedger: (apartmentId: string) => apiRequest<any>(`/api/admin/payments/apartments/${apartmentId}/ledger`),
+  getAdminReconciliationIssues: (params?: {
+    type?: string;
+    severity?: string;
+    apartmentId?: string;
+    invoiceId?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+  }) => apiRequest<any>('/api/admin/reconciliation/issues', { params }),
+  recalculateAdminReconciliation: () => apiRequest<any>('/api/admin/reconciliation/recalculate', { method: 'POST' }),
+  adminCreate: (data: {
+    invoiceId?: string;
+    apartmentId?: string;
+    amount: number;
+    paymentDate?: string;
+    paidAt?: string;
+    method: string;
     referenceNumber?: string;
+    externalReference?: string;
     payerName?: string;
     notes?: string;
+    note?: string;
+    internalNote?: string;
   }) => apiRequest<any>('/api/admin/payments', { method: 'POST', body: data }),
   adminGetOne: (id: string) => apiRequest<any>(`/api/admin/payments/${id}`),
   adminReceiptDocument: (id: string) => apiRequest<any>(`/api/admin/payments/${id}/receipt-document`),
@@ -2313,6 +2546,45 @@ export const supportChatApi = {
   adminDeleteMessage: (messageId: string) => apiRequest<any>(`/api/admin/chat/messages/${messageId}`, { method: 'DELETE' }),
 };
 
+export const connectApi = {
+  adminOverview: () => apiRequest<any>('/api/admin/connect/overview'),
+  adminResidents: (params?: Record<string, string | number | boolean | undefined | null>) =>
+    apiRequest<any[]>('/api/admin/connect/residents', { params }),
+  adminConversations: (params?: Record<string, string | number | boolean | undefined | null>) =>
+    apiRequest<any>('/api/admin/connect/conversations', { params }),
+  adminCreateConversation: (data: Record<string, unknown>) =>
+    apiRequest<any>('/api/admin/connect/conversations', { method: 'POST', body: data }),
+  adminConversation: (conversationId: string) =>
+    apiRequest<any>(`/api/admin/connect/conversations/${conversationId}`),
+  adminSendMessage: (conversationId: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/admin/connect/conversations/${conversationId}/messages`, { method: 'POST', body: data }),
+  adminRead: (conversationId: string) =>
+    apiRequest<any>(`/api/admin/connect/conversations/${conversationId}/read`, { method: 'POST' }),
+  adminUpdateConversation: (conversationId: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/admin/connect/conversations/${conversationId}`, { method: 'PATCH', body: data }),
+  adminResolve: (conversationId: string, data?: Record<string, unknown>) =>
+    apiRequest<any>(`/api/admin/connect/conversations/${conversationId}/resolve`, { method: 'POST', body: data || {} }),
+  adminClose: (conversationId: string, data?: Record<string, unknown>) =>
+    apiRequest<any>(`/api/admin/connect/conversations/${conversationId}/close`, { method: 'POST', body: data || {} }),
+  adminReopen: (conversationId: string) =>
+    apiRequest<any>(`/api/admin/connect/conversations/${conversationId}/reopen`, { method: 'POST' }),
+
+  residentOverview: () => apiRequest<any>('/api/resident/connect/overview'),
+  residentContext: () => apiRequest<any>('/api/resident/connect/context'),
+  residentConversations: (params?: Record<string, string | number | boolean | undefined | null>) =>
+    apiRequest<any>('/api/resident/connect/conversations', { params }),
+  residentCreateConversation: (data: Record<string, unknown>) =>
+    apiRequest<any>('/api/resident/connect/conversations', { method: 'POST', body: data }),
+  residentConversation: (conversationId: string) =>
+    apiRequest<any>(`/api/resident/connect/conversations/${conversationId}`),
+  residentSendMessage: (conversationId: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/resident/connect/conversations/${conversationId}/messages`, { method: 'POST', body: data }),
+  residentRead: (conversationId: string) =>
+    apiRequest<any>(`/api/resident/connect/conversations/${conversationId}/read`, { method: 'POST' }),
+  residentReopen: (conversationId: string, data?: Record<string, unknown>) =>
+    apiRequest<any>(`/api/resident/connect/conversations/${conversationId}/reopen`, { method: 'POST', body: data || {} }),
+};
+
 export const notificationsApi = {
   adminList: (params?: Record<string, string | number | boolean | undefined | null>) => apiRequest<any>('/api/admin/notifications', { params }),
   adminUnreadCount: () => apiRequest<any>('/api/admin/notifications/unread-count'),
@@ -2377,8 +2649,12 @@ export const auditLogsApi = {
 export const dataQualityApi = {
   overview: (params?: Record<string, string | number | boolean | undefined>) =>
     apiRequest<any>('/api/admin/data-quality', { params }),
+  adminOverview: (params?: Record<string, string | number | boolean | undefined>) =>
+    apiRequest<any>('/api/admin/data-quality/overview', { params }),
   run: (data?: { billingMonth?: string }) =>
     apiRequest<any>('/api/admin/data-quality/run', { method: 'POST', body: data || {} }),
+  recalculate: (data?: { billingMonth?: string }) =>
+    apiRequest<any>('/api/admin/data-quality/recalculate', { method: 'POST', body: data || {} }),
   stats: () => apiRequest<any>('/api/admin/data-quality/stats'),
   runs: (params?: Record<string, string | number | boolean | undefined>) =>
     apiRequest<any>('/api/admin/data-quality/runs', { params }),
@@ -2399,6 +2675,8 @@ export const dataQualityApi = {
     apiRequest<any>('/api/admin/data-quality/fixes/bulk/apply', { method: 'POST', body: data }),
   resolveIssue: (id: string, note?: string) =>
     apiRequest<any>(`/api/admin/data-quality/issues/${id}/resolve`, { method: 'PATCH', body: { note } }),
+  resolveIssueByEntity: (data: { issueType: string; entityId?: string; action?: 'MARK_RESOLVED'; note?: string }) =>
+    apiRequest<any>('/api/admin/data-quality/resolve', { method: 'PATCH', body: data }),
   ignoreIssue: (id: string, reason: string) =>
     apiRequest<any>(`/api/admin/data-quality/issues/${id}/ignore`, { method: 'PATCH', body: { reason } }),
   reopenIssue: (id: string) =>
@@ -2918,6 +3196,99 @@ export const superadminApi = {
     apiRequest<any[]>('/organizations'),
   getPublicOrganization: (id: string) =>
     apiRequest<any>(`/organizations/${id}`),
+  getSuperadminOrganizationDetail: (id: string) =>
+    apiRequest<any>(`/api/superadmin/organizations/${id}/detail`),
+  getSuperadminActivity: (params?: Record<string, string | number | boolean | undefined | null>) =>
+    apiRequest<any>('/api/superadmin/activity', { params }),
+  getSuperadminActivityDetail: (id: string) =>
+    apiRequest<any>(`/api/superadmin/activity/${id}`),
+  updateSuperadminOrganization: (
+    id: string,
+    data: Partial<{
+      name: string;
+      legalName: string | null;
+      shortName: string;
+      apcCode: string | null;
+      associationCode: string | null;
+      city: string | null;
+      address: string | null;
+      contactPhone: string | null;
+      contactEmail: string | null;
+      status: 'ACTIVE' | 'TRIAL' | 'INACTIVE';
+      internalNote: string | null;
+      onboardingStatus: 'NOT_STARTED' | 'IN_PROGRESS' | 'READY_FOR_LAUNCH' | 'LAUNCHED' | 'BLOCKED' | 'COMPLETED';
+      launchStatus: 'DRAFT' | 'INTERNAL_REVIEW' | 'READY' | 'LIVE';
+    }>,
+  ) =>
+    apiRequest<any>(`/api/superadmin/organizations/${id}`, {
+      method: 'PATCH',
+      body: data,
+    }),
+  getSuperadminOrganizationActivity: (id: string, params?: Record<string, string | number | boolean | undefined | null>) =>
+    apiRequest<any>(`/api/superadmin/organizations/${id}/activity`, { params }),
+  getSuperadminOrganizationContract: (id: string) =>
+    apiRequest<any>(`/api/superadmin/organizations/${id}/contract`),
+  updateSuperadminOrganizationContract: (
+    id: string,
+    data: Partial<{
+      status: 'NOT_STARTED' | 'DRAFT' | 'SENT' | 'SIGNED' | 'ACTIVE' | 'PAUSED' | 'CANCELLED' | 'EXPIRED';
+      contractNumber: string | null;
+      startDate: string | null;
+      endDate: string | null;
+      signedAt: string | null;
+      cancelledAt: string | null;
+      billingCycle: 'MONTHLY' | 'QUARTERLY' | 'YEARLY' | 'CUSTOM';
+      pricingModel: 'PER_APARTMENT' | 'FIXED_MONTHLY' | 'CUSTOM';
+      pricePerApartment: number | null;
+      fixedMonthlyPrice: number | null;
+      apartmentsIncluded: number | null;
+      minimumMonthlyFee: number | null;
+      paymentDueDay: number | null;
+      currency: 'MDL' | 'EUR' | 'USD';
+      documentUrl: string | null;
+      internalNote: string | null;
+    }>,
+  ) =>
+    apiRequest<any>(`/api/superadmin/organizations/${id}/contract`, {
+      method: 'PUT',
+      body: data,
+    }),
+  updateSuperadminOrganizationSubscription: (
+    id: string,
+    data: Partial<{
+      status: 'TRIAL' | 'ACTIVE' | 'PAST_DUE' | 'PAUSED' | 'CANCELLED';
+      planName: string | null;
+      startedAt: string | null;
+      trialEndsAt: string | null;
+      nextBillingDate: string | null;
+      currentMonthlyAmount: number | null;
+      currency: 'MDL' | 'EUR' | 'USD';
+      internalNote: string | null;
+    }>,
+  ) =>
+    apiRequest<any>(`/api/superadmin/organizations/${id}/subscription`, {
+      method: 'PUT',
+      body: data,
+    }),
+  getOrganizationOnboarding: (id: string) =>
+    apiRequest<any>(`/api/superadmin/organizations/${id}/onboarding`),
+  updateOrganizationOnboarding: (
+    id: string,
+    data: Partial<{
+      onboardingStatus: 'NOT_STARTED' | 'IN_PROGRESS' | 'READY_FOR_LAUNCH' | 'LAUNCHED' | 'BLOCKED' | 'COMPLETED';
+      onboardingStep: 'BASIC_INFO' | 'STRUCTURE' | 'APARTMENTS' | 'RESIDENTS' | 'METERS' | 'BILLING' | 'DOCUMENTS' | 'FINAL_REVIEW';
+      onboardingNote: string | null;
+      launchStatus: 'DRAFT' | 'INTERNAL_REVIEW' | 'READY' | 'LIVE';
+    }>,
+  ) =>
+    apiRequest<any>(`/api/superadmin/organizations/${id}/onboarding`, {
+      method: 'PATCH',
+      body: data,
+    }),
+  recalculateOrganizationOnboarding: (id: string) =>
+    apiRequest<any>(`/api/superadmin/organizations/${id}/onboarding/recalculate`, {
+      method: 'POST',
+    }),
   createPublicOrganization: (data: {
     associationCode: string;
     associationNumber?: string;
@@ -3199,6 +3570,30 @@ export const superadminApi = {
     }>,
   ) => apiRequest<any>(`/api/superadmin/tasks/${id}`, { method: 'PATCH', body: data }),
   deleteTask: (id: string) => apiRequest<any>(`/api/superadmin/tasks/${id}`, { method: 'DELETE' }),
+  getSuperadminBillingTasks: (params?: Record<string, string | number | boolean | undefined>) =>
+    apiRequest<any>('/api/superadmin/billing-tasks', { params }),
+  createSuperadminBillingTask: (data: Record<string, unknown>) =>
+    apiRequest<any>('/api/superadmin/billing-tasks', { method: 'POST', body: data }),
+  updateSuperadminBillingTask: (id: string, data: Record<string, unknown>) =>
+    apiRequest<any>(`/api/superadmin/billing-tasks/${id}`, { method: 'PATCH', body: data }),
+  completeSuperadminBillingTask: (id: string) =>
+    apiRequest<any>(`/api/superadmin/billing-tasks/${id}/complete`, { method: 'POST' }),
+  dismissSuperadminBillingTask: (id: string) =>
+    apiRequest<any>(`/api/superadmin/billing-tasks/${id}/dismiss`, { method: 'POST' }),
+  generateSuperadminBillingTasks: () =>
+    apiRequest<any>('/api/superadmin/billing-tasks/generate', { method: 'POST' }),
+  getSuperadminNotifications: (params?: Record<string, string | number | boolean | undefined>) =>
+    apiRequest<any>('/api/superadmin/notifications', { params }),
+  getSuperadminNotificationsSummary: () =>
+    apiRequest<any>('/api/superadmin/notifications/summary'),
+  markSuperadminNotificationRead: (id: string) =>
+    apiRequest<any>(`/api/superadmin/notifications/${id}/read`, { method: 'PATCH' }),
+  markAllSuperadminNotificationsRead: () =>
+    apiRequest<any>('/api/superadmin/notifications/read-all', { method: 'PATCH' }),
+  archiveSuperadminNotification: (id: string) =>
+    apiRequest<any>(`/api/superadmin/notifications/${id}/archive`, { method: 'PATCH' }),
+  generateSuperadminNotifications: () =>
+    apiRequest<any>('/api/superadmin/notifications/generate', { method: 'POST' }),
   demoStatus: () =>
     apiRequest<{
       organizations: Array<{ id: string; name: string; createdAt: string }>;
@@ -3710,6 +4105,11 @@ export const superadminCustomerSuccessReportsApi = {
 };
 
 export const superadminRevenueApi = {
+  getSuperadminRevenueOverview: () => apiRequest<any>('/api/superadmin/revenue/overview'),
+  getSuperadminRevenueOrganizations: (params?: Record<string, string | number | boolean | undefined>) =>
+    apiRequest<any>('/api/superadmin/revenue/organizations', { params }),
+  getSuperadminRevenuePipeline: () => apiRequest<any>('/api/superadmin/revenue/pipeline'),
+  getSuperadminRevenueWarnings: () => apiRequest<any>('/api/superadmin/revenue/warnings'),
   dashboard: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/revenue/dashboard', { params }),
   overdue: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/revenue/overdue', { params }),
   aging: (params?: Record<string, string | undefined>) => apiRequest<any>('/api/superadmin/revenue/aging', { params }),

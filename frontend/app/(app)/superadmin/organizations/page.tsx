@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { Building2, Plus, Search, Sparkles, UserPlus } from 'lucide-react';
-import { Badge, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
+import { Badge, Button, ButtonLink, Card, EmptyState, Input, LoadingSkeleton, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
 import { superadminApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 import {
@@ -227,23 +227,16 @@ export default function SuperadminOrganizationsPage() {
       <PageHeader
         title="Clienți A.P.C."
         description="CRM pentru asociațiile din platformă: profil, status, contact responsabil, onboarding și următorul pas."
-        rightSlot={
+        actions={
           <div className="flex flex-col gap-2 sm:flex-row">
-            <Link
-              href={localizedPath('/superadmin/associations/new')}
-              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl border border-border/70 bg-white px-4 text-sm font-semibold text-foreground shadow-sm hover:bg-muted/70"
-            >
+            <ButtonLink href="/superadmin/associations/new" variant="secondary">
               <Sparkles className="h-4 w-4" />
               Wizard onboarding
-            </Link>
-            <button
-              type="button"
-              onClick={() => setModalOpen(true)}
-              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl bg-foreground px-4 text-sm font-semibold text-background"
-            >
+            </ButtonLink>
+            <Button type="button" onClick={() => setModalOpen(true)}>
               <Plus className="h-4 w-4" />
               Adaugă A.P.C.
-            </button>
+            </Button>
           </div>
         }
       />
@@ -275,14 +268,14 @@ export default function SuperadminOrganizationsPage() {
           <select
             value={status}
             onChange={(event) => setStatus(event.target.value as 'ALL' | AssociationStatus)}
-            className="h-11 rounded-2xl border border-border/70 bg-white px-3 text-sm text-foreground outline-none"
+            className="select lg:max-w-56"
           >
             <option value="ALL">Toate statusurile</option>
             <option value="ACTIVE">Active</option>
             <option value="TRIAL">Trial</option>
             <option value="INACTIVE">Inactive</option>
           </select>
-          <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
+          <span className="inline-flex min-h-10 items-center rounded-full border border-border/70 bg-muted/40 px-3 text-xs font-semibold text-muted-foreground">
             {source === 'loading' ? 'Se încarcă...' : source === 'api' ? 'Date reale' : 'API indisponibil'}
           </span>
         </div>
@@ -327,9 +320,22 @@ export default function SuperadminOrganizationsPage() {
             </div>
           </Card>
         ))}
-        {source === 'loading' ? <Card className="p-5 text-sm font-medium text-muted-foreground">Se încarcă datele...</Card> : null}
-        {source === 'unavailable' ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu putem încărca organizațiile acum. Nu sunt afișate date demo.</Card> : null}
-        {source === 'api' && !filteredRows.length ? <Card className="p-5 text-sm font-medium text-muted-foreground">Nu există A.P.C.-uri încă. Creează prima asociație.</Card> : null}
+        {source === 'loading' ? <LoadingSkeleton rows={3} label="Se încarcă organizațiile..." /> : null}
+        {source === 'unavailable' ? (
+          <EmptyState
+            type="error"
+            title="Nu putem încărca organizațiile acum."
+            description="Nu sunt afișate date demo. Reîncearcă după ce API-ul este disponibil."
+          />
+        ) : null}
+        {source === 'api' && !filteredRows.length ? (
+          <EmptyState
+            type="buildings"
+            title="Nu există A.P.C.-uri pentru filtrele curente."
+            description="Creează prima asociație sau ajustează filtrele CRM."
+            action={<Button type="button" onClick={() => setModalOpen(true)}>Adaugă A.P.C.</Button>}
+          />
+        ) : null}
       </section>
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} maxWidth="2xl">
@@ -386,12 +392,12 @@ export default function SuperadminOrganizationsPage() {
           </p>
         </ModalBody>
         <ModalFooter>
-          <button type="button" onClick={() => setModalOpen(false)} disabled={isCreating} className="rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold disabled:opacity-60">
+          <Button type="button" variant="secondary" onClick={() => setModalOpen(false)} disabled={isCreating}>
             Anulează
-          </button>
-          <button type="button" onClick={createAssociation} disabled={isCreating} className="rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background disabled:opacity-60">
+          </Button>
+          <Button type="button" onClick={createAssociation} disabled={isCreating} isLoading={isCreating}>
             {isCreating ? 'Se creează...' : 'Creează A.P.C.'}
-          </button>
+          </Button>
         </ModalFooter>
       </Modal>
     </div>

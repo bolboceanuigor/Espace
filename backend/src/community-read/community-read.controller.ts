@@ -39,6 +39,12 @@ export class CommunityReadController {
   }
 
   @Roles(Role.RESIDENT)
+  @Get(['resident/requests/overview', 'api/resident/requests/overview'])
+  getResidentRequestsOverview(@CurrentUser() user: MvpUser) {
+    return this.communityReadService.getResidentRequestsOverview(user);
+  }
+
+  @Roles(Role.RESIDENT)
   @Post(['resident/requests', 'api/resident/requests'])
   createResidentRequest(@CurrentUser() user: MvpUser, @Body() body: unknown) {
     return this.communityReadService.createResidentRequest(user, body);
@@ -64,8 +70,20 @@ export class CommunityReadController {
 
   @Roles(Role.RESIDENT)
   @Patch(['resident/requests/:id/close', 'api/resident/requests/:id/close'])
-  closeResidentRequest(@CurrentUser() user: MvpUser, @Param('id') id: string) {
-    return this.communityReadService.closeResidentRequest(user, id);
+  closeResidentRequestLegacy(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.communityReadService.closeResidentRequest(user, id, body);
+  }
+
+  @Roles(Role.RESIDENT)
+  @Post(['resident/requests/:id/close', 'api/resident/requests/:id/close'])
+  closeResidentRequest(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.communityReadService.closeResidentRequest(user, id, body);
+  }
+
+  @Roles(Role.RESIDENT)
+  @Post(['resident/requests/:id/reopen', 'api/resident/requests/:id/reopen'])
+  reopenResidentRequest(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.communityReadService.reopenResidentRequest(user, id, body);
   }
 
   @Roles(Role.RESIDENT)
@@ -84,9 +102,24 @@ export class CommunityReadController {
     return this.communityReadService.getAdminRequestStats(user);
   }
 
+  @Get(['admin/requests/overview', 'api/admin/requests/overview'])
+  getAdminRequestsOverview(@CurrentUser() user: MvpUser) {
+    return this.communityReadService.getAdminRequestsOverview(user);
+  }
+
+  @Get(['admin/requests/issues', 'api/admin/requests/issues'])
+  listAdminRequestIssues(@CurrentUser() user: MvpUser, @Query() query: Record<string, string | undefined>) {
+    return this.communityReadService.listAdminRequestIssues(user, query);
+  }
+
   @Get(['admin/requests/:id', 'api/admin/requests/:id'])
   getAdminRequest(@CurrentUser() user: MvpUser, @Param('id') id: string) {
     return this.communityReadService.getAdminRequest(user, id);
+  }
+
+  @Patch(['admin/requests/:id', 'api/admin/requests/:id'])
+  updateAdminRequest(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.communityReadService.updateAdminRequest(user, id, body);
   }
 
   @Patch(['admin/requests/:id/status', 'api/admin/requests/:id/status'])
@@ -100,6 +133,11 @@ export class CommunityReadController {
   }
 
   @Patch(['admin/requests/:id/assign', 'api/admin/requests/:id/assign'])
+  assignAdminRequestLegacy(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.communityReadService.assignAdminRequest(user, id, body);
+  }
+
+  @Post(['admin/requests/:id/assign', 'api/admin/requests/:id/assign'])
   assignAdminRequest(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
     return this.communityReadService.assignAdminRequest(user, id, body);
   }
@@ -115,13 +153,28 @@ export class CommunityReadController {
   }
 
   @Patch(['admin/requests/:id/resolve', 'api/admin/requests/:id/resolve'])
-  resolveAdminRequest(@CurrentUser() user: MvpUser, @Param('id') id: string) {
-    return this.communityReadService.resolveAdminRequest(user, id);
+  resolveAdminRequestLegacy(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.communityReadService.resolveAdminRequest(user, id, body);
+  }
+
+  @Post(['admin/requests/:id/resolve', 'api/admin/requests/:id/resolve'])
+  resolveAdminRequest(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.communityReadService.resolveAdminRequest(user, id, body);
   }
 
   @Patch(['admin/requests/:id/close', 'api/admin/requests/:id/close'])
-  closeAdminRequest(@CurrentUser() user: MvpUser, @Param('id') id: string) {
-    return this.communityReadService.closeAdminRequest(user, id);
+  closeAdminRequestLegacy(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.communityReadService.closeAdminRequest(user, id, body);
+  }
+
+  @Post(['admin/requests/:id/close', 'api/admin/requests/:id/close'])
+  closeAdminRequest(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.communityReadService.closeAdminRequest(user, id, body);
+  }
+
+  @Post(['admin/requests/:id/cancel', 'api/admin/requests/:id/cancel'])
+  cancelAdminRequest(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.communityReadService.cancelAdminRequest(user, id, body);
   }
 
   @Patch(['admin/requests/:id/reopen', 'api/admin/requests/:id/reopen'])

@@ -28,24 +28,31 @@ import { useLocalizedPath } from '@/lib/use-localized-path';
 
 const statusLabels: Record<string, string> = {
   NEW: 'Nouă',
-  IN_REVIEW: 'În verificare',
+  OPEN: 'Deschisă',
   IN_PROGRESS: 'În lucru',
-  WAITING_FOR_RESIDENT: 'Așteaptă locatar',
+  WAITING_RESIDENT: 'Așteaptă locatar',
+  WAITING_VENDOR: 'Așteaptă prestator',
   RESOLVED: 'Rezolvată',
   CLOSED: 'Închisă',
   CANCELLED: 'Anulată',
 };
 
 const categoryLabels: Record<string, string> = {
-  MAINTENANCE: 'Mentenanță',
+  REPAIR: 'Reparație',
+  WATER_LEAK: 'Scurgere apă',
+  ELECTRICITY: 'Electricitate',
+  ELEVATOR: 'Lift',
   CLEANING: 'Curățenie',
-  PAYMENTS: 'Plăți',
+  HEATING: 'Încălzire',
+  INTERCOM: 'Interfon',
+  PARKING: 'Parcare',
+  COURTYARD: 'Curte',
   DOCUMENTS: 'Documente',
-  ACCESS: 'Acces',
-  NOISE: 'Zgomot',
-  COMMON_AREA: 'Spații comune',
-  TECHNICAL: 'Tehnic',
-  OTHER: 'Altul',
+  PAYMENT: 'Plăți',
+  METER: 'Contoare',
+  NEIGHBOR_ISSUE: 'Vecini / zgomot',
+  GENERAL_QUESTION: 'Întrebare generală',
+  OTHER: 'Altceva',
 };
 
 const priorityLabels: Record<string, string> = {
@@ -65,7 +72,7 @@ function formatDate(value?: string | null) {
 function statusVariant(status?: string) {
   if (status === 'RESOLVED' || status === 'CLOSED') return 'success';
   if (status === 'CANCELLED') return 'neutral';
-  if (status === 'WAITING_FOR_RESIDENT') return 'warning';
+  if (status === 'WAITING_RESIDENT' || status === 'WAITING_VENDOR') return 'warning';
   return 'warning';
 }
 
@@ -91,11 +98,12 @@ export default function AdminRequestsPage() {
   const [apartmentFilter, setApartmentFilter] = useState('');
   const [residentFilter, setResidentFilter] = useState('');
   const [openOnly, setOpenOnly] = useState(false);
+  const [onlyOverdue, setOnlyOverdue] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const query = useMemo(
-    () => ({ search, status, category, priority, apartmentId: apartmentFilter, residentId: residentFilter, openOnly, limit: 50, sortBy: priority === 'URGENT' ? 'priority' : undefined }),
-    [apartmentFilter, category, openOnly, priority, residentFilter, search, status],
+    () => ({ search, status, category, priority, apartmentId: apartmentFilter, residentId: residentFilter, openOnly, onlyOverdue, limit: 50, sortBy: priority === 'URGENT' ? 'priority' : undefined }),
+    [apartmentFilter, category, onlyOverdue, openOnly, priority, residentFilter, search, status],
   );
 
   useEffect(() => {
@@ -103,6 +111,8 @@ export default function AdminRequestsPage() {
     const params = new URLSearchParams(window.location.search);
     setApartmentFilter(params.get('apartmentId') || '');
     setResidentFilter(params.get('residentId') || '');
+    setOnlyOverdue(params.get('onlyOverdue') === 'true');
+    setStatus(params.get('status') || '');
   }, []);
 
   const load = useCallback(async () => {
@@ -143,8 +153,8 @@ export default function AdminRequestsPage() {
   return (
     <div className="space-y-5 overflow-x-hidden pb-6">
       <PageHeader
-        title="Solicitări"
-        description="Gestionează cererile și problemele raportate de locatari."
+        title="Cereri locatari"
+        description="Gestionează solicitările și problemele transmise de locatari."
         rightSlot={
           <div className="flex flex-wrap items-center justify-end gap-2">
             <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
@@ -154,6 +164,7 @@ export default function AdminRequestsPage() {
               <RefreshCw className="h-4 w-4" />
               Actualizează
             </Button>
+            <ButtonLink href="/admin/requests?onlyOverdue=true" variant="secondary">Probleme</ButtonLink>
             <ButtonLink href="/admin/residents" variant="secondary">Vezi locatari</ButtonLink>
             <ButtonLink href="/admin/apartments" variant="secondary">Vezi apartamente</ButtonLink>
           </div>
@@ -165,7 +176,7 @@ export default function AdminRequestsPage() {
 
       <SavedViewsBar
         module="REQUESTS"
-        currentFilters={{ search, status, category, priority, apartmentId: apartmentFilter, residentId: residentFilter, openOnly }}
+        currentFilters={{ search, status, category, priority, apartmentId: apartmentFilter, residentId: residentFilter, openOnly, onlyOverdue }}
         onApply={(viewFilters) => {
           setSearch(String(viewFilters.search || ''));
           setStatus(String(viewFilters.status || ''));
@@ -174,6 +185,7 @@ export default function AdminRequestsPage() {
           setApartmentFilter(String(viewFilters.apartmentId || ''));
           setResidentFilter(String(viewFilters.residentId || ''));
           setOpenOnly(viewFilters.openOnly === true || viewFilters.openOnly === 'true');
+          setOnlyOverdue(viewFilters.onlyOverdue === true || viewFilters.onlyOverdue === 'true');
         }}
       />
 
@@ -192,12 +204,13 @@ export default function AdminRequestsPage() {
       />
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Solicitări noi" value={stats.new || 0} icon={<MessageCircle className="h-5 w-5" />} tone={stats.new ? 'warning' : 'neutral'} />
+        <StatCard label="Noi" value={stats.new || 0} icon={<MessageCircle className="h-5 w-5" />} tone={stats.new ? 'warning' : 'neutral'} />
+        <StatCard label="Deschise" value={stats.open || 0} tone={stats.open ? 'warning' : 'success'} />
         <StatCard label="În lucru" value={stats.inProgress || 0} icon={<Wrench className="h-5 w-5" />} tone="warning" />
-        <StatCard label="Așteaptă locatar" value={stats.waitingForResident || 0} icon={<Clock3 className="h-5 w-5" />} tone="warning" />
+        <StatCard label="Așteaptă locatar" value={stats.waitingResident || stats.waitingForResident || 0} icon={<Clock3 className="h-5 w-5" />} tone="warning" />
         <StatCard label="Urgente" value={stats.urgent || 0} icon={<Siren className="h-5 w-5" />} tone={stats.urgent ? 'danger' : 'neutral'} />
-        <StatCard label="Rezolvate" value={stats.resolved || 0} icon={<CheckCircle2 className="h-5 w-5" />} tone="success" />
-        <StatCard label="Închise" value={stats.closed || 0} tone="neutral" />
+        <StatCard label="Restante" value={stats.overdue || 0} tone={stats.overdue ? 'danger' : 'neutral'} />
+        <StatCard label="Rezolvate luna aceasta" value={stats.resolvedThisMonth || 0} icon={<CheckCircle2 className="h-5 w-5" />} tone="success" />
         <StatCard label="Timp mediu rezolvare" value={stats.averageResolutionHours ? `${stats.averageResolutionHours}h` : '—'} tone="neutral" />
         <StatCard label="Ultima solicitare" value={formatDate(stats.lastRequestAt)} tone="neutral" />
       </section>
@@ -217,6 +230,10 @@ export default function AdminRequestsPage() {
           <label className="flex min-h-11 items-center gap-2 rounded-2xl border border-border/70 bg-white px-3 text-sm font-semibold">
             <input type="checkbox" checked={openOnly} onChange={(event) => setOpenOnly(event.target.checked)} />
             Doar deschise
+          </label>
+          <label className="flex min-h-11 items-center gap-2 rounded-2xl border border-border/70 bg-white px-3 text-sm font-semibold">
+            <input type="checkbox" checked={onlyOverdue} onChange={(event) => setOnlyOverdue(event.target.checked)} />
+            Doar restante
           </label>
         </div>
         {apartmentFilter || residentFilter ? (
@@ -255,15 +272,14 @@ export default function AdminRequestsPage() {
             <TableHead>
               <TableRow hover={false}>
                 <TableHeaderCell><input type="checkbox" checked={items.length > 0 && items.every((row) => selectedIds.includes(row.id))} onChange={(event) => setSelectedIds(event.target.checked ? items.map((row) => row.id) : [])} /></TableHeaderCell>
-                <TableHeaderCell>Număr</TableHeaderCell>
-                <TableHeaderCell>Titlu</TableHeaderCell>
+                <TableHeaderCell>Ticket</TableHeaderCell>
                 <TableHeaderCell>Locatar</TableHeaderCell>
                 <TableHeaderCell>Apartament</TableHeaderCell>
                 <TableHeaderCell>Categorie</TableHeaderCell>
                 <TableHeaderCell>Prioritate</TableHeaderCell>
                 <TableHeaderCell>Status</TableHeaderCell>
-                <TableHeaderCell>Asignat</TableHeaderCell>
-                <TableHeaderCell>Creat la</TableHeaderCell>
+                <TableHeaderCell>Responsabil</TableHeaderCell>
+                <TableHeaderCell>Actualizată</TableHeaderCell>
                 <TableHeaderCell>Acțiuni</TableHeaderCell>
               </TableRow>
             </TableHead>
@@ -271,9 +287,9 @@ export default function AdminRequestsPage() {
               {items.map((request) => (
                 <TableRow key={request.id}>
                   <TableCell><input type="checkbox" checked={selectedIds.includes(request.id)} onChange={(event) => setSelectedIds((current) => event.target.checked ? [...current, request.id] : current.filter((id) => id !== request.id))} /></TableCell>
-                  <TableCell className="font-medium">{request.requestNumber}</TableCell>
                   <TableCell>
                     <div className="max-w-[260px]">
+                      <p className="text-xs font-semibold text-muted-foreground">{request.requestNumber}</p>
                       <p className="font-semibold">{request.title}</p>
                       <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{request.description}</p>
                     </div>
@@ -298,7 +314,7 @@ export default function AdminRequestsPage() {
                     <Badge variant={statusVariant(request.status)}>{statusLabels[request.status] || request.status}</Badge>
                   </TableCell>
                   <TableCell>{request.assignedTo?.fullName || 'Neasignată'}</TableCell>
-                  <TableCell>{formatDate(request.createdAt)}</TableCell>
+                  <TableCell>{formatDate(request.updatedAt || request.createdAt)}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-2">
                       <Link href={localizedPath(`/admin/requests/${request.id}`)} className="inline-flex h-9 items-center rounded-2xl border border-border/70 px-3 text-xs font-semibold hover:bg-muted/60">
@@ -324,7 +340,7 @@ export default function AdminRequestsPage() {
                   </TableCell>
                 </TableRow>
               ))}
-              {!items.length ? <TableEmpty colSpan={11}>Nu există solicitări.</TableEmpty> : null}
+              {!items.length ? <TableEmpty colSpan={10}>Nu există solicitări.</TableEmpty> : null}
             </TableBody>
           </Table>
         </TableWrapper>
