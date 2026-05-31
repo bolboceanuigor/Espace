@@ -18,7 +18,7 @@ export default function Tabs({ items, value, onChange, ariaLabel = 'Secțiuni' }
     <div
       role="tablist"
       aria-label={ariaLabel}
-      className="inline-flex max-w-full gap-1 overflow-x-auto rounded-2xl border border-border/70 bg-white/80 p-1 shadow-[0_12px_34px_rgba(15,23,42,0.04)]"
+      className="inline-flex max-w-full gap-1 overflow-x-auto rounded-full border border-border/75 bg-card/95 p-1 shadow-card"
     >
       {items.map((item) => {
         const active = item.key === value;
@@ -30,9 +30,9 @@ export default function Tabs({ items, value, onChange, ariaLabel = 'Secțiuni' }
             aria-selected={active}
             disabled={item.disabled}
             onClick={() => onChange(item.key)}
-            className={`min-h-9 shrink-0 rounded-xl px-3 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
+            className={`min-h-9 shrink-0 rounded-full px-3 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
               active
-                ? 'bg-foreground text-background shadow-[0_12px_24px_rgba(15,23,42,0.12)]'
+                ? 'bg-primary text-primary-foreground shadow-button'
                 : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
             }`}
           >

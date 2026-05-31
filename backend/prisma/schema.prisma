@@ -154,8 +154,33 @@ enum OrganizationSubscriptionStatus {
   TRIAL
   ACTIVE
   PAST_DUE
+  PAUSED
   SUSPENDED
   CANCELLED
+}
+
+enum OrganizationContractStatus {
+  NOT_STARTED
+  DRAFT
+  SENT
+  SIGNED
+  ACTIVE
+  PAUSED
+  CANCELLED
+  EXPIRED
+}
+
+enum ContractBillingCycle {
+  MONTHLY
+  QUARTERLY
+  YEARLY
+  CUSTOM
+}
+
+enum ContractPricingModel {
+  PER_APARTMENT
+  FIXED_MONTHLY
+  CUSTOM
 }
 
 enum SaasPlanStatus {
@@ -436,6 +461,57 @@ enum ChatMessageStatus {
   DELETED
 }
 
+enum ConnectConversationType {
+  GENERAL
+  APARTMENT
+  INVOICE
+  PAYMENT
+  PAYMENT_PROOF
+  METER_READING
+  SERVICE_TICKET
+  DOCUMENT
+  ANNOUNCEMENT
+  SYSTEM
+}
+
+enum ConnectConversationStatus {
+  OPEN
+  PENDING_RESIDENT
+  PENDING_ADMIN
+  RESOLVED
+  CLOSED
+  ARCHIVED
+}
+
+enum ConnectPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum ConnectSenderRole {
+  ADMIN
+  RESIDENT
+  SUPERADMIN
+  SYSTEM
+}
+
+enum ConnectMessageType {
+  TEXT
+  SYSTEM
+  ATTACHMENT
+  IMAGE
+  DOCUMENT
+}
+
+enum ConnectMessageStatus {
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
 enum MaintenanceTaskPriority {
   LOW
   MEDIUM
@@ -496,18 +572,46 @@ enum PaymentMethod {
   CASH
   BANK
   BANK_TRANSFER
+  MANUAL_BANK_TRANSFER
   CARD
+  TERMINAL
+  CARD_EXTERNAL
+  BANK_STATEMENT
+  ADJUSTMENT
   ONLINE
+  OTHER
 }
 
 enum PaymentStatus {
   PENDING
   CONFIRMED
+  ACCEPTED
+  PARTIALLY_ACCEPTED
   FAILED
+  REJECTED
+  CANCELLED
+  REVERSED
+}
+
+enum PaymentSource {
+  PAYMENT_PROOF
+  MANUAL_ENTRY
+  IMPORT
+  ADJUSTMENT
+  SYSTEM
+}
+
+enum PaymentProofStatus {
+  SUBMITTED
+  IN_REVIEW
+  ACCEPTED
+  REJECTED
+  PARTIALLY_ACCEPTED
   CANCELLED
 }
 
 enum PaymentProvider {
+  NONE
   MAIB
   PAYNET
   OPLATA
@@ -604,12 +708,14 @@ enum FileStorageProvider {
 enum PaymentIntentStatus {
   DRAFT
   CREATED
+  VIEWED
   PENDING_PROVIDER
   REQUIRES_ACTION
   PROCESSING
   SUCCEEDED
   REDIRECTED
   PAID
+  PAID_MANUALLY
   FAILED
   EXPIRED
   CANCELLED
@@ -841,7 +947,17 @@ enum ReminderLogStatus {
 enum OnboardingStatus {
   NOT_STARTED
   IN_PROGRESS
+  READY_FOR_LAUNCH
+  LAUNCHED
+  BLOCKED
   COMPLETED
+}
+
+enum OrganizationLaunchStatus {
+  DRAFT
+  INTERNAL_REVIEW
+  READY
+  LIVE
 }
 
 enum FeedbackType {
@@ -2424,6 +2540,77 @@ enum SuperAdminTaskPriority {
   URGENT
 }
 
+enum SuperadminBillingTaskType {
+  CREATE_CONTRACT
+  SIGN_CONTRACT
+  ACTIVATE_SUBSCRIPTION
+  CHECK_PAYMENT
+  PAYMENT_FOLLOW_UP
+  CONTRACT_EXPIRING
+  CONTRACT_EXPIRED
+  SUBSCRIPTION_INACTIVE
+  TRIAL_ENDING
+  PRICING_MISSING
+  LIVE_WITHOUT_CONTRACT
+  OTHER
+}
+
+enum SuperadminBillingTaskStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+  DISMISSED
+}
+
+enum SuperadminBillingTaskPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum SuperadminBillingTaskSource {
+  AUTO
+  MANUAL
+}
+
+enum SuperadminNotificationType {
+  ACCESS_REQUEST_NEW
+  ACCESS_REQUEST_UPDATED
+  ORGANIZATION_CREATED
+  ONBOARDING_BLOCKED
+  ONBOARDING_READY
+  ORGANIZATION_LAUNCHED
+  CONTRACT_MISSING
+  CONTRACT_UNSIGNED
+  CONTRACT_EXPIRING
+  CONTRACT_EXPIRED
+  SUBSCRIPTION_INACTIVE
+  SUBSCRIPTION_PAST_DUE
+  TRIAL_ENDING
+  BILLING_TASK_URGENT
+  ADMIN_INVITATION_ACCEPTED
+  ADMIN_FIRST_LOGIN_COMPLETED
+  LIVE_WITHOUT_CONTRACT
+  DOCUMENTS_MISSING
+  SYSTEM
+  OTHER
+}
+
+enum SuperadminNotificationSeverity {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
+  CRITICAL
+}
+
+enum SuperadminNotificationStatus {
+  UNREAD
+  READ
+  ARCHIVED
+}
+
 enum SuperAdminTaskRelatedType {
   ORGANIZATION
   LEAD
@@ -2585,6 +2772,14 @@ enum InvitationStatus {
   CANCELLED
 }
 
+enum AdminHandoverStatus {
+  NOT_STARTED
+  INVITED
+  ACCEPTED
+  FIRST_LOGIN_DONE
+  ACTIVE
+}
+
 enum ResidentType {
   OWNER
   RESIDENT
@@ -2661,6 +2856,57 @@ enum MeterReadingSource {
   SYSTEM
 }
 
+enum MeterReadingPeriodStatus {
+  DRAFT
+  OPEN
+  IN_REVIEW
+  LOCKED
+  CANCELLED
+}
+
+enum BillingPeriodStatus {
+  DRAFT
+  CALCULATED
+  IN_REVIEW
+  APPROVED
+  PUBLISHED
+  CANCELLED
+}
+
+enum UtilityTariffType {
+  COLD_WATER
+  HOT_WATER
+  ELECTRICITY
+  GAS
+  HEATING
+  MAINTENANCE
+  ELEVATOR
+  REPAIR_FUND
+  INVESTMENT_FUND
+  OTHER
+}
+
+enum UtilityTariffUnit {
+  M3
+  KWH
+  GJ
+  M2
+  APARTMENT
+  PERSON
+  FIXED
+  OTHER
+}
+
+enum BillingDraftInvoiceStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  PUBLISHED
+  PAID
+  PARTIALLY_PAID
+  CANCELLED
+}
+
 enum InvoiceStatus {
   PAID
   UNPAID
@@ -2709,7 +2955,19 @@ model Organization {
   onboardingCompleted  Boolean   @default(false)
   onboardingStatus     OnboardingStatus @default(NOT_STARTED)
   onboardingStep       String?
+  launchStatus         OrganizationLaunchStatus @default(DRAFT)
+  onboardingStartedAt  DateTime?
   onboardingCompletedAt DateTime?
+  launchedAt           DateTime?
+  onboardingNote       String?
+  internalNote         String?
+  launchChecklistJson  Json?
+  adminHandoverStatus  AdminHandoverStatus @default(NOT_STARTED)
+  adminInvitedAt       DateTime?
+  adminAcceptedAt      DateTime?
+  adminFirstLoginAt    DateTime?
+  adminHandoverNote    String?
+  adminFirstLoginChecklistJson Json?
   betaAccessEnabled    Boolean   @default(false)
   isDemo               Boolean   @default(false)
   defaultLocale        String    @default("ro")
@@ -2731,6 +2989,7 @@ model Organization {
   notificationDeliveries NotificationDelivery[]
   notificationJobs   NotificationJob[]
   notificationPreferences NotificationPreference[]
+  superadminNotifications SuperadminNotification[] @relation("SuperadminNotificationOrganization")
   telegramIntegration TelegramIntegration?
   emailIntegration    EmailIntegration?
   smsIntegration      SMSIntegration?
@@ -2769,7 +3028,13 @@ model Organization {
   associationRoles AssociationRole[]
   meters             Meter[]
   meterReadings      MeterReading[]
+  meterReadingPeriods MeterReadingPeriod[]
+  billingPeriods     BillingPeriod[]
+  utilityTariffs     UtilityTariff[]
+  billingDraftInvoices BillingDraftInvoice[]
+  billingDraftInvoiceLines BillingDraftInvoiceLine[]
   payments           Payment[]
+  paymentProofs      PaymentProof[]
   issues             Issue[]
   publicAnnouncements Announcement[]
   messageThreads    MessageThread[]
@@ -2803,6 +3068,8 @@ model Organization {
   paymentIntentEvents PaymentIntentEvent[]
   paymentProviderConfigs PaymentProviderConfig[]
   subscriptionContracts OrganizationSubscription[]
+  commercialContracts OrganizationContract[]
+  superadminBillingTasks SuperadminBillingTask[] @relation("SuperadminBillingTaskOrganization")
   billingInvoices      OrganizationInvoice[]
   billingPayments      OrganizationPayment[]
   limits             OrganizationLimits?
@@ -2810,6 +3077,8 @@ model Organization {
   fileAssets         FileAsset[]
   chatConversations  ChatConversation[]
   supportChatMessages ChatMessage[]
+  connectConversations ConnectConversation[]
+  connectMessages      ConnectMessage[]
   pushSubscriptions  PushSubscription[]
   systemErrorLogs    SystemErrorLog[]
   systemErrorEvents  SystemErrorEvent[]
@@ -2827,6 +3096,8 @@ model Organization {
   createdByAgent     User?       @relation("CreatedByAgent", fields: [createdByAgentId], references: [id], onDelete: SetNull)
   ownerAdmin        User?        @relation("OrganizationOwnerAdmin", fields: [ownerAdminId], references: [id], onDelete: SetNull)
 
+  @@index([launchStatus])
+  @@index([onboardingStatus, launchStatus])
   @@index([createdByAgentId])
   @@index([ownerAdminId])
   @@map("organizations")
@@ -3503,6 +3774,7 @@ model CustomerOnboardingRequest {
   convertedAssociation Organization? @relation("CustomerOnboardingRequestConvertedAssociation", fields: [convertedAssociationId], references: [id], onDelete: SetNull)
   convertedBy          User?         @relation("CustomerOnboardingRequestConvertedBy", fields: [convertedById], references: [id], onDelete: SetNull)
   convertedOrganization Organization? @relation("CustomerOnboardingRequestConvertedOrganization", fields: [convertedOrganizationId], references: [id], onDelete: SetNull)
+  superadminNotifications SuperadminNotification[] @relation("SuperadminNotificationAccessRequest")
 
   @@index([status, createdAt])
   @@index([type, status])
@@ -5394,6 +5666,85 @@ model SuperAdminTask {
   @@map("superadmin_tasks")
 }
 
+model SuperadminBillingTask {
+  id                    String                        @id @default(uuid())
+  organizationId        String?
+  title                 String
+  description           String?
+  type                  SuperadminBillingTaskType     @default(OTHER)
+  status                SuperadminBillingTaskStatus   @default(OPEN)
+  priority              SuperadminBillingTaskPriority @default(NORMAL)
+  dueDate               DateTime?
+  source                SuperadminBillingTaskSource   @default(MANUAL)
+  relatedContractId     String?
+  relatedSubscriptionId String?
+  assignedToId          String?
+  completedAt           DateTime?
+  completedById         String?
+  dismissedAt           DateTime?
+  dismissedById         String?
+  internalNote          String?
+  createdAt             DateTime                      @default(now())
+  updatedAt             DateTime                      @updatedAt
+
+  organization        Organization?             @relation("SuperadminBillingTaskOrganization", fields: [organizationId], references: [id], onDelete: SetNull)
+  relatedContract     OrganizationContract?     @relation("SuperadminBillingTaskContract", fields: [relatedContractId], references: [id], onDelete: SetNull)
+  relatedSubscription OrganizationSubscription? @relation("SuperadminBillingTaskSubscription", fields: [relatedSubscriptionId], references: [id], onDelete: SetNull)
+  assignedTo          User?                     @relation("SuperadminBillingTaskAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  completedBy         User?                     @relation("SuperadminBillingTaskCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+  dismissedBy         User?                     @relation("SuperadminBillingTaskDismissedBy", fields: [dismissedById], references: [id], onDelete: SetNull)
+  notifications       SuperadminNotification[]  @relation("SuperadminNotificationBillingTask")
+
+  @@index([status, priority])
+  @@index([type, status])
+  @@index([organizationId, status])
+  @@index([dueDate])
+  @@index([source, type])
+  @@index([relatedContractId])
+  @@index([relatedSubscriptionId])
+  @@index([assignedToId, status])
+  @@map("superadmin_billing_tasks")
+}
+
+model SuperadminNotification {
+  id                    String                         @id @default(uuid())
+  title                 String
+  message               String?
+  type                  SuperadminNotificationType
+  severity              SuperadminNotificationSeverity @default(INFO)
+  status                SuperadminNotificationStatus   @default(UNREAD)
+  organizationId        String?
+  accessRequestId       String?
+  billingTaskId         String?
+  contractId            String?
+  subscriptionId        String?
+  actionUrl             String?
+  metadataJson          Json?
+  createdForId          String?
+  readAt                DateTime?
+  archivedAt            DateTime?
+  createdAt             DateTime                       @default(now())
+  updatedAt             DateTime                       @updatedAt
+
+  organization  Organization?                @relation("SuperadminNotificationOrganization", fields: [organizationId], references: [id], onDelete: SetNull)
+  accessRequest CustomerOnboardingRequest?   @relation("SuperadminNotificationAccessRequest", fields: [accessRequestId], references: [id], onDelete: SetNull)
+  billingTask   SuperadminBillingTask?       @relation("SuperadminNotificationBillingTask", fields: [billingTaskId], references: [id], onDelete: SetNull)
+  contract      OrganizationContract?        @relation("SuperadminNotificationContract", fields: [contractId], references: [id], onDelete: SetNull)
+  subscription  OrganizationSubscription?    @relation("SuperadminNotificationSubscription", fields: [subscriptionId], references: [id], onDelete: SetNull)
+  createdFor    User?                        @relation("SuperadminNotificationCreatedFor", fields: [createdForId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([severity, status])
+  @@index([type, status])
+  @@index([organizationId, status])
+  @@index([accessRequestId])
+  @@index([billingTaskId])
+  @@index([contractId])
+  @@index([subscriptionId])
+  @@index([createdForId, status])
+  @@map("superadmin_notifications")
+}
+
 model QACheck {
   id           String        @id @default(uuid())
   key          String        @unique
@@ -5600,39 +5951,61 @@ model Invitation {
   organizationId  String
   email           String
   phone           String?
+  name            String?
   role            Role             @default(RESIDENT)
   apartmentId     String?
   residentType    ResidentType?
   token           String           @unique
+  tokenHash       String?          @unique
   status          InvitationStatus @default(PENDING)
   expiresAt       DateTime
   invitedByUserId String
+  acceptedAt      DateTime?
+  acceptedUserId  String?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   invitedBy    User         @relation("UserInvitations", fields: [invitedByUserId], references: [id], onDelete: Cascade)
+  acceptedBy   User?        @relation("UserAcceptedInvitations", fields: [acceptedUserId], references: [id], onDelete: SetNull)
   apartment    Apartment?   @relation(fields: [apartmentId], references: [id], onDelete: SetNull)
 
   @@index([expiresAt])
   @@index([organizationId, createdAt])
   @@index([organizationId, email])
   @@index([organizationId, status])
+  @@index([role, status, createdAt])
   @@map("invitations")
 }
 
 model AuditLog {
   id             String   @id @default(uuid())
   organizationId String?
-  userId         String
+  userId         String?
   supportSessionId String?
   actorType      AuditActorType @default(USER)
+  actorName      String?
+  actorRole      String?
   effectiveAssociationId String?
   isImpersonatedAction Boolean @default(false)
+  accessRequestId String?
+  contractId     String?
+  subscriptionId String?
+  billingTaskId  String?
+  notificationId String?
+  targetUserId   String?
+  documentId     String?
+  invoiceId      String?
+  paymentId      String?
   action         String
   entityType     String
   entityId       String?
+  title          String?
   description    String
+  severity       String   @default("INFO")
+  metadataJson   Json?
+  beforeJson     Json?
+  afterJson      Json?
   oldValuesJson  Json?
   newValuesJson  Json?
   ipAddress      String?
@@ -5640,9 +6013,16 @@ model AuditLog {
   createdAt      DateTime @default(now())
 
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
-  user         User          @relation("AuditLogUser", fields: [userId], references: [id], onDelete: Cascade)
+  user         User?         @relation("AuditLogUser", fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([organizationId, createdAt])
+  @@index([accessRequestId, createdAt])
+  @@index([contractId, createdAt])
+  @@index([subscriptionId, createdAt])
+  @@index([billingTaskId, createdAt])
+  @@index([notificationId, createdAt])
+  @@index([targetUserId, createdAt])
+  @@index([severity, createdAt])
   @@index([supportSessionId, createdAt])
   @@index([effectiveAssociationId, createdAt])
   @@index([isImpersonatedAction, createdAt])
@@ -6051,10 +6431,15 @@ model User {
   clientNotesCreated ClientNote[] @relation("ClientNoteCreatedBy")
   superadminTasksCreated SuperAdminTask[] @relation("SuperAdminTaskCreatedBy")
   superadminTasksAssigned SuperAdminTask[] @relation("SuperAdminTaskAssignedTo")
+  superadminBillingTasksAssigned SuperadminBillingTask[] @relation("SuperadminBillingTaskAssignedTo")
+  superadminBillingTasksCompleted SuperadminBillingTask[] @relation("SuperadminBillingTaskCompletedBy")
+  superadminBillingTasksDismissed SuperadminBillingTask[] @relation("SuperadminBillingTaskDismissedBy")
+  superadminNotificationsCreatedFor SuperadminNotification[] @relation("SuperadminNotificationCreatedFor")
   leadActivities     LeadActivity[]
   convertedCustomerOnboardingRequests CustomerOnboardingRequest[] @relation("CustomerOnboardingRequestConvertedBy")
   chatMessages       AssociationChatMessage[]
   invitationsCreated Invitation[] @relation("UserInvitations")
+  invitationsAccepted Invitation[] @relation("UserAcceptedInvitations")
   residentPortalInvitationsCreated ResidentPortalInvitation[] @relation("ResidentPortalInvitationCreatedBy")
   residentPortalInvitationsAccepted ResidentPortalInvitation[] @relation("ResidentPortalInvitationAcceptedBy")
   residentPortalInvitationsCancelled ResidentPortalInvitation[] @relation("ResidentPortalInvitationCancelledBy")
@@ -6076,6 +6461,11 @@ model User {
   residentChatConversations ChatConversation[] @relation("ChatConversationResidentUser")
   assignedChatConversations ChatConversation[] @relation("ChatConversationAssignedToUser")
   chatMessagesSent          ChatMessage[]      @relation("ChatMessageSenderUser")
+  connectResidentConversations ConnectConversation[] @relation("ConnectConversationResidentUser")
+  connectAdminConversations    ConnectConversation[] @relation("ConnectConversationAdminUser")
+  connectCreatedConversations  ConnectConversation[] @relation("ConnectConversationCreatedBy")
+  connectLastMessageConversations ConnectConversation[] @relation("ConnectConversationLastMessageBy")
+  connectMessagesSent          ConnectMessage[]       @relation("ConnectMessageSenderUser")
   uploadedFiles        FileAsset[]        @relation("FileAssetUploadedByUser")
   publicAnnouncementsCreated Announcement[] @relation("AnnouncementCreatedByUser")
   announcementComments AnnouncementComment[]
@@ -6100,6 +6490,10 @@ model User {
   duplicateMergePlansCreated DuplicateMergePlan[] @relation("DuplicateMergePlanCreatedBy")
   duplicateMergePlansApplied DuplicateMergePlan[] @relation("DuplicateMergePlanAppliedBy")
   monthlyChargesCreated MonthlyCharge[] @relation("MonthlyChargeCreatedByUser")
+  billingPeriodsCreated BillingPeriod[] @relation("BillingPeriodCreatedBy")
+  billingPeriodsApproved BillingPeriod[] @relation("BillingPeriodApprovedBy")
+  billingDraftInvoicesCreated BillingDraftInvoice[] @relation("BillingDraftInvoiceCreatedBy")
+  billingDraftInvoicesPublished BillingDraftInvoice[] @relation("BillingDraftInvoicePublishedBy")
   onlinePaymentProvidersCreated OnlinePaymentProvider[] @relation("OnlinePaymentProviderCreatedBy")
   onlinePaymentProvidersUpdated OnlinePaymentProvider[] @relation("OnlinePaymentProviderUpdatedBy")
   associationPaymentSettingsCreated AssociationPaymentSettings[] @relation("AssociationPaymentSettingsCreatedBy")
@@ -6108,6 +6502,13 @@ model User {
   paymentIntentsCancelled PaymentIntent[] @relation("PaymentIntentCancelledBy")
   paymentIntentEvents PaymentIntentEvent[] @relation("PaymentIntentEventActor")
   paymentsCreated      Payment[]     @relation("PaymentCreatedByUser")
+  paymentsAccepted     Payment[]     @relation("PaymentAcceptedByUser")
+  paymentsRejected     Payment[]     @relation("PaymentRejectedByUser")
+  paymentsReversed     Payment[]     @relation("PaymentReversedByUser")
+  residentPayments     Payment[]     @relation("PaymentResidentUser")
+  residentPaymentProofs PaymentProof[] @relation("PaymentProofResidentUser")
+  reviewedPaymentProofs PaymentProof[] @relation("PaymentProofReviewedBy")
+  meterReadingPeriodsLocked MeterReadingPeriod[] @relation("MeterReadingPeriodLockedBy")
   auditLogs            AuditLog[]    @relation("AuditLogUser")
   associationRolesCreated AssociationRole[] @relation("AssociationRoleCreatedBy")
   associationRolesUpdated AssociationRole[] @relation("AssociationRoleUpdatedBy")
@@ -6215,6 +6616,8 @@ model User {
   issuesRestored Issue[] @relation("IssueRestoredBy")
   announcementsArchived Announcement[] @relation("AnnouncementArchivedBy")
   announcementsRestored Announcement[] @relation("AnnouncementRestoredBy")
+  organizationContractsCreated OrganizationContract[] @relation("OrganizationContractCreatedBy")
+  organizationContractsUpdated OrganizationContract[] @relation("OrganizationContractUpdatedBy")
 
   @@index([organizationId])
   @@index([deletedAt])
@@ -6582,8 +6985,11 @@ model Apartment {
   meterReadings MeterReading[]
   invoices     Invoice[]
   payments     Payment[]
+  paymentProofs PaymentProof[]
   monthlyCharges MonthlyCharge[]
   residentInvoices ResidentInvoice[]
+  billingDraftInvoices BillingDraftInvoice[]
+  billingDraftInvoiceLines BillingDraftInvoiceLine[]
   receipts     Receipt[]
   paymentReminders PaymentReminder[]
   reminderSettings ApartmentReminderSettings[]
@@ -6600,6 +7006,7 @@ model Apartment {
   documents    Document[]
   maintenanceEvents MaintenanceEvent[]
   chatConversations ChatConversation[]
+  connectConversations ConnectConversation[]
 
   @@index([organizationId])
   @@index([organizationId, status, createdAt])
@@ -6653,6 +7060,8 @@ model ResidentProfile {
   dataDeletionRequestsTarget DataDeletionRequest[] @relation("DataDeletionRequestTargetResident")
   dataRequestsRequested DataRequest[] @relation("DataRequestRequesterResident")
   dataExportJobs DataExportJob[] @relation("DataExportJobResident")
+  billingDraftInvoicesResident BillingDraftInvoice[] @relation("BillingDraftInvoiceResident")
+  billingDraftInvoicesOwner BillingDraftInvoice[] @relation("BillingDraftInvoiceOwner")
 
   @@index([organizationId])
   @@index([userId])
@@ -6744,6 +7153,7 @@ model Meter {
   archivedBy   User?        @relation("MeterArchivedBy", fields: [archivedById], references: [id], onDelete: SetNull)
   restoredBy   User?        @relation("MeterRestoredBy", fields: [restoredById], references: [id], onDelete: SetNull)
   readings     MeterReading[]
+  billingDraftInvoiceLines BillingDraftInvoiceLine[]
 
   @@index([organizationId])
   @@index([apartmentId])
@@ -6756,6 +7166,7 @@ model MeterReading {
   meterId        String
   apartmentId    String
   organizationId String
+  periodId       String?
   value          Float
   readingDate    DateTime
   source         MeterReadingSource @default(ADMIN)
@@ -6764,11 +7175,168 @@ model MeterReading {
   meter        Meter        @relation(fields: [meterId], references: [id], onDelete: Cascade)
   apartment    Apartment    @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  period       MeterReadingPeriod? @relation(fields: [periodId], references: [id], onDelete: SetNull)
+  billingDraftInvoiceLines BillingDraftInvoiceLine[]
 
   @@index([meterId, readingDate])
   @@index([apartmentId, readingDate])
   @@index([organizationId])
+  @@index([periodId])
   @@map("meter_readings")
+}
+
+model MeterReadingPeriod {
+  id             String                   @id @default(uuid())
+  organizationId String
+  year           Int
+  month          Int
+  status         MeterReadingPeriodStatus @default(OPEN)
+  openedAt       DateTime?
+  lockedAt       DateTime?
+  lockedById     String?
+  note           String?
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  lockedBy     User?        @relation("MeterReadingPeriodLockedBy", fields: [lockedById], references: [id], onDelete: SetNull)
+  readings     MeterReading[]
+  billingPeriods BillingPeriod[]
+
+  @@unique([organizationId, year, month])
+  @@index([organizationId, status, createdAt])
+  @@map("meter_reading_periods")
+}
+
+model BillingPeriod {
+  id                   String              @id @default(uuid())
+  organizationId       String
+  year                 Int
+  month                Int
+  status               BillingPeriodStatus @default(DRAFT)
+  meterReadingPeriodId String?
+  title                String?
+  note                 String?
+  createdById          String?
+  approvedById         String?
+  approvedAt           DateTime?
+  publishedAt          DateTime?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  meterReadingPeriod MeterReadingPeriod? @relation(fields: [meterReadingPeriodId], references: [id], onDelete: SetNull)
+  createdBy          User?               @relation("BillingPeriodCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  approvedBy         User?               @relation("BillingPeriodApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  tariffs            UtilityTariff[]
+  invoices           BillingDraftInvoice[]
+
+  @@unique([organizationId, year, month])
+  @@index([organizationId, status, createdAt])
+  @@index([meterReadingPeriodId])
+  @@map("billing_periods")
+}
+
+model UtilityTariff {
+  id              String            @id @default(uuid())
+  organizationId  String
+  billingPeriodId String?
+  type            UtilityTariffType
+  name            String
+  unit            UtilityTariffUnit
+  price           Decimal
+  currency        BillingCurrency   @default(MDL)
+  isActive        Boolean           @default(true)
+  note            String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  billingPeriod BillingPeriod? @relation(fields: [billingPeriodId], references: [id], onDelete: Cascade)
+
+  @@unique([billingPeriodId, type])
+  @@index([organizationId, billingPeriodId])
+  @@index([organizationId, type, isActive])
+  @@map("utility_tariffs")
+}
+
+model BillingDraftInvoice {
+  id              String                    @id @default(uuid())
+  organizationId  String
+  billingPeriodId String
+  apartmentId     String
+  residentId      String?
+  ownerId         String?
+  invoiceNumber   String?
+  status          BillingDraftInvoiceStatus @default(DRAFT)
+  subtotal        Decimal                   @default(0)
+  total           Decimal                   @default(0)
+  currency        BillingCurrency           @default(MDL)
+  dueDate         DateTime?
+  issuedAt        DateTime?
+  publishedAt     DateTime?
+  paidAt          DateTime?
+  note            String?
+  publicNote      String?
+  internalNote    String?
+  viewedAt        DateTime?
+  residentNotifiedAt DateTime?
+  createdById     String?
+  publishedById   String?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  organization  Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  billingPeriod BillingPeriod      @relation(fields: [billingPeriodId], references: [id], onDelete: Cascade)
+  apartment     Apartment          @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+  resident      ResidentProfile?   @relation("BillingDraftInvoiceResident", fields: [residentId], references: [id], onDelete: SetNull)
+  owner         ResidentProfile?   @relation("BillingDraftInvoiceOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  createdBy     User?              @relation("BillingDraftInvoiceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  publishedBy   User?              @relation("BillingDraftInvoicePublishedBy", fields: [publishedById], references: [id], onDelete: SetNull)
+  lines         BillingDraftInvoiceLine[]
+  payments      Payment[]
+  paymentProofs PaymentProof[]
+
+  @@unique([billingPeriodId, apartmentId])
+  @@unique([organizationId, invoiceNumber])
+  @@index([organizationId, status, updatedAt])
+  @@index([apartmentId])
+  @@index([residentId])
+  @@index([ownerId])
+  @@index([publishedById])
+  @@map("billing_draft_invoices")
+}
+
+model BillingDraftInvoiceLine {
+  id             String            @id @default(uuid())
+  invoiceId      String
+  organizationId String
+  apartmentId    String?
+  meterId        String?
+  meterReadingId String?
+  type           UtilityTariffType
+  description    String
+  quantity       Decimal
+  unit           String
+  unitPrice      Decimal
+  amount         Decimal
+  currency       BillingCurrency   @default(MDL)
+  metadataJson   Json?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  invoice       BillingDraftInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  organization  Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  apartment     Apartment?          @relation(fields: [apartmentId], references: [id], onDelete: SetNull)
+  meter         Meter?              @relation(fields: [meterId], references: [id], onDelete: SetNull)
+  meterReading  MeterReading?       @relation(fields: [meterReadingId], references: [id], onDelete: SetNull)
+
+  @@index([invoiceId])
+  @@index([organizationId])
+  @@index([apartmentId])
+  @@index([meterId])
+  @@index([meterReadingId])
+  @@map("billing_draft_invoice_lines")
 }
 
 model Payment {
@@ -6776,17 +7344,31 @@ model Payment {
   organizationId    String
   apartmentId       String
   invoiceId         String?
+  billingDraftInvoiceId String?
   paymentIntentId   String?
+  residentUserId    String?
   amount            Float
   currency          BillingCurrency @default(MDL)
   method            PaymentMethod
   status            PaymentStatus   @default(PENDING)
   provider          PaymentProvider?
   providerPaymentId String?
+  externalReference String?
+  source            PaymentSource   @default(MANUAL_ENTRY)
+  paymentProofId    String?
   note              String?
+  internalNote      String?
   createdByUserId   String?
   confirmedAt       DateTime?
   paidAt            DateTime?
+  acceptedAt        DateTime?
+  acceptedById      String?
+  rejectedAt        DateTime?
+  rejectedById      String?
+  rejectionReason   String?
+  reversedAt        DateTime?
+  reversedById      String?
+  reversalReason    String?
   month             String
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
@@ -6794,8 +7376,14 @@ model Payment {
   organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   apartment    Apartment      @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
   invoice      ResidentInvoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  billingDraftInvoice BillingDraftInvoice? @relation(fields: [billingDraftInvoiceId], references: [id], onDelete: SetNull)
   paymentIntent PaymentIntent? @relation(fields: [paymentIntentId], references: [id], onDelete: SetNull)
   createdBy    User?          @relation("PaymentCreatedByUser", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  acceptedBy   User?          @relation("PaymentAcceptedByUser", fields: [acceptedById], references: [id], onDelete: SetNull)
+  rejectedBy   User?          @relation("PaymentRejectedByUser", fields: [rejectedById], references: [id], onDelete: SetNull)
+  reversedBy   User?          @relation("PaymentReversedByUser", fields: [reversedById], references: [id], onDelete: SetNull)
+  residentUser User?          @relation("PaymentResidentUser", fields: [residentUserId], references: [id], onDelete: SetNull)
+  paymentProof  PaymentProof? @relation("PaymentProofCreatedPayment")
   receipts     Receipt[]
   importedPayments ImportedPayment[]
 
@@ -6803,12 +7391,65 @@ model Payment {
   @@index([organizationId, status, createdAt])
   @@index([apartmentId])
   @@index([invoiceId])
+  @@index([billingDraftInvoiceId])
   @@index([paymentIntentId])
   @@index([status])
+  @@index([source])
+  @@index([paymentProofId])
+  @@index([residentUserId])
+  @@index([acceptedById])
+  @@index([rejectedById])
+  @@index([reversedById])
   @@index([createdByUserId])
   @@index([month])
   @@index([organizationId, apartmentId, createdAt])
   @@map("payments")
+}
+
+model PaymentProof {
+  id                    String             @id @default(uuid())
+  organizationId        String
+  invoiceId             String
+  apartmentId           String
+  residentUserId        String
+  paymentId             String?            @unique
+  amount                Float
+  currency              BillingCurrency    @default(MDL)
+  method                PaymentMethod
+  status                PaymentProofStatus @default(SUBMITTED)
+  proofFileUrl          String?
+  proofFileName         String?
+  proofFileMimeType     String?
+  proofFileSize         Int?
+  externalReference     String?
+  paidAt                DateTime?
+  residentNote          String?
+  adminNote             String?
+  reviewedAt            DateTime?
+  reviewedById          String?
+  acceptedAmount        Float?
+  rejectionReason       String?
+  possibleDuplicate     Boolean            @default(false)
+  duplicatePaymentProofId String?
+  metadataJson          Json?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice      BillingDraftInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  apartment    Apartment           @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+  residentUser User                @relation("PaymentProofResidentUser", fields: [residentUserId], references: [id], onDelete: Cascade)
+  reviewedBy   User?               @relation("PaymentProofReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+  payment      Payment?            @relation("PaymentProofCreatedPayment", fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status, createdAt])
+  @@index([organizationId, invoiceId])
+  @@index([apartmentId])
+  @@index([residentUserId])
+  @@index([paymentId])
+  @@index([reviewedById])
+  @@index([paidAt])
+  @@map("payment_proofs")
 }
 
 model PaymentIntent {
@@ -7119,6 +7760,85 @@ model ChatMessage {
   @@index([senderUserId])
   @@index([fileAssetId])
   @@map("chat_messages")
+}
+
+model ConnectConversation {
+  id                       String                    @id @default(uuid())
+  organizationId           String
+  apartmentId              String?
+  residentUserId           String?
+  adminUserId              String?
+  createdById              String
+  subject                  String?
+  type                     ConnectConversationType   @default(GENERAL)
+  status                   ConnectConversationStatus @default(OPEN)
+  priority                 ConnectPriority           @default(NORMAL)
+  relatedInvoiceId         String?
+  relatedPaymentProofId    String?
+  relatedMeterReadingId    String?
+  relatedServiceTicketId   String?
+  relatedDocumentId        String?
+  relatedAnnouncementId    String?
+  lastMessageAt            DateTime?
+  lastMessagePreview       String?
+  lastMessageById          String?
+  adminUnreadCount         Int                       @default(0)
+  residentUnreadCount      Int                       @default(0)
+  closedAt                 DateTime?
+  resolvedAt               DateTime?
+  internalNote             String?
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+
+  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  apartment     Apartment?   @relation(fields: [apartmentId], references: [id], onDelete: SetNull)
+  residentUser  User?        @relation("ConnectConversationResidentUser", fields: [residentUserId], references: [id], onDelete: SetNull)
+  adminUser     User?        @relation("ConnectConversationAdminUser", fields: [adminUserId], references: [id], onDelete: SetNull)
+  createdBy     User         @relation("ConnectConversationCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  lastMessageBy User?        @relation("ConnectConversationLastMessageBy", fields: [lastMessageById], references: [id], onDelete: SetNull)
+  messages      ConnectMessage[]
+
+  @@index([organizationId, status, lastMessageAt])
+  @@index([organizationId, type, priority])
+  @@index([organizationId, residentUserId])
+  @@index([organizationId, adminUserId])
+  @@index([apartmentId])
+  @@index([relatedInvoiceId])
+  @@index([relatedPaymentProofId])
+  @@index([relatedMeterReadingId])
+  @@index([relatedServiceTicketId])
+  @@index([relatedDocumentId])
+  @@index([relatedAnnouncementId])
+  @@map("connect_conversations")
+}
+
+model ConnectMessage {
+  id                     String               @id @default(uuid())
+  conversationId         String
+  organizationId         String
+  senderId               String?
+  senderRole             ConnectSenderRole
+  messageType            ConnectMessageType   @default(TEXT)
+  body                   String?
+  attachmentUrl          String?
+  attachmentFileName     String?
+  attachmentMimeType     String?
+  attachmentFileSize     Int?
+  status                 ConnectMessageStatus @default(SENT)
+  deliveredAt            DateTime?
+  readAt                 DateTime?
+  metadataJson           Json?
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+
+  conversation ConnectConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sender       User?               @relation("ConnectMessageSenderUser", fields: [senderId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, conversationId, createdAt])
+  @@index([conversationId, messageType, createdAt])
+  @@index([senderId])
+  @@map("connect_messages")
 }
 
 model PushSubscription {
@@ -8225,6 +8945,7 @@ model OrganizationSubscription {
   id                    String                       @id @default(uuid())
   organizationId        String                       @unique
   planId                String?
+  planName              String?
   billingType           BillingType
   price                 Float
   currency              BillingCurrency
@@ -8244,10 +8965,49 @@ model OrganizationSubscription {
   plan         SubscriptionPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
   invoices     OrganizationInvoice[]
   payments     OrganizationPayment[]
+  billingTasks SuperadminBillingTask[] @relation("SuperadminBillingTaskSubscription")
+  superadminNotifications SuperadminNotification[] @relation("SuperadminNotificationSubscription")
 
   @@index([organizationId])
   @@index([status])
   @@map("organization_subscriptions")
+}
+
+model OrganizationContract {
+  id                  String                     @id @default(uuid())
+  organizationId      String
+  status              OrganizationContractStatus @default(NOT_STARTED)
+  contractNumber      String?
+  startDate           DateTime?
+  endDate             DateTime?
+  signedAt            DateTime?
+  cancelledAt         DateTime?
+  currency            BillingCurrency            @default(MDL)
+  billingCycle        ContractBillingCycle        @default(MONTHLY)
+  pricingModel        ContractPricingModel        @default(PER_APARTMENT)
+  pricePerApartment   Decimal?
+  fixedMonthlyPrice   Decimal?
+  apartmentsIncluded  Int?
+  minimumMonthlyFee   Decimal?
+  paymentDueDay       Int?
+  documentUrl         String?
+  internalNote        String?
+  createdById         String?
+  updatedById         String?
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation("OrganizationContractCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy    User?        @relation("OrganizationContractUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  billingTasks SuperadminBillingTask[] @relation("SuperadminBillingTaskContract")
+  superadminNotifications SuperadminNotification[] @relation("SuperadminNotificationContract")
+
+  @@index([organizationId, createdAt])
+  @@index([status])
+  @@index([startDate])
+  @@index([endDate])
+  @@map("organization_contracts")
 }
 
 model OrganizationInvoice {

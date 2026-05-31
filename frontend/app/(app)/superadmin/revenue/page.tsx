@@ -1,5 +1,5 @@
-import { RevenueHomePage } from '@/components/superadmin/RevenueOperationsPages';
+import SuperadminRevenueDashboardPage from '@/components/superadmin/SuperadminRevenueDashboardPage';
 
 export default function Page() {
-  return <RevenueHomePage />;
+  return <SuperadminRevenueDashboardPage />;
 }

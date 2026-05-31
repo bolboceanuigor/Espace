@@ -4,6 +4,9 @@ export type MainNavigationKey =
   | 'platform'
   | 'organizations'
   | 'administrators'
+  | 'revenue'
+  | 'billingTasks'
+  | 'activity'
   | 'tasks'
   | 'subscriptions'
   | 'globalSettings'
@@ -14,7 +17,9 @@ export type MainNavigationKey =
   | 'announcements'
   | 'residents'
   | 'meters'
+  | 'meterReadings'
   | 'billing'
+  | 'billingDrafts'
   | 'payments'
   | 'paymentReconciliation'
   | 'reports'
@@ -53,6 +58,10 @@ export const SUPERADMIN_NAVIGATION_ITEMS: MainNavigationItem[] = [
   { key: 'platform', label: 'Platformă', href: '/superadmin' },
   { key: 'organizations', label: 'Asociații', href: '/superadmin/organizations' },
   { key: 'administrators', label: 'Administratori', href: '/superadmin/admins' },
+  { key: 'revenue', label: 'Venituri', href: '/superadmin/revenue' },
+  { key: 'billingTasks', label: 'Taskuri facturare', href: '/superadmin/billing-tasks' },
+  { key: 'notifications', label: 'Notificări', href: '/superadmin/notifications' },
+  { key: 'activity', label: 'Activitate', href: '/superadmin/activity' },
   { key: 'subscriptions', label: 'Abonamente', href: '/superadmin/subscriptions' },
   { key: 'tasks', label: 'Follow-up', href: '/superadmin/tasks' },
   { key: 'globalSettings', label: 'Status sistem', href: '/superadmin/system/status' },
@@ -63,13 +72,16 @@ export const ADMIN_NAVIGATION_ITEMS: MainNavigationItem[] = [
   { key: 'apartments', label: 'Apartamente', href: '/admin/apartments' },
   { key: 'residents', label: 'Locatari', href: '/admin/residents' },
   { key: 'meters', label: 'Contoare', href: '/admin/meters' },
+  { key: 'meterReadings', label: 'Citiri contoare', href: '/admin/meter-readings' },
   { key: 'meterReports', label: 'Rapoarte consum', href: '/admin/meter-readings/reports' },
   { key: 'billing', label: 'Facturare', href: '/admin/billing' },
+  { key: 'billingDrafts', label: 'Drafturi facturi', href: '/admin/billing-drafts' },
   { key: 'invoices', label: 'Facturi', href: '/admin/invoices' },
   { key: 'invoiceDraft', label: 'Calcul facturi', href: '/admin/invoices/draft' },
   { key: 'payments', label: 'Plăți', href: '/admin/payments' },
   { key: 'paymentReconciliation', label: 'Reconciliere', href: '/admin/payments/reconciliation' },
   { key: 'issues', label: 'Solicitări', href: '/admin/requests' },
+  { key: 'chat', label: 'Connect', href: '/admin/connect' },
   { key: 'residentUpdateRequests', label: 'Solicitări date', href: '/admin/resident-update-requests' },
   { key: 'announcements', label: 'Avizier', href: '/admin/announcements' },
   { key: 'notifications', label: 'Notificări', href: '/admin/notifications' },
@@ -87,6 +99,7 @@ export const RESIDENT_NAVIGATION_ITEMS: MainNavigationItem[] = [
   { key: 'payments', label: 'Facturi', href: '/resident/invoices' },
   { key: 'meters', label: 'Contoare', href: '/resident/meters' },
   { key: 'issues', label: 'Solicitări', href: '/resident/requests' },
+  { key: 'chat', label: 'Mesaje', href: '/resident/connect' },
   { key: 'announcements', label: 'Avizier', href: '/resident/announcements' },
   { key: 'notifications', label: 'Notificări', href: '/resident/notifications' },
   { key: 'documents', label: 'Documente', href: '/resident/documents' },

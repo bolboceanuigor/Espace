@@ -3,12 +3,16 @@ import { Role } from '@prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { MvpAuthGuard, MvpRolesGuard, MvpUser } from '../security/mvp-auth.guard';
+import { AuditService } from '../audit/audit.service';
 import { ActivityMvpService } from './activity-mvp.service';
 
 @Controller()
 @UseGuards(MvpAuthGuard, MvpRolesGuard)
 export class ActivityMvpController {
-  constructor(private readonly activityService: ActivityMvpService) {}
+  constructor(
+    private readonly activityService: ActivityMvpService,
+    private readonly auditService: AuditService,
+  ) {}
 
   @Get(['admin/activity', 'api/admin/activity', 'api/activity'])
   @Roles(Role.ADMIN, Role.SUPERADMIN)
@@ -18,8 +22,8 @@ export class ActivityMvpController {
 
   @Get(['superadmin/activity', 'api/superadmin/activity'])
   @Roles(Role.SUPERADMIN)
-  listSuperadminActivity(@Query('limit') limit?: string) {
-    return this.activityService.listSuperadminActivity(limit);
+  listSuperadminActivity(@Query() query: Record<string, string | undefined>) {
+    return this.auditService.listSuperadminActivity(query);
   }
 
   @Get(['resident/notifications', 'api/resident/notifications'])

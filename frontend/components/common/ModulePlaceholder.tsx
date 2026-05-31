@@ -39,7 +39,7 @@ export default function ModulePlaceholder({
               Pentru Phase 1 păstrăm navigația și structura vizuală funcționale, fără să adăugăm logică nouă sau modele backend.
             </p>
           </div>
-          <div className="rounded-[1.35rem] border border-border/70 bg-muted/40 p-4">
+          <div className="rounded-2xl border border-border/75 bg-muted/40 p-4">
             <p className="text-sm font-semibold text-foreground">Ce va conține modulul</p>
             <div className="mt-3 space-y-2">
               {(points.length ? points : ['Listă clară', 'Filtre simple', 'Acțiuni rapide']).map((point) => (

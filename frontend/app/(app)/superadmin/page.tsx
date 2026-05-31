@@ -2,10 +2,8 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { 
+import {
   Activity, 
-  ArrowRight, 
-  ArrowUpRight, 
   BookOpen,
   Building2, 
   Calendar,
@@ -14,9 +12,7 @@ import {
   Clock,
   CreditCard, 
   Database,
-  ExternalLink,
   HeartPulse,
-  Home,
   Kanban,
   LayoutGrid,
   LineChart,
@@ -24,15 +20,16 @@ import {
   Plus, 
   Rocket,
   Settings, 
-  ShieldCheck, 
   Sparkles,
   Scale,
   Timer, 
   TrendingUp, 
   UserCog,
   Users,
-  Zap
+  Zap,
+  type LucideIcon
 } from 'lucide-react';
+import { ButtonLink, FeatureActionCard, PageHeader, StatusBadge } from '@/components/ui';
 import { superadminApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
@@ -195,24 +192,24 @@ function KpiCard({
   color?: 'emerald' | 'blue' | 'amber' | 'slate';
 }) {
   const colorClasses = {
-    emerald: 'bg-emerald-50 text-emerald-600',
-    blue: 'bg-blue-50 text-blue-600',
-    amber: 'bg-amber-50 text-amber-600',
-    slate: 'bg-slate-100 text-slate-600',
+    emerald: 'bg-success/10 text-success',
+    blue: 'bg-info/10 text-info',
+    amber: 'bg-warning/10 text-warning',
+    slate: 'bg-muted text-muted-foreground',
   };
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 transition-all hover:shadow-md hover:border-slate-300">
+    <div className="rounded-2xl border border-border/80 bg-card p-6 shadow-card transition-all duration-200 hover:border-primary/20 hover:shadow-card-hover">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-slate-500">{label}</span>
+        <span className="text-sm font-medium text-muted-foreground">{label}</span>
         <div className={`flex size-10 items-center justify-center rounded-xl ${colorClasses[color]}`}>
           <Icon className="size-5" />
         </div>
       </div>
       <div className="mt-4">
-        <span className="text-3xl font-semibold text-slate-900">{value}</span>
+        <span className="text-3xl font-semibold tracking-tight text-foreground">{value}</span>
         {trend && (
-          <span className="ml-2 text-sm text-emerald-600">{trend}</span>
+          <span className="ml-2 text-sm text-success">{trend}</span>
         )}
       </div>
     </div>
@@ -233,20 +230,20 @@ function PipelineColumn({
   localizedPath: (path: string) => string;
 }) {
   return (
-    <div className="rounded-2xl bg-slate-50 p-4">
+    <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-card">
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className={`size-2.5 rounded-full ${dotColor}`} />
-          <span className="text-sm font-semibold text-slate-700">{title}</span>
+          <span className="text-sm font-semibold text-foreground">{title}</span>
         </div>
-        <span className="rounded-full bg-white px-2.5 py-0.5 text-xs font-medium text-slate-600 shadow-sm">
+        <span className="rounded-full border border-border/70 bg-muted/55 px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
           {count}
         </span>
       </div>
       
       <div className="space-y-3">
         {items.length === 0 ? (
-          <div className="rounded-xl bg-white p-4 text-center text-sm text-slate-400">
+          <div className="rounded-2xl border border-dashed border-border/80 bg-muted/35 p-4 text-center text-sm text-muted-foreground">
             Nu există asociații
           </div>
         ) : (
@@ -254,23 +251,23 @@ function PipelineColumn({
             <Link
               key={org.id}
               href={localizedPath(`/superadmin/organizations/${org.id}`)}
-              className="block rounded-xl bg-white p-4 shadow-sm transition-all hover:shadow-md hover:border-emerald-200 border border-transparent"
+              className="block rounded-2xl border border-border/80 bg-white p-4 shadow-card transition-all hover:border-primary/20 hover:shadow-card-hover"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-slate-900">{org.shortName}</p>
+                  <p className="truncate text-sm font-medium text-foreground">{org.shortName}</p>
                   {org.associationCode && (
-                    <p className="mt-0.5 truncate text-xs text-slate-500">{org.associationCode}</p>
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">{org.associationCode}</p>
                   )}
                 </div>
                 {org.onboardingMissing && Object.keys(org.onboardingMissing).length > 0 && (
-                  <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+                  <span className="shrink-0 rounded-full border border-warning/20 bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning">
                     {Object.keys(org.onboardingMissing).length} lipsă
                   </span>
                 )}
               </div>
               
-              <div className="mt-3 flex items-center gap-4 text-xs text-slate-500">
+              <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <Building2 className="size-3.5" />
                   {org.apartmentsCount}
@@ -294,26 +291,12 @@ function QuickActionCard({
   description, 
   href 
 }: { 
-  icon: React.ElementType; 
+  icon: LucideIcon;
   title: string; 
   description: string; 
   href: string;
 }) {
-  return (
-    <Link
-      href={href}
-      className="group flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 transition-all hover:shadow-md hover:border-emerald-200"
-    >
-      <div className="flex size-12 items-center justify-center rounded-xl bg-slate-100 transition-colors group-hover:bg-emerald-50">
-        <Icon className="size-6 text-slate-600 transition-colors group-hover:text-emerald-600" />
-      </div>
-      <div className="flex-1">
-        <p className="font-medium text-slate-900">{title}</p>
-        <p className="mt-0.5 text-sm text-slate-500">{description}</p>
-      </div>
-      <ChevronRight className="size-5 text-slate-400 transition-transform group-hover:translate-x-1" />
-    </Link>
-  );
+  return <FeatureActionCard icon={Icon} title={title} description={description} href={href} actionLabel="Deschide" tone="primary" />;
 }
 
 // ============================================================================
@@ -348,62 +331,40 @@ export default function SuperadminPage() {
   }, []);
 
   const pipelineColumns = [
-    { key: 'lead', title: 'Lead', items: workbench.pipeline.lead, dotColor: 'bg-slate-400' },
-    { key: 'onboarding', title: 'Onboarding', items: workbench.pipeline.onboarding, dotColor: 'bg-amber-400' },
-    { key: 'trial', title: 'Trial', items: workbench.pipeline.trial, dotColor: 'bg-blue-400' },
-    { key: 'active', title: 'Activ', items: workbench.pipeline.active, dotColor: 'bg-emerald-400' },
-    { key: 'inactive', title: 'Inactiv', items: workbench.pipeline.inactive, dotColor: 'bg-slate-300' },
+    { key: 'lead', title: 'Lead', items: workbench.pipeline.lead, dotColor: 'bg-muted-foreground' },
+    { key: 'onboarding', title: 'Onboarding', items: workbench.pipeline.onboarding, dotColor: 'bg-warning' },
+    { key: 'trial', title: 'Trial', items: workbench.pipeline.trial, dotColor: 'bg-info' },
+    { key: 'active', title: 'Activ', items: workbench.pipeline.active, dotColor: 'bg-success' },
+    { key: 'inactive', title: 'Inactiv', items: workbench.pipeline.inactive, dotColor: 'bg-border' },
   ];
 
   const allTasks = [...workbench.tasks.overdue, ...workbench.tasks.dueToday, ...workbench.tasks.upcoming];
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-7xl px-6 py-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex size-12 items-center justify-center rounded-2xl bg-emerald-600 text-white">
-                <Home className="size-6" />
-              </div>
-              <div>
-                <h1 className="text-xl font-semibold text-slate-900">Platformă Espace</h1>
-                <p className="text-sm text-slate-500">CRM pentru gestionarea A.P.C.-urilor din Republica Moldova</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              {/* Status badge */}
-              <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium ${
-                source === 'loading' ? 'bg-slate-100 text-slate-600' : 
-                source === 'api' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 
-                'bg-amber-50 text-amber-700 border border-amber-200'
-              }`}>
-                <span className={`size-1.5 rounded-full ${
-                  source === 'loading' ? 'bg-slate-400 animate-pulse' : 
-                  source === 'api' ? 'bg-emerald-500' : 
-                  'bg-amber-500'
-                }`} />
-                {source === 'loading' ? 'Se încarcă...' : source === 'api' ? 'Date reale' : 'Offline'}
-              </div>
-              
-              <Link 
-                href={localizedPath('/superadmin/organizations')} 
-                className="btn-primary"
-              >
-                <Plus className="size-4" />
-                Adaugă A.P.C.
-              </Link>
-            </div>
-          </div>
-        </div>
-      </header>
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="Superadmin"
+        title="Platformă Espace"
+        description="CRM pentru gestionarea A.P.C.-urilor din Republica Moldova."
+        badge={
+          <StatusBadge
+            status={source === 'loading' ? 'PENDING' : source === 'api' ? 'ACTIVE' : 'WARNING'}
+            label={source === 'loading' ? 'Se încarcă...' : source === 'api' ? 'Date reale' : 'Offline'}
+            dot
+          />
+        }
+        actions={
+          <ButtonLink href={localizedPath('/superadmin/organizations')}>
+            <Plus className="size-4" />
+            Adaugă A.P.C.
+          </ButtonLink>
+        }
+      />
 
-      <main className="mx-auto max-w-7xl px-6 py-8">
+      <div>
         {/* Error */}
         {error && (
-          <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          <div className="mb-6 rounded-2xl border border-warning/20 bg-warning/10 p-4 text-sm text-warning">
             <div className="flex items-center gap-2">
               <Activity className="size-4" />
               {error}
@@ -450,13 +411,13 @@ export default function SuperadminPage() {
               { label: 'Trial', value: workbench.kpis.trialOrganizations, icon: Timer },
               { label: 'Venit lunar estimat', value: `${workbench.kpis.estimatedMonthlyRevenue.toLocaleString('ro-RO')} MDL`, icon: CreditCard },
             ].map((stat) => (
-              <div key={stat.label} className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4">
-                <div className="flex size-10 items-center justify-center rounded-xl bg-slate-100">
-                  <stat.icon className="size-5 text-slate-600" />
+              <div key={stat.label} className="flex items-center gap-4 rounded-2xl border border-border/80 bg-card p-4 shadow-card">
+                <div className="flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+                  <stat.icon className="size-5" />
                 </div>
                 <div>
-                  <p className="text-sm text-slate-500">{stat.label}</p>
-                  <p className="text-lg font-semibold text-slate-900">{stat.value}</p>
+                  <p className="text-sm text-muted-foreground">{stat.label}</p>
+                  <p className="text-lg font-semibold text-foreground">{stat.value}</p>
                 </div>
               </div>
             ))}
@@ -467,12 +428,12 @@ export default function SuperadminPage() {
         <section className="mb-8">
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-slate-900">Pipeline A.P.C.</h2>
-              <p className="text-sm text-slate-500">Asociații urmărite ca profiluri CRM</p>
+              <h2 className="text-lg font-semibold text-foreground">Pipeline A.P.C.</h2>
+              <p className="text-sm text-muted-foreground">Asociații urmărite ca profiluri CRM</p>
             </div>
             <Link 
               href={localizedPath('/superadmin/organizations')}
-              className="text-sm font-medium text-emerald-600 hover:text-emerald-700"
+              className="text-sm font-medium text-primary hover:text-primary/80"
             >
               Vezi toate asociațiile
             </Link>
@@ -496,8 +457,8 @@ export default function SuperadminPage() {
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Quick Actions */}
           <section>
-            <h2 className="mb-4 text-lg font-semibold text-slate-900">Acțiuni rapide</h2>
-            <div className="space-y-3">
+            <h2 className="mb-4 text-lg font-semibold text-foreground">Acțiuni rapide</h2>
+            <div className="grid gap-3 sm:grid-cols-2">
               <QuickActionCard
                 icon={Plus}
                 title="Adaugă asociație nouă"
@@ -611,52 +572,52 @@ export default function SuperadminPage() {
 
           {/* Tasks & Activity */}
           <section>
-            <h2 className="mb-4 text-lg font-semibold text-slate-900">Sarcini și activitate</h2>
+            <h2 className="mb-4 text-lg font-semibold text-foreground">Sarcini și activitate</h2>
             
             {allTasks.length > 0 ? (
-              <div className="rounded-2xl border border-slate-200 bg-white">
+              <div className="rounded-2xl border border-border/80 bg-card shadow-card">
                 {allTasks.slice(0, 5).map((task, idx) => (
                   <div 
                     key={task.id} 
-                    className={`flex items-center gap-4 p-4 ${idx < allTasks.length - 1 ? 'border-b border-slate-100' : ''}`}
+                    className={`flex items-center gap-4 p-4 ${idx < allTasks.length - 1 ? 'border-b border-border/60' : ''}`}
                   >
                     <div className={`flex size-8 items-center justify-center rounded-full ${
-                      task.priority === 'HIGH' ? 'bg-red-50' : 'bg-slate-100'
+                      task.priority === 'HIGH' ? 'bg-critical/10' : 'bg-muted'
                     }`}>
-                      <Clock className={`size-4 ${task.priority === 'HIGH' ? 'text-red-500' : 'text-slate-500'}`} />
+                      <Clock className={`size-4 ${task.priority === 'HIGH' ? 'text-critical' : 'text-muted-foreground'}`} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="truncate text-sm font-medium text-slate-900">{task.title}</p>
+                      <p className="truncate text-sm font-medium text-foreground">{task.title}</p>
                       {task.dueDate && (
-                        <p className="text-xs text-slate-500">{formatRelativeDate(task.dueDate)}</p>
+                        <p className="text-xs text-muted-foreground">{formatRelativeDate(task.dueDate)}</p>
                       )}
                     </div>
-                    <ChevronRight className="size-4 text-slate-400" />
+                    <ChevronRight className="size-4 text-muted-foreground" />
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center">
-                <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-full bg-slate-100">
-                  <CheckCircle2 className="size-6 text-slate-400" />
+              <div className="rounded-2xl border border-border/80 bg-card p-8 text-center shadow-card">
+                <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-full bg-muted">
+                  <CheckCircle2 className="size-6 text-muted-foreground" />
                 </div>
-                <p className="text-sm font-medium text-slate-900">Nicio sarcină activă</p>
-                <p className="mt-1 text-sm text-slate-500">Toate sarcinile au fost finalizate</p>
+                <p className="text-sm font-medium text-foreground">Nicio sarcină activă</p>
+                <p className="mt-1 text-sm text-muted-foreground">Toate sarcinile au fost finalizate</p>
               </div>
             )}
 
             {/* Recent Activity */}
             {workbench.activity.recent.length > 0 && (
               <div className="mt-6">
-                <h3 className="mb-3 text-sm font-medium text-slate-700">Activitate recentă</h3>
+                <h3 className="mb-3 text-sm font-medium text-foreground">Activitate recentă</h3>
                 <div className="space-y-2">
                   {workbench.activity.recent.slice(0, 3).map((activity) => (
-                    <div key={activity.id} className="flex items-center gap-3 rounded-xl bg-slate-50 p-3">
-                      <span className="size-2 rounded-full bg-emerald-400" />
-                      <p className="flex-1 truncate text-sm text-slate-600">
+                    <div key={activity.id} className="flex items-center gap-3 rounded-2xl border border-border/70 bg-card p-3">
+                      <span className="size-2 rounded-full bg-success" />
+                      <p className="flex-1 truncate text-sm text-muted-foreground">
                         {activity.title || activity.message}
                       </p>
-                      <span className="text-xs text-slate-400">{formatRelativeDate(activity.createdAt)}</span>
+                      <span className="text-xs text-muted-foreground">{formatRelativeDate(activity.createdAt)}</span>
                     </div>
                   ))}
                 </div>
@@ -664,7 +625,7 @@ export default function SuperadminPage() {
             )}
           </section>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

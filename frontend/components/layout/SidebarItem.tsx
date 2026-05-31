@@ -35,25 +35,25 @@ export default function SidebarItem({ item, showLabels, badgeCount, localePrefix
       <Link
         href={target}
         aria-disabled={locked}
-        className={`group flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition duration-150 ease-out text-muted-foreground hover:text-foreground hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${
-          active ? 'bg-muted/90 text-foreground' : ''
+        className={`group flex items-center gap-2.5 rounded-2xl px-3 py-2 text-[13px] transition duration-150 ease-out text-white/60 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25 ${
+          active ? 'bg-white/15 text-white' : ''
         } ${locked ? 'opacity-60 cursor-not-allowed hover:bg-transparent' : ''}`}
       >
         <div
           className={`flex h-7 w-7 items-center justify-center rounded-md transition ${
-            active ? 'bg-background' : ''
+            active ? 'bg-white/10 text-white' : ''
           }`}
         >
-          <Icon className="h-5 w-5 shrink-0 text-gray-500" />
+          <Icon className={`h-5 w-5 shrink-0 ${active ? 'text-white' : 'text-white/55 group-hover:text-white'}`} />
         </div>
         {showLabels ? <span className="truncate">{label}</span> : null}
         {showLabels && locked ? (
-          <span className="ml-auto rounded-full border border-border/60 bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+          <span className="ml-auto rounded-full border border-white/10 bg-white/10 px-1.5 py-0.5 text-[10px] font-medium text-white/60">
             locked
           </span>
         ) : null}
         {badgeCount && badgeCount > 0 ? (
-          <span className="ml-auto rounded-full border border-border/60 bg-background px-1.5 py-0.5 text-[10px] font-medium text-foreground">
+          <span className="ml-auto rounded-full border border-white/10 bg-white/10 px-1.5 py-0.5 text-[10px] font-medium text-white">
             {badgeCount}
           </span>
         ) : null}

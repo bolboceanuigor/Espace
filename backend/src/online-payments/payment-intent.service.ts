@@ -19,6 +19,7 @@ import { PaymentProviderService } from './payment-provider.service';
 const INTERNAL_INVOICE_NOTE_TITLE = 'Internal invoices metadata';
 const ACTIVE_INTENT_STATUSES: PaymentIntentStatus[] = [
   PaymentIntentStatus.CREATED,
+  PaymentIntentStatus.VIEWED,
   PaymentIntentStatus.PENDING_PROVIDER,
   PaymentIntentStatus.REQUIRES_ACTION,
   PaymentIntentStatus.PROCESSING,
@@ -504,6 +505,7 @@ export class PaymentIntentService {
   private intentMessage(status: PaymentIntentStatus) {
     if (status === PaymentIntentStatus.PENDING_PROVIDER) return 'Plata online nu este încă activă. Această intenție nu procesează bani.';
     if (status === PaymentIntentStatus.CREATED) return 'Intenție creată. Nu se procesează bani în ES-139.';
+    if (status === PaymentIntentStatus.VIEWED) return 'Intenție vizualizată. Nu se procesează bani.';
     if (status === PaymentIntentStatus.CANCELLED) return 'Intenția a fost anulată.';
     if (status === PaymentIntentStatus.EXPIRED) return 'Intenția a expirat.';
     return 'Plățile online sunt în pregătire.';

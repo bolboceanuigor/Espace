@@ -10,15 +10,21 @@ import { requestsApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 const categoryLabels: Record<string, string> = {
-  MAINTENANCE: 'Mentenanță',
+  REPAIR: 'Reparație',
+  WATER_LEAK: 'Scurgere apă',
+  ELECTRICITY: 'Electricitate',
+  ELEVATOR: 'Lift',
   CLEANING: 'Curățenie',
-  PAYMENTS: 'Plăți',
+  HEATING: 'Încălzire',
+  INTERCOM: 'Interfon',
+  PARKING: 'Parcare',
+  COURTYARD: 'Curte',
   DOCUMENTS: 'Documente',
-  ACCESS: 'Acces',
-  NOISE: 'Zgomot',
-  COMMON_AREA: 'Spații comune',
-  TECHNICAL: 'Tehnic',
-  OTHER: 'Altul',
+  PAYMENT: 'Plăți',
+  METER: 'Contoare',
+  NEIGHBOR_ISSUE: 'Vecini / zgomot',
+  GENERAL_QUESTION: 'Întrebare generală',
+  OTHER: 'Altceva',
 };
 
 const priorityLabels: Record<string, string> = {
@@ -42,18 +48,22 @@ type FormState = {
   category: string;
   priority: string;
   locationDetails: string;
+  attachmentUrl: string;
   description: string;
   preferredContactMethod: string;
+  confirmed: boolean;
 };
 
 const initialForm: FormState = {
   apartmentId: '',
   title: '',
-  category: 'MAINTENANCE',
+  category: 'REPAIR',
   priority: 'NORMAL',
   locationDetails: '',
+  attachmentUrl: '',
   description: '',
   preferredContactMethod: '',
+  confirmed: false,
 };
 
 export default function ResidentRequestCreatePage() {
@@ -67,7 +77,7 @@ export default function ResidentRequestCreatePage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const updateForm = (key: keyof FormState, value: string) => {
+  const updateForm = (key: keyof FormState, value: string | boolean) => {
     setForm((current) => ({ ...current, [key]: value }));
   };
 
@@ -110,6 +120,10 @@ export default function ResidentRequestCreatePage() {
       setError('Descrierea trebuie să aibă cel puțin 10 caractere.');
       return;
     }
+    if (!form.confirmed) {
+      setError('Confirmă că ai descris problema cât mai clar.');
+      return;
+    }
 
     setSubmitting(true);
     setError('');
@@ -120,7 +134,11 @@ export default function ResidentRequestCreatePage() {
         title: form.title.trim(),
         category: form.category,
         priority: form.priority,
+        locationText: form.locationDetails.trim() || undefined,
         locationDetails: form.locationDetails.trim() || undefined,
+        attachmentUrl: form.attachmentUrl.trim() || undefined,
+        attachmentFileName: form.attachmentUrl.trim() ? 'Atașament solicitare' : undefined,
+        attachmentMimeType: form.attachmentUrl.trim() ? 'link' : undefined,
         description: form.description.trim(),
         preferredContactMethod: form.preferredContactMethod || undefined,
       });
@@ -144,7 +162,7 @@ export default function ResidentRequestCreatePage() {
 
       <PageHeader
         title="Creează solicitare"
-        description="Trimite o problemă sau o cerere către administrația asociației."
+        description="Trimite o problemă, întrebare sau cerere către administrația asociației."
         rightSlot={
           <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
             {association?.shortName || 'A.P.C.'}
@@ -229,7 +247,13 @@ export default function ResidentRequestCreatePage() {
 
             <label className="grid gap-1.5 text-sm font-medium text-foreground">
               Locație, opțional
-              <input className="input" value={form.locationDetails} onChange={(event) => updateForm('locationDetails', event.target.value)} placeholder="Ex: Scara 1, etaj 4" />
+              <input className="input" value={form.locationDetails} onChange={(event) => updateForm('locationDetails', event.target.value)} placeholder="Ex: baie, subsol, scara 1, etaj 4" />
+            </label>
+
+            <label className="grid gap-1.5 text-sm font-medium text-foreground">
+              Link poză / atașament, opțional
+              <input className="input" value={form.attachmentUrl} onChange={(event) => updateForm('attachmentUrl', event.target.value)} placeholder="https://..." />
+              <span className="text-xs text-muted-foreground">Upload-ul real va fi conectat separat; nu lipi fișiere base64.</span>
             </label>
 
             <label className="grid gap-1.5 text-sm font-medium text-foreground">
@@ -243,9 +267,10 @@ export default function ResidentRequestCreatePage() {
               />
             </label>
 
-            <div className="rounded-2xl border border-dashed border-border/80 bg-muted/30 p-4 text-sm text-muted-foreground">
-              Atașamentele vor fi disponibile într-un pas următor. Poți descrie aici ce document sau poză ai vrea să adaugi.
-            </div>
+            <label className="flex items-start gap-2 rounded-2xl border border-border/70 bg-muted/30 p-4 text-sm font-medium text-foreground">
+              <input type="checkbox" checked={form.confirmed} onChange={(event) => updateForm('confirmed', event.target.checked)} className="mt-1" />
+              <span>Am descris problema cât mai clar.</span>
+            </label>
 
             <Button type="submit" isLoading={submitting} disabled={submitting || !hasApartments} className="w-full sm:w-auto">
               <Send className="h-4 w-4" />

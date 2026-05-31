@@ -7,8 +7,11 @@ const statusConfig = {
   ACTIVE: { label: 'Activ', variant: 'success' },
   INACTIVE: { label: 'Inactiv', variant: 'neutral' },
   DRAFT: { label: 'Ciornă', variant: 'neutral' },
+  LOCKED: { label: 'Blocat', variant: 'neutral' },
   PENDING: { label: 'În așteptare', variant: 'warning' },
   SENT: { label: 'Trimis', variant: 'info' },
+  APPROVED: { label: 'Aprobat', variant: 'success' },
+  PUBLISHED: { label: 'Publicat', variant: 'success' },
   ACCEPTED: { label: 'Acceptat', variant: 'success' },
   REJECTED: { label: 'Respins', variant: 'error' },
   EXPIRED: { label: 'Expirat', variant: 'error' },
@@ -16,6 +19,7 @@ const statusConfig = {
   
   // Invoice statuses
   ISSUED: { label: 'Emisă', variant: 'info' },
+  UNPAID: { label: 'Neachitată', variant: 'warning' },
   PAID: { label: 'Achitată', variant: 'success' },
   PARTIALLY_PAID: { label: 'Parțial achitată', variant: 'warning' },
   OVERDUE: { label: 'Întârziată', variant: 'error' },
@@ -45,24 +49,34 @@ const statusConfig = {
   CONFIRMED: { label: 'Confirmat', variant: 'success' },
   COMPLETED: { label: 'Completat', variant: 'success' },
   WAITING: { label: 'În așteptare', variant: 'warning' },
+  WAITING_RESIDENT: { label: 'Așteaptă locatar', variant: 'warning' },
+  WAITING_VENDOR: { label: 'Așteaptă prestator', variant: 'warning' },
+  CONTACTED: { label: 'Contactat', variant: 'info' },
+  QUALIFIED: { label: 'Calificat', variant: 'success' },
+  ONBOARDING: { label: 'În onboarding', variant: 'warning' },
+  IN_ONBOARDING: { label: 'În onboarding', variant: 'warning' },
+  CONVERTED: { label: 'Convertit', variant: 'success' },
+  SPAM: { label: 'Spam', variant: 'neutral' },
   PAST_DUE: { label: 'Scadent', variant: 'error' },
   ERROR: { label: 'Eroare', variant: 'error' },
   FAILED: { label: 'Eșuat', variant: 'error' },
+  PARTIALLY_ACCEPTED: { label: 'Parțial acceptat', variant: 'warning' },
+  REVERSED: { label: 'Stornat', variant: 'neutral' },
   URGENT: { label: 'Urgent', variant: 'error' },
 } as const;
 
 const variants = {
-  success: 'border-emerald-200/80 bg-emerald-50 text-emerald-700',
-  warning: 'border-amber-200/80 bg-amber-50 text-amber-700',
-  error: 'border-rose-200/80 bg-rose-50 text-rose-700',
-  info: 'border-sky-200/80 bg-sky-50 text-sky-700',
-  neutral: 'border-slate-200/80 bg-slate-50 text-slate-600',
+  success: 'border-success/20 bg-success/10 text-success',
+  warning: 'border-warning/20 bg-warning/10 text-warning',
+  error: 'border-critical/20 bg-critical/10 text-critical',
+  info: 'border-info/20 bg-info/10 text-info',
+  neutral: 'border-border/90 bg-muted/70 text-muted-foreground',
 } as const;
 
 const sizes = {
-  sm: 'px-1.5 py-0.5 text-[10px]',
-  default: 'px-2 py-0.5 text-xs',
-  lg: 'px-2.5 py-1 text-xs',
+  sm: 'px-2 py-0.5 text-[10px]',
+  default: 'px-2.5 py-1 text-xs',
+  lg: 'px-3 py-1.5 text-xs',
 } as const;
 
 export type StatusType = keyof typeof statusConfig;
@@ -95,13 +109,13 @@ const StatusBadge = forwardRef<HTMLSpanElement, StatusBadgeProps>(function Statu
         <span
           className={`size-1.5 rounded-full ${
             variant === 'success'
-              ? 'bg-emerald-500'
+              ? 'bg-success'
               : variant === 'warning'
-                ? 'bg-amber-500'
+                ? 'bg-warning'
                 : variant === 'error'
-                  ? 'bg-rose-500'
+                  ? 'bg-critical'
                   : variant === 'info'
-                    ? 'bg-sky-500'
+                    ? 'bg-info'
                     : 'bg-slate-400'
           }`}
         />
@@ -137,13 +151,13 @@ export function VariantBadge({
         <span
           className={`size-1.5 rounded-full ${
             variant === 'success'
-              ? 'bg-emerald-500'
+              ? 'bg-success'
               : variant === 'warning'
-                ? 'bg-amber-500'
+                ? 'bg-warning'
                 : variant === 'error'
-                  ? 'bg-rose-500'
+                  ? 'bg-critical'
                   : variant === 'info'
-                    ? 'bg-sky-500'
+                    ? 'bg-info'
                     : 'bg-slate-400'
           }`}
         />

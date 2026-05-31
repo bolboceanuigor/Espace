@@ -49,6 +49,7 @@ type IssueStatus = 'OPEN' | 'RESOLVED' | 'IGNORED';
 type DataQualityIssue = {
   id: string;
   key: string;
+  type?: string | null;
   category: string;
   categoryLabel?: string;
   severity: Severity;
@@ -90,6 +91,20 @@ type Overview = {
   categories: Array<{ category: string; label: string; criticalCount: number; warningCount: number; infoCount: number; openIssues: number }>;
   topIssues: DataQualityIssue[];
   nextAction: { key: string; label: string; description: string; actionUrl: string };
+  totalApartments?: number;
+  apartmentsWithoutOwner?: number;
+  apartmentsWithoutResident?: number;
+  duplicateApartments?: number;
+  duplicateOwners?: number;
+  duplicateResidents?: number;
+  missingPhones?: number;
+  invalidEmails?: number;
+  missingSurface?: number;
+  missingBuildingOrEntrance?: number;
+  issuesCount?: number;
+  criticalIssuesCount?: number;
+  warningsCount?: number;
+  recommendations?: string[];
 };
 
 type RunItem = {
@@ -197,6 +212,7 @@ export function AdminDataQualityOverviewPage() {
   const [billingMonth, setBillingMonth] = useState(currentMonth());
   const [data, setData] = useState<Overview | null>(null);
   const [duplicateStats, setDuplicateStats] = useState<DuplicateStats | null>(null);
+  const [issues, setIssues] = useState<DataQualityIssue[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -205,15 +221,18 @@ export function AdminDataQualityOverviewPage() {
     setLoading(true);
     setError('');
     try {
-      const [res, duplicateRes] = await Promise.all([
-        dataQualityApi.overview({ billingMonth }),
+      const [res, issuesRes, duplicateRes] = await Promise.all([
+        dataQualityApi.adminOverview({ billingMonth }),
+        dataQualityApi.issues({ status: 'OPEN', scope: 'ES177', limit: 50 }),
         dataQualityDuplicatesApi.stats().catch(() => null),
       ]);
       setData(unwrap<Overview>(res));
+      setIssues(unwrap<any>(issuesRes)?.items || []);
       const duplicatePayload = duplicateRes ? unwrap<any>(duplicateRes) : null;
       setDuplicateStats(duplicatePayload?.summary || duplicatePayload || null);
     } catch (err: any) {
       setData(null);
+      setIssues([]);
       setDuplicateStats(null);
       setError(String(err?.message || 'Nu am putut încărca verificările.'));
     } finally {
@@ -229,8 +248,10 @@ export function AdminDataQualityOverviewPage() {
     setBusy(true);
     setError('');
     try {
-      const res = await dataQualityApi.run({ billingMonth });
+      const res = await dataQualityApi.recalculate({ billingMonth });
       setData(unwrap<Overview>(res));
+      const issuesRes = await dataQualityApi.issues({ status: 'OPEN', scope: 'ES177', limit: 50 });
+      setIssues(unwrap<any>(issuesRes)?.items || []);
     } catch (err: any) {
       setError(String(err?.message || 'Nu am putut rula verificările.'));
     } finally {
@@ -239,17 +260,48 @@ export function AdminDataQualityOverviewPage() {
   }
 
   const summary = data?.summary;
+  const duplicateCount = (data?.duplicateApartments || 0) + (data?.duplicateOwners || 0) + (data?.duplicateResidents || 0);
+  const missingDataCount =
+    (data?.apartmentsWithoutOwner || 0) +
+    (data?.apartmentsWithoutResident || 0) +
+    (data?.missingSurface || 0) +
+    (data?.missingBuildingOrEntrance || 0);
+  const invalidContactsCount = (data?.missingPhones || 0) + (data?.invalidEmails || 0);
+
+  async function resolveFromOverview(issue: DataQualityIssue) {
+    setError('');
+    try {
+      await dataQualityApi.resolveIssue(issue.id, 'Rezolvat manual din Calitatea datelor.');
+      await load();
+    } catch (err: any) {
+      setError(String(err?.message || 'Nu am putut marca problema ca rezolvată.'));
+    }
+  }
+
+  async function ignoreFromOverview(issue: DataQualityIssue) {
+    const reason = window.prompt('Motiv pentru ignorare temporară');
+    if (!reason) return;
+    setError('');
+    try {
+      await dataQualityApi.ignoreIssue(issue.id, reason);
+      await load();
+    } catch (err: any) {
+      setError(String(err?.message || 'Nu am putut ignora temporar problema.'));
+    }
+  }
 
   return (
     <div className="space-y-6 pb-8">
       <PageHeader
         title="Calitatea datelor"
-        description="Verifică datele asociației și rezolvă problemele care pot bloca facturarea sau comunicarea."
+        description="Verifică datele importate și rezolvă problemele înainte de facturare."
         rightSlot={
           <div className="flex flex-wrap gap-2">
             <Button onClick={runChecks} disabled={busy}>
-              <RefreshCw className="h-4 w-4" /> Rulează verificări
+              <RefreshCw className="h-4 w-4" /> Recalculează
             </Button>
+            <ButtonLink href={localizedPath('/admin/imports')} variant="secondary">Mergi la import</ButtonLink>
+            <ButtonLink href={localizedPath('/admin/apartments')} variant="secondary">Mergi la apartamente</ButtonLink>
             <ButtonLink href={localizedPath('/admin/data-quality/duplicates')} variant="secondary">Duplicate</ButtonLink>
             <ButtonLink href={localizedPath('/admin/data-quality/fixes')} variant="secondary">Remedieri rapide</ButtonLink>
             <ButtonLink href={localizedPath('/admin/data-quality/issues')} variant="secondary">Vezi toate problemele</ButtonLink>
@@ -287,6 +339,59 @@ export function AdminDataQualityOverviewPage() {
 
       {data && summary ? (
         <>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+            <StatCard label="Probleme totale" value={String(data.issuesCount ?? summary.openIssues ?? 0)} tone={(data.issuesCount || 0) ? 'warning' : 'success'} icon={<CircleAlert className="h-5 w-5" />} />
+            <StatCard label="Critice" value={String(data.criticalIssuesCount ?? summary.criticalCount ?? 0)} tone={(data.criticalIssuesCount || 0) ? 'danger' : 'success'} icon={<ShieldAlert className="h-5 w-5" />} />
+            <StatCard label="Avertizări" value={String(data.warningsCount ?? summary.warningCount ?? 0)} tone={(data.warningsCount || 0) ? 'warning' : 'success'} icon={<TriangleAlert className="h-5 w-5" />} />
+            <StatCard label="Fără proprietar" value={String(data.apartmentsWithoutOwner || 0)} tone={data.apartmentsWithoutOwner ? 'danger' : 'success'} icon={<DatabaseZap className="h-5 w-5" />} />
+            <StatCard label="Fără locatar" value={String(data.apartmentsWithoutResident || 0)} tone={data.apartmentsWithoutResident ? 'warning' : 'success'} icon={<DatabaseZap className="h-5 w-5" />} />
+            <StatCard label="Duplicate" value={String(duplicateCount)} tone={duplicateCount ? 'danger' : 'success'} icon={<GitMerge className="h-5 w-5" />} />
+          </div>
+
+          <section className="grid gap-4 lg:grid-cols-5">
+            <QualitySection
+              title="Probleme critice"
+              count={data.criticalIssuesCount ?? summary.criticalCount ?? 0}
+              description="Elemente care pot bloca facturarea sau predarea datelor."
+              href={localizedPath('/admin/data-quality/issues?scope=ES177&severity=CRITICAL&status=OPEN')}
+            />
+            <QualitySection
+              title="Duplicate"
+              count={duplicateCount}
+              description={`${data.duplicateApartments || 0} apartamente · ${data.duplicateOwners || 0} proprietari · ${data.duplicateResidents || 0} locatari`}
+              href={localizedPath('/admin/data-quality/issues?scope=ES177&status=OPEN&type=DUPLICATE_APARTMENT')}
+            />
+            <QualitySection
+              title="Date lipsă"
+              count={missingDataCount}
+              description="Proprietari, locatari, suprafețe, blocuri sau scări lipsă."
+              href={localizedPath('/admin/data-quality/issues?scope=ES177&status=OPEN')}
+            />
+            <QualitySection
+              title="Contacte invalide"
+              count={invalidContactsCount}
+              description={`${data.missingPhones || 0} telefoane lipsă · ${data.invalidEmails || 0} emailuri invalide`}
+              href={localizedPath('/admin/data-quality/issues?scope=ES177&status=OPEN&type=MISSING_PHONE')}
+            />
+            <Card className="p-4">
+              <p className="text-sm font-semibold text-foreground">Recomandări</p>
+              <div className="mt-3 space-y-2 text-sm text-muted-foreground">
+                {data.recommendations?.length ? data.recommendations.slice(0, 3).map((item) => <p key={item}>{item}</p>) : <p>Datele arată bine. Nu există probleme critice detectate.</p>}
+              </div>
+            </Card>
+          </section>
+
+          <Card className="p-5">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-foreground">Probleme detectate</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Lista este calculată din datele organizației curente, fără date demo.</p>
+              </div>
+              <ButtonLink href={localizedPath('/admin/data-quality/issues?scope=ES177&status=OPEN')} variant="secondary" size="sm">Vezi toate</ButtonLink>
+            </div>
+            <DataQualityIssuesTable items={issues} onResolve={resolveFromOverview} onIgnore={ignoreFromOverview} />
+          </Card>
+
           <Card className="p-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex items-center gap-4">
@@ -382,6 +487,108 @@ function scoreClass(score: number, criticalCount: number) {
   return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
 }
 
+function QualitySection({ title, count, description, href }: { title: string; count: number; description: string; href: string }) {
+  return (
+    <Card className="p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-foreground">{title}</p>
+          <p className="mt-2 text-3xl font-semibold text-foreground">{count}</p>
+        </div>
+        <Badge variant={count ? 'warning' : 'success'}>{count ? 'De verificat' : 'OK'}</Badge>
+      </div>
+      <p className="mt-3 text-sm text-muted-foreground">{description}</p>
+      <ButtonLink href={href} variant="secondary" size="sm" className="mt-4">Deschide</ButtonLink>
+    </Card>
+  );
+}
+
+function issueTypeLabel(type?: string | null) {
+  const labels: Record<string, string> = {
+    DUPLICATE_APARTMENT: 'Apartament duplicat',
+    APARTMENT_WITHOUT_OWNER: 'Fără proprietar',
+    APARTMENT_WITHOUT_RESIDENT: 'Fără locatar',
+    DUPLICATE_OWNER: 'Proprietar duplicat',
+    DUPLICATE_RESIDENT: 'Locatar duplicat',
+    MISSING_PHONE: 'Telefon lipsă',
+    INVALID_EMAIL: 'Email invalid',
+    MISSING_SURFACE: 'Suprafață lipsă',
+    MISSING_BUILDING: 'Bloc lipsă',
+    MISSING_ENTRANCE: 'Scară lipsă',
+  };
+  return type ? labels[type] || type : 'Calitate date';
+}
+
+function entityLabel(issue: DataQualityIssue) {
+  if (issue.entityType === 'APARTMENT') return 'Apartament';
+  if (issue.entityType === 'RESIDENT') return 'Locatar/proprietar';
+  return issue.entityType || 'Entitate';
+}
+
+function entityActionLabel(issue: DataQualityIssue) {
+  if (issue.entityType === 'APARTMENT') return 'Deschide apartamentul';
+  if (issue.entityType === 'RESIDENT') return 'Deschide locatarul/proprietarul';
+  return 'Deschide entitatea';
+}
+
+function DataQualityIssuesTable({
+  items,
+  onResolve,
+  onIgnore,
+}: {
+  items: DataQualityIssue[];
+  onResolve: (issue: DataQualityIssue) => void | Promise<void>;
+  onIgnore: (issue: DataQualityIssue) => void | Promise<void>;
+}) {
+  const localizedPath = useLocalizedPath();
+  return (
+    <TableWrapper className="mt-4">
+      <Table>
+        <TableHead>
+          <TableRow>
+            <TableHeaderCell>Problemă</TableHeaderCell>
+            <TableHeaderCell>Entitate</TableHeaderCell>
+            <TableHeaderCell>Tip</TableHeaderCell>
+            <TableHeaderCell>Severitate</TableHeaderCell>
+            <TableHeaderCell>Recomandare</TableHeaderCell>
+            <TableHeaderCell>Acțiuni</TableHeaderCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {!items.length ? <TableEmpty colSpan={6}>Datele arată bine. Nu există probleme critice detectate.</TableEmpty> : null}
+          {items.map((issue) => (
+            <TableRow key={issue.id}>
+              <TableCell>
+                <p className="font-semibold text-foreground">{issue.title}</p>
+                <p className="text-xs text-muted-foreground">{issue.description}</p>
+              </TableCell>
+              <TableCell>
+                <p className="text-sm text-foreground">{entityLabel(issue)}</p>
+                {issue.entityId ? <p className="font-mono text-xs text-muted-foreground">{issue.entityId.slice(0, 8)}</p> : null}
+              </TableCell>
+              <TableCell><Badge variant="neutral">{issueTypeLabel(issue.type)}</Badge></TableCell>
+              <TableCell><Badge variant={severityVariant[issue.severity]}>{severityLabel[issue.severity]}</Badge></TableCell>
+              <TableCell className="max-w-xs text-sm text-muted-foreground">{issue.recommendation}</TableCell>
+              <TableCell>
+                <div className="flex flex-wrap gap-2">
+                  {issue.actionUrl ? <ButtonLink href={localizeAction(localizedPath, issue.actionUrl)} size="sm">{entityActionLabel(issue)}</ButtonLink> : null}
+                  <ButtonLink href={localizedPath(`/admin/data-quality/issues/${issue.id}`)} variant="secondary" size="sm">Detalii</ButtonLink>
+                  {issue.status === 'OPEN' ? (
+                    <>
+                      <Button variant="secondary" size="sm" onClick={() => onResolve(issue)}>Marchează rezolvat</Button>
+                      <Button variant="secondary" size="sm" onClick={() => onIgnore(issue)}>Ignoră temporar</Button>
+                    </>
+                  ) : null}
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableWrapper>
+  );
+}
+
 function IssueCards({ items }: { items: DataQualityIssue[] }) {
   const localizedPath = useLocalizedPath();
   if (!items.length) {
@@ -420,8 +627,9 @@ function IssueFilters({ filters, onChange, onRefresh }: { filters: Record<string
   }
   return (
     <Card className="p-4">
-      <div className="grid gap-3 md:grid-cols-6">
+      <div className="grid gap-3 md:grid-cols-7">
         <Input label="Search" value={filters.search || ''} onChange={(event) => setField('search', event.target.value)} placeholder="titlu, descriere, entitate" />
+        <Select label="Tip" value={filters.type || ''} onChange={(value) => setField('type', value)} options={['', 'DUPLICATE_APARTMENT', 'APARTMENT_WITHOUT_OWNER', 'APARTMENT_WITHOUT_RESIDENT', 'DUPLICATE_OWNER', 'DUPLICATE_RESIDENT', 'MISSING_PHONE', 'INVALID_EMAIL', 'MISSING_SURFACE', 'MISSING_BUILDING', 'MISSING_ENTRANCE']} labels={{ '': 'Toate', DUPLICATE_APARTMENT: 'Apartament duplicat', APARTMENT_WITHOUT_OWNER: 'Fără proprietar', APARTMENT_WITHOUT_RESIDENT: 'Fără locatar', DUPLICATE_OWNER: 'Proprietar duplicat', DUPLICATE_RESIDENT: 'Locatar duplicat', MISSING_PHONE: 'Telefon lipsă', INVALID_EMAIL: 'Email invalid', MISSING_SURFACE: 'Suprafață lipsă', MISSING_BUILDING: 'Bloc lipsă', MISSING_ENTRANCE: 'Scară lipsă' }} />
         <Select label="Categorie" value={filters.category || ''} onChange={(value) => setField('category', value)} options={['', 'ASSOCIATION', 'APARTMENTS', 'RESIDENTS', 'TARIFFS', 'METERS', 'METER_READINGS', 'BILLING', 'INVOICES_PAYMENTS']} labels={{ '': 'Toate', ASSOCIATION: 'Asociație', APARTMENTS: 'Apartamente', RESIDENTS: 'Locatari', TARIFFS: 'Tarife', METERS: 'Contoare', METER_READINGS: 'Indici', BILLING: 'Facturare', INVOICES_PAYMENTS: 'Facturi/plăți' }} />
         <Select label="Severitate" value={filters.severity || ''} onChange={(value) => setField('severity', value)} options={['', 'CRITICAL', 'WARNING', 'INFO']} labels={{ '': 'Toate', CRITICAL: 'Critic', WARNING: 'Warning', INFO: 'Info' }} />
         <Select label="Status" value={filters.status || 'OPEN'} onChange={(value) => setField('status', value)} options={['OPEN', 'RESOLVED', 'IGNORED', '']} labels={{ '': 'Toate', OPEN: 'Deschise', RESOLVED: 'Rezolvate', IGNORED: 'Ignorate' }} />

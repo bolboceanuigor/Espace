@@ -12,6 +12,7 @@ import {
   CustomerOnboardingRequestType,
   InvitationStatus,
   OnboardingStatus,
+  OrganizationLaunchStatus,
   OrganizationMemberRole,
   OrganizationMemberStatus,
   OrganizationStatus,
@@ -19,9 +20,13 @@ import {
   PlatformRole,
   Prisma,
   Role,
+  SuperadminNotificationSeverity,
+  SuperadminNotificationStatus,
+  SuperadminNotificationType,
 } from '@prisma/client';
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import {
   CreateCustomerOnboardingRequestDto,
   CustomerRequestAssignDto,
@@ -48,7 +53,10 @@ type NormalizedConversionInput = {
 
 @Injectable()
 export class CustomerRequestsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
 
   async createPublic(dto: CreateCustomerOnboardingRequestDto, meta?: { ip?: string; userAgent?: string; path?: string }) {
     if (!dto.consent) throw new BadRequestException('Consimtamantul este obligatoriu.');
@@ -124,6 +132,28 @@ export class CustomerRequestsService {
         apartmentsCount: request.apartmentsCount,
         metadata: { sourceRequest: 'public_access_request', city: request.city, requestType: request.type } as Prisma.InputJsonValue,
       },
+    }).catch(() => undefined);
+    await this.createAccessRequestNotification(request).catch(() => undefined);
+    await this.audit.record({
+      actorName: 'Website',
+      actorRole: 'PUBLIC',
+      accessRequestId: request.id,
+      action: 'ACCESS_REQUEST_CREATED',
+      entityType: 'ACCESS_REQUEST',
+      entityId: request.id,
+      title: 'Cerere de acces creată',
+      description: `Cererea de acces de la ${request.fullName} a fost trimisă de pe website.`,
+      severity: 'INFO',
+      after: this.requestAuditPayload(request),
+      metadata: {
+        source: request.source,
+        possibleDuplicate: request.possibleDuplicate,
+        duplicateOfRequestId: request.duplicateOfRequestId,
+        path: meta?.path,
+      },
+      ipAddress: meta?.ip,
+      userAgent: meta?.userAgent,
+      actionUrl: `/ro/superadmin/access-requests/${request.id}`,
     }).catch(() => undefined);
     return { success: true, message: 'Cererea a fost trimisa. Te vom contacta pentru configurarea accesului.' };
   }
@@ -207,11 +237,12 @@ export class CustomerRequestsService {
     return { ...request, possibleDuplicates };
   }
 
-  async updateStatus(id: string, dto: CustomerRequestStatusDto) {
-    await this.ensureExists(id);
+  async updateStatus(id: string, dto: CustomerRequestStatusDto, actor?: any) {
+    const before = await this.findRequestAuditSnapshot(id);
+    if (!before) throw new NotFoundException('Customer request not found');
     const now = new Date();
     const status = this.normalizeStatus(dto.status);
-    return this.prisma.customerOnboardingRequest.update({
+    const updated = await this.prisma.customerOnboardingRequest.update({
       where: { id },
       data: {
         status,
@@ -225,14 +256,17 @@ export class CustomerRequestsService {
         closeReason: dto.closeReason,
       },
     });
+    await this.logAccessRequestUpdated(id, before, updated, actor);
+    return updated;
   }
 
-  async update(id: string, dto: CustomerRequestUpdateDto) {
-    await this.ensureExists(id);
+  async update(id: string, dto: CustomerRequestUpdateDto, actor?: any) {
+    const before = await this.findRequestAuditSnapshot(id);
+    if (!before) throw new NotFoundException('Customer request not found');
     const status = dto.status ? this.normalizeStatus(dto.status) : undefined;
     const lastContactedAt = dto.lastContactedAt === null || dto.lastContactedAt === '' ? null : dto.lastContactedAt ? new Date(dto.lastContactedAt) : undefined;
     const now = new Date();
-    return this.prisma.customerOnboardingRequest.update({
+    const updated = await this.prisma.customerOnboardingRequest.update({
       where: { id },
       data: {
         ...(status ? { status } : {}),
@@ -250,25 +284,37 @@ export class CustomerRequestsService {
         convertedOrganization: { select: { id: true, name: true, legalName: true, createdAt: true, onboardingStatus: true, onboardingStep: true } },
       },
     });
+    await this.logAccessRequestUpdated(id, before, updated, actor);
+    return updated;
   }
 
-  async updatePriority(id: string, dto: CustomerRequestPriorityDto) {
-    await this.ensureExists(id);
-    return this.prisma.customerOnboardingRequest.update({ where: { id }, data: { priority: dto.priority } });
+  async updatePriority(id: string, dto: CustomerRequestPriorityDto, actor?: any) {
+    const before = await this.findRequestAuditSnapshot(id);
+    if (!before) throw new NotFoundException('Customer request not found');
+    const updated = await this.prisma.customerOnboardingRequest.update({ where: { id }, data: { priority: dto.priority } });
+    await this.logAccessRequestUpdated(id, before, updated, actor);
+    return updated;
   }
 
-  async addNote(id: string, dto: CustomerRequestNoteDto) {
+  async addNote(id: string, dto: CustomerRequestNoteDto, actor?: any) {
+    const before = await this.findRequestAuditSnapshot(id);
+    if (!before) throw new NotFoundException('Customer request not found');
     const existing = await this.get(id);
     const stamped = `[${new Date().toISOString()}] ${dto.note.trim()}`;
-    return this.prisma.customerOnboardingRequest.update({
+    const updated = await this.prisma.customerOnboardingRequest.update({
       where: { id },
       data: { internalNotes: [existing.internalNotes, stamped].filter(Boolean).join('\n\n') },
     });
+    await this.logAccessRequestUpdated(id, before, updated, actor);
+    return updated;
   }
 
-  async assign(id: string, dto: CustomerRequestAssignDto) {
-    await this.ensureExists(id);
-    return this.prisma.customerOnboardingRequest.update({ where: { id }, data: { assignedToId: dto.assignedToId || null } });
+  async assign(id: string, dto: CustomerRequestAssignDto, actor?: any) {
+    const before = await this.findRequestAuditSnapshot(id);
+    if (!before) throw new NotFoundException('Customer request not found');
+    const updated = await this.prisma.customerOnboardingRequest.update({ where: { id }, data: { assignedToId: dto.assignedToId || null } });
+    await this.logAccessRequestUpdated(id, before, updated, actor);
+    return updated;
   }
 
   async convertToOrganization(id: string, dto: CustomerRequestConvertDto, actor: any) {
@@ -317,6 +363,8 @@ export class CustomerRequestsService {
           onboardingCompleted: false,
           onboardingStatus: OnboardingStatus.IN_PROGRESS,
           onboardingStep: 'BASIC_INFO',
+          launchStatus: OrganizationLaunchStatus.DRAFT,
+          onboardingStartedAt: now,
           onboardingCompletedAt: null,
           defaultLocale: 'ro',
           weekStart: 'MONDAY',
@@ -436,30 +484,76 @@ export class CustomerRequestsService {
         });
       }
 
-      await tx.auditLog.createMany({
-        data: [
-          {
-            organizationId: organization.id,
-            userId: actorId,
-            action: 'ACCESS_REQUEST_CONVERTED',
-            entityType: 'CustomerOnboardingRequest',
-            entityId: request.id,
-            description: `Cererea de acces ${request.fullName} a fost convertita in organizatie.`,
-            oldValuesJson: { status: request.status } as Prisma.InputJsonValue,
-            newValuesJson: { status: CustomerOnboardingRequestStatus.CONVERTED, organizationId: organization.id } as Prisma.InputJsonValue,
-          },
-          {
-            organizationId: organization.id,
-            userId: actorId,
-            action: 'ORGANIZATION_CREATED_FROM_REQUEST',
-            entityType: 'Organization',
-            entityId: organization.id,
-            description: `Organizatia ${organization.name} a fost creata dintr-o cerere de acces.`,
-            oldValuesJson: Prisma.JsonNull,
-            newValuesJson: { requestId: request.id, organizationId: organization.id } as Prisma.InputJsonValue,
-          },
-        ],
-      });
+      await this.audit.record({
+        actorId,
+        actorRole: actor?.role,
+        organizationId: organization.id,
+        accessRequestId: request.id,
+        action: 'ACCESS_REQUEST_CONVERTED',
+        entityType: 'ACCESS_REQUEST',
+        entityId: request.id,
+        title: 'Cerere convertită în organizație',
+        description: `Cererea de acces ${request.fullName} a fost convertită în organizație.`,
+        severity: 'SUCCESS',
+        before: this.requestAuditPayload(request),
+        after: this.requestAuditPayload(updatedRequest),
+        metadata: { organizationId: organization.id, adminUserId: admin?.id || null, invitationId: invitation?.id || null },
+        actionUrl: `/ro/superadmin/access-requests/${request.id}`,
+      }, tx);
+      await this.audit.record({
+        actorId,
+        actorRole: actor?.role,
+        organizationId: organization.id,
+        accessRequestId: request.id,
+        action: 'ORGANIZATION_CREATED',
+        entityType: 'ORGANIZATION',
+        entityId: organization.id,
+        title: 'Organizație creată din cerere',
+        description: `Organizația ${organization.name} a fost creată dintr-o cerere de acces.`,
+        severity: 'SUCCESS',
+        after: {
+          id: organization.id,
+          name: organization.name,
+          legalName: organization.legalName,
+          fiscalCode: organization.fiscalCode,
+          city: organization.city,
+          launchStatus: organization.launchStatus,
+          onboardingStatus: organization.onboardingStatus,
+        },
+        metadata: { requestId: request.id, missingIdentifier: !input.apcCode },
+        actionUrl: `/ro/superadmin/organizations/${organization.id}`,
+      }, tx);
+      if (admin) {
+        await this.audit.record({
+          actorId,
+          actorRole: actor?.role,
+          organizationId: organization.id,
+          targetUserId: admin.id,
+          action: 'USER_CREATED',
+          entityType: 'USER',
+          entityId: admin.id,
+          title: 'Administrator inițial creat',
+          description: `Primul administrator pentru ${organization.name} a fost creat sau asociat.`,
+          severity: 'SUCCESS',
+          after: { id: admin.id, email: admin.email, phone: admin.phone, role: admin.role },
+          actionUrl: `/ro/superadmin/organizations/${organization.id}?tab=users`,
+        }, tx);
+      }
+      if (invitation) {
+        await this.audit.record({
+          actorId,
+          actorRole: actor?.role,
+          organizationId: organization.id,
+          action: 'USER_INVITED',
+          entityType: 'USER',
+          entityId: admin?.id || null,
+          title: 'Invitație admin pregătită',
+          description: `Invitația pentru administratorul ${invitation.email} a fost creată.`,
+          severity: 'INFO',
+          after: { id: invitation.id, email: invitation.email, status: invitation.status, expiresAt: invitation.expiresAt },
+          actionUrl: `/ro/superadmin/organizations/${organization.id}?tab=users`,
+        }, tx);
+      }
 
       return {
         success: true,
@@ -753,6 +847,79 @@ export class CustomerRequestsService {
     return `${appUrl}/ro/accept-invitation/${token}`;
   }
 
+  private requestAuditPayload(request: any) {
+    return {
+      id: request.id,
+      type: request.type,
+      status: request.status,
+      priority: request.priority,
+      fullName: request.fullName,
+      phone: request.phone,
+      email: request.email,
+      associationName: request.associationName,
+      legalName: request.legalName,
+      apcCode: request.apcCode || request.associationCode || null,
+      city: request.city,
+      address: request.address,
+      apartmentsCount: request.apartmentsCount,
+      assignedToId: request.assignedToId,
+      internalNotes: request.internalNotes,
+      lastContactedAt: request.lastContactedAt,
+      convertedOrganizationId: request.convertedOrganizationId,
+      possibleDuplicate: request.possibleDuplicate,
+      updatedAt: request.updatedAt,
+      createdAt: request.createdAt,
+    };
+  }
+
+  private async findRequestAuditSnapshot(id: string) {
+    const request = await this.prisma.customerOnboardingRequest.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        type: true,
+        status: true,
+        priority: true,
+        fullName: true,
+        phone: true,
+        email: true,
+        associationName: true,
+        legalName: true,
+        associationCode: true,
+        apcCode: true,
+        city: true,
+        address: true,
+        apartmentsCount: true,
+        assignedToId: true,
+        internalNotes: true,
+        lastContactedAt: true,
+        convertedOrganizationId: true,
+        possibleDuplicate: true,
+        updatedAt: true,
+        createdAt: true,
+      },
+    });
+    return request ? this.requestAuditPayload(request) : null;
+  }
+
+  private async logAccessRequestUpdated(id: string, before: unknown, after: any, actor?: any) {
+    await this.audit.record({
+      actorId: actor?.id || actor?.sub || actor?.userId || null,
+      actorRole: actor?.role || null,
+      accessRequestId: id,
+      organizationId: after?.convertedOrganizationId || null,
+      action: 'ACCESS_REQUEST_UPDATED',
+      entityType: 'ACCESS_REQUEST',
+      entityId: id,
+      title: 'Cerere de acces actualizată',
+      description: `Cererea de acces ${after?.fullName || id} a fost actualizată.`,
+      severity: after?.status === CustomerOnboardingRequestStatus.REJECTED ? 'WARNING' : 'INFO',
+      before,
+      after: this.requestAuditPayload(after),
+      actionUrl: `/ro/superadmin/access-requests/${id}`,
+    }).catch(() => undefined);
+  }
+
   private async findRecentDuplicate(input: { phone: string; email?: string | null; city?: string | null; address?: string | null }) {
     const or: Prisma.CustomerOnboardingRequestWhereInput[] = [{ phone: input.phone }];
     if (input.email) or.push({ email: input.email });
@@ -767,6 +934,51 @@ export class CustomerRequestsService {
       orderBy: { createdAt: 'desc' },
       select: { id: true },
     });
+  }
+
+  private async createAccessRequestNotification(request: {
+    id: string;
+    fullName: string;
+    phone: string;
+    associationName: string | null;
+    city: string | null;
+    createdAt: Date;
+  }) {
+    const duplicate = await this.prisma.superadminNotification.findFirst({
+      where: {
+        type: SuperadminNotificationType.ACCESS_REQUEST_NEW,
+        accessRequestId: request.id,
+        status: { in: [SuperadminNotificationStatus.UNREAD, SuperadminNotificationStatus.READ] },
+      },
+      select: { id: true },
+    });
+    if (duplicate) return duplicate;
+    const notification = await this.prisma.superadminNotification.create({
+      data: {
+        type: SuperadminNotificationType.ACCESS_REQUEST_NEW,
+        severity: SuperadminNotificationSeverity.INFO,
+        title: `Cerere nouă de acces: ${request.associationName || request.fullName}`,
+        message: `${request.fullName} · ${request.phone} · ${request.city || 'Oraș lipsă'}`,
+        accessRequestId: request.id,
+        actionUrl: `/ro/superadmin/access-requests/${request.id}`,
+        metadataJson: { source: 'public_access_request', createdAt: request.createdAt } as Prisma.InputJsonObject,
+      },
+    });
+    await this.audit.record({
+      actorName: 'Sistem',
+      actorRole: 'SYSTEM',
+      accessRequestId: request.id,
+      notificationId: notification.id,
+      action: 'NOTIFICATION_CREATED',
+      entityType: 'NOTIFICATION',
+      entityId: notification.id,
+      title: 'Notificare creată pentru cerere nouă',
+      description: `Notificarea pentru cererea ${request.associationName || request.fullName} a fost creată.`,
+      severity: 'INFO',
+      after: { id: notification.id, type: notification.type, severity: notification.severity, status: notification.status },
+      actionUrl: notification.actionUrl,
+    }).catch(() => undefined);
+    return notification;
   }
 
   private async findPossibleDuplicatesForRequest(request: { id: string; phone: string; email?: string | null; city?: string | null; address?: string | null }) {
