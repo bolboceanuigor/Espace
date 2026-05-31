@@ -363,8 +363,8 @@
       "contact": "Contact",
       "requestDemo": "Request demo",
       "tryDemo": "Try demo",
-      "footerText": "Espace Condo - SaaS platform for condominium associations in Romania and Moldova.",
-      "footerSupport": "Support: contact@espace.md"
+      "footerText": "Espace - SaaS platform for condominium associations in Moldova.",
+      "footerSupport": "Support through the contact form"
     },
     "hero": {
       "title": "Condominium management, simplified.",
@@ -384,7 +384,7 @@
     },
     "solution": {
       "title": "Espace Condo solution",
-      "text": "A modern SaaS platform for associations in Romania and Moldova, with complete digital workflows for administration, collections, communication and reporting."
+      "text": "A modern SaaS platform for condominium associations in Moldova, with digital workflows for administration, collections, communication and reporting."
     },
     "features": {
       "title": "Key features",
@@ -450,11 +450,11 @@
     },
     "contactPage": {
       "title": "Contact",
-      "subtitle": "We work with associations in Moldova and Romania. If you want a quick discussion, complete the form and we'll call you back.",
+      "subtitle": "We work with condominium associations in Moldova. Complete the form and we will follow up with the next steps.",
       "detailsTitle": "Contact details",
-      "email": "Email: contact@espace.md",
-      "phone": "Phone: +373 60 000 000",
-      "hours": "Hours: Monday - Friday, 09:00 - 18:00",
+      "email": "Primary channel: contact form",
+      "phone": "Phone: arranged after request confirmation",
+      "hours": "Response: business days",
       "formTitle": "Leave us a message"
     },
     "demoPage": {

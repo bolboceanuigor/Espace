@@ -364,7 +364,7 @@
       "requestDemo": "Cere acces",
       "tryDemo": "Incepe cu Espace",
       "footerText": "Espace - platforma SaaS pentru A.P.C. din Republica Moldova.",
-      "footerSupport": "Suport: contact@espace.md"
+      "footerSupport": "Suport prin formularul de contact"
     },
     "hero": {
       "title": "Administrarea blocului, simplificata.",
@@ -450,11 +450,11 @@
     },
     "contactPage": {
       "title": "Contact",
-      "subtitle": "Lucram cu A.P.C. din Republica Moldova. Daca vrei o discutie rapida, completeaza formularul si revenim cu un apel.",
+      "subtitle": "Lucram cu A.P.C. din Republica Moldova. Completeaza formularul si revenim cu pasii urmatori.",
       "detailsTitle": "Date de contact",
-      "email": "Email: contact@espace.md",
-      "phone": "Telefon: +373 60 000 000",
-      "hours": "Program: Luni - Vineri, 09:00 - 18:00",
+      "email": "Canal principal: formularul de contact",
+      "phone": "Telefon: stabilit dupa confirmarea cererii",
+      "hours": "Raspuns: in zile lucratoare",
       "formTitle": "Lasa-ne un mesaj"
     },
     "demoPage": {
