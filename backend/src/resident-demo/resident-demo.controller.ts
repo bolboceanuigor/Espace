@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@ne
 import { Role } from '@prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { InvoicePublishingService } from '../invoice-publishing/invoice-publishing.service';
 import { MvpAuthGuard, MvpRolesGuard, MvpUser } from '../security/mvp-auth.guard';
 import { MetersService } from '../meters/meters.service';
 import { ResidentDemoService } from './resident-demo.service';
@@ -12,6 +13,7 @@ import { ResidentDemoService } from './resident-demo.service';
 export class ResidentDemoController {
   constructor(
     private readonly residentDemoService: ResidentDemoService,
+    private readonly invoicePublishingService: InvoicePublishingService,
     private readonly metersService: MetersService,
   ) {}
 
@@ -67,7 +69,37 @@ export class ResidentDemoController {
 
   @Get(['resident/invoices', 'api/resident/invoices'])
   listInvoices(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
-    return this.residentDemoService.listInternalInvoices(user, query);
+    return this.invoicePublishingService.listResidentInvoices(user, query);
+  }
+
+  @Get(['resident/balance/overview', 'api/resident/balance/overview'])
+  getBalanceOverview(@CurrentUser() user: MvpUser) {
+    return this.invoicePublishingService.getResidentBalanceOverview(user);
+  }
+
+  @Get(['resident/balance/apartments', 'api/resident/balance/apartments'])
+  listApartmentBalances(@CurrentUser() user: MvpUser) {
+    return this.invoicePublishingService.listResidentApartmentBalances(user);
+  }
+
+  @Get(['resident/balance/apartments/:apartmentId', 'api/resident/balance/apartments/:apartmentId'])
+  getApartmentBalance(@CurrentUser() user: MvpUser, @Param('apartmentId') apartmentId: string) {
+    return this.invoicePublishingService.getResidentApartmentBalance(user, apartmentId);
+  }
+
+  @Get(['resident/financial-timeline', 'api/resident/financial-timeline'])
+  getFinancialTimeline(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.invoicePublishingService.getResidentFinancialTimeline(user, query);
+  }
+
+  @Get(['resident/balance/issues', 'api/resident/balance/issues'])
+  getBalanceIssues(@CurrentUser() user: MvpUser) {
+    return this.invoicePublishingService.getResidentBalanceIssues(user);
+  }
+
+  @Get(['resident/invoices/overview', 'api/resident/invoices/overview'])
+  getInvoicesOverview(@CurrentUser() user: MvpUser) {
+    return this.invoicePublishingService.getResidentOverview(user);
   }
 
   @Get(['resident/finance-summary', 'api/resident/finance-summary'])
@@ -85,24 +117,64 @@ export class ResidentDemoController {
     return this.residentDemoService.listInternalInvoicePayments(user, id);
   }
 
+  @Post(['resident/invoices/:id/payment-intent-placeholder', 'api/resident/invoices/:id/payment-intent-placeholder'])
+  createPaymentIntentPlaceholder(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.invoicePublishingService.createResidentPaymentIntentPlaceholder(user, id, body);
+  }
+
+  @Post(['resident/invoices/:id/payment-proofs', 'api/resident/invoices/:id/payment-proofs'])
+  submitPaymentProof(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.invoicePublishingService.submitResidentPaymentProof(user, id, body);
+  }
+
+  @Get(['resident/invoices/:id/print-data', 'api/resident/invoices/:id/print-data'])
+  getInvoicePrintData(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.invoicePublishingService.getResidentInvoicePrintData(user, id);
+  }
+
   @Get(['resident/invoices/:id', 'api/resident/invoices/:id'])
   getInvoice(@CurrentUser() user: MvpUser, @Param('id') id: string) {
-    return this.residentDemoService.getInternalInvoice(user, id);
+    return this.invoicePublishingService.getResidentInvoice(user, id);
+  }
+
+  @Post(['resident/invoices/:id/mark-viewed', 'api/resident/invoices/:id/mark-viewed'])
+  markInvoiceViewed(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.invoicePublishingService.markResidentInvoiceViewed(user, id);
+  }
+
+  @Post(['resident/payment-intents/:id/cancel', 'api/resident/payment-intents/:id/cancel'])
+  cancelPaymentIntentPlaceholder(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.invoicePublishingService.cancelResidentPaymentIntentPlaceholder(user, id, body);
+  }
+
+  @Get(['resident/payment-proofs', 'api/resident/payment-proofs'])
+  listPaymentProofs(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.invoicePublishingService.listResidentPaymentProofs(user, query);
+  }
+
+  @Get(['resident/payment-proofs/:id', 'api/resident/payment-proofs/:id'])
+  getPaymentProof(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.invoicePublishingService.getResidentPaymentProof(user, id);
+  }
+
+  @Post(['resident/payment-proofs/:id/cancel', 'api/resident/payment-proofs/:id/cancel'])
+  cancelPaymentProof(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.invoicePublishingService.cancelResidentPaymentProof(user, id);
   }
 
   @Get(['resident/payments', 'api/resident/payments'])
   listPayments(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
-    return this.residentDemoService.listPayments(user, query);
+    return this.invoicePublishingService.listResidentPayments(user, query);
   }
 
   @Get(['resident/payments/stats', 'api/resident/payments/stats'])
   getPaymentStats(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
-    return this.residentDemoService.getInternalPaymentStats(user, query);
+    return this.invoicePublishingService.getResidentBalanceOverview(user);
   }
 
   @Get(['resident/payments/:id', 'api/resident/payments/:id'])
   getPayment(@CurrentUser() user: MvpUser, @Param('id') id: string) {
-    return this.residentDemoService.getInternalPayment(user, id);
+    return this.invoicePublishingService.getResidentPayment(user, id);
   }
 
   @Get(['resident/apartments/:id/financial-summary', 'api/resident/apartments/:id/financial-summary'])
@@ -145,6 +217,31 @@ export class ResidentDemoController {
     return this.metersService.listResidentReadings(user, query);
   }
 
+  @Get(['resident/meter-readings/periods', 'api/resident/meter-readings/periods'])
+  listMeterReadingPeriods(@CurrentUser() user: MvpUser) {
+    return this.metersService.listResidentReadingPeriods(user);
+  }
+
+  @Get(['resident/meter-readings/periods/:periodId/workspace', 'api/resident/meter-readings/periods/:periodId/workspace'])
+  getMeterReadingWorkspace(@CurrentUser() user: MvpUser, @Param('periodId') periodId: string, @Query() query: Record<string, unknown>) {
+    return this.metersService.getResidentReadingPeriodWorkspace(user, periodId, query);
+  }
+
+  @Post(['resident/meter-readings/periods/:periodId/meters/:meterId/submit', 'api/resident/meter-readings/periods/:periodId/meters/:meterId/submit'])
+  submitMeterReadingForPeriod(
+    @CurrentUser() user: MvpUser,
+    @Param('periodId') periodId: string,
+    @Param('meterId') meterId: string,
+    @Body() body: unknown,
+  ) {
+    return this.metersService.submitResidentReadingForPeriod(user, periodId, meterId, body);
+  }
+
+  @Get(['resident/meter-readings/history', 'api/resident/meter-readings/history'])
+  listMeterReadingHistory(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.metersService.listResidentReadingHistory(user, query);
+  }
+
   @Post(['resident/meter-readings', 'api/resident/meter-readings'])
   createMeterReading(@CurrentUser() user: MvpUser, @Body() body: unknown) {
     return this.metersService.createResidentReading(user, body);
@@ -157,6 +254,11 @@ export class ResidentDemoController {
 
   @Patch(['resident/meter-readings/:id/cancel', 'api/resident/meter-readings/:id/cancel'])
   cancelMeterReading(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.metersService.cancelResidentReading(user, id);
+  }
+
+  @Post(['resident/meter-readings/:id/cancel', 'api/resident/meter-readings/:id/cancel'])
+  cancelMeterReadingPost(@CurrentUser() user: MvpUser, @Param('id') id: string) {
     return this.metersService.cancelResidentReading(user, id);
   }
 

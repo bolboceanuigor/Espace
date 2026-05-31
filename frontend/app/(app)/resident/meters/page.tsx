@@ -1,3 +1,3 @@
-import { ResidentMetersPage } from '@/components/meters/MeterModulePages';
+import { ResidentMeterSubmissionPage } from '@/components/meters/ResidentReadingSubmissionPages';
 
-export default ResidentMetersPage;
+export default ResidentMeterSubmissionPage;

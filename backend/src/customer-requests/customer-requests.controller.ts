@@ -55,28 +55,28 @@ export class SuperadminCustomerRequestsController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: CustomerRequestUpdateDto) {
-    return this.service.update(id, dto);
+  update(@CurrentUser() user: any, @Param('id') id: string, @Body() dto: CustomerRequestUpdateDto) {
+    return this.service.update(id, dto, user);
   }
 
   @Patch(':id/status')
-  status(@Param('id') id: string, @Body() dto: CustomerRequestStatusDto) {
-    return this.service.updateStatus(id, dto);
+  status(@CurrentUser() user: any, @Param('id') id: string, @Body() dto: CustomerRequestStatusDto) {
+    return this.service.updateStatus(id, dto, user);
   }
 
   @Patch(':id/priority')
-  priority(@Param('id') id: string, @Body() dto: CustomerRequestPriorityDto) {
-    return this.service.updatePriority(id, dto);
+  priority(@CurrentUser() user: any, @Param('id') id: string, @Body() dto: CustomerRequestPriorityDto) {
+    return this.service.updatePriority(id, dto, user);
   }
 
   @Post(':id/notes')
-  notes(@Param('id') id: string, @Body() dto: CustomerRequestNoteDto) {
-    return this.service.addNote(id, dto);
+  notes(@CurrentUser() user: any, @Param('id') id: string, @Body() dto: CustomerRequestNoteDto) {
+    return this.service.addNote(id, dto, user);
   }
 
   @Patch(':id/assign')
-  assign(@Param('id') id: string, @Body() dto: CustomerRequestAssignDto) {
-    return this.service.assign(id, dto);
+  assign(@CurrentUser() user: any, @Param('id') id: string, @Body() dto: CustomerRequestAssignDto) {
+    return this.service.assign(id, dto, user);
   }
 
   @Post(':id/convert')

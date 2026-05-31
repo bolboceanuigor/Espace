@@ -58,13 +58,13 @@ export default function AdminLayout({
         <button
           type="button"
           onClick={() => setMobileMenuOpen(true)}
-          className="flex size-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+          className="flex size-9 items-center justify-center rounded-full text-muted-foreground hover:bg-muted/50 hover:text-foreground"
         >
           <Menu className="size-5" />
         </button>
         
         <div className="flex items-center gap-2">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-xs font-bold text-primary-foreground">
+          <div className="flex size-8 items-center justify-center rounded-2xl bg-primary text-xs font-bold text-primary-foreground">
             ES
           </div>
           <div className="flex flex-col">
@@ -77,17 +77,17 @@ export default function AdminLayout({
           <button
             type="button"
             onClick={() => setSearchOpen(true)}
-            className="flex size-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+            className="flex size-9 items-center justify-center rounded-full text-muted-foreground hover:bg-muted/50 hover:text-foreground"
           >
             <Search className="size-5" />
           </button>
           <Link
             href={`/${locale}/admin/notifications`}
-            className="relative flex size-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+            className="relative flex size-9 items-center justify-center rounded-full text-muted-foreground hover:bg-muted/50 hover:text-foreground"
           >
             <Bell className="size-5" />
             {notificationsCount > 0 && (
-              <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-semibold text-white">
+              <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-critical text-[10px] font-semibold text-white">
                 {notificationsCount > 9 ? '9+' : notificationsCount}
               </span>
             )}
@@ -156,7 +156,7 @@ export default function AdminLayout({
                 <input
                   type="text"
                   placeholder="Caută locatari, apartamente..."
-                  className="w-64 rounded-lg border border-border/50 bg-muted/30 pl-9 pr-3 py-1.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-colors"
+                  className="w-64 rounded-full border border-border/70 bg-card py-1.5 pl-9 pr-3 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus:border-primary/30 focus:outline-none focus:ring-2 focus:ring-primary/15"
                 />
                 <kbd className="absolute right-3 top-1/2 -translate-y-1/2 hidden items-center gap-0.5 rounded border border-border/60 bg-card px-1.5 py-0.5 text-[10px] text-muted-foreground lg:inline-flex">
                   <span>⌘</span>
@@ -167,11 +167,11 @@ export default function AdminLayout({
               {/* Notifications */}
               <Link
                 href={`/${locale}/admin/notifications`}
-                className="relative flex size-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
+                className="relative flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
               >
                 <Bell className="size-5" />
                 {notificationsCount > 0 && (
-                  <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-semibold text-white">
+                  <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-critical text-[10px] font-semibold text-white">
                     {notificationsCount > 9 ? '9+' : notificationsCount}
                   </span>
                 )}
@@ -195,7 +195,10 @@ function generateBreadcrumbs(pathname: string, locale: string) {
     residents: 'Locatari',
     tariffs: 'Tarife',
     meters: 'Contoare',
+    'meter-readings': 'Citiri contoare',
+    'resident-readings': 'Citiri locatari',
     billing: 'Facturare',
+    'billing-drafts': 'Drafturi facturi',
     invoices: 'Facturi',
     payments: 'Plăți',
     reports: 'Rapoarte',

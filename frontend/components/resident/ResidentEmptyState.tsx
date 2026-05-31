@@ -19,11 +19,11 @@ export default function ResidentEmptyState({
 }) {
   return (
     <Card className="p-8 text-center">
-      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
+      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-primary/15 bg-accent/35 text-primary/75">
         {icon || <Inbox className="h-5 w-5" />}
       </div>
-      <h2 className="mt-4 text-lg font-semibold text-slate-950">{title}</h2>
-      <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-500">{text}</p>
+      <h2 className="mt-4 text-lg font-semibold tracking-tight text-foreground">{title}</h2>
+      <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-muted-foreground">{text}</p>
       {actionHref && actionLabel ? (
         <ButtonLink href={actionHref} className="mt-5">
           {actionLabel}

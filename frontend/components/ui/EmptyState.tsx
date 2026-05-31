@@ -61,14 +61,12 @@ const EmptyState = forwardRef<HTMLDivElement, EmptyStateProps>(function EmptySta
       className={`flex flex-col items-center justify-center text-center ${styles.wrapper} ${className}`.trim()}
       {...props}
     >
-      <div
-        className={`flex items-center justify-center rounded-2xl bg-muted/60 mb-4 ${styles.iconWrapper}`}
-      >
-        {icon || <IconComponent className={`text-muted-foreground/60 ${styles.icon}`} />}
+      <div className={`mb-4 flex items-center justify-center rounded-2xl border border-primary/15 bg-accent/35 ${styles.iconWrapper}`}>
+        {icon || <IconComponent className={`text-primary/70 ${styles.icon}`} />}
       </div>
-      <h3 className={`font-semibold text-foreground ${styles.title}`}>{title}</h3>
+      <h3 className={`font-semibold tracking-tight text-foreground ${styles.title}`}>{title}</h3>
       {description && (
-        <p className={`text-muted-foreground mt-1 max-w-sm ${styles.description}`}>
+        <p className={`mt-1 max-w-sm leading-6 text-muted-foreground ${styles.description}`}>
           {description}
         </p>
       )}

@@ -6,6 +6,7 @@ import { ApartmentsModule } from './apartments/apartments.module';
 import { ResidentsModule } from './residents/residents.module';
 import { MetersModule } from './meters/meters.module';
 import { BillingReadModule } from './billing-read/billing-read.module';
+import { BillingDraftsModule } from './billing-drafts/billing-drafts.module';
 import { CommunityReadModule } from './community-read/community-read.module';
 import { ResidentDemoModule } from './resident-demo/resident-demo.module';
 import { DemoAuthReadModule } from './demo-auth-read/demo-auth-read.module';
@@ -48,6 +49,7 @@ import { ResidentAccessModule } from './resident-access/resident-access.module';
 import { TeamModule } from './team/team.module';
 import { AdminRbacModule } from './rbac/admin-rbac.module';
 import { AssociationContextModule } from './association-context/association-context.module';
+import { ConnectModule } from './connect/connect.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -61,6 +63,7 @@ import { AppController } from './app.controller';
     ResidentsModule,
     MetersModule,
     BillingReadModule,
+    BillingDraftsModule,
     CommunityReadModule,
     ResidentDemoModule,
     DemoAuthReadModule,
@@ -103,6 +106,7 @@ import { AppController } from './app.controller';
     TeamModule,
     AdminRbacModule,
     AssociationContextModule,
+    ConnectModule,
   ],
   controllers: [AppController],
   providers: [],

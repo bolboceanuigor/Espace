@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, CreditCard, FileText, Home, Printer, ReceiptText, UserRound, WalletCards, XCircle } from 'lucide-react';
+import { ArrowLeft, CreditCard, FileText, Home, MessageCircle, Printer, ReceiptText, UserRound, WalletCards, XCircle } from 'lucide-react';
 import { Badge, Button, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
 import { invoicesApi, paymentsApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
@@ -46,6 +46,17 @@ type InternalInvoice = {
   apartment: { id: string; apartmentNumber: string; staircase?: string; floor?: string | null };
   primaryContact?: { id: string; fullName: string; phone?: string | null } | null;
   lines: InternalInvoiceLine[];
+  paymentProofs?: Array<{
+    id: string;
+    amount: number;
+    acceptedAmount?: number | null;
+    method: string;
+    status: string;
+    createdAt?: string | null;
+    reviewedAt?: string | null;
+    proofFileUrl?: string | null;
+  }>;
+  paymentProofsSummary?: { submitted: number; inReview: number; accepted: number; rejected: number };
 };
 
 type InvoicePayment = {
@@ -78,7 +89,10 @@ const statusVariant = {
 const paymentMethodLabels: Record<string, string> = {
   CASH: 'Numerar',
   BANK_TRANSFER: 'Transfer bancar',
+  MANUAL_BANK_TRANSFER: 'Transfer bancar',
   CARD_TERMINAL: 'Terminal card',
+  TERMINAL: 'Terminal',
+  CARD_EXTERNAL: 'Card extern',
   INFOCOM: 'InfoCom',
   OPLATA: 'Oplata',
   OTHER: 'Altă metodă',
@@ -149,6 +163,9 @@ export default function AdminInvoiceDetailsPage() {
 
   const canRegisterPayment = invoice ? (invoice.status === 'ISSUED' || invoice.status === 'PARTIALLY_PAID') && Number(invoice.balanceAmount || 0) > 0 : false;
   const canCancel = invoice?.status === 'ISSUED';
+  const connectInvoiceHref = invoice
+    ? `/admin/connect?new=1&type=INVOICE&relatedInvoiceId=${encodeURIComponent(invoice.invoiceId || invoice.id)}&apartmentId=${encodeURIComponent(invoice.apartment.id)}&subject=${encodeURIComponent(`Discuție despre factura ${invoice.invoiceNumber}`)}`
+    : '/admin/connect';
 
   return (
     <div className="space-y-5 pb-8">
@@ -210,6 +227,10 @@ export default function AdminInvoiceDetailsPage() {
                     Vezi locatar
                   </ButtonLink>
                 ) : null}
+                <ButtonLink href={connectInvoiceHref} variant="secondary">
+                  <MessageCircle className="h-4 w-4" />
+                  Deschide conversație
+                </ButtonLink>
                 <ButtonLink href={localizedPath(`/admin/invoices/draft/${invoice.sourceDraftId}/review`)} variant="secondary">
                   Vezi draft
                 </ButtonLink>
@@ -272,6 +293,39 @@ export default function AdminInvoiceDetailsPage() {
               ))}
               {!payments.length ? (
                 <p className="rounded-2xl bg-muted/35 px-4 py-4 text-sm text-muted-foreground">Nu există plăți înregistrate pentru această factură.</p>
+              ) : null}
+            </div>
+          </Card>
+
+          <Card>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold text-foreground">Dovezi de plată</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Dovezile trimise de locatari pentru această factură.</p>
+              </div>
+              <ButtonLink href={localizedPath(`/admin/payment-proofs?invoiceId=${invoice.invoiceId || invoice.id}`)} variant="secondary">
+                Vezi în verificare plăți
+              </ButtonLink>
+            </div>
+            <div className="mt-4 grid gap-2">
+              {(invoice.paymentProofs || []).map((proof) => (
+                <div key={proof.id} className="grid gap-3 rounded-2xl border border-border/70 bg-white px-4 py-3 text-sm md:grid-cols-[0.9fr_0.8fr_0.8fr_0.8fr_auto] md:items-center">
+                  <strong className="text-foreground">{formatMdl(proof.amount)}</strong>
+                  <span className="text-muted-foreground">{paymentMethodLabels[proof.method] || proof.method}</span>
+                  <Badge variant={proof.status === 'ACCEPTED' || proof.status === 'PARTIALLY_ACCEPTED' ? 'success' : proof.status === 'REJECTED' ? 'error' : proof.status === 'IN_REVIEW' ? 'warning' : 'default'}>
+                    {proof.status}
+                  </Badge>
+                  <span className="text-muted-foreground">{formatDate(proof.createdAt)}</span>
+                  <div className="flex justify-end gap-2">
+                    {proof.proofFileUrl ? (
+                      <a className="text-sm font-semibold text-primary hover:underline" href={proof.proofFileUrl} target="_blank" rel="noreferrer">Dovadă</a>
+                    ) : null}
+                    <Link className="text-sm font-semibold text-primary hover:underline" href={localizedPath(`/admin/payment-proofs?search=${proof.id}`)}>Deschide</Link>
+                  </div>
+                </div>
+              ))}
+              {!(invoice.paymentProofs || []).length ? (
+                <p className="rounded-2xl bg-muted/35 px-4 py-4 text-sm text-muted-foreground">Nu există dovezi de plată pentru această factură.</p>
               ) : null}
             </div>
           </Card>

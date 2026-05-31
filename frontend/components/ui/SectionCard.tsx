@@ -12,8 +12,8 @@ export interface SectionCardProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 const variantStyles = {
-  default: 'border border-border/60 bg-card shadow-card',
-  outlined: 'border border-border/60 bg-transparent',
+  default: 'border border-border/70 bg-card shadow-card',
+  outlined: 'border border-border/70 bg-transparent',
   muted: 'border border-border/40 bg-muted/30',
 } as const;
 
@@ -24,13 +24,13 @@ const SectionCard = forwardRef<HTMLDivElement, SectionCardProps>(function Sectio
   return (
     <div
       ref={ref}
-      className={`rounded-xl ${variantStyles[variant]} ${className}`.trim()}
+      className={`rounded-2xl ${variantStyles[variant]} ${className}`.trim()}
       {...props}
     >
       {(title || description || actions) && (
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border/60 px-5 py-4">
           <div>
-            {title && <h3 className="text-sm font-semibold text-foreground">{title}</h3>}
+            {title && <h3 className="text-sm font-semibold tracking-tight text-foreground">{title}</h3>}
             {description && (
               <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
             )}
@@ -40,7 +40,7 @@ const SectionCard = forwardRef<HTMLDivElement, SectionCardProps>(function Sectio
       )}
       <div className={noPadding ? '' : 'p-5'}>{children}</div>
       {footer && (
-        <div className="border-t border-border/60 px-5 py-3 bg-muted/30 rounded-b-xl">
+        <div className="rounded-b-2xl border-t border-border/60 bg-muted/30 px-5 py-3">
           {footer}
         </div>
       )}

@@ -1,13 +1,13 @@
 'use client';
 
-const base = 'inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium';
+const base = 'inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold';
 
 const variants = {
-  default: 'border-blue-200/80 bg-blue-50 text-blue-700',
-  success: 'border-emerald-200/80 bg-emerald-50 text-emerald-700',
-  warning: 'border-amber-200/80 bg-amber-50 text-amber-700',
-  error: 'border-rose-200/80 bg-rose-50 text-rose-700',
-  neutral: 'border-border/80 bg-muted/50 text-muted-foreground',
+  default: 'border-primary/20 bg-accent/45 text-primary',
+  success: 'border-success/20 bg-success/10 text-success',
+  warning: 'border-warning/20 bg-warning/10 text-warning',
+  error: 'border-critical/20 bg-critical/10 text-critical',
+  neutral: 'border-border/80 bg-muted/70 text-muted-foreground',
 } as const;
 
 export type BadgeVariant = keyof typeof variants;
