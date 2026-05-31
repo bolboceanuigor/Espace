@@ -145,6 +145,7 @@ npm run dev:clean
 - Recommended provider: Resend.
 - Dev mode: set `EMAIL_PROVIDER=console` to avoid sending real emails; links are printed in backend logs.
 - Prod mode: set `EMAIL_PROVIDER=resend`, configure `RESEND_API_KEY`, `EMAIL_FROM`, `APP_URL`, `SUPPORT_EMAIL`.
+- In production, `console` should be treated as dev-only; if a real provider is configured, Espace now prefers it automatically instead of simulating a successful send.
 - Deliverability checklist in production DNS:
   - SPF
   - DKIM

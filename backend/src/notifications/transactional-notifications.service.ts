@@ -340,6 +340,9 @@ export class TransactionalNotificationsService {
   private async sendEmail(input: { to: string; subject: string; body: string }) {
     const provider = this.emailProviderType();
     if (provider === NotificationProviderType.CONSOLE) {
+      if (!this.devMode()) {
+        return { success: false, errorMessage: 'Console email provider is disabled outside notification dev mode.' };
+      }
       this.logger.log(`[NOTIFICATION_EMAIL] ${JSON.stringify({ to: input.to, subject: input.subject, bodyPreview: this.preview(input.body) })}`);
       return { success: true, providerMessageId: `console-${Date.now()}` };
     }
@@ -517,11 +520,11 @@ export class TransactionalNotificationsService {
   private providerConfigured(channel: NotificationChannel, provider: NotificationProviderType) {
     if (!this.externalEnabled() && !this.devMode()) return false;
     if (provider === NotificationProviderType.DISABLED) return false;
-    if (provider === NotificationProviderType.CONSOLE) return true;
-    if (provider === NotificationProviderType.SMTP) return Boolean(process.env.SMTP_HOST && (process.env.SMTP_PASSWORD || process.env.SMTP_PASS));
-    if (provider === NotificationProviderType.RESEND) return Boolean(process.env.RESEND_API_KEY);
-    if (provider === NotificationProviderType.TWILIO) return Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_FROM_NUMBER);
-    if (provider === NotificationProviderType.CUSTOM_HTTP) return channel === NotificationChannel.SMS && Boolean(process.env.CUSTOM_SMS_ENDPOINT && process.env.CUSTOM_SMS_API_KEY);
+    if (provider === NotificationProviderType.CONSOLE) return this.devMode();
+    if (provider === NotificationProviderType.SMTP) return this.smtpConfigured();
+    if (provider === NotificationProviderType.RESEND) return this.resendConfigured();
+    if (provider === NotificationProviderType.TWILIO) return this.twilioConfigured();
+    if (provider === NotificationProviderType.CUSTOM_HTTP) return channel === NotificationChannel.SMS && this.customSmsConfigured();
     return false;
   }
 
@@ -536,27 +539,71 @@ export class TransactionalNotificationsService {
   }
 
   private emailProviderType() {
-    const raw = (process.env.EMAIL_PROVIDER || (process.env.NODE_ENV === 'production' ? 'DISABLED' : 'CONSOLE')).toUpperCase();
-    return this.optionalEnum(raw, NotificationProviderType) || NotificationProviderType.CONSOLE;
+    const explicit = this.optionalEnum((process.env.EMAIL_PROVIDER || '').toUpperCase(), NotificationProviderType);
+    if (explicit && explicit !== NotificationProviderType.CONSOLE) return explicit;
+    if (this.resendConfigured()) return NotificationProviderType.RESEND;
+    if (this.smtpConfigured()) return NotificationProviderType.SMTP;
+    if (explicit === NotificationProviderType.CONSOLE) return this.devMode() ? NotificationProviderType.CONSOLE : NotificationProviderType.DISABLED;
+    return this.isProduction() ? NotificationProviderType.DISABLED : NotificationProviderType.CONSOLE;
   }
 
   private smsProviderType() {
-    const raw = (process.env.SMS_PROVIDER || (process.env.NODE_ENV === 'production' ? 'DISABLED' : 'CONSOLE')).toUpperCase();
-    return this.optionalEnum(raw, NotificationProviderType) || NotificationProviderType.CONSOLE;
+    const explicit = this.optionalEnum((process.env.SMS_PROVIDER || '').toUpperCase(), NotificationProviderType);
+    if (explicit && explicit !== NotificationProviderType.CONSOLE) return explicit;
+    if (this.twilioConfigured()) return NotificationProviderType.TWILIO;
+    if (this.customSmsConfigured()) return NotificationProviderType.CUSTOM_HTTP;
+    if (explicit === NotificationProviderType.CONSOLE) return this.devMode() ? NotificationProviderType.CONSOLE : NotificationProviderType.DISABLED;
+    return this.isProduction() ? NotificationProviderType.DISABLED : NotificationProviderType.CONSOLE;
   }
 
   private externalEnabled() {
-    return String(process.env.NOTIFICATIONS_EXTERNAL_ENABLED || 'false').toLowerCase() === 'true';
+    const configured = String(process.env.NOTIFICATIONS_EXTERNAL_ENABLED || '').trim().toLowerCase();
+    if (configured === 'true') return true;
+    if (configured === 'false') {
+      if (this.isProduction() && this.hasRealDeliveryConfigured()) {
+        this.logger.warn('NOTIFICATIONS_EXTERNAL_ENABLED=false was overridden because real delivery providers are configured in production.');
+        return true;
+      }
+      return false;
+    }
+    return this.hasRealDeliveryConfigured();
   }
 
   private devMode() {
-    return String(process.env.NOTIFICATIONS_DEV_MODE || (process.env.NODE_ENV === 'production' ? 'false' : 'true')).toLowerCase() === 'true';
+    const configured = String(process.env.NOTIFICATIONS_DEV_MODE || '').trim().toLowerCase();
+    if (configured === 'true') return true;
+    if (configured === 'false') return false;
+    return !this.isProduction();
   }
 
   private fromHeader() {
     const name = process.env.EMAIL_FROM_NAME || 'Espace';
     const address = process.env.EMAIL_FROM_ADDRESS || process.env.EMAIL_FROM || 'no-reply@example.com';
     return `${name} <${address}>`;
+  }
+
+  private isProduction() {
+    return String(process.env.NODE_ENV || '').toLowerCase() === 'production';
+  }
+
+  private resendConfigured() {
+    return Boolean(process.env.RESEND_API_KEY);
+  }
+
+  private smtpConfigured() {
+    return Boolean(process.env.SMTP_HOST && (process.env.SMTP_PASSWORD || process.env.SMTP_PASS));
+  }
+
+  private twilioConfigured() {
+    return Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_FROM_NUMBER);
+  }
+
+  private customSmsConfigured() {
+    return Boolean(process.env.CUSTOM_SMS_ENDPOINT && process.env.CUSTOM_SMS_API_KEY);
+  }
+
+  private hasRealDeliveryConfigured() {
+    return this.resendConfigured() || this.smtpConfigured() || this.twilioConfigured() || this.customSmsConfigured();
   }
 
   private adminAssociationId(actor: Actor) {

@@ -12,15 +12,13 @@ type EmailDeliveryResult = {
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
   private resend: Resend | null = null;
-  private readonly provider: 'console' | 'resend';
+  private readonly provider: 'console' | 'resend' | 'smtp' | 'disabled';
 
   constructor() {
-    const configuredProvider = (process.env.EMAIL_PROVIDER || '').toLowerCase();
-    const resendApiKey = process.env.RESEND_API_KEY || process.env.EMAIL_API_KEY;
-    this.provider = configuredProvider === 'resend' || (!configuredProvider && resendApiKey) ? 'resend' : 'console';
-    if (this.provider === 'resend' && resendApiKey) {
-      this.resend = new Resend(resendApiKey);
-    }
+    const resendApiKey = this.resendApiKey();
+    const provider = this.resolveProvider();
+    this.provider = provider;
+    if (provider === 'resend' && resendApiKey) this.resend = new Resend(resendApiKey);
   }
 
   private getBaseAppUrl() {
@@ -175,15 +173,17 @@ export class EmailService {
 
   isDeliveryConfigured() {
     if (this.provider === 'resend' && this.resend) return true;
-    return !!this.getTransporter();
+    if (this.provider === 'smtp') return !!this.getTransporter();
+    if (this.provider === 'console') return this.devMode();
+    return false;
   }
 
   getDeliveryStatus() {
-    const smtpConfigured = !!this.getTransporter();
+    const smtpConfigured = this.smtpConfigured();
     const resendConfigured = this.provider === 'resend' && !!this.resend;
     return {
-      configured: resendConfigured || smtpConfigured,
-      provider: resendConfigured ? 'resend' : smtpConfigured ? 'smtp' : null,
+      configured: this.isDeliveryConfigured(),
+      provider: resendConfigured ? 'resend' : smtpConfigured ? 'smtp' : this.provider === 'console' && this.devMode() ? 'console' : null,
       from: process.env.EMAIL_FROM || process.env.MAIL_FROM || undefined,
     };
   }
@@ -200,20 +200,17 @@ export class EmailService {
     const html = params.html || `<p>${this.escapeHtml(params.text)}</p>`;
 
     if (this.provider === 'console') {
+      if (!this.devMode()) {
+        throw new Error('Console email provider is disabled outside development mode.');
+      }
       this.logger.log(
         `[EMAIL] ${JSON.stringify({
           to: params.to,
           subject: params.subject,
-          configured: this.isDeliveryConfigured(),
+          provider: 'console',
         })}`,
       );
-      if (!this.isDeliveryConfigured()) {
-        return {
-          sent: false,
-          provider: null,
-          warning: 'Trimiterea emailului nu este configurată.',
-        };
-      }
+      return { sent: true, provider: null };
     }
 
     if (this.provider === 'resend' && this.resend) {
@@ -236,11 +233,7 @@ export class EmailService {
     const transporter = this.getTransporter();
     if (!transporter) {
       this.logger.warn(`[EMAIL_NOT_CONFIGURED] ${JSON.stringify({ to: params.to, subject: params.subject })}`);
-      return {
-        sent: false,
-        provider: null,
-        warning: 'Trimiterea emailului nu este configurată.',
-      };
+      throw new Error('Trimiterea emailului nu este configurată.');
     }
 
     await transporter.sendMail({
@@ -253,6 +246,28 @@ export class EmailService {
     });
     this.logger.log(`[EMAIL_SENT] ${JSON.stringify({ to: params.to, subject: params.subject, provider: 'smtp' })}`);
     return { sent: true, provider: 'smtp' };
+  }
+
+  private resolveProvider(): 'console' | 'resend' | 'smtp' | 'disabled' {
+    const explicit = (process.env.EMAIL_PROVIDER || '').trim().toLowerCase();
+    if (explicit === 'resend') return this.resendApiKey() ? 'resend' : 'disabled';
+    if (explicit === 'smtp') return this.smtpConfigured() ? 'smtp' : 'disabled';
+    if (explicit === 'console') return this.devMode() ? 'console' : 'disabled';
+    if (this.resendApiKey()) return 'resend';
+    if (this.smtpConfigured()) return 'smtp';
+    return this.devMode() ? 'console' : 'disabled';
+  }
+
+  private resendApiKey() {
+    return process.env.RESEND_API_KEY || process.env.EMAIL_API_KEY || '';
+  }
+
+  private smtpConfigured() {
+    return Boolean(process.env.SMTP_HOST && (process.env.SMTP_USER || process.env.SMTP_PASS || process.env.SMTP_PASSWORD) && (process.env.SMTP_PASS || process.env.SMTP_PASSWORD));
+  }
+
+  private devMode() {
+    return String(process.env.NODE_ENV || '').toLowerCase() !== 'production';
   }
 
   private escapeHtml(value: string) {
