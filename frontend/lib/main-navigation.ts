@@ -77,7 +77,7 @@ export const ADMIN_NAVIGATION_ITEMS: MainNavigationItem[] = [
   { key: 'billing', label: 'Facturare', href: '/admin/billing' },
   { key: 'billingDrafts', label: 'Drafturi facturi', href: '/admin/billing-drafts' },
   { key: 'invoices', label: 'Facturi', href: '/admin/invoices' },
-  { key: 'invoiceDraft', label: 'Calcul facturi', href: '/admin/invoices/draft' },
+  { key: 'invoiceDraft', label: 'Calcul facturi', href: '/admin/billing-drafts' },
   { key: 'payments', label: 'Plăți', href: '/admin/payments' },
   { key: 'paymentReconciliation', label: 'Reconciliere', href: '/admin/payments/reconciliation' },
   { key: 'issues', label: 'Solicitări', href: '/admin/requests' },

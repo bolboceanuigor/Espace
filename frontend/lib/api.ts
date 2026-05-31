@@ -23,6 +23,15 @@ export class ApiClientError extends Error {
   }
 }
 
+function legacyFinancialWriteDisabled(): Promise<never> {
+  return Promise.reject(
+    new ApiClientError(410, {
+      code: 'LEGACY_FINANCE_DISABLED',
+      message: 'Fluxul financiar legacy este dezactivat pentru pilot. Folosește drafturile de facturi, publicarea internă și ledgerul nou de plăți.',
+    }),
+  );
+}
+
 export type PaginatedResponse<T> = {
   data: T[];
   page: number;
@@ -1962,11 +1971,11 @@ export const invoicesApi = {
     amount: number;
     status?: 'PAID' | 'UNPAID' | 'OVERDUE';
     dueDate: string;
-  }) => apiRequest<any>('/invoices', { method: 'POST', body: data }),
+  }) => legacyFinancialWriteDisabled(),
   updateStatus: (id: string, data: { status: 'PAID' | 'UNPAID' | 'OVERDUE' }) =>
-    apiRequest<any>(`/invoices/${id}/status`, { method: 'PATCH', body: data }),
+    legacyFinancialWriteDisabled(),
   generateMonthly: (data: { month: number; year: number; dueDate?: string }) =>
-    apiRequest<any>('/api/admin/invoices/generate-monthly', { method: 'POST', body: data }),
+    legacyFinancialWriteDisabled(),
   monthlySummary: (params: { month: number; year: number }) =>
     apiRequest<any>('/api/admin/invoices/monthly-summary', { params }),
   adminList: (params?: {
@@ -2003,26 +2012,26 @@ export const invoicesApi = {
   adminDocument: (id: string) => apiRequest<any>(`/api/admin/invoices/${id}/document`),
   adminPdfFallback: (id: string) => apiRequest<any>(`/api/admin/invoices/${id}/pdf`),
   adminUpdateStatus: (id: string, data: { status: 'CANCELLED' | 'VOID' }) =>
-    apiRequest<any>(`/api/admin/invoices/${id}/status`, { method: 'PATCH', body: data }),
-  finalizeSummary: (draftId: string) => apiRequest<any>(`/api/admin/invoices/finalize/${draftId}`),
-  finalizeDraft: (draftId: string) => apiRequest<any>(`/api/admin/invoices/finalize/${draftId}`, { method: 'POST' }),
-  issue: (id: string) => apiRequest<any>(`/api/admin/invoices/${id}/issue`, { method: 'POST' }),
-  regenerate: (id: string) => apiRequest<any>(`/api/admin/invoices/${id}/regenerate`, { method: 'POST' }),
+    legacyFinancialWriteDisabled(),
+  finalizeSummary: (draftId: string) => legacyFinancialWriteDisabled(),
+  finalizeDraft: (draftId: string) => legacyFinancialWriteDisabled(),
+  issue: (id: string) => legacyFinancialWriteDisabled(),
+  regenerate: (id: string) => legacyFinancialWriteDisabled(),
   adminPdf: (id: string) => apiRequest<Blob>(`/api/admin/invoices/${id}/pdf`, { responseType: 'blob' }),
   sendReminders: (data: { month: number; year: number; status?: string; message?: string }) =>
-    apiRequest<any>('/api/admin/invoices/send-reminders', { method: 'POST', body: data }),
+    legacyFinancialWriteDisabled(),
   adminReminderHistory: () => apiRequest<any[]>('/api/admin/reminders'),
   adminReceipts: () => apiRequest<any[]>('/api/admin/receipts'),
   adminReceiptPdf: (id: string) => apiRequest<Blob>(`/api/admin/receipts/${id}/pdf`, { responseType: 'blob' }),
-  draftGet: (params: { billingMonth: string }) => apiRequest<any>('/api/admin/invoices/draft', { params }),
+  draftGet: (params: { billingMonth: string }) => legacyFinancialWriteDisabled(),
   draftCalculate: (data: { billingMonth: string; dueDate?: string | null; description?: string; includeMeterCharges?: boolean }) =>
-    apiRequest<any>('/api/admin/invoices/draft/calculate', { method: 'POST', body: data }),
+    legacyFinancialWriteDisabled(),
   draftSave: (data: { billingMonth: string; dueDate?: string | null; description?: string; includeMeterCharges?: boolean }) =>
-    apiRequest<any>('/api/admin/invoices/draft/save', { method: 'POST', body: data }),
-  draftGetOne: (id: string) => apiRequest<any>(`/api/admin/invoices/draft/${id}`),
-  draftReview: (id: string) => apiRequest<any>(`/api/admin/invoices/draft/${id}/review`),
+    legacyFinancialWriteDisabled(),
+  draftGetOne: (id: string) => legacyFinancialWriteDisabled(),
+  draftReview: (id: string) => legacyFinancialWriteDisabled(),
   draftRecalculate: (id: string, data?: { billingMonth?: string; dueDate?: string | null; description?: string; includeMeterCharges?: boolean }) =>
-    apiRequest<any>(`/api/admin/invoices/draft/${id}/recalculate`, { method: 'PATCH', body: data || {} }),
+    legacyFinancialWriteDisabled(),
   meterChargesPreview: (params?: {
     billingMonth?: string;
     periodMonth?: string;
@@ -2034,28 +2043,28 @@ export const invoicesApi = {
     warningsOnly?: boolean;
     page?: number;
     limit?: number;
-  }) => apiRequest<any>('/api/admin/invoices/draft/meter-charges-preview', { params }),
+  }) => apiRequest<any>('/api/admin/tariffs/meter-charges-preview', { params }),
   draftUpdateLineStatus: (draftId: string, lineId: string, status: 'READY' | 'EXCLUDED') =>
-    apiRequest<any>(`/api/admin/invoices/draft/${draftId}/lines/${lineId}/status`, { method: 'PATCH', body: { status } }),
+    legacyFinancialWriteDisabled(),
   draftUpdateApartmentStatus: (draftId: string, apartmentId: string, status: 'READY' | 'EXCLUDED') =>
-    apiRequest<any>(`/api/admin/invoices/draft/${draftId}/apartments/${apartmentId}/status`, { method: 'PATCH', body: { status } }),
+    legacyFinancialWriteDisabled(),
   draftAddAdjustment: (
     draftId: string,
     apartmentId: string,
     data: { name: string; description?: string; amount: number; type: 'MANUAL_ADJUSTMENT' | 'DISCOUNT' | 'CORRECTION'; status?: 'READY' | 'EXCLUDED' },
-  ) => apiRequest<any>(`/api/admin/invoices/draft/${draftId}/apartments/${apartmentId}/adjustments`, { method: 'POST', body: data }),
+  ) => legacyFinancialWriteDisabled(),
   draftUpdateAdjustment: (
     draftId: string,
     lineId: string,
     data: { name?: string; description?: string; amount?: number; type?: 'MANUAL_ADJUSTMENT' | 'DISCOUNT' | 'CORRECTION'; status?: 'READY' | 'EXCLUDED' },
-  ) => apiRequest<any>(`/api/admin/invoices/draft/${draftId}/adjustments/${lineId}`, { method: 'PATCH', body: data }),
+  ) => legacyFinancialWriteDisabled(),
   draftDeleteAdjustment: (draftId: string, lineId: string) =>
-    apiRequest<any>(`/api/admin/invoices/draft/${draftId}/adjustments/${lineId}`, { method: 'DELETE' }),
+    legacyFinancialWriteDisabled(),
   draftRecalculateApartment: (draftId: string, apartmentId: string) =>
-    apiRequest<any>(`/api/admin/invoices/draft/${draftId}/recalculate-apartment/${apartmentId}`, { method: 'POST' }),
+    legacyFinancialWriteDisabled(),
   draftLock: (draftId: string, data: { understood: boolean; confirmWarnings?: boolean }) =>
-    apiRequest<any>(`/api/admin/invoices/draft/${draftId}/lock`, { method: 'POST', body: data }),
-  draftCancel: (id: string) => apiRequest<any>(`/api/admin/invoices/draft/${id}/cancel`, { method: 'PATCH' }),
+    legacyFinancialWriteDisabled(),
+  draftCancel: (id: string) => legacyFinancialWriteDisabled(),
 
   residentList: (params?: {
     apartmentId?: string;
@@ -2371,9 +2380,9 @@ export const paymentsApi = {
     amount: number;
     method: 'CASH' | 'BANK' | 'BANK_TRANSFER' | 'CARD' | 'OTHER';
     note?: string;
-  }) => apiRequest<any>('/api/admin/payments/manual', { method: 'POST', body: data }),
-  adminConfirm: (id: string) => apiRequest<any>(`/api/admin/payments/${id}/confirm`, { method: 'PATCH' }),
-  adminCancel: (id: string) => apiRequest<any>(`/api/admin/payments/${id}/cancel`, { method: 'PATCH' }),
+  }) => legacyFinancialWriteDisabled(),
+  adminConfirm: (id: string) => legacyFinancialWriteDisabled(),
+  adminCancel: (id: string) => legacyFinancialWriteDisabled(),
   adminProviderList: () => apiRequest<any[]>('/api/admin/payment-providers'),
   adminProviderUpdate: (
     provider: 'MAIB' | 'PAYNET' | 'OPLATA' | 'MANUAL_BANK_TRANSFER' | 'CASH',
@@ -2387,7 +2396,7 @@ export const paymentsApi = {
     invoiceId?: string;
     amount: number;
     provider: 'MAIB' | 'PAYNET' | 'OPLATA' | 'MANUAL_BANK_TRANSFER' | 'CASH';
-  }) => apiRequest<any>('/api/resident/payments/create-intent', { method: 'POST', body: data }),
+  }) => legacyFinancialWriteDisabled(),
   residentStatus: (id: string) => apiRequest<any>(`/api/resident/payments/${id}/status`),
   residentReceiptDocument: (id: string) => apiRequest<any>(`/api/resident/payments/${id}/receipt-document`),
   residentReceiptPdfFallback: (id: string) => apiRequest<any>(`/api/resident/payments/${id}/receipt-pdf`),

@@ -1,16 +1,18 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { adminStructureApi, invoicesApi, reportsApi } from '@/lib/api';
+import { adminStructureApi, reportsApi } from '@/lib/api';
 import MobilePageHeader from '@/components/common/MobilePageHeader';
 import LoadingState from '@/components/common/LoadingState';
 import EmptyState from '@/components/common/EmptyState';
 import Button from '@/components/ui/Button';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { useToast } from '@/components/ui/ToastProvider';
+import { useLocalizedPath } from '@/lib/use-localized-path';
 
 export default function AdminChargesPage() {
   const { showToast } = useToast();
+  const localizedPath = useLocalizedPath();
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
@@ -57,7 +59,7 @@ export default function AdminChargesPage() {
 
   return (
     <div className="space-y-4 pb-24 md:pb-4">
-      <MobilePageHeader title="Charges" subtitle="Generate and track monthly apartment charges." />
+      <MobilePageHeader title="Taxe lunare" subtitle="Verifică taxele calculate și creează facturile din fluxul de drafturi." />
 
       {loading ? <LoadingState label="Se încarcă taxele..." /> : null}
       {error ? (
@@ -74,13 +76,13 @@ export default function AdminChargesPage() {
           <input className="input" type="number" min={1} max={12} value={month} onChange={(e) => setMonth(Number(e.target.value))} />
           <input className="input" type="number" min={2000} value={year} onChange={(e) => setYear(Number(e.target.value))} />
           <select className="select" value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option value="">All status</option>
-            <option value="PAID">PAID</option>
-            <option value="UNPAID_PARTIAL">UNPAID/PARTIAL</option>
+            <option value="">Toate statusurile</option>
+            <option value="PAID">Achitate</option>
+            <option value="UNPAID_PARTIAL">Neachitate/parțiale</option>
           </select>
           <input
             className="input md:col-span-2"
-            placeholder="Filter by apartment"
+            placeholder="Filtrează după apartament"
             value={apartmentSearch}
             onChange={(e) => setApartmentSearch(e.target.value)}
           />
@@ -95,22 +97,15 @@ export default function AdminChargesPage() {
                 showToast('Perioada selectată este invalidă.', 'error');
                 return;
               }
-              try {
-                setGenerating(true);
-                await invoicesApi.generateMonthly({ month, year });
-                await load();
-                showToast('Taxele/facturile lunare au fost generate fără duplicate.');
-              } catch {
-                showToast('Generarea taxelor a eșuat.', 'error');
-              } finally {
-                setGenerating(false);
-              }
+              setGenerating(true);
+              showToast('Generarea legacy este dezactivată. Deschidem fluxul de drafturi.');
+              window.location.assign(localizedPath('/admin/billing-drafts?tab=invoices'));
             }}
           >
-            Generate monthly charges
+            Deschide drafturi facturi
           </Button>
           <p className="text-xs text-muted-foreground">
-            Apartamente în organizație: {apartmentsCount}. Generarea lunară este idempotentă (fără duplicate).
+            Apartamente în organizație: {apartmentsCount}. Facturile pilot se creează doar prin drafturi și publicare internă.
           </p>
         </div>
       </div>

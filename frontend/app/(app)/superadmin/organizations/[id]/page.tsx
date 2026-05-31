@@ -1752,9 +1752,9 @@ function taskStatusTone(status?: string): BadgeTone {
 
 function taskPriorityLabel(priority?: string) {
   const labels: Record<string, string> = {
-    LOW: 'Low',
-    NORMAL: 'Normal',
-    HIGH: 'High',
+    LOW: 'Scăzută',
+    NORMAL: 'Normală',
+    HIGH: 'Ridicată',
     URGENT: 'Urgent',
   };
   return priority ? labels[priority] || priority : '-';

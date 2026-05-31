@@ -78,7 +78,7 @@ export default function ResidentAccountPage() {
         description="Datele tale principale în aplicația Espace."
         rightSlot={
           <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-            {source === 'loading' ? 'Se încarcă...' : source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
+            {source === 'loading' ? 'Se încarcă...' : source === 'api' ? 'Date reale' : 'API indisponibil'}
           </span>
         }
       />
@@ -96,7 +96,7 @@ export default function ResidentAccountPage() {
         </div>
         <div className="mt-6 space-y-3 text-sm">
           <Info icon={<Phone className="h-4 w-4" />} label="Telefon" value={profile.phone} />
-          <Info icon={<Mail className="h-4 w-4" />} label="Email" value={profile.email} />
+          <Info icon={<Mail className="h-4 w-4" />} label="E-mail" value={profile.email} />
           <Info icon={<UserRound className="h-4 w-4" />} label="Apartament" value={[profile.apartment, profile.staircase].filter(Boolean).join(', ')} />
           <Info icon={<ShieldCheck className="h-4 w-4" />} label="Rol" value={profile.role} />
         </div>

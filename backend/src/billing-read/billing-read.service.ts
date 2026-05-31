@@ -2229,7 +2229,7 @@ export class BillingReadService {
           message: recalculated
             ? `Draftul pentru ${draft.billingMonth} a fost recalculat: ${Number(draft.totalAmount || 0).toLocaleString('ro-RO')} MDL.`
             : `Draftul pentru ${draft.billingMonth} a fost calculat: ${Number(draft.totalAmount || 0).toLocaleString('ro-RO')} MDL.`,
-          actionUrl: `/admin/invoices/draft/${draft.id}/review`,
+          actionUrl: '/admin/billing-drafts?tab=invoices',
           metadata: this.draftAuditMetadata(draft, includeMeterCharges),
           beforeSnapshot: before
             ? {
@@ -2533,21 +2533,21 @@ export class BillingReadService {
         label: 'Calcul draft',
         status: draft ? 'COMPLETE' : 'PENDING',
         description: draft ? `Draft ${draft.status}, total ${Number(draft.totalAmount || 0).toLocaleString('ro-RO')} MDL` : 'Draftul nu este calculat.',
-        actionUrl: draft ? `/admin/invoices/draft/${draft.id}/review` : '/admin/invoices/draft',
+        actionUrl: '/admin/billing-drafts?tab=invoices',
       },
       {
         key: 'LOCK',
         label: 'Blocare draft',
         status: draft?.status === 'LOCKED' ? 'COMPLETE' : draft ? 'PENDING' : 'PENDING',
         description: draft?.status === 'LOCKED' ? 'Draftul este blocat.' : 'Disponibil după revizuire.',
-        actionUrl: draft ? `/admin/invoices/draft/${draft.id}/review` : runUrl,
+        actionUrl: draft ? '/admin/billing-drafts?tab=invoices' : runUrl,
       },
       {
         key: 'FINALIZATION',
         label: 'Generare facturi finale',
         status: finalInvoices.length > 0 || draft?.invoicesGenerated ? 'COMPLETE' : 'PENDING',
         description: finalInvoices.length > 0 || draft?.invoicesGenerated ? `${finalInvoices.length || draft?.invoicesCount || 0} facturi generate` : 'Disponibil după blocarea draftului.',
-        actionUrl: draft?.status === 'LOCKED' ? `/admin/invoices/finalize/${draft.id}` : '/admin/invoices',
+        actionUrl: draft?.status === 'LOCKED' ? '/admin/billing-drafts?tab=invoices' : '/admin/invoices',
       },
     ];
   }
@@ -2598,7 +2598,7 @@ export class BillingReadService {
         key: 'REVIEW_DRAFT',
         label: 'Revizuiește draftul',
         description: 'Draftul a fost calculat și trebuie verificat înainte de blocare.',
-        actionUrl: `/admin/invoices/draft/${draft.id}/review`,
+        actionUrl: '/admin/billing-drafts?tab=invoices',
       };
     }
     if (draft.status === 'LOCKED') {
@@ -2606,7 +2606,7 @@ export class BillingReadService {
         key: 'FINALIZE_INVOICES',
         label: 'Generează facturi finale',
         description: 'Draftul este blocat și poate fi convertit în facturi finale.',
-        actionUrl: `/admin/invoices/finalize/${draft.id}`,
+        actionUrl: '/admin/billing-drafts?tab=invoices',
       };
     }
     return {
@@ -2799,7 +2799,7 @@ export class BillingReadService {
         status: draft ? 'PASSED' : 'WARNING',
         severity: draft ? 'INFO' : 'WARNING',
         message: draft ? `Există draft ${draft.status} pentru luna ${billingMonth}.` : 'Draftul nu este calculat încă.',
-        actionUrl: draft ? `/admin/invoices/draft/${draft.id}/review` : '/admin/invoices/draft',
+        actionUrl: '/admin/billing-drafts?tab=invoices',
       }),
       this.makeBillingRunCheck({
         key: 'FINAL_INVOICES',
@@ -3361,7 +3361,7 @@ export class BillingReadService {
         title: statusValue === 'EXCLUDED' ? 'Linie draft exclusă' : 'Linie draft inclusă',
         message: statusValue === 'EXCLUDED' ? 'O linie din draft a fost exclusă din calcul.' : 'O linie din draft a fost inclusă în calcul.',
         severity: statusValue === 'EXCLUDED' ? 'WARNING' : 'INFO',
-        actionUrl: `/admin/invoices/draft/${updatedDraft.id}/review`,
+        actionUrl: '/admin/billing-drafts?tab=invoices',
         metadata: { billingMonth: updatedDraft.billingMonth, lineId, status: statusValue, scope: 'LINE_OR_ITEM' },
       })
       .catch(() => undefined);
@@ -3408,7 +3408,7 @@ export class BillingReadService {
         title: statusValue === 'EXCLUDED' ? 'Apartament exclus din draft' : 'Apartament inclus în draft',
         message: statusValue === 'EXCLUDED' ? 'Liniile apartamentului au fost excluse din calcul.' : 'Liniile apartamentului au fost incluse în calcul.',
         severity: statusValue === 'EXCLUDED' ? 'WARNING' : 'INFO',
-        actionUrl: `/admin/invoices/draft/${updatedDraft.id}/review`,
+        actionUrl: '/admin/billing-drafts?tab=invoices',
         metadata: { billingMonth: updatedDraft.billingMonth, apartmentId, status: statusValue, scope: 'APARTMENT' },
       })
       .catch(() => undefined);
@@ -3467,7 +3467,7 @@ export class BillingReadService {
         title: 'Ajustare manuală adăugată',
         message: `A fost adăugată ajustarea manuală "${line.name}" în valoare de ${this.money(line.amount).toLocaleString('ro-RO')} MDL.`,
         severity: 'INFO',
-        actionUrl: `/admin/invoices/draft/${updatedDraft.id}/review`,
+        actionUrl: '/admin/billing-drafts?tab=invoices',
         metadata: { billingMonth: updatedDraft.billingMonth, lineId: line.id, apartmentId, amount: line.amount, type: line.manualType, name: line.name },
       })
       .catch(() => undefined);
@@ -3526,7 +3526,7 @@ export class BillingReadService {
         title: 'Ajustare manuală actualizată',
         message: 'O ajustare manuală din draft a fost actualizată.',
         severity: 'INFO',
-        actionUrl: `/admin/invoices/draft/${updatedDraft.id}/review`,
+        actionUrl: '/admin/billing-drafts?tab=invoices',
         metadata: { billingMonth: updatedDraft.billingMonth, lineId, amount: afterLine?.amount },
         beforeSnapshot: beforeLine,
         afterSnapshot: afterLine,
@@ -3572,7 +3572,7 @@ export class BillingReadService {
         title: 'Ajustare manuală eliminată',
         message: 'O ajustare manuală din draft a fost eliminată.',
         severity: 'WARNING',
-        actionUrl: `/admin/invoices/draft/${updatedDraft.id}/review`,
+        actionUrl: '/admin/billing-drafts?tab=invoices',
         metadata: { billingMonth: updatedDraft.billingMonth, lineId, apartmentId: removedApartmentId, amount: removedLine?.amount, name: removedLine?.name },
         beforeSnapshot: removedLine,
       })
@@ -3643,7 +3643,7 @@ export class BillingReadService {
         billingRunId: syncedRun?.id || null,
         invoiceDraftId: locked.id,
         message: `Draftul pentru ${locked.billingMonth} a fost blocat.`,
-        actionUrl: `/admin/invoices/draft/${locked.id}/review`,
+        actionUrl: '/admin/billing-drafts?tab=invoices',
         metadata: {
           billingMonth: locked.billingMonth,
           includedApartments: locked.includedApartments || totals.includedApartments,
@@ -3688,7 +3688,7 @@ export class BillingReadService {
         title: 'Draft anulat',
         message: `Draftul pentru ${cancelled.billingMonth} a fost anulat.`,
         severity: 'WARNING',
-        actionUrl: `/admin/invoices/draft/${cancelled.id}/review`,
+        actionUrl: '/admin/billing-drafts?tab=invoices',
         metadata: { billingMonth: cancelled.billingMonth },
         beforeSnapshot: { status: draft.status },
         afterSnapshot: { status: cancelled.status },

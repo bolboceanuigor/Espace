@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, GoneException, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { Response } from 'express';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -24,6 +24,10 @@ export class BillingReadController {
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${payload.fileName}"`);
     res.send(payload.csv);
+  }
+
+  private legacyInvoiceDraftDisabled(): never {
+    throw new GoneException('Fluxul legacy de draft/finalizare facturi este dezactivat pentru pilot. Folosește /admin/billing-drafts și publicarea internă.');
   }
 
   @Get(['invoices', 'api/invoices'])
@@ -319,6 +323,12 @@ export class BillingReadController {
     return this.billingReadService.getMeterBasedTariffImpact(user, id, query);
   }
 
+  @Get(['admin/tariffs/meter-charges-preview', 'api/admin/tariffs/meter-charges-preview'])
+  @RequirePermission('TARIFFS', 'VIEW')
+  getTariffMeterChargesPreview(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
+    return this.billingReadService.getMeterChargesPreview(user, query);
+  }
+
   @Get(['admin/tariffs/:id', 'api/admin/tariffs/:id'])
   @RequirePermission('TARIFFS', 'VIEW')
   getTariff(@CurrentUser() user: MvpUser, @Param('id') id: string) {
@@ -357,127 +367,110 @@ export class BillingReadController {
 
   @Get(['admin/invoices/draft', 'api/admin/invoices/draft'])
   @RequirePermission('BILLING', 'VIEW')
-  getInvoiceDraft(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
-    return this.billingReadService.getInvoiceDraft(user, query);
+  getInvoiceDraft() {
+    return this.legacyInvoiceDraftDisabled();
   }
 
   @Post(['admin/invoices/draft/calculate', 'api/admin/invoices/draft/calculate'])
   @RequirePermission('BILLING', 'MANAGE')
-  calculateInvoiceDraft(@CurrentUser() user: MvpUser, @Body() body: unknown) {
-    return this.billingReadService.calculateInvoiceDraft(user, body);
+  calculateInvoiceDraft() {
+    return this.legacyInvoiceDraftDisabled();
   }
 
   @Post(['admin/invoices/draft/save', 'api/admin/invoices/draft/save'])
   @RequirePermission('BILLING', 'MANAGE')
-  saveInvoiceDraft(@CurrentUser() user: MvpUser, @Body() body: unknown) {
-    return this.billingReadService.saveInvoiceDraft(user, body);
+  saveInvoiceDraft() {
+    return this.legacyInvoiceDraftDisabled();
   }
 
   @Get(['admin/invoices/draft/meter-charges-preview', 'api/admin/invoices/draft/meter-charges-preview'])
   @RequirePermission('BILLING', 'VIEW')
-  getMeterChargesPreview(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {
-    return this.billingReadService.getMeterChargesPreview(user, query);
+  getMeterChargesPreview() {
+    return this.legacyInvoiceDraftDisabled();
   }
 
   @Get(['admin/invoices/draft/:id/review', 'api/admin/invoices/draft/:id/review'])
   @RequirePermission('BILLING', 'VIEW')
-  getInvoiceDraftReview(@CurrentUser() user: MvpUser, @Param('id') id: string) {
-    return this.billingReadService.getInvoiceDraftReview(user, id);
+  getInvoiceDraftReview() {
+    return this.legacyInvoiceDraftDisabled();
   }
 
   @Get(['admin/invoices/draft/:id', 'api/admin/invoices/draft/:id'])
   @RequirePermission('BILLING', 'VIEW')
-  getInvoiceDraftById(@CurrentUser() user: MvpUser, @Param('id') id: string) {
-    return this.billingReadService.getInvoiceDraftById(user, id);
+  getInvoiceDraftById() {
+    return this.legacyInvoiceDraftDisabled();
   }
 
   @Patch(['admin/invoices/draft/:id/recalculate', 'api/admin/invoices/draft/:id/recalculate'])
   @RequirePermission('BILLING', 'MANAGE')
-  recalculateInvoiceDraft(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
-    return this.billingReadService.recalculateInvoiceDraft(user, id, body);
+  recalculateInvoiceDraft() {
+    return this.legacyInvoiceDraftDisabled();
   }
 
   @Patch(['admin/invoices/draft/:id/lines/:lineId/status', 'api/admin/invoices/draft/:id/lines/:lineId/status'])
   @RequirePermission('BILLING', 'MANAGE')
-  updateInvoiceDraftLineStatus(
-    @CurrentUser() user: MvpUser,
-    @Param('id') id: string,
-    @Param('lineId') lineId: string,
-    @Body() body: unknown,
-  ) {
-    return this.billingReadService.updateInvoiceDraftLineStatus(user, id, lineId, body);
+  updateInvoiceDraftLineStatus() {
+    return this.legacyInvoiceDraftDisabled();
   }
 
   @Patch(['admin/invoices/draft/:id/apartments/:apartmentId/status', 'api/admin/invoices/draft/:id/apartments/:apartmentId/status'])
   @RequirePermission('BILLING', 'MANAGE')
-  updateInvoiceDraftApartmentStatus(
-    @CurrentUser() user: MvpUser,
-    @Param('id') id: string,
-    @Param('apartmentId') apartmentId: string,
-    @Body() body: unknown,
-  ) {
-    return this.billingReadService.updateInvoiceDraftApartmentStatus(user, id, apartmentId, body);
+  updateInvoiceDraftApartmentStatus() {
+    return this.legacyInvoiceDraftDisabled();
   }
 
   @Post(['admin/invoices/draft/:id/apartments/:apartmentId/adjustments', 'api/admin/invoices/draft/:id/apartments/:apartmentId/adjustments'])
   @RequirePermission('BILLING', 'MANAGE')
-  addInvoiceDraftAdjustment(
-    @CurrentUser() user: MvpUser,
-    @Param('id') id: string,
-    @Param('apartmentId') apartmentId: string,
-    @Body() body: unknown,
-  ) {
-    return this.billingReadService.addInvoiceDraftAdjustment(user, id, apartmentId, body);
+  addInvoiceDraftAdjustment() {
+    return this.legacyInvoiceDraftDisabled();
   }
 
   @Patch(['admin/invoices/draft/:id/adjustments/:lineId', 'api/admin/invoices/draft/:id/adjustments/:lineId'])
   @RequirePermission('BILLING', 'MANAGE')
-  updateInvoiceDraftAdjustment(@CurrentUser() user: MvpUser, @Param('id') id: string, @Param('lineId') lineId: string, @Body() body: unknown) {
-    return this.billingReadService.updateInvoiceDraftAdjustment(user, id, lineId, body);
+  updateInvoiceDraftAdjustment() {
+    return this.legacyInvoiceDraftDisabled();
   }
 
   @Delete(['admin/invoices/draft/:id/adjustments/:lineId', 'api/admin/invoices/draft/:id/adjustments/:lineId'])
   @RequirePermission('BILLING', 'MANAGE')
-  deleteInvoiceDraftAdjustment(@CurrentUser() user: MvpUser, @Param('id') id: string, @Param('lineId') lineId: string) {
-    return this.billingReadService.deleteInvoiceDraftAdjustment(user, id, lineId);
+  deleteInvoiceDraftAdjustment() {
+    return this.legacyInvoiceDraftDisabled();
   }
 
   @Post(['admin/invoices/draft/:id/recalculate-apartment/:apartmentId', 'api/admin/invoices/draft/:id/recalculate-apartment/:apartmentId'])
   @RequirePermission('BILLING', 'MANAGE')
-  recalculateInvoiceDraftApartment(@CurrentUser() user: MvpUser, @Param('id') id: string, @Param('apartmentId') apartmentId: string) {
-    return this.billingReadService.recalculateInvoiceDraftApartment(user, id, apartmentId);
+  recalculateInvoiceDraftApartment() {
+    return this.legacyInvoiceDraftDisabled();
   }
 
   @Post(['admin/invoices/draft/:id/lock', 'api/admin/invoices/draft/:id/lock'])
   @RequirePermission('BILLING', 'LOCK')
-  lockInvoiceDraft(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
-    return this.billingReadService.lockInvoiceDraft(user, id, body);
+  lockInvoiceDraft() {
+    return this.legacyInvoiceDraftDisabled();
   }
 
   @Patch(['admin/invoices/draft/:id/cancel', 'api/admin/invoices/draft/:id/cancel'])
   @RequirePermission('BILLING', 'MANAGE')
-  cancelInvoiceDraft(@CurrentUser() user: MvpUser, @Param('id') id: string) {
-    return this.billingReadService.cancelInvoiceDraft(user, id);
+  cancelInvoiceDraft() {
+    return this.legacyInvoiceDraftDisabled();
   }
 
   @Get(['admin/invoices/finalize/:draftId', 'api/admin/invoices/finalize/:draftId'])
   @RequirePermission('INVOICES', 'VIEW')
-  getInvoiceFinalizeSummary(@CurrentUser() user: MvpUser, @Param('draftId') draftId: string) {
-    return this.billingReadService.getInvoiceFinalizeSummary(user, draftId);
+  getInvoiceFinalizeSummary() {
+    return this.legacyInvoiceDraftDisabled();
   }
 
   @Post(['admin/invoices/finalize/:draftId', 'api/admin/invoices/finalize/:draftId'])
   @RequirePermission('INVOICES', 'FINALIZE')
-  async finalizeInvoiceDraft(@CurrentUser() user: MvpUser, @Param('draftId') draftId: string) {
-    await this.saasLimits.assertCanFinalizeInvoices(user.organizationId, undefined, 1, user);
-    return this.billingReadService.finalizeInvoiceDraft(user, draftId);
+  finalizeInvoiceDraft() {
+    return this.legacyInvoiceDraftDisabled();
   }
 
   @Post(['admin/invoices/generate-monthly', 'api/admin/invoices/generate-monthly'])
   @RequirePermission('INVOICES', 'FINALIZE')
   async generateMonthlyInvoices(@CurrentUser() user: MvpUser, @Body() body: unknown) {
-    await this.saasLimits.assertCanFinalizeInvoices(user.organizationId, undefined, 1, user);
-    return this.billingReadService.generateMonthlyInvoices(user, body);
+    throw new GoneException('Fluxul legacy de generare facturi este dezactivat pentru pilot. Folosește Drafturi facturi și publicarea internă.');
   }
 
   @Get(['admin/invoices/monthly-summary', 'api/admin/invoices/monthly-summary'])
@@ -543,7 +536,7 @@ export class BillingReadController {
   @Patch(['admin/invoices/:id/status', 'api/admin/invoices/:id/status'])
   @RequirePermission('INVOICES', 'CANCEL')
   updateAdminInternalInvoiceStatus(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
-    return this.billingReadService.updateAdminInternalInvoiceStatus(user, id, body);
+    throw new GoneException('Scrierea statusului prin fluxul legacy este dezactivată pentru pilot. Folosește publish/unpublish sau editarea facturii interne.');
   }
 
   @Get(['admin/finance-overview', 'api/admin/finance-overview'])
@@ -709,12 +702,12 @@ export class BillingReadController {
 
   @Post(['invoices', 'api/invoices'])
   createInvoice(@CurrentUser() user: MvpUser, @Body() body: unknown) {
-    return this.billingReadService.createInvoice(user, body);
+    throw new GoneException('Crearea facturilor legacy este dezactivată pentru pilot.');
   }
 
   @Patch(['invoices/:id/status', 'api/invoices/:id/status'])
   updateInvoiceStatus(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
-    return this.billingReadService.updateInvoiceStatus(user, id, body);
+    throw new GoneException('Actualizarea facturilor legacy este dezactivată pentru pilot.');
   }
 
   @Get(['invoices/:id', 'api/invoices/:id'])
@@ -729,7 +722,7 @@ export class BillingReadController {
 
   @Post(['payments', 'api/payments'])
   createPayment(@CurrentUser() user: MvpUser, @Body() body: unknown) {
-    return this.billingReadService.createPayment(user, body);
+    throw new GoneException('Crearea plăților legacy este dezactivată pentru pilot. Folosește /api/admin/payments.');
   }
 
   @Get(['payments/:id', 'api/payments/:id'])

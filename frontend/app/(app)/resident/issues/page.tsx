@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { PlusCircle, Wrench } from 'lucide-react';
-import { Badge, ButtonLink, Card, PageHeader, StatCard, StatusBadge } from '@/components/ui';
+import { ButtonLink, Card, PageHeader, StatCard, StatusBadge } from '@/components/ui';
 import { residentDemoApi } from '@/lib/api';
-import { normalizeResidentIssue, residentIssues, residentIssuePriorityVariant, ResidentIssueStatus, ResidentIssuePriority } from '@/lib/resident-mvp-data';
+import { normalizeResidentIssue, ResidentIssueStatus, ResidentIssuePriority } from '@/lib/resident-mvp-data';
 
 const issueStatusToStatusBadge: Record<ResidentIssueStatus, 'pending' | 'active' | 'paid'> = {
   'Nouă': 'pending',
@@ -19,10 +19,12 @@ const issuePriorityToStatusBadge: Record<ResidentIssuePriority, 'draft' | 'parti
 };
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
+type ResidentIssue = ReturnType<typeof normalizeResidentIssue>;
+
 export default function ResidentIssuesPage() {
   const localizedPath = useLocalizedPath();
-  const [rows, setRows] = useState<typeof residentIssues>([]);
-  const [source, setSource] = useState<'loading' | 'api' | 'mock'>('loading');
+  const [rows, setRows] = useState<ResidentIssue[]>([]);
+  const [source, setSource] = useState<'loading' | 'api' | 'error'>('loading');
   const active = rows.filter((request) => request.status !== 'Rezolvată');
   const history = rows.filter((request) => request.status === 'Rezolvată');
 
@@ -38,8 +40,8 @@ export default function ResidentIssuesPage() {
       })
       .catch(() => {
         if (!activeRequest) return;
-        setRows(residentIssues);
-        setSource('mock');
+        setRows([]);
+        setSource('error');
       });
     return () => {
       activeRequest = false;
@@ -54,7 +56,7 @@ export default function ResidentIssuesPage() {
         rightSlot={
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-              {source === 'loading' ? 'Se încarcă...' : source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
+              {source === 'loading' ? 'Se încarcă...' : source === 'api' ? 'Date reale' : 'API indisponibil'}
             </span>
             <ButtonLink href={localizedPath('/resident/issues/new')}><PlusCircle className="h-4 w-4" /> Cerere nouă</ButtonLink>
           </div>
@@ -88,7 +90,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function IssueCard({ request }: { request: (typeof residentIssues)[number] }) {
+function IssueCard({ request }: { request: ResidentIssue }) {
   return (
     <Card className="p-4">
       <div className="flex items-start justify-between gap-3">

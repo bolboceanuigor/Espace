@@ -42,31 +42,6 @@ const FILTERS: Array<{ key: PaymentStatus; label: string }> = [
   { key: 'OVERDUE', label: 'Întârziate' },
 ];
 
-const FALLBACK_INVOICES: BillingInvoice[] = [
-  {
-    id: 'fallback-1',
-    invoiceNumber: 'INV-2026-04',
-    month: 4,
-    year: 2026,
-    description: 'Întreținere aprilie',
-    totalDue: 1250,
-    paidAmount: 0,
-    dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-    status: 'UNPAID',
-  },
-  {
-    id: 'fallback-2',
-    invoiceNumber: 'INV-2026-03',
-    month: 3,
-    year: 2026,
-    description: 'Întreținere martie',
-    totalDue: 0,
-    paidAmount: 1180,
-    dueDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-    status: 'PAID',
-  },
-];
-
 function asArray<T>(value: any): T[] {
   if (Array.isArray(value)) return value;
   if (Array.isArray(value?.data)) return value.data;
@@ -149,9 +124,9 @@ export default function PlatiPage({ loadInvoices, loadPayments, titleDescription
         setPayments(paymentRows);
       } catch {
         if (!active) return;
-        setInvoices(FALLBACK_INVOICES);
+        setInvoices([]);
         setPayments([]);
-        setError('Date temporare — API indisponibil.');
+        setError('API indisponibil temporar. Reîncearcă după ce serviciul revine.');
       } finally {
         if (active) setLoading(false);
       }
@@ -184,7 +159,7 @@ export default function PlatiPage({ loadInvoices, loadPayments, titleDescription
           <div>
             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-border/70 bg-muted/60 px-3 py-1 text-xs font-semibold text-muted-foreground">
               <CreditCard className="h-3.5 w-3.5" />
-              Billing
+              Facturare
             </div>
             <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-4xl">Plăți</h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">{titleDescription}</p>

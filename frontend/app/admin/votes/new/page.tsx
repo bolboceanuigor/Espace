@@ -3,9 +3,11 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { adminStructureApi, votesApi } from '@/lib/api';
+import { useLocalizedPath } from '@/lib/use-localized-path';
 
 export default function AdminVoteNewPage() {
   const router = useRouter();
+  const localizedPath = useLocalizedPath();
   const [buildings, setBuildings] = useState<any[]>([]);
   const [staircases, setStaircases] = useState<any[]>([]);
   const [form, setForm] = useState({
@@ -17,7 +19,7 @@ export default function AdminVoteNewPage() {
     votingMethod: 'BY_APARTMENT' as 'BY_APARTMENT' | 'BY_AREA_M2',
     startsAt: '',
     endsAt: '',
-    optionsText: 'DA\nNU\nABTINERE',
+    optionsText: 'DA\nNU\nABȚINERE',
   });
 
   useEffect(() => {
@@ -35,18 +37,18 @@ export default function AdminVoteNewPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold text-foreground">Create voting session</h1>
+      <h1 className="text-xl font-semibold text-foreground">Creează sesiune de vot</h1>
       <div className="rounded-xl border border-border/70 bg-card p-4">
         <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-          <input className="input" placeholder="Title" value={form.title} onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))} />
+          <input className="input" placeholder="Titlu" value={form.title} onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))} />
           <select className="select" value={form.targetType} onChange={(event) => setForm((prev) => ({ ...prev, targetType: event.target.value as any }))}>
-            <option value="ORGANIZATION">ORGANIZATION</option>
-            <option value="BUILDING">BUILDING</option>
-            <option value="STAIRCASE">STAIRCASE</option>
+            <option value="ORGANIZATION">Toată asociația</option>
+            <option value="BUILDING">Bloc</option>
+            <option value="STAIRCASE">Scară</option>
           </select>
           {form.targetType === 'BUILDING' ? (
             <select className="select" value={form.buildingId} onChange={(event) => setForm((prev) => ({ ...prev, buildingId: event.target.value }))}>
-              <option value="">Select building</option>
+              <option value="">Selectează blocul</option>
               {buildings.map((building) => (
                 <option key={building.id} value={building.id}>{building.name}</option>
               ))}
@@ -54,21 +56,21 @@ export default function AdminVoteNewPage() {
           ) : null}
           {form.targetType === 'STAIRCASE' ? (
             <select className="select" value={form.staircaseId} onChange={(event) => setForm((prev) => ({ ...prev, staircaseId: event.target.value }))}>
-              <option value="">Select staircase</option>
+              <option value="">Selectează scara</option>
               {staircases.map((staircase) => (
                 <option key={staircase.id} value={staircase.id}>{staircase.name}</option>
               ))}
             </select>
           ) : null}
           <select className="select" value={form.votingMethod} onChange={(event) => setForm((prev) => ({ ...prev, votingMethod: event.target.value as any }))}>
-            <option value="BY_APARTMENT">BY_APARTMENT</option>
-            <option value="BY_AREA_M2">BY_AREA_M2</option>
+            <option value="BY_APARTMENT">Un vot per apartament</option>
+            <option value="BY_AREA_M2">Pondere după m²</option>
           </select>
           <input className="input" type="datetime-local" value={form.startsAt} onChange={(event) => setForm((prev) => ({ ...prev, startsAt: event.target.value }))} />
           <input className="input" type="datetime-local" value={form.endsAt} onChange={(event) => setForm((prev) => ({ ...prev, endsAt: event.target.value }))} />
         </div>
-        <textarea className="input mt-2 min-h-[120px]" placeholder="Description" value={form.description} onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))} />
-        <textarea className="input mt-2 min-h-[100px]" placeholder={'Options, one per line'} value={form.optionsText} onChange={(event) => setForm((prev) => ({ ...prev, optionsText: event.target.value }))} />
+        <textarea className="input mt-2 min-h-[120px]" placeholder="Descriere" value={form.description} onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))} />
+        <textarea className="input mt-2 min-h-[100px]" placeholder="Opțiuni, câte una pe linie" value={form.optionsText} onChange={(event) => setForm((prev) => ({ ...prev, optionsText: event.target.value }))} />
         <button
           className="mt-3 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-white"
           onClick={async () => {
@@ -89,10 +91,10 @@ export default function AdminVoteNewPage() {
             for (const label of labels) {
               await votesApi.adminAddOption(created.data.id, label);
             }
-            router.push(`/admin/votes/${created.data.id}`);
+            router.push(localizedPath(`/admin/votes/${created.data.id}`));
           }}
         >
-          Save vote session
+          Salvează sesiunea
         </button>
       </div>
     </div>

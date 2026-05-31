@@ -510,7 +510,7 @@ export default function ConnectWorkspace({ mode, conversationId, prefill }: Conn
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="secondary" onClick={refresh}>
               <RefreshCw className="size-4" />
-              Refresh
+              Actualizează
             </Button>
             <Button type="button" onClick={() => setNewOpen(true)}>
               <Plus className="size-4" />
@@ -548,7 +548,7 @@ export default function ConnectWorkspace({ mode, conversationId, prefill }: Conn
               />
             </div>
             <div className="mt-3 grid gap-2 sm:grid-cols-3 lg:grid-cols-1">
-              <Select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Status">
+              <Select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Status conversație">
                 <option value="">Toate statusurile</option>
                 {Object.entries(statusLabels).map(([value, label]) => (
                   <option key={value} value={value}>{label}</option>
@@ -924,7 +924,7 @@ function AdminContextPanel({ detail, onNote }: { detail: DetailPayload | null; o
       </div>
       <div className="space-y-4 p-5">
         <ContextSection icon={<UserRound className="size-4" />} title="Locatar">
-          <InfoLine label="Email" value={conversation.resident?.email || 'Nesetat'} />
+          <InfoLine label="E-mail" value={conversation.resident?.email || 'Nesetat'} />
           <InfoLine label="Telefon" value={conversation.resident?.phone || 'Nesetat'} />
         </ContextSection>
         <ContextSection icon={<Home className="size-4" />} title="Apartament">
@@ -933,7 +933,7 @@ function AdminContextPanel({ detail, onNote }: { detail: DetailPayload | null; o
         {detail.relatedSummary ? (
           <ContextSection icon={<FileText className="size-4" />} title="Legat de">
             <InfoLine label="Tip" value={typeLabels[(detail.relatedSummary.type || conversation.type) as ConversationType] || detail.relatedSummary.type} />
-            <InfoLine label="Status" value={detail.relatedSummary.status || '-'} />
+            <InfoLine label="Status asociat" value={detail.relatedSummary.status || '-'} />
           </ContextSection>
         ) : null}
         <ContextSection icon={<WalletCards className="size-4" />} title="Facturi neachitate">

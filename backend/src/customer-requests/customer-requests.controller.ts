@@ -4,7 +4,7 @@ import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { Public } from '../auth/decorators/public.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/roles.decorator';
-import { RolesGuard } from '../auth/roles.guard';
+import { MvpAuthGuard, MvpRolesGuard } from '../security/mvp-auth.guard';
 import { CustomerRequestsService } from './customer-requests.service';
 import {
   CreateCustomerOnboardingRequestDto,
@@ -34,7 +34,7 @@ export class PublicCustomerRequestsController {
 }
 
 @Controller(['api/superadmin/customer-requests', 'api/superadmin/access-requests', 'superadmin/access-requests'])
-@UseGuards(RolesGuard)
+@UseGuards(MvpAuthGuard, MvpRolesGuard)
 @Roles(Role.SUPERADMIN)
 export class SuperadminCustomerRequestsController {
   constructor(private readonly service: CustomerRequestsService) {}

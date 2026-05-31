@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 import { CheckCircle2, CreditCard, Layers3, Plus } from 'lucide-react';
 import { Badge, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
 import { superadminApi } from '@/lib/api';
-import { mockPlans, normalizeApiPlan, type MvpPlan } from '@/lib/superadmin-mvp-data';
+import { normalizeApiPlan, type MvpPlan } from '@/lib/superadmin-mvp-data';
 
 const emptyForm = {
   name: '',
@@ -18,8 +18,8 @@ const emptyForm = {
 };
 
 export default function SuperadminSubscriptionsPage() {
-  const [plans, setPlans] = useState<MvpPlan[]>(mockPlans);
-  const [source, setSource] = useState<'api' | 'mock'>('mock');
+  const [plans, setPlans] = useState<MvpPlan[]>([]);
+  const [source, setSource] = useState<'loading' | 'api' | 'unavailable'>('loading');
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [isSaving, setIsSaving] = useState(false);
@@ -37,9 +37,9 @@ export default function SuperadminSubscriptionsPage() {
     let active = true;
     loadPlans().catch(() => {
       if (!active) return;
-      setPlans(mockPlans);
-      setSource('mock');
-      setError('API indisponibil temporar. Sunt afișate planuri temporare.');
+      setPlans([]);
+      setSource('unavailable');
+      setError('API indisponibil temporar. Reîncearcă după ce serviciul revine.');
     });
     return () => {
       active = false;
@@ -124,7 +124,7 @@ export default function SuperadminSubscriptionsPage() {
             <p className="mt-1 text-sm text-muted-foreground">Limitele și funcționalitățile sunt folosite pentru management manual MVP.</p>
           </div>
           <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
-            {source === 'api' ? 'Date reale' : 'Date temporare — API indisponibil'}
+            {source === 'loading' ? 'Se încarcă...' : source === 'api' ? 'Date reale' : 'API indisponibil'}
           </span>
         </div>
 

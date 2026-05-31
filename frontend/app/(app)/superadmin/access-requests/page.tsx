@@ -5,7 +5,7 @@ export default function SuperadminAccessRequestsPage() {
     <CustomerRequestsListPage
       basePath="/superadmin/access-requests"
       title="Cereri acces"
-      subtitle="Proceseaza cererile primite prin formularul Cere acces."
+      subtitle="Procesează cererile primite prin formularul Cere acces."
     />
   );
 }

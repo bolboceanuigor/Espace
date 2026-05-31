@@ -64,7 +64,7 @@ export class CustomerRequestsService {
     const contactName = (dto.contactName || dto.fullName || '').trim();
     const city = dto.city?.trim();
     if (!contactName) throw new BadRequestException('Numele persoanei de contact este obligatoriu.');
-    if (!city) throw new BadRequestException('Orasul este obligatoriu.');
+    if (!city) throw new BadRequestException('Orașul este obligatoriu.');
     const phone = dto.phone.trim();
     if (phone.length < 6 || !/^[+()\d\s.-]+$/.test(phone)) throw new BadRequestException('Telefonul nu este valid.');
     const email = dto.email?.trim().toLowerCase() || null;
@@ -330,7 +330,7 @@ export class CustomerRequestsService {
       });
       if (!request) throw new NotFoundException('Customer request not found');
       if (request.convertedOrganizationId || request.convertedAssociationId) {
-        throw new ConflictException('Cererea a fost deja convertita intr-o organizatie.');
+        throw new ConflictException('Cererea a fost deja convertită într-o organizație.');
       }
 
       const input = this.normalizeConversionInput(dto, request);
@@ -468,7 +468,7 @@ export class CustomerRequestsService {
               actorUserId: actorId,
               type: ClientActivityType.ASSOCIATION_LINKED,
               title: 'Organizatie creata din cerere',
-              message: `Cererea de acces a fost convertita in ${organization.name}.`,
+              message: `Cererea de acces a fost convertită în ${organization.name}.`,
               metadata: { requestId: request.id, organizationId: organization.id } as Prisma.InputJsonValue,
             },
             {
@@ -557,7 +557,7 @@ export class CustomerRequestsService {
 
       return {
         success: true,
-        message: 'Cererea a fost convertita in organizatie.',
+        message: 'Cererea a fost convertită în organizație.',
         request: updatedRequest,
         organization: {
           id: organization.id,
@@ -773,7 +773,7 @@ export class CustomerRequestsService {
     email: string | null;
   }): NormalizedConversionInput {
     const organizationName = this.requiredTrim(dto.organizationName || request.associationName || request.legalName || '', 'Numele organizatiei este obligatoriu.');
-    const city = this.requiredTrim(dto.city || request.city || '', 'Orasul este obligatoriu.');
+    const city = this.requiredTrim(dto.city || request.city || '', 'Orașul este obligatoriu.');
     const adminName = this.requiredTrim(dto.adminName || request.fullName || '', 'Numele administratorului este obligatoriu.');
     const adminPhone = this.requiredTrim(dto.adminPhone || request.phone || '', 'Telefonul administratorului este obligatoriu.');
     if (adminPhone.length < 6 || !/^[+()\d\s.-]+$/.test(adminPhone)) {

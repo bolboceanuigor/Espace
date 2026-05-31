@@ -53,7 +53,7 @@ type TariffRow = {
 };
 
 const tabs: Array<{ key: TabKey; label: string }> = [
-  { key: 'overview', label: 'Overview' },
+  { key: 'overview', label: 'Sumar' },
   { key: 'tariffs', label: 'Tarife' },
   { key: 'invoices', label: 'Drafturi facturi' },
   { key: 'issues', label: 'Probleme' },
@@ -399,9 +399,9 @@ export function BillingDraftsPage() {
               <Plus className="h-4 w-4" /> Perioadă nouă
             </Button>
             <Button variant="secondary" onClick={refresh} isLoading={actionLoading === 'refresh'}>
-              <RefreshCw className="h-4 w-4" /> Refresh
+              <RefreshCw className="h-4 w-4" /> Actualizează
             </Button>
-            <ButtonLink href="/admin/meter-readings" variant="outline">
+            <ButtonLink href={localizedPath('/admin/meter-readings')} variant="outline">
               <Gauge className="h-4 w-4" /> Citiri contoare
             </ButtonLink>
           </div>
@@ -597,7 +597,7 @@ export function BillingDraftsPage() {
           {activeTab === 'invoices' ? (
             <Card noPadding>
               <div className="grid gap-3 border-b border-border p-5 md:grid-cols-[1fr_auto_auto] md:items-end">
-                <Input label="Search" value={invoiceFilter.search} onChange={(event) => setInvoiceFilter((current) => ({ ...current, search: event.target.value }))} placeholder="Apartament, bloc, locatar" />
+                <Input label="Căutare" value={invoiceFilter.search} onChange={(event) => setInvoiceFilter((current) => ({ ...current, search: event.target.value }))} placeholder="Apartament, bloc, locatar" />
                 <label className="flex items-center gap-2 text-sm text-foreground">
                   <input type="checkbox" checked={invoiceFilter.onlyIssues} onChange={(event) => setInvoiceFilter((current) => ({ ...current, onlyIssues: event.target.checked }))} />
                   Doar cu probleme
@@ -645,7 +645,7 @@ export function BillingDraftsPage() {
                                 Deschide
                               </Button>
                               <Button size="sm" variant="outline" onClick={() => markInvoiceReview(invoice.id)} isLoading={actionLoading === `review:${invoice.id}`}>
-                                Review
+                                Marchează verificată
                               </Button>
                             </div>
                           </TableCell>
@@ -663,7 +663,7 @@ export function BillingDraftsPage() {
           {activeTab === 'issues' ? (
             <Card noPadding>
               <div className="grid gap-3 border-b border-border p-5 md:grid-cols-3">
-                <Input label="Search" placeholder="Problemă, contor, apartament" onChange={(event) => setIssueFilter((current) => ({ ...current, search: event.target.value } as any))} />
+                <Input label="Căutare" placeholder="Problemă, contor, apartament" onChange={(event) => setIssueFilter((current) => ({ ...current, search: event.target.value } as any))} />
                 <label className="space-y-1.5">
                   <span className="text-sm font-medium text-foreground">Tip</span>
                   <select value={issueFilter.type} onChange={(event) => setIssueFilter((current) => ({ ...current, type: event.target.value }))} className={selectClassName()}>

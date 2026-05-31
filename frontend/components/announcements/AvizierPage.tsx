@@ -56,18 +56,6 @@ const PRIORITY_LABELS: Record<string, string> = {
   URGENT: 'Urgent',
 };
 
-const FALLBACK_ANNOUNCEMENTS: AvizierAnnouncement[] = [
-  {
-    id: 'fallback-1',
-    title: 'Bun venit în Avizier',
-    content: 'Aici vor apărea anunțurile importante pentru comunitate.',
-    contentType: 'ANNOUNCEMENT',
-    importance: 'IMPORTANT',
-    status: 'Publicat',
-    createdAt: new Date().toISOString(),
-  },
-];
-
 const emptyForm: AvizierForm = {
   title: '',
   category: 'ANNOUNCEMENT',
@@ -83,18 +71,6 @@ function normalizeRows(rows: AvizierAnnouncement[]) {
     status: row.status || (row.isPinned ? 'Fixat' : 'Publicat'),
     createdAt: row.createdAt || row.updatedAt || new Date().toISOString(),
   }));
-}
-
-function localAnnouncement(form: AvizierForm): AvizierAnnouncement {
-  return {
-    id: `local-${Date.now()}`,
-    title: form.title,
-    content: form.content,
-    contentType: form.category,
-    importance: form.priority,
-    status: 'Local',
-    createdAt: new Date().toISOString(),
-  };
 }
 
 function formatDate(value?: string) {
@@ -138,8 +114,8 @@ export default function AvizierPage({ description, loadAnnouncements, createAnno
         setRows(data.length ? data : []);
       } catch {
         if (!isMounted) return;
-        setRows(FALLBACK_ANNOUNCEMENTS);
-        setError('Nu am putut încărca anunțurile din API. Afișăm temporar date locale.');
+        setRows([]);
+        setError('Nu am putut încărca anunțurile din API. Verifică autentificarea și încearcă din nou.');
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -157,14 +133,16 @@ export default function AvizierPage({ description, loadAnnouncements, createAnno
     if (!form.title.trim() || !form.content.trim()) return;
 
     setIsSubmitting(true);
-    const fallback = localAnnouncement(form);
     try {
       const created = createAnnouncement ? await createAnnouncement(form) : null;
-      setRows((current) => [created || fallback, ...current]);
-      setError(created || !canPersistCreate ? null : 'Anunțul a fost adăugat local. API-ul nu a returnat un răspuns publicabil.');
+      if (!created && canPersistCreate) {
+        setError('API-ul nu a returnat anunțul publicat. Reîncarcă lista înainte de a continua.');
+        return;
+      }
+      if (created) setRows((current) => [created, ...current]);
+      setError(null);
     } catch {
-      setRows((current) => [fallback, ...current]);
-      setError('Anunțul a fost adăugat local. Salvarea în API nu este disponibilă momentan.');
+      setError('Anunțul nu a fost salvat. Verifică datele și încearcă din nou.');
     } finally {
       setForm(emptyForm);
       setIsModalOpen(false);

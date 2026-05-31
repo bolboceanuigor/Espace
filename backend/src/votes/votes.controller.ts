@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@ne
 import { Role } from '@prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { AllowsPastDue, RequiresActiveSubscription } from '../subscription/subscription-access.decorator';
 import { SubscriptionAccessGuard } from '../subscription/subscription-access.guard';
@@ -13,7 +14,7 @@ export class VotesController {
   constructor(private readonly votesService: VotesService) {}
 
   @Get('admin/votes')
-  @UseGuards(RolesGuard, SubscriptionAccessGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionAccessGuard)
   @Roles(Role.ADMIN)
   @AllowsPastDue()
   adminList(@CurrentUser() user: any, @Query() query: ListVoteSessionsDto) {
@@ -21,7 +22,7 @@ export class VotesController {
   }
 
   @Post('admin/votes')
-  @UseGuards(RolesGuard, SubscriptionAccessGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionAccessGuard)
   @Roles(Role.ADMIN)
   @RequiresActiveSubscription()
   adminCreate(@CurrentUser() user: any, @Body() dto: CreateVoteSessionDto) {
@@ -29,7 +30,7 @@ export class VotesController {
   }
 
   @Get('admin/votes/:id')
-  @UseGuards(RolesGuard, SubscriptionAccessGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionAccessGuard)
   @Roles(Role.ADMIN)
   @AllowsPastDue()
   adminGetOne(@CurrentUser() user: any, @Param('id') id: string) {
@@ -37,7 +38,7 @@ export class VotesController {
   }
 
   @Patch('admin/votes/:id')
-  @UseGuards(RolesGuard, SubscriptionAccessGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionAccessGuard)
   @Roles(Role.ADMIN)
   @RequiresActiveSubscription()
   adminUpdate(@CurrentUser() user: any, @Param('id') id: string, @Body() dto: UpdateVoteSessionDto) {
@@ -45,7 +46,7 @@ export class VotesController {
   }
 
   @Post('admin/votes/:id/options')
-  @UseGuards(RolesGuard, SubscriptionAccessGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionAccessGuard)
   @Roles(Role.ADMIN)
   @RequiresActiveSubscription()
   adminAddOption(@CurrentUser() user: any, @Param('id') id: string, @Body() dto: AddVoteOptionDto) {
@@ -53,7 +54,7 @@ export class VotesController {
   }
 
   @Post('admin/votes/:id/activate')
-  @UseGuards(RolesGuard, SubscriptionAccessGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionAccessGuard)
   @Roles(Role.ADMIN)
   @RequiresActiveSubscription()
   adminActivate(@CurrentUser() user: any, @Param('id') id: string) {
@@ -61,7 +62,7 @@ export class VotesController {
   }
 
   @Post('admin/votes/:id/close')
-  @UseGuards(RolesGuard, SubscriptionAccessGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionAccessGuard)
   @Roles(Role.ADMIN)
   @RequiresActiveSubscription()
   adminClose(@CurrentUser() user: any, @Param('id') id: string) {
@@ -69,7 +70,7 @@ export class VotesController {
   }
 
   @Post('admin/votes/:id/publish')
-  @UseGuards(RolesGuard, SubscriptionAccessGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionAccessGuard)
   @Roles(Role.ADMIN)
   @RequiresActiveSubscription()
   adminPublish(@CurrentUser() user: any, @Param('id') id: string) {
@@ -77,7 +78,7 @@ export class VotesController {
   }
 
   @Get('admin/votes/:id/results')
-  @UseGuards(RolesGuard, SubscriptionAccessGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, SubscriptionAccessGuard)
   @Roles(Role.ADMIN)
   @AllowsPastDue()
   adminResults(@CurrentUser() user: any, @Param('id') id: string) {
@@ -85,29 +86,29 @@ export class VotesController {
   }
 
   @Get('resident/votes')
-  @UseGuards(RolesGuard)
-  @Roles(Role.RESIDENT, Role.TENANT)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.RESIDENT)
   residentList(@CurrentUser() user: any) {
     return this.votesService.residentList(user);
   }
 
   @Get('resident/votes/:id')
-  @UseGuards(RolesGuard)
-  @Roles(Role.RESIDENT, Role.TENANT)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.RESIDENT)
   residentGetOne(@CurrentUser() user: any, @Param('id') id: string) {
     return this.votesService.residentGetOne(user, id);
   }
 
   @Post('resident/votes/:id/cast')
-  @UseGuards(RolesGuard)
-  @Roles(Role.RESIDENT, Role.TENANT)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.RESIDENT)
   residentCast(@CurrentUser() user: any, @Param('id') id: string, @Body() dto: CastVoteDto) {
     return this.votesService.residentCast(user, id, dto);
   }
 
   @Get('superadmin/votes/overview')
-  @UseGuards(RolesGuard)
-  @Roles(Role.SUPERADMIN, Role.SUPER_ADMIN)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERADMIN)
   superadminOverview(@CurrentUser() user: any) {
     return this.votesService.superadminOverview(user);
   }

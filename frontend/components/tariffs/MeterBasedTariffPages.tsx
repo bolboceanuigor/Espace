@@ -269,11 +269,11 @@ export function MeterBasedTariffsListPage() {
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="neutral">{associationBadge(data.organization)}</Badge>
             <Badge variant="neutral">Aceste tarife se includ doar în draftul de facturi.</Badge>
-            <ButtonLink href="/admin/invoices/draft/meter-charges-preview" variant="secondary">
+            <ButtonLink href={localizedPath('/admin/tariffs/meter-charges-preview')} variant="secondary">
               <Calculator className="h-4 w-4" />
               Previzualizare calcul
             </ButtonLink>
-            <ButtonLink href="/admin/tariffs/meter-based/new">
+            <ButtonLink href={localizedPath('/admin/tariffs/meter-based/new')}>
               <Plus className="h-4 w-4" />
               Adaugă tarif pe consum
             </ButtonLink>
@@ -606,8 +606,8 @@ export function MeterBasedTariffDetailPage() {
           <div className="flex flex-wrap items-center gap-2">
             <ButtonLink href="/admin/tariffs/meter-based" variant="secondary">Înapoi la tarife</ButtonLink>
             {tariff ? <ButtonLink href={`/admin/tariffs/meter-based/${tariff.id}/edit`} variant="secondary">Editează</ButtonLink> : null}
-            {tariff ? <ButtonLink href={`/admin/invoices/draft/meter-charges-preview?tariffId=${tariff.id}`} variant="secondary">Previzualizează calcul</ButtonLink> : null}
-            {tariff ? <Button onClick={duplicate} variant="secondary"><Copy className="h-4 w-4" />Duplicate</Button> : null}
+            {tariff ? <ButtonLink href={localizedPath(`/admin/tariffs/meter-charges-preview?tariffId=${tariff.id}`)} variant="secondary">Previzualizează calcul</ButtonLink> : null}
+            {tariff ? <Button onClick={duplicate} variant="secondary"><Copy className="h-4 w-4" />Duplică</Button> : null}
           </div>
         }
       />

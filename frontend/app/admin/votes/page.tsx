@@ -6,6 +6,7 @@ import { votesApi } from '@/lib/api';
 import LoadingState from '@/components/common/LoadingState';
 import EmptyState from '@/components/common/EmptyState';
 import Button from '@/components/ui/Button';
+import { useLocalizedPath } from '@/lib/use-localized-path';
 
 const STATUS_COLOR: Record<string, string> = {
   DRAFT: 'bg-slate-100 text-slate-700',
@@ -14,7 +15,26 @@ const STATUS_COLOR: Record<string, string> = {
   PUBLISHED: 'bg-green-100 text-green-700',
 };
 
+const STATUS_LABEL: Record<string, string> = {
+  DRAFT: 'Draft',
+  ACTIVE: 'Activă',
+  CLOSED: 'Închisă',
+  PUBLISHED: 'Publicată',
+};
+
+const TARGET_LABEL: Record<string, string> = {
+  ORGANIZATION: 'Toată asociația',
+  BUILDING: 'Bloc',
+  STAIRCASE: 'Scară',
+};
+
+const VOTING_METHOD_LABEL: Record<string, string> = {
+  BY_APARTMENT: 'Un vot per apartament',
+  BY_AREA_M2: 'Pondere după m²',
+};
+
 export default function AdminVotesPage() {
+  const localizedPath = useLocalizedPath();
   const [rows, setRows] = useState<any[]>([]);
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(true);
@@ -40,17 +60,17 @@ export default function AdminVotesPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-foreground">Voting sessions</h1>
-        <Link href="/admin/votes/new" className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-white">
-          Create vote
+        <h1 className="text-xl font-semibold text-foreground">Sesiuni de vot</h1>
+        <Link href={localizedPath('/admin/votes/new')} className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-white">
+          Creează vot
         </Link>
       </div>
 
       <div className="rounded-xl border border-border/70 bg-card p-4">
         <select className="select max-w-sm" value={status} onChange={(event) => setStatus(event.target.value)}>
-          <option value="">All statuses</option>
+          <option value="">Toate statusurile</option>
           {['DRAFT', 'ACTIVE', 'CLOSED', 'PUBLISHED'].map((value) => (
-            <option key={value} value={value}>{value}</option>
+            <option key={value} value={value}>{STATUS_LABEL[value] || value}</option>
           ))}
         </select>
       </div>
@@ -73,14 +93,14 @@ export default function AdminVotesPage() {
             <div key={row.id} className="rounded-xl border border-border/70 bg-card p-3">
               <div className="flex items-center gap-2">
                 <p className="font-medium text-foreground">{row.title}</p>
-                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLOR[row.status] || 'bg-slate-100 text-slate-700'}`}>{row.status}</span>
+                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLOR[row.status] || 'bg-slate-100 text-slate-700'}`}>{STATUS_LABEL[row.status] || row.status}</span>
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
-                {row.targetType} • {row.votingMethod} • {new Date(row.startsAt).toLocaleString()} - {new Date(row.endsAt).toLocaleString()}
+                {TARGET_LABEL[row.targetType] || row.targetType} • {VOTING_METHOD_LABEL[row.votingMethod] || row.votingMethod} • {new Date(row.startsAt).toLocaleString('ro-MD')} - {new Date(row.endsAt).toLocaleString('ro-MD')}
               </p>
               <div className="mt-3">
-                <Link href={`/admin/votes/${row.id}`} className="rounded-md border border-border/70 px-2 py-1 text-xs">
-                  Open details
+                <Link href={localizedPath(`/admin/votes/${row.id}`)} className="rounded-md border border-border/70 px-2 py-1 text-xs">
+                  Deschide detalii
                 </Link>
               </div>
             </div>

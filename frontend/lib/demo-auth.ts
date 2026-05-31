@@ -40,7 +40,7 @@ export function demoRolePath(role: DemoRole, locale = 'ro') {
 }
 
 export function demoOnboardingPath(locale = 'ro') {
-  return `/${locale}/onboarding`;
+  return `/${locale}/login`;
 }
 
 export function demoLogout(locale = 'ro') {

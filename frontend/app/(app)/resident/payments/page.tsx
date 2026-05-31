@@ -151,9 +151,9 @@ export default function ResidentPaymentsPage() {
           <div className="flex flex-wrap items-center gap-2">
             <Button type="button" variant="secondary" onClick={loadPayments} disabled={loading}>
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
+              Actualizează
             </Button>
-            <ButtonLink href="/resident/balance" variant="secondary">Vezi soldul</ButtonLink>
+            <ButtonLink href={localizedPath('/resident/balance')} variant="secondary">Vezi soldul</ButtonLink>
           </div>
         }
       />

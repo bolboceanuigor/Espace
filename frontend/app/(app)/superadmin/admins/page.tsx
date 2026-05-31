@@ -6,14 +6,7 @@ import { Mail, Phone, Plus, Search, ShieldCheck, UserPlus } from 'lucide-react';
 import { Badge, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
 import { invitationsApi, superadminApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
-import {
-  mockAdministrators,
-  mockAssociations,
-  normalizeApiAdministrator,
-  normalizeApiAssociation,
-  type MvpAdministrator,
-  type MvpAssociation,
-} from '@/lib/superadmin-mvp-data';
+import { normalizeApiAdministrator, normalizeApiAssociation, type MvpAdministrator, type MvpAssociation } from '@/lib/superadmin-mvp-data';
 
 const emptyForm = {
   firstName: '',
@@ -41,7 +34,7 @@ export default function SuperadminAdminsPage() {
   const [organizationId, setOrganizationId] = useState('ALL');
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
-  const [source, setSource] = useState<'loading' | 'api' | 'mock'>('loading');
+  const [source, setSource] = useState<'loading' | 'api' | 'unavailable'>('loading');
   const [isCreating, setIsCreating] = useState(false);
   const [updatingAdminId, setUpdatingAdminId] = useState('');
   const [formError, setFormError] = useState('');
@@ -71,10 +64,10 @@ export default function SuperadminAdminsPage() {
     let active = true;
     loadAdmins().catch(() => {
       if (!active) return;
-      setAdmins(mockAdministrators);
-      setAssociations(mockAssociations);
-      setSource('mock');
-      setListError('API indisponibil temporar. Sunt afișate date temporare.');
+      setAdmins([]);
+      setAssociations([]);
+      setSource('unavailable');
+      setListError('API indisponibil temporar. Reîncearcă după ce serviciul revine.');
     });
     return () => {
       active = false;
@@ -205,7 +198,7 @@ export default function SuperadminAdminsPage() {
         <StatCard label="Asociații acoperite" value={new Set(admins.map((admin) => admin.organizationId)).size} description="Au administrator" icon={<UserPlus className="h-5 w-5" />} tone="success" />
         <StatCard
           label="Sursă date"
-          value={source === 'loading' ? 'se încarcă' : source === 'api' ? 'reale' : 'temporare'}
+          value={source === 'loading' ? 'se încarcă' : source === 'api' ? 'reale' : 'indisponibil'}
           description={source === 'loading' ? 'Se încarcă datele' : source === 'api' ? 'API conectat' : 'API indisponibil'}
           icon={<Mail className="h-5 w-5" />}
           tone={source === 'api' ? 'success' : 'warning'}

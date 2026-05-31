@@ -9,7 +9,7 @@ import { invoicesApi, paymentsApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
-type InternalInvoiceStatus = 'ISSUED' | 'PARTIALLY_PAID' | 'PAID' | 'CANCELLED' | 'VOID';
+type InternalInvoiceStatus = 'DRAFT' | 'IN_REVIEW' | 'APPROVED' | 'PUBLISHED' | 'ISSUED' | 'PARTIALLY_PAID' | 'PAID' | 'CANCELLED' | 'VOID';
 
 type InternalInvoiceLine = {
   id: string;
@@ -71,6 +71,10 @@ type InvoicePayment = {
 };
 
 const statusLabels: Record<InternalInvoiceStatus, string> = {
+  DRAFT: 'Draft',
+  IN_REVIEW: 'În verificare',
+  APPROVED: 'Aprobată',
+  PUBLISHED: 'Publicată',
   ISSUED: 'Emisă',
   PARTIALLY_PAID: 'Achitată parțial',
   PAID: 'Achitată',
@@ -79,6 +83,10 @@ const statusLabels: Record<InternalInvoiceStatus, string> = {
 };
 
 const statusVariant = {
+  DRAFT: 'neutral',
+  IN_REVIEW: 'warning',
+  APPROVED: 'success',
+  PUBLISHED: 'warning',
   ISSUED: 'warning',
   PARTIALLY_PAID: 'warning',
   PAID: 'success',
@@ -133,15 +141,15 @@ export default function AdminInvoiceDetailsPage() {
     loadInvoice();
   }, [loadInvoice]);
 
-  async function updateStatus(nextStatus: 'CANCELLED' | 'VOID') {
+  async function cancelDraftInvoice() {
     if (!invoice) return;
-    setBusy(nextStatus);
+    setBusy('CANCELLED');
     setError('');
     setMessage('');
     try {
-      const res = await invoicesApi.adminUpdateStatus(invoice.invoiceId || invoice.id, { status: nextStatus });
+      const res = await invoicesApi.updateAdminInvoice(invoice.invoiceId || invoice.id, { status: 'CANCELLED' });
       setInvoice(res.data?.invoice || null);
-      setMessage(nextStatus === 'VOID' ? 'Factura a fost marcată VOID.' : 'Factura a fost anulată.');
+      setMessage('Factura a fost anulată.');
     } catch (err: any) {
       setError(String(err?.message || 'Nu am putut actualiza statusul facturii.'));
     } finally {
@@ -161,8 +169,8 @@ export default function AdminInvoiceDetailsPage() {
     );
   }
 
-  const canRegisterPayment = invoice ? (invoice.status === 'ISSUED' || invoice.status === 'PARTIALLY_PAID') && Number(invoice.balanceAmount || 0) > 0 : false;
-  const canCancel = invoice?.status === 'ISSUED';
+  const canRegisterPayment = invoice ? ['PUBLISHED', 'ISSUED', 'PARTIALLY_PAID'].includes(invoice.status) && Number(invoice.balanceAmount || 0) > 0 : false;
+  const canCancel = invoice ? ['DRAFT', 'IN_REVIEW', 'APPROVED'].includes(invoice.status) : false;
   const connectInvoiceHref = invoice
     ? `/admin/connect?new=1&type=INVOICE&relatedInvoiceId=${encodeURIComponent(invoice.invoiceId || invoice.id)}&apartmentId=${encodeURIComponent(invoice.apartment.id)}&subject=${encodeURIComponent(`Discuție despre factura ${invoice.invoiceNumber}`)}`
     : '/admin/connect';
@@ -231,7 +239,7 @@ export default function AdminInvoiceDetailsPage() {
                   <MessageCircle className="h-4 w-4" />
                   Deschide conversație
                 </ButtonLink>
-                <ButtonLink href={localizedPath(`/admin/invoices/draft/${invoice.sourceDraftId}/review`)} variant="secondary">
+                <ButtonLink href={localizedPath('/admin/billing-drafts?tab=invoices')} variant="secondary">
                   Vezi draft
                 </ButtonLink>
                 {canRegisterPayment ? (
@@ -250,15 +258,10 @@ export default function AdminInvoiceDetailsPage() {
                   Plăți online
                 </ButtonLink>
                 {canCancel ? (
-                  <>
-                    <Button type="button" variant="secondary" onClick={() => updateStatus('CANCELLED')} isLoading={busy === 'CANCELLED'}>
-                      <XCircle className="h-4 w-4" />
-                      Anulează
-                    </Button>
-                    <Button type="button" variant="secondary" onClick={() => updateStatus('VOID')} isLoading={busy === 'VOID'}>
-                      VOID
-                    </Button>
-                  </>
+                  <Button type="button" variant="secondary" onClick={cancelDraftInvoice} isLoading={busy === 'CANCELLED'}>
+                    <XCircle className="h-4 w-4" />
+                    Anulează
+                  </Button>
                 ) : null}
               </div>
             </Card>

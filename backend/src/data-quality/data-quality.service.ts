@@ -1512,7 +1512,7 @@ export class DataQualityService {
         title: 'Draft lipsă',
         description: `Nu există draft de facturi pentru ${billingMonth}.`,
         recommendation: 'Calculează draftul după rezolvarea problemelor critice.',
-        actionUrl: '/admin/invoices/draft',
+        actionUrl: '/admin/billing-drafts',
         billingImpact: DataQualityBillingImpact.AFFECTS_BILLING,
       });
     } else {
@@ -1526,7 +1526,7 @@ export class DataQualityService {
           title: 'Draft cu erori',
           description: `Draftul are ${currentDraft.errorsCount} erori.`,
           recommendation: 'Revizuiește draftul înainte de blocare.',
-          actionUrl: `/admin/invoices/draft/${currentDraft.id}/review`,
+          actionUrl: '/admin/billing-drafts?tab=invoices',
           billingImpact: DataQualityBillingImpact.BLOCKS_BILLING,
         });
       }
@@ -1540,7 +1540,7 @@ export class DataQualityService {
           title: 'Draft neblocat',
           description: 'Draftul este calculat, dar nu este blocat.',
           recommendation: 'Revizuiește și blochează draftul când datele sunt corecte.',
-          actionUrl: `/admin/invoices/draft/${currentDraft.id}/review`,
+          actionUrl: '/admin/billing-drafts?tab=invoices',
           billingImpact: DataQualityBillingImpact.AFFECTS_BILLING,
         });
       }
@@ -1554,7 +1554,7 @@ export class DataQualityService {
           title: 'Draft blocat fără facturi generate',
           description: 'Draftul este blocat, dar facturile finale nu au fost generate.',
           recommendation: 'Finalizează facturile din draftul blocat.',
-          actionUrl: `/admin/invoices/finalize/${currentDraft.id}`,
+          actionUrl: '/admin/billing-drafts?tab=invoices',
           billingImpact: DataQualityBillingImpact.AFFECTS_BILLING,
         });
       }

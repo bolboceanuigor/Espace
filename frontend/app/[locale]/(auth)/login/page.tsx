@@ -7,7 +7,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Building2, LockKeyhole, Mail, ShieldCheck, UserRound } from 'lucide-react';
 import { defaultLocale, isLocale } from '@/i18n';
 import { saveRealSession } from '@/lib/auth';
-import { clearDemoRole, demoOnboardingPath, setDemoRole, type DemoRole } from '@/lib/demo-auth';
+import { clearDemoRole, demoRolePath, setDemoRole, type DemoRole } from '@/lib/demo-auth';
 import { getApiBaseUrl } from '@/lib/runtime-config';
 
 const ENABLE_DEMO_LOGIN = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === 'true';
@@ -62,7 +62,7 @@ export default function LoginPage() {
 
   const enterAs = (role: DemoRole) => {
     setDemoRole(role);
-    router.replace(demoOnboardingPath(locale));
+    router.replace(demoRolePath(role, locale));
   };
 
   useEffect(() => {

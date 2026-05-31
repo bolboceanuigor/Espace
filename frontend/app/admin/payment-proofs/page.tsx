@@ -254,7 +254,7 @@ export default function AdminPaymentProofsPage() {
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="secondary" onClick={load} disabled={loading}>
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
+              Actualizează
             </Button>
             <ButtonLink href="/admin/payment-proofs?tab=issues" variant="secondary">
               <AlertTriangle className="h-4 w-4" />
@@ -271,7 +271,7 @@ export default function AdminPaymentProofsPage() {
       <section className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
         <StatCard label="Trimise" value={overview.submittedProofs} description="Așteaptă verificare" icon={<FileCheck2 className="h-5 w-5" />} />
         <StatCard label="În verificare" value={overview.inReviewProofs} description="Deschise de admin" icon={<ClockIcon />} tone={overview.inReviewProofs ? 'warning' : 'neutral'} />
-        <StatCard label="Acceptate" value={overview.acceptedProofs + overview.partiallyAcceptedProofs} description="Au creat payment" icon={<CheckCircle2 className="h-5 w-5" />} tone="success" />
+        <StatCard label="Acceptate" value={overview.acceptedProofs + overview.partiallyAcceptedProofs} description="Au creat plată" icon={<CheckCircle2 className="h-5 w-5" />} tone="success" />
         <StatCard label="Respinse" value={overview.rejectedProofs} description="Cu motiv vizibil" icon={<XCircle className="h-5 w-5" />} tone={overview.rejectedProofs ? 'danger' : 'neutral'} />
         <StatCard label="Total acceptat" value={formatMdl(overview.totalAcceptedAmount || 0)} description="Din dovezi verificate" icon={<FileCheck2 className="h-5 w-5" />} />
         <StatCard label="Probleme" value={overview.criticalIssuesCount + overview.warningsCount} description={`${overview.criticalIssuesCount} critice`} icon={<AlertTriangle className="h-5 w-5" />} tone={overview.criticalIssuesCount ? 'danger' : overview.warningsCount ? 'warning' : 'neutral'} />
@@ -279,8 +279,8 @@ export default function AdminPaymentProofsPage() {
 
       <Card>
         <div className="grid gap-3 lg:grid-cols-[1fr_190px_190px_auto]">
-          <Input label="Search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Factură, locatar, referință..." />
-          <Select label="Status" value={status} onChange={setStatus} options={([['', 'Toate'], ...Object.entries(statusLabels)] as Array<[string, string]>)} />
+          <Input label="Căutare" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Factură, locatar, referință..." />
+          <Select label="Status dovadă" value={status} onChange={setStatus} options={([['', 'Toate'], ...Object.entries(statusLabels)] as Array<[string, string]>)} />
           <Select label="Metodă" value={method} onChange={setMethod} options={([['', 'Toate'], ['MANUAL_BANK_TRANSFER', 'Transfer bancar'], ['CASH', 'Cash'], ['TERMINAL', 'Terminal'], ['CARD_EXTERNAL', 'Card extern'], ['OTHER', 'Altă metodă']] as Array<[string, string]>)} />
           <Button type="button" variant="secondary" onClick={load} className="self-end">
             <Search className="h-4 w-4" />
@@ -313,7 +313,7 @@ export default function AdminPaymentProofsPage() {
                   <button type="button" onClick={() => openDetail(proof)} className="text-left font-semibold text-primary hover:underline">
                     {proof.id.slice(0, 8)}
                   </button>
-                  {proof.warnings?.length ? <p className="mt-1 text-xs text-amber-700">{proof.warnings.length} warning-uri</p> : null}
+                  {proof.warnings?.length ? <p className="mt-1 text-xs text-amber-700">{proof.warnings.length} avertizări</p> : null}
                 </TableCell>
                 <TableCell>
                   <Link className="font-medium text-primary hover:underline" href={localizedPath(`/admin/invoices/${proof.invoiceId}`)}>

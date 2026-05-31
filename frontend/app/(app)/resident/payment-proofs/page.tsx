@@ -120,9 +120,9 @@ export default function ResidentPaymentProofsPage() {
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="secondary" onClick={load} disabled={loading}>
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
+              Actualizează
             </Button>
-            <ButtonLink href="/resident/invoices">
+            <ButtonLink href={localizedPath('/resident/invoices')}>
               <FileText className="h-4 w-4" />
               Vezi facturi
             </ButtonLink>
@@ -139,7 +139,7 @@ export default function ResidentPaymentProofsPage() {
 
       <Card>
         <div className="grid gap-3 md:grid-cols-[1fr_220px_auto]">
-          <Input label="Search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Factură, metodă, motiv..." />
+          <Input label="Căutare" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Factură, metodă, motiv..." />
           <label className="block space-y-1.5">
             <span className="text-sm font-medium text-foreground">Status</span>
             <select className="h-11 w-full rounded-2xl border border-border/70 bg-white px-4 text-sm" value={status} onChange={(event) => setStatus(event.target.value)}>

@@ -3,6 +3,7 @@ import { Role } from '@prisma/client';
 import type { Request } from 'express';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { getOrgId } from '../common/org-scope';
 import { CondoService } from './condo.service';
@@ -10,7 +11,7 @@ import { CreateAnnualSummaryDto } from './dto/create-annual-summary.dto';
 import { CreateAnnouncementDto } from './dto/create-announcement.dto';
 
 @Controller('api/condo')
-@UseGuards(RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class CondoController {
   constructor(private readonly condoService: CondoService) {}
 

@@ -335,7 +335,7 @@ export function AdminBillingOverviewPage() {
         rightSlot={
           <div className="flex flex-wrap gap-2">
             <ButtonLink href={localizedPath('/admin/billing/runs')} variant="secondary">Vezi procese anterioare</ButtonLink>
-            <ButtonLink href={localizedPath('/admin/invoices/draft')} variant="secondary">Calculează draft</ButtonLink>
+            <ButtonLink href={localizedPath('/admin/billing-drafts')} variant="secondary">Calculează draft</ButtonLink>
             <ButtonLink href={localizedPath('/admin/invoices')} variant="secondary">Vezi facturi</ButtonLink>
             <ButtonLink href={localizedPath(`/admin/reports/financial/monthly?billingMonth=${billingMonth}`)} variant="secondary">Raport financiar lunar</ButtonLink>
             <ButtonLink href={localizedPath('/admin/payments/reconciliation')} variant="secondary">Reconciliere plăți</ButtonLink>
@@ -500,7 +500,7 @@ export function BillingRunsListPage() {
                 <TableCell>
                   <div className="flex flex-wrap gap-2">
                     <ButtonLink href={localizedPath(`/admin/billing/runs/${run.id}`)} size="sm">Deschide</ButtonLink>
-                    {run.draftId ? <ButtonLink href={localizedPath(`/admin/invoices/draft/${run.draftId}/review`)} variant="secondary" size="sm">Draft</ButtonLink> : null}
+                    {run.draftId ? <ButtonLink href={localizedPath('/admin/billing-drafts?tab=invoices')} variant="secondary" size="sm">Draft</ButtonLink> : null}
                     <ButtonLink href={localizedPath(`/admin/invoices?billingMonth=${run.billingMonth}`)} variant="secondary" size="sm">Facturi</ButtonLink>
                   </div>
                 </TableCell>
@@ -657,8 +657,8 @@ export function BillingRunDetailPage() {
                 <p className="mt-1 text-sm text-muted-foreground">{data.nextAction.description}</p>
               </div>
               <div className="flex flex-wrap gap-2">
-                {data.draft?.id ? <ButtonLink href={localizedPath(`/admin/invoices/draft/${data.draft.id}/review`)} variant="secondary"><FileText className="h-4 w-4" /> Review draft</ButtonLink> : null}
-                {data.draft?.status === 'LOCKED' ? <ButtonLink href={localizedPath(`/admin/invoices/finalize/${data.draft.id}`)}><LockKeyhole className="h-4 w-4" /> Finalizare</ButtonLink> : null}
+                {data.draft?.id ? <ButtonLink href={localizedPath('/admin/billing-drafts?tab=invoices')} variant="secondary"><FileText className="h-4 w-4" /> Revizuire draft</ButtonLink> : null}
+                {data.draft?.status === 'LOCKED' ? <ButtonLink href={localizedPath('/admin/billing-drafts?tab=invoices')}><LockKeyhole className="h-4 w-4" /> Publicare internă</ButtonLink> : null}
                 {run.status !== 'FINALIZED' && run.status !== 'CANCELLED' ? (
                   <Button variant="secondary" onClick={() => setCancelOpen(true)}><XCircle className="h-4 w-4" /> Anulează</Button>
                 ) : null}

@@ -13,15 +13,15 @@ const statusLabels: Record<string, string> = {
   NEW: 'Noi',
   CONTACTED: 'Contactate',
   QUALIFIED: 'Calificate',
-  IN_ONBOARDING: 'In onboarding',
-  ONBOARDING: 'In onboarding',
+  IN_ONBOARDING: 'În onboarding',
+  ONBOARDING: 'În onboarding',
   CONVERTED: 'Convertite',
   CLOSED: 'Respinse',
   REJECTED: 'Respinse',
   SPAM: 'Spam',
 };
-const priorityLabels: Record<string, string> = { LOW: 'Low', NORMAL: 'Normal', HIGH: 'High' };
-const typeLabels: Record<string, string> = { APC: 'APC', ADMINISTRATOR: 'Administrator', PROPERTY_MANAGER: 'Property manager', OTHER: 'Altceva' };
+const priorityLabels: Record<string, string> = { LOW: 'Scăzută', NORMAL: 'Normală', HIGH: 'Ridicată' };
+const typeLabels: Record<string, string> = { APC: 'APC', ADMINISTRATOR: 'Administrator', PROPERTY_MANAGER: 'Manager proprietăți', OTHER: 'Altceva' };
 const emptyConvertForm = {
   organizationName: '',
   legalName: '',
@@ -51,7 +51,7 @@ function Badge({ value, tone = 'slate' }: { value: string; tone?: 'slate' | 'eme
   return <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${classes[tone]}`}>{value}</span>;
 }
 
-export function CustomerRequestsListPage({ kanban = false, statsOnly = false, basePath = '/superadmin/customer-requests', title = 'Cereri acces', subtitle = 'Proceseaza cererile primite de la APC-uri si administratori interesati de Espace.' }: { kanban?: boolean; statsOnly?: boolean; basePath?: string; title?: string; subtitle?: string }) {
+export function CustomerRequestsListPage({ kanban = false, statsOnly = false, basePath = '/superadmin/customer-requests', title = 'Cereri acces', subtitle = 'Procesează cererile primite de la APC-uri și administratori interesați de Espace.' }: { kanban?: boolean; statsOnly?: boolean; basePath?: string; title?: string; subtitle?: string }) {
   const localizedPath = useLocalizedPath();
   const [data, setData] = useState<any>({ items: [], stats: {} });
   const [filters, setFilters] = useState({ search: '', status: '', city: '', type: '', priority: '' });
@@ -181,7 +181,7 @@ function Header({ title, subtitle, basePath }: { title: string; subtitle: string
           </Link>
           <Link href={localizedPath('/superadmin/customer-requests/stats')} className="inline-flex min-h-10 items-center gap-2 rounded-2xl border border-border/80 bg-card px-3 text-sm font-semibold text-foreground shadow-sm transition hover:bg-muted/65">
             <BarChart3 className="h-4 w-4" />
-            Stats
+            Statistici
           </Link>
         </div>
       }
@@ -194,10 +194,10 @@ function StatsGrid({ stats }: { stats: any }) {
     ['Noi', stats.NEW || 0],
     ['Contactate', stats.CONTACTED || 0],
     ['Calificate', stats.QUALIFIED || 0],
-    ['In onboarding', (stats.ONBOARDING || 0) + (stats.IN_ONBOARDING || 0)],
+    ['În onboarding', (stats.ONBOARDING || 0) + (stats.IN_ONBOARDING || 0)],
     ['Convertite', stats.CONVERTED || 0],
     ['Respinse', (stats.REJECTED || 0) + (stats.CLOSED || 0)],
-    ['Cereri luna curenta', stats.currentMonth || 0],
+    ['Cereri luna curentă', stats.currentMonth || 0],
     ['Ultima cerere', fmt(stats.lastRequestAt)],
   ];
   return <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{cards.map(([label, value]) => <StatCard key={label as string} label={label as string} value={value} />)}</div>;
@@ -268,11 +268,11 @@ export function CustomerRequestDetailsPage({ basePath = '/superadmin/customer-re
       note: convertForm.note.trim() || undefined,
     };
     if (!payload.organizationName || !payload.city || !payload.adminName || !payload.adminPhone) {
-      setConvertError('Completeaza numele organizatiei, orasul, numele si telefonul administratorului.');
+      setConvertError('Completează numele organizației, orașul, numele și telefonul administratorului.');
       return;
     }
     if (payload.adminEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.adminEmail)) {
-      setConvertError('Emailul administratorului nu este valid.');
+      setConvertError('E-mailul administratorului nu este valid.');
       return;
     }
     setConverting(true);
@@ -286,7 +286,7 @@ export function CustomerRequestDetailsPage({ basePath = '/superadmin/customer-re
       } else {
         await load();
       }
-      setSuccessMessage('Cererea a fost convertita. Onboarding initial creat.');
+      setSuccessMessage('Cererea a fost convertită. Onboarding inițial creat.');
       setConvertOpen(false);
     } catch (error: any) {
       setConvertError(String(error?.message || 'Nu am putut converti cererea.'));
@@ -315,18 +315,18 @@ export function CustomerRequestDetailsPage({ basePath = '/superadmin/customer-re
           ) : null}
           {isConverted ? (
             <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
-              <Badge value="Convertita" tone="emerald" />
-              <span>Onboarding initial creat</span>
+              <Badge value="Convertită" tone="emerald" />
+              <span>Onboarding inițial creat</span>
               {convertedOrganizationId ? (
                 <Link href={localizedPath(`/superadmin/organizations/${convertedOrganizationId}`)} className="font-semibold text-emerald-800 hover:underline">
-                  Deschide organizatia
+                  Deschide organizația
                 </Link>
               ) : null}
             </div>
           ) : null}
           {item.possibleDuplicate ? (
             <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-              Posibil duplicat: exista o cerere similara in ultimele 30 zile pentru acelasi contact si oras/adresa.
+              Posibil duplicat: există o cerere similară în ultimele 30 de zile pentru același contact și oraș/adresă.
             </div>
           ) : null}
           <div className="mt-4 flex flex-wrap gap-2">
@@ -354,8 +354,8 @@ export function CustomerRequestDetailsPage({ basePath = '/superadmin/customer-re
           <p className="mt-3 text-sm text-muted-foreground">Ultimul contact: {item.lastContactedAt ? new Date(item.lastContactedAt).toLocaleString('ro-MD') : '-'}</p>
         </section>
         <section className="grid gap-4 md:grid-cols-2">
-          <Info title="Date contact" rows={[['Nume', item.fullName], ['Telefon', item.phone], ['Email', item.email || '-'], ['Oras', item.city || '-'], ['Rol', item.contactRole || item.role || '-']]} />
-          <Info title="Date APC/asociatie" rows={[['Tip solicitant', typeLabels[item.type] || item.type || '-'], ['Asociatie', item.associationName || '-'], ['Nume legal', item.legalName || '-'], ['Cod APC', item.apcCode || item.associationCode || '-'], ['Adresa', item.address || '-'], ['Blocuri', item.blocksCount || '-'], ['Apartamente', item.apartmentsCount || '-']]} />
+          <Info title="Date contact" rows={[['Nume', item.fullName], ['Telefon', item.phone], ['E-mail', item.email || '-'], ['Oraș', item.city || '-'], ['Rol', item.contactRole || item.role || '-']]} />
+          <Info title="Date APC/asociație" rows={[['Tip solicitant', typeLabels[item.type] || item.type || '-'], ['Asociație', item.associationName || '-'], ['Nume legal', item.legalName || '-'], ['Cod APC', item.apcCode || item.associationCode || '-'], ['Adresă', item.address || '-'], ['Blocuri', item.blocksCount || '-'], ['Apartamente', item.apartmentsCount || '-']]} />
         </section>
         <section className="rounded-2xl border border-border/70 bg-card p-5 shadow-card">
           <h2 className="font-semibold text-foreground">Mesaj</h2>
@@ -406,7 +406,7 @@ export function CustomerRequestDetailsPage({ basePath = '/superadmin/customer-re
                 <h2 id="access-request-convert-title" className="text-lg font-semibold text-slate-950">Convertește cererea în organizație</h2>
                 <p className="mt-1 text-sm text-slate-500">Creează organizația, primul admin și statusul inițial de onboarding.</p>
               </div>
-              <button type="button" onClick={() => setConvertOpen(false)} disabled={converting} className="rounded-md border border-slate-200 px-3 py-2 text-sm">Inchide</button>
+              <button type="button" onClick={() => setConvertOpen(false)} disabled={converting} className="rounded-md border border-slate-200 px-3 py-2 text-sm">Închide</button>
             </div>
             <div className="mt-5 grid gap-3 md:grid-cols-2">
               <ConvertField label="Nume organizație/APC" value={convertForm.organizationName} onChange={(value) => setConvertForm({ ...convertForm, organizationName: value })} required />
@@ -417,7 +417,7 @@ export function CustomerRequestDetailsPage({ basePath = '/superadmin/customer-re
               <ConvertField label="Adresă" value={convertForm.address} onChange={(value) => setConvertForm({ ...convertForm, address: value })} />
               <ConvertField label="Nume administrator" value={convertForm.adminName} onChange={(value) => setConvertForm({ ...convertForm, adminName: value })} required />
               <ConvertField label="Telefon administrator" value={convertForm.adminPhone} onChange={(value) => setConvertForm({ ...convertForm, adminPhone: value })} required />
-              <ConvertField label="Email administrator" value={convertForm.adminEmail} onChange={(value) => setConvertForm({ ...convertForm, adminEmail: value })} type="email" />
+              <ConvertField label="E-mail administrator" value={convertForm.adminEmail} onChange={(value) => setConvertForm({ ...convertForm, adminEmail: value })} type="email" />
               <label className="flex min-h-10 items-center gap-2 rounded-md border border-slate-200 px-3 text-sm font-medium text-slate-700">
                 <input type="checkbox" checked={convertForm.sendInvite} onChange={(event) => setConvertForm({ ...convertForm, sendInvite: event.target.checked })} />
                 Trimite invitație
@@ -433,7 +433,7 @@ export function CustomerRequestDetailsPage({ basePath = '/superadmin/customer-re
               </p>
             ) : null}
             <div className="mt-5 flex flex-wrap justify-end gap-2">
-              <button type="button" onClick={() => setConvertOpen(false)} disabled={converting} className="rounded-md border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60">Anuleaza</button>
+              <button type="button" onClick={() => setConvertOpen(false)} disabled={converting} className="rounded-md border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60">Anulează</button>
               <button type="button" onClick={submitConversion} disabled={converting} className="rounded-md bg-slate-950 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
                 {converting ? 'Se convertește...' : 'Convertește în APC/client'}
               </button>

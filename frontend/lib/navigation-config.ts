@@ -60,7 +60,7 @@ export const NAVIGATION_CONFIG: NavigationItem[] = [
   { label: 'Drafturi facturi', href: '/admin/billing-drafts', icon: 'fileText', allowedRoles: ['ADMIN'], requiredModule: 'billingRun', mobileVisible: false, moreMenu: true },
   { label: 'Calitatea datelor', href: '/admin/data-quality', icon: 'listChecks', allowedRoles: ['ADMIN'], requiredModule: 'dataQuality', mobileVisible: false, moreMenu: true },
   { label: 'Facturi', href: '/admin/invoices', icon: 'fileText', allowedRoles: ['ADMIN'], requiredModule: 'internalInvoices', mobileVisible: true, moreMenu: false },
-  { label: 'Calcul facturi', href: '/admin/invoices/draft', icon: 'fileText', allowedRoles: ['ADMIN'], requiredModule: 'billingRun', mobileVisible: false, moreMenu: true },
+  { label: 'Calcul facturi', href: '/admin/billing-drafts', icon: 'fileText', allowedRoles: ['ADMIN'], requiredModule: 'billingRun', mobileVisible: false, moreMenu: true },
   { label: 'Plăți', href: '/admin/payments', icon: 'creditCard', allowedRoles: ['ADMIN'], requiredModule: 'manualPayments', mobileVisible: false, moreMenu: true },
   { label: 'Reconciliere', href: '/admin/payments/reconciliation', icon: 'chartColumnBig', allowedRoles: ['ADMIN'], requiredModule: 'manualPayments', mobileVisible: false, moreMenu: true },
   { label: 'Solicitări', href: '/admin/requests', icon: 'circleAlert', allowedRoles: ['ADMIN'], requiredModule: 'requests', mobileVisible: false, moreMenu: true },

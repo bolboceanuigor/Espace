@@ -433,7 +433,7 @@ export class SetupService {
             developmentFundFixed: true,
           },
         }),
-        this.prisma.invoice.count({ where: { organizationId } }),
+        this.prisma.billingDraftInvoice.count({ where: { organizationId } }),
       ]);
 
     if (!organization) throw new NotFoundException('Înregistrarea nu a fost găsită.');

@@ -1,8 +1,7 @@
 'use client';
 
-import { useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { Button, useToast } from '@/components/ui';
+import { Button } from '@/components/ui';
 import { organizationsApi } from '@/lib/api';
 
 type OnboardingWizardProps = {
@@ -13,18 +12,15 @@ type OnboardingWizardProps = {
 
 export default function OnboardingWizard({ isOpen, onClose, onCompleted }: OnboardingWizardProps) {
   const tActions = useTranslations('actions');
-  const tCommon = useTranslations('common');
-  const { showToast } = useToast();
-  const [loadingDemo, setLoadingDemo] = useState(false);
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
       <div className="w-full max-w-xl rounded-2xl border border-border/60 bg-card p-5 shadow-sm">
-        <h2 className="text-lg font-semibold text-foreground">Get started</h2>
+        <h2 className="text-lg font-semibold text-foreground">Configurare inițială</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Follow these 3 steps to understand the product quickly.
+          Parcurge pașii de bază pentru a pregăti organizația reală.
         </p>
 
         <div className="mt-4 space-y-3">
@@ -43,25 +39,6 @@ export default function OnboardingWizard({ isOpen, onClose, onCompleted }: Onboa
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={async () => {
-              setLoadingDemo(true);
-              try {
-                await organizationsApi.loadDemoData();
-                showToast(tCommon('saved'), 'success');
-                onCompleted();
-              } catch {
-                showToast(tCommon('error'), 'error');
-              } finally {
-                setLoadingDemo(false);
-              }
-            }}
-            disabled={loadingDemo}
-          >
-            {loadingDemo ? '...' : tActions('loadDemo')}
-          </Button>
           <Button
             size="sm"
             variant="secondary"

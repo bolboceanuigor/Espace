@@ -389,7 +389,7 @@ export default function AdminInvoicesPage() {
             </ButtonLink>
             <Button type="button" variant="secondary" onClick={load} isLoading={loading}>
               <RefreshCw className="h-4 w-4" />
-              Refresh
+              Actualizează
             </Button>
           </div>
         }

@@ -129,6 +129,9 @@ const LEDGER_INVOICE_STATUSES: BillingDraftInvoiceStatus[] = [
   BillingDraftInvoiceStatus.PAID,
 ];
 
+// Pilot finance source of truth: BillingDraftInvoice plus Payment.billingDraftInvoiceId.
+// Legacy ResidentInvoice/client-note invoice writes stay blocked so balances cannot diverge.
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
@@ -209,8 +212,9 @@ export class InvoicePublishingService {
       this.getIssuesForOrganization(organizationId, query),
     ]);
     const issuesByInvoice = this.issuesByInvoice(issues);
+    const paidByInvoice = await this.paidAmountsForInvoices(organizationId, rows.map((invoice) => invoice.id));
     return {
-      items: rows.map((invoice) => this.serializeAdminInvoice(invoice, issuesByInvoice.get(invoice.id) || [])),
+      items: rows.map((invoice) => this.serializeAdminInvoice(invoice, issuesByInvoice.get(invoice.id) || [], paidByInvoice.get(invoice.id) || 0)),
       meta: buildPaginationMeta(page, limit, total),
     };
   }
@@ -259,7 +263,7 @@ export class InvoicePublishingService {
       include: this.invoiceDetailInclude(),
     });
     if (!invoice) throw new NotFoundException('Factura nu a fost găsită.');
-    const [issues, activity, paymentProofs] = await Promise.all([
+    const [issues, activity, paymentProofs, paidAmount] = await Promise.all([
       this.getIssuesForOrganization(organizationId, { invoiceId: id }).then((items) => items.filter((issue) => issue.invoice?.id === id)),
       this.prisma.auditLog.findMany({
         where: { organizationId, entityId: id },
@@ -272,10 +276,11 @@ export class InvoicePublishingService {
         include: this.paymentProofInclude(),
         orderBy: [{ createdAt: 'desc' }],
       }),
+      this.paidAmountForInvoice(organizationId, id),
     ]);
     return {
       invoice: {
-        ...this.serializeAdminInvoiceDetail(invoice, issues),
+        ...this.serializeAdminInvoiceDetail(invoice, issues, paidAmount),
         paymentProofs: paymentProofs.map((proof) => this.serializeAdminPaymentProof(proof)),
         paymentProofsSummary: {
           submitted: paymentProofs.filter((proof) => proof.status === PaymentProofStatus.SUBMITTED).length,
@@ -737,7 +742,7 @@ export class InvoicePublishingService {
           invoiceNumber: invoice.invoiceNumber,
           remainingAmount: state.remainingAmount,
           possibleDuplicate: Boolean(duplicate),
-          uploadStorage: 'TODO_REAL_STORAGE',
+          uploadStorage: optionalString(payload.proofFileUrl) ? 'external_url' : null,
           realMoneyProcessed: false,
         },
       },
@@ -949,6 +954,7 @@ export class InvoicePublishingService {
           month: proof.invoice?.billingPeriod ? monthKey(proof.invoice.billingPeriod) : monthKey({ year: paidAt.getFullYear(), month: paidAt.getMonth() + 1 }),
         },
       });
+      await this.ensureReceiptForPayment(tx, payment);
       const row = await tx.paymentProof.update({
         where: { id: proof.id },
         data: {
@@ -1370,6 +1376,7 @@ export class InvoicePublishingService {
         },
         include: this.paymentLedgerInclude(),
       });
+      await this.ensureReceiptForPayment(tx, payment);
       if (invoice) await this.recalculateInvoicePaymentStatus(invoice.id, user.id, tx);
       return payment;
     });
@@ -1861,6 +1868,31 @@ export class InvoicePublishingService {
     const method = map[normalized];
     if (!method) throw new BadRequestException('Metoda de plată nu este validă.');
     return method;
+  }
+
+  private async ensureReceiptForPayment(client: Prisma.TransactionClient, payment: any) {
+    const organization = await client.organization.findUnique({
+      where: { id: payment.organizationId },
+      select: { receiptPrefix: true },
+    });
+    const paymentDate = payment.paidAt || payment.acceptedAt || payment.confirmedAt || new Date();
+    const stamp = new Date(paymentDate).toISOString().slice(0, 10).replace(/-/g, '');
+    const prefix = (organization?.receiptPrefix || 'RCPT').trim().toUpperCase();
+    await client.receipt.upsert({
+      where: { paymentId: payment.id },
+      create: {
+        organizationId: payment.organizationId,
+        apartmentId: payment.apartmentId,
+        paymentId: payment.id,
+        receiptNumber: `${prefix}-${stamp}-${payment.id.slice(0, 8).toUpperCase()}`,
+        amount: numberFromDecimal(payment.amount),
+        paymentDate,
+      },
+      update: {
+        amount: numberFromDecimal(payment.amount),
+        paymentDate,
+      },
+    });
   }
 
   private async recalculateInvoicePaymentStatus(invoiceId: string, actorUserId?: string | null, client: any = this.prisma) {
@@ -2563,9 +2595,9 @@ export class InvoicePublishingService {
     } satisfies Prisma.BillingDraftInvoiceInclude;
   }
 
-  private serializeAdminInvoice(invoice: any, issues: InvoiceIssue[]) {
+  private serializeAdminInvoice(invoice: any, issues: InvoiceIssue[], paidAmount = 0) {
     return {
-      ...this.serializeInvoiceBase(invoice),
+      ...this.serializeInvoiceBase(invoice, paidAmount),
       billingPeriod: invoice.billingPeriod,
       billingMonth: monthKey(invoice.billingPeriod),
       apartment: apartmentInfo(invoice.apartment),
@@ -2576,17 +2608,17 @@ export class InvoicePublishingService {
     };
   }
 
-  private serializeAdminInvoiceDetail(invoice: any, issues: InvoiceIssue[]) {
+  private serializeAdminInvoiceDetail(invoice: any, issues: InvoiceIssue[], paidAmount = 0) {
     return {
-      ...this.serializeAdminInvoice({ ...invoice, _count: { lines: invoice.lines?.length || 0 } }, issues),
+      ...this.serializeAdminInvoice({ ...invoice, _count: { lines: invoice.lines?.length || 0 } }, issues, paidAmount),
       publishedBy: invoice.publishedBy ? { id: invoice.publishedBy.id, name: fullName(invoice.publishedBy) || invoice.publishedBy.email } : null,
       lines: (invoice.lines || []).map((line: any) => this.serializeLine(line)),
     };
   }
 
-  private serializeInvoiceBase(invoice: any) {
+  private serializeInvoiceBase(invoice: any, paidAmountInput?: number) {
     const total = numberFromDecimal(invoice.total);
-    const paidAmount = invoice.status === BillingDraftInvoiceStatus.PAID ? total : 0;
+    const paidAmount = paidAmountInput === undefined ? (invoice.status === BillingDraftInvoiceStatus.PAID ? total : 0) : money(paidAmountInput);
     return {
       id: invoice.id,
       invoiceId: invoice.id,
@@ -2595,7 +2627,7 @@ export class InvoicePublishingService {
       total,
       totalAmount: total,
       paidAmount,
-      balanceAmount: Math.max(total - paidAmount, 0),
+      balanceAmount: money(Math.max(total - paidAmount, 0)),
       currency: invoice.currency,
       dueDate: invoice.dueDate,
       publishedAt: invoice.publishedAt,
@@ -2627,7 +2659,7 @@ export class InvoicePublishingService {
   }
 
   private serializeResidentInvoiceList(invoice: any, paidAmount = 0) {
-    const base = this.serializeInvoiceBase(invoice);
+    const base = this.serializeInvoiceBase(invoice, paidAmount);
     const billingMonth = monthKey(invoice.billingPeriod);
     const payment = this.paymentState(invoice, paidAmount);
     return {

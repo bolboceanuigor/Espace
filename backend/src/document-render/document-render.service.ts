@@ -14,6 +14,11 @@ import { MvpUser } from '../security/mvp-auth.guard';
 
 const INTERNAL_INVOICE_NOTE_TITLE = 'Internal invoices metadata';
 const INTERNAL_PAYMENT_NOTE_PREFIX = 'INTERNAL_INVOICE_PAYMENT:';
+const DOCUMENT_ACCEPTED_PAYMENT_STATUSES: PaymentStatus[] = [
+  PaymentStatus.ACCEPTED,
+  PaymentStatus.PARTIALLY_ACCEPTED,
+  PaymentStatus.CONFIRMED,
+];
 
 type InternalInvoiceMetadata = {
   id: string;
@@ -48,6 +53,11 @@ export class DocumentRenderService {
 
   async getAdminInternalInvoiceDocument(user: MvpUser, id: string) {
     const association = await this.getAssociation(user.organizationId);
+    const billingDraftInvoice = await this.findBillingDraftInvoice(user.organizationId, id);
+    if (billingDraftInvoice) {
+      const payments = await this.billingDraftPayments(user.organizationId, billingDraftInvoice.id);
+      return this.internalInvoiceDocument(association, this.billingDraftInvoiceMetadata(billingDraftInvoice, payments), payments, 'ADMIN');
+    }
     const invoice = await this.findInternalInvoice(user.organizationId, id);
     if (invoice) {
       const payments = await this.internalPaymentRows(user.organizationId, [invoice.invoiceId]);
@@ -59,6 +69,12 @@ export class DocumentRenderService {
   async getResidentInternalInvoiceDocument(user: MvpUser, id: string) {
     const apartmentIds = await this.residentApartmentIds(user);
     const association = await this.getAssociation(user.organizationId);
+    const billingDraftInvoice = await this.findBillingDraftInvoice(user.organizationId, id);
+    if (billingDraftInvoice) {
+      this.assertResidentApartment(billingDraftInvoice.apartmentId, apartmentIds);
+      const payments = await this.billingDraftPayments(user.organizationId, billingDraftInvoice.id);
+      return this.internalInvoiceDocument(association, this.billingDraftInvoiceMetadata(billingDraftInvoice, payments), payments, 'RESIDENT');
+    }
     const invoice = await this.findInternalInvoice(user.organizationId, id);
     if (invoice) {
       this.assertResidentApartment(invoice.apartmentId, apartmentIds);
@@ -306,6 +322,77 @@ export class DocumentRenderService {
     return (await this.readInternalInvoiceMetadata(organizationId)).find((item) => item.id === id || item.invoiceId === id) || null;
   }
 
+  private async findBillingDraftInvoice(organizationId: string, id: string) {
+    return this.prisma.billingDraftInvoice.findFirst({
+      where: {
+        organizationId,
+        OR: [{ id }, { invoiceNumber: id }],
+      },
+      include: {
+        billingPeriod: true,
+        apartment: { include: { staircase: true, building: true, residents: true, ownerResident: true } },
+        resident: true,
+        owner: true,
+        lines: { include: { meter: true }, orderBy: { createdAt: 'asc' } },
+      },
+    });
+  }
+
+  private async billingDraftPayments(organizationId: string, invoiceId: string) {
+    return this.prisma.payment.findMany({
+      where: { organizationId, billingDraftInvoiceId: invoiceId },
+      include: this.paymentInclude(),
+      orderBy: [{ paidAt: 'desc' }, { acceptedAt: 'desc' }, { createdAt: 'desc' }],
+    });
+  }
+
+  private billingDraftInvoiceMetadata(invoice: any, payments: any[] = []): InternalInvoiceMetadata {
+    const totalAmount = this.money(Number(invoice.total || 0));
+    const paidAmount = this.money(
+      payments
+        .filter((payment) => DOCUMENT_ACCEPTED_PAYMENT_STATUSES.includes(payment.status))
+        .reduce((sum, payment) => sum + Number(payment.amount || 0), 0),
+    );
+    const billingMonth = invoice.billingPeriod?.year && invoice.billingPeriod?.month
+      ? `${invoice.billingPeriod.year}-${String(invoice.billingPeriod.month).padStart(2, '0')}`
+      : '';
+    const primaryContact = invoice.resident || invoice.owner || invoice.apartment?.ownerResident || invoice.apartment?.residents?.[0] || null;
+    return {
+      id: invoice.id,
+      invoiceId: invoice.id,
+      associationId: invoice.organizationId,
+      organizationId: invoice.organizationId,
+      apartmentId: invoice.apartmentId,
+      invoiceNumber: invoice.invoiceNumber || invoice.id,
+      billingMonth,
+      issueDate: this.formatDate(invoice.publishedAt || invoice.createdAt) || new Date().toISOString(),
+      dueDate: this.formatDate(invoice.dueDate),
+      status: invoice.status,
+      currency: invoice.currency || 'MDL',
+      subtotalAmount: this.money(Number(invoice.subtotal || invoice.total || 0)),
+      totalAmount,
+      paidAmount,
+      balanceAmount: this.money(Math.max(totalAmount - paidAmount, 0)),
+      notes: invoice.publicNote || null,
+      apartment: this.apartmentDto(invoice.apartment),
+      primaryContact: this.residentDto(primaryContact),
+      sourceDraftId: invoice.billingPeriodId || null,
+      createdAt: this.formatDate(invoice.createdAt) || undefined,
+      lines: (invoice.lines || []).map((line: any) => ({
+        id: line.id,
+        lineType: line.meterId ? 'METER_CONSUMPTION' : 'SERVICE',
+        name: line.description || line.type || 'Linie factură',
+        description: line.description || null,
+        calculationType: line.type || null,
+        quantity: Number(line.quantity || 0),
+        unitPrice: Number(line.unitPrice || 0),
+        amount: Number(line.amount || 0),
+        formulaLabel: line.meter ? `${line.meter.type}${line.unit ? ` / ${line.unit}` : ''}` : null,
+        currency: line.currency || invoice.currency || 'MDL',
+      })),
+    };
+  }
+
   private internalInvoiceDocument(association: any, invoice: InternalInvoiceMetadata, payments: any[], audience: 'ADMIN' | 'RESIDENT') {
     const lines = (invoice.lines || []).map((line) => ({
       id: line.id,
@@ -428,6 +515,7 @@ export class DocumentRenderService {
   }
 
   private async invoiceForPayment(organizationId: string, payment: any) {
+    if (payment.billingDraftInvoice) return this.billingDraftInvoiceMetadata(payment.billingDraftInvoice, [payment]);
     const note = this.parseInternalPaymentNote(payment.note);
     if (note?.invoiceId) return this.findInternalInvoice(organizationId, note.invoiceId);
     if (payment.invoice) return null;
@@ -443,14 +531,14 @@ export class DocumentRenderService {
       audience,
       association,
       receipt: {
-        id: payment.id,
+        id: payment.receipts?.[0]?.id || payment.id,
         paymentNumber: this.paymentNumber(payment),
-        paymentDate: payment.paidAt || payment.confirmedAt || payment.createdAt,
-        amount: Number(payment.amount || 0),
+        paymentDate: payment.receipts?.[0]?.paymentDate || payment.paidAt || payment.confirmedAt || payment.createdAt,
+        amount: Number(payment.receipts?.[0]?.amount || payment.amount || 0),
         currency: payment.currency || 'MDL',
         method: note?.method || payment.method,
-        referenceNumber: note?.referenceNumber || payment.providerPaymentId || null,
-        payerName: note?.payerName || null,
+        referenceNumber: note?.referenceNumber || payment.externalReference || payment.providerPaymentId || null,
+        payerName: note?.payerName || (payment.residentUser ? this.userDto(payment.residentUser).fullName : null),
         note: note?.notes || payment.note || null,
         status: payment.status,
         cancellationReason: audience === 'ADMIN' ? note?.cancellationReason || null : null,
@@ -568,6 +656,17 @@ export class DocumentRenderService {
     return {
       apartment: { include: { staircase: true, building: true, residents: true } },
       invoice: true,
+      billingDraftInvoice: {
+        include: {
+          billingPeriod: true,
+          apartment: { include: { staircase: true, building: true, residents: true, ownerResident: true } },
+          resident: true,
+          owner: true,
+          lines: { include: { meter: true }, orderBy: { createdAt: 'asc' } },
+        },
+      },
+      receipts: { orderBy: { createdAt: 'desc' }, take: 1 },
+      residentUser: { select: { id: true, firstName: true, lastName: true, fullName: true, email: true } },
       createdBy: { select: { id: true, firstName: true, lastName: true, fullName: true, email: true } },
     } satisfies Prisma.PaymentInclude;
   }
@@ -594,8 +693,8 @@ export class DocumentRenderService {
       method: note?.method || payment.method,
       status: payment.status,
       paymentDate: payment.paidAt || payment.confirmedAt || payment.createdAt,
-      referenceNumber: note?.referenceNumber || payment.providerPaymentId || null,
-      payerName: note?.payerName || null,
+      referenceNumber: note?.referenceNumber || payment.externalReference || payment.providerPaymentId || null,
+      payerName: note?.payerName || (payment.residentUser ? this.userDto(payment.residentUser).fullName : null),
       cancellationReason: audience === 'ADMIN' ? note?.cancellationReason || null : null,
     };
   }
@@ -623,11 +722,22 @@ export class DocumentRenderService {
     };
   }
 
+  private residentDto(resident: any) {
+    if (!resident) return null;
+    return {
+      id: resident.id,
+      fullName: resident.fullName || [resident.firstName, resident.lastName].filter(Boolean).join(' ').trim() || resident.email || 'Locatar',
+      phone: resident.phone || null,
+      email: resident.email || null,
+    };
+  }
+
   private userDto(user: any) {
     return { id: user.id, fullName: user.fullName || [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.email, email: user.email };
   }
 
   private paymentNumber(payment: any) {
+    if (payment.receipts?.[0]?.receiptNumber) return payment.receipts[0].receiptNumber;
     const date = new Date(payment.paidAt || payment.confirmedAt || payment.createdAt || Date.now());
     const month = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}`;
     return `PAY-${month}-${String(payment.id || '').slice(0, 6).toUpperCase()}`;

@@ -51,6 +51,8 @@ import { TeamModule } from './team/team.module';
 import { AdminRbacModule } from './rbac/admin-rbac.module';
 import { AssociationContextModule } from './association-context/association-context.module';
 import { ConnectModule } from './connect/connect.module';
+import { CondoModule } from './condo/condo.module';
+import { VotesModule } from './votes/votes.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -115,6 +117,8 @@ import { AppController } from './app.controller';
     AdminRbacModule,
     AssociationContextModule,
     ConnectModule,
+    CondoModule,
+    VotesModule,
   ],
   controllers: [AppController],
   providers: [],
