@@ -9,13 +9,10 @@ import {
   Banknote,
   Bell,
   Building2,
-  CheckCircle2,
-  ClipboardCheck,
   CreditCard,
   Database,
   FileText,
   Gauge,
-  Home,
   Import,
   LineChart,
   Lock,
@@ -46,19 +43,18 @@ export function PublicNavbar() {
   const locale = useLocale();
   const [open, setOpen] = useState(false);
   const links = [
-    ['Platforma', '/platforma'],
+    ['Platformă', '/platforma'],
+    ['Funcționalități', '/functionalitati'],
     ['Administratori', '/pentru-administratori'],
     ['Locatari', '/pentru-locatari'],
-    ['Functionalitati', '/functionalitati'],
-    ['Preturi', '/preturi'],
     ['Contact', '/contact'],
   ];
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-[#F7F8F6]/90 backdrop-blur-xl">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
         <Link href={localized(locale, '/')} className="flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-950 text-white">E</span>
-          <span className="text-lg font-semibold text-slate-950">Espace</span>
+          <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#0F172A] text-sm font-semibold text-white shadow-sm">E</span>
+          <span className="text-lg font-semibold tracking-tight text-slate-950">Espace</span>
         </Link>
         <nav className="hidden items-center gap-7 md:flex">
           {links.map(([label, href]) => (
@@ -68,18 +64,19 @@ export function PublicNavbar() {
           ))}
         </nav>
         <div className="hidden items-center gap-3 md:flex">
-          <Link href={localized(locale, '/login')} className="text-sm font-medium text-slate-600 hover:text-slate-950">Autentificare</Link>
-          <Link href={localized(locale, '/cere-acces')} className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Cere acces</Link>
+          <Link href={localized(locale, '/login')} className="rounded-full px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-white hover:text-slate-950">Intră în platformă</Link>
+          <Link href={localized(locale, '/cere-acces')} className="rounded-full bg-[#145C55] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#104A45]">Cere acces</Link>
         </div>
         <button onClick={() => setOpen((value) => !value)} className="md:hidden" aria-label="Meniu">
           {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
       </div>
       {open ? (
-        <div className="border-t border-slate-200 bg-white px-4 py-4 md:hidden">
+        <div className="border-t border-slate-200 bg-[#F7F8F6] px-4 py-4 md:hidden">
           <div className="grid gap-2">
-            {links.map(([label, href]) => <Link key={href} href={localized(locale, href)} className="rounded-md px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">{label}</Link>)}
-            <Link href={localized(locale, '/cere-acces')} className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white">Cere acces</Link>
+            {links.map(([label, href]) => <Link key={href} href={localized(locale, href)} className="rounded-2xl px-3 py-2 text-sm font-medium text-slate-700 hover:bg-white">{label}</Link>)}
+            <Link href={localized(locale, '/login')} className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800">Intră în platformă</Link>
+            <Link href={localized(locale, '/cere-acces')} className="rounded-2xl bg-[#145C55] px-3 py-2 text-sm font-semibold text-white">Cere acces</Link>
           </div>
         </div>
       ) : null}
@@ -89,28 +86,28 @@ export function PublicNavbar() {
 
 export function PublicFooter() {
   const locale = useLocale();
-  const cols = [
-    ['Platforma', [['Platforma', '/platforma'], ['Functionalitati', '/functionalitati'], ['Securitate', '/securitate']]],
-    ['Pentru administratori', [['Administratori', '/pentru-administratori'], ['Preturi', '/preturi'], ['Cere acces', '/cere-acces']]],
-    ['Pentru locatari', [['Locatari', '/pentru-locatari'], ['Ajutor', '/ajutor'], ['Contact', '/contact']]],
-    ['Legal', [['Securitate', '/securitate'], ['Confidentialitate', '/confidentialitate'], ['Termeni', '/termeni'], ['Cookies', '/cookies'], ['Prelucrarea datelor', '/prelucrarea-datelor']]],
-    ['Contact', [['Contacteaza Espace', '/contact'], ['Incepe', '/incepe']]],
+  const links = [
+    ['Login', '/login'],
+    ['Cere acces', '/cere-acces'],
+    ['Contact', '/contact'],
   ] as const;
   return (
     <footer className="border-t border-slate-200 bg-white">
-      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-6 lg:px-8">
-        <div>
-          <div className="flex items-center gap-2"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-950 text-white">E</span><span className="font-semibold text-slate-950">Espace</span></div>
-          <p className="mt-4 text-sm leading-6 text-slate-500">Platforma SaaS pentru administrarea APC-urilor din Republica Moldova.</p>
-        </div>
-        {cols.map(([title, links]) => (
-          <div key={title}>
-            <h3 className="text-sm font-semibold text-slate-950">{title}</h3>
-            <div className="mt-3 grid gap-2">
-              {links.map(([label, href]) => <Link key={href} href={localized(locale, href)} className="text-sm text-slate-500 hover:text-slate-950">{label}</Link>)}
-            </div>
+      <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-10 sm:px-6 md:flex-row md:items-center md:justify-between lg:px-8">
+        <div className="max-w-md">
+          <div className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-2xl bg-[#0F172A] text-sm font-semibold text-white">E</span>
+            <span className="font-semibold text-slate-950">Espace</span>
           </div>
-        ))}
+          <p className="mt-3 text-sm leading-6 text-slate-500">Platformă pentru administrarea condominiilor.</p>
+        </div>
+        <nav className="flex flex-wrap gap-3">
+          {links.map(([label, href]) => (
+            <Link key={href} href={localized(locale, href)} className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:border-[#145C55]/30 hover:text-[#145C55]">
+              {label}
+            </Link>
+          ))}
+        </nav>
       </div>
     </footer>
   );
@@ -153,48 +150,48 @@ export function CookieBanner() {
 }
 
 function ProductMockup() {
+  const modules = [
+    ['Locatari', 'Profil, apartamente, acces portal'],
+    ['Facturi', 'Draft lunar, publicare, solduri'],
+    ['Contoare', 'Citiri, verificare, istoric'],
+    ['Connect', 'Mesaje legate de apartament'],
+  ];
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-xl shadow-slate-200/70">
-      <div className="rounded-lg bg-slate-50 p-4">
-        <div className="mb-4 flex items-center gap-2">
-          <span className="h-3 w-3 rounded-full bg-slate-300" />
-          <span className="h-3 w-3 rounded-full bg-slate-300" />
-          <span className="h-3 w-3 rounded-full bg-slate-300" />
-          <span className="ml-3 flex-1 rounded-md bg-white px-3 py-1 text-xs text-slate-400">espace.md/admin/billing</span>
-        </div>
-        <div className="grid gap-3 md:grid-cols-4">
-          {[
-            ['Apartamente', '142', Building2],
-            ['Facturi luna', '89', FileText],
-            ['Plati', '156 420 MDL', CreditCard],
-            ['Data Quality', '82/100', ShieldCheck],
-          ].map(([label, value, Icon]) => (
-            <div key={label as string} className="rounded-lg bg-white p-4">
-              <Icon className="h-4 w-4 text-emerald-600" />
-              <p className="mt-3 text-xs text-slate-500">{label as string}</p>
-              <p className="text-xl font-semibold text-slate-950">{value as string}</p>
+    <div className="relative rounded-[28px] border border-slate-200 bg-white p-3 shadow-[0_28px_80px_-48px_rgba(15,23,42,0.45)]">
+      <div className="grid overflow-hidden rounded-[22px] border border-slate-200 bg-[#F7F8F6] md:grid-cols-[170px_1fr]">
+        <aside className="hidden bg-[#0F172A] p-4 text-white md:block">
+          <div className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-2xl bg-white text-xs font-semibold text-[#145C55]">ES</span>
+            <span className="text-sm font-semibold">Espace</span>
+          </div>
+          <div className="mt-8 space-y-2 text-xs text-white/60">
+            {['Dashboard', 'Facturi', 'Contoare', 'Cereri'].map((item, index) => (
+              <div key={item} className={`rounded-2xl px-3 py-2 ${index === 1 ? 'bg-white/10 text-white' : ''}`}>{item}</div>
+            ))}
+          </div>
+        </aside>
+        <div className="p-4 sm:p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#145C55]">Workspace APC</p>
+              <h3 className="mt-1 text-lg font-semibold tracking-tight text-slate-950">Operațiuni lunare într-un singur loc</h3>
             </div>
-          ))}
-        </div>
-        <div className="mt-3 grid gap-3 md:grid-cols-[1.2fr_0.8fr]">
-          <div className="rounded-lg bg-white p-4">
-            <p className="font-semibold text-slate-950">Facturare lunara</p>
-            {['Verificari initiale', 'Calcul draft', 'Revizuire', 'Facturi finale'].map((item, index) => (
-              <div key={item} className="mt-3 flex items-center gap-3">
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-50 text-xs font-semibold text-emerald-700">{index + 1}</span>
-                <span className="text-sm text-slate-600">{item}</span>
+            <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600">Preview produs</span>
+          </div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            {modules.map(([title, text]) => (
+              <div key={title} className="rounded-2xl border border-slate-200 bg-white p-4">
+                <p className="text-sm font-semibold text-slate-950">{title}</p>
+                <p className="mt-1 text-xs leading-5 text-slate-500">{text}</p>
               </div>
             ))}
           </div>
-          <div className="rounded-lg bg-white p-4">
-            <p className="font-semibold text-slate-950">Portal locatar</p>
-            <div className="mt-3 rounded-lg bg-slate-950 p-4 text-white">
-              <p className="text-xs text-slate-300">Sold curent</p>
-              <p className="text-2xl font-semibold">1 240 MDL</p>
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-              <span className="rounded-md bg-slate-100 p-2 text-slate-700">Facturi</span>
-              <span className="rounded-md bg-slate-100 p-2 text-slate-700">Indici</span>
+          <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-4">
+            <p className="text-sm font-semibold text-slate-950">Flux facturare</p>
+            <div className="mt-3 grid gap-2 text-xs text-slate-600 sm:grid-cols-4">
+              {['Citiri', 'Draft', 'Revizuire', 'Publicare'].map((item) => (
+                <span key={item} className="rounded-full bg-[#E7F3EF] px-3 py-2 text-center font-semibold text-[#145C55]">{item}</span>
+              ))}
             </div>
           </div>
         </div>
@@ -229,13 +226,18 @@ function FeatureCard({ icon: Icon, title, text, badge }: { icon: any; title: str
 function CTASection() {
   const locale = useLocale();
   return (
-    <section className="bg-slate-950 py-20 text-white">
+    <section className="bg-[#0F172A] py-20 text-white">
       <div className="mx-auto max-w-4xl px-4 text-center">
-        <h2 className="text-3xl font-semibold md:text-4xl">Vrei sa administrezi asociatia mai clar?</h2>
-        <p className="mx-auto mt-4 max-w-2xl text-slate-300">Trimite o cerere si discutam pasii pentru activarea asociatiei in Espace.</p>
-        <Link href={localized(locale, '/cere-acces')} className="mt-8 inline-flex items-center gap-2 rounded-md bg-emerald-600 px-5 py-3 font-semibold text-white hover:bg-emerald-500">
-          Cere acces <ArrowRight className="h-4 w-4" />
-        </Link>
+        <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">Vrei să testezi Espace pentru asociația ta?</h2>
+        <p className="mx-auto mt-4 max-w-2xl text-slate-300">Trimite o cerere și discutăm pașii pentru activarea asociației în Espace.</p>
+        <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+          <Link href={localized(locale, '/cere-acces')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#145C55] px-5 font-semibold text-white hover:bg-[#176B60]">
+            Cere acces <ArrowRight className="h-4 w-4" />
+          </Link>
+          <Link href={localized(locale, '/login')} className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/15 bg-white px-5 font-semibold text-slate-950 hover:bg-white/90">
+            Intră în cont
+          </Link>
+        </div>
       </div>
     </section>
   );
@@ -303,29 +305,29 @@ export function AccessRequestForm({ source = 'ACCESS_REQUEST', compact = false }
     <form onSubmit={submit} className="space-y-4">
       <input className="hidden" tabIndex={-1} autoComplete="off" value={form.website} onChange={(e) => setForm((p) => ({ ...p, website: e.target.value }))} />
       <div className={`grid gap-3 ${compact ? 'md:grid-cols-2' : 'md:grid-cols-2'}`}>
-        <input required placeholder="Nume persoana contact" value={form.contactName} onChange={(e) => setForm((p) => ({ ...p, contactName: e.target.value }))} className="h-11 rounded-md border border-slate-200 px-3 text-sm" />
-        <input required placeholder="Telefon" value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} className="h-11 rounded-md border border-slate-200 px-3 text-sm" />
-        <input type="email" placeholder="Email optional" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} className="h-11 rounded-md border border-slate-200 px-3 text-sm" />
-        <input required placeholder="Oras" value={form.city} onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))} className="h-11 rounded-md border border-slate-200 px-3 text-sm" />
-        <select value={form.type} onChange={(e) => setForm((p) => ({ ...p, type: e.target.value }))} className="h-11 rounded-md border border-slate-200 px-3 text-sm">
+        <input required placeholder="Nume persoană contact" value={form.contactName} onChange={(e) => setForm((p) => ({ ...p, contactName: e.target.value }))} className="h-11 rounded-2xl border border-slate-200 px-3 text-sm outline-none focus:border-[#145C55]/40 focus:ring-2 focus:ring-[#145C55]/15" />
+        <input required placeholder="Telefon" value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} className="h-11 rounded-2xl border border-slate-200 px-3 text-sm outline-none focus:border-[#145C55]/40 focus:ring-2 focus:ring-[#145C55]/15" />
+        <input type="email" placeholder="Email opțional" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} className="h-11 rounded-2xl border border-slate-200 px-3 text-sm outline-none focus:border-[#145C55]/40 focus:ring-2 focus:ring-[#145C55]/15" />
+        <input required placeholder="Oraș" value={form.city} onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))} className="h-11 rounded-2xl border border-slate-200 px-3 text-sm outline-none focus:border-[#145C55]/40 focus:ring-2 focus:ring-[#145C55]/15" />
+        <select value={form.type} onChange={(e) => setForm((p) => ({ ...p, type: e.target.value }))} className="h-11 rounded-2xl border border-slate-200 px-3 text-sm outline-none focus:border-[#145C55]/40 focus:ring-2 focus:ring-[#145C55]/15">
           <option value="APC">APC / asociatie</option>
           <option value="ADMINISTRATOR">Administrator</option>
           <option value="PROPERTY_MANAGER">Property manager</option>
           <option value="OTHER">Altceva</option>
         </select>
-        <input placeholder="Denumire APC/asociatie optional" value={form.associationName} onChange={(e) => setForm((p) => ({ ...p, associationName: e.target.value }))} className="h-11 rounded-md border border-slate-200 px-3 text-sm" />
-        <input placeholder="Cod APC optional" value={form.apcCode} onChange={(e) => setForm((p) => ({ ...p, apcCode: e.target.value }))} className="h-11 rounded-md border border-slate-200 px-3 text-sm" />
-        <input placeholder="Adresa optional" value={form.address} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} className="h-11 rounded-md border border-slate-200 px-3 text-sm" />
-        <input type="number" min={1} placeholder="Numar aproximativ apartamente" value={form.apartmentsCount} onChange={(e) => setForm((p) => ({ ...p, apartmentsCount: e.target.value }))} className="h-11 rounded-md border border-slate-200 px-3 text-sm" />
-        <input placeholder="Rol optional" value={form.contactRole} onChange={(e) => setForm((p) => ({ ...p, contactRole: e.target.value }))} className="h-11 rounded-md border border-slate-200 px-3 text-sm" />
+        <input placeholder="Denumire APC/asociație opțional" value={form.associationName} onChange={(e) => setForm((p) => ({ ...p, associationName: e.target.value }))} className="h-11 rounded-2xl border border-slate-200 px-3 text-sm outline-none focus:border-[#145C55]/40 focus:ring-2 focus:ring-[#145C55]/15" />
+        <input placeholder="Cod APC opțional" value={form.apcCode} onChange={(e) => setForm((p) => ({ ...p, apcCode: e.target.value }))} className="h-11 rounded-2xl border border-slate-200 px-3 text-sm outline-none focus:border-[#145C55]/40 focus:ring-2 focus:ring-[#145C55]/15" />
+        <input placeholder="Adresă opțional" value={form.address} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} className="h-11 rounded-2xl border border-slate-200 px-3 text-sm outline-none focus:border-[#145C55]/40 focus:ring-2 focus:ring-[#145C55]/15" />
+        <input type="number" min={1} placeholder="Număr aproximativ apartamente" value={form.apartmentsCount} onChange={(e) => setForm((p) => ({ ...p, apartmentsCount: e.target.value }))} className="h-11 rounded-2xl border border-slate-200 px-3 text-sm outline-none focus:border-[#145C55]/40 focus:ring-2 focus:ring-[#145C55]/15" />
+        <input placeholder="Rol opțional" value={form.contactRole} onChange={(e) => setForm((p) => ({ ...p, contactRole: e.target.value }))} className="h-11 rounded-2xl border border-slate-200 px-3 text-sm outline-none focus:border-[#145C55]/40 focus:ring-2 focus:ring-[#145C55]/15" />
       </div>
-      <textarea placeholder="Mesaj optional" value={form.message} onChange={(e) => setForm((p) => ({ ...p, message: e.target.value }))} className="min-h-[120px] w-full rounded-md border border-slate-200 p-3 text-sm" />
+      <textarea placeholder="Mesaj opțional" value={form.message} onChange={(e) => setForm((p) => ({ ...p, message: e.target.value }))} className="min-h-[120px] w-full rounded-2xl border border-slate-200 p-3 text-sm outline-none focus:border-[#145C55]/40 focus:ring-2 focus:ring-[#145C55]/15" />
       <label className="flex items-start gap-2 text-sm text-slate-600">
         <input required type="checkbox" checked={form.consent} onChange={(e) => setForm((p) => ({ ...p, consent: e.target.checked }))} className="mt-1" />
         Sunt de acord sa fiu contactat pentru discutarea activarii asociatiei in Espace.
       </label>
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
-      <button disabled={saving} className="inline-flex h-11 items-center justify-center rounded-md bg-emerald-600 px-5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60">
+      <button disabled={saving} className="inline-flex h-11 items-center justify-center rounded-full bg-[#145C55] px-5 text-sm font-semibold text-white hover:bg-[#104A45] disabled:opacity-60">
         {saving ? 'Se trimite...' : 'Trimite cererea'}
       </button>
     </form>
@@ -334,68 +336,102 @@ export function AccessRequestForm({ source = 'ACCESS_REQUEST', compact = false }
 
 function HomePageContent() {
   const locale = useLocale();
-  const problems = ['Excel-uri greu de mentinut', 'Facturi si plati greu de urmarit', 'Indici colectati manual', 'Locatari greu de informat', 'Restante greu de verificat', 'Erori inainte de facturare'];
-  const workflow = ['Verificari initiale', 'Tarife', 'Contoare', 'Calcul draft', 'Revizuire', 'Blocare draft', 'Facturi finale', 'Plati si reconciliere'];
+  const moduleCards = [
+    [Users, 'Locatari & apartamente', 'Evidență pentru blocuri, scări, apartamente, proprietari și locatari.'],
+    [ReceiptText, 'Facturi & solduri', 'Flux lunar pentru drafturi, publicare facturi, solduri și istoric financiar.'],
+    [Gauge, 'Contoare & citiri', 'Contoare, citiri lunare și verificări înainte de facturare.'],
+    [MessageCircle, 'Cereri locatari', 'Solicitări urmărite clar, cu statusuri și răspunsuri din partea administrației.'],
+    [Bell, 'Documente & anunțuri', 'Comunicări, avizier și documente importante pentru asociație.'],
+    [ShieldCheck, 'Espace Connect', 'Conversații legate de apartament, factură, contor, plată sau cerere.'],
+  ] as const;
+  const roles = [
+    [ShieldCheck, 'Superadmin Espace', 'Procesează APC-uri, onboarding, contracte și status client.'],
+    [Building2, 'Administrator APC', 'Gestionează blocuri, locatari, facturi, plăți, contoare și cereri.'],
+    [Smartphone, 'Locatar', 'Vede facturi, sold, plăți, citiri și poate trimite cereri.'],
+  ] as const;
+  const moldovaItems = [
+    'APC / condominiu',
+    'Blocuri, scări, apartamente',
+    'Facturi lunare',
+    'Contoare și citiri',
+    'Comunicare cu locatarii',
+  ];
   return (
     <>
-      <section className="bg-white py-16 md:py-24">
-        <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:px-8">
-          <div>
-            <p className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700">Platforma functionala pentru APC-uri din Moldova</p>
-            <h1 className="mt-6 text-4xl font-semibold tracking-tight text-slate-950 md:text-6xl">Administrarea asociatiei tale, intr-o platforma clara si moderna.</h1>
-            <p className="mt-6 text-lg leading-8 text-slate-600">Espace centralizeaza apartamentele, locatarii, facturile, platile, contoarele, solicitarile si comunicarea cu locatarii pentru APC-uri care vor ordine si transparenta.</p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link href={localized(locale, '/cere-acces')} className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-5 py-3 font-semibold text-white hover:bg-emerald-700">Cere acces <ArrowRight className="h-4 w-4" /></Link>
-              <Link href={localized(locale, '/functionalitati')} className="rounded-md border border-slate-200 px-5 py-3 font-semibold text-slate-700 hover:bg-slate-50">Vezi functionalitatile</Link>
+      <section className="relative overflow-hidden bg-[#F7F8F6] py-16 md:py-24">
+        <div className="absolute inset-x-0 top-0 h-64 bg-gradient-to-b from-[#E7F3EF] to-transparent" />
+        <div className="relative mx-auto grid max-w-7xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-[0.92fr_1.08fr] lg:px-8">
+          <div className="max-w-2xl">
+            <p className="inline-flex rounded-full border border-[#145C55]/15 bg-white px-3 py-1 text-sm font-semibold text-[#145C55] shadow-sm">
+              SaaS pentru administrarea condominiilor
+            </p>
+            <h1 className="mt-6 text-4xl font-semibold tracking-tight text-slate-950 md:text-6xl">
+              Platformă modernă pentru administrarea condominiilor
+            </h1>
+            <p className="mt-6 text-lg leading-8 text-slate-600">
+              Espace ajută administratorii APC să gestioneze locatari, apartamente, contoare, facturi, plăți, cereri și comunicarea într-un singur loc.
+            </p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Link href={localized(locale, '/cere-acces')} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#145C55] px-6 text-sm font-semibold text-white shadow-sm hover:bg-[#104A45]">
+                Cere acces <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link href={localized(locale, '/login')} className="inline-flex min-h-12 items-center justify-center rounded-full border border-slate-200 bg-white px-6 text-sm font-semibold text-slate-800 shadow-sm hover:border-[#145C55]/30 hover:text-[#145C55]">
+                Intră în platformă
+              </Link>
             </div>
+            <p className="mt-5 text-sm leading-6 text-slate-500">
+              Construit pentru procese reale de administrare: evidență, facturare, solduri, citiri și comunicare.
+            </p>
           </div>
           <ProductMockup />
         </div>
       </section>
-      <section className="border-y border-slate-200 bg-slate-50 py-8">
-        <div className="mx-auto grid max-w-7xl gap-3 px-4 sm:grid-cols-2 sm:px-6 lg:grid-cols-4 lg:px-8">
-          {['Pentru APC-uri din Moldova', 'Facturare interna', 'Portal locatar', 'Onboarding asistat'].map((item) => <div key={item} className="rounded-lg bg-white p-4 text-sm font-semibold text-slate-700">{item}</div>)}
-        </div>
-      </section>
+
       <section className="bg-white py-20">
-        <SectionHeader title="Administrarea clasica inseamna timp pierdut si date imprastiate." text="Espace este construit pentru problemele practice ale administratorilor APC." />
-        <div className="mx-auto mt-10 grid max-w-6xl gap-3 px-4 sm:grid-cols-2 lg:grid-cols-3">
-          {problems.map((item) => <div key={item} className="rounded-lg border border-slate-200 bg-white p-5 text-slate-700">{item}</div>)}
+        <SectionHeader eyebrow="Module Espace" title="Procesele importante, puse într-un sistem clar." text="Cardurile de mai jos descriu capabilitățile produsului, fără date demonstrative sau statistici inventate." />
+        <div className="mx-auto mt-10 grid max-w-7xl gap-4 px-4 sm:px-6 md:grid-cols-2 lg:grid-cols-3 lg:px-8">
+          {moduleCards.map(([Icon, title, text]) => (
+            <FeatureCard key={title} icon={Icon} title={title} text={text} />
+          ))}
         </div>
       </section>
-      <section className="bg-slate-50 py-20">
-        <SectionHeader title="Espace aduce toate procesele intr-un singur loc." />
-        <FeatureGrid compact />
+
+      <section className="bg-[#F7F8F6] py-20">
+        <SectionHeader eyebrow="Pentru fiecare rol" title="Superadmin, Administrator și Locatar în aceeași platformă." />
+        <div className="mx-auto mt-10 grid max-w-6xl gap-4 px-4 sm:px-6 md:grid-cols-3 lg:px-8">
+          {roles.map(([Icon, title, text]) => (
+            <article key={title} className="rounded-[22px] border border-slate-200 bg-white p-6 shadow-card">
+              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#E7F3EF] text-[#145C55]">
+                <Icon className="h-5 w-5" />
+              </span>
+              <h3 className="mt-5 text-lg font-semibold tracking-tight text-slate-950">{title}</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600">{text}</p>
+            </article>
+          ))}
+        </div>
       </section>
+
       <section className="bg-white py-20">
-        <div className="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-2 lg:px-8">
-          <div><SectionHeader eyebrow="Admin workspace" title="Un workspace complet pentru administrator." text="Administratorul vede rapid ce trebuie verificat: contacte lipsa, tarife, indici, drafturi de facturi, plati si solduri restante." /></div>
-          <ProductMockup />
+        <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 sm:px-6 lg:grid-cols-[0.85fr_1.15fr] lg:px-8">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-wide text-[#145C55]">Pentru Republica Moldova</p>
+            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950 md:text-4xl">
+              Gândit pentru modul în care se administrează APC-urile și condominiile.
+            </h2>
+            <p className="mt-4 text-base leading-7 text-slate-600">
+              Espace organizează activitatea de zi cu zi pentru asociații care lucrează cu blocuri, scări, apartamente, facturi lunare, contoare și comunicare constantă cu locatarii.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {moldovaItems.map((item) => (
+              <div key={item} className="rounded-2xl border border-slate-200 bg-[#F7F8F6] p-5 text-sm font-semibold text-slate-800">
+                {item}
+              </div>
+            ))}
+          </div>
         </div>
       </section>
-      <section className="bg-slate-50 py-20">
-        <SectionHeader eyebrow="Portal locatar" title="Un portal simplu pentru locatari." text="Locatarii pot vedea facturile, istoricul platilor, anunturile si pot transmite solicitari sau indici direct din portal." />
-        <div className="mx-auto mt-10 grid max-w-5xl gap-3 px-4 sm:grid-cols-2 lg:grid-cols-3">
-          {['Facturile mele', 'Platile mele', 'Contoarele mele', 'Avizier', 'Solicitari', 'Profil'].map((item) => <div key={item} className="rounded-lg border border-slate-200 bg-white p-5 font-semibold text-slate-800">{item}</div>)}
-        </div>
-      </section>
-      <section className="bg-white py-20">
-        <SectionHeader title="Facturare lunara controlata pas cu pas." />
-        <div className="mx-auto mt-10 grid max-w-6xl gap-3 px-4 sm:grid-cols-2 lg:grid-cols-4">
-          {workflow.map((item, index) => <div key={item} className="rounded-lg border border-slate-200 p-5"><span className="text-sm font-semibold text-emerald-700">{index + 1}</span><p className="mt-2 font-semibold text-slate-950">{item}</p></div>)}
-        </div>
-      </section>
-      <section className="bg-slate-50 py-20">
-        <div className="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-2 lg:px-8">
-          <div><SectionHeader eyebrow="Data Quality" title="Mai putine greseli inainte de facturare." text="Espace evidentiaza datele lipsa sau inconsistente inainte sa afecteze facturarea." /></div>
-          <div className="rounded-lg border border-slate-200 bg-white p-6"><p className="text-sm text-slate-500">Data Quality Score</p><p className="mt-2 text-5xl font-semibold text-emerald-600">82/100</p><div className="mt-5 space-y-2 text-sm"><p>1 problema critica</p><p>12 warnings</p><p>Quick fixes disponibile</p></div></div>
-        </div>
-      </section>
-      <section className="bg-white py-20">
-        <SectionHeader title="Configurare asistata pentru prima asociatie." text="Primele date - apartamente, locatari, tarife, contoare si procesul lunar - pot fi configurate ghidat, ca sistemul sa fie pregatit corect." />
-        <div className="mt-8 text-center"><Link href={localized(locale, '/cere-acces')} className="rounded-md bg-emerald-600 px-5 py-3 font-semibold text-white">Cere acces pentru asociatia ta</Link></div>
-      </section>
-      <PricingPreview />
+
       <CTASection />
     </>
   );
@@ -466,19 +502,20 @@ function ResidentsPage() {
 function ContactPage({ access = false }: { access?: boolean }) {
   const locale = useLocale();
   return (
-    <section className="bg-slate-50 py-16">
+    <section className="bg-[#F7F8F6] py-16">
       <div className="mx-auto grid max-w-6xl gap-8 px-4 sm:px-6 lg:grid-cols-[0.8fr_1.2fr] lg:px-8">
         <div>
-          <h1 className="text-4xl font-semibold text-slate-950">{access ? 'Cere acces pentru asociatia ta' : 'Contacteaza Espace'}</h1>
-          <p className="mt-4 leading-7 text-slate-600">{access ? 'Trimite datele de contact si discutam pasii pentru activarea asociatiei in Espace.' : 'Pentru asociatii interesate de activare, completeaza formularul si vei fi contactat pentru pasii urmatori.'}</p>
-          <div className="mt-6 rounded-lg border border-slate-200 bg-white p-5 text-sm text-slate-600"><Phone className="mb-3 h-5 w-5 text-emerald-700" />Implementarea se face asistat, ca datele asociatiei sa fie configurate corect de la inceput.</div>
+          <p className="text-sm font-semibold uppercase tracking-wide text-[#145C55]">Espace</p>
+          <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-950">{access ? 'Cere acces pentru asociația ta' : 'Contactează Espace'}</h1>
+          <p className="mt-4 leading-7 text-slate-600">{access ? 'Trimite datele de contact și discutăm pașii pentru activarea asociației în Espace.' : 'Pentru asociații interesate de activare, completează formularul și vei fi contactat pentru pașii următori.'}</p>
+          <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 text-sm leading-6 text-slate-600 shadow-card"><Phone className="mb-3 h-5 w-5 text-[#145C55]" />Implementarea se face asistat, ca datele asociației să fie configurate corect de la început.</div>
           {!access ? (
-            <div className="mt-3 rounded-lg border border-slate-200 bg-white p-5 text-sm text-slate-600">
-              Pentru intrebari despre confidentialitate, termeni sau securitate, consulta <Link href={localized(locale, '/legal')} className="font-semibold text-emerald-700">Legal & Trust</Link>.
+            <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-600 shadow-card">
+              Pentru întrebări despre confidențialitate, termeni sau securitate, consultă <Link href={localized(locale, '/legal')} className="font-semibold text-[#145C55]">Legal & Trust</Link>.
             </div>
           ) : null}
         </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-5"><AccessRequestForm source={access ? 'ACCESS_REQUEST' : 'CONTACT_PAGE'} /></div>
+        <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-card"><AccessRequestForm source={access ? 'ACCESS_REQUEST' : 'CONTACT_PAGE'} /></div>
       </div>
     </section>
   );
@@ -495,7 +532,7 @@ function HelpLandingPage() {
 
 export function PublicWebsitePage({ page = 'home' }: { page?: PageKind }) {
   return (
-    <div className="min-h-screen bg-white text-slate-950">
+    <div className="min-h-screen bg-[#F7F8F6] text-slate-950">
       <PublicNavbar />
       {page === 'home' ? <HomePageContent /> : null}
       {page === 'platform' ? <PlatformPage /> : null}

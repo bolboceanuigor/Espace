@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useState } from 'react';
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { Building2, LockKeyhole, Mail, ShieldCheck, UserRound } from 'lucide-react';
@@ -64,6 +65,29 @@ export default function LoginPage() {
     router.replace(demoOnboardingPath(locale));
   };
 
+  useEffect(() => {
+    router.prefetch(`/${locale}/superadmin`);
+    router.prefetch(`/${locale}/admin`);
+    router.prefetch(`/${locale}/resident`);
+    if (!apiBaseUrl) return;
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 2500);
+    fetch(`${apiBaseUrl}/api/health/liveness`, {
+      cache: 'no-store',
+      signal: controller.signal,
+    })
+      .catch(() => {
+        // Best-effort warm-up only; login remains the source of truth.
+      })
+      .finally(() => window.clearTimeout(timeout));
+
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [apiBaseUrl, locale, router]);
+
   const submitRealLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const normalizedEmail = email.trim();
@@ -117,27 +141,30 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen bg-background px-4 py-8">
+    <main className="min-h-screen bg-[#F7F8F6] px-4 py-8">
       <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-5xl items-center justify-center">
-        <section className="w-full overflow-hidden rounded-2xl border border-border bg-card shadow-card-hover">
+        <section className="w-full overflow-hidden rounded-[28px] border border-border bg-card shadow-[0_28px_80px_-48px_rgba(15,23,42,0.45)]">
           <div className="grid lg:grid-cols-[0.9fr_1.1fr]">
             {/* Left Panel - Branding */}
-            <div className="bg-foreground p-6 text-background md:p-8">
-              <div className="flex size-12 items-center justify-center rounded-xl bg-accent text-xl font-bold text-accent-foreground">E</div>
+            <div className="bg-[#0F172A] p-6 text-white md:p-8">
+              <div className="flex size-12 items-center justify-center rounded-2xl bg-white text-xl font-bold text-[#145C55]">E</div>
               <h1 className="mt-8 text-3xl font-semibold tracking-tight md:text-4xl">Espace</h1>
               <p className="mt-4 max-w-sm text-sm leading-6 text-background/75">
-                Intră în platforma pentru condominii și A.P.C. din Republica Moldova.
+                Intră în platforma pentru administrarea condominiilor și A.P.C.-urilor din Republica Moldova.
               </p>
-              <div className="mt-8 rounded-xl border border-white/15 bg-white/10 p-4 text-sm text-background/80">
-                Autentificarea reală folosește backend-ul Espace și datele A.P.C. din Supabase.
+              <div className="mt-8 rounded-2xl border border-white/15 bg-white/10 p-4 text-sm leading-6 text-white/75">
+                Ai acces la locatari, apartamente, facturi, plăți, contoare, cereri și Espace Connect în funcție de rolul contului.
               </div>
             </div>
 
             {/* Right Panel - Form */}
             <div className="p-5 md:p-8">
               <div className="mb-6">
-                <p className="text-sm font-semibold text-muted-foreground">Intră în platformă</p>
-                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">Autentificare</h2>
+                <p className="text-sm font-semibold text-[#145C55]">Intră în platformă</p>
+                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">Autentificare Espace</h2>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  Folosește contul primit de la administratorul asociației sau de la echipa Espace.
+                </p>
               </div>
 
               <form onSubmit={submitRealLogin} className="space-y-4">
@@ -150,7 +177,7 @@ export default function LoginPage() {
                       value={email}
                       onChange={(event) => setEmail(event.target.value)}
                       autoComplete="email"
-                      className="h-12 w-full rounded-xl border border-border bg-background pl-10 pr-3 text-sm text-foreground outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                      className="h-12 w-full rounded-2xl border border-border bg-background pl-10 pr-3 text-sm text-foreground outline-none transition focus:border-[#145C55]/40 focus:ring-2 focus:ring-[#145C55]/15"
                       placeholder="email@espace.md"
                     />
                   </span>
@@ -164,7 +191,7 @@ export default function LoginPage() {
                       value={password}
                       onChange={(event) => setPassword(event.target.value)}
                       autoComplete="current-password"
-                      className="h-12 w-full rounded-xl border border-border bg-background pl-10 pr-3 text-sm text-foreground outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                      className="h-12 w-full rounded-2xl border border-border bg-background pl-10 pr-3 text-sm text-foreground outline-none transition focus:border-[#145C55]/40 focus:ring-2 focus:ring-[#145C55]/15"
                       placeholder="Parola contului"
                     />
                   </span>
@@ -182,7 +209,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="inline-flex h-12 w-full items-center justify-center rounded-xl bg-accent px-4 text-sm font-semibold text-accent-foreground shadow-button transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-12 w-full items-center justify-center rounded-full bg-[#145C55] px-4 text-sm font-semibold text-white shadow-button transition hover:bg-[#104A45] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSubmitting ? 'Se autentifică...' : 'Autentificare'}
                 </button>
@@ -227,7 +254,9 @@ export default function LoginPage() {
                 <Link href={`/${locale}`} className="font-semibold text-accent underline underline-offset-4 hover:text-accent/80">
                   Înapoi la prezentare
                 </Link>
-                <span>Login real pentru administratorii și locatarii A.P.C.</span>
+                <Link href={`/${locale}/cere-acces`} className="font-semibold text-[#145C55] underline underline-offset-4 hover:text-[#104A45]">
+                  Cere acces
+                </Link>
               </div>
             </div>
           </div>
