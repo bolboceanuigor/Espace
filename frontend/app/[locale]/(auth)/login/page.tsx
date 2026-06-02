@@ -1,7 +1,6 @@
 'use client';
 
 import { FormEvent, useState } from 'react';
-import { useEffect } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { Building2, LockKeyhole, Mail, ShieldCheck, UserRound } from 'lucide-react';
@@ -65,29 +64,6 @@ export default function LoginPage() {
     router.replace(demoRolePath(role, locale));
   };
 
-  useEffect(() => {
-    router.prefetch(`/${locale}/superadmin`);
-    router.prefetch(`/${locale}/admin`);
-    router.prefetch(`/${locale}/resident`);
-    if (!apiBaseUrl) return;
-
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 2500);
-    fetch(`${apiBaseUrl}/api/health/liveness`, {
-      cache: 'no-store',
-      signal: controller.signal,
-    })
-      .catch(() => {
-        // Best-effort warm-up only; login remains the source of truth.
-      })
-      .finally(() => window.clearTimeout(timeout));
-
-    return () => {
-      window.clearTimeout(timeout);
-      controller.abort();
-    };
-  }, [apiBaseUrl, locale, router]);
-
   const submitRealLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const normalizedEmail = email.trim();
@@ -125,7 +101,9 @@ export default function LoginPage() {
       }
       clearDemoRole();
       saveRealSession(accessToken, user);
-      router.replace(rolePath(user.role));
+      const destination = rolePath(user.role);
+      router.prefetch(destination);
+      router.replace(destination);
     } catch (loginError) {
       const message = loginError instanceof Error ? loginError.message : '';
       if (message === 'Nu există cont cu acest email.' || message === 'Parola nu este corectă.' || message === 'Emailul și parola sunt obligatorii.') {
