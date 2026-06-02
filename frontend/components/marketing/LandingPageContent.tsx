@@ -29,7 +29,7 @@ export default function LandingPageContent() {
             <Link href="/contact" className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white">
               Contact
             </Link>
-            <Link href="/login" className="rounded-xl border border-border/70 px-4 py-2.5 text-sm font-semibold text-foreground">
+            <Link href="/login" prefetch={false} className="rounded-xl border border-border/70 px-4 py-2.5 text-sm font-semibold text-foreground">
               Intră în platformă
             </Link>
             <Link href="/features" className="rounded-xl border border-border/70 px-4 py-2.5 text-sm font-semibold text-foreground">

@@ -36,6 +36,7 @@ export default function SignupPage() {
         </div>
         <Link
           href="/login"
+          prefetch={false}
           className="inline-flex justify-center py-3 px-6 rounded-lg text-sm font-medium text-white bg-black hover:opacity-90"
         >
           Intră în platformă

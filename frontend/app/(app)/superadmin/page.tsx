@@ -469,7 +469,7 @@ export default function SuperadminPage() {
                 icon={UserCog}
                 title="Gestionează administratori"
                 description="Vezi și editează conturile admin"
-                href={localizedPath('/superadmin/administrators')}
+                href={localizedPath('/superadmin/admins')}
               />
               <QuickActionCard
                 icon={Settings}

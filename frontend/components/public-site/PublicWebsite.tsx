@@ -64,7 +64,7 @@ export function PublicNavbar() {
           ))}
         </nav>
         <div className="hidden items-center gap-3 md:flex">
-          <Link href={localized(locale, '/login')} className="rounded-full px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-white hover:text-slate-950">Intră în platformă</Link>
+          <Link href={localized(locale, '/login')} prefetch={false} className="rounded-full px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-white hover:text-slate-950">Intră în platformă</Link>
           <Link href={localized(locale, '/cere-acces')} className="rounded-full bg-[#145C55] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#104A45]">Cere acces</Link>
         </div>
         <button onClick={() => setOpen((value) => !value)} className="md:hidden" aria-label="Meniu">
@@ -75,7 +75,7 @@ export function PublicNavbar() {
         <div className="border-t border-slate-200 bg-[#F7F8F6] px-4 py-4 md:hidden">
           <div className="grid gap-2">
             {links.map(([label, href]) => <Link key={href} href={localized(locale, href)} className="rounded-2xl px-3 py-2 text-sm font-medium text-slate-700 hover:bg-white">{label}</Link>)}
-            <Link href={localized(locale, '/login')} className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800">Intră în platformă</Link>
+            <Link href={localized(locale, '/login')} prefetch={false} className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800">Intră în platformă</Link>
             <Link href={localized(locale, '/cere-acces')} className="rounded-2xl bg-[#145C55] px-3 py-2 text-sm font-semibold text-white">Cere acces</Link>
           </div>
         </div>
@@ -234,7 +234,7 @@ function CTASection() {
           <Link href={localized(locale, '/cere-acces')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#145C55] px-5 font-semibold text-white hover:bg-[#176B60]">
             Cere acces <ArrowRight className="h-4 w-4" />
           </Link>
-          <Link href={localized(locale, '/login')} className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/15 bg-white px-5 font-semibold text-slate-950 hover:bg-white/90">
+          <Link href={localized(locale, '/login')} prefetch={false} className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/15 bg-white px-5 font-semibold text-slate-950 hover:bg-white/90">
             Intră în cont
           </Link>
         </div>
@@ -375,7 +375,7 @@ function HomePageContent() {
               <Link href={localized(locale, '/cere-acces')} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#145C55] px-6 text-sm font-semibold text-white shadow-sm hover:bg-[#104A45]">
                 Cere acces <ArrowRight className="h-4 w-4" />
               </Link>
-              <Link href={localized(locale, '/login')} className="inline-flex min-h-12 items-center justify-center rounded-full border border-slate-200 bg-white px-6 text-sm font-semibold text-slate-800 shadow-sm hover:border-[#145C55]/30 hover:text-[#145C55]">
+              <Link href={localized(locale, '/login')} prefetch={false} className="inline-flex min-h-12 items-center justify-center rounded-full border border-slate-200 bg-white px-6 text-sm font-semibold text-slate-800 shadow-sm hover:border-[#145C55]/30 hover:text-[#145C55]">
                 Intră în platformă
               </Link>
             </div>

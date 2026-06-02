@@ -87,6 +87,9 @@ function AppShellContent({ children }: AppShellProps) {
   
   const localeParam = typeof params?.locale === 'string' ? params.locale : defaultLocale;
   const locale = isLocale(localeParam) ? localeParam : defaultLocale;
+  const localizedPrefix = `/${locale}`;
+  const pathWithoutLocale =
+    pathname === localizedPrefix ? '/' : pathname.startsWith(`${localizedPrefix}/`) ? pathname.slice(localizedPrefix.length) : pathname;
   
   const previewRole = pathname.includes('/superadmin')
     ? 'SUPER_ADMIN'
@@ -135,9 +138,9 @@ function AppShellContent({ children }: AppShellProps) {
   // Role-based route protection
   useEffect(() => {
     if (loading || !activeUser || isPreviewSession) return;
-    const isSuperadminRoute = pathname.includes('/superadmin');
-    const isAdminRoute = pathname.includes('/admin');
-    const isResidentRoute = pathname.includes('/resident');
+    const isSuperadminRoute = pathWithoutLocale === '/superadmin' || pathWithoutLocale.startsWith('/superadmin/');
+    const isAdminRoute = pathWithoutLocale === '/admin' || pathWithoutLocale.startsWith('/admin/');
+    const isResidentRoute = pathWithoutLocale === '/resident' || pathWithoutLocale.startsWith('/resident/');
     if (isSuperadminRoute && normalizedRole !== 'SUPER_ADMIN') {
       router.replace(homeRoute);
       return;
@@ -149,7 +152,7 @@ function AppShellContent({ children }: AppShellProps) {
     if (isResidentRoute && normalizedRole !== 'RESIDENT') {
       router.replace(homeRoute);
     }
-  }, [activeUser, homeRoute, isPreviewSession, loading, pathname, router, normalizedRole]);
+  }, [activeUser, homeRoute, isPreviewSession, loading, pathWithoutLocale, router, normalizedRole]);
 
   // Fetch notifications
   useEffect(() => {

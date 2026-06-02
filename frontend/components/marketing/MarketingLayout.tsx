@@ -29,7 +29,7 @@ export default function MarketingLayout({ children }: MarketingLayoutProps) {
             <Link href="/contact" className="hover:text-foreground">
               {t('contact')}
             </Link>
-            <Link href="/login" className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white">
+            <Link href="/login" prefetch={false} className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white">
               Intră în platformă
             </Link>
           </nav>
