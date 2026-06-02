@@ -19,6 +19,15 @@ const emptyState: ReportsState = {
   retention: null,
 };
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string) {
+  return Promise.race<T>([
+    promise,
+    new Promise<T>((_, reject) => {
+      window.setTimeout(() => reject(new Error(`${label} timeout after ${timeoutMs}ms`)), timeoutMs);
+    }),
+  ]);
+}
+
 function money(value: unknown) {
   const amount = Number(value || 0);
   return amount.toLocaleString('ro-RO');
@@ -119,10 +128,10 @@ export default function SuperadminReportsPage() {
     setError(null);
 
     const results = await Promise.allSettled([
-      superadminApi.workbench(),
-      billingSaasApi.superadminUsageOverview({ limit: 8 }),
-      superadminRevenueApi.reports(),
-      superadminRetentionApi.reports(),
+      withTimeout(superadminApi.workbench(), 6000, 'workbench'),
+      withTimeout(billingSaasApi.superadminUsageOverview({ limit: 8 }), 6000, 'billing-usage'),
+      withTimeout(superadminRevenueApi.reports(), 6000, 'revenue-reports'),
+      withTimeout(superadminRetentionApi.reports(), 6000, 'retention-reports'),
     ]);
 
     const nextState: ReportsState = {
