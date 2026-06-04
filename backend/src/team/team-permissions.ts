@@ -371,9 +371,21 @@ export function resolvePermissions(
   overrides?: unknown,
 ): Record<TeamPermissionKey, boolean> {
   const defaults = DEFAULT_ROLE_PERMISSIONS[role] ?? DEFAULT_ROLE_PERMISSIONS.OPERATOR;
-  return { ...defaults, ...normalizePermissionOverrides(overrides) };
+  return applyPermissionAliases({ ...defaults, ...normalizePermissionOverrides(overrides) } as Record<TeamPermissionKey, boolean>);
 }
 
 export function permissionsToMap(keys: readonly TeamPermissionKey[]): Record<TeamPermissionKey, boolean> {
   return pickPermissions(withAliases(keys));
+}
+
+export function applyPermissionAliases(input: Record<TeamPermissionKey, boolean>): Record<TeamPermissionKey, boolean> {
+  const next = { ...input } as Record<TeamPermissionKey, boolean>;
+  if (next['requests.view']) next['issues.view'] = true;
+  if (next['requests.manage']) next['issues.manage'] = true;
+  if (next['audit_log.view']) next['audit.view'] = true;
+  if (next['apartments.view']) next['buildings.view'] = true;
+  if (next['apartments.manage']) next['buildings.manage'] = true;
+  if (next['settings.view']) next['suppliers.view'] = true;
+  if (next['settings.manage']) next['suppliers.manage'] = true;
+  return next;
 }

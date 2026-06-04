@@ -3,7 +3,7 @@ import { Reflector } from '@nestjs/core';
 import { AssociationRoleType, OrganizationMemberRole, OrganizationMemberStatus, PlatformRole, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PERMISSIONS_KEY } from './decorators/permissions.decorator';
-import { permissionKey, resolvePermissions, type PermissionActionKey, type PermissionModuleKey, type TeamPermissionKey } from '../team/team-permissions';
+import { applyPermissionAliases, permissionKey, resolvePermissions, type PermissionActionKey, type PermissionModuleKey, type TeamPermissionKey } from '../team/team-permissions';
 import { isLegacyAdminPermissionFallbackEnabled } from '../common/runtime-flags';
 
 type RequestUser = {
@@ -81,11 +81,11 @@ export class PermissionGuard implements CanActivate {
     if (!member.associationRole && member.role === OrganizationMemberRole.ORG_ADMIN) return true;
 
     const effective = member.associationRole
-      ? member.associationRole.rolePermissions.reduce<Record<string, boolean>>((acc, item) => {
+      ? applyPermissionAliases(member.associationRole.rolePermissions.reduce<Record<string, boolean>>((acc, item) => {
           const key = permissionKey(item.permission.module as PermissionModuleKey, item.permission.action as PermissionActionKey);
           acc[key] = item.allowed;
           return acc;
-        }, {})
+        }, {}) as any)
       : resolvePermissions(member.role, member.permissionsJson);
     const allowed = required.every((permission) => effective[permission] === true);
     if (!allowed) throw new ForbiddenException('Missing required permissions');

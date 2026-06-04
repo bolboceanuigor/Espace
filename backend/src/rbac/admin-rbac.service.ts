@@ -25,6 +25,7 @@ import {
   PERMISSION_ACTIONS,
   PERMISSION_DEFINITIONS,
   PERMISSION_MODULES,
+  applyPermissionAliases,
   permissionKey,
   permissionsToMap,
   resolvePermissions,
@@ -858,7 +859,7 @@ export class AdminRbacService {
           rolePermission.allowed;
       }
       return {
-        permissions,
+        permissions: applyPermissionAliases(permissions as any),
         role: {
           id: member.associationRole.id,
           name: member.associationRole.name,
