@@ -562,15 +562,15 @@
     },
     "productMockup": {
       "brand": "Espace",
-      "sidebar": ["Dashboard", "Facturi", "Contoare", "Cereri"],
+      "sidebar": ["Dashboard", "Apartamente", "Proprietari", "Prestatori servicii"],
       "eyebrow": "Workspace APC",
       "title": "Operatiuni lunare intr-un singur loc",
       "preview": "Preview produs",
       "modules": [
-        { "title": "Locatari", "text": "Profil, apartamente, acces portal" },
-        { "title": "Facturi", "text": "Draft lunar, publicare, solduri" },
-        { "title": "Contoare", "text": "Citiri, verificare, istoric" },
-        { "title": "Connect", "text": "Mesaje legate de apartament" }
+        { "title": "Apartamente și locatari", "text": "Structură pe blocuri, apartamente, proprietari și locatari." },
+        { "title": "Facturi și plăți", "text": "Draft lunar, publicare, solduri și plăți urmărite clar." },
+        { "title": "Prestatori servicii", "text": "Evidență pentru firme și colaboratori ai asociației." },
+        { "title": "Cereri și Connect", "text": "Solicitări, mentenanță și mesaje legate de apartament." }
       ],
       "flowTitle": "Flux facturare",
       "flowSteps": ["Citiri", "Draft", "Revizuire", "Publicare"]

@@ -562,15 +562,15 @@
     },
     "productMockup": {
       "brand": "Espace",
-      "sidebar": ["Dashboard", "Invoices", "Meters", "Requests"],
+      "sidebar": ["Dashboard", "Apartments", "Owners", "Service providers"],
       "eyebrow": "HOA workspace",
       "title": "Monthly operations in one place",
       "preview": "Product preview",
       "modules": [
-        { "title": "Residents", "text": "Profiles, apartments and portal access" },
-        { "title": "Invoices", "text": "Monthly draft, publishing and balances" },
-        { "title": "Meters", "text": "Readings, review and history" },
-        { "title": "Connect", "text": "Messages linked to each apartment" }
+        { "title": "Apartments and residents", "text": "Structure by buildings, apartments, owners and residents." },
+        { "title": "Invoices and payments", "text": "Monthly drafts, publishing, balances and tracked payments." },
+        { "title": "Service providers", "text": "Directory for association vendors and recurring contractors." },
+        { "title": "Requests and Connect", "text": "Requests, maintenance and messages linked to each apartment." }
       ],
       "flowTitle": "Billing flow",
       "flowSteps": ["Readings", "Draft", "Review", "Publish"]
