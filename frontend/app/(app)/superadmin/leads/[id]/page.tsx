@@ -32,13 +32,13 @@ export default function SuperadminLeadDetailsPage() {
     void load().catch(() => setLoading(false));
   }, [leadId, load]);
 
-  if (loading) return <div className="text-sm text-muted-foreground">Loading lead...</div>;
-  if (!lead) return <div className="text-sm text-destructive">Lead not found.</div>;
+  if (loading) return <div className="text-sm text-muted-foreground">Se încarcă lead-ul...</div>;
+  if (!lead) return <div className="text-sm text-destructive">Lead-ul nu a fost găsit.</div>;
 
   return (
     <div className="space-y-4">
       <button onClick={() => router.push(`/${locale}/superadmin/leads`)} className="text-sm text-primary hover:underline">
-        Back to leads
+        Înapoi la lead-uri
       </button>
 
       <div className="rounded-xl border border-border/70 bg-card p-4">
@@ -48,12 +48,12 @@ export default function SuperadminLeadDetailsPage() {
         <p className="text-xs text-muted-foreground mt-1">
           {lead.city || '-'} · {lead.source} · {lead.status}
         </p>
-        <p className="mt-2 whitespace-pre-wrap text-sm">{lead.notes || 'No notes yet.'}</p>
+        <p className="mt-2 whitespace-pre-wrap text-sm">{lead.notes || 'Nu există note încă.'}</p>
       </div>
 
       <div className="grid gap-2 md:grid-cols-4">
         <button className="rounded-md border border-border px-3 py-2 text-xs" onClick={async () => { await leadsApi.superadminUpdate(leadId, { status: 'DEMO_SCHEDULED' }); await load(); }}>
-          Schedule demo
+          Programează discuție
         </button>
         <button className="rounded-md border border-border px-3 py-2 text-xs" onClick={async () => { await leadsApi.superadminUpdate(leadId, { status: 'TRIAL_STARTED' }); await load(); }}>
           Start trial
@@ -67,14 +67,14 @@ export default function SuperadminLeadDetailsPage() {
       </div>
 
       <div className="rounded-xl border border-border/70 bg-card p-4 space-y-3">
-        <h2 className="text-sm font-semibold">Add activity</h2>
+        <h2 className="text-sm font-semibold">Adaugă activitate</h2>
         <div className="flex gap-2">
           <select value={activityType} onChange={(e) => setActivityType(e.target.value as any)} className="h-10 rounded-md border border-border bg-background px-3 text-sm">
             {ACTIVITY_TYPES.map((type) => (
               <option key={type} value={type}>{type}</option>
             ))}
           </select>
-          <input value={activityContent} onChange={(e) => setActivityContent(e.target.value)} className="h-10 flex-1 rounded-md border border-border bg-background px-3 text-sm" placeholder="Activity details..." />
+          <input value={activityContent} onChange={(e) => setActivityContent(e.target.value)} className="h-10 flex-1 rounded-md border border-border bg-background px-3 text-sm" placeholder="Detalii activitate..." />
           <button
             className="rounded-md bg-primary px-3 py-2 text-xs text-primary-foreground"
             onClick={async () => {
@@ -84,13 +84,13 @@ export default function SuperadminLeadDetailsPage() {
               await load();
             }}
           >
-            Add
+            Adaugă
           </button>
         </div>
       </div>
 
       <div className="rounded-xl border border-border/70 bg-card p-4">
-        <h2 className="mb-3 text-sm font-semibold">Activity timeline</h2>
+        <h2 className="mb-3 text-sm font-semibold">Istoric activitate</h2>
         <div className="space-y-2">
           {(lead.activities || []).map((activity: any) => (
             <div key={activity.id} className="rounded-lg border border-border/60 p-3">
@@ -99,7 +99,7 @@ export default function SuperadminLeadDetailsPage() {
               </p>
               <p className="mt-1 text-sm">{activity.content}</p>
               <p className="text-xs text-muted-foreground">
-                by {activity.createdByUser?.firstName || activity.createdByUser?.email || 'User'}
+                de {activity.createdByUser?.firstName || activity.createdByUser?.email || 'Utilizator'}
               </p>
             </div>
           ))}

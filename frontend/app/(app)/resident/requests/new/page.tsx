@@ -252,8 +252,8 @@ export default function ResidentRequestCreatePage() {
 
             <label className="grid gap-1.5 text-sm font-medium text-foreground">
               Link poză / atașament, opțional
-              <input className="input" value={form.attachmentUrl} onChange={(event) => updateForm('attachmentUrl', event.target.value)} placeholder="https://..." />
-              <span className="text-xs text-muted-foreground">Upload-ul real va fi conectat separat; nu lipi fișiere base64.</span>
+              <input className="input" value={form.attachmentUrl} onChange={(event) => updateForm('attachmentUrl', event.target.value)} placeholder="/uploads/..." />
+              <span className="text-xs text-muted-foreground">Se acceptă doar fișiere încărcate prin Espace. Linkurile externe nu mai sunt permise.</span>
             </label>
 
             <label className="grid gap-1.5 text-sm font-medium text-foreground">

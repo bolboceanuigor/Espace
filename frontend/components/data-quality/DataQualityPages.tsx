@@ -385,7 +385,7 @@ export function AdminDataQualityOverviewPage() {
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
                 <h2 className="text-base font-semibold text-foreground">Probleme detectate</h2>
-                <p className="mt-1 text-sm text-muted-foreground">Lista este calculată din datele organizației curente, fără date demo.</p>
+                <p className="mt-1 text-sm text-muted-foreground">Lista este calculată doar din datele organizației curente.</p>
               </div>
               <ButtonLink href={localizedPath('/admin/data-quality/issues?scope=ES177&status=OPEN')} variant="secondary" size="sm">Vezi toate</ButtonLink>
             </div>

@@ -4,6 +4,7 @@ import {
   OnlinePaymentProviderMode,
   OnlinePaymentProviderStatus,
   OnlinePaymentProviderType,
+  PaymentIntentEventType,
   PaymentIntentStatus,
   PaymentWebhookEventStatus,
   Prisma,
@@ -11,13 +12,14 @@ import {
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MvpUser } from '../security/mvp-auth.guard';
+import { areExternalPaymentsEnabled, isExternalPaymentProviderType } from '../common/runtime-flags';
 
 const PROVIDER_PRESETS = [
   {
     type: OnlinePaymentProviderType.MANUAL_TEST,
     code: 'MANUAL_TEST',
-    name: 'Manual Test Provider',
-    description: 'Provider intern pentru testarea flow-ului fără procesare reală de bani.',
+    name: 'Espace Internal Payments',
+    description: 'Provider intern Espace pentru validarea fluxului fără procesare bancară reală.',
     status: OnlinePaymentProviderStatus.TESTING,
     mode: OnlinePaymentProviderMode.TEST,
     isDefault: true,
@@ -28,13 +30,13 @@ const PROVIDER_PRESETS = [
     supportsRedirect: false,
     supportsWebhooks: true,
     configStatus: OnlinePaymentConfigStatus.CONFIGURED,
-    publicConfig: { displayName: 'Test payment', supportedCurrencies: ['MDL'], minAmount: 1, maxAmount: 100000 },
+    publicConfig: { displayName: 'Plată Espace', supportedCurrencies: ['MDL'], minAmount: 1, maxAmount: 100000 },
   },
   {
     type: OnlinePaymentProviderType.BPAY,
     code: 'BPAY',
     name: 'BPay',
-    description: 'Provider BPay placeholder. Integrarea reală va fi conectată ulterior.',
+    description: 'Integrare BPay în pregătire. Activarea procesării reale se face separat.',
     status: OnlinePaymentProviderStatus.DRAFT,
     mode: OnlinePaymentProviderMode.TEST,
     isDefault: false,
@@ -47,6 +49,10 @@ const PROVIDER_PRESETS = [
     configStatus: OnlinePaymentConfigStatus.NOT_CONFIGURED,
     publicConfig: { displayName: 'BPay', supportedCurrencies: ['MDL'] },
   },
+];
+
+const SUPPORTED_WEBHOOK_PROVIDER_TYPES: OnlinePaymentProviderType[] = [
+  OnlinePaymentProviderType.MANUAL_TEST,
 ];
 
 @Injectable()
@@ -165,6 +171,9 @@ export class PaymentProviderService {
     const status = this.enumValue(payload.status, OnlinePaymentProviderStatus, 'Status provider invalid.');
     const provider = await this.prisma.onlinePaymentProvider.findUnique({ where: { id } });
     if (!provider) throw new NotFoundException('Providerul nu a fost găsit.');
+    if (status === OnlinePaymentProviderStatus.ACTIVE && isExternalPaymentProviderType(provider.type) && !areExternalPaymentsEnabled()) {
+      throw new BadRequestException('Plățile externe sunt dezactivate în acest mediu.');
+    }
     if (status === OnlinePaymentProviderStatus.ACTIVE && provider.mode === OnlinePaymentProviderMode.LIVE && !this.liveConfigPresent(provider.type)) {
       throw new BadRequestException('Providerul LIVE nu poate fi activat fără environment variables configurate.');
     }
@@ -227,44 +236,240 @@ export class PaymentProviderService {
     if (!provider) {
       return { status: PaymentIntentStatus.PENDING_PROVIDER, reason: 'PROVIDER_NOT_CONFIGURED', message: 'Providerul de plăți nu este configurat.' };
     }
+    if (isExternalPaymentProviderType(provider.type) && !areExternalPaymentsEnabled()) {
+      return {
+        status: PaymentIntentStatus.PENDING_PROVIDER,
+        reason: 'EXTERNAL_PAYMENTS_DISABLED',
+        message: 'Plățile online reale sunt dezactivate în acest mediu.',
+      };
+    }
     if (provider.type === OnlinePaymentProviderType.MANUAL_TEST) {
       return {
         status: PaymentIntentStatus.CREATED,
         reason: null,
-        message: 'Intent de test creat. Nu se procesează bani.',
+        message: 'Intent intern creat. Nu se procesează bani.',
       };
     }
     if (provider.type === OnlinePaymentProviderType.BPAY) {
       return {
         status: this.configStatusFor(provider.type) === OnlinePaymentConfigStatus.CONFIGURED ? PaymentIntentStatus.PENDING_PROVIDER : PaymentIntentStatus.PENDING_PROVIDER,
         reason: this.configStatusFor(provider.type) === OnlinePaymentConfigStatus.CONFIGURED ? null : 'PROVIDER_NOT_CONFIGURED',
-        message: 'BPay este pregătit ca placeholder. Nu se trimite request real.',
+        message: 'BPay este pregătit pentru configurare. Nu se trimite request real în acest mediu.',
       };
     }
     return { status: PaymentIntentStatus.PENDING_PROVIDER, reason: 'PROVIDER_NOT_IMPLEMENTED', message: 'Providerul nu este implementat încă.' };
   }
 
   async parseWebhook(providerType: OnlinePaymentProviderType, payload: unknown, headers: Record<string, unknown>) {
+    if (isExternalPaymentProviderType(providerType) && !areExternalPaymentsEnabled()) {
+      throw new NotFoundException('Webhook-ul nu este disponibil în acest mediu.');
+    }
+    await this.ensurePresetProviders();
     const body = this.safeJson(payload);
-    const event = await this.prisma.paymentWebhookEvent.create({
-      data: {
+    const providerEventId = this.optionalString((body as Record<string, unknown>).providerEventId ?? (body as Record<string, unknown>).id);
+    if (!providerEventId) {
+      throw new BadRequestException('providerEventId este obligatoriu.');
+    }
+
+    const duplicate = await this.prisma.paymentWebhookEvent.findFirst({
+      where: { providerType, providerEventId },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (duplicate) {
+      return {
+        received: true,
+        ignored: true,
+        duplicate: true,
+        eventId: duplicate.id,
+        message: 'Evenimentul webhook a fost deja procesat.',
+      };
+    }
+
+    const paymentIntentId = this.optionalString((body as Record<string, unknown>).paymentIntentId ?? (body as Record<string, unknown>).intentId);
+    const provider = await this.prisma.onlinePaymentProvider.findFirst({ where: { type: providerType } });
+
+    if (!SUPPORTED_WEBHOOK_PROVIDER_TYPES.includes(providerType)) {
+      await this.createWebhookEvent({
         providerType,
-        providerEventId: typeof body.providerEventId === 'string' ? body.providerEventId : typeof body.id === 'string' ? body.id : null,
-        paymentIntentId: typeof body.paymentIntentId === 'string' ? body.paymentIntentId : null,
+        providerEventId,
+        paymentIntentId,
         status: PaymentWebhookEventStatus.IGNORED,
-        rawPayload: body,
-        headers: this.safeHeaders(headers),
+        payload: body,
+        headers,
         signatureValid: null,
-        errorMessage: 'Webhook skeleton: payload primit și ignorat. Nu se modifică factura.',
-        processedAt: new Date(),
+        errorMessage: 'Providerul nu are implementare webhook activă în Espace.',
+      });
+      throw new NotFoundException('Webhook-ul pentru acest provider nu este implementat în Espace.');
+    }
+
+    if (!provider || !provider.supportsWebhooks) {
+      await this.createWebhookEvent({
+        providerType,
+        providerEventId,
+        paymentIntentId,
+        status: PaymentWebhookEventStatus.FAILED,
+        payload: body,
+        headers,
+        signatureValid: null,
+        errorMessage: 'Providerul nu este configurat pentru webhooks.',
+      });
+      throw new BadRequestException('Providerul nu este configurat pentru webhooks.');
+    }
+
+    const signature = this.extractWebhookSignature(providerType, headers);
+    if (!signature) {
+      await this.createWebhookEvent({
+        providerType,
+        providerEventId,
+        paymentIntentId,
+        status: PaymentWebhookEventStatus.FAILED,
+        payload: body,
+        headers,
+        signatureValid: false,
+        errorMessage: 'Semnătura webhook lipsește.',
+      });
+      throw new BadRequestException('Semnătura webhook lipsește.');
+    }
+
+    const secret = this.webhookSecret(providerType);
+    if (!secret) {
+      await this.createWebhookEvent({
+        providerType,
+        providerEventId,
+        paymentIntentId,
+        status: PaymentWebhookEventStatus.FAILED,
+        payload: body,
+        headers,
+        signatureValid: false,
+        errorMessage: 'Secretul webhook nu este configurat.',
+      });
+      throw new BadRequestException('Secretul webhook nu este configurat.');
+    }
+
+    if (signature !== secret) {
+      await this.createWebhookEvent({
+        providerType,
+        providerEventId,
+        paymentIntentId,
+        status: PaymentWebhookEventStatus.FAILED,
+        payload: body,
+        headers,
+        signatureValid: false,
+        errorMessage: 'Semnătura webhook nu este validă.',
+      });
+      throw new BadRequestException('Semnătura webhook nu este validă.');
+    }
+
+    if (!paymentIntentId) {
+      await this.createWebhookEvent({
+        providerType,
+        providerEventId,
+        paymentIntentId: null,
+        status: PaymentWebhookEventStatus.FAILED,
+        payload: body,
+        headers,
+        signatureValid: true,
+        errorMessage: 'paymentIntentId este obligatoriu.',
+      });
+      throw new BadRequestException('paymentIntentId este obligatoriu.');
+    }
+
+    const intent = await this.prisma.paymentIntent.findUnique({ where: { id: paymentIntentId } });
+    if (!intent) {
+      await this.createWebhookEvent({
+        providerType,
+        providerEventId,
+        paymentIntentId,
+        status: PaymentWebhookEventStatus.FAILED,
+        payload: body,
+        headers,
+        signatureValid: true,
+        errorMessage: 'Intenția de plată nu a fost găsită.',
+      });
+      throw new NotFoundException('Intenția de plată nu a fost găsită.');
+    }
+
+    if (intent.providerType && intent.providerType !== providerType) {
+      await this.createWebhookEvent({
+        providerType,
+        providerEventId,
+        paymentIntentId,
+        status: PaymentWebhookEventStatus.FAILED,
+        payload: body,
+        headers,
+        signatureValid: true,
+        errorMessage: 'Providerul webhook nu corespunde intenției de plată.',
+      });
+      throw new BadRequestException('Providerul webhook nu corespunde intenției de plată.');
+    }
+
+    const outcome = this.manualTestWebhookOutcome(body);
+    const event = await this.createWebhookEvent({
+      providerType,
+      providerEventId,
+      paymentIntentId,
+      status: PaymentWebhookEventStatus.PROCESSED,
+      payload: body,
+      headers,
+      signatureValid: true,
+      errorMessage: null,
+    });
+
+    const metadataJson =
+      intent.metadataJson && typeof intent.metadataJson === 'object'
+        ? ({ ...(intent.metadataJson as Record<string, unknown>) } as Prisma.InputJsonObject)
+        : ({} as Prisma.InputJsonObject);
+
+    await this.prisma.paymentIntent.update({
+      where: { id: intent.id },
+      data: {
+        status: outcome.intentStatus,
+        providerPaymentId: this.optionalString((body as Record<string, unknown>).providerPaymentId) || intent.providerPaymentId || null,
+        providerReference: providerEventId,
+        succeededAt: outcome.intentStatus === PaymentIntentStatus.SUCCEEDED ? new Date() : intent.succeededAt,
+        failedAt: outcome.intentStatus === PaymentIntentStatus.FAILED ? new Date() : intent.failedAt,
+        failureReason: outcome.intentStatus === PaymentIntentStatus.FAILED ? outcome.message : null,
+        cancelledAt: outcome.intentStatus === PaymentIntentStatus.CANCELLED ? new Date() : intent.cancelledAt,
+        cancellationReason: outcome.intentStatus === PaymentIntentStatus.CANCELLED ? outcome.message : intent.cancellationReason,
+        metadataJson: {
+          ...metadataJson,
+          lastWebhookProviderEventId: providerEventId,
+          lastWebhookStatus: outcome.intentStatus,
+          realMoneyProcessed: false,
+        },
       },
     });
-    return { received: true, ignored: true, eventId: event.id, message: 'Webhook primit și ignorat în MVP.' };
+
+    await this.prisma.paymentIntentEvent.create({
+      data: {
+        paymentIntentId: intent.id,
+        associationId: intent.organizationId,
+        actorUserId: null,
+        eventType: outcome.eventType,
+        title: outcome.title,
+        message: outcome.message,
+        metadata: {
+          providerType,
+          providerEventId,
+          realMoneyProcessed: false,
+        },
+      },
+    });
+
+    return {
+      received: true,
+      processed: true,
+      eventId: event.id,
+      paymentIntentId: intent.id,
+      status: outcome.intentStatus,
+      message: outcome.message,
+      settlementApplied: false,
+    };
   }
 
   providerHealth(provider: any) {
     const configStatus = this.configStatusFor(provider.type);
-    const externalEnabled = String(process.env.PAYMENTS_EXTERNAL_ENABLED || 'false').toLowerCase() === 'true';
+    const externalEnabled = areExternalPaymentsEnabled();
     return {
       providerId: provider.id,
       providerType: provider.type,
@@ -275,9 +480,9 @@ export class PaymentProviderService {
       configured: configStatus === OnlinePaymentConfigStatus.CONFIGURED,
       message:
         provider.type === OnlinePaymentProviderType.MANUAL_TEST
-          ? 'Providerul de test este disponibil și nu procesează bani.'
+          ? 'Providerul intern Espace este disponibil și nu procesează bani.'
           : configStatus === OnlinePaymentConfigStatus.CONFIGURED
-            ? 'Configurația publică este pregătită. Procesarea reală rămâne dezactivată în ES-139.'
+            ? 'Configurația publică este pregătită. Procesarea online reală rămâne dezactivată în mediul curent.'
             : 'Secretele providerului lipsesc din environment variables.',
     };
   }
@@ -364,5 +569,84 @@ export class PaymentProviderService {
       if (/authorization|cookie|signature|secret|token/i.test(key)) input[key] = '[masked]';
     });
     return input as Prisma.InputJsonObject;
+  }
+
+  private async createWebhookEvent(input: {
+    providerType: OnlinePaymentProviderType;
+    providerEventId: string | null;
+    paymentIntentId: string | null;
+    status: PaymentWebhookEventStatus;
+    payload: Prisma.InputJsonObject;
+    headers: Record<string, unknown>;
+    signatureValid: boolean | null;
+    errorMessage: string | null;
+  }) {
+    return this.prisma.paymentWebhookEvent.create({
+      data: {
+        providerType: input.providerType,
+        providerEventId: input.providerEventId,
+        paymentIntentId: input.paymentIntentId,
+        status: input.status,
+        rawPayload: input.payload,
+        headers: this.safeHeaders(input.headers),
+        signatureValid: input.signatureValid,
+        errorMessage: input.errorMessage,
+        processedAt: new Date(),
+      },
+    });
+  }
+
+  private extractWebhookSignature(providerType: OnlinePaymentProviderType, headers: Record<string, unknown>) {
+    if (providerType === OnlinePaymentProviderType.MANUAL_TEST) {
+      return this.headerString(headers, 'x-espace-webhook-secret');
+    }
+    return null;
+  }
+
+  private webhookSecret(providerType: OnlinePaymentProviderType) {
+    if (providerType === OnlinePaymentProviderType.MANUAL_TEST) {
+      return this.optionalString(process.env.PAYMENTS_MANUAL_TEST_WEBHOOK_SECRET) || null;
+    }
+    return null;
+  }
+
+  private manualTestWebhookOutcome(payload: Prisma.InputJsonObject) {
+    const rawStatus = this.optionalString((payload as Record<string, unknown>).status ?? (payload as Record<string, unknown>).event)?.toUpperCase() || 'SUCCEEDED';
+    if (rawStatus === 'FAILED') {
+      return {
+        intentStatus: PaymentIntentStatus.FAILED,
+        eventType: PaymentIntentEventType.INTENT_FAILED,
+        title: 'Webhook test eșuat',
+        message: 'Webhook-ul de test a marcat intenția ca eșuată.',
+      };
+    }
+    if (rawStatus === 'CANCELLED') {
+      return {
+        intentStatus: PaymentIntentStatus.CANCELLED,
+        eventType: PaymentIntentEventType.INTENT_CANCELLED,
+        title: 'Webhook test anulat',
+        message: 'Webhook-ul de test a marcat intenția ca anulată.',
+      };
+    }
+    if (rawStatus === 'EXPIRED') {
+      return {
+        intentStatus: PaymentIntentStatus.EXPIRED,
+        eventType: PaymentIntentEventType.INTENT_EXPIRED,
+        title: 'Webhook test expirat',
+        message: 'Webhook-ul de test a marcat intenția ca expirată.',
+      };
+    }
+    return {
+      intentStatus: PaymentIntentStatus.SUCCEEDED,
+      eventType: PaymentIntentEventType.INTENT_SUCCEEDED_TEST,
+      title: 'Webhook test procesat',
+      message: 'Webhook-ul de test a fost acceptat. Nu s-a creat nicio plată reală.',
+    };
+  }
+
+  private headerString(headers: Record<string, unknown>, key: string) {
+    const value = headers?.[key] ?? headers?.[key.toLowerCase()] ?? headers?.[key.toUpperCase()];
+    if (Array.isArray(value)) return this.optionalString(value[0]);
+    return this.optionalString(value);
   }
 }

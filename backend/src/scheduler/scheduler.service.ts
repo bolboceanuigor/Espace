@@ -327,7 +327,7 @@ export class SchedulerService implements OnModuleInit {
             userName: admin.firstName || admin.email,
             organizationName: trial.organization?.name || 'Espace',
             trialEndDate: trial.trialEndDate ? trial.trialEndDate.toISOString().slice(0, 10) : '-',
-            supportEmail: process.env.SUPPORT_EMAIL || 'support@espace.local',
+            supportEmail: process.env.SUPPORT_EMAIL || 'support@espace.md',
           },
           inAppFallback: async () => {
             await this.notificationsService.createNotification({
@@ -744,4 +744,3 @@ export class SchedulerService implements OnModuleInit {
     await this.runJob(SCHEDULED_JOB_NAMES.CLIENT_FOLLOW_UP_REMINDER_JOB);
   }
 }
-

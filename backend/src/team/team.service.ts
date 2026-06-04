@@ -174,7 +174,7 @@ export class TeamService {
         userName: invitation.email,
         organizationName: organization?.name || 'Espace',
         inviteLink,
-        supportEmail: process.env.SUPPORT_EMAIL || 'support@espace.local',
+        supportEmail: process.env.SUPPORT_EMAIL || 'support@espace.md',
       },
     });
     return { ...invitation, inviteLink };

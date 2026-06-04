@@ -385,7 +385,7 @@ export default function ResidentProfilePage() {
                 ) : null}
                 {requestForm.requestType === 'EMAIL_CHANGE' ? (
                   <Field label="Email solicitat">
-                    <TextInput value={requestForm.requestedEmail} onChange={(value) => setRequestForm((current) => ({ ...current, requestedEmail: value }))} placeholder="nume@example.com" />
+                    <TextInput value={requestForm.requestedEmail} onChange={(value) => setRequestForm((current) => ({ ...current, requestedEmail: value }))} placeholder="utilizator@domeniu.tld" />
                   </Field>
                 ) : null}
                 {requestForm.requestType === 'CONTACT_METHOD_CHANGE' ? (

@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from 'react';
 import { usePathname, useParams } from 'next/navigation';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { Bell, Search, Menu, X, ChevronRight } from 'lucide-react';
 import AdminSidebar from './AdminSidebar';
 import { StatusBadge } from '@/components/ui';
@@ -21,14 +22,15 @@ interface AdminLayoutProps {
 
 export default function AdminLayout({
   children,
-  organizationName = 'A.P.C. Centru',
-  organizationCode = 'A0123-0940',
+  organizationName = 'Espace',
+  organizationCode = '—',
   organizationStatus = 'ACTIVE',
   userInitials = 'AD',
   userEmail = 'admin@espace.md',
   notificationsCount = 0,
   onLogout,
 }: AdminLayoutProps) {
+  const t = useTranslations('navigation.adminLayout');
   const pathname = usePathname();
   const params = useParams<{ locale?: string }>();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -38,7 +40,7 @@ export default function AdminLayout({
   const locale = isLocale(localeParam) ? localeParam : defaultLocale;
 
   // Generate breadcrumbs from pathname
-  const breadcrumbs = generateBreadcrumbs(pathname, locale);
+  const breadcrumbs = generateBreadcrumbs(pathname, locale, t);
 
   return (
     <div className="min-h-screen bg-background">
@@ -155,7 +157,7 @@ export default function AdminLayout({
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
                 <input
                   type="text"
-                  placeholder="Caută locatari, apartamente..."
+                  placeholder={t('searchPlaceholder')}
                   className="w-64 rounded-full border border-border/70 bg-card py-1.5 pl-9 pr-3 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus:border-primary/30 focus:outline-none focus:ring-2 focus:ring-primary/15"
                 />
                 <kbd className="absolute right-3 top-1/2 -translate-y-1/2 hidden items-center gap-0.5 rounded border border-border/60 bg-card px-1.5 py-0.5 text-[10px] text-muted-foreground lg:inline-flex">
@@ -188,27 +190,31 @@ export default function AdminLayout({
 }
 
 // Breadcrumb generation helper
-function generateBreadcrumbs(pathname: string, locale: string) {
+function generateBreadcrumbs(
+  pathname: string,
+  locale: string,
+  t: ReturnType<typeof useTranslations<'navigation.adminLayout'>>
+) {
   const routeLabels: Record<string, string> = {
-    admin: 'Dashboard',
-    apartments: 'Apartamente',
-    residents: 'Locatari',
-    tariffs: 'Tarife',
-    meters: 'Contoare',
-    'meter-readings': 'Citiri contoare',
-    'resident-readings': 'Citiri locatari',
-    billing: 'Facturare',
-    'billing-drafts': 'Drafturi facturi',
-    invoices: 'Facturi',
-    payments: 'Plăți',
-    reports: 'Rapoarte',
-    announcements: 'Avizier',
-    requests: 'Solicitări',
-    'data-quality': 'Calitatea datelor',
-    imports: 'Import',
-    exports: 'Export',
-    notifications: 'Notificări',
-    settings: 'Setări',
+    admin: t('routes.admin'),
+    apartments: t('routes.apartments'),
+    residents: t('routes.residents'),
+    tariffs: t('routes.tariffs'),
+    meters: t('routes.meters'),
+    'meter-readings': t('routes.meterReadings'),
+    'resident-readings': t('routes.residentReadings'),
+    billing: t('routes.billing'),
+    'billing-drafts': t('routes.billingDrafts'),
+    invoices: t('routes.invoices'),
+    payments: t('routes.payments'),
+    reports: t('routes.reports'),
+    announcements: t('routes.announcements'),
+    requests: t('routes.requests'),
+    'data-quality': t('routes.dataQuality'),
+    imports: t('routes.imports'),
+    exports: t('routes.exports'),
+    notifications: t('routes.notifications'),
+    settings: t('routes.settings'),
   };
 
   const pathWithoutLocale = pathname.replace(`/${locale}`, '');
@@ -223,5 +229,5 @@ function generateBreadcrumbs(pathname: string, locale: string) {
     crumbs.push({ label, href: currentPath });
   }
 
-  return crumbs.length ? crumbs : [{ label: 'Dashboard', href: `/${locale}/admin` }];
+  return crumbs.length ? crumbs : [{ label: t('routes.admin'), href: `/${locale}/admin` }];
 }

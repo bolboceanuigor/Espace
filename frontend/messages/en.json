@@ -118,7 +118,7 @@
     "cancel": "Cancel",
     "delete": "Delete",
     "export": "Export CSV",
-    "loadDemo": "Load demo data",
+    "loadDemo": "Load sample structure",
     "skip": "Skip",
     "create": "Create",
     "search": "Search",
@@ -180,8 +180,8 @@
   "auth": {
     "titleLogin": "Sign in",
     "titleRegister": "Create account",
-    "subtitleLogin": "Property Calendar",
-    "subtitleRegister": "Start using Espace PMS in seconds",
+    "subtitleLogin": "Association management in one place",
+    "subtitleRegister": "Start setting up Espace SaaS for your organization",
     "orgName": "Organization name",
     "email": "Email",
     "password": "Password",
@@ -211,7 +211,40 @@
     "sendResetLink": "Send reset link",
     "newPassword": "New password",
     "confirmPassword": "Confirm password",
-    "backToLogin": "Back to login"
+    "backToLogin": "Back to login",
+    "credentialsRequired": "Email and password are required.",
+    "apiUnavailable": "The API is temporarily unavailable.",
+    "unexpectedLoginError": "Something went wrong. Please try again.",
+    "emailNotFound": "No account exists for this email.",
+    "invalidPassword": "The password is incorrect.",
+    "loginBrandBody": "Access the platform for condominium and homeowners association management in the Republic of Moldova.",
+    "loginBrandDetails": "Access residents, apartments, invoices, payments, meters, requests and Espace Connect based on your account role.",
+    "loginEyebrow": "Access the platform",
+    "loginHeading": "Espace sign in",
+    "loginBody": "Use the account provided by your association administrator or by the Espace team.",
+    "emailPlaceholder": "email@espace.md",
+    "passwordPlaceholder": "Account password",
+    "authenticating": "Signing in...",
+    "backToPresentation": "Back to overview",
+    "requestAccess": "Request access",
+    "demo": {
+      "title": "Internal presentation access",
+      "summary": "for fallback and controlled demos",
+      "roles": {
+        "SUPERADMIN": {
+          "button": "Internal Superadmin access",
+          "description": "Manage associations, admins and platform configuration."
+        },
+        "ADMIN": {
+          "button": "Internal Admin access",
+          "description": "Manage apartments, residents, meters, payments and requests."
+        },
+        "RESIDENT": {
+          "button": "Internal Resident access",
+          "description": "View invoices, send readings and follow requests and messages."
+        }
+      }
+    }
   },
   "form": {
     "name": "Name",
@@ -361,16 +394,16 @@
       "features": "Features",
       "pricing": "Pricing",
       "contact": "Contact",
-      "requestDemo": "Request demo",
-      "tryDemo": "Try demo",
+      "requestDemo": "Request access",
+      "tryDemo": "Start with Espace",
       "footerText": "Espace - SaaS platform for condominium associations in Moldova.",
       "footerSupport": "Support through the contact form"
     },
     "hero": {
       "title": "Condominium management, simplified.",
       "subtitle": "Payments, debts, issues, announcements and reports in one platform.",
-      "ctaDemo": "Request demo",
-      "ctaTryDemo": "Try demo",
+      "ctaDemo": "Request access",
+      "ctaTryDemo": "Start with Espace",
       "ctaFeatures": "See features"
     },
     "problem": {
@@ -408,8 +441,8 @@
       "cta": "View pricing details"
     },
     "contact": {
-      "title": "Request a demo for your association",
-      "subtitle": "Share a few details and our team will contact you with a tailored presentation."
+      "title": "Request access for your association",
+      "subtitle": "Share a few details and our team will contact you with the onboarding steps."
     },
     "form": {
       "name": "Full name",
@@ -433,7 +466,7 @@
         "custom": { "label": "Custom", "value": "Per association", "text": "Calculated based on apartment count and needs." },
         "models": { "label": "Billing models", "value": "3 options", "text": "Per apartment / per m2 / fixed fee." }
       },
-      "cta": "Request custom demo"
+      "cta": "Request a custom offer"
     },
     "featuresPage": {
       "title": "Complete features for modern administration",
@@ -458,8 +491,319 @@
       "formTitle": "Leave us a message"
     },
     "demoPage": {
-      "title": "Request demo",
-      "subtitle": "Complete the form and we will present the platform based on your association profile."
+      "title": "Request access",
+      "subtitle": "Complete the form and we will discuss activation based on your association profile."
+    }
+  },
+  "legal": {
+    "terms": {
+      "title": "Espace SaaS Terms",
+      "intro": "This page summarizes the general framework for using the Espace platform for associations, administrators, teams and residents.",
+      "body": "By using Espace, you agree to use the platform responsibly, in line with applicable law, the contractual terms agreed with the platform operator and your organization's internal rules. For the complete contractual version of the terms, rely on the legal and commercial documents approved for your Espace account."
+    },
+    "privacy": {
+      "title": "Espace SaaS Privacy",
+      "intro": "Espace processes account data and operational data to provide association management, invoices, payments, requests, communication and role-based access.",
+      "body": "Data is used only for the functionality required by the platform, with organization-level separation and role-based access controls. For full details about retention, data subject rights and support channels, use the legal documentation published by Espace for your environment."
+    }
+  },
+  "publicSite": {
+    "meta": {
+      "homeTitle": "Espace SaaS — Modern platform for condominium management",
+      "homeDescription": "Espace helps HOA admins manage residents, apartments, meters, invoices, payments, requests and communication in one place.",
+      "homeOgDescription": "Modern HOA administration for residents, apartments, meters, invoices, payments, requests and communication."
+    },
+    "nav": {
+      "brand": "Espace SaaS",
+      "platform": "Platform",
+      "features": "Features",
+      "admins": "Administrators",
+      "residents": "Residents",
+      "contact": "Contact",
+      "login": "Sign in",
+      "requestAccess": "Request access",
+      "menuAriaLabel": "Menu"
+    },
+    "footer": {
+      "brand": "Espace SaaS",
+      "text": "Espace SaaS for condominium and association management.",
+      "login": "Login",
+      "requestAccess": "Request access",
+      "contact": "Contact"
+    },
+    "cookie": {
+      "text": "We use cookies required for the app to function. Optional cookies are used only when enabled.",
+      "details": "Details",
+      "accept": "Got it"
+    },
+    "productMockup": {
+      "brand": "Espace",
+      "sidebar": ["Dashboard", "Invoices", "Meters", "Requests"],
+      "eyebrow": "HOA workspace",
+      "title": "Monthly operations in one place",
+      "preview": "Product preview",
+      "modules": [
+        { "title": "Residents", "text": "Profiles, apartments and portal access" },
+        { "title": "Invoices", "text": "Monthly draft, publishing and balances" },
+        { "title": "Meters", "text": "Readings, review and history" },
+        { "title": "Connect", "text": "Messages linked to each apartment" }
+      ],
+      "flowTitle": "Billing flow",
+      "flowSteps": ["Readings", "Draft", "Review", "Publish"]
+    },
+    "cta": {
+      "title": "Want to test Espace for your association?",
+      "text": "Send a request and we will walk through the steps to activate your association in Espace.",
+      "requestAccess": "Request access",
+      "login": "Sign in"
+    },
+    "accessForm": {
+      "validation": "Please complete contact name, phone and city.",
+      "submitError": "The request could not be sent.",
+      "successTitle": "Request sent",
+      "successBody": "Your request has been sent. We will contact you to configure access.",
+      "contactName": "Contact person name",
+      "phone": "Phone",
+      "emailOptional": "Optional email",
+      "city": "City",
+      "associationNameOptional": "Optional association name",
+      "apcCodeOptional": "Optional HOA code",
+      "addressOptional": "Optional address",
+      "apartmentsCount": "Approximate apartment count",
+      "contactRoleOptional": "Optional role",
+      "messageOptional": "Optional message",
+      "consent": "I agree to be contacted to discuss activating the association in Espace.",
+      "sending": "Sending...",
+      "submit": "Send request",
+      "typeOptions": {
+        "APC": "HOA / association",
+        "ADMINISTRATOR": "Administrator",
+        "PROPERTY_MANAGER": "Property manager",
+        "OTHER": "Other"
+      }
+    },
+    "home": {
+      "badge": "SaaS for condominium management",
+      "title": "Modern platform for condominium administration",
+      "text": "Espace helps HOA admins manage residents, apartments, meters, invoices, payments, requests and communication in one place.",
+      "primaryCta": "Request access",
+      "secondaryCta": "Sign in",
+      "footnote": "Built for real operational workflows: records, billing, balances, readings and communication.",
+      "modulesEyebrow": "Espace modules",
+      "modulesTitle": "Core workflows in a clear system.",
+      "modulesText": "The cards below describe product capabilities using real operational flows, without invented statistics.",
+      "rolesEyebrow": "For every role",
+      "rolesTitle": "Superadmin, Administrator and Resident in the same platform.",
+      "moldovaEyebrow": "For the Republic of Moldova",
+      "moldovaTitle": "Designed for how HOAs and condominiums are actually operated.",
+      "moldovaText": "Espace organizes day-to-day activity for associations that work with buildings, staircases, apartments, monthly invoices, meters and constant resident communication.",
+      "moduleCards": [
+        { "title": "Residents and apartments", "text": "Clear records for buildings, staircases, apartments, owners and residents." },
+        { "title": "Invoices and balances", "text": "Monthly flow for drafts, invoice publishing, balances and financial history." },
+        { "title": "Meters and readings", "text": "Meters, monthly readings and checks before billing." },
+        { "title": "Resident requests", "text": "Requests tracked clearly, with statuses and responses from the administration." },
+        { "title": "Documents and announcements", "text": "Communications, notice board and key documents for the association." },
+        { "title": "Espace Connect", "text": "Conversations linked to an apartment, invoice, meter, payment or request." }
+      ],
+      "roles": [
+        { "title": "Espace Superadmin", "text": "Handles HOAs, onboarding, contracts and client status." },
+        { "title": "HOA Administrator", "text": "Manages buildings, residents, invoices, payments, meters and requests." },
+        { "title": "Resident", "text": "Sees invoices, balance, payments, readings and can send requests." }
+      ],
+      "moldovaItems": ["HOA / condominium", "Buildings, staircases, apartments", "Monthly invoices", "Meters and readings", "Resident communication"]
+    },
+    "featureGrid": {
+      "badgePreparing": "coming soon",
+      "items": [
+        { "title": "Apartment CRM", "text": "Organized records for every apartment." },
+        { "title": "Resident CRM", "text": "Contacts, roles, portal and preferences." },
+        { "title": "Tariffs", "text": "Clear rules for services and monthly calculation." },
+        { "title": "Monthly billing", "text": "Draft, review, lock and final invoices." },
+        { "title": "Manual payments", "text": "Payment recording and balances." },
+        { "title": "Reconciliation", "text": "Ready for payment matching and review." },
+        { "title": "Meters", "text": "Meters, readings and consumption." },
+        { "title": "Reports", "text": "Financial and consumption reporting." },
+        { "title": "Announcements", "text": "Notice board for residents." },
+        { "title": "Requests", "text": "Requests with response timeline." },
+        { "title": "CSV import", "text": "Controlled data migration." },
+        { "title": "Data quality", "text": "Checks before billing." },
+        { "title": "Audit log", "text": "History of sensitive actions." },
+        { "title": "Roles and permissions", "text": "Access based on responsibilities." },
+        { "title": "Mobile PWA", "text": "Resident portal ready for mobile." },
+        { "title": "Online payments", "text": "Coming soon.", "badge": "preparing" },
+        { "title": "PDF documents", "text": "Available for printing and saving." },
+        { "title": "Email/SMS", "text": "Configurable through your provider." }
+      ]
+    },
+    "pricing": {
+      "title": "Plans for small and large associations.",
+      "text": "Pricing is discussed based on association size and required modules.",
+      "customOffer": "Custom offer",
+      "requestAccess": "Request access",
+      "plans": [
+        { "name": "Starter", "text": "For small associations", "features": ["Apartments and residents", "Internal billing", "Resident portal"] },
+        { "name": "Standard", "text": "For complete monthly operations", "features": ["Meters", "Data quality", "Reports"] },
+        { "name": "Pro", "text": "For advanced workflows", "features": ["Staff roles", "Import/export", "Audit log"] },
+        { "name": "Enterprise", "text": "For custom requirements", "features": ["Implementation support", "Dedicated configuration", "Custom plan"] }
+      ]
+    },
+    "platform": {
+      "title": "The Espace platform",
+      "text": "A SaaS system for HOA administration: Superadmin manages clients and subscriptions, Admin/Staff operate the association and Resident uses the portal.",
+      "cards": [
+        { "title": "Superadmin", "text": "SaaS plans, subscriptions, client requests, monitoring and support." },
+        { "title": "Admin/Staff", "text": "Apartments, residents, tariffs, invoices, payments, meters and reports." },
+        { "title": "Resident", "text": "Invoices, payments, meters, notice board, requests and profile." }
+      ]
+    },
+    "admins": {
+      "title": "For HOA administrators",
+      "text": "Espace helps administrators work in an organized way, with checks before billing and a clear monthly workflow.",
+      "cta": "Request association activation"
+    },
+    "residents": {
+      "title": "For residents",
+      "text": "A simple, clear portal that works well on mobile.",
+      "items": ["Invoices", "Payments", "Meters", "Notice board", "Requests", "Notifications", "Profile"],
+      "footnote": "Ask your administrator to activate access in Espace."
+    },
+    "contact": {
+      "eyebrow": "Espace",
+      "accessTitle": "Request access for your association",
+      "contactTitle": "Contact Espace",
+      "accessText": "Send your contact details and we will discuss the steps to activate your association in Espace.",
+      "contactText": "For associations interested in activation, complete the form and we will contact you with the next steps.",
+      "assistedImplementation": "Implementation is guided so the association data is configured correctly from day one.",
+      "legalPrefix": "For questions about privacy, terms or security, see",
+      "legalLink": "Legal & Trust"
+    },
+    "features": {
+      "title": "Espace features",
+      "text": "Available modules and components that are still in progress."
+    },
+    "security": {
+      "title": "Security and control",
+      "text": "Espace separates roles, limits access and keeps audit history for important actions.",
+      "cards": [
+        { "title": "Role-based access", "text": "Admin, Staff, Resident and Superadmin have separate surfaces." },
+        { "title": "Audit", "text": "Sensitive actions can be traced in history." },
+        { "title": "Organized data", "text": "Association data is handled in a controlled way, without automatic destructive cleanup." }
+      ]
+    },
+    "help": {
+      "title": "Espace help",
+      "text": "Product guides are available in the Help Center.",
+      "cta": "Open Help Center"
+    }
+  },
+  "navigation": {
+    "adminSidebar": {
+      "sections": {
+        "management": "Management",
+        "finance": "Finance",
+        "operations": "Operations",
+        "system": "System"
+      },
+      "items": {
+        "dashboard": "Dashboard",
+        "apartments": "Apartments",
+        "owners": "Owners",
+        "residents": "Residents",
+        "tariffs": "Tariffs",
+        "meters": "Meters",
+        "meterReadings": "Meter readings",
+        "residentReadings": "Resident readings",
+        "monthlyBilling": "Monthly billing",
+        "invoiceDrafts": "Invoice drafts",
+        "internalInvoices": "Internal invoices",
+        "payments": "Payments",
+        "reconciliation": "Reconciliation",
+        "reports": "Reports",
+        "announcements": "Announcements",
+        "requests": "Requests",
+        "maintenance": "Maintenance",
+        "connect": "Connect",
+        "imports": "Imports",
+        "exports": "Exports",
+        "dataQuality": "Data quality",
+        "notifications": "Notifications",
+        "team": "Team",
+        "teamInvitations": "Team invitations",
+        "teamActivity": "Team activity",
+        "teamSecurity": "Team security",
+        "roles": "Roles",
+        "permissions": "Permissions",
+        "settings": "Settings"
+      },
+      "roleLabel": "Administrator"
+    },
+    "adminCompactSidebar": {
+      "items": {
+        "dashboard": "Dashboard",
+        "apartments": "Apartments",
+        "residents": "Residents",
+        "tariffs": "Tariffs",
+        "meters": "Meters",
+        "meterReadings": "Meter readings",
+        "residentReadings": "Resident readings",
+        "billing": "Billing",
+        "invoiceDrafts": "Invoice drafts",
+        "invoices": "Invoices",
+        "payments": "Payments",
+        "reports": "Reports",
+        "announcements": "Announcements",
+        "requests": "Requests",
+        "connect": "Connect",
+        "dataQuality": "Data quality",
+        "importExport": "Import / Export",
+        "notifications": "Notifications",
+        "settings": "Settings"
+      },
+      "roleLabel": "Administrator",
+      "logout": "Sign out",
+      "collapse": "Collapse"
+    },
+    "adminLayout": {
+      "searchPlaceholder": "Search residents, apartments...",
+      "routes": {
+        "admin": "Dashboard",
+        "apartments": "Apartments",
+        "residents": "Residents",
+        "tariffs": "Tariffs",
+        "meters": "Meters",
+        "meterReadings": "Meter readings",
+        "residentReadings": "Resident readings",
+        "billing": "Billing",
+        "billingDrafts": "Invoice drafts",
+        "invoices": "Invoices",
+        "payments": "Payments",
+        "reports": "Reports",
+        "announcements": "Announcements",
+        "requests": "Requests",
+        "dataQuality": "Data quality",
+        "imports": "Import",
+        "exports": "Export",
+        "notifications": "Notifications",
+        "settings": "Settings"
+      }
+    },
+    "resident": {
+      "items": {
+        "home": "Home",
+        "invoices": "Invoices",
+        "balance": "Balance",
+        "meters": "Meters",
+        "requests": "Requests",
+        "messages": "Messages",
+        "announcements": "Notice board",
+        "account": "Account"
+      },
+      "greetings": {
+        "morning": "Good morning",
+        "afternoon": "Good afternoon",
+        "evening": "Good evening"
+      },
+      "welcome": "Welcome to your resident portal."
     }
   },
   "help": {

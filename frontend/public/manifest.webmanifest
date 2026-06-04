@@ -1,7 +1,7 @@
 {
-  "name": "Espace",
+  "name": "Espace SaaS",
   "short_name": "Espace",
-  "description": "Portal locatar pentru asociații APC",
+  "description": "Espace SaaS pentru administrarea asociațiilor și condominiilor",
   "start_url": "/ro/resident",
   "scope": "/",
   "display": "standalone",

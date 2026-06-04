@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, CreditCard, FileText, Home, MessageCircle, Printer, ReceiptText, UserRound, WalletCards, XCircle } from 'lucide-react';
 import { Badge, Button, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
-import { invoicesApi, paymentsApi } from '@/lib/api';
+import { filesApi, invoicesApi, paymentsApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
@@ -54,6 +54,7 @@ type InternalInvoice = {
     status: string;
     createdAt?: string | null;
     reviewedAt?: string | null;
+    proofFileAssetId?: string | null;
     proofFileUrl?: string | null;
   }>;
   paymentProofsSummary?: { submitted: number; inReview: number; accepted: number; rejected: number };
@@ -321,7 +322,7 @@ export default function AdminInvoiceDetailsPage() {
                   <span className="text-muted-foreground">{formatDate(proof.createdAt)}</span>
                   <div className="flex justify-end gap-2">
                     {proof.proofFileUrl ? (
-                      <a className="text-sm font-semibold text-primary hover:underline" href={proof.proofFileUrl} target="_blank" rel="noreferrer">Dovadă</a>
+                      <a className="text-sm font-semibold text-primary hover:underline" href={proof.proofFileAssetId ? filesApi.secureDownloadUrl(proof.proofFileAssetId) : proof.proofFileUrl} target="_blank" rel="noreferrer">Dovadă</a>
                     ) : null}
                     <Link className="text-sm font-semibold text-primary hover:underline" href={localizedPath(`/admin/payment-proofs?search=${proof.id}`)}>Deschide</Link>
                   </div>

@@ -9,6 +9,7 @@ import {
   Query,
   NotImplementedException,
   BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -39,6 +40,13 @@ export class AuthController {
 
   private isGoogleAuthEnabled() {
     return (process.env.ENABLE_GOOGLE_AUTH ?? 'false').toLowerCase() === 'true';
+  }
+
+  private isDemoLoginEnabled() {
+    return (
+      process.env.NODE_ENV !== 'production' &&
+      (process.env.ENABLE_DEMO_LOGIN ?? 'false').toLowerCase() === 'true'
+    );
   }
 
   private setAuthCookies(
@@ -108,6 +116,12 @@ export class AuthController {
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('demo-login')
   async demoLogin(@Res({ passthrough: true }) response: Response) {
+    if (!this.isDemoLoginEnabled()) {
+      throw new NotFoundException({
+        code: 'DEMO_LOGIN_DISABLED',
+        message: 'Demo login is disabled',
+      });
+    }
     const payload = await this.authService.loginAsDemo();
     this.setAuthCookies(response, payload);
     return payload;

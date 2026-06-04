@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Download, FileText, Search } from 'lucide-react';
 import { Badge, Card, PageHeader } from '@/components/ui';
-import { documentsApi } from '@/lib/api';
+import { documentsApi, filesApi } from '@/lib/api';
 
 type Category = 'STATUT' | 'PROCES_VERBAL' | 'HOTARARE' | 'CONTRACT' | 'FINANCIAR' | 'TEHNIC' | 'ANUNT' | 'ALTUL';
 
@@ -102,7 +102,7 @@ export default function ResidentDocumentsPage() {
             </div>
             <a
               className="mt-auto inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-border/70 px-4 text-sm font-semibold text-foreground hover:bg-muted/50"
-              href={row.fileUrl}
+              href={row.fileAssetId ? filesApi.secureDownloadUrl(row.fileAssetId) : row.fileUrl}
               target="_blank"
               rel="noreferrer"
             >

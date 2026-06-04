@@ -4,6 +4,7 @@ import { AssociationRoleType, OrganizationMemberRole, OrganizationMemberStatus, 
 import { PrismaService } from '../prisma/prisma.service';
 import { PERMISSIONS_KEY } from './decorators/permissions.decorator';
 import { permissionKey, resolvePermissions, type PermissionActionKey, type PermissionModuleKey, type TeamPermissionKey } from '../team/team-permissions';
+import { isLegacyAdminPermissionFallbackEnabled } from '../common/runtime-flags';
 
 type RequestUser = {
   id?: string;
@@ -53,8 +54,9 @@ export class PermissionGuard implements CanActivate {
       },
     });
 
-    // Backwards compatibility for existing ADMIN users not yet migrated to OrganizationMember.
-    if (!member && role === Role.ADMIN) return true;
+    if (!member && role === Role.ADMIN && isLegacyAdminPermissionFallbackEnabled()) {
+      return true;
+    }
     if (member?.status === OrganizationMemberStatus.SUSPENDED) {
       throw new ForbiddenException({
         code: 'STAFF_ACCESS_SUSPENDED',

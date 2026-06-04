@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { ContentTargetType, NotificationType, OrganizationMemberStatus, OrganizationMemberRole, Prisma } from '@prisma/client';
+import { ContentTargetType, FileAssetEntityType, NotificationType, OrganizationMemberStatus, OrganizationMemberRole, Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
+import { bindOwnedFileAssetToEntity, requireOwnedFileAsset } from '../common/file-asset-reference';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -233,6 +234,56 @@ export class MaintenanceService {
     return profiles.map((profile) => profile.userId);
   }
 
+  private async maintenanceTaskResidentRecipients(organizationId: string, relatedIssueId?: string | null) {
+    if (!relatedIssueId) return null;
+    const issue = await this.prisma.issue.findFirst({
+      where: { id: relatedIssueId, organizationId },
+      select: { id: true, title: true, createdByUserId: true, apartmentId: true },
+    });
+    if (!issue) return null;
+    const apartmentResidents = issue.apartmentId
+      ? await this.prisma.residentProfile.findMany({
+          where: { organizationId, apartmentId: issue.apartmentId },
+          select: { userId: true },
+          distinct: ['userId'],
+        })
+      : [];
+    const userIds = Array.from(
+      new Set([issue.createdByUserId, ...apartmentResidents.map((resident) => resident.userId)].filter(Boolean)),
+    );
+    if (!userIds.length) return null;
+    return { issue, userIds };
+  }
+
+  private async notifyMaintenanceTaskResidents(
+    organizationId: string,
+    task: { id: string; title: string; relatedIssueId?: string | null; status: string },
+    action: 'CREATED' | 'UPDATED' | 'COMPLETED' | 'CLOSED',
+  ) {
+    const recipients = await this.maintenanceTaskResidentRecipients(organizationId, task.relatedIssueId);
+    if (!recipients) return;
+    const titleByAction: Record<typeof action, string> = {
+      CREATED: 'Cerere de mentenanță preluată',
+      UPDATED: 'Cerere de mentenanță actualizată',
+      COMPLETED: 'Cerere de mentenanță rezolvată',
+      CLOSED: 'Cerere de mentenanță închisă',
+    };
+    const messageByAction: Record<typeof action, string> = {
+      CREATED: `Administratorul a creat un task pentru cererea "${recipients.issue.title}".`,
+      UPDATED: `Taskul pentru cererea "${recipients.issue.title}" a fost actualizat.`,
+      COMPLETED: `Taskul pentru cererea "${recipients.issue.title}" a fost marcat ca rezolvat.`,
+      CLOSED: `Taskul pentru cererea "${recipients.issue.title}" a fost închis.`,
+    };
+    await this.notificationsService.notifyUsers({
+      organizationId,
+      userIds: recipients.userIds,
+      title: titleByAction[action],
+      message: messageByAction[action],
+      type: NotificationType.MAINTENANCE,
+      link: `/resident/issues/${recipients.issue.id}`,
+    });
+  }
+
   private residentVisibilityWhere(organizationId: string, buildingIds: string[], staircaseIds: string[], apartmentIds: string[]) {
     return {
       organizationId,
@@ -425,6 +476,7 @@ export class MaintenanceService {
         link: '/technician/tasks',
       });
     }
+    await this.notifyMaintenanceTaskResidents(actor.organizationId, created, 'CREATED');
     await this.auditService.logCreate(actor, 'MAINTENANCE_TASK', created.id, created, 'Created maintenance task');
     return created;
   }
@@ -487,6 +539,11 @@ export class MaintenanceService {
         link: '/technician/tasks',
       });
     }
+    if (dto.status !== undefined || dto.assignedToUserId !== undefined || dto.priority !== undefined || dto.scheduledAt !== undefined) {
+      const action =
+        updated.status === 'COMPLETED' ? 'COMPLETED' : updated.status === 'CANCELLED' ? 'CLOSED' : 'UPDATED';
+      await this.notifyMaintenanceTaskResidents(actor.organizationId, updated, action);
+    }
     await this.auditService.logUpdate(actor, 'MAINTENANCE_TASK', id, existing, updated, 'Updated maintenance task');
     return updated;
   }
@@ -544,6 +601,11 @@ export class MaintenanceService {
       updated,
       'Technician updated maintenance task',
     );
+    if (dto.status !== undefined || dto.notes !== undefined) {
+      const action =
+        updated.status === 'COMPLETED' ? 'COMPLETED' : updated.status === 'CANCELLED' ? 'CLOSED' : 'UPDATED';
+      await this.notifyMaintenanceTaskResidents(organizationId, updated, action);
+    }
     return updated;
   }
 
@@ -660,18 +722,26 @@ export class MaintenanceService {
     const actor = await this.assertAdminModuleAccess(user, { allowAccountant: true });
     const expense = await this.prisma.expense.findFirst({ where: { id, organizationId: actor.organizationId }, select: { id: true } });
     if (!expense) throw new NotFoundException('Expense not found');
+    const asset = await requireOwnedFileAsset(this.prisma, {
+      organizationId: actor.organizationId,
+      fileUrl: dto.fileUrl,
+      entityTypes: FileAssetEntityType.EXPENSE_ATTACHMENT,
+      message: 'Atașamentul trebuie încărcat prin uploaderul Espace.',
+    });
     const created = await this.prisma.expenseAttachment.create({
       data: {
         expenseId: id,
-        fileUrl: dto.fileUrl,
-        fileName: dto.fileName,
+        fileUrl: asset.fileUrl,
+        fileName: asset.fileName,
       },
     });
-    await this.prisma.fileAsset.updateMany({
-      where: { organizationId: actor.organizationId, entityType: 'EXPENSE_ATTACHMENT', fileUrl: dto.fileUrl, entityId: null },
-      data: { entityId: id },
+    await bindOwnedFileAssetToEntity(this.prisma, {
+      organizationId: actor.organizationId,
+      fileUrl: asset.fileUrl,
+      entityType: FileAssetEntityType.EXPENSE_ATTACHMENT,
+      entityId: id,
+      message: 'Atașamentul trebuie încărcat prin uploaderul Espace.',
     });
     return created;
   }
 }
-

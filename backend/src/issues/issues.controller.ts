@@ -1,8 +1,10 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { RolesGuard } from '../auth/roles.guard';
+import { PermissionGuard } from '../auth/permission.guard';
+import { MvpAuthGuard, MvpRolesGuard, type MvpUser } from '../security/mvp-auth.guard';
 import {
   AdminIssueFiltersDto,
   AdminUpdateIssueDto,
@@ -14,83 +16,78 @@ import {
 import { IssuesService } from './issues.service';
 
 @Controller('api')
+@UseGuards(MvpAuthGuard, MvpRolesGuard, PermissionGuard)
 export class IssuesController {
   constructor(private readonly issuesService: IssuesService) {}
 
   @Get('resident/issues')
-  @UseGuards(RolesGuard)
   @Roles(Role.RESIDENT)
-  residentList(@CurrentUser() user: any, @Query() query: ResidentIssueFiltersDto) {
+  residentList(@CurrentUser() user: MvpUser, @Query() query: ResidentIssueFiltersDto) {
     return this.issuesService.residentList(user, query);
   }
 
   @Post('resident/issues')
-  @UseGuards(RolesGuard)
   @Roles(Role.RESIDENT)
-  residentCreate(@CurrentUser() user: any, @Body() body: CreateResidentIssueDto) {
+  residentCreate(@CurrentUser() user: MvpUser, @Body() body: CreateResidentIssueDto) {
     return this.issuesService.residentCreate(user, body);
   }
 
   @Get('resident/issues/:id')
-  @UseGuards(RolesGuard)
   @Roles(Role.RESIDENT)
-  residentGetOne(@CurrentUser() user: any, @Param('id') id: string) {
+  residentGetOne(@CurrentUser() user: MvpUser, @Param('id') id: string) {
     return this.issuesService.residentGetOne(user, id);
   }
 
   @Post('resident/issues/:id/comments')
-  @UseGuards(RolesGuard)
   @Roles(Role.RESIDENT)
-  residentAddComment(@CurrentUser() user: any, @Param('id') id: string, @Body() body: CreateIssueCommentDto) {
+  residentAddComment(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: CreateIssueCommentDto) {
     return this.issuesService.residentAddComment(user, id, body);
   }
 
   @Post('resident/issues/:id/attachments')
-  @UseGuards(RolesGuard)
   @Roles(Role.RESIDENT)
-  residentAddAttachment(@CurrentUser() user: any, @Param('id') id: string, @Body() body: CreateIssueAttachmentDto) {
+  residentAddAttachment(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: CreateIssueAttachmentDto) {
     return this.issuesService.residentAddAttachment(user, id, body);
   }
 
   @Get('admin/issues')
-  @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
-  adminList(@CurrentUser() user: any, @Query() query: AdminIssueFiltersDto) {
+  @RequirePermission('REQUESTS', 'VIEW')
+  adminList(@CurrentUser() user: MvpUser, @Query() query: AdminIssueFiltersDto) {
     return this.issuesService.adminList(user, query);
   }
 
   @Get('admin/issues/:id')
-  @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
-  adminGetOne(@CurrentUser() user: any, @Param('id') id: string) {
+  @RequirePermission('REQUESTS', 'VIEW')
+  adminGetOne(@CurrentUser() user: MvpUser, @Param('id') id: string) {
     return this.issuesService.adminGetOne(user, id);
   }
 
   @Patch('admin/issues/:id')
-  @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
-  adminUpdate(@CurrentUser() user: any, @Param('id') id: string, @Body() body: AdminUpdateIssueDto) {
+  @RequirePermission('REQUESTS', 'MANAGE')
+  adminUpdate(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: AdminUpdateIssueDto) {
     return this.issuesService.adminUpdate(user, id, body);
   }
 
   @Post('admin/issues/:id/comments')
-  @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
-  adminAddComment(@CurrentUser() user: any, @Param('id') id: string, @Body() body: CreateIssueCommentDto) {
+  @RequirePermission('REQUESTS', 'MANAGE')
+  adminAddComment(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: CreateIssueCommentDto) {
     return this.issuesService.adminAddComment(user, id, body);
   }
 
   @Delete('admin/issues/:id')
-  @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
-  adminDelete(@CurrentUser() user: any, @Param('id') id: string) {
+  @RequirePermission('REQUESTS', 'DELETE')
+  adminDelete(@CurrentUser() user: MvpUser, @Param('id') id: string) {
     return this.issuesService.adminDelete(user, id);
   }
 
   @Get('superadmin/issues/overview')
-  @UseGuards(RolesGuard)
-  @Roles(Role.SUPERADMIN, Role.SUPERADMIN)
-  superadminOverview(@CurrentUser() user: any) {
+  @Roles(Role.SUPERADMIN)
+  superadminOverview(@CurrentUser() user: MvpUser) {
     return this.issuesService.superadminOverview(user);
   }
 }

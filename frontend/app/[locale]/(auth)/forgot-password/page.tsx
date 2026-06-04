@@ -3,8 +3,8 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { authApi } from '@/lib/api';
-import { useToast } from '@/components/ui';
+import { authApi } from '@/lib/auth-api';
+import { useToast } from '@/components/ui/ToastProvider';
 
 export default function ForgotPasswordPage({ params }: { params: { locale: string } }) {
   const tAuth = useTranslations('auth');

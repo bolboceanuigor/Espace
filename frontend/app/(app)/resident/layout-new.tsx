@@ -13,8 +13,8 @@ export default function ResidentRootLayout({ children }: { children: React.React
   return (
     <ResidentLayout
       userName={userName}
-      apartmentNumber="Ap. 24"
-      organizationName={org?.name || 'A.P.C. Demo'}
+      apartmentNumber="Apartament"
+      organizationName={org?.name || 'Espace'}
       notificationsCount={2}
     >
       {children}

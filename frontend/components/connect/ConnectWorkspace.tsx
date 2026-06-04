@@ -720,7 +720,7 @@ export default function ConnectWorkspace({ mode, conversationId, prefill }: Conn
                         <Input
                           value={attachmentUrl}
                           onChange={(event) => setAttachmentUrl(event.target.value)}
-                          placeholder="URL atașament opțional"
+                          placeholder="Link securizat Espace pentru atașament"
                           className="pl-9"
                           aria-label="URL atașament"
                         />
@@ -730,7 +730,7 @@ export default function ConnectWorkspace({ mode, conversationId, prefill }: Conn
                         Trimite
                       </Button>
                     </div>
-                    <p className="text-xs text-muted-foreground">Nu include date sensibile inutile.</p>
+                    <p className="text-xs text-muted-foreground">Folosește doar linkuri securizate Espace pentru atașamente. Linkurile brute `/uploads/...` sunt respinse.</p>
                   </div>
                 )}
               </form>

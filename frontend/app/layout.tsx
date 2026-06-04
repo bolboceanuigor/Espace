@@ -4,7 +4,7 @@ import { NextIntlClientProvider } from 'next-intl'
 import './globals.css'
 import { AuthProvider } from '@/context/AuthContext'
 import { BrandingProvider } from '@/context/BrandingContext'
-import { ToastProvider } from '@/components/ui'
+import { ToastProvider } from '@/components/ui/ToastProvider'
 import ThemeColorMeta from '@/components/layout/ThemeColorMeta'
 import ServiceWorkerRegister from '@/components/pwa/ServiceWorkerRegister'
 import ClientErrorBoundary from '@/components/monitoring/ClientErrorBoundary'
@@ -18,20 +18,20 @@ const onest = localFont({
 })
 
 export const metadata: Metadata = {
-  title: 'Espace',
-  description: 'Platformă pentru administrarea A.P.C. și condominiilor din Republica Moldova.',
+  title: 'Espace SaaS',
+  description: 'Espace SaaS pentru administrarea A.P.C. și condominiilor din Republica Moldova.',
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://espace.md'),
   manifest: '/manifest.webmanifest',
-  applicationName: 'Espace',
+  applicationName: 'Espace SaaS',
   openGraph: {
-    title: 'Espace',
-    description: 'Platformă pentru administrarea A.P.C. și condominiilor din Republica Moldova.',
+    title: 'Espace SaaS',
+    description: 'Espace SaaS pentru administrarea A.P.C. și condominiilor din Republica Moldova.',
     type: 'website',
   },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'Espace',
+    title: 'Espace SaaS',
   },
   icons: {
     shortcut: [{ url: '/favicon.svg', type: 'image/svg+xml' }],

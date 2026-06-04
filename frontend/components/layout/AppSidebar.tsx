@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import {
   Activity,
   BarChart3,
@@ -22,7 +23,9 @@ import {
   ShieldAlert,
   ShieldCheck,
   Upload,
+  UserCheck,
   Users,
+  Wrench,
   type LucideIcon,
 } from 'lucide-react';
 import { defaultLocale, isLocale } from '@/i18n';
@@ -37,9 +40,9 @@ type AppSidebarProps = {
 };
 
 const sections: Array<{
-  title: string;
+  titleKey: string;
   items: Array<{
-    label: string;
+    labelKey: string;
     href: string;
     icon: LucideIcon;
     permission?: [PermissionModule, PermissionAction];
@@ -47,50 +50,52 @@ const sections: Array<{
   }>;
 }> = [
   {
-    title: 'Administrare',
+    titleKey: 'sections.management',
     items: [
-      { label: 'Dashboard', href: '/admin', icon: Home, permission: ['DASHBOARD', 'VIEW'] },
-      { label: 'Apartamente', href: '/admin/apartments', icon: Building2, permission: ['APARTMENTS', 'VIEW'] },
-      { label: 'Locatari', href: '/admin/residents', icon: Users, permission: ['RESIDENTS', 'VIEW'] },
-      { label: 'Tarife', href: '/admin/tariffs', icon: Calculator, permission: ['TARIFFS', 'VIEW'] },
-      { label: 'Contoare', href: '/admin/meters', icon: Gauge, permission: ['METERS', 'VIEW'] },
-      { label: 'Citiri contoare', href: '/admin/meter-readings', icon: ListChecks, permission: ['METER_READINGS', 'VIEW'] },
-      { label: 'Citiri locatari', href: '/admin/resident-readings', icon: ListChecks, permission: ['METER_READINGS', 'VIEW'] },
+      { labelKey: 'items.dashboard', href: '/admin', icon: Home, permission: ['DASHBOARD', 'VIEW'] },
+      { labelKey: 'items.apartments', href: '/admin/apartments', icon: Building2, permission: ['APARTMENTS', 'VIEW'] },
+      { labelKey: 'items.owners', href: '/admin/owners', icon: UserCheck, permission: ['RESIDENTS', 'VIEW'] },
+      { labelKey: 'items.residents', href: '/admin/residents', icon: Users, permission: ['RESIDENTS', 'VIEW'] },
+      { labelKey: 'items.tariffs', href: '/admin/tariffs', icon: Calculator, permission: ['TARIFFS', 'VIEW'] },
+      { labelKey: 'items.meters', href: '/admin/meters', icon: Gauge, permission: ['METERS', 'VIEW'] },
+      { labelKey: 'items.meterReadings', href: '/admin/meter-readings', icon: ListChecks, permission: ['METER_READINGS', 'VIEW'] },
+      { labelKey: 'items.residentReadings', href: '/admin/resident-readings', icon: ListChecks, permission: ['METER_READINGS', 'VIEW'] },
     ],
   },
   {
-    title: 'Financiar',
+    titleKey: 'sections.finance',
     items: [
-      { label: 'Facturare lunară', href: '/admin/billing', icon: Receipt, permission: ['BILLING', 'VIEW'] },
-      { label: 'Drafturi facturi', href: '/admin/billing-drafts', icon: FileText, permission: ['BILLING', 'VIEW'] },
-      { label: 'Facturi interne', href: '/admin/invoices', icon: FileText, permission: ['INVOICES', 'VIEW'] },
-      { label: 'Plăți', href: '/admin/payments', icon: CreditCard, permission: ['PAYMENTS', 'VIEW'] },
-      { label: 'Reconciliere', href: '/admin/payments/reconciliation', icon: ListChecks, permission: ['RECONCILIATION', 'VIEW'] },
-      { label: 'Rapoarte', href: '/admin/reports', icon: BarChart3, permission: ['REPORTS', 'VIEW'] },
+      { labelKey: 'items.monthlyBilling', href: '/admin/billing', icon: Receipt, permission: ['BILLING', 'VIEW'] },
+      { labelKey: 'items.invoiceDrafts', href: '/admin/billing-drafts', icon: FileText, permission: ['BILLING', 'VIEW'] },
+      { labelKey: 'items.internalInvoices', href: '/admin/invoices', icon: FileText, permission: ['INVOICES', 'VIEW'] },
+      { labelKey: 'items.payments', href: '/admin/payments', icon: CreditCard, permission: ['PAYMENTS', 'VIEW'] },
+      { labelKey: 'items.reconciliation', href: '/admin/payments/reconciliation', icon: ListChecks, permission: ['RECONCILIATION', 'VIEW'] },
+      { labelKey: 'items.reports', href: '/admin/reports', icon: BarChart3, permission: ['REPORTS', 'VIEW'] },
     ],
   },
   {
-    title: 'Operațional',
+    titleKey: 'sections.operations',
     items: [
-      { label: 'Anunțuri', href: '/admin/announcements', icon: Megaphone, permission: ['ANNOUNCEMENTS', 'VIEW'] },
-      { label: 'Solicitări', href: '/admin/requests', icon: CircleAlert, permission: ['REQUESTS', 'VIEW'] },
-      { label: 'Connect', href: '/admin/connect', icon: MessageCircle, permission: ['REQUESTS', 'VIEW'] },
-      { label: 'Importuri', href: '/admin/imports', icon: Upload, permission: ['IMPORTS', 'VIEW'] },
-      { label: 'Exporturi', href: '/admin/exports', icon: Download, permission: ['EXPORTS', 'VIEW'] },
-      { label: 'Calitatea datelor', href: '/admin/data-quality', icon: ListChecks, permission: ['DATA_QUALITY', 'VIEW'] },
+      { labelKey: 'items.announcements', href: '/admin/announcements', icon: Megaphone, permission: ['ANNOUNCEMENTS', 'VIEW'] },
+      { labelKey: 'items.requests', href: '/admin/requests', icon: CircleAlert, permission: ['REQUESTS', 'VIEW'] },
+      { labelKey: 'items.maintenance', href: '/admin/maintenance', icon: Wrench, permission: ['REQUESTS', 'VIEW'] },
+      { labelKey: 'items.connect', href: '/admin/connect', icon: MessageCircle, permission: ['REQUESTS', 'VIEW'] },
+      { labelKey: 'items.imports', href: '/admin/imports', icon: Upload, permission: ['IMPORTS', 'VIEW'] },
+      { labelKey: 'items.exports', href: '/admin/exports', icon: Download, permission: ['EXPORTS', 'VIEW'] },
+      { labelKey: 'items.dataQuality', href: '/admin/data-quality', icon: ListChecks, permission: ['DATA_QUALITY', 'VIEW'] },
     ],
   },
   {
-    title: 'Sistem',
+    titleKey: 'sections.system',
     items: [
-      { label: 'Notificări', href: '/admin/notifications', icon: Bell, permission: ['NOTIFICATIONS', 'VIEW'] },
-      { label: 'Echipă', href: '/admin/team', icon: Users, permission: ['TEAM', 'VIEW'] },
-      { label: 'Invitații echipă', href: '/admin/team/invitations', icon: Users, permission: ['TEAM', 'INVITE'] },
-      { label: 'Activitate echipă', href: '/admin/team/activity', icon: Activity, anyPermissions: [['AUDIT_LOG', 'VIEW'], ['TEAM', 'MANAGE']] },
-      { label: 'Securitate echipă', href: '/admin/team/security', icon: ShieldAlert, anyPermissions: [['AUDIT_LOG', 'VIEW'], ['SETTINGS', 'MANAGE']] },
-      { label: 'Roluri', href: '/admin/settings/roles', icon: ShieldCheck, permission: ['TEAM', 'VIEW'] },
-      { label: 'Permisiuni', href: '/admin/settings/permissions', icon: ShieldCheck, permission: ['TEAM', 'MANAGE'] },
-      { label: 'Setări', href: '/admin/settings/organization', icon: Settings, permission: ['SETTINGS', 'VIEW'] },
+      { labelKey: 'items.notifications', href: '/admin/notifications', icon: Bell, permission: ['NOTIFICATIONS', 'VIEW'] },
+      { labelKey: 'items.team', href: '/admin/team', icon: Users, permission: ['TEAM', 'VIEW'] },
+      { labelKey: 'items.teamInvitations', href: '/admin/team/invitations', icon: Users, permission: ['TEAM', 'INVITE'] },
+      { labelKey: 'items.teamActivity', href: '/admin/team/activity', icon: Activity, anyPermissions: [['AUDIT_LOG', 'VIEW'], ['TEAM', 'MANAGE']] },
+      { labelKey: 'items.teamSecurity', href: '/admin/team/security', icon: ShieldAlert, anyPermissions: [['AUDIT_LOG', 'VIEW'], ['SETTINGS', 'MANAGE']] },
+      { labelKey: 'items.roles', href: '/admin/settings/roles', icon: ShieldCheck, permission: ['TEAM', 'VIEW'] },
+      { labelKey: 'items.permissions', href: '/admin/settings/permissions', icon: ShieldCheck, permission: ['TEAM', 'MANAGE'] },
+      { labelKey: 'items.settings', href: '/admin/settings/organization', icon: Settings, permission: ['SETTINGS', 'VIEW'] },
     ],
   },
 ];
@@ -102,6 +107,7 @@ export default function AppSidebar({
   userEmail = 'admin@espace.md',
   onNavigate,
 }: AppSidebarProps) {
+  const t = useTranslations('navigation.adminSidebar');
   const pathname = usePathname();
   const params = useParams<{ locale?: string }>();
   const { can } = usePermissions();
@@ -140,8 +146,8 @@ export default function AppSidebar({
             });
             if (visibleItems.length === 0) return null;
             return (
-            <div key={section.title}>
-              <p className="px-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/35">{section.title}</p>
+            <div key={section.titleKey}>
+              <p className="px-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/35">{t(section.titleKey)}</p>
               <div className="mt-2 space-y-1">
                 {visibleItems.map((item) => {
                   const Icon = item.icon;
@@ -158,7 +164,7 @@ export default function AppSidebar({
                       }`}
                     >
                       <Icon className={`h-4 w-4 ${active ? 'text-white' : 'text-white/55 group-hover:text-white'}`} />
-                      <span className="truncate">{item.label}</span>
+                      <span className="truncate">{t(item.labelKey)}</span>
                     </Link>
                   );
                 })}
@@ -173,7 +179,7 @@ export default function AppSidebar({
         <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/10 p-3">
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-xs font-semibold text-primary shadow-sm">{userInitials}</span>
           <span className="min-w-0">
-            <span className="block truncate text-xs font-semibold text-white">Administrator</span>
+            <span className="block truncate text-xs font-semibold text-white">{t('roleLabel')}</span>
             <span className="block truncate text-xs text-white/50">{userEmail}</span>
           </span>
         </div>

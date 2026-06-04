@@ -4,6 +4,7 @@ import {
   AnnouncementStatus,
   ContentImportance,
   ContentTargetType,
+  FileAssetEntityType,
   IssueCategory,
   IssuePriority,
   IssueStatus,
@@ -14,6 +15,8 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { ActivityMvpService } from '../activity-mvp/activity-mvp.service';
 import type { MvpUser } from '../security/mvp-auth.guard';
+import { bindOwnedFileAssetToEntity, requireOwnedFileAsset } from '../common/file-asset-reference';
+import { assertInternalFileUrl } from '../common/file-url-policy';
 
 const ANNOUNCEMENT_METADATA_TITLE = 'Announcement module metadata';
 const ANNOUNCEMENT_CATEGORIES = ['GENERAL', 'MAINTENANCE', 'PAYMENTS', 'EMERGENCY', 'MEETING', 'DOCUMENTS', 'OTHER'] as const;
@@ -407,6 +410,57 @@ export class CommunityReadService {
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     };
+  }
+
+  private async attachRequestFileAssetIds(organizationId: string, items: any[]) {
+    if (!items.length) return items;
+    const requestIds = Array.from(new Set(items.map((item) => item.id).filter(Boolean)));
+    const urls = Array.from(
+      new Set(
+        items
+          .flatMap((item) => [
+            item.attachmentUrl,
+            item.attachment?.fileUrl,
+            ...(Array.isArray(item.attachments) ? item.attachments.map((attachment: any) => attachment?.fileUrl) : []),
+          ])
+          .filter((value): value is string => typeof value === 'string' && value.length > 0),
+      ),
+    );
+    if (!requestIds.length && !urls.length) return items;
+    const assets = await this.prisma.fileAsset.findMany({
+      where: {
+        organizationId,
+        entityType: FileAssetEntityType.ISSUE_ATTACHMENT,
+        OR: [
+          ...(requestIds.length ? [{ entityId: { in: requestIds } }] : []),
+          ...(urls.length ? [{ fileUrl: { in: urls } }] : []),
+        ],
+      },
+      select: { id: true, entityId: true, fileUrl: true },
+    });
+    const byEntityId = new Map(assets.filter((asset) => asset.entityId).map((asset) => [asset.entityId as string, asset.id]));
+    const byUrl = new Map(assets.map((asset) => [asset.fileUrl, asset.id]));
+    return items.map((item) => {
+      const rootAssetId = byEntityId.get(item.id) || (item.attachmentUrl ? byUrl.get(item.attachmentUrl) || null : null);
+      const attachment = item.attachment
+        ? {
+            ...item.attachment,
+            fileAssetId: rootAssetId || (item.attachment.fileUrl ? byUrl.get(item.attachment.fileUrl) || null : null),
+          }
+        : item.attachment;
+      const attachments = Array.isArray(item.attachments)
+        ? item.attachments.map((attachmentRow: any) => ({
+            ...attachmentRow,
+            fileAssetId: byEntityId.get(item.id) || (attachmentRow.fileUrl ? byUrl.get(attachmentRow.fileUrl) || null : null),
+          }))
+        : item.attachments;
+      return {
+        ...item,
+        attachment,
+        attachments,
+        attachmentFileAssetId: attachment?.fileAssetId || rootAssetId,
+      };
+    });
   }
 
   private emptyRequestMetadataStore(): RequestMetadataStore {
@@ -894,7 +948,7 @@ export class CommunityReadService {
   }
 
   private organizationWhere(user: MvpUser) {
-    return this.isSuperadmin(user) ? {} : { organizationId: user.organizationId };
+    return { organizationId: this.adminOrganizationId(user) };
   }
 
   private assertOrganizationAccess(user: MvpUser, organizationId: string) {
@@ -999,7 +1053,10 @@ export class CommunityReadService {
       select: this.issueSelect(),
     });
     const association = await this.getOrganizationBadge(user.organizationId);
-    const allItems = rows.map((row) => this.toRequest(row, store, false));
+    const allItems = await this.attachRequestFileAssetIds(
+      user.organizationId,
+      rows.map((row) => this.toRequest(row, store, false)),
+    );
     const filtered = this.filterRequests(allItems, query, false);
     const sorted = this.sortRequests(filtered, query.sortBy, query.sortDirection);
     const page = this.positiveInt(query.page, 1);
@@ -1094,19 +1151,32 @@ export class CommunityReadService {
     });
     const attachment = this.parseAttachmentPayload(payload);
     if (attachment) {
+      const asset = await requireOwnedFileAsset(this.prisma, {
+        organizationId: user.organizationId,
+        fileUrl: attachment.fileUrl,
+        entityTypes: FileAssetEntityType.ISSUE_ATTACHMENT,
+        message: 'Atașamentul trebuie încărcat prin uploaderul Espace.',
+      });
       await this.prisma.issueAttachment.create({
         data: {
           issueId: issue.id,
-          fileUrl: attachment.fileUrl,
-          fileName: attachment.fileName,
-          fileType: attachment.fileType,
+          fileUrl: asset.fileUrl,
+          fileName: asset.fileName,
+          fileType: asset.mimeType || attachment.fileType,
           uploadedByUserId: user.id,
         },
       });
-      await this.prisma.fileAsset.updateMany({
-        where: { organizationId: user.organizationId, entityType: 'ISSUE_ATTACHMENT', fileUrl: attachment.fileUrl, entityId: null },
-        data: { entityId: issue.id },
+      await bindOwnedFileAssetToEntity(this.prisma, {
+        organizationId: user.organizationId,
+        fileUrl: asset.fileUrl,
+        entityType: FileAssetEntityType.ISSUE_ATTACHMENT,
+        entityId: issue.id,
+        message: 'Atașamentul trebuie încărcat prin uploaderul Espace.',
       });
+      attachment.fileUrl = asset.fileUrl;
+      attachment.fileName = asset.fileName;
+      attachment.fileType = asset.mimeType || attachment.fileType;
+      attachment.fileSize = asset.sizeBytes || attachment.fileSize || null;
     }
     store.items[issue.id] = {
       requestNumber,
@@ -1135,7 +1205,7 @@ export class CommunityReadService {
       attachmentUrl: attachment?.fileUrl || null,
       attachmentFileName: attachment?.fileName || null,
       attachmentMimeType: attachment?.fileType || null,
-      attachmentFileSize: Number.isFinite(Number(payload.attachmentFileSize)) ? Number(payload.attachmentFileSize) : null,
+      attachmentFileSize: attachment?.fileSize || (Number.isFinite(Number(payload.attachmentFileSize)) ? Number(payload.attachmentFileSize) : null),
       possibleDuplicateIds,
       timeline: [],
     };
@@ -1159,8 +1229,20 @@ export class CommunityReadService {
       link: `/admin/requests/${issue.id}`,
     });
 
+    const [request] = await this.attachRequestFileAssetIds(user.organizationId, [
+      this.toRequest(
+        {
+          ...issue,
+          attachments: attachment
+            ? [{ id: null, fileUrl: attachment.fileUrl, fileName: attachment.fileName, fileType: attachment.fileType, uploadedByUserId: user.id, createdAt: issue.createdAt }]
+            : [],
+        },
+        store,
+        false,
+      ),
+    ]);
     return {
-      ...this.toRequest({ ...issue, attachments: attachment ? [{ id: null, fileUrl: attachment.fileUrl, fileName: attachment.fileName, fileType: attachment.fileType, uploadedByUserId: user.id, createdAt: issue.createdAt }] : [] }, store, false),
+      ...request,
       possibleDuplicate: possibleDuplicateIds.length > 0,
       possibleDuplicateIds,
       warning: possibleDuplicateIds.length ? 'Există deja o cerere similară deschisă pentru acest apartament.' : null,
@@ -1170,8 +1252,9 @@ export class CommunityReadService {
   async getResidentRequest(user: MvpUser, id: string) {
     const { row, store } = await this.findResidentRequest(user, id);
     const association = await this.getOrganizationBadge(row.organizationId);
+    const [request] = await this.attachRequestFileAssetIds(row.organizationId, [this.toRequest(row, store, false)]);
     return {
-      request: this.toRequest(row, store, false),
+      request,
       association,
     };
   }
@@ -1187,14 +1270,27 @@ export class CommunityReadService {
     });
     const attachment = this.parseAttachmentPayload(payload);
     if (attachment) {
+      const asset = await requireOwnedFileAsset(this.prisma, {
+        organizationId: row.organizationId,
+        fileUrl: attachment.fileUrl,
+        entityTypes: FileAssetEntityType.ISSUE_ATTACHMENT,
+        message: 'Atașamentul trebuie încărcat prin uploaderul Espace.',
+      });
       await this.prisma.issueAttachment.create({
         data: {
           issueId: row.id,
-          fileUrl: attachment.fileUrl,
-          fileName: attachment.fileName,
-          fileType: attachment.fileType,
+          fileUrl: asset.fileUrl,
+          fileName: asset.fileName,
+          fileType: asset.mimeType || attachment.fileType,
           uploadedByUserId: user.id,
         },
+      });
+      await bindOwnedFileAssetToEntity(this.prisma, {
+        organizationId: row.organizationId,
+        fileUrl: asset.fileUrl,
+        entityType: FileAssetEntityType.ISSUE_ATTACHMENT,
+        entityId: row.id,
+        message: 'Atașamentul trebuie încărcat prin uploaderul Espace.',
       });
     }
     store.items[row.id] = {
@@ -1320,7 +1416,10 @@ export class CommunityReadService {
       orderBy: { createdAt: 'desc' },
       select: this.issueSelect(),
     });
-    const allItems = rows.map((row) => this.toRequest(row, store, true));
+    const allItems = await this.attachRequestFileAssetIds(
+      organizationId,
+      rows.map((row) => this.toRequest(row, store, true)),
+    );
     const filtered = this.filterRequests(allItems, query, true);
     const sorted = this.sortRequests(filtered, query.sortBy, query.sortDirection);
     const page = this.positiveInt(query.page, 1);
@@ -1364,8 +1463,9 @@ export class CommunityReadService {
   async getAdminRequest(user: MvpUser, id: string) {
     const row = await this.findAdminRequest(user, id);
     const store = await this.readRequestMetadata(row.organizationId);
+    const [request] = await this.attachRequestFileAssetIds(row.organizationId, [this.toRequest(row, store, true)]);
     return {
-      request: this.toRequest(row, store, true),
+      request,
       association: await this.getOrganizationBadge(row.organizationId),
     };
   }
@@ -1456,7 +1556,7 @@ export class CommunityReadService {
         link: `/resident/requests/${row.id}`,
       });
     }
-    return this.toRequest(updated, store, true);
+    return (await this.attachRequestFileAssetIds(row.organizationId, [this.toRequest(updated, store, true)]))[0];
   }
 
   async updateAdminRequestStatus(user: MvpUser, id: string, body: unknown) {
@@ -1485,7 +1585,7 @@ export class CommunityReadService {
       select: this.issueSelect(),
     });
     await this.writeRequestMetadata(row.organizationId, user.id, store);
-    return this.toRequest(updated, store, true);
+    return (await this.attachRequestFileAssetIds(row.organizationId, [this.toRequest(updated, store, true)]))[0];
   }
 
   async assignAdminRequest(user: MvpUser, id: string, body: unknown) {
@@ -1542,7 +1642,7 @@ export class CommunityReadService {
       targetId: row.id,
       link: `/admin/requests/${row.id}`,
     });
-    return this.toRequest(updated, store, true);
+    return (await this.attachRequestFileAssetIds(row.organizationId, [this.toRequest(updated, store, true)]))[0];
   }
 
   async addAdminRequestComment(user: MvpUser, id: string, body: unknown) {
@@ -1555,14 +1655,27 @@ export class CommunityReadService {
     });
     const attachment = this.parseAttachmentPayload(payload);
     if (attachment) {
+      const asset = await requireOwnedFileAsset(this.prisma, {
+        organizationId: row.organizationId,
+        fileUrl: attachment.fileUrl,
+        entityTypes: FileAssetEntityType.ISSUE_ATTACHMENT,
+        message: 'Atașamentul trebuie încărcat prin uploaderul Espace.',
+      });
       await this.prisma.issueAttachment.create({
         data: {
           issueId: row.id,
-          fileUrl: attachment.fileUrl,
-          fileName: attachment.fileName,
-          fileType: attachment.fileType,
+          fileUrl: asset.fileUrl,
+          fileName: asset.fileName,
+          fileType: asset.mimeType || attachment.fileType,
           uploadedByUserId: user.id,
         },
+      });
+      await bindOwnedFileAssetToEntity(this.prisma, {
+        organizationId: row.organizationId,
+        fileUrl: asset.fileUrl,
+        entityType: FileAssetEntityType.ISSUE_ATTACHMENT,
+        entityId: row.id,
+        message: 'Atașamentul trebuie încărcat prin uploaderul Espace.',
       });
     }
     const store = await this.readRequestMetadata(row.organizationId);
@@ -1723,7 +1836,13 @@ export class CommunityReadService {
       orderBy: { createdAt: 'desc' },
       select: this.issueSelect(),
     });
-    return { items: rows.map((row) => this.toRequest(row, store, true)), meta: { total: rows.length } };
+    return {
+      items: await this.attachRequestFileAssetIds(
+        organizationId,
+        rows.map((row) => this.toRequest(row, store, true)),
+      ),
+      meta: { total: rows.length },
+    };
   }
 
   async listAdminApartmentRequests(user: MvpUser, apartmentId: string) {
@@ -1735,7 +1854,13 @@ export class CommunityReadService {
       orderBy: { createdAt: 'desc' },
       select: this.issueSelect(),
     });
-    return { items: rows.map((row) => this.toRequest(row, store, true)), meta: { total: rows.length } };
+    return {
+      items: await this.attachRequestFileAssetIds(
+        organizationId,
+        rows.map((row) => this.toRequest(row, store, true)),
+      ),
+      meta: { total: rows.length },
+    };
   }
 
   async listAdminRequestIssues(user: MvpUser, query: Record<string, string | undefined>) {
@@ -2445,7 +2570,7 @@ export class CommunityReadService {
       targetId: row.id,
       link: `/admin/requests/${row.id}`,
     });
-    return this.toRequest(updated, store, true);
+    return (await this.attachRequestFileAssetIds(row.organizationId, [this.toRequest(updated, store, true)]))[0];
   }
 
   private parseIssueStatus(body: unknown) {
@@ -2479,10 +2604,12 @@ export class CommunityReadService {
   private parseAttachmentPayload(payload: Record<string, unknown>) {
     const fileUrl = this.optionalString(payload.attachmentUrl ?? payload.fileUrl);
     if (!fileUrl) return null;
+    assertInternalFileUrl(fileUrl, 'Atașamentele externe nu sunt acceptate. Încarcă fișierul prin Espace.');
     return {
       fileUrl,
       fileName: this.optionalString(payload.attachmentFileName ?? payload.fileName) || 'Atașament solicitare',
       fileType: this.optionalString(payload.attachmentMimeType ?? payload.fileType ?? payload.attachmentType) || 'link',
+      fileSize: Number.isFinite(Number(payload.attachmentFileSize)) ? Number(payload.attachmentFileSize) : null,
     };
   }
 

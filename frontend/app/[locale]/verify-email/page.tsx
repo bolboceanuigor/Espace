@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { authApi } from '@/lib/api';
+import { authApi } from '@/lib/auth-api';
 
 export default function VerifyEmailPage({ params }: { params: { locale: string } }) {
   const router = useRouter();

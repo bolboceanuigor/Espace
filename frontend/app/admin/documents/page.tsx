@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ExternalLink, FileText, Pencil, Plus, Search } from 'lucide-react';
 import { Badge, Button, Card, PageHeader } from '@/components/ui';
-import { documentsApi } from '@/lib/api';
+import { documentsApi, filesApi } from '@/lib/api';
 
 type Category = 'STATUT' | 'PROCES_VERBAL' | 'HOTARARE' | 'CONTRACT' | 'FINANCIAR' | 'TEHNIC' | 'ANUNT' | 'ALTUL';
 type Visibility = 'ADMIN_ONLY' | 'RESIDENT_VISIBLE';
@@ -232,7 +232,7 @@ export default function AdminDocumentsPage() {
               <p>{row.createdAt ? new Date(row.createdAt).toLocaleDateString('ro-RO') : '-'}</p>
             </div>
             <div className="mt-auto flex flex-wrap gap-2">
-              <a className="inline-flex min-h-10 items-center gap-2 rounded-2xl border border-border/70 px-3 text-sm font-semibold text-foreground hover:bg-muted/50" href={row.fileUrl} target="_blank" rel="noreferrer">
+              <a className="inline-flex min-h-10 items-center gap-2 rounded-2xl border border-border/70 px-3 text-sm font-semibold text-foreground hover:bg-muted/50" href={row.fileAssetId ? filesApi.secureDownloadUrl(row.fileAssetId) : row.fileUrl} target="_blank" rel="noreferrer">
                 <ExternalLink className="h-4 w-4" /> Deschide
               </a>
               <button className="inline-flex min-h-10 items-center gap-2 rounded-2xl border border-border/70 px-3 text-sm font-semibold text-foreground hover:bg-muted/50" onClick={() => edit(row)}>

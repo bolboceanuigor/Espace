@@ -118,7 +118,7 @@
     "cancel": "Anuleaza",
     "delete": "Sterge",
     "export": "Export CSV",
-    "loadDemo": "Incarca date demo",
+    "loadDemo": "Incarca structura exemplu",
     "skip": "Sari",
     "create": "Creeaza",
     "search": "Cauta",
@@ -180,8 +180,8 @@
   "auth": {
     "titleLogin": "Autentificare",
     "titleRegister": "Creeaza cont",
-    "subtitleLogin": "Calendar Proprietati",
-    "subtitleRegister": "Incepe sa folosesti Espace in cateva secunde",
+    "subtitleLogin": "Administrarea asociatiei, intr-un singur loc",
+    "subtitleRegister": "Incepe configurarea Espace SaaS pentru organizatia ta",
     "orgName": "Nume organizatie",
     "email": "Email",
     "password": "Parola",
@@ -211,7 +211,40 @@
     "sendResetLink": "Trimite link resetare",
     "newPassword": "Parola noua",
     "confirmPassword": "Confirma parola",
-    "backToLogin": "Inapoi la login"
+    "backToLogin": "Inapoi la login",
+    "credentialsRequired": "Emailul si parola sunt obligatorii.",
+    "apiUnavailable": "API-ul nu este disponibil temporar.",
+    "unexpectedLoginError": "A aparut o eroare. Incearca din nou.",
+    "emailNotFound": "Nu exista cont cu acest email.",
+    "invalidPassword": "Parola nu este corecta.",
+    "loginBrandBody": "Intra in platforma pentru administrarea condominiilor si A.P.C.-urilor din Republica Moldova.",
+    "loginBrandDetails": "Ai acces la locatari, apartamente, facturi, plati, contoare, cereri si Espace Connect in functie de rolul contului.",
+    "loginEyebrow": "Intra in platforma",
+    "loginHeading": "Autentificare Espace",
+    "loginBody": "Foloseste contul primit de la administratorul asociatiei sau de la echipa Espace.",
+    "emailPlaceholder": "email@espace.md",
+    "passwordPlaceholder": "Parola contului",
+    "authenticating": "Se autentifica...",
+    "backToPresentation": "Inapoi la prezentare",
+    "requestAccess": "Cere acces",
+    "demo": {
+      "title": "Acces intern de prezentare",
+      "summary": "pentru fallback si prezentari controlate",
+      "roles": {
+        "SUPERADMIN": {
+          "button": "Acces intern Superadmin",
+          "description": "Gestioneaza asociatii, administratori si configurarea platformei."
+        },
+        "ADMIN": {
+          "button": "Acces intern Administrator",
+          "description": "Administreaza apartamente, locatari, contoare, plati si cereri."
+        },
+        "RESIDENT": {
+          "button": "Acces intern Locatar",
+          "description": "Vezi facturi, transmite citiri, urmareste cereri si mesaje."
+        }
+      }
+    }
   },
   "form": {
     "name": "Nume",
@@ -460,6 +493,317 @@
     "demoPage": {
       "title": "Cere acces",
       "subtitle": "Completeaza formularul si discutam pasii de activare pentru asociatia ta."
+    }
+  },
+  "legal": {
+    "terms": {
+      "title": "Termeni Espace SaaS",
+      "intro": "Aceasta pagina rezuma cadrul general de utilizare a platformei Espace pentru asociatii, administratori, echipe si locatari.",
+      "body": "Prin utilizarea Espace accepti sa folosesti platforma responsabil, conform legislatiei aplicabile, termenilor contractuali agreati cu operatorul platformei si regulilor interne ale organizatiei tale. Pentru versiunea contractuala completa a termenilor, foloseste documentele juridice si comerciale aprobate pentru contul tau Espace."
+    },
+    "privacy": {
+      "title": "Confidentialitate Espace SaaS",
+      "intro": "Espace proceseaza date de cont si date operationale pentru a furniza administrarea asociatiilor, facturi, plati, cereri, comunicare si acces diferentiat pe roluri.",
+      "body": "Datele sunt folosite doar pentru functionalitatile necesare platformei, cu separare pe organizatii si controale de acces bazate pe rol. Pentru detalii complete despre retentie, drepturile persoanelor vizate si canalele de suport, foloseste documentatia juridica publicata de Espace pentru mediul tau."
+    }
+  },
+  "publicSite": {
+    "meta": {
+      "homeTitle": "Espace SaaS — Platforma moderna pentru administrarea condominiilor",
+      "homeDescription": "Espace ajuta administratorii APC sa gestioneze locatari, apartamente, contoare, facturi, plati, cereri si comunicarea intr-un singur loc.",
+      "homeOgDescription": "Administrare moderna pentru APC-uri: locatari, apartamente, contoare, facturi, plati, cereri si comunicare."
+    },
+    "nav": {
+      "brand": "Espace SaaS",
+      "platform": "Platforma",
+      "features": "Functionalitati",
+      "admins": "Administratori",
+      "residents": "Locatari",
+      "contact": "Contact",
+      "login": "Intra in platforma",
+      "requestAccess": "Cere acces",
+      "menuAriaLabel": "Meniu"
+    },
+    "footer": {
+      "brand": "Espace SaaS",
+      "text": "Espace SaaS pentru administrarea condominiilor si asociatiilor.",
+      "login": "Login",
+      "requestAccess": "Cere acces",
+      "contact": "Contact"
+    },
+    "cookie": {
+      "text": "Folosim cookies necesare pentru functionarea aplicatiei. Cookies optionale vor fi folosite doar daca sunt activate.",
+      "details": "Detalii",
+      "accept": "Am inteles"
+    },
+    "productMockup": {
+      "brand": "Espace",
+      "sidebar": ["Dashboard", "Facturi", "Contoare", "Cereri"],
+      "eyebrow": "Workspace APC",
+      "title": "Operatiuni lunare intr-un singur loc",
+      "preview": "Preview produs",
+      "modules": [
+        { "title": "Locatari", "text": "Profil, apartamente, acces portal" },
+        { "title": "Facturi", "text": "Draft lunar, publicare, solduri" },
+        { "title": "Contoare", "text": "Citiri, verificare, istoric" },
+        { "title": "Connect", "text": "Mesaje legate de apartament" }
+      ],
+      "flowTitle": "Flux facturare",
+      "flowSteps": ["Citiri", "Draft", "Revizuire", "Publicare"]
+    },
+    "cta": {
+      "title": "Vrei sa testezi Espace pentru asociatia ta?",
+      "text": "Trimite o cerere si discutam pasii pentru activarea asociatiei in Espace.",
+      "requestAccess": "Cere acces",
+      "login": "Intra in cont"
+    },
+    "accessForm": {
+      "validation": "Completeaza numele, telefonul si orasul.",
+      "submitError": "Cererea nu a putut fi trimisa.",
+      "successTitle": "Cererea a fost trimisa",
+      "successBody": "Cererea a fost trimisa. Te vom contacta pentru configurarea accesului.",
+      "contactName": "Nume persoana contact",
+      "phone": "Telefon",
+      "emailOptional": "Email optional",
+      "city": "Oras",
+      "associationNameOptional": "Denumire APC/asociatie optional",
+      "apcCodeOptional": "Cod APC optional",
+      "addressOptional": "Adresa optionala",
+      "apartmentsCount": "Numar aproximativ apartamente",
+      "contactRoleOptional": "Rol optional",
+      "messageOptional": "Mesaj optional",
+      "consent": "Sunt de acord sa fiu contactat pentru discutarea activarii asociatiei in Espace.",
+      "sending": "Se trimite...",
+      "submit": "Trimite cererea",
+      "typeOptions": {
+        "APC": "APC / asociatie",
+        "ADMINISTRATOR": "Administrator",
+        "PROPERTY_MANAGER": "Property manager",
+        "OTHER": "Altceva"
+      }
+    },
+    "home": {
+      "badge": "SaaS pentru administrarea condominiilor",
+      "title": "Platforma moderna pentru administrarea condominiilor",
+      "text": "Espace ajuta administratorii APC sa gestioneze locatari, apartamente, contoare, facturi, plati, cereri si comunicarea intr-un singur loc.",
+      "primaryCta": "Cere acces",
+      "secondaryCta": "Intra in platforma",
+      "footnote": "Construit pentru procese reale de administrare: evidenta, facturare, solduri, citiri si comunicare.",
+      "modulesEyebrow": "Module Espace",
+      "modulesTitle": "Procesele importante, puse intr-un sistem clar.",
+      "modulesText": "Cardurile de mai jos descriu capabilitatile produsului, pe fluxuri reale si fara statistici inventate.",
+      "rolesEyebrow": "Pentru fiecare rol",
+      "rolesTitle": "Superadmin, Administrator si Locatar in aceeasi platforma.",
+      "moldovaEyebrow": "Pentru Republica Moldova",
+      "moldovaTitle": "Gandit pentru modul in care se administreaza APC-urile si condominiile.",
+      "moldovaText": "Espace organizeaza activitatea de zi cu zi pentru asociatii care lucreaza cu blocuri, scari, apartamente, facturi lunare, contoare si comunicare constanta cu locatarii.",
+      "moduleCards": [
+        { "title": "Locatari si apartamente", "text": "Evidenta pentru blocuri, scari, apartamente, proprietari si locatari." },
+        { "title": "Facturi si solduri", "text": "Flux lunar pentru drafturi, publicare facturi, solduri si istoric financiar." },
+        { "title": "Contoare si citiri", "text": "Contoare, citiri lunare si verificari inainte de facturare." },
+        { "title": "Cereri locatari", "text": "Solicitari urmarite clar, cu statusuri si raspunsuri din partea administratiei." },
+        { "title": "Documente si anunturi", "text": "Comunicari, avizier si documente importante pentru asociatie." },
+        { "title": "Espace Connect", "text": "Conversatii legate de apartament, factura, contor, plata sau cerere." }
+      ],
+      "roles": [
+        { "title": "Superadmin Espace", "text": "Proceseaza APC-uri, onboarding, contracte si status client." },
+        { "title": "Administrator APC", "text": "Gestioneaza blocuri, locatari, facturi, plati, contoare si cereri." },
+        { "title": "Locatar", "text": "Vede facturi, sold, plati, citiri si poate trimite cereri." }
+      ],
+      "moldovaItems": ["APC / condominiu", "Blocuri, scari, apartamente", "Facturi lunare", "Contoare si citiri", "Comunicare cu locatarii"]
+    },
+    "featureGrid": {
+      "badgePreparing": "in pregatire",
+      "items": [
+        { "title": "CRM apartamente", "text": "Evidenta organizata pentru fiecare apartament." },
+        { "title": "CRM locatari", "text": "Contacte, roluri, portal si preferinte." },
+        { "title": "Tarife", "text": "Reguli clare pentru servicii si calcul lunar." },
+        { "title": "Facturare lunara", "text": "Draft, revizuire, blocare si facturi finale." },
+        { "title": "Plati manuale", "text": "Inregistrare plati si solduri." },
+        { "title": "Reconciliere", "text": "Pregatit pentru verificari si potrivire plati." },
+        { "title": "Contoare", "text": "Contoare, indici si consum." },
+        { "title": "Rapoarte", "text": "Financiare si consum." },
+        { "title": "Anunturi", "text": "Avizier pentru locatari." },
+        { "title": "Solicitari", "text": "Cereri si timeline de raspuns." },
+        { "title": "Import CSV", "text": "Migrare date controlata." },
+        { "title": "Data Quality", "text": "Verificari inainte de facturare." },
+        { "title": "Audit Log", "text": "Istoric actiuni sensibile." },
+        { "title": "Roluri si permisiuni", "text": "Acces pe responsabilitati." },
+        { "title": "PWA mobile", "text": "Portal locatar pregatit pentru mobil." },
+        { "title": "Plati online", "text": "In pregatire.", "badge": "preparing" },
+        { "title": "PDF documente", "text": "Disponibil pentru print si salvare." },
+        { "title": "Email/SMS", "text": "Configurabil prin provider." }
+      ]
+    },
+    "pricing": {
+      "title": "Planuri pentru asociatii mici si mari.",
+      "text": "Pretul se discuta in functie de marimea asociatiei si modulele necesare.",
+      "customOffer": "Oferta personalizata",
+      "requestAccess": "Cere acces",
+      "plans": [
+        { "name": "Starter", "text": "Pentru asociatii mici", "features": ["Apartamente si locatari", "Facturare interna", "Portal locatar"] },
+        { "name": "Standard", "text": "Pentru administrare lunara completa", "features": ["Contoare", "Data Quality", "Rapoarte"] },
+        { "name": "Pro", "text": "Pentru asociatii cu procese avansate", "features": ["Roluri staff", "Import/export", "Audit log"] },
+        { "name": "Enterprise", "text": "Pentru cerinte personalizate", "features": ["Suport implementare", "Configurare dedicata", "Plan personalizat"] }
+      ]
+    },
+    "platform": {
+      "title": "Platforma Espace",
+      "text": "Un sistem SaaS pentru administrarea APC: Superadmin gestioneaza clientii si abonamentele, Admin/Staff opereaza asociatia, iar Resident foloseste portalul.",
+      "cards": [
+        { "title": "Superadmin", "text": "Planuri SaaS, abonamente, cereri clienti, monitorizare si suport." },
+        { "title": "Admin/Staff", "text": "Apartamente, locatari, tarife, facturi, plati, contoare si rapoarte." },
+        { "title": "Resident", "text": "Facturi, plati, contoare, avizier, solicitari si profil." }
+      ]
+    },
+    "admins": {
+      "title": "Pentru administratori APC",
+      "text": "Espace ajuta administratorii sa lucreze organizat, cu verificari inainte de facturare si un flux lunar clar.",
+      "cta": "Solicita activarea asociatiei"
+    },
+    "residents": {
+      "title": "Pentru locatari",
+      "text": "Portal simplu, clar si usor de folosit pe telefon.",
+      "items": ["Facturi", "Plati", "Contoare", "Avizier", "Solicitari", "Notificari", "Profil"],
+      "footnote": "Cere administratorului activarea in Espace."
+    },
+    "contact": {
+      "eyebrow": "Espace",
+      "accessTitle": "Cere acces pentru asociatia ta",
+      "contactTitle": "Contacteaza Espace",
+      "accessText": "Trimite datele de contact si discutam pasii pentru activarea asociatiei in Espace.",
+      "contactText": "Pentru asociatii interesate de activare, completeaza formularul si vei fi contactat pentru pasii urmatori.",
+      "assistedImplementation": "Implementarea se face asistat, ca datele asociatiei sa fie configurate corect de la inceput.",
+      "legalPrefix": "Pentru intrebari despre confidentialitate, termeni sau securitate, consulta",
+      "legalLink": "Legal & Trust"
+    },
+    "features": {
+      "title": "Functionalitati Espace",
+      "text": "Module disponibile si componente in pregatire."
+    },
+    "security": {
+      "title": "Securitate si control",
+      "text": "Espace separa rolurile, limiteaza accesul si pastreaza audit pentru actiunile importante.",
+      "cards": [
+        { "title": "Acces pe roluri", "text": "Admin, Staff, Resident si Superadmin au suprafete separate." },
+        { "title": "Audit", "text": "Actiunile sensibile pot fi urmarite in istoric." },
+        { "title": "Date organizate", "text": "Datele asociatiei sunt operate controlat, fara stergeri automate peste limite." }
+      ]
+    },
+    "help": {
+      "title": "Ajutor Espace",
+      "text": "Ghidurile produsului sunt disponibile in Help Center.",
+      "cta": "Deschide Help Center"
+    }
+  },
+  "navigation": {
+    "adminSidebar": {
+      "sections": {
+        "management": "Administrare",
+        "finance": "Financiar",
+        "operations": "Operational",
+        "system": "Sistem"
+      },
+      "items": {
+        "dashboard": "Dashboard",
+        "apartments": "Apartamente",
+        "owners": "Proprietari",
+        "residents": "Locatari",
+        "tariffs": "Tarife",
+        "meters": "Contoare",
+        "meterReadings": "Citiri contoare",
+        "residentReadings": "Citiri locatari",
+        "monthlyBilling": "Facturare lunara",
+        "invoiceDrafts": "Drafturi facturi",
+        "internalInvoices": "Facturi interne",
+        "payments": "Plati",
+        "reconciliation": "Reconciliere",
+        "reports": "Rapoarte",
+        "announcements": "Anunturi",
+        "requests": "Solicitari",
+        "maintenance": "Mentenanta",
+        "connect": "Connect",
+        "imports": "Importuri",
+        "exports": "Exporturi",
+        "dataQuality": "Calitatea datelor",
+        "notifications": "Notificari",
+        "team": "Echipa",
+        "teamInvitations": "Invitatii echipa",
+        "teamActivity": "Activitate echipa",
+        "teamSecurity": "Securitate echipa",
+        "roles": "Roluri",
+        "permissions": "Permisiuni",
+        "settings": "Setari"
+      },
+      "roleLabel": "Administrator"
+    },
+    "adminCompactSidebar": {
+      "items": {
+        "dashboard": "Dashboard",
+        "apartments": "Apartamente",
+        "residents": "Locatari",
+        "tariffs": "Tarife",
+        "meters": "Contoare",
+        "meterReadings": "Citiri contoare",
+        "residentReadings": "Citiri locatari",
+        "billing": "Facturare",
+        "invoiceDrafts": "Drafturi facturi",
+        "invoices": "Facturi",
+        "payments": "Plati",
+        "reports": "Rapoarte",
+        "announcements": "Avizier",
+        "requests": "Solicitari",
+        "connect": "Connect",
+        "dataQuality": "Calitatea datelor",
+        "importExport": "Import / Export",
+        "notifications": "Notificari",
+        "settings": "Setari"
+      },
+      "roleLabel": "Administrator",
+      "logout": "Deconectare",
+      "collapse": "Restrange"
+    },
+    "adminLayout": {
+      "searchPlaceholder": "Cauta locatari, apartamente...",
+      "routes": {
+        "admin": "Dashboard",
+        "apartments": "Apartamente",
+        "residents": "Locatari",
+        "tariffs": "Tarife",
+        "meters": "Contoare",
+        "meterReadings": "Citiri contoare",
+        "residentReadings": "Citiri locatari",
+        "billing": "Facturare",
+        "billingDrafts": "Drafturi facturi",
+        "invoices": "Facturi",
+        "payments": "Plati",
+        "reports": "Rapoarte",
+        "announcements": "Avizier",
+        "requests": "Solicitari",
+        "dataQuality": "Calitatea datelor",
+        "imports": "Import",
+        "exports": "Export",
+        "notifications": "Notificari",
+        "settings": "Setari"
+      }
+    },
+    "resident": {
+      "items": {
+        "home": "Acasa",
+        "invoices": "Facturi",
+        "balance": "Sold",
+        "meters": "Contoare",
+        "requests": "Solicitari",
+        "messages": "Mesaje",
+        "announcements": "Avizier",
+        "account": "Cont"
+      },
+      "greetings": {
+        "morning": "Buna dimineata",
+        "afternoon": "Buna ziua",
+        "evening": "Buna seara"
+      },
+      "welcome": "Bine ai venit in portalul tau de locatar."
     }
   },
   "help": {

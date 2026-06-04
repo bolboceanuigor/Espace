@@ -195,7 +195,7 @@ export class EmailService {
     html?: string;
     link?: string;
   }): Promise<EmailDeliveryResult> {
-    const from = process.env.EMAIL_FROM || process.env.MAIL_FROM || 'Espace <no-reply@espace.local>';
+    const from = process.env.EMAIL_FROM || process.env.MAIL_FROM || 'Espace <no-reply@espace.md>';
     const replyTo = process.env.SUPPORT_EMAIL || undefined;
     const html = params.html || `<p>${this.escapeHtml(params.text)}</p>`;
 

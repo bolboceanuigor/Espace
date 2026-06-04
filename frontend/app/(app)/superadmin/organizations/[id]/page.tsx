@@ -552,7 +552,7 @@ export default function SuperadminOrganizationDetailsPage() {
       <div className="space-y-5 pb-4">
         <PageHeader
           title="Organizație indisponibilă"
-          description="Nu sunt afișate date demo."
+          description="Se afișează doar date reale din organizația selectată."
           rightSlot={<HeaderBackLink href={localizedPath('/superadmin/organizations')} />}
         />
         <Card className="p-5">

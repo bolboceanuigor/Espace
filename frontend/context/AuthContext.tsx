@@ -6,6 +6,7 @@ import {
   clearAuthCookies,
   getToken,
   getUser,
+  hasAccessTokenCookie,
   isDemoAuthenticated,
   removeToken,
   removeUser,
@@ -13,7 +14,7 @@ import {
   setToken,
   setUser,
 } from '@/lib/auth';
-import { authApi } from '@/lib/api';
+import { authApi } from '@/lib/auth-api';
 import { defaultLocale, isLocale } from '@/i18n';
 import { isApiConfigured } from '@/lib/runtime-config';
 
@@ -104,24 +105,29 @@ function isPublicRoute(pathname: string): boolean {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUserState] = useState<User | null>(null);
-  const [accessToken, setAccessTokenState] = useState<string | null>(null);
+  const [user, setUserState] = useState<User | null>(() => getUser());
+  const [accessToken, setAccessTokenState] = useState<string | null>(() => getToken());
   const [org, setOrg] = useState<Org | null>(null);
   const [prefs, setPrefs] = useState<Prefs | null>(null);
   const [system, setSystem] = useState<{ maintenanceMode: boolean } | null>(null);
-  const [demoAuthenticated, setDemoAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [demoAuthenticated, setDemoAuthenticated] = useState(() => isDemoAuthenticated());
+  const [loading, setLoading] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    const token = getToken();
+    const hasCookieSession = hasAccessTokenCookie();
+    const cachedUser = getUser();
+    if (!token && !hasCookieSession) return false;
+    return !cachedUser;
+  });
 
   useEffect(() => {
     let active = true;
     const bootstrap = async () => {
-      setAccessTokenState(null);
-      setDemoAuthenticated(isDemoAuthenticated());
-
       if (!isApiConfigured()) {
         removeToken();
         removeUser();
         if (active) {
+          setAccessTokenState(null);
           setUserState(null);
           setOrg(null);
           setPrefs(null);
@@ -141,7 +147,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUserState(cached);
       }
 
-      if (!cachedToken) {
+      const hasCookieSession = hasAccessTokenCookie();
+
+      if (!cachedToken && !hasCookieSession) {
         if (active) {
           setDemoAuthenticated(isDemoAuthenticated());
           setLoading(false);
@@ -149,11 +157,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      if (cached && active) {
+        setDemoAuthenticated(false);
+        setLoading(false);
+      } else if (active) {
+        setLoading(true);
+      }
+
       try {
         const response = await authApi.getMe();
         const payload = response.data;
         const serverUser = payload?.user ?? payload;
-        saveAuth(cachedToken, serverUser);
+        if (cachedToken) {
+          saveAuth(cachedToken, serverUser);
+        } else {
+          setUser(serverUser);
+        }
         if (active) {
           setUserState(serverUser);
           setAccessTokenState(cachedToken);

@@ -119,15 +119,15 @@ export function SuperadminPaymentsOverviewPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Payments"
-        description="Planifică providerii și urmărește intențiile de plată fără procesare reală."
-        rightSlot={<ButtonLink href="/superadmin/payments/providers"><PlugZap className="h-4 w-4" /> Payment Providers</ButtonLink>}
+        title="Plăți online"
+        description="Configurează providerii și urmărește intențiile de plată în interfața Espace."
+        rightSlot={<ButtonLink href="/superadmin/payments/providers"><PlugZap className="h-4 w-4" /> Providere de plată</ButtonLink>}
       />
       <section className="grid gap-3 md:grid-cols-4">
         <StatCard label="Provideri" value={providers.length} icon={<PlugZap className="h-5 w-5" />} />
         <StatCard label="Activi/testing" value={providers.filter((p: any) => p.status === 'ACTIVE' || p.status === 'TESTING').length} icon={<CreditCard className="h-5 w-5" />} />
-        <StatCard label="BPay placeholders" value={providers.filter((p: any) => p.type === 'BPAY').length} icon={<WalletCards className="h-5 w-5" />} />
-        <StatCard label="Procesare reală" value="Oprită" description="ES-139 nu procesează bani" icon={<ShieldAlert className="h-5 w-5" />} tone="warning" />
+        <StatCard label="Providere BPay" value={providers.filter((p: any) => p.type === 'BPAY').length} icon={<WalletCards className="h-5 w-5" />} />
+        <StatCard label="Procesare online" value="Dezactivată" description="Activarea reală se face separat, după integrarea providerilor." icon={<ShieldAlert className="h-5 w-5" />} tone="warning" />
       </section>
       <RecentIntents audience="superadmin" />
     </div>
@@ -139,9 +139,9 @@ export function SuperadminProvidersPage() {
   const items = data?.items || [];
   return (
     <div className="space-y-6">
-      <PageHeader title="Payment Providers" description="Configurează providerii de plată disponibili pentru platformă." />
+      <PageHeader title="Providere de plată" description="Configurează providerii de plată disponibili pentru platforma Espace." />
       {loading ? <Card className="h-32 animate-pulse bg-muted/40" /> : null}
-      {!items.length && !loading ? <Card className="p-8 text-center"><h2 className="text-lg font-semibold">Nu există provideri de plată</h2><p className="mt-2 text-sm text-muted-foreground">Adaugă un provider sau activează providerul de test pentru a pregăti plățile online.</p></Card> : null}
+      {!items.length && !loading ? <Card className="p-8 text-center"><h2 className="text-lg font-semibold">Nu există provideri de plată</h2><p className="mt-2 text-sm text-muted-foreground">Adaugă un provider sau pregătește configurarea pentru activarea ulterioară a plăților online.</p></Card> : null}
       {items.length ? (
         <Card>
           <div className="overflow-x-auto">
@@ -183,8 +183,8 @@ export function SuperadminProviderDetailPage({ id }: { id: string }) {
   return (
     <div className="space-y-6">
       <PageHeader title={provider.name} description="Detalii provider fără secrete." rightSlot={<ButtonLink href="/superadmin/payments/providers" variant="secondary"><ArrowLeft className="h-4 w-4" /> Înapoi</ButtonLink>} />
-      <Card><div className="grid gap-3 md:grid-cols-3"><Info label="Type" value={provider.type} /><Info label="Status" value={<PaymentStatusBadge status={provider.status} />} /><Info label="Mode" value={provider.mode} /><Info label="Config" value={provider.configStatus} /><Info label="Default" value={provider.isDefault ? 'Da' : 'Nu'} /><Info label="External enabled" value={health?.externalEnabled ? 'Da' : 'Nu'} /></div></Card>
-      <Card><h2 className="font-semibold">Health</h2><p className="mt-2 text-sm text-muted-foreground">{health?.message}</p><Button className="mt-4" variant="secondary" onClick={test}><RefreshCw className="h-4 w-4" /> Test config</Button>{data?.test ? <p className="mt-3 text-sm font-semibold">{data.test.message}</p> : null}</Card>
+      <Card><div className="grid gap-3 md:grid-cols-3"><Info label="Tip" value={provider.type} /><Info label="Status" value={<PaymentStatusBadge status={provider.status} />} /><Info label="Mod" value={provider.mode} /><Info label="Configurație" value={provider.configStatus} /><Info label="Implicit" value={provider.isDefault ? 'Da' : 'Nu'} /><Info label="Activare externă" value={health?.externalEnabled ? 'Da' : 'Nu'} /></div></Card>
+      <Card><h2 className="font-semibold">Stare</h2><p className="mt-2 text-sm text-muted-foreground">{health?.message}</p><Button className="mt-4" variant="secondary" onClick={test}><RefreshCw className="h-4 w-4" /> Verifică setările</Button>{data?.test ? <p className="mt-3 text-sm font-semibold">{data.test.message}</p> : null}</Card>
     </div>
   );
 }
@@ -208,7 +208,8 @@ export function AdminPaymentSettingsPage() {
       <PageHeader title="Setări plăți online" description="Pregătește plățile online pentru facturile interne ale asociației." />
       <Card className="space-y-4">
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-          Providerul de plăți nu procesează bani în ES-139. Activarea este doar pentru testarea scheletului.
+          Procesarea online reală este dezactivată în mediul curent. Setările sunt disponibile doar
+          pentru pregătirea integrării.
         </div>
         <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={Boolean(form.onlinePaymentsEnabled)} onChange={(e) => setForm({ ...form, onlinePaymentsEnabled: e.target.checked })} /> Plăți online activate</label>
         <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={Boolean(form.allowResidentOnlinePayments)} onChange={(e) => setForm({ ...form, allowResidentOnlinePayments: e.target.checked })} /> Permite locatarilor să creeze intenții</label>

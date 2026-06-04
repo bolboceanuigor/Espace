@@ -2,12 +2,13 @@ import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { MvpSecurityModule } from '../security/mvp-security.module';
 import { IssuesController } from './issues.controller';
 import { IssuesService } from './issues.service';
 import { SaasUsageModule } from '../saas-usage/saas-usage.module';
 
 @Module({
-  imports: [PrismaModule, AuditModule, NotificationsModule, SaasUsageModule],
+  imports: [PrismaModule, AuditModule, NotificationsModule, SaasUsageModule, MvpSecurityModule],
   controllers: [IssuesController],
   providers: [IssuesService],
 })

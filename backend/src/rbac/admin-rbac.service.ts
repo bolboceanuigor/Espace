@@ -1617,7 +1617,7 @@ export class AdminRbacService {
         associationName: invitation.association?.name || 'asociație',
         associationCode: invitation.association?.fiscalCode || '',
         inviteLink: this.buildStaffInviteLink(rawToken),
-        supportEmail: process.env.EMAIL_REPLY_TO || process.env.SUPPORT_EMAIL || 'support@example.com',
+        supportEmail: process.env.EMAIL_REPLY_TO || process.env.SUPPORT_EMAIL || 'support@espace.md',
       },
       relatedEntityType: 'ASSOCIATION_STAFF_INVITATION',
       relatedEntityId: invitation.id,

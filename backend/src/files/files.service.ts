@@ -14,7 +14,32 @@ type AuthUser = { id?: string; sub?: string; role?: string; organizationId?: str
 export class FilesService {
   private readonly uploadRoot = path.resolve(process.cwd(), 'uploads');
   private readonly maxBytes = 10 * 1024 * 1024;
-  private readonly allowedMimePrefixes = ['image/', 'application/pdf', 'text/'];
+  private readonly maxBytesByEntityType: Record<FileAssetEntityType, number> = {
+    [FileAssetEntityType.DOCUMENT]: 10 * 1024 * 1024,
+    [FileAssetEntityType.ISSUE_ATTACHMENT]: 10 * 1024 * 1024,
+    [FileAssetEntityType.EXPENSE_ATTACHMENT]: 10 * 1024 * 1024,
+    [FileAssetEntityType.LOGO]: 2 * 1024 * 1024,
+    [FileAssetEntityType.INVOICE_PDF]: 10 * 1024 * 1024,
+    [FileAssetEntityType.RECEIPT_PDF]: 10 * 1024 * 1024,
+    [FileAssetEntityType.OTHER]: 10 * 1024 * 1024,
+  };
+  private readonly allowedExtensionsByEntityType: Record<FileAssetEntityType, Set<string>> = {
+    [FileAssetEntityType.DOCUMENT]: new Set(['.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx']),
+    [FileAssetEntityType.ISSUE_ATTACHMENT]: new Set(['.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx']),
+    [FileAssetEntityType.EXPENSE_ATTACHMENT]: new Set(['.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx']),
+    [FileAssetEntityType.LOGO]: new Set(['.jpg', '.jpeg', '.png']),
+    [FileAssetEntityType.INVOICE_PDF]: new Set(['.pdf']),
+    [FileAssetEntityType.RECEIPT_PDF]: new Set(['.pdf', '.jpg', '.jpeg', '.png']),
+    [FileAssetEntityType.OTHER]: new Set(['.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx']),
+  };
+  private readonly allowedMimeTypesByExtension: Record<string, string[]> = {
+    '.pdf': ['application/pdf'],
+    '.jpg': ['image/jpeg'],
+    '.jpeg': ['image/jpeg'],
+    '.png': ['image/png'],
+    '.doc': ['application/msword'],
+    '.docx': ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+  };
 
   constructor(
     private readonly prisma: PrismaService,
@@ -74,7 +99,8 @@ export class FilesService {
   }
 
   private async saveLocalFile(file: Express.Multer.File, organizationId: string) {
-    const ext = path.extname(file.originalname || '') || '';
+    const originalName = path.basename(file.originalname || '').trim();
+    const ext = path.extname(originalName) || '';
     const dateFolder = new Date().toISOString().slice(0, 10);
     const relativeDir = path.join(organizationId, dateFolder);
     const absoluteDir = path.join(this.uploadRoot, relativeDir);
@@ -90,25 +116,81 @@ export class FilesService {
   }
 
   private resolveAbsolutePath(fileUrl: string) {
-    const relative = fileUrl.replace(/^\/uploads\//, '');
-    return path.join(this.uploadRoot, relative);
+    const relative = fileUrl.replace(/^\/uploads\//, '').replace(/^\/+/, '');
+    const normalized = path.normalize(relative);
+    const absolutePath = path.resolve(this.uploadRoot, normalized);
+    const uploadRootPrefix = `${this.uploadRoot}${path.sep}`;
+    if (absolutePath !== this.uploadRoot && !absolutePath.startsWith(uploadRootPrefix)) {
+      throw new ForbiddenException('File access denied');
+    }
+    return absolutePath;
   }
 
-  private validateFile(file?: Express.Multer.File) {
+  private validateFile(dto: UploadFileDto, file?: Express.Multer.File) {
     if (!file) throw new BadRequestException('File is required');
     if (!file.originalname) throw new BadRequestException('File name is required');
     if (!file.mimetype) throw new BadRequestException('Unsupported file type');
-    const allowed = this.allowedMimePrefixes.some((entry) => file.mimetype.startsWith(entry));
-    if (!allowed) throw new BadRequestException('Unsupported file type');
-    if (file.size <= 0 || file.size > this.maxBytes) {
+    const originalName = path.basename(file.originalname).trim();
+    const extension = path.extname(originalName).toLowerCase();
+    const allowedExtensions = this.allowedExtensionsByEntityType[dto.entityType];
+    if (!extension || !allowedExtensions?.has(extension)) {
+      throw new BadRequestException('Unsupported file type');
+    }
+    const allowedMimeTypes = this.allowedMimeTypesByExtension[extension] || [];
+    if (!allowedMimeTypes.includes(file.mimetype)) {
+      throw new BadRequestException('Unsupported file type');
+    }
+    this.validateFileSignature(extension, file);
+    const maxBytes = this.maxBytesByEntityType[dto.entityType] || this.maxBytes;
+    if (file.size <= 0 || file.size > maxBytes) {
       throw new BadRequestException('File size exceeds allowed limit');
+    }
+  }
+
+  private validateFileSignature(extension: string, file: Express.Multer.File) {
+    const buffer = file.buffer;
+    if (!buffer || !Buffer.isBuffer(buffer) || buffer.length === 0) {
+      throw new BadRequestException('Unsupported file type');
+    }
+    if (extension === '.pdf') {
+      if (!buffer.subarray(0, 5).equals(Buffer.from('%PDF-'))) {
+        throw new BadRequestException('Unsupported file type');
+      }
+      return;
+    }
+    if (extension === '.jpg' || extension === '.jpeg') {
+      if (!(buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff)) {
+        throw new BadRequestException('Unsupported file type');
+      }
+      return;
+    }
+    if (extension === '.png') {
+      const pngHeader = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+      if (!buffer.subarray(0, pngHeader.length).equals(pngHeader)) {
+        throw new BadRequestException('Unsupported file type');
+      }
+      return;
+    }
+    if (extension === '.doc') {
+      const docHeader = Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
+      if (!buffer.subarray(0, docHeader.length).equals(docHeader)) {
+        throw new BadRequestException('Unsupported file type');
+      }
+      return;
+    }
+    if (extension === '.docx') {
+      const zipHeader = buffer[0] === 0x50 && buffer[1] === 0x4b;
+      const utf8Body = buffer.toString('utf8');
+      if (!zipHeader || (!utf8Body.includes('[Content_Types].xml') && !utf8Body.includes('word/'))) {
+        throw new BadRequestException('Unsupported file type');
+      }
     }
   }
 
   async adminUpload(user: AuthUser, dto: UploadFileDto, file?: Express.Multer.File) {
     const actor = await this.assertEntityPermission(user, dto);
     if (actor.role !== 'ADMIN' && !this.isSuperAdmin(user)) throw new ForbiddenException('Admin access required');
-    this.validateFile(file);
+    this.validateFile(dto, file);
     await this.limitsService.assertStorageAllowance(user, actor.organizationId, Number((file!.size / (1024 * 1024)).toFixed(4)));
     const saved = await this.saveLocalFile(file!, actor.organizationId);
     return this.prisma.fileAsset.create({
@@ -117,7 +199,7 @@ export class FilesService {
         uploadedByUserId: actor.userId,
         entityType: dto.entityType,
         entityId: dto.entityId || null,
-        fileName: file!.originalname,
+        fileName: path.basename(file!.originalname),
         fileUrl: saved.fileUrl,
         mimeType: file!.mimetype,
         sizeBytes: file!.size,
@@ -129,7 +211,7 @@ export class FilesService {
   async residentUpload(user: AuthUser, dto: UploadFileDto, file?: Express.Multer.File) {
     const actor = await this.assertEntityPermission(user, dto);
     if (actor.role !== 'RESIDENT' && actor.role !== 'TENANT') throw new ForbiddenException('Resident access required');
-    this.validateFile(file);
+    this.validateFile(dto, file);
     await this.limitsService.assertStorageAllowance(user, actor.organizationId, Number((file!.size / (1024 * 1024)).toFixed(4)));
     const saved = await this.saveLocalFile(file!, actor.organizationId);
     return this.prisma.fileAsset.create({
@@ -138,7 +220,7 @@ export class FilesService {
         uploadedByUserId: actor.userId,
         entityType: dto.entityType,
         entityId: dto.entityId || null,
-        fileName: file!.originalname,
+        fileName: path.basename(file!.originalname),
         fileUrl: saved.fileUrl,
         mimeType: file!.mimetype,
         sizeBytes: file!.size,
@@ -217,7 +299,17 @@ export class FilesService {
         where: { id: entityId, organizationId, apartmentId: { in: apartmentIds } },
         select: { id: true },
       });
-      return Boolean(receipt);
+      if (receipt) return true;
+      const paymentProof = await this.prisma.paymentProof.findFirst({
+        where: {
+          id: entityId,
+          organizationId,
+          residentUserId: userId,
+          apartmentId: { in: apartmentIds },
+        },
+        select: { id: true },
+      });
+      return Boolean(paymentProof);
     }
     return false;
   }
@@ -229,6 +321,26 @@ export class FilesService {
       select: { id: true },
     });
     return Boolean(issue);
+  }
+
+  private async canResidentAccessOtherAsset(organizationId: string, userId: string, entityId?: string | null) {
+    if (!entityId) return false;
+    const residentApartments = await this.prisma.residentProfile.findMany({
+      where: { organizationId, userId },
+      select: { apartmentId: true },
+    });
+    const apartmentIds = residentApartments.map((entry) => entry.apartmentId);
+    if (!apartmentIds.length) return false;
+    const paymentProof = await this.prisma.paymentProof.findFirst({
+      where: {
+        id: entityId,
+        organizationId,
+        residentUserId: userId,
+        apartmentId: { in: apartmentIds },
+      },
+      select: { id: true },
+    });
+    return Boolean(paymentProof);
   }
 
   private async canSuperadminAccess(user: AuthUser, organizationId?: string | null) {
@@ -257,7 +369,7 @@ export class FilesService {
       return;
     }
 
-    if (role === Role.RESIDENT || role === Role.TENANT) {
+    if (role === Role.RESIDENT || role === 'TENANT') {
       if (!organizationId || organizationId !== asset.organizationId) {
         throw new ForbiddenException('File access denied');
       }
@@ -268,6 +380,11 @@ export class FilesService {
       }
       if (asset.entityType === FileAssetEntityType.ISSUE_ATTACHMENT) {
         const ok = await this.canResidentAccessIssueAttachment(organizationId, userId, asset.entityId);
+        if (!ok) throw new ForbiddenException('File access denied');
+        return;
+      }
+      if (asset.entityType === FileAssetEntityType.OTHER) {
+        const ok = await this.canResidentAccessOtherAsset(organizationId, userId, asset.entityId);
         if (!ok) throw new ForbiddenException('File access denied');
         return;
       }
@@ -363,4 +480,3 @@ export class FilesService {
     };
   }
 }
-

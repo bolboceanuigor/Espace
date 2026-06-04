@@ -263,7 +263,7 @@ export default function SuperadminNotificationsCenterPage() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-foreground">Lista notificărilor</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Evenimente generate din date reale, fără date demo.</p>
+            <p className="mt-1 text-sm text-muted-foreground">Evenimente generate din date reale și din activitatea curentă a platformei.</p>
           </div>
           <button type="button" onClick={() => { setFilters(emptyFilters); setPage(1); }} className="min-h-10 rounded-2xl border border-border/70 px-4 text-sm font-semibold hover:bg-muted/60">
             Resetează filtre

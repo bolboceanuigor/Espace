@@ -45,7 +45,7 @@ export default function FeedbackModal({ open, onClose, pageUrl }: FeedbackModalP
           <input className="input w-full" value={pageUrl} disabled />
           <input
             className="input w-full"
-            placeholder="Screenshot URL (optional placeholder)"
+            placeholder="Link captură ecran (opțional)"
             value={screenshotUrl}
             onChange={(e) => setScreenshotUrl(e.target.value)}
           />
@@ -88,4 +88,3 @@ export default function FeedbackModal({ open, onClose, pageUrl }: FeedbackModalP
     </div>
   );
 }
-

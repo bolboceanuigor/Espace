@@ -1,7 +1,6 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { settingsApi } from '@/lib/api';
 import {
   DEFAULT_BRANDING_MENU,
   DEFAULT_PRIMARY_COLOR,
@@ -67,6 +66,7 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
 
     setLoading(true);
     try {
+      const { settingsApi } = await import('@/lib/api');
       const response = await settingsApi.get();
       const org = response.data?.org;
       setBrandingState({

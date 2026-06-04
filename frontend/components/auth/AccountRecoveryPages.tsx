@@ -4,8 +4,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useEffect, useState } from 'react';
 import { AlertCircle, ArrowLeft, CheckCircle2, KeyRound, LockKeyhole, Mail, ShieldAlert } from 'lucide-react';
-import { authApi } from '@/lib/api';
+import { authApi } from '@/lib/auth-api';
 import { clearAuth, getToken, getUser } from '@/lib/auth';
+
+const SHOW_DEV_RESET_LINK = process.env.NODE_ENV !== 'production' && process.env.NEXT_PUBLIC_SHOW_DEV_RESET_LINK === 'true';
 
 function unwrap<T = any>(response: any): T {
   return (response?.data ?? response) as T;
@@ -108,9 +110,9 @@ export function ForgotPasswordPageContent({ locale = 'ro' }: { locale?: string }
         </button>
       </form>
       {message ? <p className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">{message}</p> : null}
-      {devResetLink ? (
+      {SHOW_DEV_RESET_LINK && devResetLink ? (
         <p className="mt-3 break-all rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          Link development: <Link className="font-semibold underline" href={devResetLink}>{devResetLink}</Link>
+          Link intern de dezvoltare: <Link className="font-semibold underline" href={devResetLink}>{devResetLink}</Link>
         </p>
       ) : null}
       {error ? <p className="mt-3 text-sm text-rose-700">{error}</p> : null}

@@ -1574,11 +1574,11 @@ export class BillingReadService {
 
           const lineWarnings: string[] = [];
           let status: BillingDraftLineStatus = 'READY';
-          let quantity = approved && Number.isFinite(Number(approved.consumptionValue)) ? Number(approved.consumptionValue) : 0;
+          const quantity = approved && Number.isFinite(Number(approved.consumptionValue)) ? Number(approved.consumptionValue) : 0;
           const unit = approved?.unit || store.meters?.[meter.id]?.unit || tariff.unit || this.defaultMeterUnit(tariff.meterType);
           const unitPrice = Number(tariff.pricePerUnit || 0);
           const missingPolicy = tariff.missingReadingPolicy || 'SKIP_WITH_WARNING';
-          let amount = approved ? this.money(quantity * unitPrice) : 0;
+          const amount = approved ? this.money(quantity * unitPrice) : 0;
           let draftLine: BillingDraftLine | null = null;
 
           if (approved && quantity < 0) {
@@ -6249,7 +6249,12 @@ export class BillingReadService {
   }
 
   async createInvoice(user: MvpUser, body: unknown) {
-    const input = this.parseCreateInvoiceBody(body);
+    const rawPayload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const input = this.parseCreateInvoiceBody(
+      !this.isSuperadmin(user) && rawPayload.organizationId === undefined
+        ? { ...rawPayload, organizationId: user.organizationId }
+        : body,
+    );
     if (!this.isSuperadmin(user)) {
       input.organizationId = user.organizationId;
     }
@@ -6296,6 +6301,39 @@ export class BillingReadService {
       select: this.invoiceSelect(),
     });
 
+    await this.audit.logAction({
+      organizationId: input.organizationId,
+      userId: user.id,
+      action: 'INVOICE_CREATED',
+      entityType: 'INVOICE',
+      entityId: invoice.id,
+      description: 'Factura simplă a fost creată.',
+      newValuesJson: {
+        apartmentId: input.apartmentId,
+        month: input.month,
+        year: input.year,
+        amount: input.amount,
+        status: input.status,
+      },
+    });
+    await this.activity.createActivity({
+      organizationId: input.organizationId,
+      actorUserId: user.id,
+      type: 'INVOICE_CREATED',
+      title: 'Factură simplă creată',
+      message: `A fost creată o factură simplă pentru luna ${String(input.month).padStart(2, '0')}/${input.year}.`,
+      targetType: 'INVOICE',
+      targetId: invoice.id,
+      link: `/admin/invoices/simple/${invoice.id}`,
+    }).catch(() => undefined);
+    await this.activity.notifyApartmentResidents({
+      organizationId: input.organizationId,
+      apartmentId: input.apartmentId,
+      type: NotificationType.INVOICE,
+      title: 'Factură nouă',
+      message: `A fost emisă o factură pentru ${String(input.month).padStart(2, '0')}/${input.year}.`,
+      link: `/resident/invoices/${invoice.id}`,
+    }).catch(() => undefined);
     return this.toInvoice(invoice);
   }
 
@@ -6489,6 +6527,38 @@ export class BillingReadService {
       select: this.invoiceSelect(),
     });
 
+    await this.audit.logAction({
+      organizationId: updated.organizationId,
+      userId: user.id,
+      action: 'INVOICE_STATUS_UPDATED',
+      entityType: 'INVOICE',
+      entityId: updated.id,
+      description: `Statusul facturii a fost actualizat la ${status}.`,
+      oldValuesJson: { status: invoice.status },
+      newValuesJson: { status },
+    });
+    if ([InvoiceStatus.PAID, InvoiceStatus.OVERDUE, InvoiceStatus.UNPAID].includes(status)) {
+      const title =
+        status === InvoiceStatus.PAID
+          ? 'Factură achitată'
+          : status === InvoiceStatus.OVERDUE
+            ? 'Factură restantă'
+            : 'Factură actualizată';
+      const message =
+        status === InvoiceStatus.PAID
+          ? 'Factura a fost marcată ca achitată.'
+          : status === InvoiceStatus.OVERDUE
+            ? 'Factura este acum restantă.'
+            : 'Statusul facturii a fost actualizat.';
+      await this.activity.notifyApartmentResidents({
+        organizationId: updated.organizationId,
+        apartmentId: updated.apartmentId,
+        type: NotificationType.INVOICE,
+        title,
+        message,
+        link: `/resident/invoices/${updated.id}`,
+      }).catch(() => undefined);
+    }
     return this.toInvoice(updated);
   }
 

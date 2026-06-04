@@ -101,8 +101,8 @@ function AppShellContent({ children }: AppShellProps) {
     ? {
         id: 'preview-user',
         email: 'preview@espace.md',
-        firstName: previewRole === 'SUPER_ADMIN' ? 'Espace' : previewRole === 'RESIDENT' ? 'Ion' : 'Admin',
-        lastName: previewRole === 'SUPER_ADMIN' ? 'Platform' : previewRole === 'RESIDENT' ? 'Popescu' : 'APC',
+        firstName: previewRole === 'SUPER_ADMIN' ? 'Espace' : previewRole === 'RESIDENT' ? 'Portal' : 'Admin',
+        lastName: previewRole === 'SUPER_ADMIN' ? 'Preview' : previewRole === 'RESIDENT' ? 'Rezident' : 'Espace',
         role: previewRole,
         organizationId: 'preview-org',
         emailVerifiedAt: new Date().toISOString(),
@@ -114,7 +114,7 @@ function AppShellContent({ children }: AppShellProps) {
   const activeUser = user ?? previewUser;
   const activeOrg = org ?? {
     id: 'preview-org',
-    name: 'A.P.C. Demo',
+    name: 'Espace',
     weekStart: 'MONDAY' as const,
     defaultLocale: 'ro' as const,
     betaAccessEnabled: true,

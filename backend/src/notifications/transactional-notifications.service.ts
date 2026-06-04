@@ -117,7 +117,7 @@ export class TransactionalNotificationsService {
       type: TransactionalNotificationType.SYSTEM_SECURITY_ALERT,
       channels: [NotificationChannel.EMAIL],
       recipientEmail: to,
-      variables: { associationName: 'Espace', supportEmail: process.env.EMAIL_REPLY_TO || process.env.SUPPORT_EMAIL || 'support@example.com' },
+      variables: { associationName: 'Espace SaaS', supportEmail: process.env.EMAIL_REPLY_TO || process.env.SUPPORT_EMAIL || 'support@espace.md' },
       relatedEntityType: 'PROVIDER_TEST',
       relatedEntityId: `email:${to}`,
       createdById: this.actorId(actor),
@@ -578,7 +578,7 @@ export class TransactionalNotificationsService {
 
   private fromHeader() {
     const name = process.env.EMAIL_FROM_NAME || 'Espace';
-    const address = process.env.EMAIL_FROM_ADDRESS || process.env.EMAIL_FROM || 'no-reply@example.com';
+    const address = process.env.EMAIL_FROM_ADDRESS || process.env.EMAIL_FROM || 'no-reply@espace.md';
     return `${name} <${address}>`;
   }
 
@@ -624,7 +624,7 @@ export class TransactionalNotificationsService {
   }
 
   private exampleVariables() {
-    return { residentName: 'Ion Popescu', staffName: 'Ana Rusu', associationName: 'A.P.C. A0123-0940', associationCode: 'A0123-0940', apartmentNumber: '24', invoiceNumber: 'INV-001', amount: '1200', currency: 'MDL', dueDate: '2026-06-01', inviteLink: 'https://app.espace.md/ro/invite/***', resetLink: 'https://app.espace.md/ro/reset-password/***', requestNumber: 'REQ-12', announcementTitle: 'Lucrări urgente', meterType: 'Apă rece', periodMonth: '2026-05', supportEmail: 'support@example.com' };
+    return { residentName: 'Ion Popescu', staffName: 'Ana Rusu', associationName: 'A.P.C. A0123-0940', associationCode: 'A0123-0940', apartmentNumber: '24', invoiceNumber: 'INV-001', amount: '1200', currency: 'MDL', dueDate: '2026-06-01', inviteLink: 'https://app.espace.md/ro/invite/***', resetLink: 'https://app.espace.md/ro/reset-password/***', requestNumber: 'REQ-12', announcementTitle: 'Lucrări urgente', meterType: 'Apă rece', periodMonth: '2026-05', supportEmail: 'support@espace.md' };
   }
 
   private preview(body: string) {

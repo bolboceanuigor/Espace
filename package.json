@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "concurrently \"npm --prefix backend run start:dev\" \"npm --prefix frontend run dev\"",
     "build": "npm --prefix backend run build && npm --prefix frontend run build",
+    "test": "npm --prefix backend run test",
     "seed": "npm --prefix backend run prisma:seed",
     "db:reset": "npm --prefix backend exec prisma migrate reset",
     "db:up": "docker compose up -d",

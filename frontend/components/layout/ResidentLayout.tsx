@@ -3,6 +3,7 @@
 import { type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import {
   Home,
   FileText,
@@ -18,15 +19,15 @@ import {
 import { defaultLocale, isLocale } from '@/i18n';
 
 // Resident navigation items
-const residentNavigation: { href: string; label: string; icon: LucideIcon; mobileOnly?: boolean }[] = [
-  { href: '/resident', label: 'Acasă', icon: Home },
-  { href: '/resident/invoices', label: 'Facturi', icon: FileText },
-  { href: '/resident/balance', label: 'Sold', icon: WalletCards },
-  { href: '/resident/meters', label: 'Contoare', icon: Gauge },
-  { href: '/resident/requests', label: 'Solicitări', icon: CircleAlert },
-  { href: '/resident/connect', label: 'Mesaje', icon: MessageCircle },
-  { href: '/resident/announcements', label: 'Avizier', icon: Megaphone, mobileOnly: true },
-  { href: '/resident/profile', label: 'Cont', icon: User },
+const residentNavigation: { href: string; labelKey: string; icon: LucideIcon; mobileOnly?: boolean }[] = [
+  { href: '/resident', labelKey: 'items.home', icon: Home },
+  { href: '/resident/invoices', labelKey: 'items.invoices', icon: FileText },
+  { href: '/resident/balance', labelKey: 'items.balance', icon: WalletCards },
+  { href: '/resident/meters', labelKey: 'items.meters', icon: Gauge },
+  { href: '/resident/requests', labelKey: 'items.requests', icon: CircleAlert },
+  { href: '/resident/connect', labelKey: 'items.messages', icon: MessageCircle },
+  { href: '/resident/announcements', labelKey: 'items.announcements', icon: Megaphone, mobileOnly: true },
+  { href: '/resident/profile', labelKey: 'items.account', icon: User },
 ];
 
 interface ResidentLayoutProps {
@@ -39,11 +40,12 @@ interface ResidentLayoutProps {
 
 export default function ResidentLayout({
   children,
-  userName = 'Ion Popescu',
-  apartmentNumber = 'Ap. 24',
-  organizationName = 'A.P.C. Centru',
+  userName = 'Locatar',
+  apartmentNumber = 'Apartament',
+  organizationName = 'Espace',
   notificationsCount = 0,
 }: ResidentLayoutProps) {
+  const t = useTranslations('navigation.resident');
   const pathname = usePathname();
   const params = useParams<{ locale?: string }>();
   
@@ -92,7 +94,7 @@ export default function ResidentLayout({
                     }`}
                   >
                     <Icon className="size-4" />
-                    <span>{item.label}</span>
+                    <span>{t(item.labelKey)}</span>
                   </Link>
                 );
               })}
@@ -165,7 +167,7 @@ export default function ResidentLayout({
                 >
                   <Icon className="size-5" />
                 </div>
-                <span className="text-[10px] font-medium">{item.label}</span>
+                <span className="text-[10px] font-medium">{t(item.labelKey)}</span>
               </Link>
             );
           })}
@@ -177,9 +179,10 @@ export default function ResidentLayout({
 
 // Resident greeting component
 export function ResidentGreeting({ name, time }: { name: string; time?: Date }) {
+  const t = useTranslations('navigation.resident');
   const hour = (time || new Date()).getHours();
   const greeting =
-    hour < 12 ? 'Bună dimineața' : hour < 18 ? 'Bună ziua' : 'Bună seara';
+    hour < 12 ? t('greetings.morning') : hour < 18 ? t('greetings.afternoon') : t('greetings.evening');
 
   return (
     <div className="mb-6">
@@ -187,7 +190,7 @@ export function ResidentGreeting({ name, time }: { name: string; time?: Date }) 
         {greeting}, {name.split(' ')[0]}!
       </h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Bine ai venit în portalul tău de locatar.
+        {t('welcome')}
       </p>
     </div>
   );

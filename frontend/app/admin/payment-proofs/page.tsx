@@ -24,7 +24,7 @@ import {
   TableRow,
   TableWrapper,
 } from '@/components/ui';
-import { paymentsApi } from '@/lib/api';
+import { filesApi, paymentsApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
@@ -47,6 +47,7 @@ type PaymentProof = {
   paidAt?: string | null;
   createdAt?: string | null;
   reviewedAt?: string | null;
+  proofFileAssetId?: string | null;
   proofFileUrl?: string | null;
   proofFileName?: string | null;
   externalReference?: string | null;
@@ -380,7 +381,7 @@ export default function AdminPaymentProofsPage() {
                 <Info label="Referință" value={activeProof.externalReference || '-'} />
               </div>
               {activeProof.proofFileUrl ? (
-                <a href={activeProof.proofFileUrl} target="_blank" rel="noreferrer" className="inline-flex text-sm font-semibold text-primary hover:underline">
+                <a href={activeProof.proofFileAssetId ? filesApi.secureDownloadUrl(activeProof.proofFileAssetId) : activeProof.proofFileUrl} target="_blank" rel="noreferrer" className="inline-flex text-sm font-semibold text-primary hover:underline">
                   Deschide dovada atașată
                 </a>
               ) : (

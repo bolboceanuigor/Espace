@@ -39,6 +39,11 @@ function clearCookie(name: string) {
   document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; samesite=lax${cookieSecurity}`;
 }
 
+export function hasAccessTokenCookie() {
+  if (typeof window === 'undefined') return false;
+  return document.cookie.split(';').some((chunk) => chunk.trim().startsWith(`${ACCESS_TOKEN_KEY}=`));
+}
+
 export const getToken = () => {
   if (typeof window === 'undefined') return null;
   return localStorage.getItem(ESPACE_ACCESS_TOKEN_KEY) || localStorage.getItem(ACCESS_TOKEN_KEY);

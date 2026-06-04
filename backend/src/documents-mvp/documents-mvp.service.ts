@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { ContentTargetType, FileAssetEntityType, NotificationType, Prisma, Role } from '@prisma/client';
 import { ActivityMvpService } from '../activity-mvp/activity-mvp.service';
+import { bindOwnedFileAssetToEntity, requireOwnedFileAsset } from '../common/file-asset-reference';
 import { PrismaService } from '../prisma/prisma.service';
 import type { MvpUser } from '../security/mvp-auth.guard';
 
@@ -45,19 +46,32 @@ export class DocumentsMvpService {
     const organizationId = this.isSuperadmin(user) && input.organizationId ? input.organizationId : user.organizationId;
     this.assertOrganizationAccess(user, organizationId);
     await this.assertOrganizationExists(organizationId);
+    const asset = await requireOwnedFileAsset(this.prisma, {
+      organizationId,
+      fileUrl: input.fileUrl,
+      entityTypes: FileAssetEntityType.DOCUMENT,
+      message: 'Documentul trebuie încărcat prin uploaderul Espace înainte de salvare.',
+    });
 
     const document = await this.prisma.document.create({
       data: {
         organizationId,
         title: input.title,
         description: input.description,
-        fileUrl: input.fileUrl,
-        fileName: input.fileName,
-        fileType: this.packMetadata(input.category, input.visibility, input.mimeType),
+        fileUrl: asset.fileUrl,
+        fileName: input.fileName || asset.fileName,
+        fileType: this.packMetadata(input.category, input.visibility, input.mimeType || asset.mimeType || 'application/octet-stream'),
         targetType: ContentTargetType.ORGANIZATION,
         uploadedByUserId: user.id,
       },
       include: this.documentInclude(),
+    });
+    await bindOwnedFileAssetToEntity(this.prisma, {
+      organizationId,
+      fileUrl: asset.fileUrl,
+      entityType: FileAssetEntityType.DOCUMENT,
+      entityId: document.id,
+      message: 'Documentul trebuie încărcat prin uploaderul Espace înainte de salvare.',
     });
 
     await this.activity.createActivity({
@@ -93,18 +107,36 @@ export class DocumentsMvpService {
     this.assertOrganizationAccess(user, existing.organizationId);
 
     const current = this.unpackMetadata(existing.fileType);
+    const organizationId = existing.organizationId;
     const input = this.parseUpdateBody(body, current);
+    const asset = input.fileUrl
+      ? await requireOwnedFileAsset(this.prisma, {
+          organizationId,
+          fileUrl: input.fileUrl,
+          entityTypes: FileAssetEntityType.DOCUMENT,
+          message: 'Documentul trebuie încărcat prin uploaderul Espace înainte de actualizare.',
+        })
+      : null;
     const updated = await this.prisma.document.update({
       where: { id },
       data: {
         ...(input.title !== undefined ? { title: input.title } : {}),
         ...(input.description !== undefined ? { description: input.description } : {}),
-        ...(input.fileUrl !== undefined ? { fileUrl: input.fileUrl } : {}),
-        ...(input.fileName !== undefined ? { fileName: input.fileName } : {}),
-        fileType: this.packMetadata(input.category, input.visibility, input.mimeType),
+        ...(asset ? { fileUrl: asset.fileUrl } : input.fileUrl !== undefined ? { fileUrl: input.fileUrl } : {}),
+        ...(input.fileName !== undefined ? { fileName: input.fileName } : asset ? { fileName: asset.fileName } : {}),
+        fileType: this.packMetadata(input.category, input.visibility, input.mimeType || asset?.mimeType || current.mimeType),
       },
       include: this.documentInclude(),
     });
+    if (asset) {
+      await bindOwnedFileAssetToEntity(this.prisma, {
+        organizationId,
+        fileUrl: asset.fileUrl,
+        entityType: FileAssetEntityType.DOCUMENT,
+        entityId: updated.id,
+        message: 'Documentul trebuie încărcat prin uploaderul Espace înainte de actualizare.',
+      });
+    }
 
     await this.activity.createActivity({
       organizationId: updated.organizationId,
@@ -246,7 +278,6 @@ export class DocumentsMvpService {
   private parseCreateBody(body: unknown) {
     const payload = this.payload(body);
     const fileUrl = this.requiredString(payload.fileUrl, 'Linkul fișierului este obligatoriu.');
-    this.assertSafeFileUrl(fileUrl);
     return {
       organizationId: typeof payload.organizationId === 'string' ? payload.organizationId.trim() : '',
       title: this.requiredString(payload.title, 'Titlul este obligatoriu.'),
@@ -262,7 +293,6 @@ export class DocumentsMvpService {
   private parseUpdateBody(body: unknown, current: { category: DocumentCategory; visibility: DocumentVisibility; mimeType: string }) {
     const payload = this.payload(body);
     const fileUrl = payload.fileUrl === undefined ? undefined : this.requiredString(payload.fileUrl, 'Linkul fișierului este obligatoriu.');
-    if (fileUrl) this.assertSafeFileUrl(fileUrl);
     return {
       title: payload.title === undefined ? undefined : this.requiredString(payload.title, 'Titlul este obligatoriu.'),
       description: payload.description === undefined ? undefined : this.optionalString(payload.description) || null,
@@ -320,11 +350,6 @@ export class DocumentsMvpService {
     const normalized = this.requiredString(value, 'Vizibilitatea documentului nu este validă.').toUpperCase() as DocumentVisibility;
     if (!VISIBILITIES.includes(normalized)) throw new BadRequestException('Vizibilitatea documentului nu este validă.');
     return normalized;
-  }
-
-  private assertSafeFileUrl(fileUrl: string) {
-    if (/^https?:\/\//i.test(fileUrl) || fileUrl.startsWith('/')) return;
-    throw new BadRequestException('Linkul fișierului trebuie să fie un URL valid.');
   }
 
   private fileNameFromUrl(fileUrl: string) {

@@ -421,7 +421,7 @@ export class RevenueForecastService {
     const opportunities = await this.buildOpportunitiesFromUsage(subscription as any, usage);
     let created = 0;
     let updated = 0;
-    let skippedDuplicates = 0;
+    const skippedDuplicates = 0;
     const items: any[] = [];
     for (const input of opportunities) {
       const existing = await this.prisma.upgradeOpportunity.findFirst({

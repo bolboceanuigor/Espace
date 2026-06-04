@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import { systemMonitoringApi } from '@/lib/api';
 
 type Props = { children: React.ReactNode };
 type State = { hasError: boolean };
@@ -11,13 +10,22 @@ export default class ClientErrorBoundary extends React.Component<Props, State> {
   private onUnhandledError?: (event: ErrorEvent) => void;
   private onUnhandledRejection?: (event: PromiseRejectionEvent) => void;
 
+  private async reportClientError(payload: {
+    message: string;
+    stack: string;
+    route: string;
+    metadata: Record<string, unknown>;
+  }) {
+    const { systemMonitoringApi } = await import('@/lib/api');
+    return systemMonitoringApi.reportClientError(payload).catch(() => undefined);
+  }
+
   static getDerivedStateFromError() {
     return { hasError: true };
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    systemMonitoringApi
-      .reportClientError({
+    this.reportClientError({
         message: error.message || 'Client rendering error',
         stack: error.stack || errorInfo.componentStack || '',
         route: typeof window !== 'undefined' ? window.location.pathname : '',
@@ -25,14 +33,12 @@ export default class ClientErrorBoundary extends React.Component<Props, State> {
           componentStack: errorInfo.componentStack || '',
           href: typeof window !== 'undefined' ? window.location.href : '',
         },
-      })
-      .catch(() => undefined);
+      });
   }
 
   componentDidMount() {
     this.onUnhandledError = (event: ErrorEvent) => {
-      systemMonitoringApi
-        .reportClientError({
+      this.reportClientError({
           message: event.message || 'Unhandled window error',
           stack: event.error?.stack || '',
           route: window.location.pathname,
@@ -42,21 +48,18 @@ export default class ClientErrorBoundary extends React.Component<Props, State> {
             colno: event.colno || 0,
             href: window.location.href,
           },
-        })
-        .catch(() => undefined);
+        });
     };
     this.onUnhandledRejection = (event: PromiseRejectionEvent) => {
       const reason = event.reason;
       const message = reason instanceof Error ? reason.message : String(reason || 'Unhandled rejection');
       const stack = reason instanceof Error ? reason.stack || '' : '';
-      systemMonitoringApi
-        .reportClientError({
+      this.reportClientError({
           message,
           stack,
           route: window.location.pathname,
           metadata: { kind: 'unhandledrejection', href: window.location.href },
-        })
-        .catch(() => undefined);
+        });
     };
     window.addEventListener('error', this.onUnhandledError);
     window.addEventListener('unhandledrejection', this.onUnhandledRejection);

@@ -2575,7 +2575,7 @@ export class DataQualityService {
         include: { building: { select: { id: true, name: true } } },
       });
       if (!apartment) throw new NotFoundException('Apartamentul nu a fost găsit.');
-      let staircaseId = optionalString(payload.staircaseId);
+      const staircaseId = optionalString(payload.staircaseId);
       if (staircaseId) {
         const staircase = await tx.staircase.findFirst({ where: { id: staircaseId, organizationId: associationId }, select: { id: true, buildingId: true } });
         if (!staircase) throw new NotFoundException('Scara nu a fost găsită.');

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from './prisma/prisma.module';
 import { OrganizationsModule } from './organizations/organizations.module';
@@ -53,6 +54,7 @@ import { AssociationContextModule } from './association-context/association-cont
 import { ConnectModule } from './connect/connect.module';
 import { CondoModule } from './condo/condo.module';
 import { VotesModule } from './votes/votes.module';
+import { SchedulerModule } from './scheduler/scheduler.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -67,6 +69,7 @@ import { AppController } from './app.controller';
         limit: 60,
       },
     ]),
+    ScheduleModule.forRoot(),
     PrismaModule,
     OrganizationsModule,
     ApartmentsModule,
@@ -119,6 +122,7 @@ import { AppController } from './app.controller';
     ConnectModule,
     CondoModule,
     VotesModule,
+    SchedulerModule,
   ],
   controllers: [AppController],
   providers: [],

@@ -584,7 +584,7 @@ export class DocumentRenderService {
       seller: {
         name: 'Espace',
         description: 'Platformă SaaS administrare APC',
-        email: 'support@example.com',
+        email: process.env.EMAIL_REPLY_TO || process.env.SUPPORT_EMAIL || 'support@espace.md',
       },
       association: this.associationDto(invoice.association),
       invoice: {
@@ -631,7 +631,11 @@ export class DocumentRenderService {
       title: 'Confirmare plată abonament Espace',
       fileName: this.buildDocumentFileName(GeneratedDocumentType.SAAS_PAYMENT_RECEIPT, invoice.invoiceNumber),
       audience,
-      seller: { name: 'Espace', description: 'Platformă SaaS administrare APC', email: 'support@example.com' },
+      seller: {
+        name: 'Espace SaaS',
+        description: 'Platformă Espace pentru administrarea asociațiilor și condominiilor',
+        email: process.env.EMAIL_REPLY_TO || process.env.SUPPORT_EMAIL || 'support@espace.md',
+      },
       association: this.associationDto(invoice.association),
       receipt: {
         id: invoice.id,

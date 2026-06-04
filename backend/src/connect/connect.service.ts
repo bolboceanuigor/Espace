@@ -11,6 +11,7 @@ import {
   Prisma,
   Role,
 } from '@prisma/client';
+import { FilesService } from '../files/files.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { resolvePermissions } from '../team/team-permissions';
@@ -50,6 +51,7 @@ export class ConnectService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
+    private readonly filesService: FilesService,
   ) {}
 
   private userId(user: AuthUser) {
@@ -89,6 +91,105 @@ export class ConnectService {
   private clean(value?: string | null) {
     const next = String(value || '').trim();
     return next || null;
+  }
+
+  private publicBaseUrl() {
+    const raw =
+      process.env.API_URL ||
+      process.env.FRONTEND_URL ||
+      process.env.APP_URL ||
+      'http://localhost:4000';
+    return raw.replace(/\/+$/, '').replace(/\/api$/, '');
+  }
+
+  private secureDownloadUrl(fileAssetId: string) {
+    return `${this.publicBaseUrl()}/files/${fileAssetId}/download`;
+  }
+
+  private parseAttachmentUrl(value?: string | null) {
+    const next = this.clean(value);
+    if (!next) return { fileAssetId: null as string | null, uploadPath: null as string | null };
+    try {
+      const parsed = new URL(next, this.publicBaseUrl());
+      const pathname = parsed.pathname.replace(/\/+$/, '');
+      const secureMatch = pathname.match(/^\/files\/([^/]+)\/download$/);
+      if (secureMatch?.[1]) return { fileAssetId: secureMatch[1], uploadPath: null };
+      if (pathname.startsWith('/uploads/')) return { fileAssetId: null, uploadPath: pathname };
+    } catch {
+      return { fileAssetId: null, uploadPath: null };
+    }
+    return { fileAssetId: null, uploadPath: null };
+  }
+
+  private async normalizeIncomingAttachment(user: AuthUser, dto: CreateConnectMessageDto) {
+    const rawAttachmentUrl = this.clean(dto.attachmentUrl);
+    if (!rawAttachmentUrl) {
+      return {
+        attachmentUrl: null as string | null,
+        attachmentFileName: this.clean(dto.attachmentFileName),
+        attachmentMimeType: this.clean(dto.attachmentMimeType),
+        attachmentFileSize: dto.attachmentFileSize || null,
+        messageType: (dto.messageType as ConnectMessageType | undefined) || ConnectMessageType.TEXT,
+      };
+    }
+
+    const { fileAssetId } = this.parseAttachmentUrl(rawAttachmentUrl);
+    if (!fileAssetId) {
+      throw new BadRequestException('Use a secure Espace attachment link.');
+    }
+
+    await this.filesService.getDownloadableFile(user as any, fileAssetId);
+    const asset = await this.prisma.fileAsset.findUnique({
+      where: { id: fileAssetId },
+      select: { id: true, organizationId: true, fileName: true, mimeType: true, sizeBytes: true },
+    });
+    if (!asset || asset.organizationId !== user.organizationId) {
+      throw new NotFoundException('Attachment not found');
+    }
+
+    return {
+      attachmentUrl: this.secureDownloadUrl(asset.id),
+      attachmentFileName: this.clean(dto.attachmentFileName) || asset.fileName || 'Atasament',
+      attachmentMimeType: this.clean(dto.attachmentMimeType) || asset.mimeType,
+      attachmentFileSize: dto.attachmentFileSize || asset.sizeBytes || null,
+      messageType: (dto.messageType as ConnectMessageType | undefined) || ConnectMessageType.ATTACHMENT,
+    };
+  }
+
+  private async normalizeStoredAttachmentUrls(organizationId: string, messages: any[]) {
+    const assetIds = new Set<string>();
+    const uploadPaths = new Set<string>();
+
+    for (const message of messages) {
+      const { fileAssetId, uploadPath } = this.parseAttachmentUrl(message.attachmentUrl);
+      if (fileAssetId) assetIds.add(fileAssetId);
+      if (uploadPath) uploadPaths.add(uploadPath);
+    }
+
+    if (!assetIds.size && !uploadPaths.size) return messages;
+
+    const assets = await this.prisma.fileAsset.findMany({
+      where: {
+        organizationId,
+        OR: [
+          ...(assetIds.size ? [{ id: { in: Array.from(assetIds) } }] : []),
+          ...(uploadPaths.size ? [{ fileUrl: { in: Array.from(uploadPaths) } }] : []),
+        ],
+      },
+      select: { id: true, fileUrl: true },
+    });
+
+    const assetById = new Map(assets.map((asset) => [asset.id, asset]));
+    const assetByUrl = new Map(assets.map((asset) => [asset.fileUrl, asset]));
+
+    return messages.map((message) => {
+      const { fileAssetId, uploadPath } = this.parseAttachmentUrl(message.attachmentUrl);
+      const asset = (fileAssetId ? assetById.get(fileAssetId) : null) || (uploadPath ? assetByUrl.get(uploadPath) : null);
+      return {
+        ...message,
+        attachmentUrl: asset ? this.secureDownloadUrl(asset.id) : null,
+      };
+    });
   }
 
   private requireContent(dto: CreateConnectMessageDto | CreateAdminConnectConversationDto | CreateResidentConnectConversationDto) {
@@ -692,9 +793,10 @@ export class ConnectService {
       this.adminContext(conversation),
       this.relatedSummary(conversation),
     ]);
+    const normalizedMessages = await this.normalizeStoredAttachmentUrls(organizationId, messages);
     return {
       conversation: this.mapConversation(conversation, 'admin'),
-      messages: messages.map((message) => this.mapMessage(message)),
+      messages: normalizedMessages.map((message) => this.mapMessage(message)),
       context,
       relatedSummary,
     };
@@ -706,6 +808,7 @@ export class ConnectService {
     if (!conversation) throw new NotFoundException('Conversation not found');
     if (CLOSED_STATUSES.includes(conversation.status)) throw new BadRequestException('Conversation is closed');
     const body = this.requireContent(dto);
+    const attachment = await this.normalizeIncomingAttachment(user, dto);
     const now = new Date();
     const message = await this.prisma.connectMessage.create({
       data: {
@@ -713,12 +816,12 @@ export class ConnectService {
         organizationId,
         senderId: userId,
         senderRole: ConnectSenderRole.ADMIN,
-        messageType: (dto.messageType as ConnectMessageType) || (dto.attachmentUrl ? ConnectMessageType.ATTACHMENT : ConnectMessageType.TEXT),
+        messageType: attachment.messageType,
         body,
-        attachmentUrl: this.clean(dto.attachmentUrl),
-        attachmentFileName: this.clean(dto.attachmentFileName),
-        attachmentMimeType: this.clean(dto.attachmentMimeType),
-        attachmentFileSize: dto.attachmentFileSize || null,
+        attachmentUrl: attachment.attachmentUrl,
+        attachmentFileName: attachment.attachmentFileName,
+        attachmentMimeType: attachment.attachmentMimeType,
+        attachmentFileSize: attachment.attachmentFileSize,
         status: ConnectMessageStatus.DELIVERED,
         deliveredAt: now,
       },
@@ -976,9 +1079,10 @@ export class ConnectService {
       }),
       this.relatedSummary(conversation),
     ]);
+    const normalizedMessages = await this.normalizeStoredAttachmentUrls(organizationId, messages);
     return {
       conversation: this.mapConversation(conversation, 'resident'),
-      messages: messages.map((message) => this.mapMessage(message)),
+      messages: normalizedMessages.map((message) => this.mapMessage(message)),
       context: {
         apartment: conversation.apartment,
         subject: conversation.subject,
@@ -996,6 +1100,7 @@ export class ConnectService {
     if (!conversation) throw new NotFoundException('Conversation not found');
     if (CLOSED_STATUSES.includes(conversation.status)) throw new BadRequestException('Conversation is closed');
     const body = this.requireContent(dto);
+    const attachment = await this.normalizeIncomingAttachment(user, dto);
     const now = new Date();
     const message = await this.prisma.connectMessage.create({
       data: {
@@ -1003,12 +1108,12 @@ export class ConnectService {
         organizationId,
         senderId: userId,
         senderRole: ConnectSenderRole.RESIDENT,
-        messageType: (dto.messageType as ConnectMessageType) || (dto.attachmentUrl ? ConnectMessageType.ATTACHMENT : ConnectMessageType.TEXT),
+        messageType: attachment.messageType,
         body,
-        attachmentUrl: this.clean(dto.attachmentUrl),
-        attachmentFileName: this.clean(dto.attachmentFileName),
-        attachmentMimeType: this.clean(dto.attachmentMimeType),
-        attachmentFileSize: dto.attachmentFileSize || null,
+        attachmentUrl: attachment.attachmentUrl,
+        attachmentFileName: attachment.attachmentFileName,
+        attachmentMimeType: attachment.attachmentMimeType,
+        attachmentFileSize: attachment.attachmentFileSize,
         status: ConnectMessageStatus.DELIVERED,
         deliveredAt: now,
       },

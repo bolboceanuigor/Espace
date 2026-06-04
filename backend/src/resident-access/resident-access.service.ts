@@ -837,7 +837,7 @@ export class ResidentAccessService {
         associationCode: invitation.association?.fiscalCode || '',
         apartmentNumber: invitation.apartment?.number || '',
         inviteLink: this.inviteLink(rawToken),
-        supportEmail: process.env.EMAIL_REPLY_TO || process.env.SUPPORT_EMAIL || 'support@example.com',
+        supportEmail: process.env.EMAIL_REPLY_TO || process.env.SUPPORT_EMAIL || 'support@espace.md',
       },
       relatedEntityType: 'RESIDENT_PORTAL_INVITATION',
       relatedEntityId: invitation.id,

@@ -138,7 +138,7 @@ export class AuthService {
           userName: user.firstName || user.email,
           organizationName: registerDto.orgName,
           trialEndDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
-          supportEmail: process.env.SUPPORT_EMAIL || 'support@espace.local',
+          supportEmail: process.env.SUPPORT_EMAIL || 'support@espace.md',
         },
       });
 
@@ -640,7 +640,7 @@ export class AuthService {
         userName: user.firstName || user.email,
         organizationName: `${googleUser.firstName || 'My'} Organization`,
         trialEndDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
-        supportEmail: process.env.SUPPORT_EMAIL || 'support@espace.local',
+        supportEmail: process.env.SUPPORT_EMAIL || 'support@espace.md',
       },
     });
     return this.buildAuthResponse(user as any);

@@ -1302,6 +1302,21 @@ export const adminResidentsCrmApi = {
   updateRequests: (id: string) => apiRequest<any>(`/api/admin/residents/${id}/update-requests`),
 };
 
+export const adminOwnersApi = {
+  list: (params?: {
+    search?: string;
+    status?: string;
+    hasApartment?: string;
+    isPrimaryContact?: string;
+    preferredContactMethod?: string;
+    sortBy?: string;
+    sortDirection?: 'asc' | 'desc';
+    page?: number;
+    limit?: number;
+  }) => apiRequest<any>('/api/admin/owners', { params }),
+  get: (id: string) => apiRequest<any>(`/api/admin/owners/${id}`),
+};
+
 export const residentAccessApi = {
   list: (params?: Record<string, string | number | boolean | undefined | null>) =>
     apiRequest<any>('/api/admin/resident-access', { params }),
@@ -1994,6 +2009,18 @@ export const invoicesApi = {
     staircaseId?: string;
   }) =>
     apiRequest<any>('/api/admin/invoices', { params }),
+  adminSimpleList: () => apiRequest<any>('/api/admin/invoices/simple'),
+  adminSimpleGet: (id: string) => apiRequest<any>(`/api/admin/invoices/simple/${id}`),
+  adminSimpleCreate: (data: {
+    apartmentId: string;
+    month: number;
+    year: number;
+    amount: number;
+    dueDate: string;
+    status?: 'UNPAID' | 'PAID' | 'OVERDUE';
+  }) => apiRequest<any>('/api/admin/invoices/simple', { method: 'POST', body: data }),
+  adminSimpleUpdateStatus: (id: string, data: { status: 'PAID' | 'UNPAID' | 'OVERDUE' }) =>
+    apiRequest<any>(`/api/admin/invoices/simple/${id}/status`, { method: 'PATCH', body: data }),
   adminGetOne: (id: string) => apiRequest<any>(`/api/admin/invoices/${id}`),
   getAdminInvoices: (params?: Record<string, string | number | boolean | null | undefined>) =>
     apiRequest<any>('/api/admin/invoices', { params }),

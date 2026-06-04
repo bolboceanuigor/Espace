@@ -170,8 +170,21 @@ npm run dev:clean
 
 ## Deployment Targets
 
+- Current stack: `NestJS + Prisma + Next.js` with PostgreSQL. Espace is not a Laravel/PHP runtime, so `composer` / `php artisan` commands do not apply to the main app deploy flow.
 - Option A: Vercel (frontend) + VPS Docker (backend + db)
 - Option B: VPS full Docker (frontend + backend + db + Caddy) **[baseline configured]**
+- Staging deploy guide: [`ESPACE_STAGING_DEPLOY_GUIDE.md`](ESPACE_STAGING_DEPLOY_GUIDE.md)
+- Production launch checklist: [`ESPACE_PRODUCTION_LAUNCH_CHECKLIST.md`](ESPACE_PRODUCTION_LAUNCH_CHECKLIST.md)
+- Final delivery summary: [`ESPACE_FINAL_DELIVERY_REPORT.md`](ESPACE_FINAL_DELIVERY_REPORT.md)
+- Live deploy plan: [`ESPACE_LIVE_DEPLOY_PLAN.md`](ESPACE_LIVE_DEPLOY_PLAN.md)
+- Production env guide: [`ESPACE_ENV_PRODUCTION_GUIDE.md`](ESPACE_ENV_PRODUCTION_GUIDE.md)
+- Domain and SSL guide: [`ESPACE_DOMAIN_SSL_GUIDE.md`](ESPACE_DOMAIN_SSL_GUIDE.md)
+- Backup before live: [`ESPACE_BACKUP_BEFORE_LIVE.md`](ESPACE_BACKUP_BEFORE_LIVE.md)
+- Deploy script guide: [`ESPACE_DEPLOY_SCRIPT_GUIDE.md`](ESPACE_DEPLOY_SCRIPT_GUIDE.md)
+- Live smoke test: [`ESPACE_LIVE_SMOKE_TEST.md`](ESPACE_LIVE_SMOKE_TEST.md)
+- Rollback plan: [`ESPACE_ROLLBACK_PLAN.md`](ESPACE_ROLLBACK_PLAN.md)
+- Incident template: [`ESPACE_INCIDENT_REPORT_TEMPLATE.md`](ESPACE_INCIDENT_REPORT_TEMPLATE.md)
+- Ready-for-live report: [`ESPACE_READY_FOR_LIVE_REPORT.md`](ESPACE_READY_FOR_LIVE_REPORT.md)
 - Step-by-step runbook: `docs/DEPLOYMENT.md`
 - Go-live checklist: `docs/DEPLOY.md`
 - Caddy config source: `deploy/Caddyfile`

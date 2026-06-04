@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { NotificationType, Prisma, Role } from '@prisma/client';
+import { FileAssetEntityType, NotificationType, Prisma, Role } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
+import { bindOwnedFileAssetToEntity, requireOwnedFileAsset } from '../common/file-asset-reference';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SaasLimitEnforcementService } from '../saas-usage/saas-limit-enforcement.service';
@@ -234,18 +235,27 @@ export class IssuesService {
       select: { id: true },
     });
     if (!issue) throw new NotFoundException('Issue not found');
+    const asset = await requireOwnedFileAsset(this.prisma, {
+      organizationId,
+      fileUrl: dto.fileUrl,
+      entityTypes: FileAssetEntityType.ISSUE_ATTACHMENT,
+      message: 'Atașamentul trebuie încărcat prin uploaderul Espace.',
+    });
     const created = await this.prisma.issueAttachment.create({
       data: {
         issueId: id,
-        fileUrl: dto.fileUrl,
-        fileName: dto.fileName,
-        fileType: dto.fileType,
+        fileUrl: asset.fileUrl,
+        fileName: asset.fileName,
+        fileType: asset.mimeType || dto.fileType,
         uploadedByUserId: userId,
       },
     });
-    await this.prisma.fileAsset.updateMany({
-      where: { organizationId, entityType: 'ISSUE_ATTACHMENT', fileUrl: dto.fileUrl, entityId: null },
-      data: { entityId: id },
+    await bindOwnedFileAssetToEntity(this.prisma, {
+      organizationId,
+      fileUrl: asset.fileUrl,
+      entityType: FileAssetEntityType.ISSUE_ATTACHMENT,
+      entityId: id,
+      message: 'Atașamentul trebuie încărcat prin uploaderul Espace.',
     });
     return created;
   }

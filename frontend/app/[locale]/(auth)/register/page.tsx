@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/context/AuthContext';
 import { defaultLocale, isLocale } from '@/i18n';
-import { authApi } from '@/lib/api';
+import { authApi } from '@/lib/auth-api';
 import { roleHomePath } from '@/lib/role-routing';
 
 export default function RegisterPage() {

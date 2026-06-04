@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AlertTriangle, CheckCircle2, Clock3, Droplets, Gauge, History, RefreshCw, Search, Send, XCircle } from 'lucide-react';
 import { Badge, Button, ButtonLink, Card, EmptyState, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
-import { metersApi } from '@/lib/api';
+import { filesApi, metersApi } from '@/lib/api';
 
 type AnyRecord = Record<string, any>;
 
@@ -263,7 +263,7 @@ export function ResidentMeterSubmissionPage() {
           </div>
           <Input label="Valoare citire" type="number" min="0" step="0.01" value={form.value} onChange={(event) => setForm((state) => ({ ...state, value: event.target.value }))} />
           <Input label="Data citirii" type="date" value={form.readingDate} onChange={(event) => setForm((state) => ({ ...state, readingDate: event.target.value }))} />
-          <Input label="Link poză dovadă" value={form.proofFileUrl} onChange={(event) => setForm((state) => ({ ...state, proofFileUrl: event.target.value }))} hint="Upload-ul real va fi conectat separat; poți lăsa gol." />
+          <Input label="Link poză dovadă" value={form.proofFileUrl} onChange={(event) => setForm((state) => ({ ...state, proofFileUrl: event.target.value }))} hint="Se acceptă doar fișiere încărcate prin Espace; altfel lasă gol." />
           <label className="block space-y-1.5">
             <span className="text-sm font-medium text-foreground">Notă</span>
             <textarea className="min-h-24 w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-foreground/10" value={form.residentNote} onChange={(event) => setForm((state) => ({ ...state, residentNote: event.target.value }))} />
@@ -592,7 +592,14 @@ export function AdminResidentReadingsPage() {
             <Card>
               <p className="text-sm font-semibold">Dovadă</p>
               {detail?.reading?.proofFileUrl || detail?.reading?.photoUrl ? (
-                <a className="mt-2 inline-flex text-sm font-semibold text-primary hover:underline" href={detail.reading.proofFileUrl || detail.reading.photoUrl} target="_blank" rel="noreferrer">Deschide dovada</a>
+                <a
+                  className="mt-2 inline-flex text-sm font-semibold text-primary hover:underline"
+                  href={detail?.reading?.proofFileAssetId ? filesApi.secureDownloadUrl(detail.reading.proofFileAssetId) : detail.reading.proofFileUrl || detail.reading.photoUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Deschide dovada
+                </a>
               ) : <p className="mt-2 text-sm text-muted-foreground">Nu există dovadă atașată.</p>}
             </Card>
           </div>

@@ -497,6 +497,30 @@ export class BillingReadController {
     return this.invoicePublishingService.bulkPublishAdminInvoices(user, body);
   }
 
+  @Get(['admin/invoices/simple', 'api/admin/invoices/simple'])
+  @RequirePermission('INVOICES', 'VIEW')
+  listAdminSimpleInvoices(@CurrentUser() user: MvpUser) {
+    return this.billingReadService.listInvoices(user);
+  }
+
+  @Post(['admin/invoices/simple', 'api/admin/invoices/simple'])
+  @RequirePermission('INVOICES', 'CREATE')
+  createAdminSimpleInvoice(@CurrentUser() user: MvpUser, @Body() body: unknown) {
+    return this.billingReadService.createInvoice(user, body);
+  }
+
+  @Get(['admin/invoices/simple/:id', 'api/admin/invoices/simple/:id'])
+  @RequirePermission('INVOICES', 'VIEW')
+  getAdminSimpleInvoice(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.billingReadService.getInvoice(user, id);
+  }
+
+  @Patch(['admin/invoices/simple/:id/status', 'api/admin/invoices/simple/:id/status'])
+  @RequirePermission('INVOICES', 'UPDATE')
+  updateAdminSimpleInvoiceStatus(@CurrentUser() user: MvpUser, @Param('id') id: string, @Body() body: unknown) {
+    return this.billingReadService.updateInvoiceStatus(user, id, body);
+  }
+
   @Get(['admin/invoices', 'api/admin/invoices'])
   @RequirePermission('INVOICES', 'VIEW')
   listAdminInternalInvoices(@CurrentUser() user: MvpUser, @Query() query: Record<string, unknown>) {

@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, CreditCard, FileCheck2, FileText, Home, Loader2, MessageCircle, Printer, ReceiptText, ShieldCheck, UploadCloud, UserRound, XCircle } from 'lucide-react';
 import { Badge, Button, ButtonLink, Card, Input, Modal, ModalBody, ModalFooter, ModalHeader, PageHeader, StatCard } from '@/components/ui';
-import { invoicesApi } from '@/lib/api';
+import { filesApi, invoicesApi } from '@/lib/api';
 import { formatMdl } from '@/lib/condo-admin-fallback';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
@@ -120,6 +120,7 @@ type PaymentProofRow = {
   createdAt?: string | null;
   reviewedAt?: string | null;
   rejectionReason?: string | null;
+  proofFileAssetId?: string | null;
   proofFileUrl?: string | null;
   externalReference?: string | null;
   residentNote?: string | null;
@@ -518,7 +519,7 @@ export default function ResidentInvoiceDetailsPage() {
                     <div className="flex flex-wrap justify-end gap-2">
                       {proof.proofFileUrl ? (
                         <a
-                          href={proof.proofFileUrl}
+                          href={proof.proofFileAssetId ? filesApi.secureDownloadUrl(proof.proofFileAssetId) : proof.proofFileUrl}
                           target="_blank"
                           rel="noreferrer"
                           className="inline-flex h-10 items-center justify-center gap-1.5 rounded-2xl border border-border/70 bg-white px-4 text-sm font-medium text-foreground shadow-sm transition hover:bg-muted/80"
@@ -638,8 +639,8 @@ export default function ResidentInvoiceDetailsPage() {
             label="Link dovadă"
             value={proofForm.proofFileUrl}
             onChange={(event) => setProofForm((current) => ({ ...current, proofFileUrl: event.target.value }))}
-            placeholder="https://..."
-            hint="Upload-ul real de fișiere va fi conectat ulterior; momentan poți adăuga un link."
+            placeholder="/uploads/..."
+            hint="Se acceptă doar fișiere încărcate prin Espace. Linkurile externe sunt blocate."
           />
           <label className="block space-y-1.5">
             <span className="text-sm font-medium text-foreground">Notă opțională</span>

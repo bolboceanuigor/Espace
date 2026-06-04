@@ -52,7 +52,7 @@ export default function InviteUserModal({ isOpen, onClose, onSuccess }: InviteUs
         onClose();
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to invite user.');
+      setError(err.response?.data?.message || 'Nu am putut trimite invitația.');
     } finally {
       setLoading(false);
     }
@@ -71,17 +71,17 @@ export default function InviteUserModal({ isOpen, onClose, onSuccess }: InviteUs
   return (
     <Modal isOpen={isOpen} onClose={handleClose} maxWidth="lg">
       <ModalHeader
-        title={tempPassword ? 'User invited' : 'Invite User'}
+        title={tempPassword ? 'Utilizator invitat' : 'Invită utilizator'}
         onClose={tempPassword ? handleDone : handleClose}
       />
       {tempPassword ? (
         <ModalBody className="space-y-4">
           <p className="text-sm text-gray-600">
-            Share this temporary password with the user. They can log in with their email and this password.
+            Transmite această parolă temporară utilizatorului. Se poate autentifica folosind emailul și parola de mai jos.
           </p>
           <div className="bg-gray-100 rounded-lg p-4 font-mono text-sm break-all">{tempPassword}</div>
           <div className="flex justify-end">
-            <Button onClick={handleDone}>Done</Button>
+            <Button onClick={handleDone}>Am înțeles</Button>
           </div>
         </ModalBody>
       ) : (
@@ -93,28 +93,28 @@ export default function InviteUserModal({ isOpen, onClose, onSuccess }: InviteUs
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="input" required />
             </div>
             <div>
-              <label className="label">Role *</label>
+              <label className="label">Rol *</label>
               <select value={role} onChange={(e) => setRole(e.target.value)} className="select">
-                <option value="owner">Owner</option>
+                <option value="owner">Proprietar</option>
                 <option value="manager">Manager</option>
-                <option value="cleaner">Cleaner</option>
+                <option value="cleaner">Curățenie</option>
               </select>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="label">First name</label>
+                <label className="label">Prenume</label>
                 <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} className="input" />
               </div>
               <div>
-                <label className="label">Last name</label>
+                <label className="label">Nume</label>
                 <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} className="input" />
               </div>
             </div>
           </ModalBody>
           <ModalFooter>
-            <ModalCloseButton onClick={handleClose}>Cancel</ModalCloseButton>
+            <ModalCloseButton onClick={handleClose}>Anulează</ModalCloseButton>
             <Button type="submit" disabled={loading}>
-              {loading ? 'Inviting...' : 'Invite'}
+              {loading ? 'Se trimite...' : 'Trimite invitația'}
             </Button>
           </ModalFooter>
         </form>

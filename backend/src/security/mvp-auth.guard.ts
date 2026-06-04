@@ -27,6 +27,14 @@ function extractBearerToken(authorization?: string) {
   return authorization.startsWith('Bearer ') ? authorization.slice('Bearer '.length).trim() : '';
 }
 
+function extractAccessTokenFromCookie(cookieHeader?: string) {
+  if (!cookieHeader) return '';
+  const parts = cookieHeader.split(';').map((chunk) => chunk.trim());
+  const accessCookie = parts.find((chunk) => chunk.startsWith('accessToken='));
+  if (!accessCookie) return '';
+  return accessCookie.slice('accessToken='.length).trim();
+}
+
 function normalizeRole(role: Role | string) {
   const value = String(role).toUpperCase();
   return value === 'SUPER_ADMIN' ? 'SUPERADMIN' : value;
@@ -54,7 +62,9 @@ export class MvpAuthGuard implements CanActivate {
     if (isPublic) return true;
 
     const request = context.switchToHttp().getRequest();
-    const token = extractBearerToken(request.headers?.authorization);
+    const token =
+      extractBearerToken(request.headers?.authorization) ||
+      extractAccessTokenFromCookie(request.headers?.cookie);
     if (!token) {
       throw new UnauthorizedException({
         code: 'AUTH_REQUIRED',

@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   ClientNoteType,
+  FileAssetEntityType,
   MeterReadingPeriodStatus,
   MeterReadingSource,
   MeterStatus,
@@ -10,6 +11,8 @@ import {
   Role,
 } from '@prisma/client';
 import { ActivityMvpService } from '../activity-mvp/activity-mvp.service';
+import { bindOwnedFileAssetToEntity, requireOwnedFileAsset } from '../common/file-asset-reference';
+import { assertInternalFileUrl } from '../common/file-url-policy';
 import { PrismaService } from '../prisma/prisma.service';
 import type { MvpUser } from '../security/mvp-auth.guard';
 
@@ -43,6 +46,7 @@ type ReadingMetadata = {
   residentComment?: string | null;
   source?: ReadingSource;
   photoUrl?: string | null;
+  proofFileAssetId?: string | null;
   proofFileName?: string | null;
   proofFileMimeType?: string | null;
   proofFileSize?: number | null;
@@ -420,6 +424,7 @@ export class MetersService {
       residentComment: meta.residentComment || null,
       photoUrl: meta.photoUrl || null,
       proofFileUrl: meta.photoUrl || null,
+      proofFileAssetId: meta.proofFileAssetId || null,
       proofFileName: meta.proofFileName || null,
       proofFileMimeType: meta.proofFileMimeType || null,
       proofFileSize: meta.proofFileSize ?? null,
@@ -447,6 +452,39 @@ export class MetersService {
           }
         : null,
     };
+  }
+
+  private async attachReadingProofFileAssetIds(organizationId: string, items: any[]) {
+    if (!items.length) return items;
+    const readingIds = Array.from(new Set(items.map((item) => item.id).filter(Boolean)));
+    const urls = Array.from(
+      new Set(
+        items
+          .map((item) => item.proofFileUrl || item.photoUrl || null)
+          .filter((value): value is string => typeof value === 'string' && value.length > 0),
+      ),
+    );
+    if (!readingIds.length && !urls.length) return items;
+    const assets = await this.prisma.fileAsset.findMany({
+      where: {
+        organizationId,
+        entityType: FileAssetEntityType.OTHER,
+        OR: [
+          ...(readingIds.length ? [{ entityId: { in: readingIds } }] : []),
+          ...(urls.length ? [{ fileUrl: { in: urls } }] : []),
+        ],
+      },
+      select: { id: true, entityId: true, fileUrl: true },
+    });
+    const byEntityId = new Map(assets.filter((asset) => asset.entityId).map((asset) => [asset.entityId as string, asset.id]));
+    const byUrl = new Map(assets.map((asset) => [asset.fileUrl, asset.id]));
+    return items.map((item) => ({
+      ...item,
+      proofFileAssetId:
+        item.proofFileAssetId ||
+        byEntityId.get(item.id) ||
+        (item.proofFileUrl ? byUrl.get(item.proofFileUrl) || null : item.photoUrl ? byUrl.get(item.photoUrl) || null : null),
+    }));
   }
 
   async listMeters(user: MvpUser) {
@@ -1361,10 +1399,15 @@ export class MetersService {
     const period = await this.requireResidentReadingPeriod(user, periodId);
     const rows = await this.buildResidentReadingWorkspaceRows(user, period, query);
     const paged = this.paginate(rows, query);
+    const items = paged.items.map((row) => ({
+      ...row,
+      currentReading: row.currentReading || null,
+      currentSubmittedReading: row.currentSubmittedReading || null,
+    }));
     return {
       period: this.toReadingPeriod(period),
       canSubmit: this.canResidentSubmitToPeriod(period),
-      items: paged.items,
+      items,
       meta: paged.meta,
       summary: {
         totalMeters: rows.length,
@@ -1423,6 +1466,14 @@ export class MetersService {
     const previous = await this.findPreviousApprovedReading(meter.id, period.organizationId, periodMonth, store, existing?.id);
     const consumption = previous ? this.roundMoney(input.value - previous.readingValue) : null;
     const residentId = scope.residentByApartmentId.get(meter.apartmentId)?.id || scope.residentProfiles[0]?.id || null;
+    const proofAsset = input.proofFileUrl
+      ? await requireOwnedFileAsset(this.prisma, {
+          organizationId: period.organizationId,
+          fileUrl: input.proofFileUrl,
+          entityTypes: FileAssetEntityType.OTHER,
+          message: 'Poza dovezii trebuie încărcată prin uploaderul Espace.',
+        })
+      : null;
 
     const reading = existing
       ? await this.prisma.meterReading.update({
@@ -1464,12 +1515,22 @@ export class MetersService {
       rejectedAt: null,
       rejectionReason: null,
       residentComment: input.residentNote,
-      photoUrl: input.proofFileUrl,
-      proofFileName: input.proofFileName,
-      proofFileMimeType: input.proofFileMimeType,
-      proofFileSize: input.proofFileSize,
+      photoUrl: proofAsset?.fileUrl || input.proofFileUrl,
+      proofFileAssetId: proofAsset?.id || null,
+      proofFileName: proofAsset?.fileName || input.proofFileName,
+      proofFileMimeType: proofAsset?.mimeType || input.proofFileMimeType,
+      proofFileSize: proofAsset?.sizeBytes || input.proofFileSize,
     };
     await this.saveWorkflowMetadata(period.organizationId, user.id, store);
+    if (proofAsset?.fileUrl) {
+      await bindOwnedFileAssetToEntity(this.prisma, {
+        organizationId: period.organizationId,
+        fileUrl: proofAsset.fileUrl,
+        entityType: FileAssetEntityType.OTHER,
+        entityId: reading.id,
+        message: 'Poza dovezii trebuie încărcată prin uploaderul Espace.',
+      });
+    }
     if (consumption !== null && consumption < 0) {
       await this.prisma.meter.update({ where: { id: meter.id }, data: { status: MeterStatus.SUSPICIOUS } });
     }
@@ -1492,7 +1553,7 @@ export class MetersService {
       link: `/admin/resident-readings/${reading.id}`,
     });
 
-    const dto = this.toReading(reading, store);
+    const [dto] = await this.attachReadingProofFileAssetIds(period.organizationId, [this.toReading(reading, store)]);
     const row = this.buildResidentReadingRow(period, meter, dto, previous, 1);
     return {
       reading: dto,
@@ -1551,7 +1612,7 @@ export class MetersService {
       throw new NotFoundException('Citirea trimisă de locatar nu a fost găsită.');
     }
     const residentMap = await this.residentMapFromReadingMetadata(row.organizationId, store, [row]);
-    const reading = this.toReading(row, store, residentMap);
+    const [reading] = await this.attachReadingProofFileAssetIds(row.organizationId, [this.toReading(row, store, residentMap)]);
     const period = row.periodId ? await this.prisma.meterReadingPeriod.findFirst({ where: { id: row.periodId, organizationId: row.organizationId } }) : null;
     const previous = await this.findPreviousApprovedReading(row.meterId, row.organizationId, reading.periodMonth, store, row.id);
     const meter = row.meter
@@ -1709,12 +1770,16 @@ export class MetersService {
       : new Date(rawDate);
     if (Number.isNaN(readingDate.getTime())) throw new BadRequestException('Data citirii nu este validă.');
 
+    const proofFileUrl = this.optionalString(payload.proofFileUrl) ?? this.optionalString(payload.photoUrl) ?? null;
+    if (proofFileUrl) {
+      assertInternalFileUrl(proofFileUrl, 'Poza dovezii trebuie încărcată prin Espace.');
+    }
     return {
       value,
       readingDate,
       unit: this.optionalString(payload.unit) ?? null,
       residentNote: this.optionalString(payload.residentNote) ?? this.optionalString(payload.comment) ?? null,
-      proofFileUrl: this.optionalString(payload.proofFileUrl) ?? this.optionalString(payload.photoUrl) ?? null,
+      proofFileUrl,
       proofFileName: this.optionalString(payload.proofFileName) ?? null,
       proofFileMimeType: this.optionalString(payload.proofFileMimeType) ?? null,
       proofFileSize: payload.proofFileSize === undefined || payload.proofFileSize === null || payload.proofFileSize === ''
@@ -3657,6 +3722,10 @@ export class MetersService {
     if (readingValue < 0) throw new BadRequestException('Valoarea indicelui trebuie să fie pozitivă sau zero.');
     const periodMonth = this.normalizePeriodMonth(payload.periodMonth);
     const status = options.allowStatus ? this.normalizeReadingStatusValue(payload.status) : null;
+    const photoUrl = this.optionalString(payload.photoUrl) ?? this.optionalString(payload.proofFileUrl) ?? null;
+    if (photoUrl) {
+      assertInternalFileUrl(photoUrl, 'Poza dovezii trebuie încărcată prin Espace.');
+    }
     return {
       readingValue,
       periodMonth,
@@ -3665,7 +3734,7 @@ export class MetersService {
       unit: this.optionalString(payload.unit) ?? null,
       adminComment: this.optionalString(payload.adminComment) ?? null,
       residentComment: this.optionalString(payload.residentComment) ?? this.optionalString(payload.comment) ?? null,
-      photoUrl: this.optionalString(payload.photoUrl) ?? this.optionalString(payload.proofFileUrl) ?? null,
+      photoUrl,
       proofFileName: this.optionalString(payload.proofFileName) ?? null,
       proofFileMimeType: this.optionalString(payload.proofFileMimeType) ?? null,
       proofFileSize: payload.proofFileSize === undefined || payload.proofFileSize === null || payload.proofFileSize === ''

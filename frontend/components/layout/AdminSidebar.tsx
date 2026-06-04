@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import {
   Home,
   Building2,
@@ -33,29 +34,29 @@ import { defaultLocale, isLocale } from '@/i18n';
 // Admin navigation structure
 const adminNavigation = {
   main: [
-    { label: 'Dashboard', href: '/admin', icon: Home },
-    { label: 'Apartamente', href: '/admin/apartments', icon: Building2 },
-    { label: 'Locatari', href: '/admin/residents', icon: Users },
-    { label: 'Tarife', href: '/admin/tariffs', icon: Calculator },
-    { label: 'Contoare', href: '/admin/meters', icon: Gauge },
-    { label: 'Citiri contoare', href: '/admin/meter-readings', icon: ListChecks },
-    { label: 'Citiri locatari', href: '/admin/resident-readings', icon: ListChecks },
-    { label: 'Facturare', href: '/admin/billing', icon: Receipt },
-    { label: 'Drafturi facturi', href: '/admin/billing-drafts', icon: FileText },
-    { label: 'Facturi', href: '/admin/invoices', icon: FileText },
-    { label: 'Plăți', href: '/admin/payments', icon: CreditCard },
-    { label: 'Rapoarte', href: '/admin/reports', icon: BarChart3 },
+    { labelKey: 'items.dashboard', href: '/admin', icon: Home },
+    { labelKey: 'items.apartments', href: '/admin/apartments', icon: Building2 },
+    { labelKey: 'items.residents', href: '/admin/residents', icon: Users },
+    { labelKey: 'items.tariffs', href: '/admin/tariffs', icon: Calculator },
+    { labelKey: 'items.meters', href: '/admin/meters', icon: Gauge },
+    { labelKey: 'items.meterReadings', href: '/admin/meter-readings', icon: ListChecks },
+    { labelKey: 'items.residentReadings', href: '/admin/resident-readings', icon: ListChecks },
+    { labelKey: 'items.billing', href: '/admin/billing', icon: Receipt },
+    { labelKey: 'items.invoiceDrafts', href: '/admin/billing-drafts', icon: FileText },
+    { labelKey: 'items.invoices', href: '/admin/invoices', icon: FileText },
+    { labelKey: 'items.payments', href: '/admin/payments', icon: CreditCard },
+    { labelKey: 'items.reports', href: '/admin/reports', icon: BarChart3 },
   ],
   secondary: [
-    { label: 'Avizier', href: '/admin/announcements', icon: Megaphone },
-    { label: 'Solicitări', href: '/admin/requests', icon: CircleAlert },
-    { label: 'Connect', href: '/admin/connect', icon: MessageCircle },
-    { label: 'Calitatea datelor', href: '/admin/data-quality', icon: ListChecks },
-    { label: 'Import / Export', href: '/admin/imports', icon: Upload },
+    { labelKey: 'items.announcements', href: '/admin/announcements', icon: Megaphone },
+    { labelKey: 'items.requests', href: '/admin/requests', icon: CircleAlert },
+    { labelKey: 'items.connect', href: '/admin/connect', icon: MessageCircle },
+    { labelKey: 'items.dataQuality', href: '/admin/data-quality', icon: ListChecks },
+    { labelKey: 'items.importExport', href: '/admin/imports', icon: Upload },
   ],
   footer: [
-    { label: 'Notificări', href: '/admin/notifications', icon: Bell },
-    { label: 'Setări', href: '/admin/settings', icon: Settings },
+    { labelKey: 'items.notifications', href: '/admin/notifications', icon: Bell },
+    { labelKey: 'items.settings', href: '/admin/settings', icon: Settings },
   ],
 };
 
@@ -70,10 +71,11 @@ interface AdminSidebarProps {
 export default function AdminSidebar({
   userInitials = 'AD',
   userEmail = 'admin@espace.md',
-  organizationName = 'A.P.C. Centru',
-  organizationCode = 'A0123-0940',
+  organizationName = 'Espace',
+  organizationCode = '—',
   onLogout,
 }: AdminSidebarProps) {
+  const t = useTranslations('navigation.adminCompactSidebar');
   const pathname = usePathname();
   const params = useParams<{ locale?: string }>();
   const [collapsed, setCollapsed] = useState(false);
@@ -130,7 +132,7 @@ export default function AdminSidebar({
             {!collapsed && (
               <div className="flex-1 min-w-0">
                 <p className="truncate text-xs font-medium text-white">{userEmail}</p>
-                <p className="truncate text-[10px] text-white/50">Administrator</p>
+                <p className="truncate text-[10px] text-white/50">{t('roleLabel')}</p>
               </div>
             )}
           </div>
@@ -142,7 +144,7 @@ export default function AdminSidebar({
             }`}
           >
             <LogOut className="size-3.5" />
-            {!collapsed && <span>Deconectare</span>}
+            {!collapsed && <span>{t('logout')}</span>}
           </button>
         </div>
 
@@ -157,7 +159,7 @@ export default function AdminSidebar({
           ) : (
             <>
               <ChevronLeft className="size-4" />
-              <span>Restrânge</span>
+              <span>{t('collapse')}</span>
             </>
           )}
         </button>
@@ -167,13 +169,14 @@ export default function AdminSidebar({
 }
 
 interface NavSectionProps {
-  items: { label: string; href: string; icon: LucideIcon }[];
+  items: { labelKey: string; href: string; icon: LucideIcon }[];
   collapsed: boolean;
   isActive: (href: string) => boolean;
   localePrefix: string;
 }
 
 function NavSection({ items, collapsed, isActive, localePrefix }: NavSectionProps) {
+  const t = useTranslations('navigation.adminCompactSidebar');
   return (
     <div className="space-y-0.5">
       {items.map((item) => {
@@ -196,13 +199,13 @@ function NavSection({ items, collapsed, isActive, localePrefix }: NavSectionProp
             >
               <Icon className="size-[18px]" />
             </div>
-            {!collapsed && <span className="truncate">{item.label}</span>}
+            {!collapsed && <span className="truncate">{t(item.labelKey)}</span>}
           </Link>
         );
 
         if (collapsed) {
           return (
-            <Tooltip key={item.href} content={item.label}>
+            <Tooltip key={item.href} content={t(item.labelKey)}>
               {linkContent}
             </Tooltip>
           );

@@ -15,6 +15,7 @@ import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MvpUser } from '../security/mvp-auth.guard';
 import { PaymentProviderService } from './payment-provider.service';
+import { areExternalPaymentsEnabled, isExternalPaymentProviderType } from '../common/runtime-flags';
 
 const INTERNAL_INVOICE_NOTE_TITLE = 'Internal invoices metadata';
 const ACTIVE_INTENT_STATUSES: PaymentIntentStatus[] = [
@@ -56,13 +57,19 @@ export class PaymentIntentService {
   async updateSettings(user: MvpUser, body: unknown) {
     const payload = this.payload(body);
     const current = await this.prisma.associationPaymentSettings.findUnique({ where: { associationId: user.organizationId } });
-    let providerId = typeof payload.providerId === 'string' && payload.providerId.trim() ? payload.providerId.trim() : current?.providerId || null;
+    const providerId = typeof payload.providerId === 'string' && payload.providerId.trim() ? payload.providerId.trim() : current?.providerId || null;
     if (providerId) {
       const provider = await this.prisma.onlinePaymentProvider.findUnique({ where: { id: providerId } });
       if (!provider) throw new BadRequestException('Providerul selectat nu există.');
+      if (isExternalPaymentProviderType(provider.type) && !areExternalPaymentsEnabled()) {
+        throw new BadRequestException('Plățile online reale sunt dezactivate în acest mediu.');
+      }
       if (payload.onlinePaymentsEnabled === true && !this.providerCanBeSelected(provider)) {
         throw new BadRequestException('Providerul selectat nu permite activarea plăților online.');
       }
+    }
+    if (!areExternalPaymentsEnabled() && (payload.onlinePaymentsEnabled === true || payload.allowResidentOnlinePayments === true)) {
+      throw new BadRequestException('Plățile online reale sunt dezactivate în acest mediu.');
     }
     const data = {
       providerId,
@@ -238,6 +245,9 @@ export class PaymentIntentService {
     if (settings.maxPaymentAmount !== null && settings.maxPaymentAmount !== undefined && amount > Number(settings.maxPaymentAmount)) throw new BadRequestException('Suma depășește maximul permis.');
     const method = this.paymentMethod(payload.paymentMethodType || payload.paymentMethod || (settings.testModeEnabled ? PaymentMethodType.TEST_METHOD : PaymentMethodType.BPAY));
     const provider = await this.resolveProvider(settings, method);
+    if (provider && isExternalPaymentProviderType(provider.type) && !areExternalPaymentsEnabled()) {
+      throw new BadRequestException('Plățile online reale sunt dezactivate în acest mediu.');
+    }
     if (method === PaymentMethodType.TEST_METHOD && !settings.testModeEnabled && input.user.role !== Role.SUPERADMIN) {
       throw new BadRequestException('Providerul de test nu este activat pentru această asociație.');
     }

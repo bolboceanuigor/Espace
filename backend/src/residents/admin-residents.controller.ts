@@ -55,6 +55,12 @@ export class AdminResidentsController {
     return this.residentsService.listAdminResidents(user, query);
   }
 
+  @Get(['admin/owners', 'api/admin/owners'])
+  @RequirePermission('RESIDENTS', 'VIEW')
+  listOwners(@CurrentUser() user: MvpUser, @Query() query: Record<string, string | undefined>) {
+    return this.residentsService.listAdminOwners(user, query);
+  }
+
   @Get(['admin/residents/:id/update-requests', 'api/admin/residents/:id/update-requests'])
   @RequirePermission('RESIDENTS', 'VIEW')
   residentUpdateRequests(@CurrentUser() user: MvpUser, @Param('id') id: string) {
@@ -65,6 +71,12 @@ export class AdminResidentsController {
   @RequirePermission('RESIDENTS', 'VIEW')
   get(@CurrentUser() user: MvpUser, @Param('id') id: string) {
     return this.residentsService.getAdminResident(user, id);
+  }
+
+  @Get(['admin/owners/:id', 'api/admin/owners/:id'])
+  @RequirePermission('RESIDENTS', 'VIEW')
+  getOwner(@CurrentUser() user: MvpUser, @Param('id') id: string) {
+    return this.residentsService.getAdminOwner(user, id);
   }
 
   @Post(['admin/residents', 'api/admin/residents'])

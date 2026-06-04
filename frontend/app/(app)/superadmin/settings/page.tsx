@@ -1,18 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
 import { LogOut } from 'lucide-react';
 import MobilePageHeader from '@/components/common/MobilePageHeader';
 import EmptyState from '@/components/common/EmptyState';
 import { Button } from '@/components/ui';
-import { demoLogout } from '@/lib/demo-auth';
-import { defaultLocale, isLocale } from '@/i18n';
+import { useAuth } from '@/context/AuthContext';
 
 export default function SuperadminSettingsPage() {
-  const params = useParams<{ locale?: string }>();
-  const localeParam = typeof params?.locale === 'string' ? params.locale : defaultLocale;
-  const locale = isLocale(localeParam) ? localeParam : defaultLocale;
+  const { logout } = useAuth();
 
   return (
     <div className="space-y-4 pb-24 md:pb-4">
@@ -29,7 +25,7 @@ export default function SuperadminSettingsPage() {
           Status sistem
         </Link>
       </div>
-      <Button type="button" variant="danger" onClick={() => demoLogout(locale)}>
+      <Button type="button" variant="danger" onClick={() => void logout()}>
         <LogOut className="h-4 w-4" />
         Deconectare
       </Button>

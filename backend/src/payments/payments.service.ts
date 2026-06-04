@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AdminManualPaymentDto, AdminPaymentsQueryDto, ResidentCreateIntentDto, UpdatePaymentProviderConfigDto } from './dto/payments.dto';
 import { PaymentProviderFactory } from './providers/payment-provider.factory';
 import { buildPaginationMeta, resolvePagination } from '../common/pagination';
+import { areExternalPaymentsEnabled, isExternalPaymentProvider } from '../common/runtime-flags';
 
 type AuthUser = { id?: string; sub?: string; role?: string; organizationId?: string | null };
 
@@ -355,6 +356,9 @@ export class PaymentsService {
     const { organizationId, userId } = this.assertAdmin(user);
     const providerEnum = String(provider || '').toUpperCase() as PaymentProvider;
     if (!Object.values(PaymentProvider).includes(providerEnum)) throw new BadRequestException('Unsupported provider');
+    if (dto.isEnabled === true && isExternalPaymentProvider(providerEnum) && !areExternalPaymentsEnabled()) {
+      throw new BadRequestException('Plățile online reale sunt dezactivate în acest mediu.');
+    }
 
     const existing = await this.prisma.paymentProviderConfig.findUnique({
       where: { organizationId_provider: { organizationId, provider: providerEnum } },
@@ -417,18 +421,28 @@ export class PaymentsService {
       select: { provider: true, isTestMode: true },
       orderBy: { provider: 'asc' },
     });
-    return rows;
+    if (areExternalPaymentsEnabled()) return rows;
+    return rows.filter((row) => !isExternalPaymentProvider(row.provider));
   }
 
   async webhook(provider: string, payload: any, headers?: Record<string, any>) {
+    if (!areExternalPaymentsEnabled()) {
+      throw new NotFoundException('Webhook-urile legacy de plată sunt dezactivate în acest mediu.');
+    }
     const providerUpper = String(provider || '').toUpperCase();
     if (!Object.values(PaymentProvider).includes(providerUpper as PaymentProvider)) {
       throw new BadRequestException('Unsupported provider');
+    }
+    if (!isExternalPaymentProvider(providerUpper as PaymentProvider)) {
+      throw new BadRequestException('Providerul nu acceptă webhook legacy.');
     }
     const intentId = payload?.intentId || payload?.paymentIntentId;
     if (!intentId) throw new BadRequestException('intentId is required');
     const intent = await this.prisma.paymentIntent.findUnique({ where: { id: intentId } });
     if (!intent) throw new NotFoundException('PaymentIntent not found');
+    if (intent.provider && intent.provider !== (providerUpper as PaymentProvider)) {
+      throw new BadRequestException('Payment intent/provider mismatch');
+    }
 
     let providerResult: any;
     try {

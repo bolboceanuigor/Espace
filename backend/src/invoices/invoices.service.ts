@@ -210,7 +210,7 @@ export class InvoicesService {
             userName: resident.firstName || resident.email,
             organizationName: organization?.name || 'Espace',
             apartmentNumber: apartment?.number || '-',
-            supportEmail: process.env.SUPPORT_EMAIL || 'support@espace.local',
+            supportEmail: process.env.SUPPORT_EMAIL || 'support@espace.md',
           },
           inAppFallback: async () => {
             await this.notificationsService.createNotification({
@@ -428,7 +428,7 @@ export class InvoicesService {
               userName: resident.firstName || resident.email,
               organizationName: organization?.name || 'Espace',
               apartmentNumber: apartment?.number || '-',
-              supportEmail: process.env.SUPPORT_EMAIL || 'support@espace.local',
+              supportEmail: process.env.SUPPORT_EMAIL || 'support@espace.md',
             },
             inAppFallback: async () => {
               await this.notificationsService.createNotification({

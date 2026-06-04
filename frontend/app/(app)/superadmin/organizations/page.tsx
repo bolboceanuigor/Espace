@@ -325,7 +325,7 @@ export default function SuperadminOrganizationsPage() {
           <EmptyState
             type="error"
             title="Nu putem încărca organizațiile acum."
-            description="Nu sunt afișate date demo. Reîncearcă după ce API-ul este disponibil."
+            description="Se afișează doar date reale din API. Reîncearcă după ce serviciul este disponibil."
           />
         ) : null}
         {source === 'api' && !filteredRows.length ? (

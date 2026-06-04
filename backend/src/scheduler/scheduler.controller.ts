@@ -2,12 +2,13 @@ import { BadRequestException, Controller, Get, Param, Patch, Post, UseGuards } f
 import { Role } from '@prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ALL_SCHEDULED_JOB_NAMES, ScheduledJobName } from './scheduler.constants';
 import { SchedulerService } from './scheduler.service';
 
 @Controller('api/superadmin/jobs')
-@UseGuards(RolesGuard)
-@Roles(Role.SUPERADMIN, Role.SUPER_ADMIN)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.SUPERADMIN)
 export class SchedulerController {
   constructor(private readonly schedulerService: SchedulerService) {}
 
@@ -43,4 +44,3 @@ export class SchedulerController {
     return this.schedulerService.disableJob(normalized);
   }
 }
-

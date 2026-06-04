@@ -117,9 +117,9 @@ export default function ChannelsSettingsClient() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Channels" description="iCal sync placeholders for Airbnb and Booking." />
+      <PageHeader title="Canale" description="Configurează sincronizarea iCal pentru Airbnb și Booking." />
       {loading ? (
-        <div className="rounded-2xl border border-border/60 bg-card p-5 text-sm text-muted-foreground">Loading...</div>
+        <div className="rounded-2xl border border-border/60 bg-card p-5 text-sm text-muted-foreground">Se încarcă...</div>
       ) : null}
       {!loading ? rows.map((property) => (
         <div key={property.id} className="rounded-2xl border border-border/60 bg-card p-5">
@@ -129,7 +129,7 @@ export default function ChannelsSettingsClient() {
               <p className="text-xs text-muted-foreground">{property.code || '-'}</p>
             </div>
             <Button size="sm" onClick={() => saveProperty(property.id)} disabled={!isAdmin || savingId === property.id}>
-              {savingId === property.id ? '...' : 'Save'}
+              {savingId === property.id ? '...' : 'Salvează'}
             </Button>
           </div>
           <div className="mt-3 space-y-3">
@@ -148,7 +148,7 @@ export default function ChannelsSettingsClient() {
                         }
                         disabled={!isAdmin}
                       />
-                      Enable iCal
+                      Activează iCal
                     </label>
                   </div>
                   <input
@@ -167,4 +167,3 @@ export default function ChannelsSettingsClient() {
     </div>
   );
 }
-

@@ -6,7 +6,7 @@ import { useParams } from 'next/navigation';
 import { ArrowLeft, CheckCircle2, Clock3, MessageCircle, StickyNote, UserRound, Wrench } from 'lucide-react';
 import { Badge, Button, ButtonLink, Card, PageHeader, StatCard } from '@/components/ui';
 import LoadingState from '@/components/common/LoadingState';
-import { requestsApi } from '@/lib/api';
+import { filesApi, requestsApi } from '@/lib/api';
 import { useLocalizedPath } from '@/lib/use-localized-path';
 
 const statusLabels: Record<string, string> = {
@@ -250,7 +250,12 @@ export default function AdminRequestDetailsPage() {
           </div>
           <p className="mt-4 rounded-2xl border border-border/70 bg-muted/25 p-4 text-sm leading-7 text-muted-foreground">{request.description}</p>
           {request.attachmentUrl ? (
-            <a href={request.attachmentUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold hover:bg-muted/60">
+            <a
+              href={request.attachmentFileAssetId ? filesApi.secureDownloadUrl(request.attachmentFileAssetId) : request.attachmentUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-4 inline-flex rounded-2xl border border-border/70 px-4 py-2 text-sm font-semibold hover:bg-muted/60"
+            >
               Deschide atașamentul
             </a>
           ) : null}

@@ -3,6 +3,7 @@ import {
   BillingCurrency,
   BillingDraftInvoiceStatus,
   BillingPeriodStatus,
+  FileAssetEntityType,
   PaymentMethod,
   PaymentIntentEventType,
   PaymentIntentSource,
@@ -16,6 +17,8 @@ import {
   NotificationType,
 } from '@prisma/client';
 import { ActivityMvpService } from '../activity-mvp/activity-mvp.service';
+import { bindOwnedFileAssetToEntity, requireOwnedFileAsset } from '../common/file-asset-reference';
+import { assertInternalFileUrl } from '../common/file-url-policy';
 import { buildPaginationMeta, resolvePagination } from '../common/pagination';
 import { PrismaService } from '../prisma/prisma.service';
 import type { MvpUser } from '../security/mvp-auth.guard';
@@ -278,15 +281,16 @@ export class InvoicePublishingService {
       }),
       this.paidAmountForInvoice(organizationId, id),
     ]);
+    const proofRows = await this.withPaymentProofFileAssetIds(organizationId, paymentProofs);
     return {
       invoice: {
         ...this.serializeAdminInvoiceDetail(invoice, issues, paidAmount),
-        paymentProofs: paymentProofs.map((proof) => this.serializeAdminPaymentProof(proof)),
+        paymentProofs: proofRows.map((proof) => this.serializeAdminPaymentProof(proof)),
         paymentProofsSummary: {
-          submitted: paymentProofs.filter((proof) => proof.status === PaymentProofStatus.SUBMITTED).length,
-          inReview: paymentProofs.filter((proof) => proof.status === PaymentProofStatus.IN_REVIEW).length,
-          accepted: paymentProofs.filter((proof) => proof.status === PaymentProofStatus.ACCEPTED || proof.status === PaymentProofStatus.PARTIALLY_ACCEPTED).length,
-          rejected: paymentProofs.filter((proof) => proof.status === PaymentProofStatus.REJECTED).length,
+          submitted: proofRows.filter((proof) => proof.status === PaymentProofStatus.SUBMITTED).length,
+          inReview: proofRows.filter((proof) => proof.status === PaymentProofStatus.IN_REVIEW).length,
+          accepted: proofRows.filter((proof) => proof.status === PaymentProofStatus.ACCEPTED || proof.status === PaymentProofStatus.PARTIALLY_ACCEPTED).length,
+          rejected: proofRows.filter((proof) => proof.status === PaymentProofStatus.REJECTED).length,
         },
       },
       activity: activity.map((item) => ({
@@ -561,7 +565,8 @@ export class InvoicePublishingService {
         orderBy: [{ createdAt: 'desc' }],
       }),
     ]);
-    return this.serializeResidentInvoiceDetail(invoice, organization, paidAmount, activePaymentIntent, paymentProofs);
+    const proofRows = await this.withPaymentProofFileAssetIds(organizationId, paymentProofs);
+    return this.serializeResidentInvoiceDetail(invoice, organization, paidAmount, activePaymentIntent, proofRows);
   }
 
   async markResidentInvoiceViewed(user: MvpUser, id: string) {
@@ -718,6 +723,18 @@ export class InvoicePublishingService {
     if (money(amount) > state.remainingAmount) throw new BadRequestException('Suma dovezii depășește soldul rămas al facturii.');
     const paidAt = parseDate(payload.paidAt) || null;
     const externalReference = optionalString(payload.externalReference) || null;
+    const proofFileUrl = optionalString(payload.proofFileUrl) || null;
+    const proofAsset = proofFileUrl
+      ? await requireOwnedFileAsset(this.prisma, {
+          organizationId,
+          fileUrl: proofFileUrl,
+          entityTypes: [FileAssetEntityType.RECEIPT_PDF, FileAssetEntityType.OTHER],
+          message: 'Dovada trebuie încărcată prin uploaderul Espace.',
+        })
+      : null;
+    if (proofFileUrl) {
+      assertInternalFileUrl(proofFileUrl, 'Dovada trebuie încărcată prin Espace.');
+    }
     const duplicate = await this.findPossibleDuplicatePaymentProof(organizationId, invoice.id, money(amount), paidAt, externalReference);
     const created = await this.prisma.paymentProof.create({
       data: {
@@ -732,22 +749,31 @@ export class InvoicePublishingService {
         paidAt,
         externalReference,
         residentNote: optionalString(payload.residentNote) || null,
-        proofFileUrl: optionalString(payload.proofFileUrl) || null,
-        proofFileName: optionalString(payload.proofFileName) || null,
-        proofFileMimeType: optionalString(payload.proofFileMimeType) || null,
-        proofFileSize: Number.isFinite(Number(payload.proofFileSize)) ? Number(payload.proofFileSize) : null,
+        proofFileUrl,
+        proofFileName: proofAsset?.fileName || optionalString(payload.proofFileName) || null,
+        proofFileMimeType: proofAsset?.mimeType || optionalString(payload.proofFileMimeType) || null,
+        proofFileSize: proofAsset?.sizeBytes ?? (Number.isFinite(Number(payload.proofFileSize)) ? Number(payload.proofFileSize) : null),
         possibleDuplicate: Boolean(duplicate),
         duplicatePaymentProofId: duplicate?.id || null,
         metadataJson: {
           invoiceNumber: invoice.invoiceNumber,
           remainingAmount: state.remainingAmount,
           possibleDuplicate: Boolean(duplicate),
-          uploadStorage: optionalString(payload.proofFileUrl) ? 'external_url' : null,
+          uploadStorage: proofFileUrl ? 'espace_internal' : null,
           realMoneyProcessed: false,
         },
       },
       include: this.paymentProofInclude(),
     });
+    if (proofAsset) {
+      await bindOwnedFileAssetToEntity(this.prisma, {
+        organizationId,
+        fileUrl: proofAsset.fileUrl,
+        entityType: [FileAssetEntityType.RECEIPT_PDF, FileAssetEntityType.OTHER],
+        entityId: created.id,
+        message: 'Dovada trebuie încărcată prin uploaderul Espace.',
+      });
+    }
     await this.log(user, 'PAYMENT_PROOF_SUBMITTED', 'Dovadă de plată trimisă', `Locatarul a trimis o dovadă pentru factura ${invoice.invoiceNumber || invoice.id}.`, invoice.id);
     await this.activity.notifyOrganizationAdmins({
       organizationId,
@@ -756,8 +782,9 @@ export class InvoicePublishingService {
       message: `A fost trimisă o dovadă de ${money(amount).toLocaleString('ro-RO')} MDL pentru factura ${invoice.invoiceNumber || invoice.id}.`,
       link: '/admin/payment-proofs',
     }).catch(() => undefined);
+    const [serialized] = await this.withPaymentProofFileAssetIds(organizationId, [created]);
     return {
-      proof: this.serializeResidentPaymentProof(created, true),
+      proof: this.serializeResidentPaymentProof(serialized, true),
       possibleDuplicate: Boolean(duplicate),
       warning: duplicate ? 'Există deja o dovadă similară pentru această factură. Adminul o va verifica.' : null,
       message: 'Dovada a fost trimisă spre verificare.',
@@ -786,8 +813,9 @@ export class InvoicePublishingService {
       }),
       this.prisma.paymentProof.count({ where }),
     ]);
+    const enriched = await this.withPaymentProofFileAssetIds(organizationId, rows);
     return {
-      items: rows.map((proof) => this.serializeResidentPaymentProof(proof)),
+      items: enriched.map((proof) => this.serializeResidentPaymentProof(proof)),
       meta: buildPaginationMeta(page, limit, total),
       emptyStateCode: total === 0 ? 'NO_PAYMENT_PROOFS' : null,
       emptyStateMessage: total === 0 ? 'Nu ai trimis încă dovezi de plată.' : null,
@@ -806,7 +834,8 @@ export class InvoicePublishingService {
       include: this.paymentProofInclude(),
     });
     if (!proof) throw new NotFoundException('Dovada de plată nu a fost găsită.');
-    return { proof: this.serializeResidentPaymentProof(proof, true) };
+    const [enriched] = await this.withPaymentProofFileAssetIds(organizationId, [proof]);
+    return { proof: this.serializeResidentPaymentProof(enriched, true) };
   }
 
   async cancelResidentPaymentProof(user: MvpUser, id: string) {
@@ -873,8 +902,9 @@ export class InvoicePublishingService {
       }),
       this.prisma.paymentProof.count({ where }),
     ]);
+    const enriched = await this.withPaymentProofFileAssetIds(organizationId, rows);
     return {
-      items: rows.map((proof) => this.serializeAdminPaymentProof(proof)),
+      items: enriched.map((proof) => this.serializeAdminPaymentProof(proof)),
       meta: buildPaginationMeta(page, limit, total),
       emptyStateCode: total === 0 ? 'NO_PAYMENT_PROOFS' : null,
       emptyStateMessage: total === 0 ? 'Nu există dovezi de plată trimise.' : null,
@@ -886,12 +916,13 @@ export class InvoicePublishingService {
     const proof = await this.prisma.paymentProof.findFirst({ where: { id, organizationId }, include: this.paymentProofInclude() });
     if (!proof) throw new NotFoundException('Dovada de plată nu a fost găsită.');
     const paidAmount = await this.paidAmountForInvoice(organizationId, proof.invoiceId);
+    const [enriched] = await this.withPaymentProofFileAssetIds(organizationId, [proof]);
     return {
-      proof: this.serializeAdminPaymentProof(proof, true),
-      invoice: proof.invoice ? this.serializeInvoiceForLedger(proof.invoice) : null,
-      existingPayments: (proof.invoice?.payments || []).map((payment: any) => this.serializeAdminPayment(payment)),
-      remainingAmount: proof.invoice ? this.paymentState(proof.invoice, paidAmount).remainingAmount : 0,
-      warnings: this.paymentProofIssuesForProof(proof),
+      proof: this.serializeAdminPaymentProof(enriched, true),
+      invoice: enriched.invoice ? this.serializeInvoiceForLedger(enriched.invoice) : null,
+      existingPayments: (enriched.invoice?.payments || []).map((payment: any) => this.serializeAdminPayment(payment)),
+      remainingAmount: enriched.invoice ? this.paymentState(enriched.invoice, paidAmount).remainingAmount : 0,
+      warnings: this.paymentProofIssuesForProof(enriched),
       activity: [],
     };
   }
@@ -982,8 +1013,9 @@ export class InvoicePublishingService {
       message: `Dovada pentru factura ${proof.invoice?.invoiceNumber || proof.invoiceId} a fost verificată.`,
       link: `/resident/payment-proofs/${proof.id}`,
     }).catch(() => undefined);
+    const [enriched] = await this.withPaymentProofFileAssetIds(organizationId, [updated]);
     return {
-      proof: this.serializeAdminPaymentProof(updated, true),
+      proof: this.serializeAdminPaymentProof(enriched, true),
       message: nextProofStatus === PaymentProofStatus.PARTIALLY_ACCEPTED ? 'Dovada a fost acceptată parțial.' : 'Dovada a fost acceptată.',
     };
   }
@@ -1707,6 +1739,25 @@ export class InvoicePublishingService {
     return this.prisma.paymentProof.findFirst({ where, select: { id: true } });
   }
 
+  private async withPaymentProofFileAssetIds(organizationId: string, proofs: any[]) {
+    if (!proofs.length) return proofs;
+    const urls = Array.from(new Set(proofs.map((proof) => proof.proofFileUrl).filter(Boolean)));
+    if (!urls.length) return proofs.map((proof) => ({ ...proof, proofFileAssetId: null }));
+    const assets = await this.prisma.fileAsset.findMany({
+      where: {
+        organizationId,
+        fileUrl: { in: urls as string[] },
+        entityType: { in: [FileAssetEntityType.RECEIPT_PDF, FileAssetEntityType.OTHER] },
+      },
+      select: { id: true, fileUrl: true },
+    });
+    const byUrl = new Map(assets.map((asset) => [asset.fileUrl, asset.id]));
+    return proofs.map((proof) => ({
+      ...proof,
+      proofFileAssetId: proof.proofFileUrl ? byUrl.get(proof.proofFileUrl) || null : null,
+    }));
+  }
+
   private serializeResidentPaymentProof(proof: any, detail = false) {
     const invoiceState = proof.invoice ? this.invoicePaymentState(proof.invoice, proof.invoice.payments || []) : null;
     const payload: Record<string, unknown> = {
@@ -1739,6 +1790,7 @@ export class InvoicePublishingService {
       possibleDuplicate: Boolean(proof.possibleDuplicate),
     };
     if (detail) {
+      payload.proofFileAssetId = proof.proofFileAssetId || null;
       payload.proofFileUrl = proof.proofFileUrl || null;
       payload.proofFileName = proof.proofFileName || null;
       payload.proofFileMimeType = proof.proofFileMimeType || null;
@@ -1772,6 +1824,7 @@ export class InvoicePublishingService {
       createdAt: proof.createdAt,
       reviewedAt: proof.reviewedAt,
       reviewedBy: proof.reviewedBy ? { id: proof.reviewedBy.id, name: fullName(proof.reviewedBy) || proof.reviewedBy.email } : null,
+      proofFileAssetId: proof.proofFileAssetId || null,
       proofFileUrl: proof.proofFileUrl || null,
       proofFileName: proof.proofFileName || null,
       proofFileMimeType: proof.proofFileMimeType || null,

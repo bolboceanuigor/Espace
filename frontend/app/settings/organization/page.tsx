@@ -31,7 +31,7 @@ export default function OrganizationSettingsPage() {
       setName(res.data.name ?? '');
     } catch (err) {
       console.error('Failed to fetch organization', err);
-      setToast({ message: 'Failed to load organization.', visible: true, type: 'error' });
+      setToast({ message: 'Nu am putut încărca organizația.', visible: true, type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -52,11 +52,11 @@ export default function OrganizationSettingsPage() {
     setSaving(true);
     try {
       await organizationsApi.updateMe({ name: name.trim() });
-      setToast({ message: 'Organization updated.', visible: true, type: 'success' });
+      setToast({ message: 'Organizația a fost actualizată.', visible: true, type: 'success' });
       fetchOrg();
     } catch (err: any) {
       setToast({
-        message: err.response?.data?.message || 'Failed to update.',
+        message: err.response?.data?.message || 'Nu am putut salva modificările.',
         visible: true,
         type: 'error',
       });
@@ -67,7 +67,7 @@ export default function OrganizationSettingsPage() {
 
   const handleInviteSuccess = () => {
     setInviteModalOpen(false);
-    setToast({ message: 'User invited.', visible: true, type: 'success' });
+    setToast({ message: 'Invitația a fost trimisă.', visible: true, type: 'success' });
   };
 
   const dismissToast = () => setToast((t) => ({ ...t, visible: false }));
@@ -75,7 +75,7 @@ export default function OrganizationSettingsPage() {
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[300px] text-gray-600">Loading...</div>
+        <div className="flex items-center justify-center min-h-[300px] text-gray-600">Se încarcă...</div>
       </DashboardLayout>
     );
   }
@@ -84,40 +84,40 @@ export default function OrganizationSettingsPage() {
     <DashboardLayout>
       <div className="max-w-2xl space-y-6">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-gray-800">Organization Settings</h1>
-          <p className="text-gray-600 mt-1">Manage your organization</p>
+          <h1 className="text-xl font-semibold tracking-tight text-gray-800">Setări organizație</h1>
+          <p className="text-gray-600 mt-1">Gestionează datele organizației și accesul echipei.</p>
         </div>
 
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Organization name</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Nume organizație</h2>
           <form onSubmit={handleSaveName} className="flex flex-col sm:flex-row gap-4">
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="flex-1 px-4 py-3 border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
-              placeholder="Organization name"
+              placeholder="Nume organizație"
             />
             <button
               type="submit"
               disabled={saving || !isAdmin}
               className="px-5 py-3 bg-black text-white rounded-lg hover:opacity-90 font-medium disabled:opacity-50"
             >
-              {saving ? 'Saving...' : 'Save'}
+              {saving ? 'Se salvează...' : 'Salvează'}
             </button>
           </form>
         </div>
 
         {isAdmin ? (
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Team</h2>
-            <p className="text-sm text-gray-600 mb-4">Invite users to your organization.</p>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Echipă</h2>
+            <p className="text-sm text-gray-600 mb-4">Invită utilizatori noi în organizație.</p>
             <button
               type="button"
               onClick={() => setInviteModalOpen(true)}
               className="px-5 py-2.5 bg-black text-white rounded-lg hover:opacity-90 font-medium"
             >
-              Invite User
+              Invită utilizator
             </button>
           </div>
         ) : null}

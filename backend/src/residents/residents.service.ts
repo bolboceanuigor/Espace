@@ -14,6 +14,7 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { ActivityMvpService } from '../activity-mvp/activity-mvp.service';
 import type { MvpUser } from '../security/mvp-auth.guard';
+import { isOwnerResidentRow } from './owners.util';
 
 const RESIDENT_PROFILE_UPDATE_REQUESTS_TITLE = 'Resident profile update requests';
 const RESIDENT_UPDATE_REQUEST_TYPES = [
@@ -234,7 +235,7 @@ export class ResidentsService {
   }
 
   private organizationWhere(user: MvpUser) {
-    return this.isSuperadmin(user) ? {} : { organizationId: user.organizationId };
+    return { organizationId: this.adminOrganizationId(user) };
   }
 
   private assertOrganizationAccess(user: MvpUser, organizationId: string) {
@@ -303,6 +304,13 @@ export class ResidentsService {
     };
   }
 
+  async listAdminOwners(user: MvpUser, query: Record<string, string | undefined> = {}) {
+    return this.listAdminResidents(user, {
+      ...query,
+      role: 'OWNER',
+    });
+  }
+
   async getAdminResident(user: MvpUser, id: string) {
     const resident = await this.prisma.residentProfile.findFirst({
       where: { id, ...this.organizationWhere(user) },
@@ -320,6 +328,14 @@ export class ResidentsService {
       apartmentOptions,
       updateRequests.filter((request) => request.residentId === resident.id),
     );
+  }
+
+  async getAdminOwner(user: MvpUser, id: string) {
+    const owner = await this.getAdminResident(user, id);
+    if (!isOwnerResidentRow(owner)) {
+      throw new NotFoundException('Proprietarul nu a fost găsit.');
+    }
+    return owner;
   }
 
   async createAdminResident(user: MvpUser, body: unknown) {

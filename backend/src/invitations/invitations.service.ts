@@ -94,7 +94,7 @@ export class InvitationsService {
         organizationName: organization?.name || 'Espace',
         inviteLink,
         apartmentNumber: invitation.apartment?.number || '-',
-        supportEmail: process.env.SUPPORT_EMAIL || 'support@espace.local',
+        supportEmail: process.env.SUPPORT_EMAIL || 'support@espace.md',
       },
     });
     return { ...invitation, inviteLink };
@@ -144,7 +144,7 @@ export class InvitationsService {
         organizationName: organization?.name || 'Espace',
         inviteLink,
         apartmentNumber: updated.apartment?.number || '-',
-        supportEmail: process.env.SUPPORT_EMAIL || 'support@espace.local',
+        supportEmail: process.env.SUPPORT_EMAIL || 'support@espace.md',
       },
     });
     return { ...updated, inviteLink };
