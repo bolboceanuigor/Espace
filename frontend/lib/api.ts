@@ -2500,6 +2500,17 @@ export const maintenanceApi = {
   }) => apiRequest<any>('/api/admin/suppliers', { method: 'POST', body: data }),
   suppliersUpdate: (id: string, data: any) => apiRequest<any>(`/api/admin/suppliers/${id}`, { method: 'PATCH', body: data }),
   suppliersDelete: (id: string) => apiRequest<any>(`/api/admin/suppliers/${id}`, { method: 'DELETE' }),
+  serviceProvidersList: (params?: { search?: string }) => apiRequest<any[]>('/api/admin/service-providers', { params }),
+  serviceProvidersCreate: (data: {
+    name: string;
+    contactPerson?: string;
+    phone?: string;
+    email?: string;
+    serviceType?: string;
+  }) => apiRequest<any>('/api/admin/service-providers', { method: 'POST', body: data }),
+  serviceProvidersUpdate: (id: string, data: any) =>
+    apiRequest<any>(`/api/admin/service-providers/${id}`, { method: 'PATCH', body: data }),
+  serviceProvidersDelete: (id: string) => apiRequest<any>(`/api/admin/service-providers/${id}`, { method: 'DELETE' }),
 
   tasksList: (params?: { status?: string; priority?: string; assignedTo?: string; buildingId?: string }) =>
     apiRequest<any[]>('/api/admin/maintenance/tasks', { params }),

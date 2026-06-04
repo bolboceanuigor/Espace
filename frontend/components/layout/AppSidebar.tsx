@@ -79,6 +79,7 @@ const sections: Array<{
       { labelKey: 'items.announcements', href: '/admin/announcements', icon: Megaphone, permission: ['ANNOUNCEMENTS', 'VIEW'] },
       { labelKey: 'items.requests', href: '/admin/requests', icon: CircleAlert, permission: ['REQUESTS', 'VIEW'] },
       { labelKey: 'items.maintenance', href: '/admin/maintenance', icon: Wrench, permission: ['REQUESTS', 'VIEW'] },
+      { labelKey: 'items.serviceProviders', href: '/admin/service-providers', icon: UserCheck, permission: ['SUPPLIERS', 'VIEW'] },
       { labelKey: 'items.connect', href: '/admin/connect', icon: MessageCircle, permission: ['REQUESTS', 'VIEW'] },
       { labelKey: 'items.imports', href: '/admin/imports', icon: Upload, permission: ['IMPORTS', 'VIEW'] },
       { labelKey: 'items.exports', href: '/admin/exports', icon: Download, permission: ['EXPORTS', 'VIEW'] },

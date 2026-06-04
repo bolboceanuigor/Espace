@@ -30,7 +30,7 @@ import { MaintenanceService } from './maintenance.service';
 export class MaintenanceController {
   constructor(private readonly maintenanceService: MaintenanceService) {}
 
-  @Get('admin/suppliers')
+  @Get(['admin/suppliers', 'admin/service-providers'])
   @UseGuards(SubscriptionAccessGuard)
   @Roles(Role.ADMIN)
   @RequiresPermissions('suppliers.view')
@@ -39,7 +39,7 @@ export class MaintenanceController {
     return this.maintenanceService.listSuppliers(user, query);
   }
 
-  @Post('admin/suppliers')
+  @Post(['admin/suppliers', 'admin/service-providers'])
   @UseGuards(SubscriptionAccessGuard)
   @Roles(Role.ADMIN)
   @RequiresPermissions('suppliers.manage')
@@ -48,7 +48,7 @@ export class MaintenanceController {
     return this.maintenanceService.createSupplier(user, body);
   }
 
-  @Patch('admin/suppliers/:id')
+  @Patch(['admin/suppliers/:id', 'admin/service-providers/:id'])
   @UseGuards(SubscriptionAccessGuard)
   @Roles(Role.ADMIN)
   @RequiresPermissions('suppliers.manage')
@@ -57,7 +57,7 @@ export class MaintenanceController {
     return this.maintenanceService.updateSupplier(user, id, body);
   }
 
-  @Delete('admin/suppliers/:id')
+  @Delete(['admin/suppliers/:id', 'admin/service-providers/:id'])
   @UseGuards(SubscriptionAccessGuard)
   @Roles(Role.ADMIN)
   @RequiresPermissions('suppliers.manage')

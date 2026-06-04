@@ -210,6 +210,7 @@ function generateBreadcrumbs(
     reports: t('routes.reports'),
     announcements: t('routes.announcements'),
     requests: t('routes.requests'),
+    'service-providers': t('routes.serviceProviders'),
     'data-quality': t('routes.dataQuality'),
     imports: t('routes.imports'),
     exports: t('routes.exports'),

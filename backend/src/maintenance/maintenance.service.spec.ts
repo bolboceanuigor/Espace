@@ -7,6 +7,7 @@ describe('MaintenanceService', () => {
       issue: { findFirst: jest.fn() },
       maintenanceTask: { create: jest.fn() },
       residentProfile: { findMany: jest.fn() },
+      supplier: { findMany: jest.fn() },
     };
     const auditService = { logCreate: jest.fn().mockResolvedValue(undefined), logUpdate: jest.fn().mockResolvedValue(undefined) };
     const notificationsService = {
@@ -89,6 +90,27 @@ describe('MaintenanceService', () => {
             { targetType: 'APARTMENT', apartmentId: { in: ['apt-a'] } },
           ],
         },
+      }),
+    );
+  });
+
+  it('scopes service providers to the active organization when listing', async () => {
+    const { service, prisma } = createService();
+    (prisma as any).organizationMember = {
+      findFirst: jest.fn().mockResolvedValue({ role: 'ORG_ADMIN', permissionsJson: {} }),
+    };
+    prisma.supplier.findMany.mockResolvedValue([]);
+
+    await service.listSuppliers(
+      { id: 'admin-a', role: 'MEMBER', organizationId: 'org-a' } as any,
+      { search: 'lift' } as any,
+    );
+
+    expect(prisma.supplier.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          organizationId: 'org-a',
+        }),
       }),
     );
   });

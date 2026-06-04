@@ -26,6 +26,7 @@ import {
   Calculator,
   Wallet,
   MessageCircle,
+  UserCheck,
   type LucideIcon,
 } from 'lucide-react';
 import { Tooltip } from '@/components/ui';
@@ -50,6 +51,7 @@ const adminNavigation = {
   secondary: [
     { labelKey: 'items.announcements', href: '/admin/announcements', icon: Megaphone },
     { labelKey: 'items.requests', href: '/admin/requests', icon: CircleAlert },
+    { labelKey: 'items.serviceProviders', href: '/admin/service-providers', icon: UserCheck },
     { labelKey: 'items.connect', href: '/admin/connect', icon: MessageCircle },
     { labelKey: 'items.dataQuality', href: '/admin/data-quality', icon: ListChecks },
     { labelKey: 'items.importExport', href: '/admin/imports', icon: Upload },

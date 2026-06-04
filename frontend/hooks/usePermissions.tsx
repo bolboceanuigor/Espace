@@ -17,6 +17,7 @@ export type PermissionModule =
   | 'REPORTS'
   | 'ANNOUNCEMENTS'
   | 'REQUESTS'
+  | 'SUPPLIERS'
   | 'IMPORTS'
   | 'EXPORTS'
   | 'DATA_QUALITY'
