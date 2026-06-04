@@ -4,6 +4,7 @@ import { clearAuth, getToken } from './auth';
 import { getApiBaseUrl } from './runtime-config';
 
 const API_URL = getApiBaseUrl();
+const AUTH_REQUEST_TIMEOUT_MS = Number(process.env.NEXT_PUBLIC_AUTH_REQUEST_TIMEOUT_MS || 12000);
 
 type AuthApiMethod = 'GET' | 'POST' | 'PATCH';
 
@@ -83,22 +84,40 @@ async function authRequest<T>(path: string, options: AuthApiOptions = {}): Promi
 
   const requestUrl = `${API_URL}${normalizeAuthApiPath(path)}`;
   const token = getToken();
-  const response = await fetch(requestUrl, {
-    method,
-    credentials: 'include',
-    cache: 'no-store',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  }).catch(() => {
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timeoutId = controller
+    ? setTimeout(() => controller.abort(), AUTH_REQUEST_TIMEOUT_MS)
+    : null;
+
+  let response: Response;
+  try {
+    response = await fetch(requestUrl, {
+      method,
+      credentials: 'include',
+      cache: 'no-store',
+      signal: controller?.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  } catch (error: any) {
+    if (error?.name === 'AbortError') {
+      throw new AuthApiError(504, {
+        code: 'REQUEST_TIMEOUT',
+        message: 'API-ul răspunde prea greu. Te rugăm să reîncerci autentificarea.',
+      });
+    }
+
     throw new AuthApiError(503, {
       code: 'NETWORK_ERROR',
       message: 'API-ul nu este disponibil temporar.',
     });
-  });
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     const payload = await parseErrorPayload(response);
