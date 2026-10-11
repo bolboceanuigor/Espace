@@ -11,7 +11,7 @@ jobs:
       - name: Ping
         env:
           CRON_KEY: ${{ secrets.CRON_KEY }}
-          APP_URL: ${{ vars.APP_URL || 'https://espace.pages.dev' }}
+          APP_URL: ${{ vars.APP_URL || 'https://espace-3hh.pages.dev' }}
         run: |
           if [ -z "$CRON_KEY" ]; then echo "CRON_KEY secret not set"; exit 0; fi
           curl -fsS -X POST "$APP_URL/api/cron" -H "content-type: application/json" -d "{\"key\":\"$CRON_KEY\"}"

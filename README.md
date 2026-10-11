@@ -44,9 +44,9 @@ schema.sql                 schema D1 (idempotentă)
    - `CLOUDFLARE_ACCOUNT_ID` (opțional)
    - `SUPERADMIN_EMAIL`: emailul tău; cu el intri în `/admin.html`
    - `CRON_KEY`: un șir lung, aleator, folosit pentru remindere
-2. Fă push în `main`. Workflow-ul creează baza `espace` (separată de `rentwill`), aplică schema și publică pe `https://espace.pages.dev`.
+2. Fă push în `main`. Workflow-ul creează baza `espace` (separată de `rentwill`), aplică schema și publică pe `https://espace-3hh.pages.dev`.
 3. Înregistrează-te în aplicație cu emailul din `SUPERADMIN_EMAIL`, apoi deschide `/admin.html`.
-4. Domeniul `espace.md`: Cloudflare → Pages → espace → Custom domains. Dacă domeniul diferă de `espace.pages.dev`, setează variabila de repo `APP_URL` pentru remindere.
+4. Domeniul `espace.md`: Cloudflare → Pages → espace → Custom domains. Dacă domeniul diferă de `espace-3hh.pages.dev`, setează variabila de repo `APP_URL` pentru remindere.
 
 ## Dezvoltare locală
 
