@@ -1,0 +1,34 @@
+name: Company addresses (<slug>.espace.md)
+# Every 5 minutes: each company in the database gets its address added to the Pages project as a custom domain,
+# so <slug>.espace.md opens without any manual step. The DNS side is the "*" CNAME → espace-3hh.pages.dev.
+# (Pages allows a limited number of custom domains per project; past that the router Worker takes over.)
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+concurrency: domains
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      ACC: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Add missing company domains
+        run: |
+          API="https://api.cloudflare.com/client/v4/accounts/$ACC"
+          cf() { curl -s -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" "$@"; }
+          DB=$(cf "$API/d1/database?name=espace" | jq -r '.result[0].uuid // empty')
+          [ -n "$DB" ] || { echo "::error::database espace not found"; exit 1; }
+          CODES=$(cf -X POST "$API/d1/database/$DB/query" -d '{"sql":"SELECT code FROM orgs WHERE status != '"'"'deleted'"'"'"}' | jq -r '.result[0].results[].code')
+          ALL=$(for p in 1 2 3 4 5; do cf "$API/pages/projects/espace/domains?page=$p&per_page=100" | jq -r '.result[]? | "\(.name) \(.status)"'; done)
+          N=0
+          for c in $CODES; do
+            d="$c.espace.md"
+            if grep -q "^$d " <<<"$ALL"; then continue; fi
+            R=$(cf -X POST "$API/pages/projects/espace/domains" -d "{\"name\":\"$d\"}")
+            if [ "$(jq -r '.success' <<<"$R")" = "true" ]; then echo "::notice::added $d ($(jq -r '.result.status' <<<"$R"))"; N=$((N+1));
+            else echo "::warning::$d not added: $(jq -c '.errors' <<<"$R" | head -c 300)"; fi
+          done
+          echo "::notice::companies: $(wc -w <<<"$CODES"), domains on the project: $(grep -c . <<<"$ALL"), added now: $N"
+          grep -v " active$" <<<"$ALL" | grep -v '^$' | while read -r n s; do echo "::notice::$n is $s"; done || true
