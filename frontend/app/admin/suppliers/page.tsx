@@ -1,5 +1,0 @@
-import AdminServiceProvidersPage from '@/components/service-providers/AdminServiceProvidersPage';
-
-export default function AdminSuppliersPage() {
-  return <AdminServiceProvidersPage />;
-}

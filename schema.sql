@@ -1,0 +1,242 @@
+-- espace.md — multi-tenant schema (Cloudflare D1 / SQLite).
+-- Every business table carries org_id; the API never reads or writes a row without it.
+-- Idempotent: safe to run on every deploy.
+
+-- ---------- platform ----------
+CREATE TABLE IF NOT EXISTS orgs (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  code TEXT NOT NULL UNIQUE,             -- short company code the maids type with their PIN
+  status TEXT NOT NULL DEFAULT 'active', -- active | blocked
+  trial_ends TEXT NOT NULL,              -- YYYY-MM-DD
+  paid_until TEXT NOT NULL DEFAULT '',   -- YYYY-MM-DD, '' = never paid
+  note TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE TABLE IF NOT EXISTS users (
+  id TEXT PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL DEFAULT '',
+  pw_hash TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE TABLE IF NOT EXISTS members (
+  org_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'manager',  -- owner | manager | checker | viewer
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  PRIMARY KEY (org_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS members_user_idx ON members(user_id);
+CREATE TABLE IF NOT EXISTS sessions (
+  token_hash TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  org_id TEXT NOT NULL DEFAULT '',
+  expires_at TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS sessions_user_idx ON sessions(user_id);
+CREATE TABLE IF NOT EXISTS payments (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL,
+  amount REAL NOT NULL DEFAULT 0,        -- lei
+  months INTEGER NOT NULL DEFAULT 1,
+  paid_until TEXT NOT NULL,              -- what paid_until became after this payment
+  note TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS payments_org_idx ON payments(org_id);
+CREATE TABLE IF NOT EXISTS auth_fail (k TEXT PRIMARY KEY, n INTEGER NOT NULL DEFAULT 0, until TEXT NOT NULL DEFAULT '');
+CREATE TABLE IF NOT EXISTS sys_state (k TEXT PRIMARY KEY, v TEXT NOT NULL);
+
+-- ---------- per company (ported from Rentwill, + org_id) ----------
+CREATE TABLE IF NOT EXISTS bookings (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL,
+  date TEXT NOT NULL,
+  apt TEXT NOT NULL,
+  guest TEXT NOT NULL DEFAULT '',
+  nights INTEGER NOT NULL DEFAULT 0,
+  mdl REAL NOT NULL DEFAULT 0,
+  eur REAL NOT NULL DEFAULT 0,
+  usd REAL NOT NULL DEFAULT 0,
+  oth REAL NOT NULL DEFAULT 0,
+  oth_cur TEXT NOT NULL DEFAULT '',
+  price REAL NOT NULL DEFAULT 0,
+  price_cur TEXT NOT NULL DEFAULT 'EUR',
+  pay_status TEXT NOT NULL DEFAULT '',
+  tag TEXT NOT NULL DEFAULT '',
+  util REAL NOT NULL DEFAULT 0,
+  util_cur TEXT NOT NULL DEFAULT 'MDL',
+  pay TEXT NOT NULL DEFAULT '',
+  who TEXT NOT NULL DEFAULT '',
+  note TEXT NOT NULL DEFAULT '',
+  source TEXT NOT NULL DEFAULT '',
+  phone TEXT NOT NULL DEFAULT '',
+  verified INTEGER NOT NULL DEFAULT 0,
+  verified_at TEXT,
+  shift_id TEXT,
+  shift_adopted INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS bookings_org_date_idx ON bookings(org_id, date);
+CREATE INDEX IF NOT EXISTS bookings_shift_idx ON bookings(shift_id);
+CREATE TABLE IF NOT EXISTS expenses (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL,
+  date TEXT NOT NULL,
+  apt TEXT NOT NULL DEFAULT '',
+  category TEXT NOT NULL DEFAULT '',
+  mdl REAL NOT NULL DEFAULT 0,
+  eur REAL NOT NULL DEFAULT 0,
+  usd REAL NOT NULL DEFAULT 0,
+  oth REAL NOT NULL DEFAULT 0,
+  oth_cur TEXT NOT NULL DEFAULT '',
+  who TEXT NOT NULL DEFAULT '',
+  note TEXT NOT NULL DEFAULT '',
+  shift_id TEXT,
+  yearly INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS expenses_org_date_idx ON expenses(org_id, date);
+CREATE INDEX IF NOT EXISTS expenses_shift_idx ON expenses(shift_id);
+CREATE TABLE IF NOT EXISTS handovers (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL,
+  title TEXT NOT NULL DEFAULT '',
+  person TEXT NOT NULL DEFAULT '',
+  date_from TEXT NOT NULL,
+  date_to TEXT NOT NULL,
+  rows TEXT NOT NULL DEFAULT '[]',
+  cols TEXT NOT NULL DEFAULT '[]',
+  note TEXT NOT NULL DEFAULT '',
+  closed INTEGER NOT NULL DEFAULT 0,
+  verified INTEGER NOT NULL DEFAULT 0,
+  verified_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS handovers_org_idx ON handovers(org_id);
+CREATE TABLE IF NOT EXISTS apt_photos (org_id TEXT NOT NULL, apt TEXT NOT NULL, data TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), PRIMARY KEY (org_id, apt));
+CREATE TABLE IF NOT EXISTS app_config (org_id TEXT PRIMARY KEY, data TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS staff (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  pin_hash TEXT NOT NULL DEFAULT '',
+  salary REAL NOT NULL DEFAULT 8500,
+  extra_rate REAL NOT NULL DEFAULT 150,
+  cycle_start TEXT NOT NULL DEFAULT '',
+  on_days INTEGER NOT NULL DEFAULT 3,
+  off_days INTEGER NOT NULL DEFAULT 3,
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS staff_org_idx ON staff(org_id);
+CREATE TABLE IF NOT EXISTS tasks (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  date TEXT NOT NULL,
+  apt TEXT NOT NULL,
+  staff_id TEXT,
+  status TEXT NOT NULL DEFAULT 'todo',
+  note TEXT NOT NULL DEFAULT '',
+  photo TEXT NOT NULL DEFAULT '',
+  cost REAL NOT NULL DEFAULT 0,
+  booking_id TEXT,
+  reported_by TEXT NOT NULL DEFAULT '',
+  time TEXT NOT NULL DEFAULT '',
+  sent INTEGER NOT NULL DEFAULT 0,
+  shift_person TEXT NOT NULL DEFAULT '',
+  done_by TEXT NOT NULL DEFAULT '',
+  done_shift TEXT NOT NULL DEFAULT '',
+  result TEXT NOT NULL DEFAULT '',
+  done_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS tasks_org_date_idx ON tasks(org_id, date);
+CREATE INDEX IF NOT EXISTS tasks_booking_idx ON tasks(booking_id);
+CREATE TABLE IF NOT EXISTS checks (
+  org_id TEXT NOT NULL,
+  apt TEXT NOT NULL,
+  item TEXT NOT NULL,
+  date TEXT NOT NULL,
+  staff_id TEXT,
+  PRIMARY KEY (org_id, apt, item, date)
+);
+CREATE TABLE IF NOT EXISTS app_state (org_id TEXT NOT NULL, k TEXT NOT NULL, v TEXT NOT NULL, PRIMARY KEY (org_id, k));
+CREATE TABLE IF NOT EXISTS push_subs (
+  endpoint TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  user_id TEXT NOT NULL DEFAULT '',
+  staff_id TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS push_subs_org_idx ON push_subs(org_id);
+CREATE TABLE IF NOT EXISTS reminders (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL,
+  at TEXT NOT NULL,
+  text TEXT NOT NULL,
+  target TEXT NOT NULL DEFAULT 'me',
+  sent INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS reminders_due_idx ON reminders(sent, at);
+CREATE TABLE IF NOT EXISTS todos (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL,
+  text TEXT NOT NULL,
+  apt TEXT NOT NULL DEFAULT '',
+  due_date TEXT NOT NULL DEFAULT '',
+  due_time TEXT NOT NULL DEFAULT '',
+  created_by TEXT NOT NULL DEFAULT '',
+  done INTEGER NOT NULL DEFAULT 0,
+  done_by TEXT NOT NULL DEFAULT '',
+  done_at TEXT,
+  notified INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS todos_org_idx ON todos(org_id);
+CREATE TABLE IF NOT EXISTS notifs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  org_id TEXT NOT NULL,
+  at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  target TEXT NOT NULL,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS notifs_org_target_idx ON notifs(org_id, target, id);
+-- guest guide: one row per apartment ("*" = common for all), public link by random token
+CREATE TABLE IF NOT EXISTS guides (org_id TEXT NOT NULL, apt TEXT NOT NULL, token TEXT NOT NULL UNIQUE, data TEXT NOT NULL DEFAULT '{}', updated_at TEXT NOT NULL, PRIMARY KEY (org_id, apt));
+CREATE TABLE IF NOT EXISTS guide_media (id TEXT PRIMARY KEY, org_id TEXT NOT NULL, apt TEXT NOT NULL, data TEXT NOT NULL, created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS guide_media_org_apt ON guide_media(org_id, apt);
+-- payment check: who checked, when, problems, what the money looked like at that moment
+CREATE TABLE IF NOT EXISTS verify_info (
+  org_id TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  ref_id TEXT NOT NULL,
+  state TEXT NOT NULL DEFAULT '',
+  who TEXT NOT NULL DEFAULT '',
+  at TEXT,
+  note TEXT NOT NULL DEFAULT '',
+  snap TEXT NOT NULL DEFAULT '',
+  PRIMARY KEY (org_id, kind, ref_id)
+);
+CREATE TABLE IF NOT EXISTS verify_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  org_id TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  ref_id TEXT NOT NULL,
+  action TEXT NOT NULL,
+  who TEXT NOT NULL DEFAULT '',
+  note TEXT NOT NULL DEFAULT '',
+  at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE TABLE IF NOT EXISTS month_close (org_id TEXT NOT NULL, ym TEXT NOT NULL, who TEXT NOT NULL DEFAULT '', at TEXT NOT NULL, PRIMARY KEY (org_id, ym));

@@ -1,0 +1,40 @@
+name: Deploy espace.md
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+concurrency: deploy
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --no-audit --no-fund
+      - run: npx tsc --noEmit
+      - name: Cloudflare account
+        run: |
+          ID="${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"
+          if [ -z "$ID" ]; then ID=$(curl -s -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" https://api.cloudflare.com/client/v4/accounts | jq -r '.result[0].id'); fi
+          echo "CLOUDFLARE_ACCOUNT_ID=$ID" >> $GITHUB_ENV
+      - name: Database (separate from Rentwill; created on the first run)
+        run: |
+          DBID=$(npx wrangler d1 list --json | jq -r '.[] | select(.name=="espace") | .uuid')
+          if [ -z "$DBID" ]; then npx wrangler d1 create espace; DBID=$(npx wrangler d1 list --json | jq -r '.[] | select(.name=="espace") | .uuid'); fi
+          sed -i "s/database_id = \".*\"/database_id = \"$DBID\"/" wrangler.toml
+          npx wrangler d1 execute espace --remote --file schema.sql
+      - name: Pages project
+        run: npx wrangler pages project create espace --production-branch main || true
+      - name: Secrets
+        env:
+          SUPERADMIN_EMAIL: ${{ secrets.SUPERADMIN_EMAIL }}
+          CRON_KEY: ${{ secrets.CRON_KEY }}
+        run: |
+          if [ -n "$SUPERADMIN_EMAIL" ]; then echo "$SUPERADMIN_EMAIL" | npx wrangler pages secret put SUPERADMIN_EMAIL --project-name espace; fi
+          if [ -n "$CRON_KEY" ]; then echo "$CRON_KEY" | npx wrangler pages secret put CRON_KEY --project-name espace; fi
+      - name: Deploy
+        run: npx wrangler pages deploy public --project-name espace --branch main --commit-dirty=true

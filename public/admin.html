@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>espace.md · Admin</title>
+<link rel="icon" href="/icon.svg">
+<style>
+:root{--bg:#f5f4f0;--card:#fff;--fg:#17181f;--mut:#6c6e78;--line:#e6e3dc;--acc:#202248;--ok:#1d7a3a;--warn:#b26a00;--bad:#b42318;--soft:#f1efe9}
+@media (prefers-color-scheme:dark){:root{--bg:#121318;--card:#1b1d24;--fg:#ecedf1;--mut:#9a9daa;--line:#2b2e38;--acc:#fed36a;--soft:#232631}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{position:sticky;top:0;background:var(--card);border-bottom:1px solid var(--line);padding:12px 16px;display:flex;align-items:center;gap:10px;z-index:2}
+header img{width:30px;height:30px}header b{font-size:17px}header .sp{margin-left:auto}
+main{max-width:980px;margin:0 auto;padding:14px 16px 60px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-top:12px}
+input,select,textarea{font:inherit;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 10px;width:100%}
+label{display:block;font-size:13px;color:var(--mut);margin:8px 0 3px}
+button{font:inherit;border:1px solid var(--line);background:var(--soft);color:var(--fg);border-radius:10px;padding:8px 12px;font-weight:600;cursor:pointer}
+button.p{background:var(--acc);color:#fff;border-color:transparent}@media (prefers-color-scheme:dark){button.p{color:#17181f}}
+button.d{color:var(--bad)}button:disabled{opacity:.5}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}@media (max-width:640px){.kpis{grid-template-columns:repeat(2,1fr)}}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}.kpi small{color:var(--mut);display:block}.kpi b{font-size:22px}
+.org{border-bottom:1px solid var(--line);padding:12px 0}.org:last-child{border-bottom:0}
+.orgh{display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap}.orgh .m{flex:1;min-width:200px}.orgh .m small{color:var(--mut);display:block}
+.pill{display:inline-block;font-size:12px;font-weight:700;border-radius:999px;padding:2px 9px;background:var(--soft)}
+.pill.ok{color:var(--ok)}.pill.warn{color:var(--warn)}.pill.bad{color:var(--bad)}
+.act{display:none;margin-top:10px;background:var(--soft);border-radius:12px;padding:10px}.org.open .act{display:block}
+.row{display:grid;grid-template-columns:1fr 1fr 2fr auto;gap:8px;align-items:end}@media (max-width:640px){.row{grid-template-columns:1fr 1fr}}
+.msg{color:var(--bad);font-size:14px;margin-top:8px;min-height:1em}.mut{color:var(--mut);font-size:13px}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}.filters button[aria-pressed="true"]{background:var(--acc);color:#fff}
+#login{max-width:380px;margin:12vh auto 0}
+</style>
+</head>
+<body>
+<div id="login" class="card" hidden>
+  <img src="/icon-192.png" alt="" width="56" height="56"><h2 style="margin:8px 0 2px">espace.md · Admin</h2>
+  <p class="mut" style="margin:0">Doar pentru administratorul platformei.</p>
+  <form id="lf"><label for="em">Email</label><input id="em" type="email" autocomplete="email" required>
+  <label for="pw">Parolă</label><input id="pw" type="password" autocomplete="current-password" required>
+  <div class="msg" id="lmsg"></div><button class="p" style="width:100%;margin-top:6px">Intră</button></form>
+</div>
+<div id="app" hidden>
+  <header><img src="/icon-192.png" alt=""><b>espace.md · Admin</b><span class="sp"></span><a href="/" style="color:inherit;font-size:14px">Aplicația</a><button id="out">Ieși</button></header>
+  <main>
+    <div class="kpis" id="kpis"></div>
+    <div class="filters" id="filters"></div>
+    <div class="card" id="list"><span class="mut">Se încarcă…</span></div>
+    <div class="card"><b>Ultimele plăți</b><div id="pays" class="mut"></div></div>
+  </main>
+</div>
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fd=d=>d?d.slice(8,10)+"."+d.slice(5,7)+"."+d.slice(0,4):"—";
+let TOK="";try{TOK=localStorage.getItem("kv_tok")||""}catch(e){}
+let DATA=null, FILTER="all", OPEN=null;
+async function api(fn,args={}){
+  const r=await fetch("/api/"+fn,{method:"POST",headers:{"Content-Type":"application/json",...(TOK?{"Authorization":"Bearer "+TOK}:{})},body:JSON.stringify(args)});
+  const j=await r.json().catch(()=>null); if(!r.ok){const e=new Error((j&&j.message)||"HTTP "+r.status);e.code=j&&j.message;throw e} return j;
+}
+function showLogin(msg){$("app").hidden=true;$("login").hidden=false;$("lmsg").textContent=msg||""}
+$("lf").addEventListener("submit",async e=>{e.preventDefault();$("lmsg").textContent="";
+  try{const j=await api("auth_login",{email:$("em").value.trim(),password:$("pw").value});TOK=j.token;try{localStorage.setItem("kv_tok",TOK)}catch(e){}
+    if(!j.me.super){showLogin("Acest cont nu este administrator al platformei.");return}start()}
+  catch(err){$("lmsg").textContent=err.code==="locked"?"Prea multe încercări — așteaptă 15 minute":"Email sau parolă greșită"}});
+$("out").onclick=async()=>{try{await api("auth_logout")}catch(e){}TOK="";try{localStorage.removeItem("kv_tok")}catch(e){}showLogin("")};
+const state=o=>o.status==="blocked"?["bad","Blocat"]:o.billing.expired?["bad","Expirat"]:o.billing.in_trial?["warn","Probă"]:["ok","Plătit"];
+function render(){
+  const orgs=DATA.orgs, act=orgs.filter(o=>!o.billing.expired&&o.status!=="blocked");
+  const paying=act.filter(o=>!o.billing.in_trial), mrr=paying.reduce((s,o)=>s+(o.billing.price||0),0);
+  const soon=act.filter(o=>o.billing.days_left<=7);
+  $("kpis").innerHTML=[["Companii",orgs.length],["Plătesc",paying.length],["MRR, lei",mrr.toLocaleString("ro-MD")],["Expiră în 7 zile",soon.length]].map(([k,v])=>`<div class="kpi"><small>${k}</small><b>${v}</b></div>`).join("");
+  const F=[["all","Toate"],["trial","Probă"],["paid","Plătit"],["expired","Expirat / blocat"]];
+  $("filters").innerHTML=F.map(([k,t])=>`<button data-f="${k}" aria-pressed="${FILTER===k}">${t}</button>`).join("");
+  const list=orgs.filter(o=>{const s=state(o)[1];return FILTER==="all"||(FILTER==="trial"&&s==="Probă")||(FILTER==="paid"&&s==="Plătit")||(FILTER==="expired"&&(s==="Expirat"||s==="Blocat"))});
+  $("list").innerHTML=list.length?list.map(o=>{const [cls,txt]=state(o),b=o.billing;return `<div class="org${OPEN===o.id?" open":""}" data-id="${esc(o.id)}">
+    <div class="orgh"><div class="m"><b>${esc(o.name)}</b> <span class="pill ${cls}">${txt}</span>
+      <small>${esc(o.owner_name||"")} · ${esc(o.owner_email||"")} · cod ${esc(o.code)}</small>
+      <small>${b.apts} apartamente → ${b.price!=null?b.price+" lei/lună":"individual"} · activ până ${fd(b.active_until)} (${b.days_left} zile) · ${o.bookings} rezervări · ultima activitate ${fd((o.last_activity||"").slice(0,10))}</small>
+      ${o.note?`<small>📝 ${esc(o.note)}</small>`:""}</div>
+      <button data-open="${esc(o.id)}">${OPEN===o.id?"Închide":"Gestionează"}</button></div>
+    <div class="act">
+      <b>Înregistrează plata</b>
+      <div class="row"><div><label>Luni</label><input type="number" min="1" max="24" value="1" id="m-${esc(o.id)}"></div>
+        <div><label>Sumă, lei</label><input type="number" min="0" value="${b.price||""}" id="a-${esc(o.id)}"></div>
+        <div><label>Notă</label><input type="text" maxlength="300" placeholder="ex. factura nr. 12, transfer MAIB" id="n-${esc(o.id)}"></div>
+        <button class="p" data-pay="${esc(o.id)}">Salvează</button></div>
+      <div class="row" style="margin-top:6px"><div><label>Probă până la</label><input type="date" value="${esc(o.trial_ends)}" id="t-${esc(o.id)}"></div><div></div><div></div><button data-trial="${esc(o.id)}">Setează proba</button></div>
+      <label>Notă internă</label><textarea rows="2" maxlength="1000" id="note-${esc(o.id)}">${esc(o.note)}</textarea>
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"><button data-note="${esc(o.id)}">Salvează nota</button>
+      ${o.status==="blocked"?`<button data-st="active" data-org="${esc(o.id)}">Deblochează</button>`:`<button class="d" data-st="blocked" data-org="${esc(o.id)}">Blochează</button>`}</div>
+      <div class="msg" id="msg-${esc(o.id)}"></div>
+    </div></div>`}).join(""):`<span class="mut">Nicio companie.</span>`;
+  const byId=Object.fromEntries(orgs.map(o=>[o.id,o.name]));
+  $("pays").innerHTML=DATA.payments.length?DATA.payments.slice(0,30).map(p=>`<div>${fd(p.created_at.slice(0,10))} · <b>${esc(byId[p.org_id]||"?")}</b> · ${p.amount} lei · ${p.months} luni → până ${fd(p.paid_until)}${p.note?" · "+esc(p.note):""}</div>`).join(""):"Încă nu sunt plăți.";
+}
+async function load(){DATA=await api("sa_orgs");render()}
+document.addEventListener("click",async e=>{const t=e.target.closest("button");if(!t)return;const d=t.dataset;
+  if(d.f){FILTER=d.f;render();return}
+  if(d.open){OPEN=OPEN===d.open?null:d.open;render();return}
+  const msg=id=>$("msg-"+id);
+  try{
+    if(d.pay){t.disabled=true;const r=await api("sa_pay",{org_id:d.pay,months:+$("m-"+d.pay).value,amount:+$("a-"+d.pay).value,note:$("n-"+d.pay).value});await load();msg(d.pay)&&(msg(d.pay).textContent="Plătit până la "+fd(r.paid_until));return}
+    if(d.trial){await api("sa_trial",{org_id:d.trial,trial_ends:$("t-"+d.trial).value});await load();return}
+    if(d.note){await api("sa_note",{org_id:d.note,note:$("note-"+d.note).value});await load();return}
+    if(d.st){if(d.st==="blocked"&&!confirm("Blochezi compania? Datele rămân, dar nu mai poate modifica nimic."))return;await api("sa_status",{org_id:d.org,status:d.st});await load();return}
+  }catch(err){const id=d.pay||d.trial||d.note||d.org;if(msg(id))msg(id).textContent="Eroare: "+err.message}finally{t.disabled=false}
+});
+async function start(){$("login").hidden=true;$("app").hidden=false;try{await load()}catch(e){if(e.code==="forbidden")showLogin("Acest cont nu este administrator al platformei.");else if(e.code==="bad_session")showLogin("");else $("list").textContent="Eroare: "+e.message}}
+if(TOK)api("auth_me").then(me=>me.super?start():showLogin("Acest cont nu este administrator al platformei.")).catch(()=>showLogin(""));else showLogin("");
+})();
+</script>
+</body>
+</html>

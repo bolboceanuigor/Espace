@@ -1,266 +1,58 @@
-# Espace
+# espace.md
 
-Platformă pentru administrarea A.P.C. și condominiilor din Republica Moldova, cu roluri pentru Superadmin, Administrator și Locatar.
+Platformă SaaS pentru administrarea apartamentelor în chirie pe termen scurt (Moldova).
+Construită pornind de la aplicația internă Rentwill, ca proiect complet separat: alt repo, altă bază de date, alt proiect Cloudflare.
 
-Product direction is documented in [`docs/PROJECT_DIRECTION.md`](docs/PROJECT_DIRECTION.md). Espace MVP v1 is not a lodging or rental-operations product; old rental, reservation and cleaning flows are legacy-only and hidden or redirected away from the production navigation.
+## Ce face
 
-## Local Setup
+- **Companii separate:** fiecare companie sau persoană fizică își are contul ei. Datele companiilor sunt izolate în baza de date (`org_id` pe fiecare tabel), deci o companie nu poate vedea și nu poate modifica datele alteia.
+- **Module:** calendar de rezervări (MDL/EUR/USD + alte valute), cheltuieli, пересменки (casa pe ture), menajere cu salariu și cicluri, curățenii și sarcini, checklist, ghid pentru oaspeți cu link public, verificarea plăților, închiderea lunii, remindere, to-do, notificări push, export Excel.
+- **Roluri în companie:** Владелец (owner) · Менеджер · Проверка оплат · Только просмотр.
+- **Menajerele** intră cu *codul companiei* + PIN-ul lor și văd doar curățeniile lor, fără bani.
+- **Abonament lunar** în trepte după numărul de apartamente, cu 14 zile de probă gratuită. Când abonamentul expiră, datele rămân vizibile, dar nu se mai poate modifica nimic.
+- **Panou de administrator** pentru proprietarul platformei: `/admin.html`. Arată toate companiile, MRR-ul și treptele de preț, și permite înregistrarea plăților, setarea perioadei de probă, blocarea și notele interne.
 
-1. Install dependencies:
-```bash
+| Apartamente | Lei / lună |
+|---|---|
+| 1–4 | 199 |
+| 5–7 | 299 |
+| 8–11 | 399 |
+| 12–15 | 499 |
+| 16–20 | 599 |
+| 21–30 | 799 |
+| 31–70 | 1.199 |
+| 71+ | individual |
+
+Treptele de preț sunt definite în `lib/core.ts` (`TIERS`).
+
+## Structură
+
+```
+public/index.html          aplicația (manager + menajeră), PWA
+public/admin.html          panoul administratorului platformei
+functions/api/[[path]].ts  API (Cloudflare Pages Functions)
+functions/g/[[path]].ts    ghidul public pentru oaspeți /g/<token>
+lib/core.ts                sesiuni, parole, roluri, abonamente
+lib/excel.ts, lib/push.ts  export Excel, Web Push
+schema.sql                 schema D1 (idempotentă)
+```
+
+## Lansare (o singură dată)
+
+1. În GitHub → Settings → Secrets and variables → Actions adaugă următoarele secrete:
+   - `CLOUDFLARE_API_TOKEN`: token Cloudflare cu drepturi *Pages: Edit* și *D1: Edit*
+   - `CLOUDFLARE_ACCOUNT_ID` (opțional)
+   - `SUPERADMIN_EMAIL`: emailul tău; cu el intri în `/admin.html`
+   - `CRON_KEY`: un șir lung, aleator, folosit pentru remindere
+2. Fă push în `main`. Workflow-ul creează baza `espace` (separată de `rentwill`), aplică schema și publică pe `https://espace.pages.dev`.
+3. Înregistrează-te în aplicație cu emailul din `SUPERADMIN_EMAIL`, apoi deschide `/admin.html`.
+4. Domeniul `espace.md`: Cloudflare → Pages → espace → Custom domains. Dacă domeniul diferă de `espace.pages.dev`, setează variabila de repo `APP_URL` pentru remindere.
+
+## Dezvoltare locală
+
+```
 npm install
+cp .dev.vars.example .dev.vars
+npm run db:local
+npm run dev        # http://localhost:8788
 ```
-2. Configure env files:
-```bash
-cp backend/.env.example backend/.env
-cp frontend/.env.example frontend/.env.local
-# optional deploy templates
-cp .env.staging .env.staging.local
-cp .env.production .env.production.local
-```
-3. Start database:
-```bash
-docker-compose up -d postgres
-```
-4. Run Prisma migration and seed:
-```bash
-cd backend && npx prisma migrate dev && npx prisma db seed
-```
-5. Start apps:
-```bash
-npm run dev
-```
-
-## Developer Quick Steps
-
-1. Start database: `npm run db:up`
-2. Run migrations: `cd backend && npx prisma migrate dev`
-3. Seed demo data (optional): `npm run seed` (`SEED_DEMO=true`)
-4. Start all services: `npm run dev`
-5. Quick verification:
-   - `curl http://localhost:4000/api/health`
-   - open `http://localhost:3001`
-6. Run pre-demo checks: `npm run check`
-   - Includes: backend build + frontend build
-7. Optional data integrity check (requires DB): `npm run check:data`
-
-## README Quick Start
-
-1) Start DB:
-```bash
-npm run db:up
-```
-
-2) Generate Prisma client:
-```bash
-cd backend
-npx prisma generate
-```
-
-### Database Safety
-
-- PROD (safe migrations only):
-```bash
-cd backend
-npx prisma migrate deploy
-npx prisma generate
-```
-- Never run `prisma db push`, resets, truncates or destructive commands against Supabase production data.
-- Demo cleanup scripts are dry-run by default and require explicit confirmation flags.
-
-3) Start apps:
-```bash
-npm run dev
-```
-
-Alternative one-liner:
-```bash
-./dev.sh
-```
-
-Or from root with full reset + seed + start:
-```bash
-npm run dev:clean
-```
-
-4) URLs:
-- Frontend: `http://localhost:3001`
-- Backend API base: `http://localhost:4000/api`
-- Backend health: `http://localhost:4000/api/health`
-
-5) Demo accounts:
-- Superadmin: `bolboceanuigor@gmail.com` / `SuperAdmin123!`
-- Manager: `manager.test@example.com` / `Manager123!`
-
-## Environment Variables
-
-### Backend (`backend/.env`)
-- `DATABASE_URL`
-- `JWT_SECRET`
-- `JWT_EXPIRES_IN`
-- `FRONTEND_URL`
-- `CORS_ORIGIN`
-- `COOKIE_SECURE`
-- `ENABLE_CHANNELS_UI`
-- `APP_URL` (used in verify/reset email links)
-- `EMAIL_PROVIDER` (`console` in dev, `resend` in prod)
-- `RESEND_API_KEY` (recommended email provider for auth emails)
-- `EMAIL_FROM` (e.g. `Espace <no-reply@domain>`)
-- `SUPPORT_EMAIL` (used as reply-to for support)
-- `SUPERADMIN_EMAIL` (dev seed default: `bolboceanuigor@gmail.com`)
-- `SUPERADMIN_PASSWORD` (dev seed fallback: `SuperAdmin123!`)
-- `MANAGER_TEST_EMAIL` (dev seed default: `manager.test@example.com`)
-- `MANAGER_TEST_PASSWORD` (dev seed fallback: `Manager123!`)
-- `SEED`
-- `SEED_DEMO`
-
-### Frontend (`frontend/.env.local`)
-- `NEXT_PUBLIC_API_URL`
-- `NEXT_PUBLIC_SOCKET_URL`
-- `NEXT_PUBLIC_DEFAULT_LOCALE`
-- `NEXT_PUBLIC_ENABLE_BILLING_UI` (default `false`)
-- `NEXT_PUBLIC_ENABLE_SOFT_LIMITS` (default `false`)
-- `NEXT_PUBLIC_ENABLE_CHANNELS_UI` (default `false`)
-
-### Deploy Templates (root)
-- `.env.staging` (example)
-- `.env.production` (example)
-- `DOMAIN` + URLs should point to the same public host (API via `/api`)
-
-## Seed Users
-
-- Superadmin: `bolboceanuigor@gmail.com` / `SuperAdmin123!`
-- Manager test: `manager.test@example.com` / `Manager123!`
-
-## Auth Email Flow (MVP)
-
-- Register creates org + admin user with `emailVerifiedAt=null` and sends verification email.
-- Verify email endpoint marks user verified and sends welcome email.
-- Login is blocked with `EMAIL_NOT_VERIFIED` until verification is completed.
-- Forgot/reset password uses short-lived reset tokens and stores only token hashes in DB.
-- Forgot/resend endpoints return generic success response to avoid email enumeration.
-
-## Email Provider Setup (Dev/Prod)
-
-- Recommended provider: Resend.
-- Dev mode: set `EMAIL_PROVIDER=console` to avoid sending real emails; links are printed in backend logs.
-- Prod mode: set `EMAIL_PROVIDER=resend`, configure `RESEND_API_KEY`, `EMAIL_FROM`, `APP_URL`, `SUPPORT_EMAIL`.
-- In production, `console` should be treated as dev-only; if a real provider is configured, Espace now prefers it automatically instead of simulating a successful send.
-- Deliverability checklist in production DNS:
-  - SPF
-  - DKIM
-  - optional DMARC
-
-## Auth Abuse Protection
-
-- Rate limits:
-  - `POST /auth/login`: 10/min/IP
-  - `POST /auth/register`: 5/min/IP
-  - `POST /auth/resend-verification`: 3/min/IP
-  - `POST /auth/forgot-password`: 3/min/IP
-  - `POST /auth/reset-password`: 5/min/IP
-
-## Run / Build
-
-- Dev (monorepo): `npm run dev`
-- Lint all: `npm run lint`
-- Frontend build: `cd frontend && npm run build`
-- Backend build: `cd backend && npm run build`
-- Production compose: `docker compose -f docker-compose.prod.yml up -d --build`
-
-## Deployment Targets
-
-- Current stack: `NestJS + Prisma + Next.js` with PostgreSQL. Espace is not a Laravel/PHP runtime, so `composer` / `php artisan` commands do not apply to the main app deploy flow.
-- Option A: Vercel (frontend) + VPS Docker (backend + db)
-- Option B: VPS full Docker (frontend + backend + db + Caddy) **[baseline configured]**
-- Staging deploy guide: [`ESPACE_STAGING_DEPLOY_GUIDE.md`](ESPACE_STAGING_DEPLOY_GUIDE.md)
-- Production launch checklist: [`ESPACE_PRODUCTION_LAUNCH_CHECKLIST.md`](ESPACE_PRODUCTION_LAUNCH_CHECKLIST.md)
-- Final delivery summary: [`ESPACE_FINAL_DELIVERY_REPORT.md`](ESPACE_FINAL_DELIVERY_REPORT.md)
-- Live deploy plan: [`ESPACE_LIVE_DEPLOY_PLAN.md`](ESPACE_LIVE_DEPLOY_PLAN.md)
-- Production env guide: [`ESPACE_ENV_PRODUCTION_GUIDE.md`](ESPACE_ENV_PRODUCTION_GUIDE.md)
-- Domain and SSL guide: [`ESPACE_DOMAIN_SSL_GUIDE.md`](ESPACE_DOMAIN_SSL_GUIDE.md)
-- Backup before live: [`ESPACE_BACKUP_BEFORE_LIVE.md`](ESPACE_BACKUP_BEFORE_LIVE.md)
-- Deploy script guide: [`ESPACE_DEPLOY_SCRIPT_GUIDE.md`](ESPACE_DEPLOY_SCRIPT_GUIDE.md)
-- Live smoke test: [`ESPACE_LIVE_SMOKE_TEST.md`](ESPACE_LIVE_SMOKE_TEST.md)
-- Rollback plan: [`ESPACE_ROLLBACK_PLAN.md`](ESPACE_ROLLBACK_PLAN.md)
-- Incident template: [`ESPACE_INCIDENT_REPORT_TEMPLATE.md`](ESPACE_INCIDENT_REPORT_TEMPLATE.md)
-- Ready-for-live report: [`ESPACE_READY_FOR_LIVE_REPORT.md`](ESPACE_READY_FOR_LIVE_REPORT.md)
-- Step-by-step runbook: `docs/DEPLOYMENT.md`
-- Go-live checklist: `docs/DEPLOY.md`
-- Caddy config source: `deploy/Caddyfile`
-
-## Data Ops
-
-- Consistency checks: `npm run check:data`
-- Backup DB: `cd backend && npm run db:backup`
-- Restore DB: `cd backend && npm run db:restore -- backups/<file>.dump`
-
-## i18n Structure
-
-- Locales in URL: `/{locale}/...` with supported locales `ro`, `ru`, `en`
-- Dictionaries: `frontend/messages/{ro,ru,en}.json`
-- Locale resolution: middleware + `locale` cookie persistence
-- Locale can be switched from UI (RO/RU/EN) and is persisted in cookie/preferences
-
-## RBAC Rules
-
-- `SUPER_ADMIN`: platform CRM access for A.P.C. associations, administrators and onboarding.
-- `ADMIN`: organization-scoped access for one A.P.C., including apartments, residents, meters, invoices, payments, requests, announcements and documents.
-- `RESIDENT`: self-service access only to the linked apartment, invoices, meters, requests, announcements, public documents and account data.
-- Middleware may use role hints from cookie/JWT for UX redirects, but backend RBAC is always source of truth
-
-## UI Stack
-
-- Styling: Tailwind + CSS variables (single styling system)
-- Icons: `lucide-react` (frontend only)
-- Components: custom minimal kit in `frontend/components/ui` (Tooltip, Switch, Button, Input, Dialog/Drawer patterns)
-
-## Prisma Migration Discipline
-
-- Every Prisma schema change must have a new migration (`npx prisma migrate dev --name <change>`).
-- Never edit historical migrations after they were created.
-- Seed is idempotent (`cd backend && npm run prisma:seed`) and does not duplicate demo data.
-
-## Backup / Export
-
-- Admin reports support practical A.P.C. exports for:
-  - datorii
-  - plăți
-  - facturi lunare
-  - apartamente
-  - locatari
-- Legacy rental exports are not part of the public MVP direction.
-
-## Billing Note
-
-- Billing is planned, but not implemented in UI/checkout flows.
-- Schema/domain placeholders exist for future integration (plans, subscriptions, usage metering).
-- Internal placeholder endpoints:
-  - `GET /api/usage/today`
-  - `GET /api/billing/plans`
-  - `GET /api/billing/subscription`
-
-## Legacy Modules Note
-
-- Old channel, calendar, rental-property, reservation and cleaning modules are not part of Espace MVP v1.
-- Production navigation must stay focused on A.P.C. workflows.
-- Direct legacy routes are redirected to the relevant A.P.C. dashboards where safe.
-
-## Manual E2E Checklist
-
-1. Login as Superadmin and create an A.P.C. with code format `A0123-0940`.
-2. Create or invite an administrator for that A.P.C.
-3. Login as Admin and create bloc, scară, apartament and locatar records.
-4. Add contor and citire records.
-5. Configure tarife, generate facturi and register a plată.
-6. Login as Resident and verify apartment, invoices, meters, requests, announcements and public documents.
-
-## MVP / Demo Docs
-
-- MVP checklist: `docs/MVP.md`
-- 2-minute demo flow: `docs/DEMO.md`
-- Launch preflight checklist: `docs/LAUNCH.md`
-- First customer onboarding checklist: `docs/FIRST_CUSTOMER.md`
-- Security manual tests: `docs/SECURITY_TESTS.md`
-- Release operations: `docs/RELEASE.md`
-- Customer onboarding kit: `docs/ONBOARDING.md`
