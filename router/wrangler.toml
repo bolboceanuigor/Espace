@@ -1,0 +1,13 @@
+name = "espace-router"
+main = "index.ts"
+compatibility_date = "2026-09-01"
+workers_dev = false
+
+# needs the espace.md zone on Cloudflare, plus proxied DNS records for "espace.md" and "*"
+routes = [
+  { pattern = "espace.md/*", zone_name = "espace.md" },
+  { pattern = "*.espace.md/*", zone_name = "espace.md" },
+]
+
+[vars]
+PAGES_ORIGIN = "https://espace-3hh.pages.dev"

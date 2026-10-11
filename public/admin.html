@@ -41,11 +41,12 @@ button.d{color:var(--bad)}button:disabled{opacity:.5}
   <div class="msg" id="lmsg"></div><button class="p" style="width:100%;margin-top:6px">Intră</button></form>
 </div>
 <div id="app" hidden>
-  <header><img src="/icon-192.png" alt=""><b>espace.md · Admin</b><span class="sp"></span><a href="/" style="color:inherit;font-size:14px">Aplicația</a><button id="out">Ieși</button></header>
+  <header><img src="/icon-192.png" alt=""><b>espace.md · Admin</b><span class="sp"></span><a href="https://espace.md/" style="color:inherit;font-size:14px">Site</a><button id="out">Ieși</button></header>
   <main>
     <div class="kpis" id="kpis"></div>
     <div class="filters" id="filters"></div>
     <div class="card" id="list"><span class="mut">Se încarcă…</span></div>
+    <div class="card"><b>Cereri de pe site</b> <span class="pill warn" id="lead-n"></span><div id="leads" class="mut" style="margin-top:6px"></div></div>
     <div class="card"><b>Ultimele plăți</b><div id="pays" class="mut"></div></div>
   </main>
 </div>
@@ -77,7 +78,7 @@ function render(){
   const list=orgs.filter(o=>{const s=state(o)[1];return FILTER==="all"||(FILTER==="trial"&&s==="Probă")||(FILTER==="paid"&&s==="Plătit")||(FILTER==="expired"&&(s==="Expirat"||s==="Blocat"))});
   $("list").innerHTML=list.length?list.map(o=>{const [cls,txt]=state(o),b=o.billing;return `<div class="org${OPEN===o.id?" open":""}" data-id="${esc(o.id)}">
     <div class="orgh"><div class="m"><b>${esc(o.name)}</b> <span class="pill ${cls}">${txt}</span>
-      <small>${esc(o.owner_name||"")} · ${esc(o.owner_email||"")} · cod ${esc(o.code)}</small>
+      <small>${esc(o.owner_name||"")} · ${esc(o.owner_email||"")} · <a href="https://${esc(o.code)}.espace.md/" target="_blank" rel="noopener" style="color:inherit">${esc(o.code)}.espace.md</a></small>
       <small>${b.apts} apartamente → ${b.price!=null?b.price+" lei/lună":"individual"} · activ până ${fd(b.active_until)} (${b.days_left} zile) · ${o.bookings} rezervări · ultima activitate ${fd((o.last_activity||"").slice(0,10))}</small>
       ${o.note?`<small>📝 ${esc(o.note)}</small>`:""}</div>
       <button data-open="${esc(o.id)}">${OPEN===o.id?"Închide":"Gestionează"}</button></div>
@@ -88,25 +89,34 @@ function render(){
         <div><label>Notă</label><input type="text" maxlength="300" placeholder="ex. factura nr. 12, transfer MAIB" id="n-${esc(o.id)}"></div>
         <button class="p" data-pay="${esc(o.id)}">Salvează</button></div>
       <div class="row" style="margin-top:6px"><div><label>Probă până la</label><input type="date" value="${esc(o.trial_ends)}" id="t-${esc(o.id)}"></div><div></div><div></div><button data-trial="${esc(o.id)}">Setează proba</button></div>
+      <div class="row" style="margin-top:6px"><div style="grid-column:span 2"><label>Adresa companiei</label><input type="text" value="${esc(o.code)}" id="s-${esc(o.id)}" autocapitalize="off" spellcheck="false"></div><div class="mut" style="align-self:center">.espace.md</div><button data-slug="${esc(o.id)}">Schimbă adresa</button></div>
       <label>Notă internă</label><textarea rows="2" maxlength="1000" id="note-${esc(o.id)}">${esc(o.note)}</textarea>
       <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"><button data-note="${esc(o.id)}">Salvează nota</button>
       ${o.status==="blocked"?`<button data-st="active" data-org="${esc(o.id)}">Deblochează</button>`:`<button class="d" data-st="blocked" data-org="${esc(o.id)}">Blochează</button>`}</div>
       <div class="msg" id="msg-${esc(o.id)}"></div>
     </div></div>`}).join(""):`<span class="mut">Nicio companie.</span>`;
+  const L=DATA.leads||[], nNew=L.filter(x=>x.status!=="done").length;
+  $("lead-n").textContent=nNew?nNew+" noi":"";$("lead-n").hidden=!nNew;
+  $("leads").innerHTML=L.length?L.slice(0,50).map(x=>`<div class="org" style="padding:8px 0"><div class="orgh"><div class="m"><b style="color:var(--fg)">${esc(x.name)}</b> ${x.status==="done"?'<span class="pill ok">rezolvat</span>':'<span class="pill warn">nou</span>'}
+    <small>${fd(x.created_at.slice(0,10))} · ${x.phone?`<a href="tel:${esc(x.phone)}" style="color:inherit">${esc(x.phone)}</a>`:""} ${x.email?`· <a href="mailto:${esc(x.email)}" style="color:inherit">${esc(x.email)}</a>`:""} ${x.apts?"· "+esc(x.apts)+" apartamente":""} · ${esc((x.lang||"").toUpperCase())}</small>
+    ${x.message?`<small style="color:var(--fg)">${esc(x.message)}</small>`:""}</div>
+    <button data-lead="${esc(x.id)}" data-ls="${x.status==="done"?"new":"done"}">${x.status==="done"?"Redeschide":"Rezolvat"}</button></div></div>`).join(""):"Încă nu sunt cereri.";
   const byId=Object.fromEntries(orgs.map(o=>[o.id,o.name]));
   $("pays").innerHTML=DATA.payments.length?DATA.payments.slice(0,30).map(p=>`<div>${fd(p.created_at.slice(0,10))} · <b>${esc(byId[p.org_id]||"?")}</b> · ${p.amount} lei · ${p.months} luni → până ${fd(p.paid_until)}${p.note?" · "+esc(p.note):""}</div>`).join(""):"Încă nu sunt plăți.";
 }
 async function load(){DATA=await api("sa_orgs");render()}
 document.addEventListener("click",async e=>{const t=e.target.closest("button");if(!t)return;const d=t.dataset;
   if(d.f){FILTER=d.f;render();return}
+  if(d.lead){try{await api("sa_lead",{id:d.lead,status:d.ls});await load()}catch(e){alert("Eroare: "+e.message)}return}
   if(d.open){OPEN=OPEN===d.open?null:d.open;render();return}
   const msg=id=>$("msg-"+id);
   try{
     if(d.pay){t.disabled=true;const r=await api("sa_pay",{org_id:d.pay,months:+$("m-"+d.pay).value,amount:+$("a-"+d.pay).value,note:$("n-"+d.pay).value});await load();msg(d.pay)&&(msg(d.pay).textContent="Plătit până la "+fd(r.paid_until));return}
     if(d.trial){await api("sa_trial",{org_id:d.trial,trial_ends:$("t-"+d.trial).value});await load();return}
+    if(d.slug){const v=$("s-"+d.slug).value.trim().toLowerCase();if(!confirm("Schimbi adresa în "+v+".espace.md? Vechea adresă nu va mai funcționa."))return;await api("sa_slug",{org_id:d.slug,slug:v});await load();return}
     if(d.note){await api("sa_note",{org_id:d.note,note:$("note-"+d.note).value});await load();return}
     if(d.st){if(d.st==="blocked"&&!confirm("Blochezi compania? Datele rămân, dar nu mai poate modifica nimic."))return;await api("sa_status",{org_id:d.org,status:d.st});await load();return}
-  }catch(err){const id=d.pay||d.trial||d.note||d.org;if(msg(id))msg(id).textContent="Eroare: "+err.message}finally{t.disabled=false}
+  }catch(err){const id=d.pay||d.trial||d.note||d.org||d.slug;if(msg(id))msg(id).textContent="Eroare: "+err.message}finally{t.disabled=false}
 });
 async function start(){$("login").hidden=true;$("app").hidden=false;try{await load()}catch(e){if(e.code==="forbidden")showLogin("Acest cont nu este administrator al platformei.");else if(e.code==="bad_session")showLogin("");else $("list").textContent="Eroare: "+e.message}}
 if(TOK)api("auth_me").then(me=>me.super?start():showLogin("Acest cont nu este administrator al platformei.")).catch(()=>showLogin(""));else showLogin("");

@@ -8,6 +8,7 @@ import {
   hashPin, pinMatches, hashPassword, passwordMatches, throttled, failHit, failClear, newSession, bearer, loadSession,
   ROLES, roleAllows, READ_FNS, TRIAL_DAYS, TIERS, today, addMonths, isExpired, billingOf, randCode, sameStr, sha256hex,
 } from "../../lib/core";
+import { hostOf, siteOf, slugOk, isSlug } from "../../lib/host";
 
 const MONEY_KEYS = ["schet", "eur", "usd", "mdl"];
 const TAGS = ["booking", "airbnb", "closed"];
@@ -293,10 +294,7 @@ async function runDue(db: D1Database, org: any) {
 }
 
 // ---------- accounts ----------
-async function newOrgCode(db: D1Database) {
-  for (let i = 0; i < 10; i++) { const c = randCode(6); if (!(await one(db, "SELECT 1 AS x FROM orgs WHERE code = ?", c))) return c; }
-  throw new Error("code_exhausted");
-}
+async function slugFree(db: D1Database, slug: string) { return slugOk(slug) && !(await one(db, "SELECT 1 AS x FROM orgs WHERE code = ?", slug)); }
 async function myOrgs(db: D1Database, userId: string) {
   return all(db, "SELECT o.id, o.name, o.code, m.role FROM members m JOIN orgs o ON o.id = m.org_id WHERE m.user_id = ? ORDER BY o.created_at", userId);
 }
@@ -315,6 +313,28 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
   let body: any = {};
   try { body = await request.json(); } catch { return json({ message: "bad_json" }, 400); }
   const db = env.DB;
+  // which company this request is for: the subdomain (rentwill.espace.md), or on test hosts the x-espace-org header
+  const site = siteOf(hostOf(request));
+  const reqSlug = site.kind === "tenant" ? site.slug : site.kind === "dev" ? str(request.headers.get("x-espace-org"), 40).toLowerCase() : "";
+
+  // ---------- public: the marketing site and the company login screen ----------
+  if (fn === "org_public") {
+    const o = isSlug(str(body.slug, 40)) ? await one(db, "SELECT name, code FROM orgs WHERE code = ?", str(body.slug, 40)) : null;
+    return o ? json({ name: o.name, slug: o.code }) : json({ message: "not_found" }, 404);
+  }
+  if (fn === "slug_check") {
+    const slug = str(body.slug, 40).toLowerCase();
+    return json({ slug, ok: await slugFree(db, slug), valid: slugOk(slug) });
+  }
+  if (fn === "site_lead") {
+    const ip = request.headers.get("cf-connecting-ip") || "x", k = "lead:" + ip;
+    if (await throttled(db, k)) return json({ message: "locked" }, 429);
+    const v = { name: str(body.name, 80), phone: str(body.phone, 40), email: str(body.email, 120), apts: str(body.apts, 20), message: str(body.message, 1500), lang: str(body.lang, 5) };
+    if (!v.name || (!v.phone && !isEmail(v.email))) return json({ message: "need_contact" }, 400);
+    await failHit(db, k); // 10 requests per 15 minutes from one address
+    await run(db, "INSERT INTO leads(id, name, phone, email, apts, message, lang) VALUES (?,?,?,?,?,?,?)", uuid(), v.name, v.phone, v.email, v.apts, v.message, v.lang);
+    return json(true);
+  }
 
   // ---------- platform cron: reminders and morning summaries for every active company ----------
   if (fn === "cron") {
@@ -330,11 +350,14 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     if (!orgName || !name) return json({ message: "need_names" }, 400);
     if (!isEmail(email)) return json({ message: "bad_email" }, 400);
     if (pw.length < 8 || pw.length > 128) return json({ message: "pw_too_short" }, 400);
+    const slug = str(body.slug, 40).toLowerCase();
+    if (!slugOk(slug)) return json({ message: "bad_slug" }, 400);
+    if (!(await slugFree(db, slug))) return json({ message: "slug_taken" }, 409);
     if (await one(db, "SELECT 1 AS x FROM users WHERE email = ?", email)) { await sleep(500); return json({ message: "email_taken" }, 409); }
     const uid = uuid(), oid = uuid();
     await db.batch([
       db.prepare("INSERT INTO users(id, email, name, pw_hash) VALUES (?,?,?,?)").bind(uid, email, name, await hashPassword(pw)),
-      db.prepare("INSERT INTO orgs(id, name, code, trial_ends) VALUES (?,?,?,?)").bind(oid, orgName, await newOrgCode(db), addDays(today(), TRIAL_DAYS)),
+      db.prepare("INSERT INTO orgs(id, name, code, trial_ends) VALUES (?,?,?,?)").bind(oid, orgName, slug, addDays(today(), TRIAL_DAYS)),
       db.prepare("INSERT INTO members(org_id, user_id, role) VALUES (?,?, 'owner')").bind(oid, uid),
       db.prepare("INSERT INTO app_config(org_id, data) VALUES (?,?)").bind(oid, JSON.stringify(starterConfig(name))),
     ]);
@@ -350,7 +373,8 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     if (!u || !(await passwordMatches(pw, u.pw_hash))) { await failHit(db, k); await sleep(1000); return json({ message: "bad_login" }, 401); }
     await failClear(db, k);
     const orgs = await myOrgs(db, u.id);
-    const want = orgs.find((o: any) => o.id === body.org_id) || orgs[0];
+    const want = reqSlug ? orgs.find((o: any) => o.code === reqSlug) : (orgs.find((o: any) => o.id === body.org_id) || orgs[0]);
+    if (reqSlug && !want) { await failHit(db, k); await sleep(1000); return json({ message: "not_member" }, 403); }
     const token = await newSession(db, u.id, want ? want.id : "");
     const c = await loadSession(db, env, token);
     return json({ token, me: await meOf(db, c!) });
@@ -358,7 +382,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
 
   // ---------- cleaner app (company code + own PIN, sees only her own work, no money) ----------
   if (fn.startsWith("cl_")) {
-    const code = str(body.org, 12).toLowerCase(), k = "cl:" + code;
+    const code = (reqSlug || str(body.org, 40)).toLowerCase(), k = "cl:" + code;
     if (await throttled(db, k)) return json({ message: "locked" }, 429);
     const org = code ? await one(db, "SELECT * FROM orgs WHERE code = ?", code) : null;
     let me: any = null;
@@ -404,6 +428,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
   // ---------- everything below needs a signed-in account ----------
   const c = await loadSession(db, env, bearer(request));
   if (!c) { await sleep(500); return json({ message: "bad_session" }, 401); }
+  if (reqSlug && c.org && c.org.code !== reqSlug && !fn.startsWith("auth_")) return json({ message: "bad_session" }, 401);
 
   if (fn === "auth_me") return json(await meOf(db, c));
   if (fn === "auth_logout") { await run(db, "DELETE FROM sessions WHERE token_hash = ?", c.tokenHash); return json(true); }
@@ -425,9 +450,12 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
   // a signed-in person (e.g. the platform owner) can open one more company of their own
   if (fn === "auth_new_org") {
     const orgName = str(body.org_name, 80); if (!orgName) return json({ message: "need_names" }, 400);
+    const slug = str(body.slug, 40).toLowerCase();
+    if (!slugOk(slug)) return json({ message: "bad_slug" }, 400);
+    if (!(await slugFree(db, slug))) return json({ message: "slug_taken" }, 409);
     const oid = uuid();
     await db.batch([
-      db.prepare("INSERT INTO orgs(id, name, code, trial_ends) VALUES (?,?,?,?)").bind(oid, orgName, await newOrgCode(db), addDays(today(), TRIAL_DAYS)),
+      db.prepare("INSERT INTO orgs(id, name, code, trial_ends) VALUES (?,?,?,?)").bind(oid, orgName, slug, addDays(today(), TRIAL_DAYS)),
       db.prepare("INSERT INTO members(org_id, user_id, role) VALUES (?,?, 'owner')").bind(oid, c.user.id),
       db.prepare("INSERT INTO app_config(org_id, data) VALUES (?,?)").bind(oid, JSON.stringify(starterConfig(c.user.name))),
       db.prepare("UPDATE sessions SET org_id = ? WHERE token_hash = ?").bind(oid, c.tokenHash),
@@ -448,7 +476,12 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
       const out: any[] = [];
       for (const o of orgs) out.push({ ...o, billing: await billingOf(db, o) });
       const payments = await all(db, "SELECT * FROM payments ORDER BY created_at DESC LIMIT 200");
-      return json({ orgs: out, payments, tiers: TIERS });
+      const leads = await all(db, "SELECT * FROM leads ORDER BY created_at DESC LIMIT 200");
+      return json({ orgs: out, payments, leads, tiers: TIERS });
+    }
+    if (fn === "sa_lead") {
+      await run(db, "UPDATE leads SET status = ? WHERE id = ?", body.status === "done" ? "done" : "new", str(body.id, 40));
+      return json(true);
     }
     const org = await one(db, "SELECT * FROM orgs WHERE id = ?", str(body.org_id, 40));
     if (!org) return json({ message: "not_found" }, 404);
@@ -471,6 +504,14 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
       if (!isDate(body.trial_ends)) return json({ message: "bad_date" }, 400);
       await run(db, "UPDATE orgs SET trial_ends = ? WHERE id = ?", body.trial_ends, org.id);
       return json(body.trial_ends);
+    }
+    if (fn === "sa_slug") { // change a company's address (old links stop working)
+      const slug = str(body.slug, 40).toLowerCase();
+      if (slug === org.code) return json(slug);
+      if (!slugOk(slug)) return json({ message: "bad_slug" }, 400);
+      if (!(await slugFree(db, slug))) return json({ message: "slug_taken" }, 409);
+      await run(db, "UPDATE orgs SET code = ? WHERE id = ?", slug, org.id);
+      return json(slug);
     }
     if (fn === "sa_note") { await run(db, "UPDATE orgs SET note = ? WHERE id = ?", str(body.note, 1000), org.id); return json(true); }
     return json({ message: "not_found" }, 404);

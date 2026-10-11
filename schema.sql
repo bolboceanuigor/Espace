@@ -6,7 +6,7 @@
 CREATE TABLE IF NOT EXISTS orgs (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
-  code TEXT NOT NULL UNIQUE,             -- short company code the maids type with their PIN
+  code TEXT NOT NULL UNIQUE,             -- the company address: <code>.espace.md (e.g. rentwill)
   status TEXT NOT NULL DEFAULT 'active', -- active | blocked
   trial_ends TEXT NOT NULL,              -- YYYY-MM-DD
   paid_until TEXT NOT NULL DEFAULT '',   -- YYYY-MM-DD, '' = never paid
@@ -240,3 +240,16 @@ CREATE TABLE IF NOT EXISTS verify_log (
   at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 CREATE TABLE IF NOT EXISTS month_close (org_id TEXT NOT NULL, ym TEXT NOT NULL, who TEXT NOT NULL DEFAULT '', at TEXT NOT NULL, PRIMARY KEY (org_id, ym));
+
+-- requests left on the espace.md site (shown in the admin panel)
+CREATE TABLE IF NOT EXISTS leads (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL DEFAULT '',
+  phone TEXT NOT NULL DEFAULT '',
+  email TEXT NOT NULL DEFAULT '',
+  apts TEXT NOT NULL DEFAULT '',
+  message TEXT NOT NULL DEFAULT '',
+  lang TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'new',   -- new | done
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);

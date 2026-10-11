@@ -53,3 +53,9 @@ jobs:
         run: |
           npx wrangler pages deploy public --project-name espace --branch main --commit-dirty=true > /tmp/out.txt 2>&1 || { echo "::error::deploy failed: $(tr '\n' ' ' < /tmp/out.txt | tail -c 600)"; exit 1; }
           echo "::notice::Deployed: $(grep -o 'https://[a-z0-9.-]*pages.dev' /tmp/out.txt | tail -1)"
+      - name: Router for espace.md and *.espace.md
+        # needs the espace.md zone on Cloudflare and a token with Workers Scripts: Edit + Workers Routes: Edit
+        continue-on-error: true
+        run: |
+          npx wrangler deploy --config router/wrangler.toml > /tmp/out.txt 2>&1 || { echo "::warning::router not deployed yet: $(tr '\n' ' ' < /tmp/out.txt | tail -c 500)"; exit 1; }
+          echo "::notice::Router deployed for espace.md and *.espace.md"
