@@ -74,7 +74,7 @@ export function bearer(req: Request) {
   const h = req.headers.get("authorization") || "";
   return /^Bearer [0-9a-f]{64}$/.test(h) ? h.slice(7) : "";
 }
-export type Ctx = { user: any; org: any | null; role: string; tokenHash: string; isSuper: boolean };
+export type Ctx = { user: any; org: any | null; role: string; tokenHash: string; isSuper: boolean; support: boolean };
 export async function loadSession(db: D1Database, env: Env, token: string): Promise<Ctx | null> {
   if (!token) return null;
   const th = await sha256hex(token);
@@ -83,12 +83,15 @@ export async function loadSession(db: D1Database, env: Env, token: string): Prom
   const user = await one(db, "SELECT id, email, name FROM users WHERE id = ?", s.user_id);
   if (!user) return null;
   let org = null, role = "";
+  const isSuper = !!env.SUPERADMIN_EMAIL && user.email === env.SUPERADMIN_EMAIL.trim().toLowerCase();
+  const support = !!s.support;
+  if (support && !isSuper) return null;
   if (s.org_id) {
-    const m = await one(db, "SELECT role FROM members WHERE org_id = ? AND user_id = ?", s.org_id, user.id);
+    // a support session (opened by the platform owner from the admin panel) sees the company read-only
+    const m = support ? { role: "viewer" } : await one(db, "SELECT role FROM members WHERE org_id = ? AND user_id = ?", s.org_id, user.id);
     if (m) { org = await one(db, "SELECT * FROM orgs WHERE id = ?", s.org_id); role = m.role; }
   }
-  const isSuper = !!env.SUPERADMIN_EMAIL && user.email === env.SUPERADMIN_EMAIL.trim().toLowerCase();
-  return { user, org, role, tokenHash: th, isSuper };
+  return { user, org, role, tokenHash: th, isSuper, support };
 }
 
 // ---------- roles ----------
@@ -131,9 +134,24 @@ export async function billingOf(db: D1Database, org: any) {
   const apts = await aptCount(db, org.id);
   const tier = tierFor(apts);
   const until = activeUntil(org);
+  const custom = Number(org.custom_price) > 0 ? Number(org.custom_price) : 0;
   return {
-    apts, tier, price: tier.price, status: org.status, trial_ends: org.trial_ends, paid_until: org.paid_until,
+    apts, tier, price: custom || tier.price, custom: !!custom, status: org.status, trial_ends: org.trial_ends, paid_until: org.paid_until,
     active_until: until, expired: isExpired(org), in_trial: !org.paid_until || org.paid_until < org.trial_ends,
     days_left: Math.round((Date.parse(until + "T00:00:00Z") - Date.parse(today() + "T00:00:00Z")) / 86400000),
   };
 }
+
+// a fresh company starts with one apartment and the owner as the only manager
+export function starterConfig(ownerName: string) {
+  return {
+    rates: { eur: 20, usd: 0.85 },
+    apts: ["Квартира 1"],
+    people: [ownerName.slice(0, 20) || "Я"],
+    pays: ["Кэш", "Счёт", "Airbnb", "Счёт+Кэш"],
+    sources: ["Booking", "Airbnb", "Instagram", "Viber/Telegram", "Прямой", "Повторный"],
+    categories: ["Коммунальные", "Уборка", "Ремонт", "Бельё и химия", "Комиссии", "Прочее"],
+    other: [{ code: "RON", rate: 0.2 }],
+  };
+}
+

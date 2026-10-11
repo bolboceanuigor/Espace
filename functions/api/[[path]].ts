@@ -5,10 +5,11 @@ import { buildMonthWorkbook, monthTitle, buildHandoverWorkbook } from "../../lib
 import { newVapid, sendPush, type Vapid } from "../../lib/push";
 import {
   type Env, type Ctx, json, sleep, nowIso, uuid, num, str, isDate, isUuid, snum, isEmail, all, one, run,
-  hashPin, pinMatches, hashPassword, passwordMatches, throttled, failHit, failClear, newSession, bearer, loadSession,
+  starterConfig, hashPin, pinMatches, hashPassword, passwordMatches, throttled, failHit, failClear, newSession, bearer, loadSession,
   ROLES, roleAllows, READ_FNS, TRIAL_DAYS, TIERS, today, addMonths, isExpired, billingOf, randCode, sameStr, sha256hex,
 } from "../../lib/core";
 import { hostOf, siteOf, slugOk, isSlug } from "../../lib/host";
+import { handleAdmin, logEvent, activeAnnouncement } from "../../lib/admin";
 
 const MONEY_KEYS = ["schet", "eur", "usd", "mdl"];
 const TAGS = ["booking", "airbnb", "closed"];
@@ -19,19 +20,6 @@ const xlsx = (buf: ArrayBuffer | Uint8Array, name: string) => new Response(buf a
 
 function guideToken() { return randCode(10); }
 async function getConfig(db: D1Database, O: string) { const c = await one(db, "SELECT data FROM app_config WHERE org_id = ?", O); return c ? JSON.parse(c.data) : null; }
-
-// a fresh company starts with one apartment and the owner as the only manager
-function starterConfig(ownerName: string) {
-  return {
-    rates: { eur: 20, usd: 0.85 },
-    apts: ["Квартира 1"],
-    people: [ownerName.slice(0, 20) || "Я"],
-    pays: ["Кэш", "Счёт", "Airbnb", "Счёт+Кэш"],
-    sources: ["Booking", "Airbnb", "Instagram", "Viber/Telegram", "Прямой", "Повторный"],
-    categories: ["Коммунальные", "Уборка", "Ремонт", "Бельё и химия", "Комиссии", "Прочее"],
-    other: [{ code: "RON", rate: 0.2 }],
-  };
-}
 
 async function loadAll(db: D1Database, O: string) {
   const [config, bookings, expenses, handovers, staff, tasks, checks] = await Promise.all([
@@ -304,6 +292,7 @@ async function meOf(db: D1Database, c: Ctx) {
     user: { id: c.user.id, email: c.user.email, name: c.user.name }, super: c.isSuper,
     org: c.org ? { id: c.org.id, name: c.org.name, code: c.org.code } : null, role: c.role, orgs,
     billing: c.org ? await billingOf(db, c.org) : null,
+    support: c.support, announcement: c.org ? await activeAnnouncement(db) : null,
   };
 }
 
@@ -333,6 +322,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     if (!v.name || (!v.phone && !isEmail(v.email))) return json({ message: "need_contact" }, 400);
     await failHit(db, k); // 10 requests per 15 minutes from one address
     await run(db, "INSERT INTO leads(id, name, phone, email, apts, message, lang) VALUES (?,?,?,?,?,?,?)", uuid(), v.name, v.phone, v.email, v.apts, v.message, v.lang);
+    await logEvent(db, "lead", "", v.phone || v.email, `Cerere nouă de pe site: ${v.name}${v.apts ? ", " + v.apts + " apartamente" : ""}`);
     return json(true);
   }
 
@@ -362,6 +352,8 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
       db.prepare("INSERT INTO app_config(org_id, data) VALUES (?,?)").bind(oid, JSON.stringify(starterConfig(name))),
     ]);
     const token = await newSession(db, uid, oid);
+    await run(db, "UPDATE users SET last_login = ? WHERE id = ?", nowIso(), uid).catch(() => {});
+    await logEvent(db, "signup", oid, email, `Companie nouă: ${orgName} (${slug}.espace.md)`);
     const c = await loadSession(db, env, token);
     return json({ token, me: await meOf(db, c!) });
   }
@@ -372,6 +364,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     const u = await one(db, "SELECT * FROM users WHERE email = ?", email);
     if (!u || !(await passwordMatches(pw, u.pw_hash))) { await failHit(db, k); await sleep(1000); return json({ message: "bad_login" }, 401); }
     await failClear(db, k);
+    await run(db, "UPDATE users SET last_login = ? WHERE id = ?", nowIso(), u.id).catch(() => {});
     const orgs = await myOrgs(db, u.id);
     const want = reqSlug ? orgs.find((o: any) => o.code === reqSlug) : (orgs.find((o: any) => o.id === body.org_id) || orgs[0]);
     if (reqSlug && !want) { await failHit(db, k); await sleep(1000); return json({ message: "not_member" }, 403); }
@@ -465,56 +458,8 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
 
   // ---------- platform owner (super-admin) ----------
   if (fn.startsWith("sa_")) {
-    if (!c.isSuper) { await sleep(500); return json({ message: "forbidden" }, 403); }
-    if (fn === "sa_orgs") {
-      const orgs = await all(db, `SELECT o.*, (SELECT COUNT(*) FROM members m WHERE m.org_id = o.id) AS members,
-        (SELECT u.email FROM members m JOIN users u ON u.id = m.user_id WHERE m.org_id = o.id AND m.role = 'owner' ORDER BY m.created_at LIMIT 1) AS owner_email,
-        (SELECT u.name FROM members m JOIN users u ON u.id = m.user_id WHERE m.org_id = o.id AND m.role = 'owner' ORDER BY m.created_at LIMIT 1) AS owner_name,
-        (SELECT COUNT(*) FROM bookings b WHERE b.org_id = o.id) AS bookings,
-        (SELECT MAX(updated_at) FROM bookings b WHERE b.org_id = o.id) AS last_activity
-        FROM orgs o ORDER BY o.created_at DESC`);
-      const out: any[] = [];
-      for (const o of orgs) out.push({ ...o, billing: await billingOf(db, o) });
-      const payments = await all(db, "SELECT * FROM payments ORDER BY created_at DESC LIMIT 200");
-      const leads = await all(db, "SELECT * FROM leads ORDER BY created_at DESC LIMIT 200");
-      return json({ orgs: out, payments, leads, tiers: TIERS });
-    }
-    if (fn === "sa_lead") {
-      await run(db, "UPDATE leads SET status = ? WHERE id = ?", body.status === "done" ? "done" : "new", str(body.id, 40));
-      return json(true);
-    }
-    const org = await one(db, "SELECT * FROM orgs WHERE id = ?", str(body.org_id, 40));
-    if (!org) return json({ message: "not_found" }, 404);
-    if (fn === "sa_pay") { // record a payment: extends paid_until by N months from the later of today / current end
-      const months = Math.max(1, Math.min(24, Math.floor(num(body.months)) || 1)), amount = num(body.amount), note = str(body.note, 300);
-      const base = [today(), org.paid_until || "", org.trial_ends || ""].sort().pop()!;
-      const until = addMonths(base, months);
-      await db.batch([
-        db.prepare("UPDATE orgs SET paid_until = ?, status = 'active' WHERE id = ?").bind(until, org.id),
-        db.prepare("INSERT INTO payments(id, org_id, amount, months, paid_until, note) VALUES (?,?,?,?,?,?)").bind(uuid(), org.id, amount, months, until, note),
-      ]);
-      return json({ paid_until: until });
-    }
-    if (fn === "sa_status") { // block / unblock
-      const st = body.status === "blocked" ? "blocked" : "active";
-      await run(db, "UPDATE orgs SET status = ? WHERE id = ?", st, org.id);
-      return json(st);
-    }
-    if (fn === "sa_trial") { // set the trial end date by hand
-      if (!isDate(body.trial_ends)) return json({ message: "bad_date" }, 400);
-      await run(db, "UPDATE orgs SET trial_ends = ? WHERE id = ?", body.trial_ends, org.id);
-      return json(body.trial_ends);
-    }
-    if (fn === "sa_slug") { // change a company's address (old links stop working)
-      const slug = str(body.slug, 40).toLowerCase();
-      if (slug === org.code) return json(slug);
-      if (!slugOk(slug)) return json({ message: "bad_slug" }, 400);
-      if (!(await slugFree(db, slug))) return json({ message: "slug_taken" }, 409);
-      await run(db, "UPDATE orgs SET code = ? WHERE id = ?", slug, org.id);
-      return json(slug);
-    }
-    if (fn === "sa_note") { await run(db, "UPDATE orgs SET note = ? WHERE id = ?", str(body.note, 1000), org.id); return json(true); }
-    return json({ message: "not_found" }, 404);
+    if (!c.isSuper || c.support) { await sleep(500); return json({ message: "forbidden" }, 403); }
+    return handleAdmin(fn, body, c, db);
   }
 
   // ---------- company workspace ----------
@@ -525,7 +470,8 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
   if (isExpired(org) && !READ_FNS.includes(fn) && !fn.startsWith("team_")) return json({ message: "subscription_expired" }, 402);
 
   if (fn === "billing") {
-    return json({ ...(await billingOf(db, org)), tiers: TIERS, payments: await all(db, "SELECT amount, months, paid_until, note, created_at FROM payments WHERE org_id = ? ORDER BY created_at DESC", O) });
+    return json({ ...(await billingOf(db, org)), tiers: TIERS, payments: await all(db, "SELECT amount, months, paid_until, note, created_at FROM payments WHERE org_id = ? ORDER BY created_at DESC", O),
+      invoices: await all(db, "SELECT number, token, issued_at, due_at, amount, months, status FROM invoices WHERE org_id = ? AND status != 'void' ORDER BY created_at DESC", O) });
   }
   if (fn === "excel" || fn === "excel_handovers") {
     const data = await loadAll(db, O);
@@ -771,7 +717,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
       if (!d || typeof d !== "object" || !Array.isArray(d.apts) || !d.apts.length) return json({ message: "bad_config" }, 400);
       const s = JSON.stringify(d); if (s.length > 300000) return json({ message: "too_big" }, 400);
       // over 70 apartments the price is individual — the platform owner sets it up by hand
-      if (d.apts.length > 70) return json({ message: "too_many_apts" }, 409);
+      if (d.apts.length > 70 && !(Number(org.custom_price) > 0)) return json({ message: "too_many_apts" }, 409);
       await run(db, "INSERT INTO app_config(org_id,data) VALUES (?,?) ON CONFLICT (org_id) DO UPDATE SET data = excluded.data", O, s);
       return json(null);
     }

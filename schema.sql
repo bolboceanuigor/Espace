@@ -253,3 +253,46 @@ CREATE TABLE IF NOT EXISTS leads (
   status TEXT NOT NULL DEFAULT 'new',   -- new | done
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
+
+-- ---------- platform admin ----------
+-- invoices sent to companies (printable at /f/<token>)
+CREATE TABLE IF NOT EXISTS invoices (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL,
+  number TEXT NOT NULL UNIQUE,
+  token TEXT NOT NULL UNIQUE,
+  issued_at TEXT NOT NULL,                 -- YYYY-MM-DD
+  due_at TEXT NOT NULL,
+  period_from TEXT NOT NULL,
+  period_to TEXT NOT NULL,
+  months INTEGER NOT NULL DEFAULT 1,
+  apts INTEGER NOT NULL DEFAULT 0,
+  amount REAL NOT NULL DEFAULT 0,          -- lei, total
+  status TEXT NOT NULL DEFAULT 'sent',     -- sent | paid | void
+  paid_at TEXT NOT NULL DEFAULT '',
+  payment_id TEXT NOT NULL DEFAULT '',
+  buyer TEXT NOT NULL DEFAULT '{}',        -- snapshot of the company's billing details
+  seller TEXT NOT NULL DEFAULT '{}',       -- snapshot of the platform's details
+  note TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS invoices_org_idx ON invoices(org_id);
+-- what happened on the platform (sign-ups, payments, blocks…)
+CREATE TABLE IF NOT EXISTS events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  kind TEXT NOT NULL,
+  org_id TEXT NOT NULL DEFAULT '',
+  actor TEXT NOT NULL DEFAULT '',
+  text TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS events_org_idx ON events(org_id, id);
+-- a banner shown in every company's app
+CREATE TABLE IF NOT EXISTS announcements (
+  id TEXT PRIMARY KEY,
+  text TEXT NOT NULL,
+  level TEXT NOT NULL DEFAULT 'info',      -- info | warn
+  ends TEXT NOT NULL DEFAULT '',           -- YYYY-MM-DD, '' = until switched off
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);

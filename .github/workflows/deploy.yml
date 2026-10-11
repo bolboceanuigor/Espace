@@ -39,6 +39,7 @@ jobs:
           fi
           sed -i "s/database_id = \".*\"/database_id = \"$DBID\"/" wrangler.toml
           npx wrangler d1 execute espace --remote --file schema.sql > /tmp/out.txt 2>&1 || { echo "::error::schema failed: $(tr '\n' ' ' < /tmp/out.txt | tail -c 600)"; exit 1; }
+          grep -v '^--' migrations.sql | grep -v '^\s*$' | while read -r q; do npx wrangler d1 execute espace --remote --command "$q" > /dev/null 2>&1 || true; done
           echo "::notice::Database espace ready"
       - name: Pages project
         run: npx wrangler pages project create espace --production-branch main || true

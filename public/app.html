@@ -3052,8 +3052,15 @@ const ROLE_T={owner:"Владелец",manager:"Менеджер",checker:"Пр�
 function orgName(){return ME&&ME.org?ME.org.name:"espace.md"}
 function billLine(){const b=ME&&ME.billing;if(!b)return "";return b.expired?"закончилась — только просмотр":(b.in_trial?"пробный период":"оплачено")+" до "+fd(b.active_until)}
 function fd(d){return d?d.slice(8,10)+"."+d.slice(5,7)+"."+d.slice(0,4):""}
-function subBar(){let el=$("subbar");const b=ME&&ME.billing;
-  const show=b&&(EXPIRED||b.expired||b.days_left<=5);
+function annBar(){let el=$("annbar");const a=ME&&ME.announcement;let seen="";try{seen=localStorage.getItem("kv_ann_seen")||""}catch(e){}
+  const sup=ME&&ME.support;
+  if(!sup&&(!a||seen===a.id)){if(el)el.remove();return}
+  if(!el){el=document.createElement("div");el.id="annbar";el.className="subbar";$("app").prepend(el)}
+  el.classList.toggle("bad",!!sup||(a&&a.level==="warn"));
+  el.innerHTML=sup?`Режим поддержки espace.md — только просмотр.`:`${esc(a.text)} <button class="btn sm" id="ann-ok" data-ann="${esc(a.id)}">Понятно</button>`}
+document.addEventListener("click",e=>{const b=e.target.closest("#ann-ok");if(!b)return;try{localStorage.setItem("kv_ann_seen",b.dataset.ann)}catch(x){}annBar()});
+function subBar(){annBar();let el=$("subbar");const b=ME&&ME.billing;
+  const show=b&&!(ME&&ME.support)&&(EXPIRED||b.expired||b.days_left<=5);
   if(!show){if(el)el.remove();return}
   if(!el){el=document.createElement("div");el.id="subbar";el.className="subbar";$("app").prepend(el)}
   const exp=EXPIRED||b.expired;el.classList.toggle("bad",exp);
@@ -3067,7 +3074,7 @@ async function billLoad(){const box=$("bill-box");if(!box)return;try{const b=awa
     <p style="margin:10px 0 4px">Квартир сейчас: <b>${b.apts}</b> → тариф <b>${b.price!=null?b.price+" лей/месяц":"индивидуально"}</b></p>
     <table class="billt"><thead><tr><th style="text-align:left">Квартир</th><th style="text-align:right">В месяц</th></tr></thead><tbody>${rows}<tr><td>71+</td><td style="text-align:right">индивидуально</td></tr></tbody></table>
     <p class="small">Оплата — по счёту на расчётный счёт. Напишите нам, и мы продлим подписку сразу после оплаты.</p>
-    ${b.payments&&b.payments.length?`<b>Оплаты</b>${b.payments.map(x=>`<div class="small">${fd(x.created_at.slice(0,10))} · ${x.amount} лей · ${x.months} мес. → до ${fd(x.paid_until)}</div>`).join("")}`:""}`}catch(e){box.innerHTML='<span class="small">Не загрузилось</span>'}}
+    ${b.invoices&&b.invoices.length?`<b>Счета</b>${b.invoices.map(x=>`<div class="small"><a href="/f/${esc(x.token)}" target="_blank" rel="noopener">№ ${esc(x.number)}</a> · ${fd(x.issued_at)} · ${x.amount} лей · ${x.status==="paid"?"оплачен":"к оплате до "+fd(x.due_at)}</div>`).join("")}<br>`:""}${b.payments&&b.payments.length?`<b>Оплаты</b>${b.payments.map(x=>`<div class="small">${fd(x.created_at.slice(0,10))} · ${x.amount} лей · ${x.months} мес. → до ${fd(x.paid_until)}</div>`).join("")}`:""}`}catch(e){box.innerHTML='<span class="small">Не загрузилось</span>'}}
 async function teamLoad(){const el=$("team-list");if(!el)return;try{const list=await api("team_list");
   el.innerHTML=list.map(u=>`<div class="tmrow"><span class="m"><b>${esc(u.name||u.email)}</b><small>${esc(u.email)}</small></span>${u.role==="owner"||u.id===(ME&&ME.user.id)?`<span class="small">${ROLE_T[u.role]}</span>`:`<select data-tmrole="${esc(u.id)}" aria-label="Роль">${["manager","checker","viewer","owner"].map(r=>`<option value="${r}"${u.role===r?" selected":""}>${ROLE_T[r]}</option>`).join("")}</select><button class="btn sm danger" data-tmdel="${esc(u.id)}">Убрать</button>`}</div>`).join("")}catch(e){el.textContent="Не загрузилось"}}
 async function logout(){try{await api("auth_logout")}catch(e){}ls.set("tok","");PIN=null;ME=null;RO=false;document.body.classList.remove("ro");closeSheet();lock("")}
