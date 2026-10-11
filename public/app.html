@@ -837,6 +837,12 @@ body.calmode .wrap{padding-bottom:0;max-width:none}
 .codebox{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-top:10px}.codebox b{font-family:ui-monospace,Menlo,monospace;font-size:20px;letter-spacing:.12em}.codebox .btn{margin-left:auto}
 .tmrow{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}.tmrow .m{display:flex;flex-direction:column;flex:1;min-width:0}.tmrow .m small{color:var(--muted)}.tmrow select{width:auto}
 .billtop{display:flex;flex-direction:column;gap:2px}.billt{width:100%;border-collapse:collapse;margin:8px 0}.billt td,.billt th{padding:6px 4px;border-bottom:1px solid var(--line);font-size:14px}.billt tr.cur td{background:var(--surface);font-weight:700}
+.setup{margin-bottom:14px}.setup-h{display:flex;align-items:center;gap:8px}.setup-h .small{margin-left:auto}
+.setup-bar{height:6px;border-radius:3px;background:var(--line);margin:10px 0 6px;overflow:hidden}.setup-bar i{display:block;height:100%;background:var(--accent);border-radius:3px}
+.setup-s{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)}.setup-s:first-of-type{border-top:0}
+.setup-s .n{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-weight:700;background:var(--surface);border:1px solid var(--line);flex:none}
+.setup-s.done .n{background:var(--accent);color:var(--accent-ink);border-color:transparent}.setup-s.done b{text-decoration:line-through;opacity:.6}
+.setup-s .m{flex:1;min-width:0;display:flex;flex-direction:column}.setup-s .m small{color:var(--muted)}
 .subbar{background:#fff4d6;color:#5a4300;border-bottom:1px solid var(--line);padding:8px 14px;font-size:13.5px;font-weight:600;text-align:center}
 .subbar.bad{background:#fde2df;color:#7a1d12}
 .subbar button{margin-left:8px}
@@ -855,6 +861,7 @@ body.calmode .wrap{padding-bottom:0;max-width:none}
 .vprog{height:10px;border-radius:5px;background:var(--line);overflow:hidden;margin:6px 0 2px}.vprog i{display:block;height:100%;background:var(--ok)}
 .vday{font-size:12.5px;font-weight:600;color:var(--muted);margin:14px 2px 6px;text-transform:uppercase;letter-spacing:.03em}
 .bar .vk{color:#1d7a3a;font-weight:800}
+.langsw{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}.langsw button{border:0;background:none;padding:5px 12px;font:inherit;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer}.langsw button[aria-pressed="true"]{background:var(--ink,#202248);color:#fff}
 </style>
 </head>
 <body>
@@ -865,13 +872,17 @@ body.calmode .wrap{padding-bottom:0;max-width:none}
   <p class="small" style="margin:0" id="g-sub">Управление посуточной арендой</p>
   <div class="seg2" role="tablist" id="g-tabs"><button type="button" data-gmode="login" aria-pressed="true">Вход</button><button type="button" data-gmode="maid" aria-pressed="false">Я горничная</button></div>
   <form id="g-form" autocomplete="on" onsubmit="return false">
-    <div data-gf="login"><label class="l" for="g-email">Email</label><input id="g-email" type="email" autocomplete="email" autocapitalize="off" spellcheck="false" maxlength="120"></div>
+    <div data-gf="login forgot"><label class="l" for="g-email">Email</label><input id="g-email" type="email" autocomplete="email" autocapitalize="off" spellcheck="false" maxlength="120"></div>
     <div data-gf="login"><label class="l" for="g-pw">Пароль</label><input id="g-pw" type="password" autocomplete="current-password" maxlength="128"></div>
+    <div data-gf="reset"><label class="l" for="g-npw">Новый пароль <em>— минимум 8 символов</em></label><input id="g-npw" type="password" autocomplete="new-password" maxlength="128"></div>
     <div data-gf="maid"><label class="l" for="g-pin">Твой PIN <em>— его даёт менеджер</em></label><input id="g-pin" type="password" inputmode="numeric" autocomplete="off" maxlength="32"></div>
     <div class="msgs" id="g-msg"></div>
     <button class="btn primary" id="g-go" type="submit">Войти</button>
+    <p class="small" data-gf="login" style="margin:10px 0 0;text-align:center"><a href="#" id="g-forgot">Забыли пароль?</a></p>
+    <p class="small" data-gf="forgot reset" style="margin:10px 0 0;text-align:center"><a href="#" id="g-back">Вернуться ко входу</a></p>
     <p class="small" style="margin:12px 0 0;text-align:center">Нет аккаунта? <a href="https://espace.md/#start">Создать компанию на espace.md</a></p>
   </form>
+  <div id="g-lang" style="margin-top:12px;text-align:center"></div>
 </div></section>
 
 <div id="app" hidden>
@@ -895,6 +906,7 @@ body.calmode .wrap{padding-bottom:0;max-width:none}
   <div id="banner" class="banner" hidden></div>
 
   <section id="v-today">
+    <div id="setup-card"></div>
     <div id="shift-body"></div>
   </section>
 
@@ -1082,6 +1094,16 @@ const toT=s=>{const [y,m,d]=s.split("-").map(Number);return Date.UTC(y,m-1,d)};
 const fromT=t=>new Date(t).toISOString().slice(0,10);
 const dm=s=>{if(!s)return"";const [y,m,d]=s.split("-");return d+"."+m};
 const num=v=>{if(v===""||v==null)return 0;const n=parseFloat(String(v).replace(",",".").replace(/\s/g,""));return isFinite(n)?n:NaN};
+// UI language: this file is the Russian build; tools/build_ro.py makes app-ro.html with LANG="ro".
+// The choice is a cookie on .espace.md, read by functions/_middleware.ts when it serves the company address.
+const LANG="ru";
+function setLang(l){
+  if(l===LANG)return;
+  try{document.cookie="es_lang="+l+";path=/;max-age=31536000;samesite=lax"+(location.hostname.endsWith("espace.md")?";domain=.espace.md":"")}catch(e){}
+  if(/^\/app(-ro)?(\.html)?$/.test(location.pathname))location.href=(l==="ro"?"/app-ro":"/app")+location.search+location.hash;else location.reload();
+}
+const langSw=()=>`<span class="langsw" role="group" aria-label="Limba / Язык">${["ro","ru"].map(l=>`<button type="button" data-setlang="${l}" aria-pressed="${l===LANG}">${l.toUpperCase()}</button>`).join("")}</span>`;
+document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-setlang]");if(b){e.preventDefault();setLang(b.dataset.setlang)}});
 const fmt=n=>(Math.round(n*100)/100).toLocaleString("ru-RU",{maximumFractionDigits:2});
 const fmt0=n=>Math.round(n).toLocaleString("ru-RU");
 const rateOf=c=>((cfg.other||[]).find(o=>o.code===c)||{}).rate||0;
@@ -1347,8 +1369,27 @@ function stayCard(b,kind){
 
 /* TODAY */
 function renderToday(){
+  renderSetup();
   renderShift();
 }
+/* FIRST STEPS: shown to the owner/manager until the company is set up */
+function renderSetup(){const el=$("setup-card");if(!el)return;
+  const key="setup_hide_"+(ME&&ME.org?ME.org.id:"");
+  if(RO||!ME||!ME.org||!["owner","manager"].includes(ROLE)||ls.get(key)==="1"){el.innerHTML="";return}
+  const steps=[
+    ["apts",cfg.apts.length>1||cfg.apts[0]!=="Квартира 1","Добавьте свои квартиры","Название, адрес, этаж и фото — их видят горничные.","Квартиры"],
+    ["book",bookings.length>0,"Внесите первую бронь","Дата заезда, ночи, сумма и источник — она сразу появится в календаре.","Добавить бронь"],
+    ["staff",staffAll.length>0,"Добавьте горничную с PIN","Она войдёт на "+(ME.org.code)+".espace.md → «Я горничная» и увидит свои уборки.","Горничные"]];
+  const done=steps.filter(x=>x[1]).length;
+  if(done===steps.length){el.innerHTML=`<div class="card setup ok"><b>Компания готова к работе</b><p class="small" style="margin:4px 0 0">Квартиры, брони и горничные на месте. Дальше — пригласите менеджеров в «Меню → Настройки → Доступ для сотрудников».</p><div class="actions"><button class="btn sm" data-setup="hide">Скрыть</button></div></div>`;return}
+  el.innerHTML=`<div class="card setup"><div class="setup-h"><b>Первые шаги</b><span class="small">${done} из ${steps.length}</span><button class="iconbtn" data-setup="hide" aria-label="Скрыть">✕</button></div>
+    <div class="setup-bar"><i style="width:${done/steps.length*100}%"></i></div>
+    ${steps.map(([k,ok,t,sub,btn],i)=>`<div class="setup-s${ok?" done":""}"><span class="n">${ok?"✓":i+1}</span><span class="m"><b>${t}</b><small>${esc(sub)}</small></span>${ok?"":`<button class="btn sm${steps.findIndex(x=>!x[1])===i?" primary":""}" data-setup="${k}">${btn}</button>`}</div>`).join("")}</div>`}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-setup]");if(!b)return;const k=b.dataset.setup;
+  if(k==="hide"){ls.set("setup_hide_"+(ME&&ME.org?ME.org.id:""),"1");renderSetup();return}
+  if(k==="apts"){stOpen=null;settingsPage("apts");scrollTo(0,0);return}
+  if(k==="staff"){stOpen="new";settingsPage("staff");scrollTo(0,0);return}
+  if(k==="book"){show("add");setMode("b");scrollTo(0,0);return}});
 /* MANAGERS' TO-DO */
 let todos=[], tdDay="", tdTime="", tdShowDone=false;
 const p2=n=>String(n).padStart(2,"0");
@@ -2082,6 +2123,7 @@ function renderSettings(){
     `],
     acct:["lock","Аккаунт и компания",(ME&&ME.user?ME.user.email:"")+" · код для горничных",()=>`<div class="card"><b>${esc(orgName())}</b><p class="small" style="margin:4px 0 0">Вы: ${esc(ME&&ME.user?ME.user.name+" · "+ME.user.email:"")} · роль: ${esc(ROLE_T[ROLE]||ROLE)}</p>
       <div class="codebox"><span class="small">Адрес вашей компании</span><b id="org-code">${esc(ME&&ME.org?ME.org.code+".espace.md":"")}</b><button class="btn sm" id="code-copy" type="button">Скопировать</button></div>
+      <div class="codebox"><span class="small">Язык</span>${langSw()}</div>
       <p class="small" style="margin-bottom:0">Горничная открывает этот адрес → «Я горничная» → вводит свой PIN (PIN задаётся в «Команде уборки»). Менеджеры входят здесь же со своим email.</p></div>
       ${ME&&ME.orgs&&ME.orgs.length>1?`<div class="card"><b>Другие компании</b>${ME.orgs.filter(o=>!ME.org||o.id!==ME.org.id).map(o=>`<div class="actions"><a class="btn" href="${esc(ORG_URL(o.code))}">${esc(o.name)} · ${esc(o.code)}.espace.md</a></div>`).join("")}</div>`:""}
       <div class="card"><label class="l" for="pw-old">Текущий пароль</label><input id="pw-old" type="password" autocomplete="current-password">
@@ -3081,16 +3123,27 @@ async function logout(){try{await api("auth_logout")}catch(e){}ls.set("tok","");
 let GMODE="login";
 function gMode(m){GMODE=m;document.querySelectorAll("[data-gmode]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.gmode===m)));
   document.querySelectorAll("[data-gf]").forEach(el=>el.hidden=!el.dataset.gf.split(" ").includes(m));
-  $("g-go").textContent="Войти";$("g-msg").innerHTML="";
-  setTimeout(()=>{const e=$(m==="maid"?"g-pin":"g-email");if(e)e.focus()},50)}
+  $("g-go").textContent=m==="forgot"?"Отправить ссылку":m==="reset"?"Сохранить пароль":"Войти";$("g-msg").innerHTML="";
+  $("g-tabs").hidden=m==="forgot"||m==="reset";
+  setTimeout(()=>{const e=$(m==="maid"?"g-pin":m==="reset"?"g-npw":"g-email");if(e)e.focus()},50)}
+let RESET_TOK="";
+document.addEventListener("click",e=>{const a=e.target.closest("#g-forgot,#g-back");if(!a)return;e.preventDefault();gMode(a.id==="g-forgot"?"forgot":"login")});
 function lock(msg){PIN=null;$("app").hidden=true;$("cl-app").hidden=true;$("gate").hidden=false;gMode(GMODE);$("g-msg").innerHTML=msg?`<div class="msg bad">${esc(msg)}</div>`:"";$("g-pw").value="";$("g-pin").value=""}
-const G_ERR={bad_login:"Неверный email или пароль",locked:"Слишком много попыток — подожди 15 минут",email_taken:"Этот email уже зарегистрирован — войди",bad_email:"Проверь email",pw_too_short:"Пароль — минимум 8 символов",need_names:"Заполни название компании и имя",bad_pin:"Неверный PIN",not_member:"У этого аккаунта нет доступа к этой компании"};
+const G_ERR={bad_login:"Неверный email или пароль",locked:"Слишком много попыток — подожди 15 минут",email_taken:"Этот email уже зарегистрирован — войди",bad_email:"Проверь email",pw_too_short:"Пароль — минимум 8 символов",need_names:"Заполни название компании и имя",bad_pin:"Неверный PIN",not_member:"У этого аккаунта нет доступа к этой компании",bad_token:"Ссылка устарела или уже использована — запросите новую",pw_too_short:"Пароль — минимум 8 символов",bad_email:"Введите email",locked:"Слишком много попыток — подождите 15 минут"};
 async function enterApp(token,me){PIN=token;ls.set("tok",token);ls.set("cl","");setMe(me);
   if(!me.org){$("gate").hidden=false;$("g-msg").innerHTML=`<div class="msg bad">У этого аккаунта нет доступа ни к одной компании.</div>`;return}
   $("gate").hidden=true;$("app").hidden=false;fitHdr();await reload();loadPhotos()}
 async function gSubmit(){
   const go=$("g-go");go.disabled=true;$("g-msg").innerHTML="";
   try{
+    if(GMODE==="forgot"){const email=$("g-email").value.trim();if(!email)throw Object.assign(new Error(),{code:"bad_email"});
+      const r=await fetch("/api/auth_reset_request",{method:"POST",headers:{"Content-Type":"application/json","X-Espace-Org":SLUG},body:JSON.stringify({email})});
+      if(r.status===429)throw Object.assign(new Error(),{code:"locked"});
+      $("g-msg").innerHTML=`<div class="msg">Если такой аккаунт есть, мы отправили ссылку на ${esc(email)}. Проверьте почту и папку «Спам».</div>`;return}
+    if(GMODE==="reset"){const password=$("g-npw").value;if(password.length<8)throw Object.assign(new Error(),{code:"pw_too_short"});
+      const r=await fetch("/api/auth_reset",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:RESET_TOK,password})});const j=await r.json().catch(()=>null);
+      if(!r.ok)throw Object.assign(new Error(),{code:j&&j.message});
+      RESET_TOK="";gMode("login");$("g-email").value=j.email||"";$("g-msg").innerHTML=`<div class="msg">Пароль изменён. Войдите с новым паролем.</div>`;setTimeout(()=>$("g-pw").focus(),60);return}
     if(GMODE==="maid"){const code=SLUG,pin=$("g-pin").value.trim();if(!pin)throw Object.assign(new Error(),{code:"bad_pin"});
       CORG=code;CPIN=pin;const me=await clApi("cl_login");await startCleaner(code,pin,me);return}
     const body={email:$("g-email").value.trim(),password:$("g-pw").value};
@@ -3102,8 +3155,10 @@ async function gSubmit(){
 }
 $("g-form").addEventListener("submit",e=>{e.preventDefault();gSubmit()});
 async function boot(){
+  $("g-lang").innerHTML=langSw();
   // the espace.md sign-up hands the new session over in the address: #t=<token>
   {const m=/[#&]t=([0-9a-f]{64})/.exec(location.hash);if(m){ls.set("tok",m[1]);ls.set("cl","");history.replaceState(null,"",location.pathname+location.search)}}
+  {const m=/[#&]reset=([0-9a-f]{64})/.exec(location.hash);if(m){RESET_TOK=m[1];history.replaceState(null,"",location.pathname+location.search);GMODE="reset";lock("");return}}
   if(!SLUG){$("gate").hidden=false;$("g-form").hidden=true;$("g-tabs").hidden=true;$("g-sub").innerHTML='Откройте адрес своей компании, например <b>rentwill.espace.md</b>, или <a href="https://espace.md/#start">создайте компанию</a>.';return}
   fetch("/api/org_public",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({slug:SLUG})}).then(r=>r.ok?r.json():null).then(o=>{if(o){$("g-sub").textContent=o.name;document.title=o.name+" · espace.md"}}).catch(()=>{});
   let cls=null;try{cls=JSON.parse(ls.get("cl")||"null")}catch(e){}

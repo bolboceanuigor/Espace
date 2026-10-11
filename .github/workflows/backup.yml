@@ -1,0 +1,41 @@
+name: Daily database backup
+# Every night: full export of the espace D1 database, compressed and encrypted (AES-256),
+# kept as a workflow artifact for 30 days. The repo may be public, so the file is useless without the passphrase.
+# Restore: download the artifact, then
+#   openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in espace.sql.gz.enc -out espace.sql.gz -pass pass:<BACKUP_PASSPHRASE>
+#   gunzip espace.sql.gz && npx wrangler d1 execute espace --remote --file espace.sql   (into an EMPTY database)
+on:
+  schedule:
+    - cron: "17 1 * * *"   # 04:17 in Chișinău
+  workflow_dispatch:
+concurrency: backup
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      PASS: ${{ secrets.BACKUP_PASSPHRASE || secrets.CRON_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --no-audit --no-fund
+      - name: Export
+        run: |
+          if [ -z "$PASS" ]; then echo "::error::BACKUP_PASSPHRASE (or CRON_KEY) secret is missing"; exit 1; fi
+          DBID=$(npx wrangler d1 list --json | jq -r '.[] | select(.name=="espace") | .uuid')
+          sed -i "s/database_id = \".*\"/database_id = \"$DBID\"/" wrangler.toml
+          npx wrangler d1 export espace --remote --output espace.sql > /tmp/out.txt 2>&1 || { echo "::error::export failed: $(tr '\n' ' ' < /tmp/out.txt | tail -c 500)"; exit 1; }
+          SIZE=$(wc -c < espace.sql); LINES=$(grep -c "^INSERT" espace.sql || true)
+          gzip -9 espace.sql
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -in espace.sql.gz -out espace.sql.gz.enc -pass env:PASS
+          rm espace.sql.gz
+          echo "::notice::Backup ok: $SIZE bytes, $LINES rows"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: espace-db-${{ github.run_id }}
+          path: espace.sql.gz.enc
+          retention-days: 30
+          if-no-files-found: error

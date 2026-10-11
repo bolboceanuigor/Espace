@@ -39,7 +39,11 @@ Cloudflare Pages nu acceptă domenii wildcard, așa că `router/` e un Worker mi
 
 ```
 public/site.html           site-ul de prezentare (RO/RU)
-public/app.html            aplicația companiei (manager + menajeră), PWA
+public/app.html            aplicația companiei (manager + menajeră), PWA — sursa, în rusă
+public/app-ro.html         aceeași aplicație în română, GENERATĂ: python3 tools/build_ro.py
+tools/ro/*.json            traducerile RU→RO (build-ul se oprește dacă lipsește vreuna)
+public/termeni.html, confidentialitate.html   texte juridice RO+RU (de verificat cu un jurist)
+lib/mail.ts                emailuri prin Resend (fără RESEND_API_KEY doar se înregistrează în jurnal)
 public/admin.html          panoul administratorului platformei
 functions/_middleware.ts   ce pagină primește fiecare adresă
 functions/api/[[path]].ts  API (Cloudflare Pages Functions)
@@ -59,6 +63,12 @@ schema.sql                 schema D1 (idempotentă)
 2. Fă push în `main`. Workflow-ul creează baza `espace` (separată de `rentwill`), aplică schema și publică pe `https://espace-3hh.pages.dev`.
 3. Înregistrează-te în aplicație cu emailul din `SUPERADMIN_EMAIL`, apoi deschide `/admin.html`.
 4. Domeniul: zona `espace.md` trebuie să fie în Cloudflare (nameservere Cloudflare). În DNS adaugi două înregistrări proxied (portocaliu): `espace.md` și `*`, ambele CNAME → `espace-3hh.pages.dev`. Tokenul are nevoie în plus de *Workers Scripts: Edit* și *Workers Routes: Edit* (zona espace.md), iar următorul deploy publică routerul.
+
+## Limba aplicației
+
+Pe `<slug>.espace.md` se deschide româna sau rusa după cookie-ul `es_lang` (comutatorul RO/RU din aplicație
+și de pe site), altfel după limba browserului. După orice schimbare în `public/app.html` rulează
+`python3 tools/build_ro.py` (deploy-ul îl rulează oricum) și adaugă textele noi în `tools/ro/`.
 
 ## Dezvoltare locală
 

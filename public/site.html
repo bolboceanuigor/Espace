@@ -176,6 +176,8 @@ section.tint{background:var(--paper)}
 .msg.bad{color:#b42318}.panel.alt .msg.bad{color:#ffb4ab}.msg.ok{color:#9fe0b5}
 .panel .btn{width:100%;margin-top:4px}
 .small{font-size:13.5px;color:var(--mist);margin-top:12px}
+.terms{display:flex;gap:10px;align-items:flex-start;font-size:14px;color:var(--slate);margin:4px 0 10px;cursor:pointer}
+.terms input{width:18px;height:18px;margin-top:2px;accent-color:var(--navy);flex:none}
 @media (max-width:860px){.forms{grid-template-columns:1fr}.two{grid-template-columns:1fr}}
 
 footer{padding:36px 0;color:var(--mist);font-size:14.5px}
@@ -354,6 +356,7 @@ dialog .row .btn{flex:1}
           <div class="f"><label for="r-email">Email</label><input id="r-email" type="email" autocomplete="email" maxlength="120" required></div>
         </div>
         <div class="f"><label for="r-pw" data-t="f_pw">Parolă (minimum 8 caractere)</label><input id="r-pw" type="password" autocomplete="new-password" minlength="8" maxlength="128" required></div>
+        <label class="terms"><input type="checkbox" id="r-terms" required> <span data-t="terms">Accept <a href="/termeni" target="_blank">Termenii de utilizare</a> și <a href="/confidentialitate" target="_blank">Politica de confidențialitate</a></span></label>
         <div class="msg" id="reg-msg" role="alert"></div>
         <button class="btn primary" type="submit" id="reg-go" data-t="reg_go">Creează compania</button>
       </form>
@@ -378,6 +381,8 @@ dialog .row .btn{flex:1}
 <footer><div class="wrap">
   <span>© <span id="yr"></span> espace.md · Chișinău</span>
   <a href="#" id="foot-login" data-t="signin">Intră în cont</a>
+  <a href="/termeni" data-t="f_terms">Termeni de utilizare</a>
+  <a href="/confidentialitate" data-t="f_privacy">Confidențialitate</a>
 </div></footer>
 
 <dialog id="login">
@@ -424,13 +429,15 @@ const T={
   reg_h:"Создать компанию",reg_p:"14 дней бесплатно. Без карты.",f_org:"Название компании",f_slug:"Адрес компании",slug_hint:"Латинские буквы, цифры и дефис. Здесь будут входить менеджеры и горничные.",
   f_name:"Ваше имя",f_pw:"Пароль (минимум 8 символов)",reg_go:"Создать компанию",
   lead_h:"Удобнее поговорить?",lead_p:"Позвоним в тот же день, покажем приложение на вашем примере и поможем начать.",f_phone:"Телефон или Telegram",f_apts:"Сколько квартир",f_msg:"Что хотите решить? (необязательно)",lead_go:"Позвоните мне",
+  terms:'Принимаю <a href="/termeni#ru" target="_blank">Условия использования</a> и <a href="/confidentialitate#ru" target="_blank">Политику конфиденциальности</a>',e_terms:"Отметьте согласие с Условиями и Политикой конфиденциальности.",
+  f_terms:"Условия использования",f_privacy:"Конфиденциальность",
   login_p:"Введите адрес своей компании. Горничные входят туда же, со своим PIN.",cancel:"Отмена",go:"Открыть",
   e_slug_bad:"От 3 до 30 символов: латинские буквы, цифры и дефис.",e_slug_taken:"Этот адрес уже занят — выберите другой.",ok_slug:"Адрес свободен.",
   e_need:"Заполните все поля.",e_email:"Проверьте email.",e_pw:"Пароль — минимум 8 символов.",e_email_taken:"Этот email уже зарегистрирован — войдите в свою компанию.",e_net:"Нет связи с сервером, попробуйте ещё раз.",
   e_contact:"Оставьте телефон, чтобы мы могли связаться.",ok_lead:"Спасибо! Позвоним сегодня.",e_locked:"Слишком много попыток — попробуйте через 15 минут.",
   e_notfound:"Компании с таким адресом нет.",nu_exista:"Компании {s}.espace.md не существует. Проверьте адрес или создайте свою.",creating:"Создаём…"},
 };
-const RO={indiv:"individual",lei:"lei",e_slug_bad:"Între 3 și 30 de caractere: litere latine, cifre și cratimă.",e_slug_taken:"Adresa e deja ocupată — alege alta.",ok_slug:"Adresa e liberă.",
+const RO={e_terms:"Bifează că accepți Termenii și Politica de confidențialitate.",indiv:"individual",lei:"lei",e_slug_bad:"Între 3 și 30 de caractere: litere latine, cifre și cratimă.",e_slug_taken:"Adresa e deja ocupată — alege alta.",ok_slug:"Adresa e liberă.",
   e_need:"Completează toate câmpurile.",e_email:"Verifică emailul.",e_pw:"Parola trebuie să aibă minimum 8 caractere.",e_email_taken:"Emailul e deja înregistrat — intră în compania ta.",e_net:"Nu e legătură cu serverul, mai încearcă o dată.",
   e_contact:"Lasă un telefon ca să te putem contacta.",ok_lead:"Mulțumim! Te sunăm azi.",e_locked:"Prea multe încercări — mai încearcă peste 15 minute.",e_notfound:"Nu există o companie cu această adresă.",
   nu_exista:"Compania {s}.espace.md nu există. Verifică adresa sau creează-ți una.",creating:"Se creează…"};
@@ -438,6 +445,8 @@ let L="ro";
 const orig={};document.querySelectorAll("[data-t]").forEach(el=>orig[el.dataset.t]=el.innerHTML);
 const t=k=>L==="ru"?(T.ru[k]??RO[k]??orig[k]??k):(RO[k]??orig[k]??k);
 function setLang(l){L=l;document.documentElement.lang=l;try{localStorage.setItem("es_lang",l)}catch(e){}
+  // the company app on <slug>.espace.md opens in the same language
+  try{document.cookie="es_lang="+l+";path=/;max-age=31536000;samesite=lax"+(location.hostname.endsWith("espace.md")?";domain=.espace.md":"")}catch(e){}
   document.querySelectorAll("[data-lang]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.lang===l)));
   document.querySelectorAll("[data-t]").forEach(el=>{const v=l==="ru"?T.ru[el.dataset.t]:orig[el.dataset.t];if(v!=null)el.innerHTML=v});
   table();calc();}
@@ -468,7 +477,7 @@ $("apts").addEventListener("input",()=>{calc();table()});
 
 /* company address */
 const ROOT=location.hostname==="espace.md"||location.hostname.endsWith(".espace.md");
-const orgUrl=s=>ROOT?`https://${s}.espace.md/`:`/app?c=${encodeURIComponent(s)}`;
+const orgUrl=s=>ROOT?`https://${s}.espace.md/`:`/${L==="ro"?"app-ro":"app"}?c=${encodeURIComponent(s)}`;
 const slugify=s=>s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[ăâ]/g,"a").replace(/î/g,"i").replace(/[șş]/g,"s").replace(/[țţ]/g,"t").replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,30).replace(/-+$/,"");
 const slugValid=s=>/^[a-z0-9](?:[a-z0-9-]{1,28})[a-z0-9]$/.test(s)&&!s.includes("--");
 async function post(fn,body){const r=await fetch("/api/"+fn,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});const j=await r.json().catch(()=>null);if(!r.ok){const e=new Error(j&&j.message||"net");e.code=j&&j.message;throw e}return j}
@@ -481,14 +490,15 @@ let st;function checkSlug(){clearTimeout(st);const s=$("r-slug").value,h=$("slug
   st=setTimeout(async()=>{const my=++ck;try{const r=await post("slug_check",{slug:s});if(my!==ck)return;h.className="hint "+(r.ok?"ok":"bad");h.textContent=r.ok?t("ok_slug"):(r.valid?t("e_slug_taken"):t("e_slug_bad"))}catch(e){}},250)}
 
 $("reg").addEventListener("submit",async e=>{e.preventDefault();const m=$("reg-msg");m.className="msg bad";m.textContent="";
-  const v={org_name:$("r-org").value.trim(),slug:$("r-slug").value.trim(),name:$("r-name").value.trim(),email:$("r-email").value.trim(),password:$("r-pw").value};
+  const v={org_name:$("r-org").value.trim(),slug:$("r-slug").value.trim(),name:$("r-name").value.trim(),email:$("r-email").value.trim(),password:$("r-pw").value,terms:$("r-terms").checked};
   if(!v.org_name||!v.slug||!v.name||!v.email||!v.password){m.textContent=t("e_need");return}
   if(!slugValid(v.slug)){m.textContent=t("e_slug_bad");return}
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.email)){m.textContent=t("e_email");return}
   if(v.password.length<8){m.textContent=t("e_pw");return}
+  if(!v.terms){m.textContent=t("e_terms");return}
   const b=$("reg-go"),label=b.innerHTML;b.disabled=true;b.textContent=t("creating");
   try{const r=await post("auth_register",v);location.href=orgUrl(v.slug)+"#t="+r.token}
-  catch(err){m.textContent=({bad_slug:t("e_slug_bad"),slug_taken:t("e_slug_taken"),email_taken:t("e_email_taken"),bad_email:t("e_email"),pw_too_short:t("e_pw"),need_names:t("e_need")})[err.code]||t("e_net");b.disabled=false;b.innerHTML=label}});
+  catch(err){m.textContent=({need_terms:t("e_terms"),bad_slug:t("e_slug_bad"),slug_taken:t("e_slug_taken"),email_taken:t("e_email_taken"),bad_email:t("e_email"),pw_too_short:t("e_pw"),need_names:t("e_need")})[err.code]||t("e_net");b.disabled=false;b.innerHTML=label}});
 
 $("lead").addEventListener("submit",async e=>{e.preventDefault();const m=$("lead-msg");m.className="msg bad";m.textContent="";
   const v={name:$("l-name").value.trim(),phone:$("l-phone").value.trim(),apts:$("l-apts").value,message:$("l-msg").value.trim(),lang:L};

@@ -16,6 +16,8 @@ jobs:
           node-version: 22
       - run: npm ci --no-audit --no-fund
       - run: npx tsc --noEmit
+      - name: Romanian app (public/app-ro.html from public/app.html)
+        run: python3 tools/build_ro.py
       - name: Cloudflare account
         run: |
           if [ -z "$CLOUDFLARE_API_TOKEN" ]; then echo "::error::CLOUDFLARE_API_TOKEN secret is empty"; exit 1; fi
@@ -47,9 +49,13 @@ jobs:
         env:
           SUPERADMIN_EMAIL: ${{ secrets.SUPERADMIN_EMAIL }}
           CRON_KEY: ${{ secrets.CRON_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          MAIL_FROM: ${{ secrets.MAIL_FROM }}
+          MAIL_REPLY_TO: ${{ secrets.MAIL_REPLY_TO }}
         run: |
-          if [ -n "$SUPERADMIN_EMAIL" ]; then echo "$SUPERADMIN_EMAIL" | npx wrangler pages secret put SUPERADMIN_EMAIL --project-name espace; fi
-          if [ -n "$CRON_KEY" ]; then echo "$CRON_KEY" | npx wrangler pages secret put CRON_KEY --project-name espace; fi
+          for k in SUPERADMIN_EMAIL CRON_KEY RESEND_API_KEY MAIL_FROM MAIL_REPLY_TO; do
+            v="${!k}"; if [ -n "$v" ]; then echo "$v" | npx wrangler pages secret put "$k" --project-name espace > /dev/null; echo "set $k"; fi
+          done
       - name: Deploy
         run: |
           npx wrangler pages deploy public --project-name espace --branch main --commit-dirty=true > /tmp/out.txt 2>&1 || { echo "::error::deploy failed: $(tr '\n' ' ' < /tmp/out.txt | tail -c 600)"; exit 1; }

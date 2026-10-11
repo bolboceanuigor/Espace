@@ -6,10 +6,11 @@ import { newVapid, sendPush, type Vapid } from "../../lib/push";
 import {
   type Env, type Ctx, json, sleep, nowIso, uuid, num, str, isDate, isUuid, snum, isEmail, all, one, run,
   starterConfig, hashPin, pinMatches, hashPassword, passwordMatches, throttled, failHit, failClear, newSession, bearer, loadSession,
-  ROLES, roleAllows, READ_FNS, TRIAL_DAYS, TIERS, today, addMonths, isExpired, billingOf, randCode, sameStr, sha256hex,
+  ROLES, roleAllows, READ_FNS, TRIAL_DAYS, TIERS, today, addMonths, isExpired, billingOf, randCode, randHex, sameStr, sha256hex,
 } from "../../lib/core";
 import { hostOf, siteOf, slugOk, isSlug } from "../../lib/host";
-import { handleAdmin, logEvent, activeAnnouncement } from "../../lib/admin";
+import { handleAdmin, logEvent, activeAnnouncement, getSettings } from "../../lib/admin";
+import { sendMail, mails, dailyMail } from "../../lib/mail";
 
 const MONEY_KEYS = ["schet", "eur", "usd", "mdl"];
 const TAGS = ["booking", "airbnb", "closed"];
@@ -311,6 +312,10 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     const o = isSlug(str(body.slug, 40)) ? await one(db, "SELECT name, code FROM orgs WHERE code = ?", str(body.slug, 40)) : null;
     return o ? json({ name: o.name, slug: o.code }) : json({ message: "not_found" }, 404);
   }
+  if (fn === "site_info") { // the operator's public details for the legal pages
+    const st = await getSettings(db);
+    return json({ name: st.name, idno: st.idno, address: st.address, email: st.email, phone: st.phone });
+  }
   if (fn === "slug_check") {
     const slug = str(body.slug, 40).toLowerCase();
     return json({ slug, ok: await slugFree(db, slug), valid: slugOk(slug) });
@@ -326,12 +331,45 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     return json(true);
   }
 
+  // ---------- password reset: a link by email, valid 1 hour, used once ----------
+  if (fn === "auth_reset_request") {
+    const email = str(body.email, 120).toLowerCase(), ip = request.headers.get("cf-connecting-ip") || "x";
+    if (await throttled(db, "rst:" + ip) || await throttled(db, "rste:" + email)) return json({ message: "locked" }, 429);
+    await failHit(db, "rst:" + ip); await failHit(db, "rste:" + email); // at most 10 requests per 15 minutes
+    const u = isEmail(email) ? await one(db, "SELECT id FROM users WHERE email = ?", email) : null;
+    if (u) {
+      const tok = randHex(32);
+      await run(db, "INSERT INTO pw_resets(token_hash, user_id, expires_at) VALUES (?,?,?)", await sha256hex(tok), u.id, new Date(Date.now() + 3600000).toISOString());
+      // the link goes back to the address the request came from (the company's own, or admin)
+      const h = hostOf(request), base = h.endsWith("espace.md") ? "https://" + h : new URL(request.url).origin;
+      const path = h === "admin.espace.md" || (site.kind === "dev" && str(body.from, 10) === "admin") ? "/admin" : (site.kind === "dev" && reqSlug ? "/app?c=" + reqSlug : "/");
+      await sendMail(env, db, { to: email, ...mails.reset(`${base}${path}#reset=${tok}`), kind: "reset" });
+    } else await sleep(300);
+    return json(true); // same answer whether the email exists or not
+  }
+  if (fn === "auth_reset") {
+    const tok = str(body.token, 80), pw = typeof body.password === "string" ? body.password : "";
+    if (!/^[0-9a-f]{64}$/.test(tok)) return json({ message: "bad_token" }, 400);
+    if (pw.length < 8 || pw.length > 128) return json({ message: "pw_too_short" }, 400);
+    const th = await sha256hex(tok), r = await one(db, "SELECT * FROM pw_resets WHERE token_hash = ?", th);
+    if (!r || r.used || r.expires_at < nowIso()) { await sleep(800); return json({ message: "bad_token" }, 400); }
+    await db.batch([
+      db.prepare("UPDATE pw_resets SET used = 1 WHERE token_hash = ?").bind(th),
+      db.prepare("UPDATE users SET pw_hash = ? WHERE id = ?").bind(await hashPassword(pw), r.user_id),
+      db.prepare("DELETE FROM sessions WHERE user_id = ?").bind(r.user_id),
+    ]);
+    const u = await one(db, "SELECT email FROM users WHERE id = ?", r.user_id);
+    await logEvent(db, "password", "", u?.email || "", "Parolă resetată prin email");
+    return json({ email: u?.email || "" });
+  }
+
   // ---------- platform cron: reminders and morning summaries for every active company ----------
   if (fn === "cron") {
     if (!env.CRON_KEY || !sameStr(await sha256hex(str(body.key, 200)), await sha256hex(env.CRON_KEY))) { await sleep(1000); return json({ message: "bad_key" }, 401); }
     let n = 0;
     for (const org of await all(db, "SELECT * FROM orgs WHERE status = 'active'")) if (!isExpired(org)) { await runDue(db, org).catch(() => {}); n++; }
-    return json({ orgs: n });
+    const mailed = await dailyMail(env, db).catch(() => 0);
+    return json({ orgs: n, mailed });
   }
 
   // ---------- sign up / sign in ----------
@@ -341,6 +379,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     if (!isEmail(email)) return json({ message: "bad_email" }, 400);
     if (pw.length < 8 || pw.length > 128) return json({ message: "pw_too_short" }, 400);
     const slug = str(body.slug, 40).toLowerCase();
+    if (body.terms !== true) return json({ message: "need_terms" }, 400);
     if (!slugOk(slug)) return json({ message: "bad_slug" }, 400);
     if (!(await slugFree(db, slug))) return json({ message: "slug_taken" }, 409);
     if (await one(db, "SELECT 1 AS x FROM users WHERE email = ?", email)) { await sleep(500); return json({ message: "email_taken" }, 409); }
@@ -352,8 +391,9 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
       db.prepare("INSERT INTO app_config(org_id, data) VALUES (?,?)").bind(oid, JSON.stringify(starterConfig(name))),
     ]);
     const token = await newSession(db, uid, oid);
-    await run(db, "UPDATE users SET last_login = ? WHERE id = ?", nowIso(), uid).catch(() => {});
+    await run(db, "UPDATE users SET last_login = ?, terms_at = ? WHERE id = ?", nowIso(), nowIso(), uid).catch(() => {});
     await logEvent(db, "signup", oid, email, `Companie nouă: ${orgName} (${slug}.espace.md)`);
+    waitUntil(sendMail(env, db, { to: email, ...mails.welcome(name, orgName, slug), kind: "welcome", orgId: oid, key: "welcome:" + oid }).catch(() => {}));
     const c = await loadSession(db, env, token);
     return json({ token, me: await meOf(db, c!) });
   }
@@ -459,7 +499,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
   // ---------- platform owner (super-admin) ----------
   if (fn.startsWith("sa_")) {
     if (!c.isSuper || c.support) { await sleep(500); return json({ message: "forbidden" }, 403); }
-    return handleAdmin(fn, body, c, db);
+    return handleAdmin(fn, body, c, db, env);
   }
 
   // ---------- company workspace ----------

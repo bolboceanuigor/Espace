@@ -4,6 +4,8 @@ import {
   TIERS, today, addDays, addMonths, activeUntil, tierFor, sha256hex, hashPassword, starterConfig,
 } from "./core";
 import { slugOk } from "./host";
+import { sendMail, mails, orgEmail } from "./mail";
+import type { Env } from "./core";
 
 export async function logEvent(db: D1Database, kind: string, orgId: string, actor: string, text: string) {
   await run(db, "INSERT INTO events(kind, org_id, actor, text) VALUES (?,?,?,?)", kind, orgId || "", actor || "", text.slice(0, 500)).catch(() => {});
@@ -85,11 +87,12 @@ async function overview(db: D1Database) {
   const lapsed = orgs.filter((o) => o.payments > 0 && o.state !== "paid" && (o.active_until || "") >= d30 && (o.active_until || "") < t);
   const payments = await all(db, "SELECT * FROM payments ORDER BY created_at DESC");
   // MRR by month from payments: each payment spreads amount/months over the months it covers
+  // (paid during the trial → counts from the payment day)
   const months = lastMonths(12);
   const mrrSeries = months.map((m) => {
     const mid = m + "-15";
     let s = 0;
-    for (const p of payments) { const from = addMonths(p.paid_until, -Math.max(1, p.months || 1)); if (from <= mid && mid < p.paid_until) s += (p.amount || 0) / Math.max(1, p.months || 1); }
+    for (const p of payments) { const start = addMonths(p.paid_until, -Math.max(1, p.months || 1)), paidOn = String(p.created_at || "").slice(0, 10); const from = paidOn && paidOn < start ? paidOn : start; if (from <= mid && mid < p.paid_until) s += (p.amount || 0) / Math.max(1, p.months || 1); }
     return Math.round(s);
   });
   const revenue = months.map((m) => Math.round(payments.filter((p) => monthKey(p.created_at) === m).reduce((s, p) => s + (p.amount || 0), 0)));
@@ -149,7 +152,7 @@ async function recordPayment(db: D1Database, org: any, months: number, amount: n
 const LEAD_STATES = ["new", "contacted", "demo", "won", "lost"];
 const BILL_FIELDS = ["legal_name", "idno", "vat_code", "address", "email", "phone", "contact"];
 
-export async function handleAdmin(fn: string, body: any, c: Ctx, db: D1Database): Promise<Response> {
+export async function handleAdmin(fn: string, body: any, c: Ctx, db: D1Database, env: Env): Promise<Response> {
   const actor = c.user.email;
   switch (fn) {
     case "sa_overview": return json(await overview(db));
@@ -214,8 +217,11 @@ export async function handleAdmin(fn: string, body: any, c: Ctx, db: D1Database)
       await db.batch(stmts);
       if (body.lead_id) await run(db, "UPDATE leads SET org_id = ?, status = 'won' WHERE id = ?", oid, str(body.lead_id, 40));
       await logEvent(db, "signup", oid, actor, `Companie creată din admin: ${name} (${slug}.espace.md), proprietar ${email}`);
+      if (body.send_welcome !== false) await sendMail(env, db, { to: email, ...mails.welcome(owner, name, slug), kind: "welcome", orgId: oid, key: "welcome:" + oid });
       return json({ id: oid, slug });
     }
+    case "sa_emails": return json(await all(db, "SELECT e.id, e.org_id, e.to_addr, e.subject, e.kind, e.status, e.detail, e.created_at, o.name AS org_name FROM emails e LEFT JOIN orgs o ON o.id = e.org_id ORDER BY e.created_at DESC LIMIT 500"));
+    case "sa_mail_status": return json({ configured: !!env.RESEND_API_KEY, from: env.MAIL_FROM || "espace.md <noreply@espace.md>" });
     case "sa_anns": return json(await all(db, "SELECT * FROM announcements ORDER BY created_at DESC LIMIT 50"));
     case "sa_ann_save": {
       const text = str(body.text, 400); if (!text) return json({ message: "need_text" }, 400);
@@ -241,14 +247,16 @@ export async function handleAdmin(fn: string, body: any, c: Ctx, db: D1Database)
         all(db, "SELECT * FROM events WHERE org_id = ? ORDER BY id DESC LIMIT 100", O),
         all(db, "SELECT id, name, status, created_at FROM leads WHERE org_id = ?", O),
       ]);
+      const emails = await all(db, "SELECT to_addr, subject, kind, status, created_at FROM emails WHERE org_id = ? ORDER BY created_at DESC LIMIT 50", O);
       const usage = await one(db, `SELECT (SELECT COUNT(*) FROM bookings WHERE org_id = ?) AS bookings, (SELECT COUNT(*) FROM tasks WHERE org_id = ? AND kind IN ('clean','general') AND status = 'done') AS cleanings,
         (SELECT COUNT(*) FROM handovers WHERE org_id = ?) AS shifts, (SELECT COUNT(*) FROM expenses WHERE org_id = ?) AS expenses, (SELECT COUNT(*) FROM guides WHERE org_id = ?) AS guides`, O, O, O, O, O);
-      return json({ org: row, members, payments, invoices, events, leads, usage });
+      return json({ org: row, members, payments, invoices, events, leads, usage, emails });
     }
     case "sa_pay": {
       const months = Math.max(1, Math.min(24, Math.floor(num(body.months)) || 1)), amount = num(body.amount), note = str(body.note, 300);
       const r = await recordPayment(db, org, months, amount, note, str(body.method, 30));
       await logEvent(db, "payment", O, actor, `Plată ${amount} lei pentru ${months} luni → activ până ${r.paid_until}`);
+      if (body.notify !== false) await sendMail(env, db, { to: await orgEmail(db, O), ...mails.paid(org.name, amount, r.paid_until), kind: "paid", orgId: O, key: "paid:" + r.payment_id });
       return json(r);
     }
     case "sa_status": {
@@ -304,7 +312,9 @@ export async function handleAdmin(fn: string, body: any, c: Ctx, db: D1Database)
       await run(db, `INSERT INTO invoices(id, org_id, number, token, issued_at, due_at, period_from, period_to, months, apts, amount, status, buyer, seller, note)
         VALUES (?,?,?,?,?,?,?,?,?,?,?, 'sent', ?,?,?)`, id, O, number, token, issued, due, from, to, months, row.apts, amount, JSON.stringify(buyer), JSON.stringify(s), str(body.note, 500));
       await logEvent(db, "invoice", O, actor, `Factura ${number}: ${amount} lei, ${months} luni`);
-      return json({ id, number, token });
+      let mailed = "";
+      if (body.send !== false) mailed = await sendMail(env, db, { to: buyer.email || await orgEmail(db, O), ...mails.invoice(org.name, number, amount, due, `https://espace.md/f/${token}`), kind: "invoice", orgId: O, key: "inv:" + id });
+      return json({ id, number, token, mailed });
     }
     case "sa_invoice_status": {
       const inv = await one(db, "SELECT * FROM invoices WHERE id = ? AND org_id = ?", str(body.id, 40), O);
@@ -313,6 +323,7 @@ export async function handleAdmin(fn: string, body: any, c: Ctx, db: D1Database)
         const r = await recordPayment(db, org, inv.months, inv.amount, "Factura " + inv.number, str(body.method, 30) || "transfer", inv.id);
         await run(db, "UPDATE invoices SET status = 'paid', paid_at = ?, payment_id = ? WHERE id = ?", today(), r.payment_id, inv.id);
         await logEvent(db, "payment", O, actor, `Factura ${inv.number} achitată: ${inv.amount} lei → activ până ${r.paid_until}`);
+        await sendMail(env, db, { to: await orgEmail(db, O), ...mails.paid(org.name, inv.amount, r.paid_until), kind: "paid", orgId: O, key: "paid:" + r.payment_id });
         return json(r);
       }
       if (body.status === "void" && inv.status === "sent") {

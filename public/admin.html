@@ -190,7 +190,10 @@ dialog h2{font-size:18px;margin-bottom:4px}
   <p class="mute" style="margin:4px 0 14px">Doar pentru administratorul platformei.</p>
   <form id="lf"><label class="f" for="em">Email</label><input id="em" type="email" autocomplete="email" required>
   <label class="f" for="pw">Parolă</label><input id="pw" type="password" autocomplete="current-password" required>
-  <p class="msg bad" id="lmsg" role="alert"></p><button class="btn p" style="width:100%;justify-content:center;padding:10px">Intră</button></form>
+  <p class="msg bad" id="lmsg" role="alert"></p><button class="btn p" style="width:100%;justify-content:center;padding:10px">Intră</button>
+  <p style="text-align:center;margin:12px 0 0"><a href="#" id="forgot">Am uitat parola</a></p></form>
+  <form id="rf" hidden><label class="f" for="npw">Parolă nouă (minimum 8 caractere)</label><input id="npw" type="password" autocomplete="new-password" required>
+  <p class="msg bad" id="rmsg" role="alert"></p><button class="btn p" style="width:100%;justify-content:center;padding:10px">Salvează parola</button></form>
 </div>
 
 <div id="app" hidden>
@@ -253,8 +256,9 @@ const IC={
  pays:'<rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 10h20"/>',
  act:'<path d="M3 12h4l3 7 4-14 3 7h4"/>',
  ann:'<path d="M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1z"/><path d="M16 9a4 4 0 0 1 0 6"/>',
+ mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
  set:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>'};
-const NAV=[["overview","Prezentare","ov"],["companies","Companii","orgs"],["leads","Cereri","leads"],["invoices","Facturi","inv"],["payments","Plăți","pays"],["activity","Activitate","act"],["announcements","Anunțuri","ann"],["settings","Setări","set"]];
+const NAV=[["overview","Prezentare","ov"],["companies","Companii","orgs"],["leads","Cereri","leads"],["invoices","Facturi","inv"],["payments","Plăți","pays"],["activity","Activitate","act"],["emails","Emailuri","mail"],["announcements","Anunțuri","ann"],["settings","Setări","set"]];
 function renderNav(){const route=(location.hash.slice(1)||"overview").split("/")[0];
   const cnt={leads:OV?OV.kpi.new_leads:0,overview:OV?OV.attention.length:0};
   $("nav").innerHTML=NAV.map(([k,t,ic])=>`<a href="#${k}"${(route===k||(route==="company"&&k==="companies"))?' aria-current="page"':""}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${IC[ic]}</svg>${t}${cnt[k]?`<span class="c">${cnt[k]}</span>`:""}</a>`).join("")}
@@ -373,7 +377,7 @@ V.company=async(id)=>{const d=await api("sa_org",{org_id:id});const o=d.org;rend
     <div class="panel" style="margin-top:16px"><div class="hd"><h2>Plăți</h2></div><div class="bd" style="padding:0">${payTable(d.payments,false)}</div></div>`};
   const ROLE={owner:"Proprietar",manager:"Manager",checker:"Verificare plăți",viewer:"Vizualizare"};
   const tabTeam=()=>`<div class="tw"><table><thead><tr><th>Nume</th><th>Email</th><th>Rol</th><th>Ultimul login</th><th>Adăugat</th></tr></thead><tbody>${d.members.map(m=>`<tr><td><b>${esc(m.name)}</b></td><td><a href="mailto:${esc(m.email)}">${esc(m.email)}</a></td><td>${esc(ROLE[m.role]||m.role)}</td><td>${ago(m.last_login)}</td><td>${fd(m.created_at.slice(0,10))}</td></tr>`).join("")}</tbody></table></div><p class="mute">Menajerele intră cu PIN și nu apar aici. Active acum: ${o.staff}.</p>`;
-  const tabAct=()=>`<div class="panel"><div class="bd">${evList(d.events)}</div></div>`;
+  const tabAct=()=>`<div class="panel"><div class="bd">${evList(d.events)}</div></div>${d.emails&&d.emails.length?`<div class="panel" style="margin-top:16px"><div class="hd"><h2>Emailuri</h2></div><div class="bd" style="padding-top:4px">${d.emails.map(e=>`<div class="ev"><time>${ago(e.created_at)}</time><span class="k"></span><div>${esc(e.subject)} <span class="mute">· ${esc(e.to_addr)} · ${e.status==="sent"?"trimis":e.status==="failed"?"eroare":"netrimis"}</span></div></div>`).join("")}</div></div>`:""}`;
   const show=()=>{B.innerHTML=TAB==="bill"?tabBill():TAB==="team"?tabTeam():TAB==="act"?tabAct():tabSum();document.querySelectorAll("[data-tab]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.tab===TAB)))};
   show();V.company.show=show};
 
@@ -403,6 +407,14 @@ let EVF="all";
 V.activity=async()=>{await refresh("evs");renderNav();const K=[["all","Tot"],["signup","Înregistrări"],["payment","Plăți"],["invoice","Facturi"],["lead","Cereri"],["block","Blocări"],["support","Suport"]];
   const L=EVS.filter(e=>EVF==="all"||e.kind===EVF||(EVF==="block"&&e.kind==="unblock"));
   $("view").innerHTML=`<div class="ph"><div><h1>Activitate</h1><div class="mute">tot ce s-a întâmplat pe platformă</div></div></div><div class="toolbar"><div class="chips">${K.map(([k,l])=>`<button class="chip" data-evf="${k}" aria-pressed="${EVF===k}">${l}</button>`).join("")}</div></div><div class="panel"><div class="bd">${evList(L)}</div></div>`};
+
+/* emails */
+V.emails=async()=>{const [E,st]=await Promise.all([api("sa_emails"),api("sa_mail_status")]);renderNav();
+  const K={welcome:"Bun venit",reset:"Resetare parolă",trial_ending:"Proba se termină",expired:"Expirat",invoice:"Factură",invoice_due:"Amintire factură",paid:"Plată primită"};
+  const S={sent:["ok","Trimis"],failed:["bad","Eroare"],skipped:["gray","Netrimis"]};
+  $("view").innerHTML=`<div class="ph"><div><h1>Emailuri</h1><div class="mute">tot ce trimite platforma automat</div></div></div>
+  ${st.configured?"":`<div class="panel" style="margin-bottom:16px;border-color:var(--warn)"><div class="bd"><b>Emailurile nu pleacă încă.</b> <span class="ink2">Lipsește cheia Resend (secretul <code>RESEND_API_KEY</code> în GitHub). Până atunci fiecare email apare aici ca „Netrimis”, ca să vezi ce ar fi plecat.</span></div></div>`}
+  <div class="tw"><table><thead><tr><th>Când</th><th>Către</th><th>Tip</th><th>Subiect</th><th>Companie</th><th>Stare</th></tr></thead><tbody>${E.length?E.map(e=>`<tr><td>${ago(e.created_at)}</td><td>${esc(e.to_addr)}</td><td>${esc(K[e.kind]||e.kind)}</td><td style="white-space:normal">${esc(e.subject)}</td><td>${e.org_id?`<a href="#company/${esc(e.org_id)}">${esc(e.org_name||"")}</a>`:""}</td><td>${pill(...(S[e.status]||["gray",e.status]))}${e.detail?`<span class="sub" title="${esc(e.detail)}">${esc(e.detail.slice(0,40))}</span>`:""}</td></tr>`).join(""):`<tr><td colspan="6"><div class="empty">Încă nu s-a trimis nimic.</div></td></tr>`}</tbody></table></div>`};
 
 /* announcements */
 V.announcements=async()=>{const A=await api("sa_anns");renderNav();
@@ -516,9 +528,16 @@ $("lf").addEventListener("submit",async e=>{e.preventDefault();$("lmsg").textCon
   try{const r=await fetch("/api/auth_login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:$("em").value.trim(),password:$("pw").value})});const j=await r.json();
     if(!r.ok){$("lmsg").textContent=j.message==="locked"?"Prea multe încercări — așteaptă 15 minute":"Email sau parolă greșită";return}
     TOK=j.token;try{localStorage.setItem("es_admin_tok",TOK)}catch(e){}if(!j.me.super){showLogin("Acest cont nu este administrator al platformei.");return}start(j.me)}catch(err){$("lmsg").textContent="Nu e legătură cu serverul"}});
+$("forgot").onclick=async e=>{e.preventDefault();const em=$("em").value.trim();if(!em){$("lmsg").textContent="Scrie emailul mai sus, apoi apasă din nou.";return}
+  const r=await fetch("/api/auth_reset_request",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:em,from:"admin"})});
+  $("lmsg").className="msg "+(r.ok?"ok":"bad");$("lmsg").textContent=r.ok?"Dacă există contul, ți-am trimis un link pe email.":"Prea multe încercări — așteaptă 15 minute."};
+let RT="";{const m=/[#&]reset=([0-9a-f]{64})/.exec(location.hash);if(m){RT=m[1];history.replaceState(null,"",location.pathname)}}
+$("rf").addEventListener("submit",async e=>{e.preventDefault();const r=await fetch("/api/auth_reset",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:RT,password:$("npw").value})});const j=await r.json().catch(()=>({}));
+  if(!r.ok){$("rmsg").textContent=j.message==="pw_too_short"?"Minimum 8 caractere.":"Linkul a expirat sau a fost folosit — cere altul.";return}
+  RT="";$("rf").hidden=true;$("lf").hidden=false;$("em").value=j.email||"";$("lmsg").className="msg ok";$("lmsg").textContent="Parola e schimbată. Intră cu parola nouă."});
 $("out").onclick=async()=>{try{await api("auth_logout")}catch(e){}TOK="";try{localStorage.removeItem("es_admin_tok")}catch(e){}showLogin("")};
 async function start(me){ME=me;$("login").hidden=true;$("app").hidden=false;$("me-email").textContent=me.user.email;renderNav();await route(false);if(!OV)refresh("ov").then(renderNav).catch(()=>{})}
-if(TOK)api("auth_me").then(me=>me.super&&!me.support?start(me):showLogin("Acest cont nu este administrator al platformei.")).catch(()=>showLogin(""));else showLogin("");
+if(RT){$("app").hidden=true;$("login").hidden=false;$("lf").hidden=true;$("rf").hidden=false}else if(TOK)api("auth_me").then(me=>me.super&&!me.support?start(me):showLogin("Acest cont nu este administrator al platformei.")).catch(()=>showLogin(""));else showLogin("");
 })();
 </script>
 </body>

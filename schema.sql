@@ -296,3 +296,25 @@ CREATE TABLE IF NOT EXISTS announcements (
   active INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
+
+-- every email the platform sent or would have sent (status: sent | failed | skipped when no mail key is set)
+CREATE TABLE IF NOT EXISTS emails (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL DEFAULT '',
+  to_addr TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  status TEXT NOT NULL,
+  detail TEXT NOT NULL DEFAULT '',
+  dedupe TEXT UNIQUE,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS emails_org_idx ON emails(org_id, created_at);
+-- password reset links (only the hash is kept; valid 1 hour, once)
+CREATE TABLE IF NOT EXISTS pw_resets (
+  token_hash TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  used INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);

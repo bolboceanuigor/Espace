@@ -4,6 +4,9 @@ export interface Env {
   DB: D1Database;
   SUPERADMIN_EMAIL?: string; // the platform owner; sees every company in /admin
   CRON_KEY?: string;         // secret for the every-few-minutes reminders ping
+  RESEND_API_KEY?: string;   // emails (resend.com); without it emails are only logged
+  MAIL_FROM?: string;        // e.g. "espace.md <noreply@espace.md>"
+  MAIL_REPLY_TO?: string;    // where replies go, e.g. the owner's inbox
 }
 
 export const json = (data: unknown, status = 200) =>
