@@ -239,7 +239,7 @@ function toast(t){const e=$("toast");e.textContent=t;e.classList.add("on");clear
 async function api(fn,args={}){
   const r=await fetch("/api/"+fn,{method:"POST",headers:{"Content-Type":"application/json",...(TOK?{"Authorization":"Bearer "+TOK}:{})},body:JSON.stringify(args)});
   const j=await r.json().catch(()=>null);if(!r.ok){const e=new Error((j&&j.message)||"HTTP "+r.status);e.code=j&&j.message;if(e.code==="bad_session")showLogin("");throw e}return j}
-const ERR={bad_slug:"Adresă nevalidă: 3–30 caractere, litere latine, cifre, cratimă.",slug_taken:"Adresa e ocupată.",bad_email:"Email greșit.",pw_too_short:"Parola: minimum 8 caractere.",need_names:"Completează numele.",need_text:"Scrie textul.",bad_date:"Data e greșită.",forbidden:"Nu ai acces.",not_found:"Nu există."};
+const ERR={email_taken:"Acest email e deja folosit de alt cont.",bad_amount:"Suma e greșită.",bad_slug:"Adresă nevalidă: 3–30 caractere, litere latine, cifre, cratimă.",slug_taken:"Adresa e ocupată.",bad_email:"Email greșit.",pw_too_short:"Parola: minimum 8 caractere.",need_names:"Completează numele.",need_text:"Scrie textul.",bad_date:"Data e greșită.",forbidden:"Nu ai acces.",not_found:"Nu există."};
 const errText=e=>ERR[e.code]||("Eroare: "+(e.message||"rețea"));
 
 /* ---------- state ---------- */
@@ -377,7 +377,7 @@ V.company=async(id)=>{const d=await api("sa_org",{org_id:id});const o=d.org;rend
       <div class="actions"><button class="btn" data-act="save-bill" data-id="${esc(o.id)}">Salvează</button><span class="msg" id="bill-msg"></span></div></div></div></div>
     <div class="panel" style="margin-top:16px"><div class="hd"><h2>Plăți</h2></div><div class="bd" style="padding:0">${payTable(d.payments,false)}</div></div>`};
   const ROLE={owner:"Proprietar",manager:"Manager",checker:"Verificare plăți",viewer:"Vizualizare"};
-  const tabTeam=()=>`<div class="tw"><table><thead><tr><th>Nume</th><th>Email</th><th>Rol</th><th>Ultimul login</th><th>Adăugat</th></tr></thead><tbody>${d.members.map(m=>`<tr><td><b>${esc(m.name)}</b></td><td><a href="mailto:${esc(m.email)}">${esc(m.email)}</a></td><td>${esc(ROLE[m.role]||m.role)}</td><td>${ago(m.last_login)}</td><td>${fd(m.created_at.slice(0,10))}</td></tr>`).join("")}</tbody></table></div><p class="mute">Menajerele intră cu PIN și nu apar aici. Active acum: ${o.staff}.</p>`;
+  const tabTeam=()=>`<div class="tw"><table><thead><tr><th>Nume</th><th>Email</th><th>Rol</th><th>Ultimul login</th><th>Adăugat</th><th></th></tr></thead><tbody>${d.members.map(m=>`<tr><td><b>${esc(m.name)}</b></td><td><a href="mailto:${esc(m.email)}">${esc(m.email)}</a></td><td>${esc(ROLE[m.role]||m.role)}</td><td>${ago(m.last_login)}</td><td>${fd(m.created_at.slice(0,10))}</td><td class="r"><button class="btn sm" data-act="mem-email" data-org="${esc(o.id)}" data-uid="${esc(m.id)}" data-email="${esc(m.email)}">Schimbă emailul</button></td></tr>`).join("")}</tbody></table></div><p class="mute">Menajerele intră cu PIN și nu apar aici. Active acum: ${o.staff}.</p>`;
   const tabAct=()=>`<div class="panel"><div class="bd">${evList(d.events)}</div></div>${d.emails&&d.emails.length?`<div class="panel" style="margin-top:16px"><div class="hd"><h2>Emailuri</h2></div><div class="bd" style="padding-top:4px">${d.emails.map(e=>`<div class="ev"><time>${ago(e.created_at)}</time><span class="k"></span><div>${esc(e.subject)} <span class="mute">· ${esc(e.to_addr)} · ${e.status==="sent"?"trimis":e.status==="failed"?"eroare":"netrimis"}</span></div></div>`).join("")}</div></div>`:""}`;
   const show=()=>{B.innerHTML=TAB==="bill"?tabBill():TAB==="team"?tabTeam():TAB==="act"?tabAct():tabSum();document.querySelectorAll("[data-tab]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.tab===TAB)))};
   show();V.company.show=show};
@@ -411,7 +411,7 @@ V.activity=async()=>{await refresh("evs");renderNav();const K=[["all","Tot"],["s
 
 /* emails */
 V.emails=async()=>{const [E,st]=await Promise.all([api("sa_emails"),api("sa_mail_status")]);renderNav();
-  const K={welcome:"Bun venit",reset:"Resetare parolă",trial_ending:"Proba se termină",expired:"Expirat",invoice:"Factură",invoice_due:"Amintire factură",paid:"Plată primită"};
+  const K={welcome:"Bun venit",reset:"Resetare parolă",email_changed:"Email schimbat",low_balance:"Sold mic",trial_ending:"Proba se termină",expired:"Expirat",invoice:"Factură",invoice_due:"Amintire factură",paid:"Plată primită"};
   const S={sent:["ok","Trimis"],failed:["bad","Eroare"],skipped:["gray","Netrimis"]};
   $("view").innerHTML=`<div class="ph"><div><h1>Emailuri</h1><div class="mute">tot ce trimite platforma automat</div></div></div>
   ${st.configured?"":`<div class="panel" style="margin-bottom:16px;border-color:var(--warn)"><div class="bd"><b>Emailurile nu pleacă încă.</b> <span class="ink2">Lipsește cheia Resend (secretul <code>RESEND_API_KEY</code> în GitHub). Până atunci fiecare email apare aici ca „Netrimis”, ca să vezi ce ar fi plecat.</span></div></div>`}
@@ -454,6 +454,10 @@ async function act(a,ds){
     <div class="form"><div><label class="f">Numele proprietarului</label><input id="n-owner" required></div><div><label class="f">Email</label><input id="n-email" type="email" required></div>
     <div><label class="f">Parolă de start</label><input id="n-pw" value="${Math.random().toString(36).slice(2,8)}${Math.floor(Math.random()*90+10)}"></div><div><label class="f">Zile de probă</label><input id="n-trial" type="number" value="14" min="1" max="90"></div></div>${ds.lead?`<input type="hidden" id="n-lead" value="${esc(ds.lead)}">`:""}`,
     async()=>{const r=await api("sa_org_create",{org_name:val("n-name"),slug:val("n-slug").toLowerCase(),owner_name:val("n-owner"),email:val("n-email"),password:$("n-pw").value,trial_days:+val("n-trial"),lead_id:val("n-lead")});ORGS=null;OV=null;toast("Compania e creată: "+r.slug+".espace.md");location.hash="#company/"+r.id});
+  if(a==="mem-email"){return dialog(`<h2>Schimbă emailul de intrare</h2><p class="mute" style="margin:0">Acum: ${esc(ds.email)}</p>
+    <div class="form"><div><label class="f">Email nou</label><input id="me-new" type="email" required value="${esc(ds.email)}"></div></div>
+    <p class="mute" style="margin:6px 0 0">Omul e scos din cont pe toate dispozitivele. Pe adresa nouă primește un link (24 de ore) ca să-și aleagă parola; pe cea veche — o notificare.</p>`,
+    async()=>{const r=await api("sa_member_email",{org_id:ds.org,user_id:ds.uid,email:val("me-new")});toast(r.mailed==="sent"?"Email schimbat · linkul de parolă a plecat":"Email schimbat");reloadView()})}
   if(a==="pay"){await needOrgs();const o=orgOf(ds.id);return dialog(`<h2>Înregistrează plata</h2><p class="mute" style="margin:0">${esc(o?o.name:"")} · sold ${lei2(o&&o.balance)} · ${lei2(o&&o.daily)} / zi · activ până ${fd(o&&o.active_until)}</p><p class="mute" style="margin:4px 0 0">Suma intră pe sold; zilnic se scade partea zilei.</p>
     <div class="form"><div><label class="f">Suma primită, lei</label><input id="p-a" type="number" min="0" step="0.01" value="${o&&o.price||""}"></div>
     <div><label class="f">Metoda</label><select id="p-meth"><option value="transfer">Transfer bancar</option><option value="card">Card</option><option value="cash">Numerar</option><option value="other">Altceva</option></select></div><div><label class="f">Notă</label><input id="p-n" placeholder="ex. ordin nr. 15"></div></div>`,

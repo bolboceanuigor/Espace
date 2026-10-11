@@ -1,10 +1,10 @@
 // espace.md — the platform owner's panel (admin.espace.md): metrics, companies, invoices, leads, activity, announcements, settings.
 import {
   type Ctx, json, uuid, num, str, isDate, isEmail, all, one, run, randCode, newSession,
-  TIERS, today, addDays, addMonths, activeUntil, tierFor, dailyRate, coveredUntil, topUp, billingOf, sha256hex, hashPassword, starterConfig,
+  TIERS, today, addDays, addMonths, activeUntil, tierFor, dailyRate, coveredUntil, topUp, billingOf, sha256hex, hashPassword, starterConfig, randHex, failClear,
 } from "./core";
 import { slugOk } from "./host";
-import { sendMail, mails, orgEmail } from "./mail";
+import { sendMail, mails, orgEmail, orgUrl } from "./mail";
 import type { Env } from "./core";
 
 export async function logEvent(db: D1Database, kind: string, orgId: string, actor: string, text: string) {
@@ -288,6 +288,26 @@ export async function handleAdmin(fn: string, body: any, c: Ctx, db: D1Database,
       await run(db, "UPDATE orgs SET code = ? WHERE id = ?", slug, O);
       await logEvent(db, "slug", O, actor, `Adresa schimbată: ${org.code} → ${slug}`);
       return json(slug);
+    }
+    case "sa_member_email": { // change a member's sign-in email; the new address gets a link to set a password
+      const uid = str(body.user_id, 40), email = str(body.email, 120).trim().toLowerCase();
+      if (!isEmail(email)) return json({ message: "bad_email" }, 400);
+      const u = await one(db, "SELECT u.id, u.email, u.name FROM members m JOIN users u ON u.id = m.user_id WHERE m.org_id = ? AND u.id = ?", O, uid);
+      if (!u) return json({ message: "not_found" }, 404);
+      if (u.email === email) return json({ email, mailed: "" });
+      if (await one(db, "SELECT 1 AS x FROM users WHERE email = ?", email)) return json({ message: "email_taken" }, 409);
+      const tok = randHex(32);
+      await db.batch([
+        db.prepare("UPDATE users SET email = ? WHERE id = ?").bind(email, u.id),
+        db.prepare("DELETE FROM sessions WHERE user_id = ?").bind(u.id),           // signed out everywhere
+        db.prepare("UPDATE pw_resets SET used = 1 WHERE user_id = ? AND used = 0").bind(u.id), // old links stop working
+        db.prepare("INSERT INTO pw_resets(token_hash, user_id, expires_at) VALUES (?,?,?)").bind(await sha256hex(tok), u.id, new Date(Date.now() + 24 * 3600000).toISOString()),
+      ]);
+      await failClear(db, "em:" + email);
+      const mailed = await sendMail(env, db, { to: email, ...mails.emailChanged(org.name, email, `${orgUrl(org.code)}#reset=${tok}`), kind: "email_changed", orgId: O });
+      await sendMail(env, db, { to: u.email, ...mails.emailChangedOld(org.name, email), kind: "email_changed", orgId: O });
+      await logEvent(db, "member", O, actor, `Email schimbat: ${u.email} → ${email} (link de parolă trimis)`);
+      return json({ email, mailed });
     }
     case "sa_note": await run(db, "UPDATE orgs SET note = ? WHERE id = ?", str(body.note, 2000), O); return json(true);
     case "sa_price": { // individual monthly price (0 = by the steps); needed for 71+ apartments

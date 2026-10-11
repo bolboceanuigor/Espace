@@ -66,6 +66,19 @@ export const mails = {
       { title: "Сброс пароля", body: `<p>Кто-то (скорее всего вы) запросил новый пароль для аккаунта espace.md. Ссылка действует <b>1 час</b>. Если это были не вы — просто проигнорируйте письмо.</p>` },
       { url, ro: "Alege o parolă nouă", ru: "Задать новый пароль" }),
   }),
+  emailChanged: (org: string, email: string, url: string) => ({
+    subject: `Contul tău espace.md — ${org}`,
+    html: layout(
+      { title: "Alege parola", body: `<p>Administratorul espace.md a setat <b>${esc(email)}</b> ca adresa ta de intrare pentru <b>${esc(org)}</b>. Alege o parolă — linkul e valabil <b>24 de ore</b> și merge o singură dată.</p><p>După asta intri cu acest email și parola nouă.</p>` },
+      { title: "Задайте пароль", body: `<p>Администратор espace.md указал <b>${esc(email)}</b> как ваш email для входа в <b>${esc(org)}</b>. Задайте пароль — ссылка действует <b>24 часа</b> и работает один раз.</p>` },
+      { url, ro: "Alege parola", ru: "Задать пароль" }),
+  }),
+  emailChangedOld: (org: string, email: string) => ({
+    subject: `Adresa de intrare espace.md a fost schimbată — ${org}`,
+    html: layout(
+      { title: "Emailul de intrare s-a schimbat", body: `<p>Pentru <b>${esc(org)}</b> intrarea în espace.md se face de acum cu <b>${esc(email)}</b>, nu cu această adresă. Dacă nu ai cerut tu schimbarea, răspunde la acest email.</p>` },
+      { title: "Email для входа изменён", body: `<p>Для <b>${esc(org)}</b> вход в espace.md теперь по адресу <b>${esc(email)}</b>, а не по этому. Если вы этого не просили — ответьте на это письмо.</p>` }),
+  }),
   trialEnding: (org: string, slug: string, ends: string, price: number | null, balance: number) => ({
     subject: `Perioada de probă ${org} se termină pe ${dmy(ends)}`,
     html: layout(
