@@ -861,6 +861,8 @@ body.calmode .wrap{padding-bottom:0;max-width:none}
 .vprog{height:10px;border-radius:5px;background:var(--line);overflow:hidden;margin:6px 0 2px}.vprog i{display:block;height:100%;background:var(--ok)}
 .vday{font-size:12.5px;font-weight:600;color:var(--muted);margin:14px 2px 6px;text-transform:uppercase;letter-spacing:.03em}
 .bar .vk{color:#1d7a3a;font-weight:800}
+.billbal{display:flex;align-items:baseline;justify-content:space-between;margin:10px 0 2px}.billbal b{font-size:26px;letter-spacing:-.02em}
+.billpay{border:1px solid var(--line);border-radius:12px;padding:12px;margin:0 0 14px}.billq{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 8px}.billrow{display:flex;gap:8px}.billrow input{flex:1;min-width:0}
 .langsw{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}.langsw button{border:0;background:none;padding:5px 12px;font:inherit;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer}.langsw button[aria-pressed="true"]{background:var(--ink,#202248);color:#fff}
 </style>
 </head>
@@ -1143,7 +1145,7 @@ const catIcon=c=>CAT_ICON[c]||"📌";
 const catCol=c=>CAT_COL[Math.max(0,cfg.categories.indexOf(c))%CAT_COL.length];
 const telDigits=p=>(p||"").replace(/[^\d+]/g,"");
 
-const RO_OK=["kv_load","kv_photos","kv_guides","kv_task_photo","kv_push_key","kv_push_sub","billing","auth_me","auth_logout","auth_switch","auth_password","auth_new_org"];
+const RO_OK=["kv_load","kv_photos","kv_guides","kv_task_photo","kv_push_key","kv_push_sub","billing","bill_invoice","auth_me","auth_logout","auth_switch","auth_password","auth_new_org"];
 const CHECK_OK=["kv_verify","kv_month_close","kv_month_open"];
 let ME=null, ROLE="", EXPIRED=false;
 const SLUG=(()=>{const h=location.hostname;if(h.endsWith(".espace.md"))return h.slice(0,-".espace.md".length);let c="";try{c=new URLSearchParams(location.search).get("c")||sessionStorage.getItem("es_c")||""}catch(e){}c=c.toLowerCase().replace(/[^a-z0-9-]/g,"");try{if(c)sessionStorage.setItem("es_c",c)}catch(e){}return c})();
@@ -3092,7 +3094,7 @@ setInterval(()=>{const a=document.activeElement;if(CPIN&&document.visibilityStat
 /* ---------- espace.md: accounts, companies, subscription ---------- */
 const ROLE_T={owner:"Proprietar",manager:"Manager",checker:"Verificarea plăților",viewer:"Doar vizualizare"};
 function orgName(){return ME&&ME.org?ME.org.name:"espace.md"}
-function billLine(){const b=ME&&ME.billing;if(!b)return "";return b.expired?"a expirat — doar vizualizare":(b.in_trial?"perioadă de probă":"achitat")+" până la "+fd(b.active_until)}
+function billLine(){const b=ME&&ME.billing;if(!b)return "";if(b.expired)return "banii s-au terminat — doar vizualizare";return b.in_trial&&!(b.balance>0)?"perioadă de probă până la "+fd(b.trial_ends):"sold "+fmt(b.balance)+" lei · până la "+fd(b.active_until)}
 function fd(d){return d?d.slice(8,10)+"."+d.slice(5,7)+"."+d.slice(0,4):""}
 function annBar(){let el=$("annbar");const a=ME&&ME.announcement;let seen="";try{seen=localStorage.getItem("kv_ann_seen")||""}catch(e){}
   const sup=ME&&ME.support;
@@ -3106,17 +3108,29 @@ function subBar(){annBar();let el=$("subbar");const b=ME&&ME.billing;
   if(!show){if(el)el.remove();return}
   if(!el){el=document.createElement("div");el.id="subbar";el.className="subbar";$("app").prepend(el)}
   const exp=EXPIRED||b.expired;el.classList.toggle("bad",exp);
-  el.innerHTML=exp?`Abonamentul a expirat — datele se văd, dar modificările nu sunt disponibile. <button class="btn sm" data-setopen="bill">Detalii</button>`:`${b.in_trial?"Perioadă de probă":"Abonament"} se termină ${fd(b.active_until)} (zile: ${Math.max(0,b.days_left)}). <button class="btn sm" data-setopen="bill">Detalii</button>`}
+  const more=`<button class="btn sm" data-setopen="bill">Suplinește</button>`;
+  el.innerHTML=exp?`Banii de pe cont s-au terminat — datele se văd, dar modificările nu sunt disponibile. ${more}`:b.in_trial&&!(b.balance>0)?`Perioadă de probă până la ${fd(b.trial_ends)}. Suplinește contul ca să lucrezi mai departe. ${more}`:`Soldul ajunge până la ${fd(b.active_until)} (zile: ${Math.max(0,b.days_left)}). ${more}`}
 function setMe(me){ME=me;ROLE=me.role||"";EXPIRED=!!(me.billing&&me.billing.expired);
   RO=ROLE==="viewer"||ROLE==="checker"||EXPIRED;document.body.classList.toggle("ro",RO);
   $("org-name").textContent=orgName();document.title=orgName()+" · espace.md";subBar()}
 async function billLoad(){const box=$("bill-box");if(!box)return;try{const b=await api("billing");
-  const rows=b.tiers.map(([lo,hi,pr])=>`<tr${b.apts>=lo&&b.apts<=hi||(b.apts<lo&&lo===1)?' class="cur"':""}><td>${lo}–${hi}</td><td style="text-align:right"><b>${pr}</b> lei</td></tr>`).join("");
-  box.innerHTML=`<div class="billtop"><b>${b.expired?"Abonamentul a expirat":b.in_trial?"Perioadă de probă":"Abonamentul e activ"}</b><span class="small">${b.expired?"date doar pentru vizualizare":"până la "+fd(b.active_until)+" · zile rămase: "+Math.max(0,b.days_left)}</span></div>
-    <p style="margin:10px 0 4px">Apartamente acum: <b>${b.apts}</b> → tarif <b>${b.price!=null?b.price+" lei/lună":"individual"}</b></p>
-    <table class="billt"><thead><tr><th style="text-align:left">Apartamente</th><th style="text-align:right">Pe lună</th></tr></thead><tbody>${rows}<tr><td>71+</td><td style="text-align:right">individual</td></tr></tbody></table>
-    <p class="small">Plata — pe factură, prin transfer bancar. Scrieți-ne și prelungim abonamentul imediat după plată.</p>
-    ${b.invoices&&b.invoices.length?`<b>Facturi</b>${b.invoices.map(x=>`<div class="small"><a href="/f/${esc(x.token)}" target="_blank" rel="noopener">№ ${esc(x.number)}</a> · ${fd(x.issued_at)} · ${x.amount} lei · ${x.status==="paid"?"achitat":"de plătit până la "+fd(x.due_at)}</div>`).join("")}<br>`:""}${b.payments&&b.payments.length?`<b>Plăți</b>${b.payments.map(x=>`<div class="small">${fd(x.created_at.slice(0,10))} · ${x.amount} lei · ${x.months} luni → până la ${fd(x.paid_until)}</div>`).join("")}`:""}`}catch(e){box.innerHTML='<span class="small">Nu s-a încărcat</span>'}}
+  const rows=b.tiers.map(([lo,hi,pr])=>`<tr${b.apts>=lo&&b.apts<=hi||(b.apts<lo&&lo===1)?' class="cur"':""}><td>${lo}–${hi}</td><td style="text-align:right"><b>${pr}</b> lei</td><td style="text-align:right">${fmt(Math.round(pr*12/365*100)/100)} lei</td></tr>`).join("");
+  const canPay=(ROLE==="owner"||ROLE==="manager")&&!(ME&&ME.support), m=b.price||0;
+  const quick=m?[1,3,6,12].map(n=>`<button type="button" class="btn sm" data-billq="${m*n}">${n} ${n===1?"lună":"luni"} · ${m*n} lei</button>`).join(""):"";
+  const MN=["ianuarie","februarie","martie","aprilie","mai","iunie","iulie","august","septembrie","octombrie","noiembrie","decembrie"];
+  box.innerHTML=`<div class="billtop"><b>${b.expired?"Banii de pe cont s-au terminat":b.in_trial?"Perioadă de probă până la "+fd(b.trial_ends):"Abonamentul e activ"}</b><span class="small">${b.expired?"date doar pentru vizualizare":b.daily?"ajunge până la "+fd(b.active_until)+" · zile: "+Math.max(0,b.days_left):""}</span></div>
+    <div class="billbal"><span class="small">Pe cont</span><b>${fmt(b.balance)} lei</b></div>
+    <p style="margin:6px 0 4px">Apartamente acum: <b>${b.apts}</b> → tarif <b>${b.price!=null?b.price+" lei/lună":"individual"}</b>${b.daily?`, se scad <b>${fmt(b.daily)} lei pe zi</b>`:""}</p>
+    <p class="small" style="margin:0 0 10px">Plată în avans: suplinești contul, iar în fiecare zi se scade partea zilei după tariful de azi. Când banii se termină, aplicația trece în modul doar vizualizare — datele nu se pierd.${b.in_trial?" Zilele de probă sunt gratuite.":""}</p>
+    ${canPay?`<div class="billpay"><label class="l" for="bill-amt">Suplinește cu, lei</label><div class="billq">${quick}</div><div class="billrow"><input id="bill-amt" inputmode="decimal" value="${m*3||""}" placeholder="suma"><button class="btn primary" id="bill-go" type="button">Primește factura</button></div><p class="small" style="margin:6px 0 0">Factura vine pe email, plata prin transfer. Banii apar pe sold imediat ce ajung.</p></div>`:""}
+    <table class="billt"><thead><tr><th style="text-align:left">Apartamente</th><th style="text-align:right">Pe lună</th><th style="text-align:right">Pe zi</th></tr></thead><tbody>${rows}<tr><td>71+</td><td style="text-align:right">individual</td><td></td></tr></tbody></table>
+    ${b.invoices&&b.invoices.length?`<b>Facturi</b>${b.invoices.map(x=>`<div class="small"><a href="/f/${esc(x.token)}" target="_blank" rel="noopener">№ ${esc(x.number)}</a> · ${fd(x.issued_at)} · ${fmt(x.amount)} lei · ${x.status==="paid"?"achitat":"de plătit până la "+fd(x.due_at)}</div>`).join("")}<br>`:""}
+    ${b.payments&&b.payments.length?`<b>Supliniri</b>${b.payments.map(x=>`<div class="small">${fd(x.created_at.slice(0,10))} · +${fmt(x.amount)} lei${x.balance_after!=null?" → sold "+fmt(x.balance_after)+" lei":x.paid_until?" → până la "+fd(x.paid_until):""}</div>`).join("")}<br>`:""}
+    ${b.charges&&b.charges.length?`<b>Scăderi</b>${b.charges.map(x=>`<div class="small">${MN[+x.month.slice(5,7)-1]} ${x.month.slice(0,4)} · zile: ${x.days} · −${fmt(x.amount)} lei</div>`).join("")}`:""}`;
+  box.querySelectorAll("[data-billq]").forEach(q=>q.onclick=()=>{$("bill-amt").value=q.dataset.billq});
+  const go=$("bill-go");if(go)go.onclick=async()=>{const v=+String($("bill-amt").value).replace(",",".").replace(/\s/g,"");if(!(v>=50)){toast("Minimum 50 lei");return}
+    go.disabled=true;try{const r=await api("bill_invoice",{amount:v});toast("Gata: № "+r.number+" — trimisă pe email");window.open("/f/"+r.token,"_blank");billLoad()}catch(e){toast(e.code==="too_many_open"?"Există deja 5 facturi neachitate":"Nu a reușit")}finally{go.disabled=false}}
+  }catch(e){box.innerHTML='<span class="small">Nu s-a încărcat</span>'}}
 async function teamLoad(){const el=$("team-list");if(!el)return;try{const list=await api("team_list");
   el.innerHTML=list.map(u=>`<div class="tmrow"><span class="m"><b>${esc(u.name||u.email)}</b><small>${esc(u.email)}</small></span>${u.role==="owner"||u.id===(ME&&ME.user.id)?`<span class="small">${ROLE_T[u.role]}</span>`:`<select data-tmrole="${esc(u.id)}" aria-label="Rol">${["manager","checker","viewer","owner"].map(r=>`<option value="${r}"${u.role===r?" selected":""}>${ROLE_T[r]}</option>`).join("")}</select><button class="btn sm danger" data-tmdel="${esc(u.id)}">Scoate</button>`}</div>`).join("")}catch(e){el.textContent="Nu s-a încărcat"}}
 async function logout(){try{await api("auth_logout")}catch(e){}ls.set("tok","");PIN=null;ME=null;RO=false;document.body.classList.remove("ro");closeSheet();lock("")}

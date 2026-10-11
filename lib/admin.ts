@@ -1,7 +1,7 @@
 // espace.md — the platform owner's panel (admin.espace.md): metrics, companies, invoices, leads, activity, announcements, settings.
 import {
   type Ctx, json, uuid, num, str, isDate, isEmail, all, one, run, randCode, newSession,
-  TIERS, today, addDays, addMonths, activeUntil, tierFor, sha256hex, hashPassword, starterConfig,
+  TIERS, today, addDays, addMonths, activeUntil, tierFor, dailyRate, coveredUntil, topUp, billingOf, sha256hex, hashPassword, starterConfig,
 } from "./core";
 import { slugOk } from "./host";
 import { sendMail, mails, orgEmail } from "./mail";
@@ -59,13 +59,16 @@ async function orgRows(db: D1Database) {
   const t = today();
   return orgs.map((o) => {
     const n = apts[o.id] || 0, tier = tierFor(n), custom = Number(o.custom_price) > 0 ? Number(o.custom_price) : 0;
-    const until = activeUntil(o), paying = (o.paid_until || "") >= t && o.status !== "blocked";
-    const state = o.status === "blocked" ? "blocked" : paying ? "paid" : (o.trial_ends || "") >= t ? "trial" : "expired";
+    const price = custom || tier.price, daily = price == null ? null : dailyRate(price), balance = Math.round((Number(o.balance) || 0) * 100) / 100;
+    const covered = coveredUntil(o), funded = covered >= t && o.status !== "blocked";
+    // how far the balance reaches after the days already covered (trial, old paid time, days taken)
+    const until = funded && daily ? addDays(covered, Math.floor(balance / daily + 1e-9)) : covered;
+    const state = o.status === "blocked" ? "blocked" : !funded ? "expired" : (o.trial_ends || "") >= t ? "trial" : "paid";
     let billing: any = {}; try { billing = JSON.parse(o.billing || "{}"); } catch {}
     return {
       id: o.id, name: o.name, code: o.code, status: o.status, state, note: o.note, created_at: o.created_at,
       trial_ends: o.trial_ends, paid_until: o.paid_until, active_until: until, days_left: daysBetween(t, until || t),
-      apts: n, price: custom || tier.price, custom_price: custom, tier_price: tier.price,
+      apts: n, price, daily, balance, custom_price: custom, tier_price: tier.price, charged_through: o.charged_through || "",
       members: mem[o.id] || 0, staff: st[o.id] || 0, bookings_30d: bb[o.id] || 0,
       last_activity: last[o.id] || "", last_login: lg[o.id] || "",
       owner_name: own[o.id]?.name || "", owner_email: own[o.id]?.email || "",
@@ -79,22 +82,19 @@ async function overview(db: D1Database) {
   const orgs = await orgRows(db);
   const t = today(), d30 = addDays(t, -30);
   const paying = orgs.filter((o) => o.state === "paid"), trial = orgs.filter((o) => o.state === "trial");
-  const mrr = paying.reduce((s, o) => s + (o.price || 0), 0);
-  // trial → paid: companies whose 14 days are over, and how many of them ever paid
+  // MRR: what the companies being charged right now pay per month (their daily fee × 365 / 12)
+  const mrr = paying.reduce((s, o) => s + (o.daily ? Math.round(o.daily * 365 / 12) : 0), 0);
+  // trial → paid: companies whose 14 days are over, and how many of them ever topped up
   const matured = orgs.filter((o) => (o.trial_ends || "") < t);
   const converted = matured.filter((o) => o.payments > 0).length;
-  // churn: paying customers whose paid time ran out in the last 30 days
-  const lapsed = orgs.filter((o) => o.payments > 0 && o.state !== "paid" && (o.active_until || "") >= d30 && (o.active_until || "") < t);
+  // churn: paying customers whose balance ran out in the last 30 days
+  const lapsed = orgs.filter((o) => o.payments > 0 && o.state === "expired" && (o.active_until || "") >= d30);
   const payments = await all(db, "SELECT * FROM payments ORDER BY created_at DESC");
-  // MRR by month from payments: each payment spreads amount/months over the months it covers
-  // (paid during the trial → counts from the payment day)
+  // used per month: the daily fees actually taken (top-ups not yet used stay on the balances)
   const months = lastMonths(12);
-  const mrrSeries = months.map((m) => {
-    const mid = m + "-15";
-    let s = 0;
-    for (const p of payments) { const start = addMonths(p.paid_until, -Math.max(1, p.months || 1)), paidOn = String(p.created_at || "").slice(0, 10); const from = paidOn && paidOn < start ? paidOn : start; if (from <= mid && mid < p.paid_until) s += (p.amount || 0) / Math.max(1, p.months || 1); }
-    return Math.round(s);
-  });
+  const used = await all(db, "SELECT substr(day, 1, 7) AS m, SUM(amount) AS s FROM charges WHERE day >= ? GROUP BY m", months[0] + "-01");
+  const usedBy = Object.fromEntries(used.map((r) => [r.m, r.s]));
+  const mrrSeries = months.map((m) => Math.round(usedBy[m] || 0));
   const revenue = months.map((m) => Math.round(payments.filter((p) => monthKey(p.created_at) === m).reduce((s, p) => s + (p.amount || 0), 0)));
   // sign-ups per week, last 12 weeks
   const weeks: string[] = []; for (let i = 11; i >= 0; i--) weeks.push(addDays(t, -7 * i - 6));
@@ -105,7 +105,7 @@ async function overview(db: D1Database) {
   const attention: any[] = [];
   for (const o of orgs) {
     if (o.state === "trial" && o.days_left <= 3) attention.push({ kind: "trial_end", org_id: o.id, name: o.name, days: o.days_left, price: o.price });
-    if (o.state === "paid" && o.days_left <= 7) attention.push({ kind: "renewal", org_id: o.id, name: o.name, days: o.days_left, price: o.price });
+    if ((o.state === "paid" || o.state === "trial" && o.payments > 0) && o.days_left <= 7) attention.push({ kind: "renewal", org_id: o.id, name: o.name, days: o.days_left, price: o.price });
     if (o.state === "expired" && (o.active_until || "") >= addDays(t, -14)) attention.push({ kind: "expired", org_id: o.id, name: o.name, days: o.days_left, price: o.price });
     if (o.state === "paid" && (!o.last_activity || o.last_activity.slice(0, 10) < addDays(t, -14))) attention.push({ kind: "inactive", org_id: o.id, name: o.name, since: o.last_activity });
   }
@@ -122,7 +122,7 @@ async function overview(db: D1Database) {
       conversion: matured.length ? Math.round((converted / matured.length) * 100) : null, matured: matured.length,
       churn: paying.length + lapsed.length ? Math.round((lapsed.length / (paying.length + lapsed.length)) * 100) : 0, lapsed: lapsed.length,
       collected_month: revenue[revenue.length - 1], collected_prev: revenue[revenue.length - 2] || 0,
-      apts_total: orgs.reduce((s, o) => s + o.apts, 0), unpaid_invoices: invoices.reduce((s, i) => s + (i.amount || 0), 0),
+      apts_total: orgs.reduce((s, o) => s + o.apts, 0), balances: Math.round(orgs.reduce((s, o) => s + (o.balance || 0), 0)), unpaid_invoices: invoices.reduce((s, i) => s + (i.amount || 0), 0),
       new_leads: leads.filter((l) => l.status === "new").length, signups_30d: orgs.filter((o) => o.created_at.slice(0, 10) >= d30).length,
       this_month: thisMonth, last_month: lastMonth,
     },
@@ -138,15 +138,26 @@ async function nextInvoiceNumber(db: D1Database, prefix: string) {
   const r = await one(db, "UPDATE sys_state SET v = CAST(v AS INTEGER) + 1 WHERE k = ? RETURNING v", k);
   return `${prefix || "ESP"}-${y}-${String(r.v).padStart(4, "0")}`;
 }
-// a payment extends paid time by N months from the later of today and the current end
-async function recordPayment(db: D1Database, org: any, months: number, amount: number, note: string, method: string, invoiceId = "") {
-  const base = [today(), org.paid_until || "", org.trial_ends || ""].sort().pop()!;
-  const until = addMonths(base, months), pid = uuid();
-  await db.batch([
-    db.prepare("UPDATE orgs SET paid_until = ?, status = 'active' WHERE id = ?").bind(until, org.id),
-    db.prepare("INSERT INTO payments(id, org_id, amount, months, paid_until, note, method, invoice_id) VALUES (?,?,?,?,?,?,?,?)").bind(pid, org.id, amount, months, until, note, method, invoiceId),
-  ]);
-  return { payment_id: pid, paid_until: until };
+// an invoice to top up the balance (months = 0 marks the prepaid kind); used by the admin and by the company itself
+export async function createInvoice(db: D1Database, env: Env, org: any, amount: number, opts: { note?: string; send?: boolean; actor?: string } = {}) {
+  const s = await getSettings(db), b = await billingOf(db, org);
+  let billing: any = {}; try { billing = JSON.parse(org.billing || "{}"); } catch {}
+  const issued = today(), due = addDays(issued, Math.max(0, Number(s.due_days) || 5));
+  const reach = b.daily ? Math.floor(amount / b.daily) : 0;
+  const buyer = { name: org.name, ...billing };
+  const id = uuid(), number = await nextInvoiceNumber(db, s.prefix), token = randCode(16);
+  await run(db, `INSERT INTO invoices(id, org_id, number, token, issued_at, due_at, period_from, period_to, months, apts, amount, status, buyer, seller, note)
+    VALUES (?,?,?,?,?,?,?,?,0,?,?, 'sent', ?,?,?)`, id, org.id, number, token, issued, due, issued, addDays(issued, reach), b.apts, amount, JSON.stringify(buyer), JSON.stringify(s), opts.note || "");
+  await logEvent(db, "invoice", org.id, opts.actor || "", `Factura ${number}: suplinire ${amount} lei`);
+  let mailed = "";
+  if (opts.send !== false) mailed = await sendMail(env, db, { to: buyer.email || await orgEmail(db, org.id), ...mails.invoice(org.name, number, amount, due, `https://espace.md/f/${token}`), kind: "invoice", orgId: org.id, key: "inv:" + id });
+  return { id, number, token, mailed, amount, due_at: due };
+}
+async function paid(db: D1Database, env: Env, org: any, amount: number, actor: string, fields: { note?: string; method?: string; invoiceId?: string }, notify = true) {
+  const r = await topUp(db, org, amount, fields);
+  await logEvent(db, "payment", org.id, actor, `Suplinire ${amount} lei → sold ${r.balance} lei, activ până ${r.active_until}`);
+  if (notify) await sendMail(env, db, { to: await orgEmail(db, org.id), ...mails.paid(org.name, amount, r.balance, r.active_until), kind: "paid", orgId: org.id, key: "paid:" + r.payment_id });
+  return r;
 }
 
 const LEAD_STATES = ["new", "contacted", "demo", "won", "lost"];
@@ -252,12 +263,10 @@ export async function handleAdmin(fn: string, body: any, c: Ctx, db: D1Database,
         (SELECT COUNT(*) FROM handovers WHERE org_id = ?) AS shifts, (SELECT COUNT(*) FROM expenses WHERE org_id = ?) AS expenses, (SELECT COUNT(*) FROM guides WHERE org_id = ?) AS guides`, O, O, O, O, O);
       return json({ org: row, members, payments, invoices, events, leads, usage, emails });
     }
-    case "sa_pay": {
-      const months = Math.max(1, Math.min(24, Math.floor(num(body.months)) || 1)), amount = num(body.amount), note = str(body.note, 300);
-      const r = await recordPayment(db, org, months, amount, note, str(body.method, 30));
-      await logEvent(db, "payment", O, actor, `Plată ${amount} lei pentru ${months} luni → activ până ${r.paid_until}`);
-      if (body.notify !== false) await sendMail(env, db, { to: await orgEmail(db, O), ...mails.paid(org.name, amount, r.paid_until), kind: "paid", orgId: O, key: "paid:" + r.payment_id });
-      return json(r);
+    case "sa_pay": { // money received: goes onto the balance
+      const amount = Math.round(num(body.amount) * 100) / 100;
+      if (!(amount > 0) || amount > 1000000) return json({ message: "bad_amount" }, 400);
+      return json(await paid(db, env, org, amount, actor, { note: str(body.note, 300), method: str(body.method, 30) }, body.notify !== false));
     }
     case "sa_status": {
       const st = body.status === "blocked" ? "blocked" : "active";
@@ -300,30 +309,20 @@ export async function handleAdmin(fn: string, body: any, c: Ctx, db: D1Database,
       return json({ token, slug: org.code });
     }
     case "sa_invoice_create": {
-      const s = await getSettings(db);
-      const row = (await orgRows(db)).find((o) => o.id === O)!;
-      const months = Math.max(1, Math.min(24, Math.floor(num(body.months)) || 1));
-      const price = row.price ?? 0;
-      const amount = body.amount !== undefined && body.amount !== "" ? num(body.amount) : price * months;
-      const from = isDate(body.period_from) ? body.period_from : ((row.active_until || "") >= today() ? row.active_until : today());
-      const to = addMonths(from, months), issued = today(), due = addDays(issued, Math.max(0, Number(s.due_days) || 5));
-      const buyer = { name: org.name, ...row.billing };
-      const id = uuid(), number = await nextInvoiceNumber(db, s.prefix), token = randCode(16);
-      await run(db, `INSERT INTO invoices(id, org_id, number, token, issued_at, due_at, period_from, period_to, months, apts, amount, status, buyer, seller, note)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?, 'sent', ?,?,?)`, id, O, number, token, issued, due, from, to, months, row.apts, amount, JSON.stringify(buyer), JSON.stringify(s), str(body.note, 500));
-      await logEvent(db, "invoice", O, actor, `Factura ${number}: ${amount} lei, ${months} luni`);
-      let mailed = "";
-      if (body.send !== false) mailed = await sendMail(env, db, { to: buyer.email || await orgEmail(db, O), ...mails.invoice(org.name, number, amount, due, `https://espace.md/f/${token}`), kind: "invoice", orgId: O, key: "inv:" + id });
-      return json({ id, number, token, mailed });
+      const b = await billingOf(db, org);
+      const amount = body.amount !== undefined && body.amount !== "" ? Math.round(num(body.amount) * 100) / 100 : (b.price ?? 0) * Math.max(1, Math.min(24, Math.floor(num(body.months)) || 1));
+      if (!(amount > 0)) return json({ message: "bad_amount" }, 400);
+      return json(await createInvoice(db, env, org, amount, { note: str(body.note, 500), send: body.send !== false, actor }));
     }
     case "sa_invoice_status": {
       const inv = await one(db, "SELECT * FROM invoices WHERE id = ? AND org_id = ?", str(body.id, 40), O);
       if (!inv) return json({ message: "not_found" }, 404);
       if (body.status === "paid" && inv.status !== "paid") {
-        const r = await recordPayment(db, org, inv.months, inv.amount, "Factura " + inv.number, str(body.method, 30) || "transfer", inv.id);
-        await run(db, "UPDATE invoices SET status = 'paid', paid_at = ?, payment_id = ? WHERE id = ?", today(), r.payment_id, inv.id);
-        await logEvent(db, "payment", O, actor, `Factura ${inv.number} achitată: ${inv.amount} lei → activ până ${r.paid_until}`);
-        await sendMail(env, db, { to: await orgEmail(db, O), ...mails.paid(org.name, inv.amount, r.paid_until), kind: "paid", orgId: O, key: "paid:" + r.payment_id });
+        if (inv.status === "void") return json({ message: "bad_status" }, 409);
+        const claim = await run(db, "UPDATE invoices SET status = 'paid', paid_at = ? WHERE id = ? AND status = 'sent'", today(), inv.id);
+        if (!claim.meta.changes) return json({ message: "bad_status" }, 409);
+        const r = await paid(db, env, org, inv.amount, actor, { note: "Factura " + inv.number, method: str(body.method, 30) || "transfer", invoiceId: inv.id });
+        await run(db, "UPDATE invoices SET payment_id = ? WHERE id = ?", r.payment_id, inv.id);
         return json(r);
       }
       if (body.status === "void" && inv.status === "sent") {

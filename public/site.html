@@ -301,7 +301,7 @@ dialog .row .btn{flex:1}
       <ul class="incl">
         <li data-t="i1">14 zile gratuit, fără card</li>
         <li data-t="i2">Utilizatori și menajere nelimitați</li>
-        <li data-t="i3">Plată pe factură, în lei, de la o firmă din Moldova</li>
+        <li data-t="i3">Plată în avans: suplinești contul, zilnic se scade doar ziua folosită</li>
         <li data-t="i4">Ajutor la pornire: îți introducem apartamentele împreună</li>
       </ul>
       <div class="calc">
@@ -332,7 +332,7 @@ dialog .row .btn{flex:1}
     <div class="faq">
       <details><summary data-t="q1">Trebuie să instalez ceva?</summary><p data-t="a1">Nu. Se deschide în browser pe telefon sau calculator. Pe telefon o poți pune pe ecranul principal ca o aplicație și primești notificări.</p></details>
       <details><summary data-t="q2">Se sincronizează cu Booking și Airbnb?</summary><p data-t="a2">Deocamdată rezervările se introduc în calendar de manager — durează câteva secunde. Importul automat al calendarelor e următorul lucru la care lucrăm.</p></details>
-      <details><summary data-t="q3">Ce se întâmplă după cele 14 zile?</summary><p data-t="a3">Îți trimitem factura pentru tariful tău. Dacă nu plătești, datele rămân și le poți vedea și exporta, dar nu mai poți face modificări.</p></details>
+      <details><summary data-t="q3">Ce se întâmplă după cele 14 zile?</summary><p data-t="a3">Suplinești contul cu orice sumă — pe factură, transfer în lei. În fiecare zi se scade partea zilei din tariful lunar (la 199 lei/lună — 6,54 lei pe zi). Când banii se termină, datele rămân și le poți vedea și exporta, dar nu mai poți face modificări până la suplinire.</p></details>
       <details><summary data-t="q4">Cine îmi vede datele?</summary><p data-t="a4">Doar oamenii pe care îi adaugi tu. Fiecare companie are adresa ei și datele ei, separate de ale celorlalte.</p></details>
       <details><summary data-t="q5">Am un singur apartament. Merită?</summary><p data-t="a5">Pentru 1–4 apartamente costă 199 lei pe lună. Merită dacă ai o menajeră și oaspeți din mai multe surse — atunci nu mai ții totul în cap.</p></details>
       <details><summary data-t="q6">Pot trece de la RealtyCalendar sau din Excel?</summary><p data-t="a6">Da. Scrie-ne și te ajutăm să muți apartamentele și rezervările viitoare.</p></details>
@@ -416,12 +416,12 @@ const T={
   r4_h:"Владелец",r4_s:"и кто проверяет деньги",r4_1:"Доход, расходы и загрузка по месяцам",r4_2:"Проверка каждой оплаты и каждой смены",r4_3:"Экспорт в Excel, лист на каждую квартиру",r4_4:"Отдельный доступ: менеджер, бухгалтер, только просмотр",
   how_h:"Запускаетесь за один вечер",s1_h:"Создаёте компанию",s1:"Выбираете адрес, например <b>vashe-imya.espace.md</b>. Это минута.",s2_h:"Добавляете квартиры",s2:"Название, адрес, этаж, фото. Потом брони на эту неделю.",s3_h:"Зовёте команду",s3:"Менеджеры входят по email, горничные — по PIN. Каждый видит только своё.",
   price_h:"Платите за количество квартир",price_p:"Одна цена в месяц за всю команду — не за каждого человека. Все функции входят в любой тариф.",
-  i1:"14 дней бесплатно, без карты",i2:"Неограниченно пользователей и горничных",i3:"Оплата по счёту, в леях, от молдавской компании",i4:"Помощь на старте: внесём квартиры вместе с вами",
+  i1:"14 дней бесплатно, без карты",i2:"Неограниченно пользователей и горничных",i3:"Оплата вперёд: пополняете счёт, каждый день списывается только прошедший день",i4:"Помощь на старте: внесём квартиры вместе с вами",
   calc_l:"Сколько у вас квартир?",per_month:"в месяц",t_apts:"Квартир",t_month:"В месяц",indiv:"индивидуально",lei:"лей",
   proof:"квартир в Кишинёве каждый день ведутся в espace.md: брони, смены, горничные и проверка каждой оплаты.",proof_s:"Мы сделали приложение для своей команды, на тех задачах, с которыми сталкиваемся каждый день. Всё, что вы видите на этой странице, используется на практике.",
   faq_h:"Вопросы",q1:"Нужно что-то устанавливать?",a1:"Нет. Открывается в браузере на телефоне или компьютере. На телефоне можно добавить на главный экран как приложение и получать уведомления.",
   q2:"Есть синхронизация с Booking и Airbnb?",a2:"Пока брони вносит менеджер — это несколько секунд. Автоматический импорт календарей — следующее, над чем мы работаем.",
-  q3:"Что будет после 14 дней?",a3:"Мы пришлём счёт по вашему тарифу. Если не оплатить, данные останутся — их можно смотреть и выгрузить, но менять уже нельзя.",
+  q3:"Что будет после 14 дней?",a3:"Пополняете счёт на любую сумму — по счёту, переводом в леях. Каждый день списывается доля дня от месячного тарифа (при 199 лей/месяц — 6,54 лей в день). Когда деньги закончатся, данные останутся — их можно смотреть и выгрузить, но менять нельзя до пополнения.",
   q4:"Кто видит мои данные?",a4:"Только люди, которых вы добавили. У каждой компании свой адрес и свои данные, отдельно от других.",
   q5:"У меня одна квартира. Есть смысл?",a5:"Для 1–4 квартир — 199 лей в месяц. Есть смысл, если у вас горничная и гости из разных источников: больше не нужно держать всё в голове.",
   q6:"Можно перейти с RealtyCalendar или из Excel?",a6:"Да. Напишите нам — поможем перенести квартиры и будущие брони.",

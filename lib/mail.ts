@@ -1,7 +1,7 @@
 // espace.md — transactional email through Resend (https://resend.com).
 // Without RESEND_API_KEY nothing is sent: each email is still recorded in the `emails` table with status 'skipped',
 // so the admin panel shows what would have gone out.
-import { type Env, all, one, run, uuid, today, addDays, tierFor } from "./core";
+import { type Env, all, one, run, uuid, today, addDays, billingOf } from "./core";
 
 const esc = (s: unknown) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 const dmy = (d: string) => (d && d.length >= 10 ? d.slice(8, 10) + "." + d.slice(5, 7) + "." + d.slice(0, 4) : "");
@@ -65,18 +65,25 @@ export const mails = {
       { title: "Сброс пароля", body: `<p>Кто-то (скорее всего вы) запросил новый пароль для аккаунта espace.md. Ссылка действует <b>1 час</b>. Если это были не вы — просто проигнорируйте письмо.</p>` },
       { url, ro: "Alege o parolă nouă", ru: "Задать новый пароль" }),
   }),
-  trialEnding: (org: string, slug: string, ends: string, price: number | null) => ({
+  trialEnding: (org: string, slug: string, ends: string, price: number | null, balance: number) => ({
     subject: `Perioada de probă ${org} se termină pe ${dmy(ends)}`,
     html: layout(
-      { title: "Proba se termină în 3 zile", body: `<p>Perioada gratuită pentru <b>${esc(org)}</b> se termină pe <b>${dmy(ends)}</b>.${price ? ` Tariful tău e <b>${price} lei pe lună</b>.` : ""} După această dată datele rămân, dar nu se mai pot face modificări până la plată.</p><p>Scrie-ne și îți trimitem factura.</p>` },
-      { title: "Пробный период заканчивается через 3 дня", body: `<p>Бесплатный период для <b>${esc(org)}</b> заканчивается <b>${dmy(ends)}</b>.${price ? ` Ваш тариф — <b>${price} лей в месяц</b>.` : ""} После этой даты данные сохранятся, но изменять их будет нельзя до оплаты.</p>` },
+      { title: "Proba se termină în 3 zile", body: `<p>Perioada gratuită pentru <b>${esc(org)}</b> se termină pe <b>${dmy(ends)}</b>.${price ? ` Tariful tău e <b>${price} lei pe lună</b>, plătit în avans: suplinești contul, iar zilnic se scade partea zilei (${lei2(price * 12 / 365)} lei).` : ""}${balance > 0 ? ` Pe cont ai acum <b>${lei2(balance)} lei</b>.` : " Pe cont nu sunt bani încă — fără suplinire, după această dată datele rămân, dar nu se mai pot face modificări."}</p><p>Factura de suplinire o poți cere din aplicație: Meniu → Setări → Abonament.</p>` },
+      { title: "Пробный период заканчивается через 3 дня", body: `<p>Бесплатный период для <b>${esc(org)}</b> заканчивается <b>${dmy(ends)}</b>.${price ? ` Ваш тариф — <b>${price} лей в месяц</b>, оплата вперёд: пополняете счёт, каждый день списывается доля дня (${lei2(price * 12 / 365)} лей).` : ""}${balance > 0 ? ` Сейчас на счёте <b>${lei2(balance)} лей</b>.` : " Без пополнения после этой даты данные сохранятся, но изменять их будет нельзя."} Счёт на пополнение — в приложении: Меню → Настройки → Подписка.</p>` },
+      { url: orgUrl(slug), ro: "Deschide compania", ru: "Открыть компанию" }),
+  }),
+  lowBalance: (org: string, slug: string, balance: number, days: number) => ({
+    subject: `${org}: soldul ajunge pentru ${days} ${days === 1 ? "zi" : "zile"}`,
+    html: layout(
+      { title: "Suplinește contul", body: `<p>Pe contul <b>${esc(org)}</b> au rămas <b>${lei2(balance)} lei</b> — ajung pentru <b>${days} ${days === 1 ? "zi" : "zile"}</b>. Când banii se termină, aplicația trece în modul doar vizualizare până la suplinire.</p><p>Factura o ceri din aplicație: Meniu → Setări → Abonament.</p>` },
+      { title: "Пополните счёт", body: `<p>На счёте <b>${esc(org)}</b> осталось <b>${lei2(balance)} лей</b> — хватит на <b>${days}</b> дн. Когда деньги закончатся, приложение перейдёт в режим просмотра до пополнения. Счёт на пополнение — Меню → Настройки → Подписка.</p>` },
       { url: orgUrl(slug), ro: "Deschide compania", ru: "Открыть компанию" }),
   }),
   expired: (org: string, slug: string) => ({
-    subject: `Abonamentul ${org} a expirat`,
+    subject: `${org}: soldul s-a terminat — doar vizualizare`,
     html: layout(
-      { title: "Abonamentul a expirat", body: `<p>Datele <b>${esc(org)}</b> sunt în siguranță și le poți vedea, dar modificările sunt oprite până la plată. Răspunde la acest email și îți trimitem factura.</p>` },
-      { title: "Подписка закончилась", body: `<p>Данные <b>${esc(org)}</b> в сохранности и доступны для просмотра, но изменения остановлены до оплаты. Ответьте на это письмо — пришлём счёт.</p>` },
+      { title: "Soldul s-a terminat", body: `<p>Banii de pe contul <b>${esc(org)}</b> s-au terminat. Datele sunt în siguranță și le poți vedea, dar modificările sunt oprite până la suplinire. Ceri factura din aplicație (Meniu → Setări → Abonament) sau răspunde la acest email.</p>` },
+      { title: "Деньги на счёте закончились", body: `<p>Средства на счёте <b>${esc(org)}</b> закончились. Данные в сохранности и доступны для просмотра, но изменения остановлены до пополнения. Счёт — в приложении (Меню → Настройки → Подписка) или ответьте на это письмо.</p>` },
       { url: orgUrl(slug), ro: "Deschide compania", ru: "Открыть компанию" }),
   }),
   invoice: (org: string, number: string, amount: number, due: string, url: string) => ({
@@ -93,13 +100,14 @@ export const mails = {
       { title: overdue ? "Срок оплаты счёта — сегодня" : "Напоминание об оплате", body: `<p>Счёт <b>${esc(number)}</b> для <b>${esc(org)}</b>, <b>${amount} лей</b>, оплатить до <b>${dmy(due)}</b>. Если уже оплатили — проигнорируйте письмо.</p>` },
       { url, ro: "Deschide factura", ru: "Открыть счёт" }),
   }),
-  paid: (org: string, amount: number, until: string) => ({
-    subject: `Plată primită — ${org} activ până la ${dmy(until)}`,
+  paid: (org: string, amount: number, balance: number, until: string) => ({
+    subject: `Plată primită — ${org}: sold ${lei2(balance)} lei`,
     html: layout(
-      { title: "Mulțumim, plata a ajuns", body: `<p>Am primit <b>${amount} lei</b> pentru <b>${esc(org)}</b>. Abonamentul e activ până la <b>${dmy(until)}</b>.</p>` },
-      { title: "Спасибо, оплата получена", body: `<p>Получили <b>${amount} лей</b> за <b>${esc(org)}</b>. Подписка активна до <b>${dmy(until)}</b>.</p>` }),
+      { title: "Mulțumim, plata a ajuns", body: `<p>Am pus <b>${lei2(amount)} lei</b> pe contul <b>${esc(org)}</b>. Sold: <b>${lei2(balance)} lei</b>${until ? `, ajunge aproximativ până la <b>${dmy(until)}</b> la numărul actual de apartamente` : ""}.</p>` },
+      { title: "Спасибо, оплата получена", body: `<p>Зачислили <b>${lei2(amount)} лей</b> на счёт <b>${esc(org)}</b>. Баланс: <b>${lei2(balance)} лей</b>${until ? `, хватит примерно до <b>${dmy(until)}</b> при текущем числе квартир` : ""}.</p>` }),
   }),
 };
+const lei2 = (n: number) => (Math.round(n * 100) / 100).toFixed(2).replace(".", ",");
 
 // once a day: trial ending in 3 days, subscription just ended, invoice due in 3 days / today
 export async function dailyMail(env: Env, db: D1Database) {
@@ -109,13 +117,14 @@ export async function dailyMail(env: Env, db: D1Database) {
   let n = 0;
   const orgs = await all(db, "SELECT o.*, (SELECT data FROM app_config c WHERE c.org_id = o.id) AS cfg FROM orgs o WHERE o.status = 'active'");
   for (const o of orgs) {
-    let apts = 0; try { apts = (JSON.parse(o.cfg || "{}").apts || []).length; } catch {}
-    const price = Number(o.custom_price) > 0 ? Number(o.custom_price) : tierFor(apts).price;
-    const paidActive = (o.paid_until || "") >= t;
+    const b = await billingOf(db, o);
     const to = await orgEmail(db, o.id); if (!to) continue;
-    if (!paidActive && o.trial_ends === addDays(t, 3)) { const m = mails.trialEnding(o.name, o.code, o.trial_ends, price); await sendMail(env, db, { to, ...m, kind: "trial_ending", orgId: o.id, key: `trial3:${o.id}:${o.trial_ends}` }); n++; }
-    const until = [o.trial_ends || "", o.paid_until || ""].sort().pop() || "";
-    if (until === addDays(t, -1)) { const m = mails.expired(o.name, o.code); await sendMail(env, db, { to, ...m, kind: "expired", orgId: o.id, key: `expired:${o.id}:${until}` }); n++; }
+    const last = await one(db, "SELECT id FROM payments WHERE org_id = ? ORDER BY created_at DESC LIMIT 1", o.id);
+    if (o.trial_ends === addDays(t, 3)) { await sendMail(env, db, { to, ...mails.trialEnding(o.name, o.code, o.trial_ends, b.price, b.balance), kind: "trial_ending", orgId: o.id, key: `trial3:${o.id}:${o.trial_ends}` }); n++; }
+    // balance running low (once per top-up), after the trial
+    if (!b.expired && !b.in_trial && b.daily && b.days_left <= 3) { await sendMail(env, db, { to, ...mails.lowBalance(o.name, o.code, b.balance, Math.max(0, b.days_left)), kind: "low_balance", orgId: o.id, key: `low:${o.id}:${last?.id || "none"}` }); n++; }
+    // just ran out: yesterday was the last covered day
+    if (b.expired && b.covered_until === addDays(t, -1)) { await sendMail(env, db, { to, ...mails.expired(o.name, o.code), kind: "expired", orgId: o.id, key: `expired:${o.id}:${b.covered_until}` }); n++; }
   }
   for (const i of await all(db, "SELECT i.*, o.name AS org_name FROM invoices i JOIN orgs o ON o.id = i.org_id WHERE i.status = 'sent' AND i.due_at IN (?, ?)", addDays(t, 3), t)) {
     const to = await orgEmail(db, i.org_id); if (!to) continue;

@@ -225,6 +225,7 @@ const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&
 const today=()=>new Date().toISOString().slice(0,10);
 const fd=d=>d?d.slice(8,10)+"."+d.slice(5,7)+"."+d.slice(0,4):"—";
 const lei=n=>(n==null?"—":Math.round(n).toLocaleString("ro-MD").replace(/ |\s/g," ")+" lei");
+const lei2=n=>(n==null?"—":(Math.round(n*100)/100).toLocaleString("ro-MD",{minimumFractionDigits:2,maximumFractionDigits:2}).replace(/\s/g," ")+" lei");
 const nf=n=>Math.round(n||0).toLocaleString("ro-MD").replace(/ |\s/g," ");
 const MON=["ian","feb","mar","apr","mai","iun","iul","aug","sep","oct","noi","dec"];
 const mon=ym=>MON[+ym.slice(5,7)-1]+(ym.slice(5,7)==="01"?" "+ym.slice(2,4):"");
@@ -304,7 +305,7 @@ V.overview=async()=>{await refresh("ov");const k=OV.kpi,s=OV.series;renderNav();
     invoice_overdue:o=>[pill("bad","Neachitată"),`Factura ${esc(o.number)} · ${lei(o.amount)} · întârziere ${o.days} ${plural(o.days,"zi","zile")}`,"Facturi","#invoices"]};
   $("view").innerHTML=`<div class="ph"><div><h1>Prezentare</h1><div class="mute">${new Date().toLocaleDateString("ro-MD",{weekday:"long",day:"numeric",month:"long"})}</div></div></div>
   <div class="kpis">
-    <div class="kpi"><div class="l">MRR</div><div class="v">${nf(k.mrr)}<small>lei</small></div><div class="s">${md==null?"venit lunar recurent":`<span class="${md>=0?"up":"down"}">${md>=0?"+":""}${md}%</span> față de luna trecută`}</div></div>
+    <div class="kpi"><div class="l">MRR</div><div class="v">${nf(k.mrr)}<small>lei</small></div><div class="s">venit lunar recurent · ${lei(k.balances||0)} pe soldurile clienților</div></div>
     <div class="kpi"><div class="l">ARR</div><div class="v">${nf(k.arr)}<small>lei</small></div><div class="s">MRR × 12</div></div>
     <div class="kpi"><div class="l">Clienți care plătesc</div><div class="v">${k.paying}</div><div class="s">din ${k.companies} ${plural(k.companies,"companie","companii")} · ${k.apts_total} apartamente</div></div>
     <div class="kpi"><div class="l">În probă</div><div class="v">${k.trial}</div><div class="s">${k.signups_30d} înregistrări în 30 de zile</div></div>
@@ -314,7 +315,7 @@ V.overview=async()=>{await refresh("ov");const k=OV.kpi,s=OV.series;renderNav();
     <div class="kpi"><div class="l">Venit mediu per client</div><div class="v">${nf(k.arpa)}<small>lei</small></div><div class="s">${k.unpaid_invoices?lei(k.unpaid_invoices)+" în facturi neachitate":"nicio factură neachitată"}</div></div>
   </div>
   <div class="grid2">
-    <div class="panel"><div class="hd"><h2>MRR pe luni</h2><span class="sp"></span><span class="mute">ultimele 12 luni</span></div><div class="bd">${bars("c-mrr",s.months.map(mon),s.mrr,{fmt:lei})}</div></div>
+    <div class="panel"><div class="hd"><h2>Consumat pe luni</h2><span class="sp"></span><span class="mute">zilele scăzute din solduri</span></div><div class="bd">${bars("c-mrr",s.months.map(mon),s.mrr,{fmt:lei})}</div></div>
     <div class="panel"><div class="hd"><h2>Necesită atenție</h2><span class="sp"></span><span class="pill ${OV.attention.length?"warn":"ok"}"><i></i>${OV.attention.length||"totul e în regulă"}</span></div><div class="bd" style="padding-top:4px;max-height:330px;overflow:auto">
       ${OV.attention.length?OV.attention.map(o=>{const [p,t,b,go]=ATT[o.kind](o);return `<div class="att">${p}<div class="m"><b>${esc(o.name)}</b><small>${t}</small></div><button class="btn sm" data-go="${esc(go)}">${b}</button></div>`}).join(""):'<div class="empty">Nimic urgent. Bun moment să suni cererile vechi.</div>'}</div></div>
   </div>
@@ -355,7 +356,7 @@ V.company=async(id)=>{const d=await api("sa_org",{org_id:id});const o=d.org;rend
     <div class="ink2"><a href="${ORG_URL(o.code)}" target="_blank" rel="noopener">${esc(o.code)}.espace.md</a> · ${esc(o.owner_name)} · <a href="mailto:${esc(o.owner_email)}">${esc(o.owner_email)}</a></div>
     <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">${statePill(o)}${o.custom_price?pill("gray","Preț individual"):""}</div></div>
     <div class="acts"><button class="btn" data-act="support" data-id="${esc(o.id)}">Deschide ca suport</button><button class="btn" data-act="invoice" data-id="${esc(o.id)}">Factură nouă</button><button class="btn p" data-act="pay" data-id="${esc(o.id)}">Înregistrează plata</button></div></div>
-  <div class="facts"><div><span>Tarif</span><b>${lei(o.price)}</b></div><div><span>Activ până</span><b>${fd(o.active_until)}</b></div><div><span>Apartamente</span><b>${o.apts}</b></div><div><span>Încasat total</span><b>${lei(o.paid_total)}</b></div></div>
+  <div class="facts"><div><span>Sold</span><b>${lei2(o.balance)}</b></div><div><span>Tarif</span><b>${lei(o.price)}</b><span class="sub">${o.daily!=null?lei2(o.daily)+" / zi":""}</span></div><div><span>Activ până</span><b>${fd(o.active_until)}</b></div><div><span>Apartamente</span><b>${o.apts}</b></div><div><span>Încasat total</span><b>${lei(o.paid_total)}</b></div></div>
   <div class="tabs" role="tablist" style="margin-top:16px">${tabs.map(([k,l])=>`<button role="tab" data-tab="${k}" aria-selected="${TAB===k}">${l}</button>`).join("")}</div>
   <div id="tabbody"></div>`;
   const B=$("tabbody");
@@ -364,7 +365,7 @@ V.company=async(id)=>{const d=await api("sa_org",{org_id:id});const o=d.org;rend
       <div><span>Rezervări total</span><b>${d.usage.bookings}</b></div><div><span>Rezervări 30 zile</span><b>${o.bookings_30d}</b></div><div><span>Curățenii făcute</span><b>${d.usage.cleanings}</b></div><div><span>Ture (пересменки)</span><b>${d.usage.shifts}</b></div></div>
       <p class="ink2" style="margin:12px 0 0">Ultima activitate: <b>${ago(o.last_activity)}</b> · ultimul login: <b>${ago(o.last_login)}</b> · menajere active: <b>${o.staff}</b> · ghiduri: <b>${d.usage.guides}</b></p></div></div>
     <div class="panel"><div class="hd"><h2>Abonament</h2></div><div class="bd">
-      <div class="form"><div><label class="f">Probă până la</label><input type="date" id="o-trial" value="${esc(o.trial_ends)}"></div><div><label class="f">Plătit până la</label><input value="${fd(o.paid_until)}" disabled></div>
+      <div class="form"><div><label class="f">Probă până la</label><input type="date" id="o-trial" value="${esc(o.trial_ends)}"></div><div><label class="f">Scăzut până la</label><input value="${fd(o.charged_through||o.paid_until)}" disabled></div>
       <div><label class="f">Preț individual, lei/lună</label><input type="number" min="0" id="o-price" value="${o.custom_price||""}" placeholder="după trepte: ${o.tier_price??"individual"}"></div><div><label class="f">Adresa</label><input id="o-slug" value="${esc(o.code)}" autocapitalize="off" spellcheck="false"></div></div>
       <div class="actions"><button class="btn" data-act="save-sub" data-id="${esc(o.id)}">Salvează</button><span class="msg" id="sub-msg"></span><span style="flex:1"></span>${o.status==="blocked"?`<button class="btn" data-act="status" data-st="active" data-id="${esc(o.id)}">Deblochează</button>`:`<button class="btn d" data-act="status" data-st="blocked" data-id="${esc(o.id)}">Blochează</button>`}</div></div></div>
     </div>
@@ -386,7 +387,7 @@ function invTable(list,withOrg){if(!list.length)return '<div class="empty">Înc�
     return `<tr><td><a href="/f/${esc(i.token)}" target="_blank" rel="noopener"><b>${esc(i.number)}</b></a></td>${withOrg?`<td><a href="#company/${esc(i.org_id)}">${esc(i.org_name||"")}</a></td>`:""}<td class="num">${fd(i.issued_at)}</td><td class="num">${fd(i.due_at)}</td><td class="num">${fd(i.period_from)} – ${fd(i.period_to)}</td><td class="r num">${lei(i.amount)}</td><td>${st}</td>
       <td class="r">${i.status==="sent"?`<button class="btn sm" data-act="inv-paid" data-id="${esc(i.id)}" data-org="${esc(i.org_id||"")}">Achitată</button> <button class="btn sm" data-act="inv-copy" data-token="${esc(i.token)}">Link</button> <button class="btn sm d" data-act="inv-void" data-id="${esc(i.id)}" data-org="${esc(i.org_id||"")}">Anulează</button>`:`<button class="btn sm" data-act="inv-copy" data-token="${esc(i.token)}">Link</button>`}</td></tr>`}).join("")}</tbody></table></div>`}
 function payTable(list,withOrg){if(!list.length)return '<div class="empty">Încă nu sunt plăți.</div>';
-  return `<div class="tw" style="border:0;border-radius:0"><table><thead><tr><th>Data</th>${withOrg?"<th>Companie</th>":""}<th class="r">Suma</th><th class="r">Luni</th><th>Activ până</th><th>Metodă</th><th>Notă</th></tr></thead><tbody>${list.map(p=>`<tr><td class="num">${fd(p.created_at.slice(0,10))}</td>${withOrg?`<td><a href="#company/${esc(p.org_id)}">${esc(p.org_name||"")}</a></td>`:""}<td class="r num"><b>${lei(p.amount)}</b></td><td class="r num">${p.months}</td><td class="num">${fd(p.paid_until)}</td><td>${esc(p.method||"")}</td><td class="ink2" style="white-space:normal">${esc(p.note||"")}</td></tr>`).join("")}</tbody></table></div>`}
+  return `<div class="tw" style="border:0;border-radius:0"><table><thead><tr><th>Data</th>${withOrg?"<th>Companie</th>":""}<th class="r">Suma</th><th class="r">Sold după</th><th>Metodă</th><th>Notă</th></tr></thead><tbody>${list.map(p=>`<tr><td class="num">${fd(p.created_at.slice(0,10))}</td>${withOrg?`<td><a href="#company/${esc(p.org_id)}">${esc(p.org_name||"")}</a></td>`:""}<td class="r num"><b>${lei(p.amount)}</b></td><td class="r num">${p.balance_after!=null?lei2(p.balance_after):p.paid_until?"până "+fd(p.paid_until):""}</td><td>${esc(p.method||"")}</td><td class="ink2" style="white-space:normal">${esc(p.note||"")}</td></tr>`).join("")}</tbody></table></div>`}
 
 /* leads */
 const LS=[["new","Noi"],["contacted","Contactați"],["demo","Demo"],["won","Câștigați"],["lost","Pierduți"]];
@@ -402,7 +403,7 @@ V.invoices=async()=>{await refresh("inv");renderNav();const sent=INV.filter(i=>i
   $("csv-inv").onclick=()=>csv("facturi-espace.csv",[["Numar","Companie","Emisa","Scadenta","Perioada de la","Perioada pana","Luni","Suma","Stare","Achitata"],...INV.map(i=>[i.number,i.org_name,i.issued_at,i.due_at,i.period_from,i.period_to,i.months,i.amount,i.status,i.paid_at])])};
 V.payments=async()=>{await refresh("pays");renderNav();const tot=PAYS.reduce((s,p)=>s+p.amount,0);
   $("view").innerHTML=`<div class="ph"><div><h1>Plăți</h1><div class="mute">${PAYS.length} plăți · ${lei(tot)} în total</div></div><span class="sp"></span><button class="btn" id="csv-pay">Export CSV</button></div><div class="panel">${payTable(PAYS,true)}</div>`;
-  $("csv-pay").onclick=()=>csv("plati-espace.csv",[["Data","Companie","Adresa","Suma","Luni","Activ pana","Metoda","Nota"],...PAYS.map(p=>[p.created_at.slice(0,10),p.org_name,p.org_code,p.amount,p.months,p.paid_until,p.method,p.note])])};
+  $("csv-pay").onclick=()=>csv("plati-espace.csv",[["Data","Companie","Adresa","Suma","Sold dupa","Metoda","Nota"],...PAYS.map(p=>[p.created_at.slice(0,10),p.org_name,p.org_code,p.amount,p.balance_after??"",p.method,p.note])])};
 let EVF="all";
 V.activity=async()=>{await refresh("evs");renderNav();const K=[["all","Tot"],["signup","Înregistrări"],["payment","Plăți"],["invoice","Facturi"],["lead","Cereri"],["block","Blocări"],["support","Suport"]];
   const L=EVS.filter(e=>EVF==="all"||e.kind===EVF||(EVF==="block"&&e.kind==="unblock"));
@@ -453,15 +454,14 @@ async function act(a,ds){
     <div class="form"><div><label class="f">Numele proprietarului</label><input id="n-owner" required></div><div><label class="f">Email</label><input id="n-email" type="email" required></div>
     <div><label class="f">Parolă de start</label><input id="n-pw" value="${Math.random().toString(36).slice(2,8)}${Math.floor(Math.random()*90+10)}"></div><div><label class="f">Zile de probă</label><input id="n-trial" type="number" value="14" min="1" max="90"></div></div>${ds.lead?`<input type="hidden" id="n-lead" value="${esc(ds.lead)}">`:""}`,
     async()=>{const r=await api("sa_org_create",{org_name:val("n-name"),slug:val("n-slug").toLowerCase(),owner_name:val("n-owner"),email:val("n-email"),password:$("n-pw").value,trial_days:+val("n-trial"),lead_id:val("n-lead")});ORGS=null;OV=null;toast("Compania e creată: "+r.slug+".espace.md");location.hash="#company/"+r.id});
-  if(a==="pay"){await needOrgs();const o=orgOf(ds.id);return dialog(`<h2>Înregistrează plata</h2><p class="mute" style="margin:0">${esc(o?o.name:"")} · tarif ${lei(o&&o.price)} / lună · activ până ${fd(o&&o.active_until)}</p>
-    <div class="form"><div><label class="f">Luni</label><input id="p-m" type="number" min="1" max="24" value="1"></div><div><label class="f">Suma, lei</label><input id="p-a" type="number" min="0" value="${o&&o.price||""}"></div>
+  if(a==="pay"){await needOrgs();const o=orgOf(ds.id);return dialog(`<h2>Înregistrează plata</h2><p class="mute" style="margin:0">${esc(o?o.name:"")} · sold ${lei2(o&&o.balance)} · ${lei2(o&&o.daily)} / zi · activ până ${fd(o&&o.active_until)}</p><p class="mute" style="margin:4px 0 0">Suma intră pe sold; zilnic se scade partea zilei.</p>
+    <div class="form"><div><label class="f">Suma primită, lei</label><input id="p-a" type="number" min="0" step="0.01" value="${o&&o.price||""}"></div>
     <div><label class="f">Metoda</label><select id="p-meth"><option value="transfer">Transfer bancar</option><option value="card">Card</option><option value="cash">Numerar</option><option value="other">Altceva</option></select></div><div><label class="f">Notă</label><input id="p-n" placeholder="ex. ordin nr. 15"></div></div>`,
-    async()=>{const r=await api("sa_pay",{org_id:ds.id,months:+val("p-m"),amount:+val("p-a"),method:val("p-meth"),note:val("p-n")});ORGS=null;OV=null;toast("Activ până la "+fd(r.paid_until));reloadView()})}
-  if(a==="invoice"){await needOrgs();const o=orgOf(ds.id);return dialog(`<h2>Factură nouă</h2><p class="mute" style="margin:0">${esc(o?o.name:"")} · ${o?o.apts:0} apartamente · ${lei(o&&o.price)} / lună</p>
-    <div class="form"><div><label class="f">Luni</label><input id="i-m" type="number" min="1" max="24" value="1"></div><div><label class="f">Suma totală, lei <span class="mute">(gol = tarif × luni)</span></label><input id="i-a" type="number" min="0"></div>
-    <div><label class="f">Perioada de la</label><input id="i-from" type="date" value="${o&&o.active_until>=today()?o.active_until:today()}"></div><div><label class="f">Notă pe factură</label><input id="i-n"></div></div>`,
-    async()=>{const r=await api("sa_invoice_create",{org_id:ds.id,months:+val("i-m"),amount:val("i-a"),period_from:val("i-from"),note:val("i-n")});OV=null;toast("Factura "+r.number+" e gata");window.open("/f/"+r.token,"_blank","noopener");reloadView()})}
-  if(a==="inv-paid"){if(!confirm("Marchezi factura ca achitată? Abonamentul se prelungește automat."))return;try{const r=await api("sa_invoice_status",{org_id:ds.org,id:ds.id,status:"paid"});ORGS=null;OV=null;toast("Achitată · activ până "+fd(r.paid_until));reloadView()}catch(e){toast(errText(e))}return}
+    async()=>{const r=await api("sa_pay",{org_id:ds.id,amount:+val("p-a"),method:val("p-meth"),note:val("p-n")});ORGS=null;OV=null;toast("Sold "+lei2(r.balance)+" · activ până la "+fd(r.active_until));reloadView()})}
+  if(a==="invoice"){await needOrgs();const o=orgOf(ds.id);return dialog(`<h2>Factură de suplinire</h2><p class="mute" style="margin:0">${esc(o?o.name:"")} · ${o?o.apts:0} apartamente · ${lei(o&&o.price)} / lună · sold ${lei2(o&&o.balance)}</p>
+    <div class="form"><div><label class="f">Suma, lei</label><input id="i-a" type="number" min="1" step="0.01" value="${o&&o.price?o.price*3:""}"></div><div><label class="f">Notă pe factură</label><input id="i-n"></div></div>`,
+    async()=>{const r=await api("sa_invoice_create",{org_id:ds.id,amount:val("i-a"),note:val("i-n")});OV=null;toast("Factura "+r.number+" e gata");window.open("/f/"+r.token,"_blank","noopener");reloadView()})}
+  if(a==="inv-paid"){if(!confirm("Marchezi factura ca achitată? Suma intră pe soldul companiei."))return;try{const r=await api("sa_invoice_status",{org_id:ds.org,id:ds.id,status:"paid"});ORGS=null;OV=null;toast("Achitată · sold "+lei2(r.balance)+" · activ până "+fd(r.active_until));reloadView()}catch(e){toast(errText(e))}return}
   if(a==="inv-void"){if(!confirm("Anulezi factura?"))return;try{await api("sa_invoice_status",{org_id:ds.org,id:ds.id,status:"void"});OV=null;toast("Factura e anulată");reloadView()}catch(e){toast(errText(e))}return}
   if(a==="inv-copy"){const u=location.origin+"/f/"+ds.token;try{await navigator.clipboard.writeText(u);toast("Linkul facturii e copiat")}catch(e){prompt("Linkul facturii:",u)}return}
   if(a==="support"){try{const r=await api("sa_support",{org_id:ds.id});window.open(ORG_URL(r.slug)+"#t="+r.token,"_blank","noopener");toast("Deschis pentru 2 ore, doar vizualizare")}catch(e){toast(errText(e))}return}

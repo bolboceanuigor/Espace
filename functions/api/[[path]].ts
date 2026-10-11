@@ -6,10 +6,10 @@ import { newVapid, sendPush, type Vapid } from "../../lib/push";
 import {
   type Env, type Ctx, json, sleep, nowIso, uuid, num, str, isDate, isUuid, snum, isEmail, all, one, run,
   starterConfig, hashPin, pinMatches, hashPassword, passwordMatches, throttled, failHit, failClear, newSession, bearer, loadSession,
-  ROLES, roleAllows, READ_FNS, TRIAL_DAYS, TIERS, today, addMonths, isExpired, billingOf, randCode, randHex, sameStr, sha256hex,
+  ROLES, roleAllows, READ_FNS, TRIAL_DAYS, TIERS, today, addMonths, isExpired, billingOf, chargeOrg, topUp, randCode, randHex, sameStr, sha256hex,
 } from "../../lib/core";
 import { hostOf, siteOf, slugOk, isSlug } from "../../lib/host";
-import { handleAdmin, logEvent, activeAnnouncement, getSettings } from "../../lib/admin";
+import { handleAdmin, logEvent, activeAnnouncement, getSettings, createInvoice } from "../../lib/admin";
 import { sendMail, mails, dailyMail } from "../../lib/mail";
 
 const MONEY_KEYS = ["schet", "eur", "usd", "mdl"];
@@ -367,7 +367,8 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
   if (fn === "cron") {
     if (!env.CRON_KEY || !sameStr(await sha256hex(str(body.key, 200)), await sha256hex(env.CRON_KEY))) { await sleep(1000); return json({ message: "bad_key" }, 401); }
     let n = 0;
-    for (const org of await all(db, "SELECT * FROM orgs WHERE status = 'active'")) if (!isExpired(org)) { await runDue(db, org).catch(() => {}); n++; }
+    // every company: take today's fee from the balance, then run its reminders if it is active
+    for (let org of await all(db, "SELECT * FROM orgs WHERE status = 'active'")) { org = await chargeOrg(db, org).catch(() => org); if (!isExpired(org)) { await runDue(db, org).catch(() => {}); n++; } }
     const mailed = await dailyMail(env, db).catch(() => 0);
     return json({ orgs: n, mailed });
   }
@@ -423,7 +424,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
       for (const st of await all(db, "SELECT * FROM staff WHERE org_id = ? AND active = 1 AND pin_hash != ''", org.id)) if (await pinMatches(body.s_pin, st.pin_hash)) { me = st; break; }
     if (!me) { await failHit(db, k); await sleep(1000); return json({ message: "bad_pin" }, 401); }
     const O = org.id;
-    if (fn !== "cl_login" && fn !== "cl_load" && isExpired(org)) return json({ message: "subscription_expired" }, 402);
+    if (fn !== "cl_login" && fn !== "cl_load" && isExpired(await chargeOrg(db, org))) return json({ message: "subscription_expired" }, 402);
     const td = isDate(body.today) ? body.today : nowIso().slice(0, 10);
     if (fn === "cl_login") return json({ id: me.id, name: me.name, org: org.name });
     if (fn === "cl_push_key") return json((await getVapid(db)).pub);
@@ -507,11 +508,24 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
   const O = c.org.id, org = c.org;
   if (!roleAllows(c.role, fn)) return json({ message: "read_only" }, 403);
   // unpaid or blocked: the data stays visible, nothing can be changed
-  if (isExpired(org) && !READ_FNS.includes(fn) && !fn.startsWith("team_")) return json({ message: "subscription_expired" }, 402);
+  if (isExpired(org) && !READ_FNS.includes(fn) && !fn.startsWith("team_") && fn !== "bill_invoice") return json({ message: "subscription_expired" }, 402);
 
   if (fn === "billing") {
-    return json({ ...(await billingOf(db, org)), tiers: TIERS, payments: await all(db, "SELECT amount, months, paid_until, note, created_at FROM payments WHERE org_id = ? ORDER BY created_at DESC", O),
-      invoices: await all(db, "SELECT number, token, issued_at, due_at, amount, months, status FROM invoices WHERE org_id = ? AND status != 'void' ORDER BY created_at DESC", O) });
+    // the balance history: top-ups and the daily fees, the fees grouped by month
+    const [payments, charges, invoices] = await Promise.all([
+      all(db, "SELECT amount, months, paid_until, balance_after, note, created_at FROM payments WHERE org_id = ? ORDER BY created_at DESC LIMIT 100", O),
+      all(db, "SELECT substr(day, 1, 7) AS month, COUNT(*) AS days, SUM(amount) AS amount, MIN(day) AS first, MAX(day) AS last, MAX(apts) AS apts FROM charges WHERE org_id = ? GROUP BY month ORDER BY month DESC LIMIT 24", O),
+      all(db, "SELECT number, token, issued_at, due_at, amount, months, status FROM invoices WHERE org_id = ? AND status != 'void' ORDER BY created_at DESC", O),
+    ]);
+    return json({ ...(await billingOf(db, org)), tiers: TIERS, payments, charges, invoices });
+  }
+  if (fn === "bill_invoice") { // the company asks for an invoice to top up its balance
+    const amount = Math.round(num(body.amount) * 100) / 100;
+    if (!(amount >= 50) || amount > 100000) return json({ message: "bad_amount" }, 400);
+    const open = await one(db, "SELECT COUNT(*) AS n FROM invoices WHERE org_id = ? AND status = 'sent'", O);
+    if (open.n >= 5) return json({ message: "too_many_open" }, 409);
+    const r = await createInvoice(db, env, org, amount, { actor: c.user.email, send: true });
+    return json({ number: r.number, token: r.token, amount: r.amount, due_at: r.due_at });
   }
   if (fn === "excel" || fn === "excel_handovers") {
     const data = await loadAll(db, O);

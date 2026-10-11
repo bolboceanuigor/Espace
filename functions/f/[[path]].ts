@@ -34,7 +34,8 @@ export const onRequest: PagesFunction<Env> = async ({ params, env }) => {
   try { b = JSON.parse(inv.buyer || "{}"); } catch {}
   const vat = !!s.vat, rate = Number(s.vat_rate) || 20;
   const total = Number(inv.amount) || 0, net = vat ? total / (1 + rate / 100) : total, tax = total - net;
-  const per = Number(inv.months) || 1, unit = net / per;
+  // months = 0: a top-up of the prepaid balance (the current way); months ≥ 1: an old-style invoice for a period
+  const topup = Number(inv.months) === 0, per = Number(inv.months) || 1, unit = net / per;
   const [fy, fm] = inv.period_from.split("-").map(Number);
   const period = per === 1 ? `${MONTHS[fm - 1]} ${fy}` : `${dmy(inv.period_from)} – ${dmy(inv.period_to)}`;
   const lei = Math.floor(total), bani = Math.round((total - lei) * 100);
@@ -69,10 +70,10 @@ td{padding:10px 6px;border-bottom:1px solid #eceef4;vertical-align:top}td.r,th.r
 <div class="bar"><button onclick="print()">Descarcă PDF / Printează</button></div>
 <div class="page">${status}
   <div class="top"><div><h1>Factură / Cont de plată</h1><div class="n">Nr. ${esc(inv.number)}</div></div><div class="brand"><img src="/icon-192.png" alt="">espace.md</div></div>
-  <div class="meta"><span>Data emiterii</span><span>Scadența</span><span>Perioada</span><b>${dmy(inv.issued_at)}</b><b>${dmy(inv.due_at)}</b><b>${dmy(inv.period_from)} – ${dmy(inv.period_to)}</b></div>
+  <div class="meta"><span>Data emiterii</span><span>Scadența</span><span>${topup ? "Tip" : "Perioada"}</span><b>${dmy(inv.issued_at)}</b><b>${dmy(inv.due_at)}</b><b>${topup ? "Plată în avans" : `${dmy(inv.period_from)} – ${dmy(inv.period_to)}`}</b></div>
   <div class="parties">${party("Furnizor", s, s.name || "espace.md")}${party("Cumpărător", b, b.legal_name || b.name || "")}</div>
   <table><thead><tr><th>Denumire</th><th class="r">Cant.</th><th class="r">Preț, lei</th><th class="r">Suma, lei</th></tr></thead>
-  <tbody><tr><td>Abonament espace.md — administrarea apartamentelor în chirie (${esc(inv.apts)} ${Number(inv.apts) === 1 ? "apartament" : "apartamente"}), ${esc(period)}</td><td class="r">${per} ${per === 1 ? "lună" : "luni"}</td><td class="r">${money(unit)}</td><td class="r">${money(net)}</td></tr></tbody></table>
+  <tbody>${topup ? `<tr><td>Suplinirea contului espace.md — abonament pentru administrarea apartamentelor în chirie, plată în avans (${esc(inv.apts)} ${Number(inv.apts) === 1 ? "apartament" : "apartamente"} la data emiterii)</td><td class="r">1</td><td class="r">${money(net)}</td><td class="r">${money(net)}</td></tr>` : `<tr><td>Abonament espace.md — administrarea apartamentelor în chirie (${esc(inv.apts)} ${Number(inv.apts) === 1 ? "apartament" : "apartamente"}), ${esc(period)}</td><td class="r">${per} ${per === 1 ? "lună" : "luni"}</td><td class="r">${money(unit)}</td><td class="r">${money(net)}</td></tr>`}</tbody></table>
   <div class="tot">${vat ? `<div><span>Fără TVA</span><span>${money(net)}</span></div><div><span>TVA ${rate}%</span><span>${money(tax)}</span></div>` : ""}<div class="g"><span>Total de plată</span><span>${money(total)} lei</span></div></div>
   <div class="words">Suma în litere: ${esc(words(lei))} lei${bani ? " " + bani + " bani" : " 00 bani"}.${vat ? "" : " Furnizorul nu este înregistrat ca plătitor de TVA."}</div>
   <div class="note">În destinația plății indicați: „Plata conform facturii ${esc(inv.number)}”.${inv.note ? "<br>" + esc(inv.note) : ""}${s.footer ? "<br>" + esc(s.footer) : ""}</div>

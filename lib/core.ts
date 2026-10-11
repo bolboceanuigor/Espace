@@ -92,7 +92,7 @@ export async function loadSession(db: D1Database, env: Env, token: string): Prom
   if (s.org_id) {
     // a support session (opened by the platform owner from the admin panel) sees the company read-only
     const m = support ? { role: "viewer" } : await one(db, "SELECT role FROM members WHERE org_id = ? AND user_id = ?", s.org_id, user.id);
-    if (m) { org = await one(db, "SELECT * FROM orgs WHERE id = ?", s.org_id); role = m.role; }
+    if (m) { org = await chargeOrg(db, await one(db, "SELECT * FROM orgs WHERE id = ?", s.org_id)); role = m.role; }
   }
   return { user, org, role, tokenHash: th, isSuper, support };
 }
@@ -127,21 +127,64 @@ export function addMonths(d: string, n: number) {
   t.setUTCDate(Math.min(dd, last));
   return t.toISOString().slice(0, 10);
 }
-export function activeUntil(org: any) { return [org.trial_ends || "", org.paid_until || ""].sort().pop() || ""; }
-export function isExpired(org: any) { return org.status === "blocked" || activeUntil(org) < today(); }
+// ---------- prepaid balance ----------
+// The company tops up its balance (orgs.balance, lei); every day the day's share of the monthly tier price is taken:
+// daily = monthly × 12 / 365, e.g. 199 lei/month → 6,54 lei/day. No balance for today → read-only until the next top-up.
+// Free days: up to trial_ends, and up to paid_until (time paid before the balance system). Days charged: up to charged_through.
+export const dailyRate = (monthly: number) => Math.round((monthly * 12 / 365) * 100) / 100;
+const maxStr = (...a: string[]) => a.map((x) => x || "").sort().pop() || "";
+export const freeUntil = (org: any) => maxStr(org.trial_ends, org.paid_until);
+export const coveredUntil = (org: any) => maxStr(freeUntil(org), org.charged_through);
+export function activeUntil(org: any) { return coveredUntil(org); }
+export function isExpired(org: any) { return org.status === "blocked" || coveredUntil(org) < today(); }
 export async function aptCount(db: D1Database, orgId: string) {
   const c = await one(db, "SELECT data FROM app_config WHERE org_id = ?", orgId);
   try { return c ? (JSON.parse(c.data).apts || []).length : 0; } catch { return 0; }
 }
-export async function billingOf(db: D1Database, org: any) {
-  const apts = await aptCount(db, org.id);
-  const tier = tierFor(apts);
-  const until = activeUntil(org);
+export async function priceOf(db: D1Database, org: any) {
+  const apts = await aptCount(db, org.id), tier = tierFor(apts);
   const custom = Number(org.custom_price) > 0 ? Number(org.custom_price) : 0;
+  const price = custom || tier.price;
+  return { apts, tier, custom: !!custom, price, daily: price == null ? null : dailyRate(price) };
+}
+// takes today's fee (and any day the cron missed while the balance was enough); returns the org row as it is now
+export async function chargeOrg(db: D1Database, org: any): Promise<any> {
+  const t = today();
+  if (!org || org.status === "blocked" || coveredUntil(org) >= t) return org;
+  const p = await priceOf(db, org);
+  if (p.daily == null) return org; // 71+ without an individual price yet: nothing to take
+  let d = maxStr(addDays(coveredUntil(org) || addDays(t, -1), 1), org.bill_from);
+  if (d < addDays(t, -31)) d = addDays(t, -31);
+  for (let i = 0; d <= t && i < 32; i++, d = addDays(d, 1)) {
+    const r = await one(db, "UPDATE orgs SET balance = ROUND(balance - ?, 2), charged_through = ? WHERE id = ? AND charged_through < ? AND balance >= ? RETURNING balance",
+      p.daily, d, org.id, d, p.daily);
+    if (!r) break;
+    await run(db, "INSERT OR IGNORE INTO charges(org_id, day, apts, price, amount, balance_after) VALUES (?,?,?,?,?,?)", org.id, d, p.apts, p.price, p.daily, r.balance);
+  }
+  return (await one(db, "SELECT * FROM orgs WHERE id = ?", org.id)) || org;
+}
+// adds money to the balance; if the company is read-only now, charging restarts today (unfunded days are never taken later)
+export async function topUp(db: D1Database, org: any, amount: number, fields: { note?: string; method?: string; invoiceId?: string } = {}) {
+  const pid = uuid(), restart = coveredUntil(org) < today();
+  const r = await one(db, `UPDATE orgs SET balance = ROUND(balance + ?, 2), status = CASE WHEN status = 'blocked' THEN status ELSE 'active' END${restart ? ", bill_from = ?" : ""} WHERE id = ? RETURNING balance`,
+    ...(restart ? [amount, today(), org.id] : [amount, org.id]));
+  await run(db, "INSERT INTO payments(id, org_id, amount, months, paid_until, note, method, invoice_id, balance_after) VALUES (?,?,?,0,'',?,?,?,?)",
+    pid, org.id, amount, fields.note || "", fields.method || "", fields.invoiceId || "", r.balance);
+  const now = await chargeOrg(db, await one(db, "SELECT * FROM orgs WHERE id = ?", org.id));
+  const b = await billingOf(db, now);
+  return { payment_id: pid, balance: b.balance, active_until: b.active_until, days_left: b.days_left };
+}
+export async function billingOf(db: D1Database, org: any) {
+  const p = await priceOf(db, org), t = today();
+  const balance = Math.round((Number(org.balance) || 0) * 100) / 100;
+  const covered = coveredUntil(org), expired = isExpired(org);
+  // how far the balance reaches after the days already covered
+  const daysPaid = p.daily ? Math.floor(balance / p.daily + 1e-9) : 0;
+  const until = expired ? covered : (p.daily ? addDays(covered, daysPaid) : "");
   return {
-    apts, tier, price: custom || tier.price, custom: !!custom, status: org.status, trial_ends: org.trial_ends, paid_until: org.paid_until,
-    active_until: until, expired: isExpired(org), in_trial: !org.paid_until || org.paid_until < org.trial_ends,
-    days_left: Math.round((Date.parse(until + "T00:00:00Z") - Date.parse(today() + "T00:00:00Z")) / 86400000),
+    apts: p.apts, tier: p.tier, price: p.price, custom: p.custom, daily: p.daily, balance, status: org.status,
+    trial_ends: org.trial_ends, in_trial: (org.trial_ends || "") >= t, expired, active_until: until, covered_until: covered,
+    days_left: until ? Math.round((Date.parse(until + "T00:00:00Z") - Date.parse(t + "T00:00:00Z")) / 86400000) : 9999,
   };
 }
 

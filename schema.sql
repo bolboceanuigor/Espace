@@ -318,3 +318,15 @@ CREATE TABLE IF NOT EXISTS pw_resets (
   used INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
+
+-- prepaid balance: one row per day taken from a company's balance (see chargeOrg in lib/core.ts)
+CREATE TABLE IF NOT EXISTS charges (
+  org_id TEXT NOT NULL,
+  day TEXT NOT NULL,                       -- YYYY-MM-DD
+  apts INTEGER NOT NULL DEFAULT 0,
+  price REAL NOT NULL DEFAULT 0,           -- monthly tier price that day
+  amount REAL NOT NULL DEFAULT 0,          -- lei taken
+  balance_after REAL NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  PRIMARY KEY (org_id, day)
+);
