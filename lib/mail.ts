@@ -51,12 +51,26 @@ export async function orgEmail(db: D1Database, orgId: string) {
 }
 
 export const mails = {
-  welcome: (name: string, org: string, slug: string) => ({
-    subject: `Bine ai venit în espace.md — ${org}`,
+  welcome: (name: string, org: string, slug: string, url: string) => ({
+    subject: `Confirmă emailul și alege parola — ${org}`,
     html: layout(
-      { title: `Bine ai venit, ${name}!`, body: `<p>Compania <b>${esc(org)}</b> e creată. Adresa ei este <b>${esc(slug)}.espace.md</b> — acolo intrați tu, managerii și menajerele.</p><p>Ai <b>14 zile gratuit</b>. Primii pași: adaugă apartamentele, prima rezervare și o menajeră cu PIN.</p><p>Ai întrebări? Răspunde la acest email.</p>` },
-      { title: `Добро пожаловать, ${name}!`, body: `<p>Компания <b>${esc(org)}</b> создана. Её адрес — <b>${esc(slug)}.espace.md</b>: туда входите вы, менеджеры и горничные.</p><p>У вас <b>14 дней бесплатно</b>. Первые шаги: квартиры, первая бронь, горничная с PIN.</p>` },
-      { url: orgUrl(slug), ro: "Deschide compania", ru: "Открыть компанию" }),
+      { title: `Bine ai venit, ${name}!`, body: `<p>Compania <b>${esc(org)}</b> e creată, la adresa <b>${esc(slug)}.espace.md</b>. Acolo intrați tu, managerii și menajerele.</p><p>Ca să intri, confirmă că emailul e al tău și alege o parolă — butonul de mai jos. Linkul e valabil <b>3 zile</b>.</p><p>Ai <b>14 zile gratuit</b>. Ai întrebări? Răspunde la acest email.</p>` },
+      { title: `Добро пожаловать, ${name}!`, body: `<p>Компания <b>${esc(org)}</b> создана, адрес — <b>${esc(slug)}.espace.md</b>. Подтвердите email и задайте пароль кнопкой ниже — ссылка действует <b>3 дня</b>. У вас <b>14 дней бесплатно</b>.</p>` },
+      { url, ro: "Confirmă și alege parola", ru: "Подтвердить и задать пароль" }),
+  }),
+  setPassword: (email: string, url: string) => ({
+    subject: `Alege parola pentru espace.md · ${new Date().toLocaleTimeString("ro-RO", { timeZone: "Europe/Chisinau", hour: "2-digit", minute: "2-digit" })}`,
+    html: layout(
+      { title: "Alege parola", body: `<p>Contul <b>${esc(email)}</b> încă nu are parolă. Alege una cu butonul de mai jos — linkul e valabil <b>3 zile</b> și merge o singură dată.</p>` },
+      { title: "Задайте пароль", body: `<p>У аккаунта <b>${esc(email)}</b> ещё нет пароля. Задайте его кнопкой ниже — ссылка действует <b>3 дня</b> и работает один раз.</p>` },
+      { url, ro: "Alege parola", ru: "Задать пароль" }),
+  }),
+  invite: (by: string, org: string, slug: string, url: string, needsPassword: boolean) => ({
+    subject: `${by} te-a adăugat în ${org} pe espace.md`,
+    html: layout(
+      { title: `Ai acces la ${esc(org)}`, body: `<p><b>${esc(by)}</b> te-a adăugat în echipa <b>${esc(org)}</b> pe espace.md (adresa <b>${esc(slug)}.espace.md</b>).</p><p>${needsPassword ? "Alege-ți parola cu butonul de mai jos — linkul e valabil <b>3 zile</b>. Apoi intri cu acest email și parola ta." : "Intri cu emailul și parola pe care le ai deja."}</p>` },
+      { title: `Доступ к ${esc(org)}`, body: `<p><b>${esc(by)}</b> добавил(а) вас в команду <b>${esc(org)}</b> на espace.md (<b>${esc(slug)}.espace.md</b>). ${needsPassword ? "Задайте пароль кнопкой ниже — ссылка действует 3 дня." : "Входите с вашим email и паролем."}</p>` },
+      { url, ro: needsPassword ? "Alege parola" : "Deschide compania", ru: needsPassword ? "Задать пароль" : "Открыть компанию" }),
   }),
   reset: (url: string) => ({
     // the time in the subject keeps each request a separate email (Gmail would otherwise stack them and the older, used link is easy to click)

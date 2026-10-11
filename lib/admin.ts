@@ -205,19 +205,17 @@ export async function handleAdmin(fn: string, body: any, c: Ctx, db: D1Database,
       await run(db, "INSERT INTO sys_state(k, v) VALUES ('seller', ?) ON CONFLICT (k) DO UPDATE SET v = excluded.v", JSON.stringify(v));
       return json(v);
     }
-    case "sa_org_create": { // open a company for a client (after a call): owner gets a starting password
-      const name = str(body.org_name, 80), slug = str(body.slug, 40).toLowerCase(), email = str(body.email, 120).toLowerCase(), owner = str(body.owner_name, 60);
-      const pw = typeof body.password === "string" ? body.password : "";
+    case "sa_org_create": { // open a company for a client (after a call): the owner gets an email to set a password
+      const name = str(body.org_name, 80), slug = str(body.slug, 40).toLowerCase(), email = str(body.email, 120).trim().toLowerCase(), owner = str(body.owner_name, 60);
       if (!name || !owner) return json({ message: "need_names" }, 400);
       if (!slugOk(slug)) return json({ message: "bad_slug" }, 400);
       if (await one(db, "SELECT 1 AS x FROM orgs WHERE code = ?", slug)) return json({ message: "slug_taken" }, 409);
       if (!isEmail(email)) return json({ message: "bad_email" }, 400);
-      let u = await one(db, "SELECT id FROM users WHERE email = ?", email);
+      let u = await one(db, "SELECT id, pw_hash FROM users WHERE email = ?", email);
       const stmts: D1PreparedStatement[] = [];
       if (!u) {
-        if (pw.length < 8 || pw.length > 128) return json({ message: "pw_too_short" }, 400);
-        u = { id: uuid() };
-        stmts.push(db.prepare("INSERT INTO users(id, email, name, pw_hash) VALUES (?,?,?,?)").bind(u.id, email, owner, await hashPassword(pw)));
+        u = { id: uuid(), pw_hash: "" };
+        stmts.push(db.prepare("INSERT INTO users(id, email, name, pw_hash) VALUES (?,?,?,'')").bind(u.id, email, owner));
       }
       const oid = uuid(), trialDays = Math.max(1, Math.min(90, Math.floor(num(body.trial_days)) || 14));
       stmts.push(
@@ -228,8 +226,14 @@ export async function handleAdmin(fn: string, body: any, c: Ctx, db: D1Database,
       await db.batch(stmts);
       if (body.lead_id) await run(db, "UPDATE leads SET org_id = ?, status = 'won' WHERE id = ?", oid, str(body.lead_id, 40));
       await logEvent(db, "signup", oid, actor, `Companie creată din admin: ${name} (${slug}.espace.md), proprietar ${email}`);
-      if (body.send_welcome !== false) await sendMail(env, db, { to: email, ...mails.welcome(owner, name, slug), kind: "welcome", orgId: oid, key: "welcome:" + oid });
-      return json({ id: oid, slug });
+      let mailed = "";
+      if (u.pw_hash) mailed = await sendMail(env, db, { to: email, ...mails.invite("espace.md", name, slug, orgUrl(slug), false), kind: "invite", orgId: oid });
+      else {
+        const tok = randHex(32);
+        await run(db, "INSERT INTO pw_resets(token_hash, user_id, expires_at) VALUES (?,?,?)", await sha256hex(tok), u.id, new Date(Date.now() + 72 * 3600000).toISOString());
+        mailed = await sendMail(env, db, { to: email, ...mails.welcome(owner, name, slug, `${orgUrl(slug)}#reset=${tok}`), kind: "welcome", orgId: oid, key: "welcome:" + oid });
+      }
+      return json({ id: oid, slug, mailed });
     }
     case "sa_emails": return json(await all(db, "SELECT e.id, e.org_id, e.to_addr, e.subject, e.kind, e.status, e.detail, e.created_at, o.name AS org_name FROM emails e LEFT JOIN orgs o ON o.id = e.org_id ORDER BY e.created_at DESC LIMIT 500"));
     case "sa_mail_status": return json({ configured: !!env.RESEND_API_KEY, from: env.MAIL_FROM || "espace.md <noreply@espace.md>" });

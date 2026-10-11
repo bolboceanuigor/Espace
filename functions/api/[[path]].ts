@@ -12,6 +12,25 @@ import { hostOf, siteOf, slugOk, isSlug } from "../../lib/host";
 import { handleAdmin, logEvent, activeAnnouncement, getSettings, createInvoice } from "../../lib/admin";
 import { sendMail, mails, dailyMail } from "../../lib/mail";
 
+
+// A one-time link to set a password. Opening it proves the email belongs to the person, so it is the only way
+// to get a password: at sign-up, when added to a team, when the email changes, and for "forgot password".
+// The link opens the company's own address (the admin's for the platform owner).
+function orgUrlOf(slug: string, request: Request) {
+  const h = hostOf(request);
+  return h.endsWith("espace.md") || siteOf(h).kind !== "dev" ? `https://${slug}.espace.md/` : `${new URL(request.url).origin}/app?c=${encodeURIComponent(slug)}`;
+}
+async function passwordLink(db: D1Database, request: Request, userId: string, hours: number, opts: { slug?: string; admin?: boolean } = {}) {
+  const tok = randHex(32);
+  await run(db, "INSERT INTO pw_resets(token_hash, user_id, expires_at) VALUES (?,?,?)", await sha256hex(tok), userId, new Date(Date.now() + hours * 3600000).toISOString());
+  const h = hostOf(request), site = siteOf(h), prod = h.endsWith("espace.md"), origin = new URL(request.url).origin;
+  if (opts.admin) return (prod ? "https://admin.espace.md/" : origin + "/admin") + "#reset=" + tok;
+  let slug = opts.slug || "";
+  if (!slug) { const m = await one(db, "SELECT o.code FROM members m JOIN orgs o ON o.id = m.org_id WHERE m.user_id = ? ORDER BY m.created_at LIMIT 1", userId); slug = m?.code || ""; }
+  if (!slug) return (prod ? "https://espace.md/" : origin + "/") + "#reset=" + tok;
+  return (prod || site.kind !== "dev" ? `https://${slug}.espace.md/` : `${origin}/app?c=${encodeURIComponent(slug)}`) + "#reset=" + tok;
+}
+
 const MONEY_KEYS = ["schet", "eur", "usd", "mdl"];
 const TAGS = ["booking", "airbnb", "closed"];
 
@@ -336,14 +355,13 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     const email = str(body.email, 120).toLowerCase(), ip = request.headers.get("cf-connecting-ip") || "x";
     if (await throttled(db, "rst:" + ip) || await throttled(db, "rste:" + email)) return json({ message: "locked" }, 429);
     await failHit(db, "rst:" + ip); await failHit(db, "rste:" + email); // at most 10 requests per 15 minutes
-    const u = isEmail(email) ? await one(db, "SELECT id FROM users WHERE email = ?", email) : null;
+    const u = isEmail(email) ? await one(db, "SELECT id, pw_hash FROM users WHERE email = ?", email) : null;
     if (u) {
-      const tok = randHex(32);
-      await run(db, "INSERT INTO pw_resets(token_hash, user_id, expires_at) VALUES (?,?,?)", await sha256hex(tok), u.id, new Date(Date.now() + 3600000).toISOString());
-      // the link goes back to the address the request came from (the company's own, or admin)
-      const h = hostOf(request), base = h.endsWith("espace.md") ? "https://" + h : new URL(request.url).origin;
-      const path = h === "admin.espace.md" || (site.kind === "dev" && str(body.from, 10) === "admin") ? "/admin" : (site.kind === "dev" && reqSlug ? "/app?c=" + reqSlug : "/");
-      await sendMail(env, db, { to: email, ...mails.reset(`${base}${path}#reset=${tok}`), kind: "reset" });
+      // back to where it was asked: admin, this company, or else the person's first company
+      const admin = site.kind === "admin" || (site.kind === "dev" && str(body.from, 10) === "admin");
+      const mine = reqSlug ? await one(db, "SELECT 1 AS x FROM members m JOIN orgs o ON o.id = m.org_id WHERE m.user_id = ? AND o.code = ?", u.id, reqSlug) : null;
+      const url = await passwordLink(db, request, u.id, u.pw_hash ? 1 : 72, { admin, slug: mine ? reqSlug : "" });
+      await sendMail(env, db, { to: email, ...(u.pw_hash ? mails.reset(url) : mails.setPassword(email, url)), kind: "reset" });
     } else await sleep(300);
     return json(true); // same answer whether the email exists or not
   }
@@ -361,8 +379,12 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     ]);
     const u = await one(db, "SELECT email FROM users WHERE id = ?", r.user_id);
     if (u?.email) await failClear(db, "em:" + u.email); // earlier wrong passwords no longer count
-    await logEvent(db, "password", "", u?.email || "", "Parolă resetată prin email");
-    return json({ email: u?.email || "" });
+    await logEvent(db, "password", "", u?.email || "", "Parolă setată prin linkul din email");
+    // signed in at once, in the company whose address the link opened (or the first one)
+    const orgs = await myOrgs(db, r.user_id), want = (reqSlug && orgs.find((o: any) => o.code === reqSlug)) || orgs[0];
+    if (!want || site.kind === "admin" || str(body.from, 10) === "admin") return json({ email: u?.email || "" });
+    await run(db, "UPDATE users SET last_login = ? WHERE id = ?", nowIso(), r.user_id).catch(() => {});
+    return json({ email: u?.email || "", token: await newSession(db, r.user_id, want.id), slug: want.code });
   }
 
   // ---------- platform cron: reminders and morning summaries for every active company ----------
@@ -377,34 +399,46 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
 
   // ---------- sign up / sign in ----------
   if (fn === "auth_register") {
-    const orgName = str(body.org_name, 80), name = str(body.name, 60), email = str(body.email, 120).toLowerCase(), pw = typeof body.password === "string" ? body.password : "";
+    // no password here: the owner gets an email with a link to set it, which also proves the address is theirs
+    const orgName = str(body.org_name, 80), name = str(body.name, 60), email = str(body.email, 120).trim().toLowerCase();
     if (!orgName || !name) return json({ message: "need_names" }, 400);
     if (!isEmail(email)) return json({ message: "bad_email" }, 400);
-    if (pw.length < 8 || pw.length > 128) return json({ message: "pw_too_short" }, 400);
     const slug = str(body.slug, 40).toLowerCase();
     if (body.terms !== true) return json({ message: "need_terms" }, 400);
+    const ip = request.headers.get("cf-connecting-ip") || "x";
+    if (ip !== "x") { // at most 10 sign-ups per 15 minutes from one address (local dev has no client IP)
+      if (await throttled(db, "reg:" + ip)) return json({ message: "locked" }, 429);
+      await failHit(db, "reg:" + ip);
+    }
+    const ex = await one(db, "SELECT id, pw_hash FROM users WHERE email = ?", email);
+    if (ex && !ex.pw_hash) { // signed up before but never opened the email: send it again for the company already made
+      const url = await passwordLink(db, request, ex.id, 72);
+      const o = await one(db, "SELECT o.name, o.code FROM members m JOIN orgs o ON o.id = m.org_id WHERE m.user_id = ? ORDER BY m.created_at LIMIT 1", ex.id);
+      await sendMail(env, db, { to: email, ...mails.welcome(name, o?.name || orgName, o?.code || slug, url), kind: "welcome" });
+      return json({ sent: true, email, slug: o?.code || slug, again: true });
+    }
+    if (ex) { await sleep(500); return json({ message: "email_taken" }, 409); }
     if (!slugOk(slug)) return json({ message: "bad_slug" }, 400);
     if (!(await slugFree(db, slug))) return json({ message: "slug_taken" }, 409);
-    if (await one(db, "SELECT 1 AS x FROM users WHERE email = ?", email)) { await sleep(500); return json({ message: "email_taken" }, 409); }
     const uid = uuid(), oid = uuid();
     await db.batch([
-      db.prepare("INSERT INTO users(id, email, name, pw_hash) VALUES (?,?,?,?)").bind(uid, email, name, await hashPassword(pw)),
+      db.prepare("INSERT INTO users(id, email, name, pw_hash, terms_at) VALUES (?,?,?,'',?)").bind(uid, email, name, nowIso()),
       db.prepare("INSERT INTO orgs(id, name, code, trial_ends) VALUES (?,?,?,?)").bind(oid, orgName, slug, addDays(today(), TRIAL_DAYS)),
       db.prepare("INSERT INTO members(org_id, user_id, role) VALUES (?,?, 'owner')").bind(oid, uid),
       db.prepare("INSERT INTO app_config(org_id, data) VALUES (?,?)").bind(oid, JSON.stringify(starterConfig(name))),
     ]);
-    const token = await newSession(db, uid, oid);
-    await run(db, "UPDATE users SET last_login = ?, terms_at = ? WHERE id = ?", nowIso(), nowIso(), uid).catch(() => {});
     await logEvent(db, "signup", oid, email, `Companie nouă: ${orgName} (${slug}.espace.md)`);
-    waitUntil(sendMail(env, db, { to: email, ...mails.welcome(name, orgName, slug), kind: "welcome", orgId: oid, key: "welcome:" + oid }).catch(() => {}));
-    const c = await loadSession(db, env, token);
-    return json({ token, me: await meOf(db, c!) });
+    const url = await passwordLink(db, request, uid, 72, { slug });
+    const mailed = await sendMail(env, db, { to: email, ...mails.welcome(name, orgName, slug, url), kind: "welcome", orgId: oid, key: "welcome:" + oid });
+    return json({ sent: true, email, slug, mailed });
   }
+
   if (fn === "auth_login") {
     const email = str(body.email, 120).toLowerCase(), pw = typeof body.password === "string" ? body.password : "";
     const k = "em:" + email;
     if (await throttled(db, k)) return json({ message: "locked" }, 429);
     const u = await one(db, "SELECT * FROM users WHERE email = ?", email);
+    if (u && !u.pw_hash) { await failHit(db, k); await sleep(600); return json({ message: "not_confirmed" }, 401); }
     if (!u || !(await passwordMatches(pw, u.pw_hash))) { await failHit(db, k); await sleep(1000); return json({ message: "bad_login" }, 401); }
     await failClear(db, k);
     await run(db, "UPDATE users SET last_login = ? WHERE id = ?", nowIso(), u.id).catch(() => {});
@@ -541,19 +575,20 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
   if (fn === "team_list") {
     return json(await all(db, "SELECT u.id, u.email, u.name, m.role, m.created_at FROM members m JOIN users u ON u.id = m.user_id WHERE m.org_id = ? ORDER BY m.created_at", O));
   }
-  if (fn === "team_add") { // adds a person with a starting password; an existing account is only given access
-    const email = str(body.email, 120).toLowerCase(), name = str(body.name, 60), role = ROLES.includes(body.role) && body.role !== "owner" ? body.role : "manager";
+  if (fn === "team_add") { // a new person gets an email with a link to set a password; an existing account is only given access
+    const email = str(body.email, 120).trim().toLowerCase(), name = str(body.name, 60), role = ROLES.includes(body.role) && body.role !== "owner" ? body.role : "manager";
     if (!isEmail(email)) return json({ message: "bad_email" }, 400);
-    let u = await one(db, "SELECT id FROM users WHERE email = ?", email);
+    let u = await one(db, "SELECT id, pw_hash FROM users WHERE email = ?", email), invited = false;
     if (!u) {
-      const pw = typeof body.password === "string" ? body.password : "";
-      if (pw.length < 8 || pw.length > 128) return json({ message: "pw_too_short" }, 400);
       if (!name) return json({ message: "need_names" }, 400);
-      u = { id: uuid() };
-      await run(db, "INSERT INTO users(id, email, name, pw_hash) VALUES (?,?,?,?)", u.id, email, name, await hashPassword(pw));
+      u = { id: uuid(), pw_hash: "" };
+      await run(db, "INSERT INTO users(id, email, name, pw_hash) VALUES (?,?,?,'')", u.id, email, name);
+      invited = true;
     }
     await run(db, "INSERT INTO members(org_id, user_id, role) VALUES (?,?,?) ON CONFLICT (org_id, user_id) DO UPDATE SET role = excluded.role", O, u.id, role);
-    return json(u.id);
+    const url = u.pw_hash ? orgUrlOf(org.code, request) : await passwordLink(db, request, u.id, 72, { slug: org.code });
+    const mailed = await sendMail(env, db, { to: email, ...mails.invite(c.user.name || c.user.email, org.name, org.code, url, !u.pw_hash), kind: "invite", orgId: O });
+    return json({ id: u.id, invited: invited || !u.pw_hash, mailed });
   }
   if (fn === "team_role" || fn === "team_remove") {
     const uid = str(body.user_id, 40);

@@ -173,6 +173,7 @@ section.tint{background:var(--paper)}
 .hint{font-size:13.5px;margin-top:6px;color:var(--mist);min-height:1.3em}
 .hint.ok{color:var(--direct)}.hint.bad{color:#b42318}
 .msg{font-size:15px;font-weight:600;margin:4px 0 12px;min-height:1.2em}
+.sent h3{margin:0 0 8px;font-size:22px}.sent p{margin:0 0 10px}
 .msg.bad{color:#b42318}.panel.alt .msg.bad{color:#ffb4ab}.msg.ok{color:#9fe0b5}
 .panel .btn{width:100%;margin-top:4px}
 .small{font-size:13.5px;color:var(--mist);margin-top:12px}
@@ -355,7 +356,7 @@ dialog .row .btn{flex:1}
           <div class="f"><label for="r-name" data-t="f_name">Numele tău</label><input id="r-name" autocomplete="name" maxlength="60" required></div>
           <div class="f"><label for="r-email">Email</label><input id="r-email" type="email" autocomplete="email" maxlength="120" required></div>
         </div>
-        <div class="f"><label for="r-pw" data-t="f_pw">Parolă (minimum 8 caractere)</label><input id="r-pw" type="password" autocomplete="new-password" minlength="8" maxlength="128" required></div>
+        <p class="hint" data-t="pw_note" style="margin:0 0 12px">Îți trimitem pe email un link ca să confirmi adresa și să-ți alegi parola. Doar cu acest email vei putea intra în companie.</p>
         <label class="terms"><input type="checkbox" id="r-terms" required> <span data-t="terms">Accept <a href="/termeni" target="_blank">Termenii de utilizare</a> și <a href="/confidentialitate" target="_blank">Politica de confidențialitate</a></span></label>
         <div class="msg" id="reg-msg" role="alert"></div>
         <button class="btn primary" type="submit" id="reg-go" data-t="reg_go">Creează compania</button>
@@ -398,6 +399,7 @@ dialog .row .btn{flex:1}
 <script>
 (function(){
 const $=id=>document.getElementById(id);
+const esc=x=>String(x).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
 const T={
  ro:{},
  ru:{nav_features:"Возможности",nav_pricing:"Цены",nav_faq:"Вопросы",signin:"Войти",try:"Попробовать",
@@ -435,12 +437,14 @@ const T={
   e_slug_bad:"От 3 до 30 символов: латинские буквы, цифры и дефис.",e_slug_taken:"Этот адрес уже занят — выберите другой.",ok_slug:"Адрес свободен.",
   e_need:"Заполните все поля.",e_email:"Проверьте email.",e_pw:"Пароль — минимум 8 символов.",e_email_taken:"Этот email уже зарегистрирован — войдите в свою компанию.",e_net:"Нет связи с сервером, попробуйте ещё раз.",
   e_contact:"Оставьте телефон, чтобы мы могли связаться.",ok_lead:"Спасибо! Позвоним сегодня.",e_locked:"Слишком много попыток — попробуйте через 15 минут.",
-  e_notfound:"Компании с таким адресом нет.",nu_exista:"Компании {s}.espace.md не существует. Проверьте адрес или создайте свою.",creating:"Создаём…"},
+  e_notfound:"Компании с таким адресом нет.",nu_exista:"Компании {s}.espace.md не существует. Проверьте адрес или создайте свою.",creating:"Создаём…",pw_note:"Мы пришлём на email ссылку — подтвердите адрес и задайте пароль. Входить в компанию можно будет только с этим email.",
+  sent_h:"Проверьте почту",sent_p:"Компания {s} создана. Мы отправили письмо на {e} — откройте ссылку в нём, чтобы подтвердить адрес и задать пароль. Ссылка действует 3 дня.",sent_spam:"Не пришло за пару минут? Проверьте «Спам» или отправьте ещё раз.",sent_again:"Отправить ещё раз",sent_ok:"Отправили ещё раз."},
 };
 const RO={e_terms:"Bifează că accepți Termenii și Politica de confidențialitate.",indiv:"individual",lei:"lei",e_slug_bad:"Între 3 și 30 de caractere: litere latine, cifre și cratimă.",e_slug_taken:"Adresa e deja ocupată — alege alta.",ok_slug:"Adresa e liberă.",
   e_need:"Completează toate câmpurile.",e_email:"Verifică emailul.",e_pw:"Parola trebuie să aibă minimum 8 caractere.",e_email_taken:"Emailul e deja înregistrat — intră în compania ta.",e_net:"Nu e legătură cu serverul, mai încearcă o dată.",
   e_contact:"Lasă un telefon ca să te putem contacta.",ok_lead:"Mulțumim! Te sunăm azi.",e_locked:"Prea multe încercări — mai încearcă peste 15 minute.",e_notfound:"Nu există o companie cu această adresă.",
-  nu_exista:"Compania {s}.espace.md nu există. Verifică adresa sau creează-ți una.",creating:"Se creează…"};
+  nu_exista:"Compania {s}.espace.md nu există. Verifică adresa sau creează-ți una.",creating:"Se creează…",
+  sent_h:"Verifică emailul",sent_p:"Compania {s} e creată. Am trimis un email la {e} — deschide linkul din el ca să confirmi adresa și să-ți alegi parola. Linkul e valabil 3 zile.",sent_spam:"Nu a venit în câteva minute? Verifică «Spam» sau trimite din nou.",sent_again:"Trimite din nou",sent_ok:"Am trimis din nou."};
 let L="ro";
 const orig={};document.querySelectorAll("[data-t]").forEach(el=>orig[el.dataset.t]=el.innerHTML);
 const t=k=>L==="ru"?(T.ru[k]??RO[k]??orig[k]??k):(RO[k]??orig[k]??k);
@@ -490,14 +494,17 @@ let st;function checkSlug(){clearTimeout(st);const s=$("r-slug").value,h=$("slug
   st=setTimeout(async()=>{const my=++ck;try{const r=await post("slug_check",{slug:s});if(my!==ck)return;h.className="hint "+(r.ok?"ok":"bad");h.textContent=r.ok?t("ok_slug"):(r.valid?t("e_slug_taken"):t("e_slug_bad"))}catch(e){}},250)}
 
 $("reg").addEventListener("submit",async e=>{e.preventDefault();const m=$("reg-msg");m.className="msg bad";m.textContent="";
-  const v={org_name:$("r-org").value.trim(),slug:$("r-slug").value.trim(),name:$("r-name").value.trim(),email:$("r-email").value.trim(),password:$("r-pw").value,terms:$("r-terms").checked};
-  if(!v.org_name||!v.slug||!v.name||!v.email||!v.password){m.textContent=t("e_need");return}
+  const v={org_name:$("r-org").value.trim(),slug:$("r-slug").value.trim(),name:$("r-name").value.trim(),email:$("r-email").value.trim(),terms:$("r-terms").checked};
+  if(!v.org_name||!v.slug||!v.name||!v.email){m.textContent=t("e_need");return}
   if(!slugValid(v.slug)){m.textContent=t("e_slug_bad");return}
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.email)){m.textContent=t("e_email");return}
-  if(v.password.length<8){m.textContent=t("e_pw");return}
   if(!v.terms){m.textContent=t("e_terms");return}
   const b=$("reg-go"),label=b.innerHTML;b.disabled=true;b.textContent=t("creating");
-  try{const r=await post("auth_register",v);location.href=orgUrl(v.slug)+"#t="+r.token}
+  try{const r=await post("auth_register",v);
+    // the account works only after the owner opens the link from the email (it sets the password)
+    $("reg").innerHTML=`<div class="sent"><h3>${t("sent_h")}</h3><p>${t("sent_p").replace("{e}","<b>"+esc(r.email)+"</b>").replace("{s}","<b>"+esc(r.slug)+".espace.md</b>")}</p><p class="hint">${t("sent_spam")}</p><button type="button" class="btn" id="reg-again">${t("sent_again")}</button><div class="msg" id="again-msg"></div></div>`;
+    $("reg-again").onclick=async()=>{const am=$("again-msg");try{await post("auth_reset_request",{email:r.email});am.className="msg ok";am.textContent=t("sent_ok")}catch(x){am.className="msg bad";am.textContent=t("e_locked")}};
+  }
   catch(err){m.textContent=({need_terms:t("e_terms"),bad_slug:t("e_slug_bad"),slug_taken:t("e_slug_taken"),email_taken:t("e_email_taken"),bad_email:t("e_email"),pw_too_short:t("e_pw"),need_names:t("e_need")})[err.code]||t("e_net");b.disabled=false;b.innerHTML=label}});
 
 $("lead").addEventListener("submit",async e=>{e.preventDefault();const m=$("lead-msg");m.className="msg bad";m.textContent="";

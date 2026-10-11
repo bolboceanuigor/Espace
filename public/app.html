@@ -2133,10 +2133,9 @@ function renderSettings(){
       <div class="actions"><button class="btn" id="pw-save">Сменить пароль</button><button class="btn danger" id="p-out">Выйти на этом устройстве</button></div>
       <p class="small" style="margin-bottom:0">После смены пароля остальные устройства выйдут из аккаунта.</p></div>`],
     ...(ROLE==="owner"?{team:["mgr","Доступ для сотрудников","менеджеры, проверка оплат, только просмотр",()=>{setTimeout(teamLoad,0);return `<div class="card"><div id="team-list" class="small">Загружаю…</div></div>
-      <div class="card"><b>Добавить человека</b><p class="small" style="margin:4px 0 10px">Он входит со своим email и паролем. Если у него уже есть аккаунт espace.md — пароль не нужен, он просто получит доступ.</p>
+      <div class="card"><b>Добавить человека</b><p class="small" style="margin:4px 0 10px">Ему придёт письмо со ссылкой — он сам задаст пароль и будет входить только со своим email. Если у него уже есть аккаунт espace.md, он просто получит доступ.</p>
       <label class="l" for="tm-name">Имя</label><input id="tm-name" type="text" maxlength="60">
       <label class="l" for="tm-email">Email</label><input id="tm-email" type="email" autocapitalize="off" maxlength="120">
-      <label class="l" for="tm-pw">Начальный пароль <em>— минимум 8 символов, передайте ему лично</em></label><input id="tm-pw" type="text" autocomplete="off" maxlength="128">
       <label class="l" for="tm-role">Роль</label><select id="tm-role">${["manager","checker","viewer"].map(r=>`<option value="${r}">${ROLE_T[r]}</option>`).join("")}</select>
       <div class="actions"><button class="btn primary" id="tm-add">Добавить</button></div></div>`}]}:{}),
     bill:["chk","Подписка",billLine(),()=>{setTimeout(billLoad,0);return `<div class="card" id="bill-box"><span class="small">Загружаю…</span></div>`}]};
@@ -3000,8 +2999,8 @@ document.addEventListener("click",e=>{
   if(ds.orgsw){api("auth_switch",{org_id:ds.orgsw}).then(async me=>{setMe(me);closeSheet();await reload();loadPhotos();toast("Открыта: "+orgName())}).catch(()=>toast("Не получилось"));return}
   if(t.id==="pw-save"){const o=$("pw-old").value,n=$("pw-new").value;if(n.length<8){toast("Новый пароль — минимум 8 символов");return}
     api("auth_password",{old_password:o,new_password:n}).then(()=>{$("pw-old").value="";$("pw-new").value="";toast("Пароль изменён")}).catch(e=>toast(e.code==="bad_password"?"Текущий пароль неверный":"Не изменён"));return}
-  if(t.id==="tm-add"){const v={name:$("tm-name").value.trim(),email:$("tm-email").value.trim(),password:$("tm-pw").value,role:$("tm-role").value};
-    t.disabled=true;api("team_add",v).then(()=>{["tm-name","tm-email","tm-pw"].forEach(i=>$(i).value="");toast("Доступ выдан");teamLoad()}).catch(e=>toast(e.code==="bad_email"?"Проверь email":e.code==="pw_too_short"?"Пароль — минимум 8 символов":e.code==="need_names"?"Напиши имя":"Не получилось")).finally(()=>t.disabled=false);return}
+  if(t.id==="tm-add"){const v={name:$("tm-name").value.trim(),email:$("tm-email").value.trim(),role:$("tm-role").value};
+    t.disabled=true;api("team_add",v).then(r=>{["tm-name","tm-email"].forEach(i=>$(i).value="");toast(r.invited?"Приглашение отправлено на "+v.email:"Доступ выдан");teamLoad()}).catch(e=>toast(e.code==="bad_email"?"Проверь email":e.code==="pw_too_short"?"Пароль — минимум 8 символов":e.code==="need_names"?"Напиши имя":"Не получилось")).finally(()=>t.disabled=false);return}
   if(ds.tmdel){askDel("Убрать доступ?","Человек больше не сможет открыть эту компанию.",()=>api("team_remove",{user_id:ds.tmdel}).then(()=>{toast("Доступ убран");teamLoad()}).catch(()=>toast("Не получилось")),"Убрать");return}
 });
 $("sheet").addEventListener("click",e=>{if(e.target.id==="sheet")closeSheet()});
@@ -3143,7 +3142,7 @@ function gMode(m){GMODE=m;document.querySelectorAll("[data-gmode]").forEach(b=>b
 let RESET_TOK="";
 document.addEventListener("click",e=>{const a=e.target.closest("#g-forgot,#g-back");if(!a)return;e.preventDefault();gMode(a.id==="g-forgot"?"forgot":"login")});
 function lock(msg){PIN=null;$("app").hidden=true;$("cl-app").hidden=true;$("gate").hidden=false;gMode(GMODE);$("g-msg").innerHTML=msg?`<div class="msg bad">${esc(msg)}</div>`:"";$("g-pw").value="";$("g-pin").value=""}
-const G_ERR={bad_login:"Неверный email или пароль",locked:"Слишком много попыток — подожди 15 минут",email_taken:"Этот email уже зарегистрирован — войди",bad_email:"Проверь email",pw_too_short:"Пароль — минимум 8 символов",need_names:"Заполни название компании и имя",bad_pin:"Неверный PIN",not_member:"У этого аккаунта нет доступа к этой компании",bad_token:"Ссылка устарела или уже использована — запросите новую",pw_too_short:"Пароль — минимум 8 символов",bad_email:"Введите email",locked:"Слишком много попыток — подождите 15 минут"};
+const G_ERR={not_confirmed:"Аккаунт ещё не подтверждён — откройте письмо со ссылкой или нажмите «Забыли пароль?», чтобы получить её снова",bad_login:"Неверный email или пароль",locked:"Слишком много попыток — подожди 15 минут",email_taken:"Этот email уже зарегистрирован — войди",bad_email:"Проверь email",pw_too_short:"Пароль — минимум 8 символов",need_names:"Заполни название компании и имя",bad_pin:"Неверный PIN",not_member:"У этого аккаунта нет доступа к этой компании",bad_token:"Ссылка устарела или уже использована — запросите новую",pw_too_short:"Пароль — минимум 8 символов",bad_email:"Введите email",locked:"Слишком много попыток — подождите 15 минут"};
 async function enterApp(token,me){PIN=token;ls.set("tok",token);ls.set("cl","");setMe(me);
   if(!me.org){$("gate").hidden=false;$("g-msg").innerHTML=`<div class="msg bad">У этого аккаунта нет доступа ни к одной компании.</div>`;return}
   $("gate").hidden=true;$("app").hidden=false;fitHdr();await reload();loadPhotos()}
@@ -3156,8 +3155,11 @@ async function gSubmit(){
       $("g-msg").innerHTML=`<div class="msg">Если такой аккаунт есть, мы отправили ссылку на ${esc(email)}. Проверьте почту и папку «Спам».</div>`;return}
     if(GMODE==="reset"){const password=$("g-npw").value;if(password.length<8)throw Object.assign(new Error(),{code:"pw_too_short"});
       const r=await fetch("/api/auth_reset",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:RESET_TOK,password})});const j=await r.json().catch(()=>null);
-      if(!r.ok){if(j&&j.message==="bad_token"){RESET_TOK="";gMode("forgot");$("g-msg").innerHTML=`<div class="msg bad">${j.reason==="used"?"Эта ссылка уже использована. Если писем несколько — откройте самое новое или запросите ссылку ещё раз.":"Ссылка устарела (действует 1 час) — запросите новую."}</div>`;return}throw Object.assign(new Error(),{code:j&&j.message})}
-      RESET_TOK="";gMode("login");$("g-email").value=j.email||"";$("g-msg").innerHTML=`<div class="msg">Пароль изменён. Войдите с новым паролем.</div>`;setTimeout(()=>$("g-pw").focus(),60);return}
+      if(!r.ok){if(j&&j.message==="bad_token"){RESET_TOK="";gMode("forgot");$("g-msg").innerHTML=`<div class="msg bad">${j.reason==="used"?"Эта ссылка уже использована. Если писем несколько — откройте самое новое или запросите ссылку ещё раз.":"Ссылка устарела — запросите новую."}</div>`;return}throw Object.assign(new Error(),{code:j&&j.message})}
+      RESET_TOK="";
+      // the server signs in right away after the password is set from the email link
+      if(j.token){ls.set("tok",j.token);ls.set("cl","");$("g-npw").value="";toast("Пароль сохранён");boot();return}
+      gMode("login");$("g-email").value=j.email||"";$("g-msg").innerHTML=`<div class="msg">Пароль изменён. Войдите с новым паролем.</div>`;setTimeout(()=>$("g-pw").focus(),60);return}
     if(GMODE==="maid"){const code=SLUG,pin=$("g-pin").value.trim();if(!pin)throw Object.assign(new Error(),{code:"bad_pin"});
       CORG=code;CPIN=pin;const me=await clApi("cl_login");await startCleaner(code,pin,me);return}
     const body={email:$("g-email").value.trim(),password:$("g-pw").value};

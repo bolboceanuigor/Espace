@@ -21,7 +21,7 @@ jobs:
           DB=$(cf "$API/d1/database?name=espace" | jq -r '.result[0].uuid // empty')
           [ -n "$DB" ] || { echo "::error::database espace not found"; exit 1; }
           CODES=$(cf -X POST "$API/d1/database/$DB/query" -d '{"sql":"SELECT code FROM orgs WHERE status != '"'"'deleted'"'"'"}' | jq -r '.result[0].results[].code')
-          ALL=$(for p in 1 2 3 4 5; do cf "$API/pages/projects/espace/domains?page=$p&per_page=100" | jq -r '.result[]? | "\(.name) \(.status)"'; done)
+          ALL=$(cf "$API/pages/projects/espace/domains" | jq -r '.result[]? | "\(.name) \(.status)"')
           N=0
           for c in $CODES; do
             d="$c.espace.md"

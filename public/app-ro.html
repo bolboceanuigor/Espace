@@ -2133,10 +2133,9 @@ function renderSettings(){
       <div class="actions"><button class="btn" id="pw-save">Schimbă parola</button><button class="btn danger" id="p-out">Ieși pe acest dispozitiv</button></div>
       <p class="small" style="margin-bottom:0">După schimbarea parolei, celelalte dispozitive vor ieși din cont.</p></div>`],
     ...(ROLE==="owner"?{team:["mgr","Acces pentru angajați","manageri, verificarea plăților, doar vizualizare",()=>{setTimeout(teamLoad,0);return `<div class="card"><div id="team-list" class="small">Încarc…</div></div>
-      <div class="card"><b>Adaugă o persoană</b><p class="small" style="margin:4px 0 10px">El intră cu propriul email și parolă. Dacă are deja un cont espace.md — parola nu e necesară, primește doar acces.</p>
+      <div class="card"><b>Adaugă o persoană</b><p class="small" style="margin:4px 0 10px">Primește un email cu link — își alege singur parola și va intra doar cu email. Dacă are deja un cont espace.md, primește doar acces.</p>
       <label class="l" for="tm-name">Nume</label><input id="tm-name" type="text" maxlength="60">
       <label class="l" for="tm-email">Email</label><input id="tm-email" type="email" autocapitalize="off" maxlength="120">
-      <label class="l" for="tm-pw">Parola inițială <em>— minimum 8 caractere, transmite-i-o personal</em></label><input id="tm-pw" type="text" autocomplete="off" maxlength="128">
       <label class="l" for="tm-role">Rol</label><select id="tm-role">${["manager","checker","viewer"].map(r=>`<option value="${r}">${ROLE_T[r]}</option>`).join("")}</select>
       <div class="actions"><button class="btn primary" id="tm-add">Adaugă</button></div></div>`}]}:{}),
     bill:["chk","Abonament",billLine(),()=>{setTimeout(billLoad,0);return `<div class="card" id="bill-box"><span class="small">Încarc…</span></div>`}]};
@@ -3000,8 +2999,8 @@ document.addEventListener("click",e=>{
   if(ds.orgsw){api("auth_switch",{org_id:ds.orgsw}).then(async me=>{setMe(me);closeSheet();await reload();loadPhotos();toast("Deschisă: "+orgName())}).catch(()=>toast("Nu a reușit"));return}
   if(t.id==="pw-save"){const o=$("pw-old").value,n=$("pw-new").value;if(n.length<8){toast("Parola nouă — minimum 8 caractere");return}
     api("auth_password",{old_password:o,new_password:n}).then(()=>{$("pw-old").value="";$("pw-new").value="";toast("Parola a fost schimbată")}).catch(e=>toast(e.code==="bad_password"?"Parola curentă e greșită":"Neschimbat"));return}
-  if(t.id==="tm-add"){const v={name:$("tm-name").value.trim(),email:$("tm-email").value.trim(),password:$("tm-pw").value,role:$("tm-role").value};
-    t.disabled=true;api("team_add",v).then(()=>{["tm-name","tm-email","tm-pw"].forEach(i=>$(i).value="");toast("Acces acordat");teamLoad()}).catch(e=>toast(e.code==="bad_email"?"Verifică email":e.code==="pw_too_short"?"Parola — minimum 8 caractere":e.code==="need_names"?"Scrie numele":"Nu a reușit")).finally(()=>t.disabled=false);return}
+  if(t.id==="tm-add"){const v={name:$("tm-name").value.trim(),email:$("tm-email").value.trim(),role:$("tm-role").value};
+    t.disabled=true;api("team_add",v).then(r=>{["tm-name","tm-email"].forEach(i=>$(i).value="");toast(r.invited?"Invitația a fost trimisă la "+v.email:"Acces acordat");teamLoad()}).catch(e=>toast(e.code==="bad_email"?"Verifică email":e.code==="pw_too_short"?"Parola — minimum 8 caractere":e.code==="need_names"?"Scrie numele":"Nu a reușit")).finally(()=>t.disabled=false);return}
   if(ds.tmdel){askDel("Scoți accesul?","Persoana nu va mai putea deschide această companie.",()=>api("team_remove",{user_id:ds.tmdel}).then(()=>{toast("Acces retras");teamLoad()}).catch(()=>toast("Nu a reușit")),"Scoate");return}
 });
 $("sheet").addEventListener("click",e=>{if(e.target.id==="sheet")closeSheet()});
@@ -3143,7 +3142,7 @@ function gMode(m){GMODE=m;document.querySelectorAll("[data-gmode]").forEach(b=>b
 let RESET_TOK="";
 document.addEventListener("click",e=>{const a=e.target.closest("#g-forgot,#g-back");if(!a)return;e.preventDefault();gMode(a.id==="g-forgot"?"forgot":"login")});
 function lock(msg){PIN=null;$("app").hidden=true;$("cl-app").hidden=true;$("gate").hidden=false;gMode(GMODE);$("g-msg").innerHTML=msg?`<div class="msg bad">${esc(msg)}</div>`:"";$("g-pw").value="";$("g-pin").value=""}
-const G_ERR={bad_login:"Greșit email sau parola",locked:"Prea multe încercări — așteaptă 15 minute",email_taken:"Acest email e deja înregistrat — intră",bad_email:"Verifică email",pw_too_short:"Parola — minimum 8 caractere",need_names:"Completează numele companiei și numele tău",bad_pin:"Greșit PIN",not_member:"Acest cont nu are acces la această companie",bad_token:"Linkul a expirat sau a fost deja folosit — cereți unul nou",pw_too_short:"Parola — minimum 8 caractere",bad_email:"Introduceți email",locked:"Prea multe încercări — așteptați 15 minute"};
+const G_ERR={not_confirmed:"Contul nu e încă confirmat — deschide emailul cu linkul sau apasă «Ați uitat parola?» ca să-l primești din nou",bad_login:"Greșit email sau parola",locked:"Prea multe încercări — așteaptă 15 minute",email_taken:"Acest email e deja înregistrat — intră",bad_email:"Verifică email",pw_too_short:"Parola — minimum 8 caractere",need_names:"Completează numele companiei și numele tău",bad_pin:"Greșit PIN",not_member:"Acest cont nu are acces la această companie",bad_token:"Linkul a expirat sau a fost deja folosit — cereți unul nou",pw_too_short:"Parola — minimum 8 caractere",bad_email:"Introduceți email",locked:"Prea multe încercări — așteptați 15 minute"};
 async function enterApp(token,me){PIN=token;ls.set("tok",token);ls.set("cl","");setMe(me);
   if(!me.org){$("gate").hidden=false;$("g-msg").innerHTML=`<div class="msg bad">Acest cont nu are acces la nicio companie.</div>`;return}
   $("gate").hidden=true;$("app").hidden=false;fitHdr();await reload();loadPhotos()}
@@ -3156,8 +3155,11 @@ async function gSubmit(){
       $("g-msg").innerHTML=`<div class="msg">Dacă acest cont există, am trimis un link pe ${esc(email)}. Verificați emailul și dosarul «Spam».</div>`;return}
     if(GMODE==="reset"){const password=$("g-npw").value;if(password.length<8)throw Object.assign(new Error(),{code:"pw_too_short"});
       const r=await fetch("/api/auth_reset",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:RESET_TOK,password})});const j=await r.json().catch(()=>null);
-      if(!r.ok){if(j&&j.message==="bad_token"){RESET_TOK="";gMode("forgot");$("g-msg").innerHTML=`<div class="msg bad">${j.reason==="used"?"Acest link a fost deja folosit. Dacă ai mai multe emailuri, deschide-l pe cel mai nou sau cere linkul din nou.":"Linkul a expirat (e valabil 1 oră) — cere unul nou."}</div>`;return}throw Object.assign(new Error(),{code:j&&j.message})}
-      RESET_TOK="";gMode("login");$("g-email").value=j.email||"";$("g-msg").innerHTML=`<div class="msg">Parola a fost schimbată. Intrați cu parola nouă.</div>`;setTimeout(()=>$("g-pw").focus(),60);return}
+      if(!r.ok){if(j&&j.message==="bad_token"){RESET_TOK="";gMode("forgot");$("g-msg").innerHTML=`<div class="msg bad">${j.reason==="used"?"Acest link a fost deja folosit. Dacă ai mai multe emailuri, deschide-l pe cel mai nou sau cere linkul din nou.":"Linkul a expirat — cere unul nou."}</div>`;return}throw Object.assign(new Error(),{code:j&&j.message})}
+      RESET_TOK="";
+      // the server signs in right away after the password is set from the email link
+      if(j.token){ls.set("tok",j.token);ls.set("cl","");$("g-npw").value="";toast("Parola a fost salvată");boot();return}
+      gMode("login");$("g-email").value=j.email||"";$("g-msg").innerHTML=`<div class="msg">Parola a fost schimbată. Intrați cu parola nouă.</div>`;setTimeout(()=>$("g-pw").focus(),60);return}
     if(GMODE==="maid"){const code=SLUG,pin=$("g-pin").value.trim();if(!pin)throw Object.assign(new Error(),{code:"bad_pin"});
       CORG=code;CPIN=pin;const me=await clApi("cl_login");await startCleaner(code,pin,me);return}
     const body={email:$("g-email").value.trim(),password:$("g-pw").value};
