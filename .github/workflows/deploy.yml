@@ -16,8 +16,8 @@ jobs:
           node-version: 22
       - run: npm ci --no-audit --no-fund
       - run: npx tsc --noEmit
-      - name: Romanian app (public/app-ro.html from public/app.html)
-        run: python3 tools/build_ro.py
+      - name: App in Romanian and English (public/app-ro.html, app-en.html from public/app.html)
+        run: python3 tools/build_i18n.py
       - name: Cloudflare account
         run: |
           if [ -z "$CLOUDFLARE_API_TOKEN" ]; then echo "::error::CLOUDFLARE_API_TOKEN secret is empty"; exit 1; fi

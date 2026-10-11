@@ -2,7 +2,7 @@
 import re
 RUN = re.compile(r'[А-Яа-яЁё][А-Яа-яЁё0-9 ,.:;!?«»()\-–—/+%№]*[А-Яа-яЁё.!?»)]|[А-Яа-яЁё]')
 # values stored in the database: they stay Russian in code (both builds read and write the same data);
-# the Romanian build only shows them translated (DISPLAY in build_ro.py)
+# the translated builds only show them translated on screen (DISPLAY_* in build_i18n.py)
 DATA = {"Кэш", "Счёт", "Счёт+Кэш", "Прямой", "Повторный", "Коммунальные", "Уборка", "Ремонт", "Бельё и химия",
         "Комиссии", "Прочее", "Интернет и ТВ", "Налоги", "Квартира 1", "из смены", "доплата к авансу"}
 REGEX_LIT = re.compile(r'/((?:[^/\n\\*]|\\.)(?:[^/\n\\]|\\.)*)/[gimsuy]*(?=[.,;)\s])')

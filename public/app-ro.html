@@ -531,7 +531,7 @@ h3 .count{background:var(--accent-soft);color:var(--accent);border-radius:999px;
 label.l{display:block;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:16px 0 6px}
 label.l:first-child{margin-top:0}
 label.l em{text-transform:none;letter-spacing:0;font-style:normal;font-weight:400}
-input[type=text],input[type=date],input[type=tel],input[type=password],input[inputmode]{width:100%;min-width:0;height:44px;border:1px solid var(--line);border-radius:9px;background:var(--bg);padding:0 12px}
+input[type=text],input[type=date],input[type=tel],input[type=password],input[type=email],input[type=number],input[type=search],input[type=url],input[inputmode]{width:100%;min-width:0;height:44px;border:1px solid var(--line);border-radius:9px;background:var(--bg);padding:0 12px}
 input:focus{border-color:var(--accent);outline:none}
 .apts{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:6px}
 .chip{position:relative;border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:9px 8px 9px 22px;text-align:left;font-weight:500;font-size:14px;line-height:1.15;min-height:42px}
@@ -847,6 +847,20 @@ body.calmode .wrap{padding-bottom:0;max-width:none}
 .subbar.bad{background:#fde2df;color:#7a1d12}
 .subbar button{margin-left:8px}
 .gate .btn{width:100%}
+/* sign-in fields: icon, roomy, soft focus ring, show-password eye, no yellow autofill */
+.gate .fld{position:relative;margin:2px 0 14px}
+.gate .fld .ic{position:absolute;left:15px;top:50%;transform:translateY(-50%);width:19px;height:19px;color:var(--muted);pointer-events:none;transition:color .15s}
+.gate .fld input{height:54px;margin:0;border-radius:15px;border:1.5px solid var(--line);background:var(--bg);padding:0 50px 0 46px;font-size:16.5px;transition:border-color .15s,box-shadow .15s}
+.gate .fld input::placeholder{color:var(--muted);opacity:.55}
+.gate .fld input:focus{border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
+.gate .fld:focus-within .ic{color:var(--accent)}
+.gate .fld input:-webkit-autofill{-webkit-box-shadow:0 0 0 100px var(--bg) inset;-webkit-text-fill-color:var(--ink);caret-color:var(--ink)}
+.gate .fld input[type=password]{letter-spacing:.12em}
+.gate .fld .eye{position:absolute;right:7px;top:50%;transform:translateY(-50%);width:40px;height:40px;border:0;border-radius:11px;background:none;color:var(--muted);display:grid;place-items:center;cursor:pointer}
+.gate .fld .eye:hover{background:var(--accent-soft);color:var(--ink)}.gate .fld .eye svg{width:19px;height:19px}
+.gate .fld .eye[aria-pressed="true"]{color:var(--accent)}
+.gate label.l{margin:0 0 7px 2px}
+#g-lang{margin-top:18px;text-align:center}
 .toast{position:fixed;left:50%;bottom:92px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:11px;font-weight:500;z-index:60;max-width:calc(100% - 32px);box-shadow:0 6px 24px rgba(0,0,0,.2)}
 @media (min-width:860px){.toast{bottom:24px}}
 @media (prefers-reduced-motion:no-preference){.toast{animation:pop .18s ease-out}@keyframes pop{from{opacity:0;transform:translate(-50%,8px)}}.sheet .panel{animation:up .2s ease-out}@keyframes up{from{transform:translateY(30px);opacity:.6}}}
@@ -863,7 +877,7 @@ body.calmode .wrap{padding-bottom:0;max-width:none}
 .bar .vk{color:#1d7a3a;font-weight:800}
 .billbal{display:flex;align-items:baseline;justify-content:space-between;margin:10px 0 2px}.billbal b{font-size:26px;letter-spacing:-.02em}
 .billpay{border:1px solid var(--line);border-radius:12px;padding:12px;margin:0 0 14px}.billq{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 8px}.billrow{display:flex;gap:8px}.billrow input{flex:1;min-width:0}
-.langsw{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}.langsw button{border:0;background:none;padding:5px 12px;font:inherit;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer}.langsw button[aria-pressed="true"]{background:var(--ink,#202248);color:#fff}
+.langsw{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}.langsw button{border:0;background:none;padding:5px 12px;font:inherit;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer}.langsw button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}.langsw button:not([aria-pressed="true"]):hover{color:var(--ink)}
 </style>
 </head>
 <body>
@@ -874,10 +888,10 @@ body.calmode .wrap{padding-bottom:0;max-width:none}
   <p class="small" style="margin:0" id="g-sub">Administrarea chiriei pe zi</p>
   <div class="seg2" role="tablist" id="g-tabs"><button type="button" data-gmode="login" aria-pressed="true">Intrare</button><button type="button" data-gmode="maid" aria-pressed="false">Sunt menajeră</button></div>
   <form id="g-form" autocomplete="on" onsubmit="return false">
-    <div data-gf="login forgot"><label class="l" for="g-email">Email</label><input id="g-email" type="email" autocomplete="email" autocapitalize="off" spellcheck="false" maxlength="120"></div>
-    <div data-gf="login"><label class="l" for="g-pw">Parola</label><input id="g-pw" type="password" autocomplete="current-password" maxlength="128"></div>
-    <div data-gf="reset"><label class="l" for="g-npw">Parola nouă <em>— minimum 8 caractere</em></label><input id="g-npw" type="password" autocomplete="new-password" maxlength="128"></div>
-    <div data-gf="maid"><label class="l" for="g-pin">Codul PIN <em>— îl dă managerul</em></label><input id="g-pin" type="password" inputmode="numeric" autocomplete="off" maxlength="32"></div>
+    <div data-gf="login forgot"><label class="l" for="g-email">Email</label><div class="fld"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m4 7 8 6 8-6"/></svg><input id="g-email" type="email" autocomplete="email" autocapitalize="off" spellcheck="false" maxlength="120" placeholder="nume@exemplu.md"></div></div>
+    <div data-gf="login"><label class="l" for="g-pw">Parola</label><div class="fld"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg><input id="g-pw" type="password" autocomplete="current-password" maxlength="128"><button type="button" class="eye" data-eye="g-pw" aria-label="Arată parola"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+    <div data-gf="reset"><label class="l" for="g-npw">Parola nouă <em>— minimum 8 caractere</em></label><div class="fld"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg><input id="g-npw" type="password" autocomplete="new-password" maxlength="128"><button type="button" class="eye" data-eye="g-npw" aria-label="Arată parola"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+    <div data-gf="maid"><label class="l" for="g-pin">Codul PIN <em>— îl dă managerul</em></label><div class="fld"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="16" cy="12" r="1.2"/><rect x="3" y="7" width="18" height="10" rx="2.5"/></svg><input id="g-pin" type="password" inputmode="numeric" autocomplete="off" maxlength="32"><button type="button" class="eye" data-eye="g-pin" aria-label="Arată parola"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
     <div class="msgs" id="g-msg"></div>
     <button class="btn primary" id="g-go" type="submit">Intră</button>
     <p class="small" data-gf="login" style="margin:10px 0 0;text-align:center"><a href="#" id="g-forgot">Ați uitat parola?</a></p>
@@ -1096,15 +1110,16 @@ const toT=s=>{const [y,m,d]=s.split("-").map(Number);return Date.UTC(y,m-1,d)};
 const fromT=t=>new Date(t).toISOString().slice(0,10);
 const dm=s=>{if(!s)return"";const [y,m,d]=s.split("-");return d+"."+m};
 const num=v=>{if(v===""||v==null)return 0;const n=parseFloat(String(v).replace(",",".").replace(/\s/g,""));return isFinite(n)?n:NaN};
-// UI language: this file is the Russian build; tools/build_ro.py makes app-ro.html with LANG="ro".
+// UI language: this file is the Russian build; tools/build_i18n.py makes app-ro.html and app-en.html (LANG="ro" / "en").
 // The choice is a cookie on .espace.md, read by functions/_middleware.ts when it serves the company address.
 const LANG="ro";
 function setLang(l){
   if(l===LANG)return;
   try{document.cookie="es_lang="+l+";path=/;max-age=31536000;samesite=lax"+(location.hostname.endsWith("espace.md")?";domain=.espace.md":"")}catch(e){}
-  if(/^\/app(-ro)?(\.html)?$/.test(location.pathname))location.href=(l==="ro"?"/app-ro":"/app")+location.search+location.hash;else location.reload();
+  if(/^\/app(-ro|-en)?(\.html)?$/.test(location.pathname))location.href=(l==="ru"?"/app":"/app-"+l)+location.search+location.hash;else location.reload();
 }
-const langSw=()=>`<span class="langsw" role="group" aria-label="Limba / Limba">${["ro","ru"].map(l=>`<button type="button" data-setlang="${l}" aria-pressed="${l===LANG}">${l.toUpperCase()}</button>`).join("")}</span>`;
+const langSw=()=>`<span class="langsw" role="group" aria-label="Limba / Limba / Language">${[["ro","RO","Română"],["ru","RU","\u0420\u0443\u0441\u0441\u043a\u0438\u0439"],["en","EN","English"]].map(([l,c,n])=>`<button type="button" data-setlang="${l}" aria-pressed="${l===LANG}" title="${n}" lang="${l}">${c}</button>`).join("")}</span>`;
+document.addEventListener("click",e=>{const v=e.target.closest&&e.target.closest("[data-eye]");if(v){const i=document.getElementById(v.dataset.eye);if(i){const show=i.type==="password";i.type=show?"text":"password";v.setAttribute("aria-pressed",String(show));i.focus()}}});
 document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-setlang]");if(b){e.preventDefault();setLang(b.dataset.setlang)}});
 const fmt=n=>(Math.round(n*100)/100).toLocaleString("ru-RU",{maximumFractionDigits:2});
 const fmt0=n=>Math.round(n).toLocaleString("ru-RU");
@@ -2751,7 +2766,7 @@ let closedHit=0;
 // a toast with an «Anulează» button for 6 seconds — for a tap made by mistake
 function undoToast(text,undo){document.querySelectorAll(".toast").forEach(x=>x.remove());const el=document.createElement("div");el.className="toast utoast";el.setAttribute("role","status");el.innerHTML=`<span>${esc(text)}</span><button type="button">Anulează</button>`;document.body.appendChild(el);
   const t=setTimeout(()=>el.remove(),6000);el.querySelector("button").addEventListener("click",()=>{clearTimeout(t);el.remove();undo()},{once:true})}
-function toast(t){if(RO&&!/просмотр|vizualizare/.test(t)&&Date.now()-(window._roT||0)<2500)return;if(Date.now()-closedHit<2500&&/Не (сохранил|удал|получил)|Nu s-a (salvat|putut|încasat)/.test(t))t="Luna e închisă după verificare — nu se poate modifica. O poți redeschide din «Verificarea plăților»";let el=document.querySelector(".toast");if(!el){el=document.createElement("div");el.className="toast";el.setAttribute("role","status");document.body.appendChild(el)}el.textContent=t;clearTimeout(toastT);toastT=setTimeout(()=>el.remove(),3200)}
+function toast(t){if(RO&&!/просмотр|vizualizare|view/i.test(t)&&Date.now()-(window._roT||0)<2500)return;if(Date.now()-closedHit<2500&&/Не (сохранил|удал|получил)|Nu s-a (salvat|putut|încasat)|Not saved|Couldn|Didn/.test(t))t="Luna e închisă după verificare — nu se poate modifica. O poți redeschide din «Verificarea plăților»";let el=document.querySelector(".toast");if(!el){el=document.createElement("div");el.className="toast";el.setAttribute("role","status");document.body.appendChild(el)}el.textContent=t;clearTimeout(toastT);toastT=setTimeout(()=>el.remove(),3200)}
 
 document.addEventListener("click",e=>{
   if(e.target.closest(".acts a")) return;
@@ -3190,7 +3205,7 @@ boot();
 })();
 </script>
 <script>
-// Romanian build: values stored in Russian (payment ways, sources, expense categories) are translated on screen only.
+// translated build: values stored in Russian (payment ways, sources, expense categories) are translated on screen only.
 (function(){
 const M=[["Бельё и химия", "Lenjerie și detergenți"], ["Интернет и ТВ", "Internet și TV"], ["доплата к авансу", "rest de plată la avans"], ["Коммунальные", "Utilități"], ["Счёт+Кэш", "Cont+Numerar"], ["Повторный", "Revenit"], ["Квартира", "Apartament"], ["из смены", "din tură"], ["Комиссии", "Comisioane"], ["Прямой", "Direct"], ["Налоги", "Impozite"], ["Прочее", "Altele"], ["Уборка", "Curățenie"], ["Ремонт", "Reparație"], ["Счёт", "Cont"], ["Кэш", "Numerar"]].map(([a,b])=>[new RegExp("(^|[^А-Яа-яЁё])"+a.replace(/[+]/g,"\\+")+"(?![А-Яа-яЁё])","g"),b]);
 const CY=/[А-Яа-яЁё]/,SKIP={SCRIPT:1,STYLE:1,TEXTAREA:1};

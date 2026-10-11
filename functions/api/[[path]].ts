@@ -406,7 +406,8 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     const slug = str(body.slug, 40).toLowerCase();
     if (body.terms !== true) return json({ message: "need_terms" }, 400);
     const ip = request.headers.get("cf-connecting-ip") || "x";
-    if (ip !== "x") { // at most 10 sign-ups per 15 minutes from one address (local dev has no client IP)
+    const local = ["localhost", "127.0.0.1"].includes(new URL(request.url).hostname);
+    if (!local) { // at most 10 sign-ups per 15 minutes from one address (not throttled on a local dev server)
       if (await throttled(db, "reg:" + ip)) return json({ message: "locked" }, 429);
       await failHit(db, "reg:" + ip);
     }

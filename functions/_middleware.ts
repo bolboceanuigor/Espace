@@ -3,16 +3,22 @@ import { hostOf, siteOf } from "../lib/host";
 
 interface Env { DB: D1Database; ASSETS: Fetcher }
 const PAGES: Record<string, string> = { site: "/site", admin: "/admin", tenant: "/app" };
-const SPLIT = ["/site", "/site.html", "/admin", "/admin.html", "/app", "/app.html", "/app-ro", "/app-ro.html"];
+const SPLIT = ["/site", "/site.html", "/admin", "/admin.html", "/app", "/app.html", "/app-ro", "/app-ro.html", "/app-en", "/app-en.html"];
 
-// company app language: the es_lang cookie (set by the RO/RU switch) wins, else the browser's preferred language
-export function appLang(req: Request): "ro" | "ru" {
-  const c = /(?:^|;\s*)es_lang=(ro|ru)/.exec(req.headers.get("cookie") || "");
-  if (c) return c[1] as "ro" | "ru";
-  const al = (req.headers.get("accept-language") || "").toLowerCase();
-  const ro = al.search(/\b(ro|mo)\b/), ru = al.search(/\bru\b/);
-  return ro >= 0 && (ru < 0 || ro < ru) ? "ro" : "ru";
+// company app language: the es_lang cookie (set by the RO/RU/EN switch) wins, else the browser's first known language, else Romanian
+export type Lang = "ro" | "ru" | "en";
+export function appLang(req: Request): Lang {
+  const c = /(?:^|;\s*)es_lang=(ro|ru|en)/.exec(req.headers.get("cookie") || "");
+  if (c) return c[1] as Lang;
+  for (const part of (req.headers.get("accept-language") || "").toLowerCase().split(",")) {
+    const code = part.trim().slice(0, 2);
+    if (code === "ro" || code === "mo") return "ro";
+    if (code === "ru") return "ru";
+    if (code === "en") return "en";
+  }
+  return "ro";
 }
+const APP_PAGE: Record<Lang, string> = { ro: "/app-ro", ru: "/app", en: "/app-en" };
 
 export const onRequest: PagesFunction<Env> = async (ctx) => {
   const { request, env } = ctx;
@@ -28,7 +34,7 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
   }
   // each host has exactly one page; the others are not reachable from it
   if (p === "/" || p === "/index.html") {
-    const page = s.kind === "tenant" && appLang(request) === "ro" ? "/app-ro" : PAGES[s.kind];
+    const page = s.kind === "tenant" ? APP_PAGE[appLang(request)] : PAGES[s.kind];
     const r = await env.ASSETS.fetch(new URL(page, url));
     const h = new Headers(r.headers);
     h.set("cache-control", "no-cache");

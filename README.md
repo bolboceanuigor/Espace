@@ -40,8 +40,8 @@ Cloudflare Pages nu acceptă domenii wildcard, așa că `router/` e un Worker mi
 ```
 public/site.html           site-ul de prezentare (RO/RU)
 public/app.html            aplicația companiei (manager + menajeră), PWA — sursa, în rusă
-public/app-ro.html         aceeași aplicație în română, GENERATĂ: python3 tools/build_ro.py
-tools/ro/*.json            traducerile RU→RO (build-ul se oprește dacă lipsește vreuna)
+public/app-ro.html, app-en.html   aceeași aplicație în română și engleză, GENERATE: python3 tools/build_i18n.py
+tools/ro/*.json, tools/en/*.json  traducerile RU→RO și RU→EN (build-ul se oprește dacă lipsește vreuna)
 public/termeni.html, confidentialitate.html   texte juridice RO+RU (de verificat cu un jurist)
 lib/mail.ts                emailuri prin Resend (fără RESEND_API_KEY doar se înregistrează în jurnal)
 public/admin.html          panoul administratorului platformei
@@ -66,9 +66,9 @@ schema.sql                 schema D1 (idempotentă)
 
 ## Limba aplicației
 
-Pe `<slug>.espace.md` se deschide româna sau rusa după cookie-ul `es_lang` (comutatorul RO/RU din aplicație
-și de pe site), altfel după limba browserului. După orice schimbare în `public/app.html` rulează
-`python3 tools/build_ro.py` (deploy-ul îl rulează oricum) și adaugă textele noi în `tools/ro/`.
+Pe `<slug>.espace.md` se deschide româna, rusa sau engleza după cookie-ul `es_lang` (comutatorul RO/RU/EN din aplicație
+și de pe site), altfel după limba browserului (implicit română). După orice schimbare în `public/app.html` rulează
+`python3 tools/build_i18n.py` (deploy-ul îl rulează oricum) și adaugă textele noi în `tools/ro/` și `tools/en/`.
 
 ## Dezvoltare locală
 

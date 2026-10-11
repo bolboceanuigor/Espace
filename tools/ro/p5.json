@@ -47,5 +47,7 @@
 "Аккаунт ещё не подтверждён — откройте письмо со ссылкой или нажмите «Забыли пароль?», чтобы получить её снова": "Contul nu e încă confirmat — deschide emailul cu linkul sau apasă «Ați uitat parola?» ca să-l primești din nou",
 "Ему придёт письмо со ссылкой — он сам задаст пароль и будет входить только со своим": "Primește un email cu link — își alege singur parola și va intra doar cu",
 "Если у него уже есть аккаунт": "Dacă are deja un cont",
-"он просто получит доступ.": "primește doar acces."
+"он просто получит доступ.": "primește doar acces.",
+"Показать пароль": "Arată parola",
+"Язык": "Limba"
 }
