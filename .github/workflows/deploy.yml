@@ -18,15 +18,28 @@ jobs:
       - run: npx tsc --noEmit
       - name: Cloudflare account
         run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then echo "::error::CLOUDFLARE_API_TOKEN secret is empty"; exit 1; fi
           ID="${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"
-          if [ -z "$ID" ]; then ID=$(curl -s -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" https://api.cloudflare.com/client/v4/accounts | jq -r '.result[0].id'); fi
+          if [ -z "$ID" ]; then
+            R=$(curl -s -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" https://api.cloudflare.com/client/v4/accounts)
+            ID=$(echo "$R" | jq -r '.result[0].id // empty')
+            if [ -z "$ID" ]; then echo "::error::Cannot list Cloudflare accounts with this token: $(echo "$R" | jq -c '.errors')"; exit 1; fi
+          fi
+          echo "::notice::Cloudflare account found"
           echo "CLOUDFLARE_ACCOUNT_ID=$ID" >> $GITHUB_ENV
       - name: Database (separate from Rentwill; created on the first run)
         run: |
-          DBID=$(npx wrangler d1 list --json | jq -r '.[] | select(.name=="espace") | .uuid')
-          if [ -z "$DBID" ]; then npx wrangler d1 create espace; DBID=$(npx wrangler d1 list --json | jq -r '.[] | select(.name=="espace") | .uuid'); fi
+          set +e
+          L=$(npx wrangler d1 list --json 2>/tmp/err.txt)
+          if [ $? -ne 0 ]; then echo "::error::d1 list failed: $(tr '\n' ' ' < /tmp/err.txt | tail -c 600)"; exit 1; fi
+          DBID=$(echo "$L" | jq -r '.[] | select(.name=="espace") | .uuid')
+          if [ -z "$DBID" ]; then
+            npx wrangler d1 create espace > /tmp/out.txt 2>&1 || { echo "::error::d1 create failed: $(tr '\n' ' ' < /tmp/out.txt | tail -c 600)"; exit 1; }
+            DBID=$(npx wrangler d1 list --json | jq -r '.[] | select(.name=="espace") | .uuid')
+          fi
           sed -i "s/database_id = \".*\"/database_id = \"$DBID\"/" wrangler.toml
-          npx wrangler d1 execute espace --remote --file schema.sql
+          npx wrangler d1 execute espace --remote --file schema.sql > /tmp/out.txt 2>&1 || { echo "::error::schema failed: $(tr '\n' ' ' < /tmp/out.txt | tail -c 600)"; exit 1; }
+          echo "::notice::Database espace ready"
       - name: Pages project
         run: npx wrangler pages project create espace --production-branch main || true
       - name: Secrets
@@ -37,4 +50,6 @@ jobs:
           if [ -n "$SUPERADMIN_EMAIL" ]; then echo "$SUPERADMIN_EMAIL" | npx wrangler pages secret put SUPERADMIN_EMAIL --project-name espace; fi
           if [ -n "$CRON_KEY" ]; then echo "$CRON_KEY" | npx wrangler pages secret put CRON_KEY --project-name espace; fi
       - name: Deploy
-        run: npx wrangler pages deploy public --project-name espace --branch main --commit-dirty=true
+        run: |
+          npx wrangler pages deploy public --project-name espace --branch main --commit-dirty=true > /tmp/out.txt 2>&1 || { echo "::error::deploy failed: $(tr '\n' ' ' < /tmp/out.txt | tail -c 600)"; exit 1; }
+          echo "::notice::Deployed: $(grep -o 'https://[a-z0-9.-]*pages.dev' /tmp/out.txt | tail -1)"
