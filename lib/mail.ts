@@ -59,9 +59,10 @@ export const mails = {
       { url: orgUrl(slug), ro: "Deschide compania", ru: "Открыть компанию" }),
   }),
   reset: (url: string) => ({
-    subject: "Resetarea parolei espace.md / Сброс пароля",
+    // the time in the subject keeps each request a separate email (Gmail would otherwise stack them and the older, used link is easy to click)
+    subject: `Resetarea parolei espace.md · ${new Date().toLocaleTimeString("ro-RO", { timeZone: "Europe/Chisinau", hour: "2-digit", minute: "2-digit" })}`,
     html: layout(
-      { title: "Resetează parola", body: `<p>Cineva (probabil tu) a cerut o parolă nouă pentru contul tău espace.md. Linkul e valabil <b>1 oră</b>.</p><p>Dacă nu ai cerut tu, ignoră acest email — parola rămâne aceeași.</p>` },
+      { title: "Resetează parola", body: `<p>Cineva (probabil tu) a cerut o parolă nouă pentru contul tău espace.md. Linkul e valabil <b>1 oră</b> și merge o singură dată. Dacă ai cerut de mai multe ori, folosește emailul cel mai nou.</p><p>Dacă nu ai cerut tu, ignoră acest email — parola rămâne aceeași.</p>` },
       { title: "Сброс пароля", body: `<p>Кто-то (скорее всего вы) запросил новый пароль для аккаунта espace.md. Ссылка действует <b>1 час</b>. Если это были не вы — просто проигнорируйте письмо.</p>` },
       { url, ro: "Alege o parolă nouă", ru: "Задать новый пароль" }),
   }),

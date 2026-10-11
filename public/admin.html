@@ -533,7 +533,9 @@ $("forgot").onclick=async e=>{e.preventDefault();const em=$("em").value.trim();i
   $("lmsg").className="msg "+(r.ok?"ok":"bad");$("lmsg").textContent=r.ok?"Dacă există contul, ți-am trimis un link pe email.":"Prea multe încercări — așteaptă 15 minute."};
 let RT="";{const m=/[#&]reset=([0-9a-f]{64})/.exec(location.hash);if(m){RT=m[1];history.replaceState(null,"",location.pathname)}}
 $("rf").addEventListener("submit",async e=>{e.preventDefault();const r=await fetch("/api/auth_reset",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:RT,password:$("npw").value})});const j=await r.json().catch(()=>({}));
-  if(!r.ok){$("rmsg").textContent=j.message==="pw_too_short"?"Minimum 8 caractere.":"Linkul a expirat sau a fost folosit — cere altul.";return}
+  if(!r.ok){if(j.message==="pw_too_short"){$("rmsg").textContent="Minimum 8 caractere.";return}
+    RT="";$("rf").hidden=true;$("lf").hidden=false;$("lmsg").className="msg bad";
+    $("lmsg").textContent=j.reason==="used"?"Acest link a fost deja folosit. Dacă ai cerut mai multe emailuri, deschide-l pe cel mai nou — sau scrie emailul și apasă din nou „Am uitat parola”.":"Linkul a expirat (e valabil 1 oră). Scrie emailul și apasă din nou „Am uitat parola”.";return}
   RT="";$("rf").hidden=true;$("lf").hidden=false;$("em").value=j.email||"";$("lmsg").className="msg ok";$("lmsg").textContent="Parola e schimbată. Intră cu parola nouă."});
 $("out").onclick=async()=>{try{await api("auth_logout")}catch(e){}TOK="";try{localStorage.removeItem("es_admin_tok")}catch(e){}showLogin("")};
 async function start(me){ME=me;$("login").hidden=true;$("app").hidden=false;$("me-email").textContent=me.user.email;renderNav();await route(false);if(!OV)refresh("ov").then(renderNav).catch(()=>{})}

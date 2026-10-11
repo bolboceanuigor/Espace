@@ -38,5 +38,7 @@
 "Готово": "Gata",
 "отправлено на": "trimisă pe",
 "В день": "Pe zi",
-"месяц": "lună"
+"месяц": "lună",
+"Эта ссылка уже использована. Если писем несколько — откройте самое новое или запросите ссылку ещё раз.": "Acest link a fost deja folosit. Dacă ai mai multe emailuri, deschide-l pe cel mai nou sau cere linkul din nou.",
+"Ссылка устарела (действует 1 час) — запросите новую.": "Linkul a expirat (e valabil 1 oră) — cere unul nou."
 }

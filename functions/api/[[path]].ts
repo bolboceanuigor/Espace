@@ -352,13 +352,15 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     if (!/^[0-9a-f]{64}$/.test(tok)) return json({ message: "bad_token" }, 400);
     if (pw.length < 8 || pw.length > 128) return json({ message: "pw_too_short" }, 400);
     const th = await sha256hex(tok), r = await one(db, "SELECT * FROM pw_resets WHERE token_hash = ?", th);
-    if (!r || r.used || r.expires_at < nowIso()) { await sleep(800); return json({ message: "bad_token" }, 400); }
+    // reason tells the page what to say: an older email's link (used) or more than an hour (expired)
+    if (!r || r.used || r.expires_at < nowIso()) { await sleep(800); return json({ message: "bad_token", reason: !r ? "unknown" : r.used ? "used" : "expired" }, 400); }
     await db.batch([
       db.prepare("UPDATE pw_resets SET used = 1 WHERE token_hash = ?").bind(th),
       db.prepare("UPDATE users SET pw_hash = ? WHERE id = ?").bind(await hashPassword(pw), r.user_id),
       db.prepare("DELETE FROM sessions WHERE user_id = ?").bind(r.user_id),
     ]);
     const u = await one(db, "SELECT email FROM users WHERE id = ?", r.user_id);
+    if (u?.email) await failClear(db, "em:" + u.email); // earlier wrong passwords no longer count
     await logEvent(db, "password", "", u?.email || "", "Parolă resetată prin email");
     return json({ email: u?.email || "" });
   }

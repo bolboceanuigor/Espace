@@ -3156,7 +3156,7 @@ async function gSubmit(){
       $("g-msg").innerHTML=`<div class="msg">Dacă acest cont există, am trimis un link pe ${esc(email)}. Verificați emailul și dosarul «Spam».</div>`;return}
     if(GMODE==="reset"){const password=$("g-npw").value;if(password.length<8)throw Object.assign(new Error(),{code:"pw_too_short"});
       const r=await fetch("/api/auth_reset",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:RESET_TOK,password})});const j=await r.json().catch(()=>null);
-      if(!r.ok)throw Object.assign(new Error(),{code:j&&j.message});
+      if(!r.ok){if(j&&j.message==="bad_token"){RESET_TOK="";gMode("forgot");$("g-msg").innerHTML=`<div class="msg bad">${j.reason==="used"?"Acest link a fost deja folosit. Dacă ai mai multe emailuri, deschide-l pe cel mai nou sau cere linkul din nou.":"Linkul a expirat (e valabil 1 oră) — cere unul nou."}</div>`;return}throw Object.assign(new Error(),{code:j&&j.message})}
       RESET_TOK="";gMode("login");$("g-email").value=j.email||"";$("g-msg").innerHTML=`<div class="msg">Parola a fost schimbată. Intrați cu parola nouă.</div>`;setTimeout(()=>$("g-pw").focus(),60);return}
     if(GMODE==="maid"){const code=SLUG,pin=$("g-pin").value.trim();if(!pin)throw Object.assign(new Error(),{code:"bad_pin"});
       CORG=code;CPIN=pin;const me=await clApi("cl_login");await startCleaner(code,pin,me);return}
