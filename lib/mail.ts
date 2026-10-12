@@ -115,6 +115,19 @@ export const mails = {
       yes ? { title: "Бронь подтверждена", body: `<p>${esc(r.apt)}, с ${dmy(r.date)}, ${r.nights} н. Итого: ${lei2(r.price)} ${curL(r.cur)}. Ждём вас!</p>` }
           : { title: "К сожалению, даты недоступны", body: `<p>${esc(org)} не может подтвердить заявку на ${esc(r.apt)} с ${dmy(r.date)}.</p>` }),
   }),
+  // the monthly statement for an apartment owner: what was earned, what is paid out, a link to the full statement
+  ownerReport: (org: string, r: { name: string; ym: string; pay: number; inc: number; nights: number; url: string }) => {
+    const LRO = ["ianuarie", "februarie", "martie", "aprilie", "mai", "iunie", "iulie", "august", "septembrie", "octombrie", "noiembrie", "decembrie"];
+    const LRU = ["январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"];
+    const mi = +r.ym.slice(5, 7) - 1, y = r.ym.slice(0, 4), eur = (n: number) => lei2(n) + " €";
+    return {
+      subject: `${org}: raportul pentru ${LRO[mi]} ${y}`,
+      html: layout(
+        { title: `Raportul pe ${LRO[mi]} ${y}`, body: `<p>Bună${r.name ? ", " + esc(r.name) : ""}! <b>${esc(org)}</b> v-a trimis raportul lunar: <b>${r.nights}</b> ${r.nights === 1 ? "noapte ocupată" : "nopți ocupate"}, venit <b>${eur(r.inc)}</b>, de plată către dumneavoastră <b>${eur(r.pay)}</b>.</p><p>În raport găsiți fiecare rezervare, cheltuielile și comisionul.</p>` },
+        { title: `Отчёт за ${LRU[mi]} ${y}`, body: `<p>${esc(org)}: занято ночей — ${r.nights}, доход ${eur(r.inc)}, к выплате вам <b>${eur(r.pay)}</b>. В отчёте — каждая бронь, расходы и комиссия.</p>` },
+        { url: r.url, ro: "Deschide raportul", ru: "Открыть отчёт" }),
+    };
+  },
   // the day before check-in, to a guest who booked on the company's page: time, address, contact, the guest guide
   arrival: (org: string, r: any) => ({
     subject: `${org}: vă așteptăm mâine · ${r.apt}`,

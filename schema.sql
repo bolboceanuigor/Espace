@@ -360,3 +360,19 @@ CREATE TABLE IF NOT EXISTS tg_links (
   PRIMARY KEY (org_id, user_id, chat_id)
 );
 CREATE TABLE IF NOT EXISTS tg_codes (code TEXT PRIMARY KEY, org_id TEXT NOT NULL, user_id TEXT NOT NULL, expires_at TEXT NOT NULL);
+
+-- monthly statements for apartment owners (a snapshot made in the app; the owner opens it at <slug>.espace.md/raport/<token>)
+CREATE TABLE IF NOT EXISTS owner_reports (
+  token TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL,
+  owner_id TEXT NOT NULL,
+  ym TEXT NOT NULL,
+  data TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at TEXT NOT NULL DEFAULT '',
+  sent_at TEXT NOT NULL DEFAULT '',
+  sent_to TEXT NOT NULL DEFAULT '',
+  views INTEGER NOT NULL DEFAULT 0,
+  viewed_at TEXT NOT NULL DEFAULT ''
+);
+CREATE UNIQUE INDEX IF NOT EXISTS owner_reports_key ON owner_reports(org_id, owner_id, ym);

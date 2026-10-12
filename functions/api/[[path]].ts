@@ -346,6 +346,14 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     const o = isSlug(str(body.slug, 40)) ? await one(db, "SELECT name, code FROM orgs WHERE code = ?", str(body.slug, 40)) : null;
     return o ? json({ name: o.name, slug: o.code }) : json({ message: "not_found" }, 404);
   }
+  // ---------- an owner's monthly statement (<slug>.espace.md/raport/<token>), public by its secret link ----------
+  if (fn === "pub_owner_report") {
+    const tok = str(body.token, 64);
+    const r = /^[a-f0-9]{32}$/.test(tok) ? await one(db, "SELECT r.*, o.code, o.name AS org_name FROM owner_reports r JOIN orgs o ON o.id = r.org_id WHERE r.token = ?", tok) : null;
+    if (!r || (reqSlug && r.code !== reqSlug)) return json({ message: "not_found" }, 404);
+    await run(db, "UPDATE owner_reports SET views = views + 1, viewed_at = ? WHERE token = ?", nowIso(), tok);
+    return json({ company: r.org_name, slug: r.code, ym: r.ym, at: r.updated_at || r.created_at, data: JSON.parse(r.data) });
+  }
   // ---------- direct booking page (<slug>.espace.md/rezerva), public ----------
   if (fn === "pub_listing" || fn === "pub_request" || fn === "pub_photo") {
     const code = (reqSlug || str(body.slug, 40)).toLowerCase();
@@ -924,6 +932,33 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
       return json({ created, dup, closed: inClosed, bad: bad.length, badRows: bad.slice(0, 20), aptsAdded: added });
     }
     // ---------- Telegram for this person in this company ----------
+    // ---------- monthly statements for apartment owners ----------
+    case "kv_owner_reports": { // which statements exist for a month: sent when, opened how many times
+      const ym = str(body.ym, 7);
+      return json(await all(db, "SELECT owner_id, token, ym, updated_at, sent_at, sent_to, views, viewed_at FROM owner_reports WHERE org_id = ? AND ym = ?", O, ym));
+    }
+    case "kv_owner_report": { // save (or refresh) the statement the app computed, optionally email the owner the link
+      const ym = str(body.ym, 7), oid = str(body.owner, 40), data = body.data;
+      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(ym) || !data || typeof data !== "object") return json({ message: "bad_report" }, 400);
+      const cfg = (await getConfig(db, O)) || {};
+      const ow = (cfg.owners || []).find((x: any) => x && x.id === oid);
+      if (!ow) return json({ message: "no_owner" }, 404);
+      const s = JSON.stringify(data); if (s.length > 200000) return json({ message: "too_big" }, 400);
+      const old = await one(db, "SELECT token FROM owner_reports WHERE org_id = ? AND owner_id = ? AND ym = ?", O, oid, ym);
+      const token = old?.token || randHex(16), now = nowIso();
+      if (old) await run(db, "UPDATE owner_reports SET data = ?, updated_at = ? WHERE token = ?", s, now, token);
+      else await run(db, "INSERT INTO owner_reports(token, org_id, owner_id, ym, data, updated_at) VALUES (?,?,?,?,?,?)", token, O, oid, ym, s, now);
+      const url = `https://${org.code}.espace.md/raport/${token}`;
+      let mailed = "";
+      if (body.send === true) {
+        const to = str(ow.email, 200).trim();
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) return json({ message: "no_email", token, url }, 400);
+        const t = data.tot || {};
+        mailed = await sendMail(env, db, { to, ...mails.ownerReport(org.name, { name: ow.name, ym, pay: +t.pay || 0, inc: +t.inc || 0, nights: +t.nights || 0, url }), kind: "owner_report", orgId: O });
+        await run(db, "UPDATE owner_reports SET sent_at = ?, sent_to = ? WHERE token = ?", now, to, token);
+      }
+      return json({ token, url, mailed });
+    }
     case "kv_tg_status": {
       const name = await botName(env, db);
       const chats = await all(db, "SELECT chat_id, name, created_at FROM tg_links WHERE org_id = ? AND user_id = ?", O, c.user.id);
@@ -989,6 +1024,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
       data.apts = data.apts.map((a: string) => (a === from ? to : a));
       if (data.addr && data.addr[from] != null) { data.addr[to] = data.addr[from]; delete data.addr[from]; }
       if (data.units && data.units[from] != null) { data.units[to] = data.units[from]; delete data.units[from]; }
+      for (const ow of data.owners || []) if (Array.isArray(ow?.apts)) ow.apts = ow.apts.map((a: string) => (a === from ? to : a));
       await run(db, "UPDATE ical_feeds SET apt = ? WHERE org_id = ? AND apt = ?", to, O, from);
       await db.batch([
         db.prepare("UPDATE tasks SET apt = ? WHERE org_id = ? AND apt = ?").bind(to, O, from),

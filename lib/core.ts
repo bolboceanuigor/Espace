@@ -102,7 +102,7 @@ export async function loadSession(db: D1Database, env: Env, token: string): Prom
 // ---------- roles ----------
 // owner: everything + team; manager: everything but team; checker: read + payment checks; viewer: read only
 export const ROLES = ["owner", "manager", "checker", "viewer"];
-export const READ_FNS = ["kv_load", "kv_photos", "kv_guides", "kv_task_photo", "kv_push_key", "kv_push_sub", "excel", "excel_handovers", "billing", "kv_ical_list", "kv_tg_status", "kv_tg_link", "kv_tg_unlink"];
+export const READ_FNS = ["kv_load", "kv_photos", "kv_guides", "kv_task_photo", "kv_push_key", "kv_push_sub", "excel", "excel_handovers", "billing", "kv_ical_list", "kv_tg_status", "kv_tg_link", "kv_tg_unlink", "kv_owner_reports"];
 export const CHECKER_FNS = ["kv_verify", "kv_month_close", "kv_month_open"];
 export function roleAllows(role: string, fn: string) {
   if (role === "owner") return true;

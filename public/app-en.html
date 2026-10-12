@@ -716,6 +716,11 @@ body.calmode .wrap{padding-bottom:0;max-width:none}
 .fk small{font-size:12px;color:var(--muted);line-height:1.35}.fk>div{margin-top:4px}
 .fchart{width:100%;height:auto;display:block}.fchart text{font-size:11px;fill:var(--muted)}.fchart text.cur{fill:var(--fg,var(--ink));font-weight:800}.fchart text.pv{fill:var(--ok);font-weight:800;font-size:11.5px}
 .fapts{display:flex;flex-direction:column;gap:8px}
+.fowner{width:100%;text-align:left;border:0;background:var(--surface);color:var(--ink);border-radius:18px;padding:13px 14px;display:flex;flex-direction:column;gap:5px;margin-bottom:8px;cursor:pointer}
+.fowner .fa1{display:flex;justify-content:space-between;gap:10px}.fowner .fa3{font-size:13px;color:var(--muted)}.fowner .ost{font-size:12.5px;color:var(--accent)}
+.ownapts{display:flex;flex-wrap:wrap;gap:6px}.ownapts label{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:6px 11px;font-size:13.5px;cursor:pointer}
+.ownapts label.on{border-color:var(--accent);background:rgba(var(--a1-rgb),.08)}.ownapts label.off{opacity:.5;cursor:default}.ownapts input{width:16px;height:16px;accent-color:var(--accent)}
+.otab{width:100%;border-collapse:collapse;font-size:13.5px}.otab td{padding:6px 4px;border-bottom:1px solid var(--line);vertical-align:top}.otab td.r{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}.otab tr.ex td{color:var(--exp)}
 .fapt{width:100%;text-align:left;border:0;background:var(--surface);color:var(--fg,var(--ink));border-radius:18px;padding:13px 14px;display:flex;flex-direction:column;gap:7px}
 .fa1{display:flex;justify-content:space-between;align-items:baseline;gap:8px}.fa1 b{font-size:16px;font-weight:800}.fa1 strong{font-family:var(--display);font-size:17px;font-weight:800;color:var(--ok);white-space:nowrap}.fa1 strong.neg{color:var(--exp)}
 .fbest{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;background:rgba(var(--a1-rgb),.16);color:var(--a1);padding:2px 7px;border-radius:999px;vertical-align:2px}
@@ -1563,6 +1568,74 @@ function importSection(){
     <label class="l">First rows</label><div class="impprev"><table><thead><tr><th>Unit</th><th>Check-in</th><th>Nights</th><th>Guest</th><th>Amount</th><th>Source</th></tr></thead><tbody>${rows.slice(0,6).map(r=>`<tr class="${impOk(r)?"":"bad"}"><td>${esc(r.apt)}</td><td>${r.date?dm(r.date)+" "+r.date.slice(0,4):"?"}</td><td>${isNaN(r.nights)?"?":r.nights}</td><td>${esc(r.guest)}</td><td>${r.price?fmt(r.price)+" "+(CUR_L[r.cur]||r.cur):""}</td><td>${esc(r.source)}</td></tr>`).join("")}</tbody></table></div>
     ${newApts.length?`<label class="dtog" style="margin-top:12px"><input type="checkbox" id="imp-create" ${IMP.create?"checked":""}><span><b>Create the new units: ${newApts.length}</b><small>${esc(newApts.slice(0,10).join(", "))}${newApts.length>10?" …":""}</small></span></label>`:""}
     <div class="actions"><button type="button" class="btn primary" id="imp-go" ${good.length?"":"disabled"}>Import ${good.length}</button></div></div>`}
+/* OWNERS: apartments managed for their owners — commission, what is paid out, a monthly statement sent by link */
+let OWN=null; // owners being edited in Settings
+const r2=v=>Math.round((+v||0)*100)/100;
+function ownerCalc(o,y=mon.y,m=mon.m){const st=monthStats(y,m),n=daysIn(y,m),apts=(o.apts||[]).filter(a=>cfg.apts.includes(a));
+  const units=apts.map(a=>{const s=st.apts[a]||{};
+    const stays=bookings.filter(b=>b.apt===a&&b.tag!=="closed"&&b.tag!=="req").map(b=>[b,shareOf(b,y,m)]).filter(([,k])=>k>0).sort(([x],[z])=>x.date.localeCompare(z.date))
+      .map(([b,k])=>({date:b.date,nights:+b.nights||0,n:b.nights>0?Math.round(b.nights*k):0,guest:String(b.guest||"").trim().split(/\s+/)[0].slice(0,30),source:b.source||"",amount:r2((eurOf(b)+utilEur(b))*k)}));
+    const exps=expenses.filter(e=>e.apt===a).map(e=>[e,expShare(e,y,m)]).filter(([,k])=>k>0).sort(([x],[z])=>x.date.localeCompare(z.date))
+      .map(([e,k])=>({date:e.date,cat:e.category||"",note:String(e.note||"").slice(0,80),amount:r2(eurOf(e)*k),yearly:!!e.yearly}));
+    return {apt:a,nights:s.nights||0,days:n,inc:r2(s.inc),exp:r2(s.exp),stays,exps}});
+  const inc=r2(units.reduce((x,u)=>x+u.inc,0)),exp=r2(units.reduce((x,u)=>x+u.exp,0)),fee=r2(inc*(+o.fee||0)/100),ded=o.exp!==false;
+  return {owner:{name:o.name||""},fee:+o.fee||0,expDed:ded,rate:cfg.rates.eur,units,tot:{inc,exp,fee,pay:r2(inc-fee-(ded?exp:0)),nights:units.reduce((x,u)=>x+u.nights,0),days:n*units.length}}}
+const ymNow=()=>mon.y+"-"+String(mon.m+1).padStart(2,"0");
+let ownSt={}; // statements of the shown month: owner id → {sent_at, views, …}
+async function ownStatus(){const ym=ymNow();try{const l=await api("kv_owner_reports",{ym});if(ymNow()!==ym)return;ownSt={};(l||[]).forEach(x=>ownSt[x.owner_id]=x)}catch(e){return}
+  document.querySelectorAll("[data-ostat]").forEach(el=>el.textContent=ownStTxt(ownSt[el.dataset.ostat]))}
+const ownStTxt=x=>!x?"":x.sent_at?`statement sent ${fdtS(x.sent_at).slice(0,5)}${x.views?` · views: ${x.views}`:" · not opened yet"}`:x.views?`views: ${x.views}`:"link created";
+function finOwners(){const O=cfg.owners||[];
+  if(!O.length)return RO?"":`<h3>Owners</h3><div class="empty">Managing apartments for other owners? Add them in <button type="button" class="linkbtn" data-setsec="owners">⚙ Settings → Owners</button> — this will show what to pay them, and the monthly statement goes to them by link.</div>`;
+  setTimeout(ownStatus,0);
+  return `<h3>Owners · ${MONTHS[mon.m].toLowerCase()}</h3>${O.map(o=>{const r=ownerCalc(o);return `<button type="button" class="fowner" data-owner="${esc(o.id)}"><div class="fa1"><b>${esc(o.name||"—")}</b><strong>${fmt0(r.tot.pay)} €</strong></div>
+    <div class="fa3">${r.units.length} ${plural(r.units.length,"unit","units","units")} · income ${fmt0(r.tot.inc)} € · commission ${r.fee}% ${fmt0(r.tot.fee)} €${r.expDed?` · expenses ${fmt0(r.tot.exp)} €`:""}</div><span class="ost" data-ostat="${esc(o.id)}">${esc(ownStTxt(ownSt[o.id]))}</span></button>`}).join("")}`}
+function ownerSheet(id){const o=(cfg.owners||[]).find(x=>x.id===id);if(!o)return;const r=ownerCalc(o),T=r.tot;
+  const html=`<p class="small" style="margin:0 0 10px">${MONTHS[mon.m]} ${mon.y} · ${r.units.length} ${plural(r.units.length,"unit","units","units")} · occupied ${T.nights} of ${T.days} nights</p>
+    <div class="tiles"><div class="tile inc"><span>Income</span><b class="num">${fmt0(T.inc)} €</b><small>${T.nights} ${plural(T.nights,"night","nights","nights")}</small></div>
+      <div class="tile"><span>Commission ${r.fee}%</span><b class="num">${fmt0(T.fee)} €</b><small>&nbsp;</small></div>
+      <div class="tile exp"><span>Expenses</span><b class="num">${fmt0(T.exp)} €</b><small>${r.expDed?"deducted":"not deducted"}</small></div>
+      <div class="tile ok"><span>To pay out</span><b class="num">${T.pay<0?"−":""}${fmt(Math.abs(T.pay))} €</b><small>income − commission${r.expDed?" − expenses":""}</small></div></div>
+    <p class="small" id="own-st">${esc(ownStTxt(ownSt[o.id]))}</p>
+    ${RO?"":`<div class="actions">${o.email?`<button class="btn primary" data-osend="${esc(o.id)}">✉ Send the statement to ${esc(o.email)}</button>`:""}<button class="btn" data-ocopy="${esc(o.id)}">Copy the link</button><button class="btn" data-oopen="${esc(o.id)}">Open the statement</button></div>
+      ${o.email?"":`<p class="small">Add the email of the owner in Settings — the statement will go by email.</p>`}`}
+    ${r.units.map(u=>`<h3>${esc(u.apt)} <span class="count">${u.nights}/${u.days}</span></h3><div class="card" style="padding:8px 12px"><table class="otab">
+      ${u.stays.map(b=>`<tr><td>${dm(b.date)}</td><td>${b.n}${b.n!==b.nights?"/"+b.nights:""} n.</td><td>${esc(b.guest)}${b.source?` · ${esc(b.source)}`:""}</td><td class="r">${fmt(b.amount)} €</td></tr>`).join("")||`<tr><td colspan="4" class="small">No bookings</td></tr>`}
+      ${u.exps.map(e=>`<tr class="ex"><td>${dm(e.date)}</td><td colspan="2">${esc(e.cat)}${e.note?" · "+esc(e.note):""}${e.yearly?" · 1/12":""}</td><td class="r">−${fmt(e.amount)} €</td></tr>`).join("")}
+      <tr><td colspan="3"><b>Total</b></td><td class="r"><b>${fmt(u.inc-(r.expDed?u.exp:0))} €</b></td></tr></table></div>`).join("")}
+    <p class="small">Amounts in €, at the rate 1 € = ${cfg.rates.eur} lei. A booking across two months is split by nights.</p>`;
+  openSheet(o.name||"Statement",html,{type:"owner",apt:id})}
+async function ownerPublish(id,send){const o=(cfg.owners||[]).find(x=>x.id===id);if(!o)return null;
+  try{const r=await api("kv_owner_report",{owner:id,ym:ymNow(),data:ownerCalc(o),send});ownStatus();return r}catch(e){toast(e.message==="no_owner"?"Save the owner in Settings first":"Didn’t work");return null}}
+document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("[data-owner],[data-osend],[data-ocopy],[data-oopen]");if(!t)return;const d=t.dataset;
+  if(d.owner){ownerSheet(d.owner);return}
+  if(d.oopen){const w=window.open("about:blank","_blank");const r=await ownerPublish(d.oopen,false);if(r&&w)w.location.href=r.url;else if(w)w.close();return}
+  if(d.ocopy){const r=await ownerPublish(d.ocopy,false);if(r)gCopy(r.url,"Statement link copied");return}
+  if(d.osend){t.disabled=true;const r=await ownerPublish(d.osend,true);t.disabled=false;if(r){toast(r.mailed==="failed"?"The email didn’t go out — copy the link and send it yourself":"Statement sent");const x=$("own-st");if(x)x.textContent=ownStTxt({sent_at:new Date().toISOString(),views:0})}}});
+function ownersSection(){if(!OWN)OWN=JSON.parse(JSON.stringify(cfg.owners||[]));
+  return `<div class="card"><p class="small" style="margin:0">If you manage apartments for their owners: say whose they are and what commission you take. Finance will show what to pay each one, and the monthly statement — bookings, expenses, commission — goes to them by link or email.</p></div>
+  ${OWN.map((o,i)=>`<div class="card"><div class="grid2"><div><label class="l">Owner’s name</label><input type="text" data-ow="${i}" data-f="name" value="${esc(o.name||"")}" placeholder="John Smith"></div>
+      <div><label class="l">Email <em>— for statements</em></label><input type="email" data-ow="${i}" data-f="email" value="${esc(o.email||"")}" placeholder="nume@gmail.com"></div></div>
+    <div class="grid2"><div><label class="l">Phone</label><input type="tel" data-ow="${i}" data-f="phone" value="${esc(o.phone||"")}"></div>
+      <div><label class="l">Your commission, % of income</label><input type="text" inputmode="decimal" data-ow="${i}" data-f="fee" value="${esc(o.fee??"")}" placeholder="20"></div></div>
+    <label class="dtog" style="margin:10px 0"><input type="checkbox" data-ow="${i}" data-f="exp" ${o.exp!==false?"checked":""}><span><b>Apartment expenses are deducted from the payout</b><small>cleaning, repairs, utilities — everything recorded on these apartments</small></span></label>
+    <label class="l">Owner’s apartments</label><div class="ownapts">${cfg.apts.map(a=>{const other=OWN.find((x,j)=>j!==i&&(x.apts||[]).includes(a)),on=(o.apts||[]).includes(a);
+      return `<label class="${on?"on":other?"off":""}"><input type="checkbox" data-owapt="${i}" value="${esc(a)}" ${on?"checked":""} ${other?"disabled":""}>${esc(a)}${other?` · ${esc(other.name||"…")}`:""}</label>`}).join("")}</div>
+    ${RO?"":`<div class="actions"><button type="button" class="btn sm danger" data-owdel="${i}">Delete</button></div>`}</div>`).join("")}
+  ${RO?"":`<div class="actions"><button type="button" class="btn" data-owadd="1">＋ Owner</button><button type="button" class="btn primary" id="ow-save">Save</button></div>`}`}
+document.addEventListener("input",e=>{const d=e.target.dataset;if(!OWN||!d||d.ow==null)return;const o=OWN[+d.ow];if(!o)return;o[d.f]=e.target.type==="checkbox"?e.target.checked:e.target.value});
+document.addEventListener("change",e=>{const d=e.target.dataset;if(!OWN||!d)return;
+  if(d.ow!=null&&d.f==="exp"){OWN[+d.ow].exp=e.target.checked;return}
+  if(d.owapt!=null){const o=OWN[+d.owapt],a=e.target.value;o.apts=(o.apts||[]).filter(x=>x!==a);if(e.target.checked)o.apts.push(a);renderSettings()}});
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-owadd],[data-owdel],#ow-save");if(!t||!OWN)return;
+  if(t.dataset.owadd){OWN.push({id:"o"+Math.random().toString(36).slice(2,9),name:"",email:"",phone:"",fee:20,exp:true,apts:[]});renderSettings();return}
+  if(t.dataset.owdel!=null){OWN.splice(+t.dataset.owdel,1);renderSettings();return}
+  const out=[];for(const o of OWN){const name=String(o.name||"").trim(),email=String(o.email||"").trim(),fee=+String(o.fee??0).replace(",",".")||0;
+    if(!name){toast("Enter the owner’s name");return}
+    if(email&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){toast("Check email: "+email);return}
+    if(!(fee>=0&&fee<=100)){toast("Commission — from 0 to 100%");return}
+    out.push({id:o.id,name:name.slice(0,80),email:email.slice(0,120),phone:String(o.phone||"").trim().slice(0,40),fee,exp:o.exp!==false,apts:(o.apts||[]).filter(a=>cfg.apts.includes(a))})}
+  OWN=null;saveCfg({...cfg,owners:out},"Owners saved")});
 async function impRead(file){const name=file.name;let rows=[];
   if(/\.csv$/i.test(name)||file.type==="text/csv"){const t=await file.text(),sep=(t.split("\n")[0].match(/;/g)||[]).length>(t.split("\n")[0].match(/,/g)||[]).length?";":",";
     rows=t.split(/\r?\n/).filter(l=>l.trim()).map(l=>{const out=[];let cur="",q=false;for(let i=0;i<l.length;i++){const c=l[i];if(q){if(c==='"'&&l[i+1]==='"'){cur+='"';i++}else if(c==='"')q=false;else cur+=c}else if(c==='"')q=true;else if(c===sep){out.push(cur);cur=""}else cur+=c}out.push(cur);return out})}
@@ -2127,6 +2200,7 @@ function renderFin(){
   if(running)h+=`<p class="small fnote">▲▼ — comparison for the same days: 1–${dd} ${MONTHS_G[mon.m]} and 1–${Math.min(dd,daysIn(py,pm))} ${MONTHS_G[pm]}. Card amounts cover the whole month, including nights already booked.</p>`;
   h+=`<h3>Last 6 months</h3><div class="card">${finChart(hist)}</div>`;
   h+=`<h3>Apartments · ${MONTHS[mon.m].toLowerCase()}</h3>${finApts(A.map(a=>({a,...st.apts[a]})).sort((x,y)=>y.profit-x.profit),n)}`;
+  h+=finOwners();
   if(T.shared)h+=`<div class="fshared"><span>Shared expenses (not per apartment)</span><b>−${fmt0(T.shared)} €</b></div>`;
   h+=`<h3>Expenses by category</h3><div class="card">${finCats(byCat)}</div>`;
   h+=`<div class="two"><div><h3>Payment method</h3><div class="card">${donut(Object.entries(byPay).map(([k,v])=>({label:k,value:v,color:PAY_COL[k]||"#9a93a5"})))}</div></div>
@@ -2321,7 +2395,7 @@ function renderMenu(){
   const T=(go,ic,l,sub,n)=>`<button type="button" class="mtile" data-go="${go}"><span class="mi">${svgI(go)}</span><div><b>${l}</b>${sub?`<small>${sub}</small>`:""}</div>${n?`<em>${n}</em>`:""}</button>`;
   $("menu-body").innerHTML=`<div class="mgroup">Money</div><div class="mtiles">
     ${T("exp","🧾","Expenses","spending by month")}${T("fin","📊","Finance","income, totals, year")}
-    ${T("verify","✅","Payment check","for Iulia",vb)}${T("shifts","🗂️","All shifts","closed handovers")}</div>
+    ${T("verify","✅","Payment check","checking the month’s money",vb)}${T("shifts","🗂️","All shifts","closed handovers")}</div>
     <div class="mgroup">Guests and settings</div><div class="mtiles">${T("guide","📖","Guest guide","Wi‑Fi, entry, rules")}${T("settings","⚙️","Settings","apartments, cleaners, PIN")}</div>
     <div class="mgroup">App colour · on this phone</div><div class="skinsw">${[["","Yellow","#fed36a","#ef8159"],["violet","Purple","#c4b0ff","#e48bd6"],["sky","Blue","#8fcbff","#8f8cff"]].map(([k,l,c1,c2])=>`<button type="button" data-accent="${k}" aria-pressed="${ac===k}"><i style="background:linear-gradient(135deg,${c1},${c2})"></i>${l}</button>`).join("")}</div>`;
 }
@@ -2523,6 +2597,7 @@ function renderSettings(){
     `],
     apts:["home","Units",`${cfg.apts.length} ${plural(cfg.apts.length,"unit","units","units")} · details, addresses, photos, order`,()=>aptsSection()],
     pricing:["rate","Seasons & weekends",(()=>{const P=cfg.pricing||{},n=(P.seasons||[]).length;return [P.weekend?"weekends +"+P.weekend+"%":"",n?n+" "+plural(n,"season","seasons","seasons"):""].filter(Boolean).join(" · ")||"higher prices in season and on weekends"})(),()=>pricingSection()],
+    owners:["mgr","Owners",(cfg.owners||[]).length?(cfg.owners||[]).map(o=>o.name).join(", "):"commission, payouts and monthly statement",()=>ownersSection()],
     import:["chk","Import from Excel",`bookings and units from a file · Excel, CSV, RealtyCalendar`,()=>importSection()],
     direct:["web","Booking page",cfg.direct&&cfg.direct.on?"on · "+ME.org.code+".espace.md/rezerva":"guests book directly, no commission",()=>directSection()],
     people:["mgr","Managers",cfg.people.join(", ")||"not given",()=>`<div class="card"><label class="l" for="set-people">Managers — who take money and work in shifts <em>— comma-separated</em></label><input type="text" id="set-people" value="${esc(cfg.people.join(", "))}">
@@ -2860,7 +2935,7 @@ function renderVerify(){
 function askText(title,sub,ph,okLabel,ok,val=""){const w=document.createElement("div");w.className="delask";w.innerHTML=`<div class="delbox" role="dialog" aria-modal="true"><b>${title}</b>${sub?`<p>${sub}</p>`:""}<input type="text" class="asktx" placeholder="${esc(ph)}" value="${esc(val)}" style="width:100%;height:48px;margin-top:12px;border-radius:14px;border:1px solid var(--line);background:var(--bg);color:inherit;padding:0 14px;box-sizing:border-box"><div class="delbtns"><button type="button" class="btn" data-x="0">Cancel</button><button type="button" class="btn primary" data-x="1">${okLabel}</button></div></div>`;document.body.appendChild(w);const inp=w.querySelector(".asktx");setTimeout(()=>inp.focus(),40);
   const go=()=>{const v=inp.value.trim();if(!v){inp.focus();toast("Please write");return}w.remove();ok(v)};
   w.addEventListener("click",e=>{const b=e.target.closest("[data-x]");if(b){if(b.dataset.x==="1")go();else w.remove()}else if(e.target===w)w.remove()});inp.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();go()}})}
-function needWho(then){if(vWho())return then();askText("Who is checking?","Your name will be on every tick. We’ll ask once on this phone.","e.g.: Iulia","Save",v=>{ls.set("vwho",v);then()},"Iulia")}
+function needWho(then){if(vWho())return then();askText("Who is checking?","Your name will be on every tick. We’ll ask once on this phone.","for example: Maria","Save",v=>{ls.set("vwho",v);then()},"")}
 async function vAct(action,kind,id,note=""){
   const list=kind==="shift"?handovers:bookings,o=list.find(x=>x.id===id);if(!o)return;
   const prev={v:o.verified,i:VI[kind+":"+id]};
@@ -3368,7 +3443,7 @@ document.addEventListener("click",e=>{
   if(t.id==="show-flags"){showAllFlags=true;renderFin();return}
   if(t.id==="x-refresh"){reload().then(()=>toast("Updated"));return}
   if(t.id==="open-settings"){settingsPage();return}
-  if(ds.setsec!=null){stOpen=null;settingsPage(ds.setsec);scrollTo(0,0);return}
+  if(ds.setsec!=null){stOpen=null;OWN=null;settingsPage(ds.setsec);scrollTo(0,0);return}
   if(ds.stopen!=null){stOpen=stOpen===ds.stopen?null:ds.stopen;renderSettings();const el=document.querySelector(`[data-stopen="${ds.stopen}"]`);if(el&&stOpen)el.scrollIntoView({block:"start",behavior:"smooth"});return}
   if(t.id==="open-hv"||ds.openhv!=null){handoverPage();return}
   if(t.id==="hv-new"){hvOpen(hvNew());return}

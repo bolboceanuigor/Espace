@@ -3,7 +3,7 @@ import { hostOf, siteOf } from "../lib/host";
 
 interface Env { DB: D1Database; ASSETS: Fetcher }
 const PAGES: Record<string, string> = { site: "/site", admin: "/admin", tenant: "/app" };
-const SPLIT = ["/site", "/site.html", "/admin", "/admin.html", "/app", "/app.html", "/app-ro", "/app-ro.html", "/app-en", "/app-en.html", "/book", "/book.html"];
+const SPLIT = ["/site", "/site.html", "/admin", "/admin.html", "/app", "/app.html", "/app-ro", "/app-ro.html", "/app-en", "/app-en.html", "/book", "/book.html", "/raport", "/raport.html"];
 
 // company app language: the es_lang cookie (set by the RO/RU/EN switch) wins, else the browser's first known language, else Romanian
 export type Lang = "ro" | "ru" | "en";
@@ -45,6 +45,12 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
   if (s.kind === "tenant" && (p === "/rezerva" || p === "/rezerva/" || p === "/book" || p === "/booking")) {
     const r = await env.ASSETS.fetch(new URL("/book", url));
     const h = new Headers(r.headers); h.set("cache-control", "no-cache");
+    return new Response(r.body, { status: r.status, headers: h });
+  }
+  // an apartment owner's monthly statement: <slug>.espace.md/raport/<token>
+  if (s.kind === "tenant" && /^\/raport\/[a-f0-9]{32}\/?$/.test(p)) {
+    const r = await env.ASSETS.fetch(new URL("/raport", url));
+    const h = new Headers(r.headers); h.set("cache-control", "no-cache"); h.set("x-robots-tag", "noindex");
     return new Response(r.body, { status: r.status, headers: h });
   }
   if (SPLIT.includes(p)) return Response.redirect("https://" + hostOf(request) + "/", 302);
