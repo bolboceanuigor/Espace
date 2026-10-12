@@ -11,6 +11,7 @@ import {
 import { hostOf, siteOf, slugOk, isSlug } from "../../lib/host";
 import { handleAdmin, logEvent, activeAnnouncement, getSettings, createInvoice } from "../../lib/admin";
 import { sendMail, mails, dailyMail } from "../../lib/mail";
+import { syncFeed, syncDue, feedUrlOk, sourceOf, newIcalKey } from "../../lib/ical";
 
 
 // A one-time link to set a password. Opening it proves the email belongs to the person, so it is the only way
@@ -397,7 +398,9 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     // every company: take today's fee from the balance, then run its reminders if it is active
     for (let org of await all(db, "SELECT * FROM orgs WHERE status = 'active'")) { org = await chargeOrg(db, org).catch(() => org); if (!isExpired(org)) { await runDue(db, org).catch(() => {}); n++; } }
     const mailed = await dailyMail(env, db).catch(() => 0);
-    return json({ orgs: n, mailed });
+    // Airbnb / Booking.com calendars: new reservations become bookings, managers get a notification
+    const feeds = await syncDue(db, (O, msg) => notify(db, O, ["manager"], msg)).catch(() => 0);
+    return json({ orgs: n, mailed, feeds });
   }
 
   // ---------- sign up / sign in ----------
@@ -810,11 +813,55 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     case "kv_set_config": {
       const d = body.p_data;
       if (!d || typeof d !== "object" || !Array.isArray(d.apts) || !d.apts.length) return json({ message: "bad_config" }, 400);
+      // export-link keys are made on the server; an app with an older copy of the settings must not drop them
+      { const old = await getConfig(db, O);
+        for (const [apt, u] of Object.entries<any>(old?.units || {})) if (u?.ical && d.apts.includes(apt)) { d.units = d.units || {}; d.units[apt] = { ...(d.units[apt] || {}), ical: d.units[apt]?.ical || u.ical }; } }
       const s = JSON.stringify(d); if (s.length > 300000) return json({ message: "too_big" }, 400);
       // over 70 apartments the price is individual — the platform owner sets it up by hand
       if (d.apts.length > 70 && !(Number(org.custom_price) > 0)) return json({ message: "too_many_apts" }, 409);
       await run(db, "INSERT INTO app_config(org_id,data) VALUES (?,?) ON CONFLICT (org_id) DO UPDATE SET data = excluded.data", O, s);
       return json(null);
+    }
+    // ---------- calendar sync (iCal) for one unit ----------
+    case "kv_ical_list": {
+      const apt = str(body.apt, 100), cfg = await getConfig(db, O);
+      const key = cfg?.units?.[apt]?.ical;
+      const feeds = await all(db, "SELECT id, url, source, last_sync, last_ok, last_msg, last_count FROM ical_feeds WHERE org_id = ? AND apt = ? ORDER BY created_at", O, apt);
+      return json({ feeds, export: key ? `https://espace.md/ical/${org.code}/${key}.ics` : "" });
+    }
+    case "kv_ical_key": { // makes (or returns) the unit's export link
+      const apt = str(body.apt, 100), cfg = await getConfig(db, O);
+      if (!cfg || !(cfg.apts || []).includes(apt)) return json({ message: "bad_apt" }, 400);
+      cfg.units = cfg.units || {}; cfg.units[apt] = cfg.units[apt] || {};
+      if (!cfg.units[apt].ical || body.renew === true) {
+        cfg.units[apt].ical = newIcalKey();
+        await run(db, "UPDATE app_config SET data = ? WHERE org_id = ?", JSON.stringify(cfg), O);
+      }
+      return json({ export: `https://espace.md/ical/${org.code}/${cfg.units[apt].ical}.ics`, key: cfg.units[apt].ical });
+    }
+    case "kv_ical_add": {
+      const apt = str(body.apt, 100), cfg = await getConfig(db, O);
+      const url = feedUrlOk(str(body.url, 1000).trim(), ["localhost", "127.0.0.1"].includes(new URL(request.url).hostname));
+      if (!cfg || !(cfg.apts || []).includes(apt)) return json({ message: "bad_apt" }, 400);
+      if (!url) return json({ message: "bad_url" }, 400);
+      if (await one(db, "SELECT 1 AS x FROM ical_feeds WHERE org_id = ? AND apt = ? AND url = ?", O, apt, url)) return json({ message: "feed_exists" }, 409);
+      if ((await one(db, "SELECT COUNT(*) AS n FROM ical_feeds WHERE org_id = ?", O)).n >= 300) return json({ message: "too_many_feeds" }, 409);
+      const id = uuid(), source = ["Airbnb", "Booking", "Vrbo", "Google", "iCal"].includes(body.source) ? body.source : sourceOf(url);
+      await run(db, "INSERT INTO ical_feeds(id, org_id, apt, url, source) VALUES (?,?,?,?,?)", id, O, apt, url, source);
+      const r = await syncFeed(db, await one(db, "SELECT * FROM ical_feeds WHERE id = ?", id));
+      return json({ id, source, ...r });
+    }
+    case "kv_ical_sync": {
+      const f = await one(db, "SELECT * FROM ical_feeds WHERE org_id = ? AND id = ?", O, str(body.id, 40));
+      if (!f) return json({ message: "not_found" }, 404);
+      return json(await syncFeed(db, f));
+    }
+    case "kv_ical_del": {
+      const id = str(body.id, 40);
+      // the bookings it brought stay, they just stop following the feed
+      await run(db, "UPDATE bookings SET ext_feed = '', ext_uid = '' WHERE org_id = ? AND ext_feed = ?", O, id);
+      await run(db, "DELETE FROM ical_feeds WHERE org_id = ? AND id = ?", O, id);
+      return json(true);
     }
     case "kv_rename_apt": {
       const from = str(body.from, 100), to = str(body.to, 100);
@@ -825,6 +872,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
       data.apts = data.apts.map((a: string) => (a === from ? to : a));
       if (data.addr && data.addr[from] != null) { data.addr[to] = data.addr[from]; delete data.addr[from]; }
       if (data.units && data.units[from] != null) { data.units[to] = data.units[from]; delete data.units[from]; }
+      await run(db, "UPDATE ical_feeds SET apt = ? WHERE org_id = ? AND apt = ?", to, O, from);
       await db.batch([
         db.prepare("UPDATE tasks SET apt = ? WHERE org_id = ? AND apt = ?").bind(to, O, from),
         db.prepare("UPDATE checks SET apt = ? WHERE org_id = ? AND apt = ?").bind(to, O, from),

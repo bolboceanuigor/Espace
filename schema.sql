@@ -74,6 +74,8 @@ CREATE TABLE IF NOT EXISTS bookings (
   source TEXT NOT NULL DEFAULT '',
   phone TEXT NOT NULL DEFAULT '',
   pax INTEGER NOT NULL DEFAULT 0,          -- number of guests
+  ext_uid TEXT NOT NULL DEFAULT '',        -- imported from an iCal feed: the event's UID
+  ext_feed TEXT NOT NULL DEFAULT '',       -- …and the feed (ical_feeds.id)
   verified INTEGER NOT NULL DEFAULT 0,
   verified_at TEXT,
   shift_id TEXT,
@@ -331,3 +333,18 @@ CREATE TABLE IF NOT EXISTS charges (
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY (org_id, day)
 );
+
+-- calendar sync: a unit's iCal links from Airbnb / Booking.com / others (see lib/ical.ts)
+CREATE TABLE IF NOT EXISTS ical_feeds (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL,
+  apt TEXT NOT NULL,
+  url TEXT NOT NULL,
+  source TEXT NOT NULL DEFAULT 'iCal',   -- Airbnb | Booking | Vrbo | Google | iCal
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  last_sync TEXT NOT NULL DEFAULT '',
+  last_ok INTEGER NOT NULL DEFAULT 0,
+  last_msg TEXT NOT NULL DEFAULT '',
+  last_count INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS ical_feeds_org_idx ON ical_feeds(org_id, apt);

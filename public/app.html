@@ -909,6 +909,11 @@ body.wizon{overflow:hidden}
 .wizf{position:sticky;bottom:0;display:flex;justify-content:space-between;gap:10px;padding:14px 0 max(6px,env(safe-area-inset-bottom));background:linear-gradient(transparent,var(--bg) 30%)}.wizf .btn{min-width:120px}
 .cl-beds{margin-top:6px;font-size:14px}
 .hint.bad{color:#b42318;font-weight:600}
+.uical{margin-top:6px}.ifeed{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line)}.ifeed .iu{flex:1;min-width:0;display:flex;flex-direction:column}.ifeed .iu b{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ifeed .iu small{color:var(--muted)}.ifeed.bad .iu small{color:#b42318}
+.isrc{font-size:11.5px;font-weight:700;padding:3px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+.iadd{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}.iadd select{width:auto;flex:none}.iadd input{flex:1;min-width:160px}
+.ihelp{margin-top:6px}.ihelp summary{cursor:pointer;color:var(--accent);font-weight:600}.ihelp p{margin:6px 0 0}
+.iexp{margin-top:12px;padding:10px 12px;border-radius:12px;background:var(--bg);border:1px solid var(--line)}.iexpr{display:flex;gap:6px}.iexpr input{flex:1;min-width:0;font-size:12.5px}
 .sh-name .cap{margin-left:5px;font-size:10.5px;font-weight:600;color:var(--muted);white-space:nowrap}.fpax .hint{align-self:end;padding-bottom:12px}
 .langsw{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}.langsw button{border:0;background:none;padding:5px 12px;font:inherit;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer}.langsw button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}.langsw button:not([aria-pressed="true"]):hover{color:var(--ink)}
 </style>
@@ -1480,6 +1485,7 @@ function unitForm(a){const u=unitOf(a),b=u.beds||{},groups=[...new Set(cfg.apts.
     <label class="l">Удобства</label>
     <div class="uamen">${AMEN.map(([k,t])=>`<button type="button" data-uamen="${k}" aria-pressed="${(u.amen||[]).includes(k)}">${t}</button>`).join("")}</div>
     <label class="l" for="uf-note">Заметки</label><textarea id="uf-note" rows="2" placeholder="код ключницы, где лежит бельё…">${esc(u.note||"")}</textarea>
+    <div class="uical" id="uf-ical" data-apt="${esc(a)}"><label class="l">Синхронизация с Airbnb и Booking</label><div id="uf-ical-body" class="small">Загружаю…</div></div>
     <div class="actions"><button type="button" class="btn primary" data-usave="${esc(a)}">Сохранить</button><button type="button" class="btn" data-uedit="">Отмена</button></div></div>`}
 function unitCard(a,i){const line=unitLine(a);
   return `<div class="aptset${uOpen===a?" open":""}"><div class="ah setrow">${thumb(a)}<span class="um"><b>${esc(a)}</b><small>${line?esc(line):"детали не заполнены"}</small></span>
@@ -1525,7 +1531,7 @@ function unitDelete(a){
   uDelArm="";uOpen="";
   saveCfg({...cfg,apts:cfg.apts.filter(x=>x!==a),archived:[...new Set([...(cfg.archived||[]),a])]},"Удалено — история сохранена")}
 document.addEventListener("click",e=>{const t=e.target.closest("[data-uedit],[data-ustep],[data-uamen],[data-usave],[data-udel],[data-uhotel],#uh-add");if(!t)return;const ds=t.dataset;
-  if(ds.uedit!=null){uOpen=uOpen===ds.uedit?"":ds.uedit;uDelArm="";settingsPage("apts");return}
+  if(ds.uedit!=null){uOpen=uOpen===ds.uedit?"":ds.uedit;uDelArm="";settingsPage("apts");if(uOpen)setTimeout(()=>icalLoad(uOpen),0);return}
   if(ds.ustep){const el=$("uf-b-"+ds.ustep);el.textContent=Math.max(0,Math.min(20,(+el.textContent||0)+(+ds.d)));const g=$("uf-guests");if(g&&!g.value){const b={};BEDT.forEach(([k])=>b[k]=+$("uf-b-"+k).textContent);g.placeholder="по кроватям: "+capAuto({beds:b})}return}
   if(ds.uamen){t.setAttribute("aria-pressed",String(t.getAttribute("aria-pressed")!=="true"));return}
   if(ds.usave){unitSave(ds.usave);return}
@@ -1538,6 +1544,34 @@ document.addEventListener("click",e=>{const t=e.target.closest("[data-uedit],[da
     const [,beds,guests]=ROOMT[type],units={...(cfg.units||{})};
     names.forEach(nm=>units[nm]={kind:type==="bed"?"bed":"room",group:hotel,rtype:type,beds:{...beds},guests});
     uHotel=false;saveCfg({...cfg,apts:[...cfg.apts,...names],units},"Номера созданы: "+names.length);return}});
+/* CALENDAR SYNC — per unit: import links from Airbnb/Booking (their reservations appear here every ~15 min)
+   and this unit's own link to paste there, so dates taken here are blocked on those sites. */
+const ICAL_SRC=[["","Определить сам"],["Airbnb","Airbnb"],["Booking","Booking.com"],["Vrbo","Vrbo"],["iCal","Другой сайт"]];
+const agoT=iso=>{if(!iso)return "ещё не было";const m=Math.round((Date.now()-Date.parse(iso))/60000);return m<1?"только что":m<60?m+" мин назад":m<1440?Math.round(m/60)+" ч назад":dm(iso.slice(0,10))};
+async function icalLoad(a){const box=$("uf-ical-body");if(!box)return;
+  try{const r=await api("kv_ical_list",{apt:a});if(!$("uf-ical-body")||uOpen!==a)return;
+    const feeds=r.feeds.map(f=>`<div class="ifeed${f.last_ok||!f.last_sync?"":" bad"}"><span class="isrc">${esc(f.source)}</span><span class="iu"><b title="${esc(f.url)}">${esc(f.url.replace(/^https?:\/\//,"").slice(0,48))}${f.url.length>56?"…":""}</b>
+        <small>${f.last_ok?"✓ синхронизировано "+agoT(f.last_sync)+" · событий: "+f.last_count:f.last_sync?"⚠ "+esc(icalErr(f.last_msg)):"ещё не синхронизировано"}</small></span>
+        ${RO?"":`<button type="button" class="btn sm" data-isync="${esc(f.id)}">Обновить</button><button type="button" class="ibtn del" data-idel="${esc(f.id)}" aria-label="Удалить">${setIc("del")}</button>`}</div>`).join("");
+    box.innerHTML=`<p style="margin:0 0 8px">Брони с этих сайтов появятся здесь сами (каждые 15 минут), с отменами и переносами.</p>
+      ${feeds||`<p class="small" style="margin:0 0 6px">Пока ни одной ссылки.</p>`}
+      ${RO?"":`<div class="iadd"><select id="ical-src" aria-label="Сайт">${ICAL_SRC.map(([k,t])=>`<option value="${k}">${t}</option>`).join("")}</select><input type="url" id="ical-url" placeholder="https://www.airbnb.com/calendar/ical/…" autocomplete="off"><button type="button" class="btn" id="ical-add">Добавить</button></div>
+      <details class="ihelp"><summary>Где взять ссылку?</summary><p><b>Airbnb:</b> Календарь → Доступность → Подключить календари → Экспортировать календарь → скопируйте ссылку.<br><b>Booking.com:</b> Цены и доступность → Синхронизация календарей → Экспорт календаря → скопируйте ссылку.</p></details>`}
+      <div class="iexp"><b>Ссылка для Airbnb и Booking</b><p class="small" style="margin:2px 0 6px">Вставьте её там в «Импорт календаря» — даты, занятые здесь, закроются на тех сайтах.</p>
+      ${r.export?`<div class="iexpr"><input type="text" readonly value="${esc(r.export)}" id="ical-exp"><button type="button" class="btn sm" data-icopy="1">Скопировать</button></div>`:RO?"":`<button type="button" class="btn" data-ikey="1">Создать ссылку</button>`}</div>`;
+  }catch(e){if($("uf-ical-body"))$("uf-ical-body").textContent="Не загрузилось"}}
+const icalErr=m=>/HTTP 404|HTTP 410/.test(m)?"ссылка больше не работает — возьмите новую на сайте":/not_ical/.test(m)?"по ссылке нет календаря — проверьте, что это ссылка экспорта .ics":/abort|timeout/i.test(m)?"сайт не ответил вовремя, повторим":/unit_gone/.test(m)?"объект удалён":m;
+document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("#ical-add,[data-isync],[data-idel],[data-ikey],[data-icopy]");if(!t)return;const a=uOpen;if(!a)return;
+  try{
+    if(t.id==="ical-add"){const url=$("ical-url").value.trim();if(!/^(https?|webcal):\/\//i.test(url)){toast("Вставьте ссылку, она начинается с https://");return}
+      t.disabled=true;const r=await api("kv_ical_add",{apt:a,url,source:$("ical-src").value||undefined});
+      toast(r.ok?`Подключено: ${r.source} · новых броней: ${r.added}`:"Добавлено, но не синхронизировалось: "+icalErr(r.error||""));await reload();icalLoad(a);return}
+    if(t.dataset.isync){t.disabled=true;const r=await api("kv_ical_sync",{id:t.dataset.isync});toast(r.ok?`Готово: +${r.added} · перенесено ${r.moved} · отменено ${r.removed}`:icalErr(r.error||""));await reload();icalLoad(a);return}
+    if(t.dataset.idel){if(!t.classList.contains("armed")){t.classList.add("armed");t.textContent="Точно?";setTimeout(()=>{t.classList.remove("armed")},4000);return}
+      await api("kv_ical_del",{id:t.dataset.idel});toast("Ссылка удалена — брони остались");icalLoad(a);return}
+    if(t.dataset.ikey){const r=await api("kv_ical_key",{apt:a});cfg={...cfg,units:{...(cfg.units||{}),[a]:{...unitOf(a),ical:r.key}}};icalLoad(a);return}
+    if(t.dataset.icopy){const v=$("ical-exp").value;try{await navigator.clipboard.writeText(v);toast("Ссылка скопирована")}catch(x){$("ical-exp").select()}return}
+  }catch(x){t.disabled=false;toast(x.code==="bad_url"?"Ссылка не подходит":x.code==="feed_exists"?"Эта ссылка уже добавлена":x.code==="too_many_feeds"?"Слишком много ссылок":"Не получилось")}});
 function hotelPrev(){const el=$("uh-prev");if(!el)return;const n=Math.max(1,Math.min(200,parseInt(($("uh-n")||{}).value,10)||0));const names=roomNames(($("uh-name")||{}).value||"",($("uh-start")||{}).value,n,cfg.apts);
   el.textContent="Будут созданы: "+(names.length>4?names.slice(0,2).join(", ")+" … "+names[names.length-1]:names.join(", "))}
 document.addEventListener("input",e=>{if(e.target.closest&&e.target.closest("#uh-n,#uh-start,#uh-name"))hotelPrev()});

@@ -24,7 +24,7 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
   const { request, env } = ctx;
   const url = new URL(request.url);
   const p = url.pathname;
-  if (p.startsWith("/api/") || p.startsWith("/g/") || p.startsWith("/f/")) return ctx.next();
+  if (p.startsWith("/api/") || p.startsWith("/g/") || p.startsWith("/f/") || p.startsWith("/ical/")) return ctx.next();
   const s = siteOf(hostOf(request));
   if (s.kind === "dev") return p === "/" ? env.ASSETS.fetch(new URL("/site", url)) : ctx.next();
   if (s.kind === "www") return Response.redirect("https://espace.md" + p + url.search, 301);
