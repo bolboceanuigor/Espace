@@ -915,6 +915,7 @@ body.wizon{overflow:hidden}
 .sh-grp{display:flex;align-items:center;height:22px;background:var(--surface);border-bottom:1px solid var(--line);position:sticky;left:0}.sh-grp b{position:sticky;left:0;padding:0 10px;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);white-space:nowrap}
 .dtog{display:flex;gap:12px;align-items:flex-start;cursor:pointer}.dtog input{width:22px;height:22px;margin-top:2px;flex:none;accent-color:var(--accent)}.dtog span{display:flex;flex-direction:column;gap:2px}.dtog small{color:var(--muted)}
 .bv-req{margin:12px 0;padding:12px;border-radius:12px;background:var(--accent-soft)}.bv-req p{margin:0 0 8px}.btn.danger.armed{background:#b42318;color:#fff}
+.srow{display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--line)}.srow:first-of-type{border-top:0}.srow>input{flex:1;min-width:110px}.srow label{width:86px}.srow label small{display:block;font-size:11px;color:var(--muted)}.srow label input{width:100%;text-align:center}
 .uical{margin-top:6px}.ifeed{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line)}.ifeed .iu{flex:1;min-width:0;display:flex;flex-direction:column}.ifeed .iu b{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ifeed .iu small{color:var(--muted)}.ifeed.bad .iu small{color:#b42318}
 .isrc{font-size:11.5px;font-weight:700;padding:3px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
 .iadd{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}.iadd select{width:auto;flex:none}.iadd input{flex:1;min-width:160px}
@@ -1289,6 +1290,10 @@ let form=blankB();
 function blankB(keep={}){return{tag:"",price:"",price_cur:"EUR",pay_status:"",util:"",util_cur:"MDL",id:null,apt:keep.apt||"",date:keep.date||todayStr(),nights:1,guest:"",phone:"",pax:"",mdl:"",eur:"",usd:"",oth:"",oth_cur:"",pay:ls.get("pay")||"Кэш",who:ls.get("who")||"",source:"",note:"",createdAt:null}}
 const BF=["date","nights","guest","phone","pax","mdl","eur","usd","oth","util","note","price"];
 function readB(){for(const k of BF) form[k]=$("f-"+k).value}
+// prices by season and weekday — same rules as lib/core.ts (server) and book.html (guests)
+const seasonOf=(P,d)=>{const md=d.slice(5);return ((P&&P.seasons)||[]).find(x=>x.from&&x.to&&(x.from<=x.to?md>=x.from&&md<=x.to:md>=x.from||md<=x.to))||null};
+const nightPrice=(base,d,P)=>{let p=+base||0;const x=seasonOf(P,d);if(x)p*=1+(+x.pct||0)/100;const wd=new Date(d+"T00:00:00Z").getUTCDay();if((wd===5||wd===6)&&P&&+P.weekend)p*=1+(+P.weekend)/100;return Math.round(p*100)/100};
+const stayPrice=(base,d,n,P)=>{let t=0;for(let i=0;i<n;i++)t+=nightPrice(base,fromT(toT(d)+i*DAY),P);return Math.round(t*100)/100};
 // how many people fit, from the unit's details; warns when the booking has more
 function capHint(){const el=$("f-cap");if(!el)return;const u=unitOf(form.apt||""),c=capOf(u),p=parseInt(($("f-pax")||{}).value,10)||0;
   el.className="hint"+(c&&p>c?" bad":"");el.textContent=!c?"":p>c?"Больше, чем вмещает: максимум "+c:"Вмещает до "+c+(bedsOf(u)?" · "+bedsOf(u):"")}
@@ -1337,8 +1342,8 @@ const svgPh='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke=
 function infoB(){
   const b=asB(), msgs=[];
   {const c=$("f-contact"),h=contactHTML(b.phone);c.innerHTML=h;c.hidden=!h}
-  {const ps=payState({...b,id:form.id}),c=CUR_L[ps.cur],u=unitOf(b.apt||""),sug=!b.price&&+u.price>0&&b.nights>0&&!b.tag?Math.round(+u.price*b.nights*100)/100:0;
-   $("f-pinfo").innerHTML=sug?`По тарифу: ${fmt(+u.price)} ${CUR_L[u.pcur||"EUR"]} × ${b.nights} = <b>${fmt(sug)} ${CUR_L[u.pcur||"EUR"]}</b> <button type="button" class="btn sm" data-psug="${sug}" data-pcur="${esc(u.pcur||"EUR")}">Поставить</button>`:b.price?`Получено <b>${fmt0(fromEurC(ps.got,ps.cur))} ${c}</b> из ${fmt0(b.price)} ${c}${ps.left?` · осталось <b style="color:#f7a44c">${fmt0(ps.left)} ${c}</b>`:" · всё оплачено"}`:(ps.got>0.5?"":"Пока ничего не получено");document.querySelectorAll("#f-pst [data-pst]").forEach(x=>x.setAttribute("aria-pressed",x.dataset.pst===ps.state))}
+  {const ps=payState({...b,id:form.id}),c=CUR_L[ps.cur],u=unitOf(b.apt||""),sug=!b.price&&+u.price>0&&b.nights>0&&b.date&&!b.tag?stayPrice(+u.price,b.date,b.nights,cfg.pricing):0,flat=Math.round(+u.price*b.nights*100)/100;
+   $("f-pinfo").innerHTML=sug?`По тарифу: ${sug===flat?`${fmt(+u.price)} ${CUR_L[u.pcur||"EUR"]} × ${b.nights}`:`${b.nights} ${plural(b.nights,"ночь","ночи","ночей")} с учётом сезона и выходных`} = <b>${fmt(sug)} ${CUR_L[u.pcur||"EUR"]}</b> <button type="button" class="btn sm" data-psug="${sug}" data-pcur="${esc(u.pcur||"EUR")}">Поставить</button>`:b.price?`Получено <b>${fmt0(fromEurC(ps.got,ps.cur))} ${c}</b> из ${fmt0(b.price)} ${c}${ps.left?` · осталось <b style="color:#f7a44c">${fmt0(ps.left)} ${c}</b>`:" · всё оплачено"}`:(ps.got>0.5?"":"Пока ничего не получено");document.querySelectorAll("#f-pst [data-pst]").forEach(x=>x.setAttribute("aria-pressed",x.dataset.pst===ps.state))}
   if(b.date&&b.nights>0){const e=toT(b.date)+b.nights*DAY;$("f-out").textContent="Выезд: "+dm(fromT(e))+" ("+WD[new Date(e).getUTCDay()]+") · "+b.nights+" "+plural(b.nights,"ночь","ночи","ночей");}
   else $("f-out").textContent=b.nights===0?"0 ночей — например, доплата за уже записанную бронь":"";
   const tot=[b.mdl,b.eur,b.usd,b.oth,b.util].some(x=>isNaN(x))?null:eurOf(b)+utilEur(b);
@@ -1525,6 +1530,27 @@ document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest
   saveCfg({...cfg,units},"Тарифы сохранены")});
 /* DIRECT BOOKING PAGE — <slug>.espace.md/rezerva: guests see free units with prices and send a request,
    which lands in the calendar as «Заявка» (dates held) until a manager confirms or declines it. */
+/* SEASONS & WEEKENDS — the nightly price of every unit goes up or down by % in a season (dates repeat every year)
+   and on Friday/Saturday nights; a season can also ask for more nights. Used by the price suggestion and the booking page. */
+let PRS=null, PRW=null; // seasons and weekend % being edited (kept while rows are added/removed)
+function pricingSection(){const P=cfg.pricing||{};if(!PRS)PRS=JSON.parse(JSON.stringify(P.seasons||[]));if(PRW==null)PRW=P.weekend||"";
+  const md=v=>v?v:"";const ex=(()=>{const u=cfg.apts.map(unitOf).find(x=>+x.price>0);if(!u)return "";const d0=todayStr(),days=[...Array(7)].map((_,i)=>fromT(toT(d0)+i*DAY));
+    return `<p class="small" style="margin:10px 0 0">Пример для цены ${fmt(+u.price)} ${CUR_L[u.pcur||"EUR"]}: ${days.map(d=>`${dm(d)} — <b>${fmt(nightPrice(+u.price,d,{weekend:+String(PRW).replace(",",".")||0,seasons:PRS}))}</b>`).join(", ")}</p>`})();
+  return `<div class="card"><label class="l" for="pr-wk">Пятница и суббота <em>— наценка за ночь, %</em></label><input type="text" inputmode="decimal" id="pr-wk" value="${esc(PRW)}" placeholder="0" style="max-width:140px">${ex}</div>
+  <h3>Сезоны</h3><div class="card"><p class="small" style="margin-top:0">Даты повторяются каждый год. Процент может быть и минусом — например −15% зимой.</p>
+    ${PRS.map((x,i)=>`<div class="srow"><input type="text" data-ps="${i}" data-f="name" value="${esc(x.name||"")}" placeholder="Лето" aria-label="Название"><label><small>от</small><input type="text" data-ps="${i}" data-f="from" value="${esc(md(x.from))}" placeholder="06-01" aria-label="От (ММ-ДД)"></label><label><small>до</small><input type="text" data-ps="${i}" data-f="to" value="${esc(md(x.to))}" placeholder="08-31" aria-label="До (ММ-ДД)"></label><label><small>±%</small><input type="text" inputmode="decimal" data-ps="${i}" data-f="pct" value="${esc(x.pct??"")}" placeholder="20"></label><label><small>мин. ночей</small><input type="text" inputmode="numeric" data-ps="${i}" data-f="min" value="${esc(x.min||"")}" placeholder="—"></label>${RO?"":`<button type="button" class="ibtn del" data-psdel="${i}" aria-label="Удалить">${setIc("del")}</button>`}</div>`).join("")||`<p class="small">Сезонов пока нет.</p>`}
+    ${RO?"":`<div class="actions"><button type="button" class="btn" data-psadd="1">＋ Сезон</button><button type="button" class="btn primary" id="pr-save">Сохранить</button></div>`}</div>`}
+document.addEventListener("input",e=>{const d=e.target.dataset;if(d&&d.ps!=null&&PRS)PRS[+d.ps][d.f]=e.target.value;if(e.target.id==="pr-wk")PRW=e.target.value});
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-psadd],[data-psdel],#pr-save");if(!t)return;
+  if(t.dataset.psadd){PRS.push({name:"",from:"",to:"",pct:"",min:""});renderSettings();return}
+  if(t.dataset.psdel!=null){PRS.splice(+t.dataset.psdel,1);renderSettings();return}
+  const okMD=v=>/^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(v),seasons=[];
+  for(const x of PRS){const from=String(x.from||"").trim().replace(/[./]/g,"-"),to=String(x.to||"").trim().replace(/[./]/g,"-");if(!from&&!to&&!x.name)continue;
+    if(!okMD(from)||!okMD(to)){toast("Даты сезона — в виде ММ-ДД, например 06-01");return}
+    const pct=+String(x.pct||0).replace(",",".");if(!(pct>=-90&&pct<=500)){toast("Процент от −90 до 500");return}
+    seasons.push({name:String(x.name||"").trim().slice(0,40),from,to,pct,min:Math.max(0,Math.min(30,parseInt(x.min,10)||0))})}
+  const wk=+String($("pr-wk").value||0).replace(",",".");if(!(wk>=-90&&wk<=500)){toast("Процент от −90 до 500");return}
+  PRS=null;PRW=null;saveCfg({...cfg,pricing:{weekend:wk||0,seasons}},"Цены сохранены")});
 function directSection(){const d=cfg.direct||{},url="https://"+ME.org.code+".espace.md/rezerva",hid=new Set(d.hidden||[]);
   const withPrice=cfg.apts.filter(a=>+unitOf(a).price>0),noPrice=cfg.apts.filter(a=>!(+unitOf(a).price>0));
   return `<div class="card"><label class="dtog"><input type="checkbox" id="dr-on" ${d.on?"checked":""} ${RO?"disabled":""}><span><b>Принимать брони на своей странице</b><small>Гость выбирает даты, видит свободные объекты и цену, отправляет заявку. Без комиссии.</small></span></label>
@@ -1534,6 +1560,7 @@ function directSection(){const d=cfg.direct||{},url="https://"+ME.org.code+".esp
     <label class="l" for="dr-intro">Приветствие</label><textarea id="dr-intro" rows="2" maxlength="400" placeholder="Квартиры в центре Кишинёва, заселение 24/7">${esc(d.intro||"")}</textarea>
     <div class="grid2"><div><label class="l" for="dr-phone">Телефон / WhatsApp</label><input type="tel" id="dr-phone" value="${esc(d.phone||"")}" placeholder="+373…"></div><div><label class="l" for="dr-email">Email</label><input type="email" id="dr-email" value="${esc(d.email||"")}"></div></div>
     <div class="grid2"><div><label class="l" for="dr-min">Минимум ночей</label><input type="text" inputmode="numeric" id="dr-min" value="${esc(d.min||1)}"></div><div></div></div>
+    <label class="dtog" style="margin-top:12px"><input type="checkbox" id="dr-arr" ${d.arrival===false?"":"checked"} ${RO?"disabled":""}><span><b>Письмо гостю за день до заезда</b><small>Время заезда, адрес, телефон и ссылка на гид для гостей.</small></span></label>
     <label class="l" for="dr-terms">Условия <em>— оплата, залог, отмена</em></label><textarea id="dr-terms" rows="3" maxlength="1500" placeholder="Предоплата 30% после подтверждения. Бесплатная отмена за 3 дня.">${esc(d.terms||"")}</textarea>
     <label class="l">Объекты на странице <em>— показываются только с ценой за ночь</em></label>
     <div class="uamen">${withPrice.map(a=>`<button type="button" data-drunit="${esc(a)}" aria-pressed="${!hid.has(a)}">${esc(a)}</button>`).join("")||`<span class="small">Пока ни у одного объекта нет цены.</span>`}</div>
@@ -1543,7 +1570,7 @@ document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.c
   if(t.dataset.drunit!=null){t.setAttribute("aria-pressed",String(t.getAttribute("aria-pressed")!=="true"));return}
   if(t.id==="dr-copy"){try{await navigator.clipboard.writeText($("dr-url").value);toast("Ссылка скопирована")}catch(x){$("dr-url").select()}return}
   const em=$("dr-email").value.trim();if(em&&!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em)){toast("Проверь email");return}
-  const direct={on:$("dr-on").checked,intro:$("dr-intro").value.trim().slice(0,400),phone:$("dr-phone").value.trim().slice(0,40),email:em,min:Math.max(1,Math.min(30,parseInt($("dr-min").value,10)||1)),terms:$("dr-terms").value.trim().slice(0,1500),
+  const direct={on:$("dr-on").checked,intro:$("dr-intro").value.trim().slice(0,400),phone:$("dr-phone").value.trim().slice(0,40),email:em,min:Math.max(1,Math.min(30,parseInt($("dr-min").value,10)||1)),terms:$("dr-terms").value.trim().slice(0,1500),arrival:$("dr-arr").checked,
     hidden:[...document.querySelectorAll("[data-drunit][aria-pressed=false]")].map(x=>x.dataset.drunit)};
   saveCfg({...cfg,direct},direct.on?"Страница бронирования включена":"Сохранено")});
 function aptsSection(){
@@ -2429,6 +2456,7 @@ function renderSettings(){
       <p class="small" style="margin-bottom:0">0 дней — проверять при каждой уборке. 30 — раз в месяц: пункт появится у горничные, когда в этой квартире его давно не отмечали.</p></div>
     `],
     apts:["home","Объекты",`${cfg.apts.length} ${plural(cfg.apts.length,"объект","объекта","объектов")} · детали, адреса, фото, порядок`,()=>aptsSection()],
+    pricing:["rate","Сезоны и выходные",(()=>{const P=cfg.pricing||{},n=(P.seasons||[]).length;return [P.weekend?"выходные +"+P.weekend+"%":"",n?n+" "+plural(n,"сезон","сезона","сезонов"):""].filter(Boolean).join(" · ")||"цены выше в сезон и по выходным"})(),()=>pricingSection()],
     direct:["web","Страница бронирования",cfg.direct&&cfg.direct.on?"включена · "+ME.org.code+".espace.md/rezerva":"гости бронируют напрямую, без комиссии",()=>directSection()],
     people:["mgr","Менеджеры",cfg.people.join(", ")||"не указаны",()=>`<div class="card"><label class="l" for="set-people">Менеджеры — кто принимает деньги и работает сменами <em>— через запятую</em></label><input type="text" id="set-people" value="${esc(cfg.people.join(", "))}">
       <div class="actions"><button class="btn primary" id="save-people">Сохранить</button></div></div>

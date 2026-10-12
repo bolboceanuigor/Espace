@@ -6,7 +6,7 @@ import { newVapid, sendPush, type Vapid } from "../../lib/push";
 import {
   type Env, type Ctx, json, sleep, nowIso, uuid, num, str, isDate, isUuid, snum, isEmail, all, one, run,
   starterConfig, hashPin, pinMatches, hashPassword, passwordMatches, throttled, failHit, failClear, newSession, bearer, loadSession,
-  ROLES, roleAllows, READ_FNS, TRIAL_DAYS, TIERS, today, addMonths, isExpired, billingOf, chargeOrg, topUp, randCode, randHex, sameStr, sha256hex,
+  ROLES, roleAllows, READ_FNS, TRIAL_DAYS, TIERS, today, addMonths, isExpired, billingOf, chargeOrg, topUp, stayPrice, minNights, randCode, randHex, sameStr, sha256hex,
 } from "../../lib/core";
 import { hostOf, siteOf, slugOk, isSlug } from "../../lib/host";
 import { handleAdmin, logEvent, activeAnnouncement, getSettings, createInvoice } from "../../lib/admin";
@@ -355,7 +355,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     if (fn === "pub_listing") {
       const PUB = ["kind", "group", "area", "bedrooms", "baths", "floor", "beds", "guests", "price", "pcur", "cin", "cout", "amen", "rtype"];
       return json({
-        name: org.name, slug: org.code, min: Math.max(1, +dir.min || 1), phone: dir.phone || "", email: dir.email || "", terms: dir.terms || "", intro: dir.intro || "",
+        name: org.name, slug: org.code, min: Math.max(1, +dir.min || 1), pricing: { weekend: +(cfg.pricing?.weekend) || 0, seasons: (cfg.pricing?.seasons || []).map((x: any) => ({ from: x.from, to: x.to, pct: +x.pct || 0, min: +x.min || 0 })) }, phone: dir.phone || "", email: dir.email || "", terms: dir.terms || "", intro: dir.intro || "",
         units: units.map((a: string) => { const u = (cfg.units || {})[a] || {}, o: any = { name: a, addr: dir.addr === false ? "" : ((cfg.addr || {})[a] || "").split(",")[0] }; for (const k of PUB) if (u[k] != null && u[k] !== "") o[k] = u[k];
           o.busy = taken.filter((b: any) => b.apt === a && addDays(b.date, b.nights) > t).map((b: any) => [b.date, b.nights]); return o; }),
       });
@@ -366,12 +366,12 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     const apt = str(body.apt, 100), date = isDate(body.date) ? body.date : "", nights = Math.floor(num(body.nights));
     const name = str(body.name, 80).trim(), phone = str(body.phone, 40).trim(), email = str(body.email, 120).trim().toLowerCase(), pax = Math.max(1, Math.min(50, Math.floor(num(body.guests)) || 1));
     if (!units.includes(apt)) return json({ message: "bad_unit" }, 400);
-    if (!date || date < t || nights < Math.max(1, +dir.min || 1) || nights > 60) return json({ message: "bad_dates" }, 400);
+    if (!date || date < t || nights < minNights(cfg.pricing, date, +dir.min || 1) || nights > 60) return json({ message: "bad_dates" }, 400);
     if (!name || (!phone && !isEmail(email)) || (email && !isEmail(email))) return json({ message: "need_contact" }, 400);
     const u = (cfg.units || {})[apt] || {}, cap = +u.guests || 0;
     if (cap && pax > cap) return json({ message: "too_many_guests", cap }, 400);
     if (busy(apt, date, nights)) return json({ message: "taken" }, 409);
-    const price = Math.round(+u.price * nights * 100) / 100, cur = ["EUR", "MDL", "USD"].includes(u.pcur) ? u.pcur : "EUR";
+    const price = stayPrice(+u.price, date, nights, cfg.pricing), cur = ["EUR", "MDL", "USD"].includes(u.pcur) ? u.pcur : "EUR";
     const id = uuid(), now = nowIso(), msg = str(body.message, 600).trim();
     await run(db, `INSERT INTO bookings(id, org_id, date, apt, guest, nights, phone, email, pax, source, tag, note, price, price_cur, pay_status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,'Прямой','req',?,?,?, 'unpaid', ?, ?)`,
       id, org.id, date, apt, name, nights, phone, email, pax, ("Cerere online" + (msg ? ": " + msg : "")).slice(0, 1000), price, cur, now, now);
@@ -875,7 +875,8 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
       if (body.ok === true) await run(db, "UPDATE bookings SET tag = '', updated_at = ? WHERE id = ?", nowIso(), b.id);
       else await run(db, "DELETE FROM bookings WHERE id = ?", b.id);
       let mailed = "";
-      if (b.email) mailed = await sendMail(env, db, { to: b.email, ...mails.requestAnswer(org.name, body.ok === true, { apt: b.apt, date: b.date, nights: b.nights, price: b.price, cur: b.price_cur, phone: dir.phone || "", email: dir.email || "", note: str(body.note, 300) }), kind: "request", orgId: O });
+      const g = body.ok === true ? await one(db, "SELECT token FROM guides WHERE org_id = ? AND apt = ?", O, b.apt) : null;
+      if (b.email) mailed = await sendMail(env, db, { to: b.email, ...mails.requestAnswer(org.name, body.ok === true, { apt: b.apt, date: b.date, nights: b.nights, price: b.price, cur: b.price_cur, phone: dir.phone || "", email: dir.email || "", note: str(body.note, 300), guide: g ? `https://espace.md/g/${g.token}` : "" }), kind: "request", orgId: O });
       return json({ ok: true, mailed });
     }
     // ---------- calendar sync (iCal) for one unit ----------

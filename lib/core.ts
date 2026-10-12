@@ -201,3 +201,21 @@ export function starterConfig(ownerName: string) {
   };
 }
 
+
+// ---------- prices by season and weekday (same rules in public/app.html and public/book.html) ----------
+// cfg.pricing = { weekend: % extra for Friday/Saturday nights, seasons: [{ name, from: "MM-DD", to: "MM-DD", pct, min }] }
+export function seasonOf(pricing: any, date: string) {
+  const md = date.slice(5);
+  return (pricing?.seasons || []).find((s: any) => s.from && s.to && (s.from <= s.to ? md >= s.from && md <= s.to : md >= s.from || md <= s.to)) || null;
+}
+export function nightPrice(base: number, date: string, pricing: any) {
+  let p = +base || 0;
+  const s = seasonOf(pricing, date); if (s) p *= 1 + (+s.pct || 0) / 100;
+  const wd = new Date(date + "T00:00:00Z").getUTCDay(); if ((wd === 5 || wd === 6) && +pricing?.weekend) p *= 1 + +pricing.weekend / 100;
+  return Math.round(p * 100) / 100;
+}
+export function stayPrice(base: number, date: string, nights: number, pricing: any) {
+  let t = 0; for (let i = 0; i < nights; i++) t += nightPrice(base, addDays(date, i), pricing);
+  return Math.round(t * 100) / 100;
+}
+export function minNights(pricing: any, date: string, fallback = 1) { const s = seasonOf(pricing, date); return Math.max(1, +(s?.min) || +fallback || 1); }

@@ -110,10 +110,18 @@ export const mails = {
   requestAnswer: (org: string, yes: boolean, r: any) => ({
     subject: yes ? `${org}: rezervarea e confirmată (${dmy(r.date)})` : `${org}: datele nu sunt disponibile`,
     html: layout(
-      yes ? { title: "Rezervarea e confirmată", body: `<p><b>${esc(r.apt)}</b>, de pe <b>${dmy(r.date)}</b>, ${r.nights} ${r.nights === 1 ? "noapte" : "nopți"}. Total: <b>${lei2(r.price)} ${curL(r.cur)}</b>.${r.note ? "<br>" + esc(r.note) : ""}</p><p>${r.phone ? "Telefon: <b>" + esc(r.phone) + "</b>. " : ""}Vă așteptăm!</p>` }
+      yes ? { title: "Rezervarea e confirmată", body: `<p><b>${esc(r.apt)}</b>, de pe <b>${dmy(r.date)}</b>, ${r.nights} ${r.nights === 1 ? "noapte" : "nopți"}. Total: <b>${lei2(r.price)} ${curL(r.cur)}</b>.${r.note ? "<br>" + esc(r.note) : ""}</p><p>${r.phone ? "Telefon: <b>" + esc(r.phone) + "</b>. " : ""}Vă așteptăm!</p>${r.guide ? `<p>Ghidul oaspetelui (cum ajungeți, Wi-Fi, reguli): <a href="${esc(r.guide)}">${esc(r.guide)}</a></p>` : ""}` }
           : { title: "Din păcate, datele nu sunt disponibile", body: `<p>${esc(org)} nu poate confirma cererea pentru ${esc(r.apt)} de pe ${dmy(r.date)}.${r.note ? "<br>" + esc(r.note) : ""} Încercați alte date pe pagina de rezervare.</p>` },
       yes ? { title: "Бронь подтверждена", body: `<p>${esc(r.apt)}, с ${dmy(r.date)}, ${r.nights} н. Итого: ${lei2(r.price)} ${curL(r.cur)}. Ждём вас!</p>` }
           : { title: "К сожалению, даты недоступны", body: `<p>${esc(org)} не может подтвердить заявку на ${esc(r.apt)} с ${dmy(r.date)}.</p>` }),
+  }),
+  // the day before check-in, to a guest who booked on the company's page: time, address, contact, the guest guide
+  arrival: (org: string, r: any) => ({
+    subject: `${org}: vă așteptăm mâine · ${r.apt}`,
+    html: layout(
+      { title: "Vă așteptăm mâine", body: `<p><b>${esc(r.apt)}</b>, ${dmy(r.date)}${r.cin ? ", check-in de la <b>" + esc(r.cin) + "</b>" : ""}.${r.addr ? "<br>Adresa: <b>" + esc(r.addr) + "</b>" : ""}${r.phone ? "<br>Telefon: <b>" + esc(r.phone) + "</b>" : ""}</p>${r.guide ? "<p>În ghid găsiți cum ajungeți, codurile, Wi-Fi și regulile casei.</p>" : ""}` },
+      { title: "Ждём вас завтра", body: `<p><b>${esc(r.apt)}</b>, ${dmy(r.date)}${r.cin ? ", заезд с " + esc(r.cin) : ""}.${r.addr ? "<br>Адрес: " + esc(r.addr) : ""}${r.phone ? "<br>Телефон: " + esc(r.phone) : ""}</p>${r.guide ? "<p>В гиде — как добраться, коды, Wi-Fi и правила.</p>" : ""}` },
+      r.guide ? { url: r.guide, ro: "Deschide ghidul oaspetelui", ru: "Открыть гид" } : undefined),
   }),
   trialEnding: (org: string, slug: string, ends: string, price: number | null, balance: number) => ({
     subject: `Perioada de probă ${org} se termină pe ${dmy(ends)}`,
@@ -176,6 +184,16 @@ export async function dailyMail(env: Env, db: D1Database) {
     if (!b.expired && !b.in_trial && b.daily && b.days_left <= 3) { await sendMail(env, db, { to, ...mails.lowBalance(o.name, o.code, b.balance, Math.max(0, b.days_left)), kind: "low_balance", orgId: o.id, key: `low:${o.id}:${last?.id || "none"}` }); n++; }
     // just ran out: yesterday was the last covered day
     if (b.expired && b.covered_until === addDays(t, -1)) { await sendMail(env, db, { to, ...mails.expired(o.name, o.code), kind: "expired", orgId: o.id, key: `expired:${o.id}:${b.covered_until}` }); n++; }
+  }
+  // guests who booked directly and arrive tomorrow: practical details and the guest guide
+  for (const b of await all(db, `SELECT b.*, o.name AS org_name, o.code, c.data AS cfg, g.token AS gtok FROM bookings b JOIN orgs o ON o.id = b.org_id
+      LEFT JOIN app_config c ON c.org_id = b.org_id LEFT JOIN guides g ON g.org_id = b.org_id AND g.apt = b.apt
+      WHERE b.date = ? AND b.email != '' AND b.tag = '' AND b.nights > 0 AND o.status = 'active'`, addDays(t, 1))) {
+    let cfg: any = {}; try { cfg = JSON.parse(b.cfg || "{}"); } catch {}
+    if (cfg.direct && cfg.direct.arrival === false) continue;
+    const u = (cfg.units || {})[b.apt] || {};
+    await sendMail(env, db, { to: b.email, ...mails.arrival(b.org_name, { apt: b.apt, date: b.date, cin: u.cin || "", addr: (cfg.addr || {})[b.apt] || "", phone: cfg.direct?.phone || "", guide: b.gtok ? `https://espace.md/g/${b.gtok}` : "" }), kind: "arrival", orgId: b.org_id, key: "arrival:" + b.id + ":" + b.date });
+    n++;
   }
   for (const i of await all(db, "SELECT i.*, o.name AS org_name FROM invoices i JOIN orgs o ON o.id = i.org_id WHERE i.status = 'sent' AND i.due_at IN (?, ?)", addDays(t, 3), t)) {
     const to = await orgEmail(db, i.org_id); if (!to) continue;
