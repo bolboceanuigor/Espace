@@ -723,6 +723,7 @@ body.calmode .wrap{padding-bottom:0;max-width:none}
 .aud{padding:10px 2px;border-bottom:1px solid var(--line)}.aud .a1{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted)}.aud .ak{font-weight:700;text-transform:uppercase;letter-spacing:.04em}
 .aud .a2{margin-top:2px}.aud .a3{font-size:13px;color:var(--muted);margin-top:3px;display:flex;flex-direction:column;gap:1px}.aud .a3 s{opacity:.75}.aud .a3 b{color:var(--ink)}.aud .a3 .del{text-decoration:line-through}.aud.a-delete .a2,.aud.a-unpay .a2,.aud.a-decline .a2{color:var(--exp)}
 .sguest{padding:10px 12px;border-radius:14px;background:var(--surface);margin-bottom:6px;display:flex;flex-direction:column;gap:2px}
+.txt th{font-size:12px;color:var(--muted);text-align:left;font-weight:600;padding:6px 4px}.txt th.r{text-align:right}.txt tr.txq td{font-size:12.5px;color:var(--muted);background:var(--bg)}.txt tr.txy td{font-weight:700;border-top:2px solid var(--ink)}.tx-ok{color:var(--ok);font-weight:600}.tx-bad{color:var(--exp);font-weight:600}
 .ownapts{display:flex;flex-wrap:wrap;gap:6px}.ownapts label{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:6px 11px;font-size:13.5px;cursor:pointer}
 .ownapts label.on{border-color:var(--accent);background:rgba(var(--a1-rgb),.08)}.ownapts label.off{opacity:.5;cursor:default}.ownapts input{width:16px;height:16px;accent-color:var(--accent)}
 .otab{width:100%;border-collapse:collapse;font-size:13.5px}.otab td{padding:6px 4px;border-bottom:1px solid var(--line);vertical-align:top}.otab td.r{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}.otab tr.ex td{color:var(--exp)}
@@ -1682,7 +1683,7 @@ document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest
 const AF={date:"Date",apt:"Unit",guest:"Guest",nights:"Nights",mdl:"Lei",eur:"€",usd:"$",oth:"Other currency",oth_cur:"Currency code",util:"Utilities",util_cur:"Utilities currency",pay:"Payment",who:"Received by",note:"Note",source:"Source",phone:"Phone",pax:"Guests",price:"Price",price_cur:"Price currency",pay_status:"Payment status",tag:"Tag",category:"Category",yearly:"Yearly",amount:"Amount",method:"How",paid_on:"Payout date",role:"Role",created:"Added",dup:"Already there",bad:"Skipped",aptsAdded:"New units",aptsRemoved:"Units removed",from:"Before",to:"Now"};
 const AA={create:"added",update:"changed",delete:"deleted",request:"request from the booking page",confirm:"confirmed the request",decline:"declined the request",import:"import from a file",rename:"renamed a unit",pay:"marked a payout",unpay:"removed the payout mark",close:"closed the month",open:"reopened the month",add:"gave access",remove:"removed access",role:"changed the role"};
 const AK={booking:"Booking",expense:"Expense",settings:"Settings",owner:"Owner",team:"Team",month:"Month",import:"Import"};
-const AS={apts:"units",units:"unit details",addr:"addresses",owners:"owners",pricing:"seasons and prices",direct:"booking page",rates:"exchange rates",other:"other currencies",people:"managers",checklist:"checklist",onboarded:"first setup",archived:"unit archive",payouts:"maid payouts",duty:"shift schedule",groups:"groups"};
+const AS={tax:"taxes",taxPaid:"tax payments",apts:"units",units:"unit details",addr:"addresses",owners:"owners",pricing:"seasons and prices",direct:"booking page",rates:"exchange rates",other:"other currencies",people:"managers",checklist:"checklist",onboarded:"first setup",archived:"unit archive",payouts:"maid payouts",duty:"shift schedule",groups:"groups"};
 const PST={unpaid:"unpaid",part:"partly",paid:"paid"};
 function audVal(f,v){if(v==null||v===""||v===0&&!["nights","pax"].includes(f))return "—";if(Array.isArray(v))return v.map(esc).join(", ")||"—";
   if(f==="date"||f==="paid_on")return dm(String(v));if(f==="tag")return ((TAGS.find(t=>t[0]===v)||[])[1])||String(v);if(f==="pay_status")return PST[v]||String(v);
@@ -1739,6 +1740,42 @@ document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest
   const b=bookings.find(x=>x.id===t.dataset.sview);if(!b)return;mon.y=+b.date.slice(0,4);mon.m=+b.date.slice(5,7)-1;renderView();bookView(b.id)});
 document.addEventListener("keydown",e=>{if(!PIN||$("app").hidden)return;const a=document.activeElement;if(a&&a.matches&&a.matches("input,textarea,select,[contenteditable]"))return;
   if(e.key==="/"||((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k")){e.preventDefault();searchPage("")}});
+/* TAXES: income per month in lei, the tax at the company's rate, when it is due, paid or not, Excel */
+let TAXY=null,TAXS="all"; // year shown, scope: "all" or an owner id
+const taxCfg=()=>({rate:7,due:"cur",...(cfg.tax||{})});
+const lei=eur=>eur*cfg.rates.eur;
+function taxDue(y,m){const T=taxCfg(),t=new Date(Date.UTC(y,m+(T.due==="next"?1:0),25));return t.toISOString().slice(0,10)}
+function taxRows(y,scope){const T=taxCfg(),o=scope!=="all"&&(cfg.owners||[]).find(x=>x.id===scope);
+  return [...Array(12)].map((_,m)=>{const inc=o?ownerCalc(o,y,m).tot.inc:monthStats(y,m).T.inc,base=Math.round(lei(inc)*100)/100,tax=Math.round(base*T.rate)/100,ym=y+"-"+String(m+1).padStart(2,"0");
+    return {m,ym,base,tax,due:taxDue(y,m),paid:(cfg.taxPaid||{})[ym+"|"+scope]||null}})}
+function taxNext(){const td=todayStr(),y=+td.slice(0,4);for(const yy of [y-1,y])for(const r of taxRows(yy,"all"))if(!r.paid&&r.tax>0&&r.ym<=td.slice(0,7))return r;return null}
+function taxPage(){if(!TAXY)TAXY=mon.y;const T=taxCfg(),rows=taxRows(TAXY,TAXS),td=todayStr(),O=cfg.owners||[];
+  const sum=k=>rows.reduce((x,r)=>x+r[k],0),q=[0,1,2,3].map(i=>rows.slice(i*3,i*3+3));
+  const st=r=>r.paid?`<span class="tx-ok">✓ ${dm(r.paid.on)}</span>`:r.tax<=0?"—":r.ym>td.slice(0,7)?`<span class="small">upcoming</span>`:RO?`<span class="tx-bad">${r.due<td?"overdue":"due"}</span>`:`<button type="button" class="btn sm${r.due<td?" danger":""}" data-taxpay="${r.ym}">${r.due<td?"Overdue · ":""}Paid</button>`;
+  const html=`<div class="card"><div class="grid2"><div><label class="l" for="tx-rate">Tax rate, % of income</label><input id="tx-rate" inputmode="decimal" value="${T.rate}" ${RO?"disabled":""}></div>
+      <div><label class="l" for="tx-due">Due date</label><select id="tx-due" style="width:100%;height:40px" ${RO?"disabled":""}><option value="cur" ${T.due==="cur"?"selected":""}>by the 25th of the same month</option><option value="next" ${T.due==="next"?"selected":""}>by the 25th of the next month</option></select></div></div>
+    ${O.length?`<label class="l" for="tx-scope">Whose income</label><select id="tx-scope" style="width:100%;height:40px"><option value="all">Whole company</option>${O.map(o=>`<option value="${esc(o.id)}" ${TAXS===o.id?"selected":""}>${esc(o.name)}</option>`).join("")}</select>`:""}
+    <p class="small" style="margin-bottom:0">In Moldova, individuals renting out housing pay 7% of income every month, by the 25th; companies have a different regime — set your own rate. This is guidance, not tax advice: check with the State Tax Service (sfs.md) or your accountant.</p></div>
+  <div class="seg" style="margin:14px 0"><button type="button" data-taxy="-1">‹ ${TAXY-1}</button><button type="button" aria-pressed="true">${TAXY}</button><button type="button" data-taxy="1">${TAXY+1} ›</button></div>
+  <div class="card" style="padding:6px 10px"><table class="otab txt"><tr><th>Month</th><th class="r">Income, lei</th><th class="r">Tax ${T.rate}%</th><th>Due</th><th></th></tr>
+    ${q.map((qq,i)=>qq.map(r=>`<tr><td>${MONTHS[r.m]}</td><td class="r">${fmt0(r.base)}</td><td class="r"><b>${fmt0(r.tax)}</b></td><td>${dm(r.due)}</td><td class="r">${st(r)}</td></tr>`).join("")+`<tr class="txq"><td>quarter ${i+1}</td><td class="r">${fmt0(qq.reduce((x,r)=>x+r.base,0))}</td><td class="r">${fmt0(qq.reduce((x,r)=>x+r.tax,0))}</td><td colspan="2"></td></tr>`).join("")}
+    <tr class="txy"><td>Year</td><td class="r">${fmt0(sum("base"))}</td><td class="r">${fmt0(sum("tax"))}</td><td colspan="2" class="r small">paid ${fmt0(rows.filter(r=>r.paid).reduce((x,r)=>x+(+r.paid.amount||r.tax),0))}</td></tr></table></div>
+  <p class="small">Income — money received for the month’s nights (utilities included), converted to lei at 1 € = ${cfg.rates.eur} lei. The tax service uses the National Bank rate on the income date — amounts may differ slightly.</p>
+  <div class="actions"><button type="button" class="btn" id="tx-xls">⬇ Excel for ${TAXY}</button></div>`;
+  openSheet("Налоги",html,{type:"tax",apt:""})}
+document.addEventListener("change",e=>{if(e.target.id==="tx-scope"){TAXS=e.target.value;taxPage()}
+  else if(e.target.id==="tx-rate"||e.target.id==="tx-due"){const rate=+String($("tx-rate").value).replace(",",".");if(!(rate>=0&&rate<=50)){toast("Rate from 0 to 50%");return}
+    saveCfg({...cfg,tax:{rate,due:$("tx-due").value}},"Saved").then(taxPage)}});
+document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("[data-taxy],[data-taxpay],[data-taxun],#tx-xls");if(!t)return;
+  if(t.dataset.taxy){TAXY+=+t.dataset.taxy;taxPage();return}
+  if(t.dataset.taxpay){const r=taxRows(TAXY,TAXS).find(x=>x.ym===t.dataset.taxpay);if(!r)return;const tp={...(cfg.taxPaid||{})};tp[r.ym+"|"+TAXS]={on:todayStr(),amount:r.tax,by:(ME&&ME.user.name)||""};
+    await saveCfg({...cfg,taxPaid:tp},"Tax marked as paid");taxPage();return}
+  if(t.id==="tx-xls"){try{await loadXLSX()}catch(x){toast("Couldn’t load the module Excel");return}const T=taxCfg(),rows=taxRows(TAXY,TAXS),own=TAXS==="all"?"":((cfg.owners||[]).find(o=>o.id===TAXS)||{}).name||"";
+    const a=[[`${orgName()}${own?" · "+own:""} · ${TAXY}`],[],["Month","Income, lei","Rate, %","Tax, lei","Due","Paid"]];
+    rows.forEach(r=>a.push([MONTHS[r.m],r.base,T.rate,r.tax,r.due.split("-").reverse().join("."),r.paid?r.paid.on.split("-").reverse().join("."):""]));
+    a.push(["Total",rows.reduce((x,r)=>x+r.base,0),"",rows.reduce((x,r)=>x+r.tax,0),"",""]);a.push([]);a.push([`Rate: 1 € = ${cfg.rates.eur} lei`]);
+    const wb=XLSX.utils.book_new(),ws=XLSX.utils.aoa_to_sheet(a);ws["!cols"]=[14,14,10,12,12,12].map(wch=>({wch}));XLSX.utils.book_append_sheet(wb,ws,"Налоги");
+    XLSX.writeFile(wb,`${orgName()}${own?"_"+own:""}_taxes_${TAXY}.xlsx`)}});
 async function impRead(file){const name=file.name;let rows=[];
   if(/\.csv$/i.test(name)||file.type==="text/csv"){const t=await file.text(),sep=(t.split("\n")[0].match(/;/g)||[]).length>(t.split("\n")[0].match(/,/g)||[]).length?";":",";
     rows=t.split(/\r?\n/).filter(l=>l.trim()).map(l=>{const out=[];let cur="",q=false;for(let i=0;i<l.length;i++){const c=l[i];if(q){if(c==='"'&&l[i+1]==='"'){cur+='"';i++}else if(c==='"')q=false;else cur+=c}else if(c==='"')q=true;else if(c===sep){out.push(cur);cur=""}else cur+=c}out.push(cur);return out})}
@@ -2491,7 +2528,7 @@ function clnMonth(y=mon.y,m=mon.m){
     return {st,P,n:done.length,days,byDay,extraN,extra,hrs,pay:Math.round(pay),how};
   });
 }
-const MI={log:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/><path d="M3 4v4h4"/>',guide:'<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5M9 7h6M9 11h6"/>',shifts:'<path d="M4 4h16v16H4z"/><path d="M4 9h16M9 9v11"/>',bell:'<path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',today:'<rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18M7 15h4"/>',cal:'<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/>',todo:'<path d="M9 6h11M9 12h11M9 18h11"/><path d="m3.5 6 1.2 1.2L7 5M3.5 12l1.2 1.2L7 11M3.5 18l1.2 1.2L7 17"/>',clean:'<path d="M14 3 9 13"/><path d="M5 14h10l2 7H3z"/><path d="M8 17v4M12 17v4"/>',rep:'<path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3 17.8V21h3.2l6.3-6.3a4 4 0 0 0 5.2-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/>',rem:'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M5 3 2 6M19 3l3 3"/>',exp:'<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><path d="M9 8h6M9 12h6"/>',fin:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',verify:'<circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.7 2.7L16.5 9"/>',settings:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>'};
+const MI={tax:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 11h2M12 11h2M8 15h2M12 15h4"/>',log:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/><path d="M3 4v4h4"/>',guide:'<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5M9 7h6M9 11h6"/>',shifts:'<path d="M4 4h16v16H4z"/><path d="M4 9h16M9 9v11"/>',bell:'<path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',today:'<rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18M7 15h4"/>',cal:'<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/>',todo:'<path d="M9 6h11M9 12h11M9 18h11"/><path d="m3.5 6 1.2 1.2L7 5M3.5 12l1.2 1.2L7 11M3.5 18l1.2 1.2L7 17"/>',clean:'<path d="M14 3 9 13"/><path d="M5 14h10l2 7H3z"/><path d="M8 17v4M12 17v4"/>',rep:'<path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3 17.8V21h3.2l6.3-6.3a4 4 0 0 0 5.2-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/>',rem:'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M5 3 2 6M19 3l3 3"/>',exp:'<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><path d="M9 8h6M9 12h6"/>',fin:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',verify:'<circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.7 2.7L16.5 9"/>',settings:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>'};
 const svgI=k=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${MI[k]}</svg>`;
 function setAccent(k){try{localStorage.setItem("kv_accent",k)}catch(e){}if(k)document.documentElement.setAttribute("data-accent",k);else document.documentElement.removeAttribute("data-accent");renderView()}
 function renderMenu(){
@@ -2499,7 +2536,7 @@ function renderMenu(){
   const T=(go,ic,l,sub,n)=>`<button type="button" class="mtile" data-go="${go}"><span class="mi">${svgI(go)}</span><div><b>${l}</b>${sub?`<small>${sub}</small>`:""}</div>${n?`<em>${n}</em>`:""}</button>`;
   $("menu-body").innerHTML=`<div class="mgroup">Money</div><div class="mtiles">
     ${T("exp","🧾","Expenses","spending by month")}${T("fin","📊","Finance","income, totals, year")}
-    ${T("verify","✅","Payment check","checking the month’s money",vb)}${T("shifts","🗂️","All shifts","closed handovers")}${T("log","🕘","Change log","who changed what")}</div>
+    ${T("verify","✅","Payment check","checking the month’s money",vb)}${T("shifts","🗂️","All shifts","closed handovers")}${T("log","🕘","Change log","who changed what")}${T("tax","🧮","Налоги",(()=>{const n=taxNext();return n?`due ${fmt0(n.tax)} lei by ${dm(n.due)}`:"income and tax by month"})())}</div>
     <div class="mgroup">Guests and settings</div><div class="mtiles">${T("guide","📖","Guest guide","Wi‑Fi, entry, rules")}${T("settings","⚙️","Settings","apartments, cleaners, PIN")}</div>
     <div class="mgroup">App colour · on this phone</div><div class="skinsw">${[["","Yellow","#fed36a","#ef8159"],["violet","Purple","#c4b0ff","#e48bd6"],["sky","Blue","#8fcbff","#8f8cff"]].map(([k,l,c1,c2])=>`<button type="button" data-accent="${k}" aria-pressed="${ac===k}"><i style="background:linear-gradient(135deg,${c1},${c2})"></i>${l}</button>`).join("")}</div>`;
 }
@@ -3350,7 +3387,7 @@ document.addEventListener("click",e=>{
   const t=e.target.closest("button,[data-edit],[data-eedit],[data-hvopen],[data-finmonth]"); if(!t) return;
   const ds=t.dataset;
   if(ds.accent!=null&&t.closest(".skinsw")){setAccent(ds.accent);return}
-  if(ds.go){const g=ds.go;if(g==="log"){auditPage();return}if(g==="shifts"){handoverPage();return}if(g==="guide"){guidePage();return}if(g==="bell"){bellSheet(notifs,"bellseen","bell-badge");return}if(["todo","rep","rem"].includes(g)){clnTab=g;ls.set("hubtab2",g);show("tasks")}else if(g==="clean")show("cln");else if(g==="verify"){vFilter="todo";verifyPage()}else if(g==="settings")settingsPage("");else show(g);scrollTo(0,0);return}
+  if(ds.go){const g=ds.go;if(g==="tax"){TAXY=null;taxPage();return}if(g==="log"){auditPage();return}if(g==="shifts"){handoverPage();return}if(g==="guide"){guidePage();return}if(g==="bell"){bellSheet(notifs,"bellseen","bell-badge");return}if(["todo","rep","rem"].includes(g)){clnTab=g;ls.set("hubtab2",g);show("tasks")}else if(g==="clean")show("cln");else if(g==="verify"){vFilter="todo";verifyPage()}else if(g==="settings")settingsPage("");else show(g);scrollTo(0,0);return}
   if(ds.view){if(t.closest("#tabs")&&ds.view==="today"){hvHome();return}if(t.closest("#tabs")&&ds.view===view&&view==="menu")return;if(ds.view==="add"&&view!=="add"){form=blankB();eform=blankE();fillB();fillE()}show(ds.view);return}
   if(ds.mode){setMode(ds.mode);renderView();return}
   if(ds.apt!=null){readB();form.apt=ds.apt;fAptOpen=false;renderChipsB();infoB();capHint();return}
