@@ -720,6 +720,8 @@ body.calmode .wrap{padding-bottom:0;max-width:none}
 .fowner .fa1{display:flex;justify-content:space-between;gap:10px}.fowner .fa3{font-size:13px;color:var(--muted)}.fowner .ost{font-size:12.5px;color:var(--accent)}
 .fowner .orow{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}.opd{font-style:normal;font-size:12.5px;font-weight:600;color:var(--exp)}.opd.ok{color:var(--ok)}
 .opaybox.ok{display:flex;flex-direction:column;gap:4px}.opaybox.ok b{color:var(--ok)}
+.aud{padding:10px 2px;border-bottom:1px solid var(--line)}.aud .a1{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted)}.aud .ak{font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.aud .a2{margin-top:2px}.aud .a3{font-size:13px;color:var(--muted);margin-top:3px;display:flex;flex-direction:column;gap:1px}.aud .a3 s{opacity:.75}.aud .a3 b{color:var(--ink)}.aud .a3 .del{text-decoration:line-through}.aud.a-delete .a2,.aud.a-unpay .a2,.aud.a-decline .a2{color:var(--exp)}
 .ownapts{display:flex;flex-wrap:wrap;gap:6px}.ownapts label{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:6px 11px;font-size:13.5px;cursor:pointer}
 .ownapts label.on{border-color:var(--accent);background:rgba(var(--a1-rgb),.08)}.ownapts label.off{opacity:.5;cursor:default}.ownapts input{width:16px;height:16px;accent-color:var(--accent)}
 .otab{width:100%;border-collapse:collapse;font-size:13.5px}.otab td{padding:6px 4px;border-bottom:1px solid var(--line);vertical-align:top}.otab td.r{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}.otab tr.ex td{color:var(--exp)}
@@ -1674,6 +1676,39 @@ document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest
     if(!(fee>=0&&fee<=100)){toast("Comisionul — de la 0 la 100%");return}
     out.push({id:o.id,name:name.slice(0,80),email:email.slice(0,120),phone:String(o.phone||"").trim().slice(0,40),fee,exp:o.exp!==false,apts:(o.apts||[]).filter(a=>cfg.apts.includes(a))})}
   OWN=null;saveCfg({...cfg,owners:out},"Proprietarii au fost salvați")});
+/* CHANGE LOG: who changed what (bookings, expenses, payouts, settings, team) */
+const AF={date:"Data",apt:"Obiect",guest:"Oaspete",nights:"Nopți",mdl:"Lei",eur:"€",usd:"$",oth:"Altă valută",oth_cur:"Codul valutei",util:"Utilități",util_cur:"Valuta utilităților",pay:"Plată",who:"A primit",note:"Notă",source:"De unde",phone:"Telefon",pax:"Oaspeți",price:"Preț",price_cur:"Valuta prețului",pay_status:"Starea plății",tag:"Etichetă",category:"Categorie",yearly:"Anual",amount:"Suma",method:"Cum",paid_on:"Data plății",role:"Rol",created:"Adăugate",dup:"Existau deja",bad:"Omise",aptsAdded:"Obiecte noi",aptsRemoved:"Obiecte șterse",from:"Înainte",to:"Acum"};
+const AA={create:"a adăugat",update:"a modificat",delete:"a șters",request:"cerere de pe pagina de rezervare",confirm:"a confirmat cererea",decline:"a respins cererea",import:"import din fișier",rename:"a redenumit obiectul",pay:"a marcat plata",unpay:"a anulat marcarea plății",close:"a închis luna",open:"a redeschis luna",add:"a dat acces",remove:"a scos accesul",role:"a schimbat rolul"};
+const AK={booking:"Rezervare",expense:"Cheltuială",settings:"Setări",owner:"Proprietar",team:"Echipa",month:"Luna",import:"Import"};
+const AS={apts:"obiecte",units:"detaliile obiectelor",addr:"adrese",owners:"proprietari",pricing:"sezoane și prețuri",direct:"pagina de rezervare",rates:"cursul valutar",other:"alte valute",people:"manageri",checklist:"lista de verificare",onboarded:"configurarea inițială",archived:"arhiva obiectelor",payouts:"plăți menajere",duty:"graficul turelor",groups:"grupuri"};
+const PST={unpaid:"neachitat",part:"parțial",paid:"achitat"};
+function audVal(f,v){if(v==null||v===""||v===0&&!["nights","pax"].includes(f))return "—";if(Array.isArray(v))return v.map(esc).join(", ")||"—";
+  if(f==="date"||f==="paid_on")return dm(String(v));if(f==="tag")return ((TAGS.find(t=>t[0]===v)||[])[1])||String(v);if(f==="pay_status")return PST[v]||String(v);
+  if(f==="yearly")return v?"da":"nu";if(f==="method")return PAY_M[v]||String(v);if(f==="role")return ROLE_T[v]||String(v);
+  if(typeof v==="number")return fmt(v);return esc(String(v).slice(0,120))}
+function audRow(x){let d={};try{d=JSON.parse(x.data||"{}")}catch(e){}
+  const who=x.who==="web"?"Oaspete de pe site":x.who||"—";let det="";
+  if(x.action==="update"&&(x.kind==="booking"||x.kind==="expense"))det=Object.entries(d).map(([f,[a,b]])=>`<div>${AF[f]||esc(f)}: <s>${audVal(f,a)}</s> → <b>${audVal(f,b)}</b></div>`).join("");
+  else if(x.kind==="settings"&&x.action==="update")det=`<div>${(d.keys||[]).map(k=>AS[k]||k).join(", ")}</div>${(d.aptsAdded||[]).length?`<div>+ ${d.aptsAdded.map(esc).join(", ")}</div>`:""}${(d.aptsRemoved||[]).length?`<div>− ${d.aptsRemoved.map(esc).join(", ")}</div>`:""}`;
+  else if(x.kind==="team"&&x.action==="role")det=`<div><s>${audVal("role",(d.role||[])[0])}</s> → <b>${audVal("role",(d.role||[])[1])}</b></div>`;
+  else det=`<div class="${x.action==="delete"?"del":""}">${Object.entries(d).filter(([f])=>!["who","oth_cur","util_cur","price_cur","keys"].includes(f)).map(([f,v])=>`${AF[f]||esc(f)}: ${audVal(f,v)}`).join(" · ")}</div>`;
+  const lab=x.kind==="import"?`${esc(x.label)} ${plural(+x.label||0,"rezervare","rezervări","rezervări")}`:x.kind==="settings"&&x.action==="update"?"":x.kind==="month"?`${MONTHS[+x.label.slice(5,7)-1]||""} ${x.label.slice(0,4)}`:esc(x.label).replace(" · closed"," · Închis");
+  return `<div class="aud a-${x.action}"><div class="a1"><span class="ak">${AK[x.kind]||x.kind}</span><time>${fdtS(x.at)}</time></div><div class="a2"><b>${esc(who)}</b> ${AA[x.action]||x.action}${lab?` · ${lab}`:""}</div>${det?`<div class="a3">${det}</div>`:""}</div>`}
+let AUD=null;
+async function audLoad(more){if(!AUD)return;const box=$("aud-list");if(!box)return;
+  try{const rows=await api("kv_audit",{kind:AUD.kind,q:AUD.q,ref:AUD.ref||"",before:more&&AUD.rows.length?AUD.rows[AUD.rows.length-1].id:0});AUD.rows=more?AUD.rows.concat(rows):rows;AUD.more=rows.length===100}catch(e){box.innerHTML=`<div class="empty">Nu s-a încărcat</div>`;return}
+  box.innerHTML=AUD.rows.length?AUD.rows.map(audRow).join("")+(AUD.more?`<div class="actions"><button type="button" class="btn sm" data-audmore="1">Arată mai multe</button></div>`:""):`<div class="empty">${AUD.ref?"Încă nu sunt modificări":"Încă nu e nimic înregistrat"}</div>`}
+function auditPage(ref,title){AUD={kind:"",q:"",ref:ref||"",rows:[],more:false};
+  openSheet(title||"Jurnalul modificărilor",`${ref?"":`<div class="seg" style="margin-bottom:10px">${[["","Tot"],["booking","Rezervări"],["expense","Cheltuieli"],["other","Altceva"]].map(([k,l])=>`<button type="button" data-audk="${k}" aria-pressed="${k===""}">${l}</button>`).join("")}</div>
+    <input type="search" id="aud-q" placeholder="Caută: oaspete, obiect, cine" style="width:100%;margin-bottom:10px">`}<div id="aud-list"><div class="empty">Încarc…</div></div>
+    <p class="small">Se înregistrează rezervările, cheltuielile, plățile către proprietari, setările și accesele. Se păstrează 13 luni.</p>`,{type:"audit",apt:ref||""});audLoad(false)}
+let audT=0;
+document.addEventListener("input",e=>{if(e.target.id!=="aud-q"||!AUD)return;clearTimeout(audT);audT=setTimeout(()=>{AUD.q=e.target.value.trim();audLoad(false)},350)});
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-audk],[data-audmore],[data-audref]");if(!t)return;
+  if(t.dataset.audref){auditPage(t.dataset.audref,"Istoricul rezervării");return}
+  if(!AUD)return;
+  if(t.dataset.audmore){audLoad(true);return}
+  AUD.kind=t.dataset.audk;document.querySelectorAll("[data-audk]").forEach(b=>b.setAttribute("aria-pressed",String(b===t)));audLoad(false)});
 async function impRead(file){const name=file.name;let rows=[];
   if(/\.csv$/i.test(name)||file.type==="text/csv"){const t=await file.text(),sep=(t.split("\n")[0].match(/;/g)||[]).length>(t.split("\n")[0].match(/,/g)||[]).length?";":",";
     rows=t.split(/\r?\n/).filter(l=>l.trim()).map(l=>{const out=[];let cur="",q=false;for(let i=0;i<l.length;i++){const c=l[i];if(q){if(c==='"'&&l[i+1]==='"'){cur+='"';i++}else if(c==='"')q=false;else cur+=c}else if(c==='"')q=true;else if(c===sep){out.push(cur);cur=""}else cur+=c}out.push(cur);return out})}
@@ -1991,7 +2026,8 @@ function bookView(id){const b=bookings.find(x=>x.id===id);if(!b)return;const tg=
    ${ct?`<div class="fcontact bv-ct">${ct}</div>`:b.tag==="closed"?"":`<div class="bv-nophone">Telefonul nu e indicat</div>`}
    <div class="bv-rows">${rows.map(([k,v])=>`<div><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join("")}</div>
    ${b.tag==="req"&&!RO?`<div class="bv-req"><p class="small">Cerere de pe pagina de rezervare${b.email?" · "+esc(b.email):""}${b.pax?" · oaspeți: "+b.pax:""}. Datele sunt ținute pentru ea deocamdată.</p><div class="actions"><button type="button" class="btn primary" data-reqok="${esc(b.id)}">✓ Confirmă</button><button type="button" class="btn danger" data-reqno="${esc(b.id)}">Respinge</button></div></div>`:""}
-   ${RO?"":`<button type="button" class="btn${b.tag==="req"?"":" primary"} bv-edit" data-bedit="${esc(b.id)}">Modifică rezervarea</button>`}</div>`)}
+   ${RO?"":`<button type="button" class="btn${b.tag==="req"?"":" primary"} bv-edit" data-bedit="${esc(b.id)}">Modifică rezervarea</button>`}
+   <button type="button" class="linkbtn" data-audref="${esc(b.id)}" style="margin-top:10px">🕘 Istoricul modificărilor</button></div>`)}
 document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("[data-reqok],[data-reqno]");if(!t)return;const ok=!!t.dataset.reqok,id=t.dataset.reqok||t.dataset.reqno;
   if(!ok&&!t.classList.contains("armed")){t.classList.add("armed");t.textContent="Sigur respingi?";return}
   t.disabled=true;try{const r=await api("kv_req_decide",{id,ok});closeSheet();await reload();toast((ok?"Rezervarea e confirmată":"Cererea a fost respinsă")+(r.mailed==="sent"?" · oaspetele a primit email":""))}catch(x){t.disabled=false;toast("Nu a reușit")}});
@@ -2425,7 +2461,7 @@ function clnMonth(y=mon.y,m=mon.m){
     return {st,P,n:done.length,days,byDay,extraN,extra,hrs,pay:Math.round(pay),how};
   });
 }
-const MI={guide:'<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5M9 7h6M9 11h6"/>',shifts:'<path d="M4 4h16v16H4z"/><path d="M4 9h16M9 9v11"/>',bell:'<path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',today:'<rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18M7 15h4"/>',cal:'<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/>',todo:'<path d="M9 6h11M9 12h11M9 18h11"/><path d="m3.5 6 1.2 1.2L7 5M3.5 12l1.2 1.2L7 11M3.5 18l1.2 1.2L7 17"/>',clean:'<path d="M14 3 9 13"/><path d="M5 14h10l2 7H3z"/><path d="M8 17v4M12 17v4"/>',rep:'<path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3 17.8V21h3.2l6.3-6.3a4 4 0 0 0 5.2-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/>',rem:'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M5 3 2 6M19 3l3 3"/>',exp:'<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><path d="M9 8h6M9 12h6"/>',fin:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',verify:'<circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.7 2.7L16.5 9"/>',settings:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>'};
+const MI={log:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/><path d="M3 4v4h4"/>',guide:'<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5M9 7h6M9 11h6"/>',shifts:'<path d="M4 4h16v16H4z"/><path d="M4 9h16M9 9v11"/>',bell:'<path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',today:'<rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18M7 15h4"/>',cal:'<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/>',todo:'<path d="M9 6h11M9 12h11M9 18h11"/><path d="m3.5 6 1.2 1.2L7 5M3.5 12l1.2 1.2L7 11M3.5 18l1.2 1.2L7 17"/>',clean:'<path d="M14 3 9 13"/><path d="M5 14h10l2 7H3z"/><path d="M8 17v4M12 17v4"/>',rep:'<path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3 17.8V21h3.2l6.3-6.3a4 4 0 0 0 5.2-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/>',rem:'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M5 3 2 6M19 3l3 3"/>',exp:'<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><path d="M9 8h6M9 12h6"/>',fin:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',verify:'<circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.7 2.7L16.5 9"/>',settings:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>'};
 const svgI=k=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${MI[k]}</svg>`;
 function setAccent(k){try{localStorage.setItem("kv_accent",k)}catch(e){}if(k)document.documentElement.setAttribute("data-accent",k);else document.documentElement.removeAttribute("data-accent");renderView()}
 function renderMenu(){
@@ -2433,7 +2469,7 @@ function renderMenu(){
   const T=(go,ic,l,sub,n)=>`<button type="button" class="mtile" data-go="${go}"><span class="mi">${svgI(go)}</span><div><b>${l}</b>${sub?`<small>${sub}</small>`:""}</div>${n?`<em>${n}</em>`:""}</button>`;
   $("menu-body").innerHTML=`<div class="mgroup">Bani</div><div class="mtiles">
     ${T("exp","🧾","Cheltuieli","cheltuieli pe luni")}${T("fin","📊","Finanțe","venit, totaluri, an")}
-    ${T("verify","✅","Verificarea plăților","verificarea banilor pe lună",vb)}${T("shifts","🗂️","Toate turele","predări de tură închise")}</div>
+    ${T("verify","✅","Verificarea plăților","verificarea banilor pe lună",vb)}${T("shifts","🗂️","Toate turele","predări de tură închise")}${T("log","🕘","Jurnalul modificărilor","cine ce a schimbat")}</div>
     <div class="mgroup">Oaspeți și setări</div><div class="mtiles">${T("guide","📖","Ghid pentru oaspeți","Wi‑Fi, intrare, reguli")}${T("settings","⚙️","Setări","apartamente, menajere, PIN")}</div>
     <div class="mgroup">Culoarea aplicației · pe acest telefon</div><div class="skinsw">${[["","Galben","#fed36a","#ef8159"],["violet","Violet","#c4b0ff","#e48bd6"],["sky","Albastru","#8fcbff","#8f8cff"]].map(([k,l,c1,c2])=>`<button type="button" data-accent="${k}" aria-pressed="${ac===k}"><i style="background:linear-gradient(135deg,${c1},${c2})"></i>${l}</button>`).join("")}</div>`;
 }
@@ -3284,7 +3320,7 @@ document.addEventListener("click",e=>{
   const t=e.target.closest("button,[data-edit],[data-eedit],[data-hvopen],[data-finmonth]"); if(!t) return;
   const ds=t.dataset;
   if(ds.accent!=null&&t.closest(".skinsw")){setAccent(ds.accent);return}
-  if(ds.go){const g=ds.go;if(g==="shifts"){handoverPage();return}if(g==="guide"){guidePage();return}if(g==="bell"){bellSheet(notifs,"bellseen","bell-badge");return}if(["todo","rep","rem"].includes(g)){clnTab=g;ls.set("hubtab2",g);show("tasks")}else if(g==="clean")show("cln");else if(g==="verify"){vFilter="todo";verifyPage()}else if(g==="settings")settingsPage("");else show(g);scrollTo(0,0);return}
+  if(ds.go){const g=ds.go;if(g==="log"){auditPage();return}if(g==="shifts"){handoverPage();return}if(g==="guide"){guidePage();return}if(g==="bell"){bellSheet(notifs,"bellseen","bell-badge");return}if(["todo","rep","rem"].includes(g)){clnTab=g;ls.set("hubtab2",g);show("tasks")}else if(g==="clean")show("cln");else if(g==="verify"){vFilter="todo";verifyPage()}else if(g==="settings")settingsPage("");else show(g);scrollTo(0,0);return}
   if(ds.view){if(t.closest("#tabs")&&ds.view==="today"){hvHome();return}if(t.closest("#tabs")&&ds.view===view&&view==="menu")return;if(ds.view==="add"&&view!=="add"){form=blankB();eform=blankE();fillB();fillE()}show(ds.view);return}
   if(ds.mode){setMode(ds.mode);renderView();return}
   if(ds.apt!=null){readB();form.apt=ds.apt;fAptOpen=false;renderChipsB();infoB();capHint();return}

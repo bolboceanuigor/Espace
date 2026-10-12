@@ -390,3 +390,19 @@ CREATE TABLE IF NOT EXISTS owner_payouts (
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY (org_id, owner_id, ym)
 );
+
+-- who changed what: bookings, expenses, payouts, settings, team (kept ~400 days)
+CREATE TABLE IF NOT EXISTS audit (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  org_id TEXT NOT NULL,
+  at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  user_id TEXT NOT NULL DEFAULT '',
+  who TEXT NOT NULL DEFAULT '',
+  kind TEXT NOT NULL,              -- booking | expense | owner | settings | team | month | import
+  action TEXT NOT NULL,            -- create | update | delete | …
+  ref TEXT NOT NULL DEFAULT '',
+  label TEXT NOT NULL DEFAULT '',
+  data TEXT NOT NULL DEFAULT '{}'  -- {field: [old, new]} or a snapshot
+);
+CREATE INDEX IF NOT EXISTS audit_org_idx ON audit(org_id, id);
+CREATE INDEX IF NOT EXISTS audit_ref_idx ON audit(org_id, ref);

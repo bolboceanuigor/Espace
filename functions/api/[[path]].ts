@@ -324,6 +324,21 @@ async function meOf(db: D1Database, c: Ctx) {
   };
 }
 
+
+// ---------- change log ----------
+const B_F = ["date", "apt", "guest", "nights", "mdl", "eur", "usd", "oth", "oth_cur", "util", "util_cur", "pay", "who", "note", "source", "phone", "pax", "price", "price_cur", "pay_status", "tag"];
+const E_F = ["date", "apt", "category", "mdl", "eur", "usd", "oth", "oth_cur", "who", "note", "yearly"];
+const same = (a: any, b: any) => { const n = (v: any) => (v === null || v === undefined || v === "" || v === 0 ? "" : String(v)); return n(a) === n(b); };
+function diffOf(a: any, b: any, fields: string[]) { const d: Record<string, any[]> = {}; for (const f of fields) if (!same(a?.[f], b?.[f])) d[f] = [a?.[f] ?? null, b?.[f] ?? null]; return d; }
+function snapOf(a: any, fields: string[]) { const d: Record<string, any> = {}; for (const f of fields) if (!same(a?.[f], null)) d[f] = a[f]; return d; }
+const ddmm = (d: string) => (d ? d.slice(8, 10) + "." + d.slice(5, 7) : "");
+const bLabel = (b: any) => [b.apt, ddmm(b.date), b.tag === "closed" ? "closed" : b.guest].filter(Boolean).join(" · ");
+const eLabel = (e: any) => [e.category, e.apt || "", ddmm(e.date)].filter(Boolean).join(" · ");
+async function audit(db: D1Database, O: string, c: { user?: any } | null, kind: string, action: string, ref: string, label: string, data: any, who?: string) {
+  await run(db, "INSERT INTO audit(org_id, user_id, who, kind, action, ref, label, data) VALUES (?,?,?,?,?,?,?,?)",
+    O, c?.user?.id || "", str(who || c?.user?.name || c?.user?.email || "", 80), kind, action, ref || "", str(label, 200), JSON.stringify(data || {}).slice(0, 20000)).catch(() => {});
+}
+
 export const onRequest: PagesFunction<Env> = async ({ request, env, params, waitUntil }) => {
   if (request.method !== "POST") return json({ message: "method_not_allowed" }, 405);
   const fn = String(([] as string[]).concat((params as any).path || []).pop() || "");
@@ -395,6 +410,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     const id = uuid(), now = nowIso(), msg = str(body.message, 600).trim();
     await run(db, `INSERT INTO bookings(id, org_id, date, apt, guest, nights, phone, email, pax, source, tag, note, price, price_cur, pay_status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,'Прямой','req',?,?,?, 'unpaid', ?, ?)`,
       id, org.id, date, apt, name, nights, phone, email, pax, ("Cerere online" + (msg ? ": " + msg : "")).slice(0, 1000), price, cur, now, now);
+    await audit(db, org.id, null, "booking", "request", id, bLabel({ apt, date, guest: name }), { nights, pax, price, price_cur: cur }, "web");
     await notify(db, org.id, ["manager"], { title: `Cerere de rezervare: ${apt}`, body: `${name} · ${date} · ${nights} n. · ${pax} pers.${phone ? " · " + phone : ""}` });
     const owner = await orgEmail(db, org.id);
     if (owner) await sendMail(env, db, { to: owner, ...mails.requestNew(org.name, org.code, { apt, date, nights, pax, name, phone, email, msg, price, cur }), kind: "request", orgId: org.id });
@@ -466,6 +482,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     const mailed = await dailyMail(env, db).catch(() => 0);
     // Airbnb / Booking.com calendars: new reservations become bookings, managers get a notification
     const feeds = await syncDue(db, (O, msg) => notify(db, O, ["manager"], msg)).catch(() => 0);
+    await run(db, "DELETE FROM audit WHERE at < ?", new Date(Date.now() - 400 * 86400000).toISOString()).catch(() => {}); // the change log keeps ~13 months
     return json({ orgs: n, mailed, feeds });
   }
 
@@ -662,6 +679,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
       if (m && (m.role === "prop") !== (role === "prop")) return json({ message: "already_member" }, 409); }
     await run(db, "INSERT INTO members(org_id, user_id, role) VALUES (?,?,?) ON CONFLICT (org_id, user_id) DO UPDATE SET role = excluded.role", O, u.id, role);
     const url = u.pw_hash ? orgUrlOf(org.code, request) : await passwordLink(db, request, u.id, 72, { slug: org.code });
+    await audit(db, O, c, "team", "add", u.id, email, { role });
     const mailed = await sendMail(env, db, { to: email, ...(role === "prop" ? mails.inviteProp(org.name, org.code, url, !u.pw_hash) : mails.invite(c.user.name || c.user.email, org.name, org.code, url, !u.pw_hash)), kind: "invite", orgId: O });
     return json({ id: u.id, invited: invited || !u.pw_hash, mailed });
   }
@@ -672,12 +690,14 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     if (!m) return json({ message: "not_found" }, 404);
     if (fn === "team_remove") {
       await run(db, "DELETE FROM members WHERE org_id = ? AND user_id = ?", O, uid);
+      { const u = await one(db, "SELECT email FROM users WHERE id = ?", uid); await audit(db, O, c, "team", "remove", uid, u?.email || "", { role: m.role }); }
       await run(db, "DELETE FROM sessions WHERE user_id = ? AND org_id = ?", uid, O);
       return json(true);
     }
     const role = ROLES.includes(body.role) && body.role !== "prop" ? body.role : "manager";
     if (m.role === "prop") return json({ message: "is_prop" }, 409);
     await run(db, "UPDATE members SET role = ? WHERE org_id = ? AND user_id = ?", role, O, uid);
+    { const u = await one(db, "SELECT email FROM users WHERE id = ?", uid); await audit(db, O, c, "team", "role", uid, u?.email || "", { role: [m.role, role] }); }
     return json(role);
   }
 
@@ -688,7 +708,8 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     case "kv_save": {
       const b = body.b || {};
       if (!isDate(b.date) || !str(b.apt)) return json({ message: "bad_booking" }, 400);
-      { const old = isUuid(b.id) ? await one(db, "SELECT date FROM bookings WHERE org_id = ? AND id = ?", O, b.id) : null; if (await monthClosed(db, O, b.date, old?.date)) return CLOSED(); }
+      const prev = isUuid(b.id) ? await one(db, "SELECT * FROM bookings WHERE org_id = ? AND id = ?", O, b.id) : null;
+      if (await monthClosed(db, O, b.date, prev?.date)) return CLOSED();
       const v = { date: b.date, apt: str(b.apt, 100), guest: str(b.guest, 200), nights: Math.min(366, Math.floor(num(b.nights))),
         mdl: num(b.mdl), eur: num(b.eur), usd: num(b.usd), pay: str(b.pay, 50), who: str(b.who, 50), note: str(b.note, 1000),
         source: str(b.source, 50), phone: str(b.phone, 40), pax: Math.max(0, Math.min(500, Math.floor(num(b.pax)))), oth: num(b.oth), oth_cur: str(b.oth_cur, 10).toUpperCase(), util: num(b.util),
@@ -699,11 +720,13 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
           date=?, apt=?, guest=?, nights=?, mdl=?, eur=?, usd=?, pay=?, who=?, note=?, source=?, phone=?, pax=?, oth=?, oth_cur=?, util=?, util_cur=?, price=?, price_cur=?, pay_status=?, tag=?, updated_at=? WHERE org_id=? AND id=? RETURNING id`,
           v.mdl, v.eur, v.usd, v.oth, v.util, v.pay,
           v.date, v.apt, v.guest, v.nights, v.mdl, v.eur, v.usd, v.pay, v.who, v.note, v.source, v.phone, v.pax, v.oth, v.oth_cur, v.util, v.util_cur, v.price, v.price_cur, v.pay_status, v.tag, nowIso(), O, b.id);
+        if (r?.id && prev) { const d = diffOf(prev, v, B_F); if (Object.keys(d).length) await audit(db, O, c, "booking", "update", b.id, bLabel(v), d); }
         return json(r?.id ?? null);
       }
       const id = uuid(), t = nowIso();
       await run(db, "INSERT INTO bookings(id,org_id,date,apt,guest,nights,mdl,eur,usd,pay,who,note,source,phone,pax,oth,oth_cur,util,util_cur,price,price_cur,pay_status,tag,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         id, O, v.date, v.apt, v.guest, v.nights, v.mdl, v.eur, v.usd, v.pay, v.who, v.note, v.source, v.phone, v.pax, v.oth, v.oth_cur, v.util, v.util_cur, v.price, v.price_cur, v.pay_status, v.tag, t, t);
+      await audit(db, O, c, "booking", "create", id, bLabel(v), snapOf(v, B_F));
       return json(id);
     }
     case "kv_verify": {
@@ -734,6 +757,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
       const who = str(body.who, 50) || c.user.name, t = nowIso();
       await run(db, "INSERT INTO month_close(org_id, ym, who, at) VALUES (?,?,?,?) ON CONFLICT (org_id, ym) DO UPDATE SET who=excluded.who, at=excluded.at", O, ym, who, t);
       await run(db, "INSERT INTO verify_log(org_id, kind, ref_id, action, who, note, at) VALUES (?,'month',?,?,?,?,?)", O, ym, "close", who, "", t).catch(() => {});
+      await audit(db, O, c, "month", "close", ym, ym, {});
       const RU = ["январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"];
       waitUntil(notify(db, O, ["manager"], { title: "✅ Месяц закрыт: " + RU[+ym.slice(5) - 1] + " " + ym.slice(0, 4), body: "Все оплаты и смены проверены" + (who ? " — " + who : "") }).catch(() => {}));
       return json(ym);
@@ -742,36 +766,42 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
       const ym = str(body.ym, 7), note = str(body.note, 500);
       if (!note) return json({ message: "need_note" }, 400);
       await run(db, "DELETE FROM month_close WHERE org_id = ? AND ym = ?", O, ym);
+      await audit(db, O, c, "month", "open", ym, ym, { note });
       await run(db, "INSERT INTO verify_log(org_id, kind, ref_id, action, who, note, at) VALUES (?,'month',?,?,?,?,?)", O, ym, "open", str(body.who, 50) || c.user.name, note, nowIso()).catch(() => {});
       return json(ym);
     }
     case "kv_delete": {
       if (!isUuid(body.p_id)) return json({ message: "bad_id" }, 400);
-      { const old = await one(db, "SELECT date FROM bookings WHERE org_id = ? AND id = ?", O, body.p_id); if (await monthClosed(db, O, old?.date)) return CLOSED(); }
+      const old = await one(db, "SELECT * FROM bookings WHERE org_id = ? AND id = ?", O, body.p_id); if (await monthClosed(db, O, old?.date)) return CLOSED();
       await run(db, "DELETE FROM bookings WHERE org_id = ? AND id = ?", O, body.p_id);
+      if (old) await audit(db, O, c, "booking", "delete", body.p_id, bLabel(old), snapOf(old, B_F));
       return json(null);
     }
     case "kv_save_expense": {
       const e = body.e || {};
       if (!isDate(e.date) || !str(e.category)) return json({ message: "bad_expense" }, 400);
-      { const old = isUuid(e.id) ? await one(db, "SELECT date FROM expenses WHERE org_id = ? AND id = ?", O, e.id) : null; if (await monthClosed(db, O, e.date, old?.date)) return CLOSED(); }
+      const prev = isUuid(e.id) ? await one(db, "SELECT * FROM expenses WHERE org_id = ? AND id = ?", O, e.id) : null;
+      if (await monthClosed(db, O, e.date, prev?.date)) return CLOSED();
       const v = { date: e.date, apt: str(e.apt, 100), category: str(e.category, 60), mdl: num(e.mdl), eur: num(e.eur), usd: num(e.usd),
         who: str(e.who, 50), note: str(e.note, 1000), oth: num(e.oth), oth_cur: str(e.oth_cur, 10).toUpperCase(), yearly: e.yearly === true ? 1 : 0 };
       if (isUuid(e.id)) {
         const r = await one(db, "UPDATE expenses SET date=?, apt=?, category=?, mdl=?, eur=?, usd=?, who=?, note=?, oth=?, oth_cur=?, yearly=?, updated_at=? WHERE org_id=? AND id=? RETURNING id",
           v.date, v.apt, v.category, v.mdl, v.eur, v.usd, v.who, v.note, v.oth, v.oth_cur, v.yearly, nowIso(), O, e.id);
+        if (r?.id && prev) { const d = diffOf(prev, v, E_F); if (Object.keys(d).length) await audit(db, O, c, "expense", "update", e.id, eLabel(v), d); }
         if (r?.id || !e.new) return json(r?.id ?? null);
       }
       // a client-made id (e.new) is kept only if nobody has it yet
       const id = isUuid(e.id) && e.new && !(await one(db, "SELECT 1 AS x FROM expenses WHERE id = ?", e.id)) ? e.id : uuid(), t = nowIso();
       await run(db, "INSERT INTO expenses(id,org_id,date,apt,category,mdl,eur,usd,who,note,oth,oth_cur,yearly,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         id, O, v.date, v.apt, v.category, v.mdl, v.eur, v.usd, v.who, v.note, v.oth, v.oth_cur, v.yearly, t, t);
+      await audit(db, O, c, "expense", "create", id, eLabel(v), snapOf(v, E_F));
       return json(id);
     }
     case "kv_delete_expense": {
       if (!isUuid(body.p_id)) return json({ message: "bad_id" }, 400);
-      { const old = await one(db, "SELECT date FROM expenses WHERE org_id = ? AND id = ?", O, body.p_id); if (await monthClosed(db, O, old?.date)) return CLOSED(); }
+      const old = await one(db, "SELECT * FROM expenses WHERE org_id = ? AND id = ?", O, body.p_id); if (await monthClosed(db, O, old?.date)) return CLOSED();
       await run(db, "DELETE FROM expenses WHERE org_id = ? AND id = ?", O, body.p_id);
+      if (old) await audit(db, O, c, "expense", "delete", body.p_id, eLabel(old), snapOf(old, E_F));
       return json(null);
     }
     case "kv_save_handover": {
@@ -883,12 +913,16 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
       const d = body.p_data;
       if (!d || typeof d !== "object" || !Array.isArray(d.apts) || !d.apts.length) return json({ message: "bad_config" }, 400);
       // export-link keys are made on the server; an app with an older copy of the settings must not drop them
-      { const old = await getConfig(db, O);
+      const prevCfg = await getConfig(db, O);
+      { const old = prevCfg;
         for (const [apt, u] of Object.entries<any>(old?.units || {})) if (u?.ical && d.apts.includes(apt)) { d.units = d.units || {}; d.units[apt] = { ...(d.units[apt] || {}), ical: d.units[apt]?.ical || u.ical }; } }
       const s = JSON.stringify(d); if (s.length > 300000) return json({ message: "too_big" }, 400);
       // over 70 apartments the price is individual — the platform owner sets it up by hand
       if (d.apts.length > 70 && !(Number(org.custom_price) > 0)) return json({ message: "too_many_apts" }, 409);
       await run(db, "INSERT INTO app_config(org_id,data) VALUES (?,?) ON CONFLICT (org_id) DO UPDATE SET data = excluded.data", O, s);
+      { const keys = [...new Set([...Object.keys(prevCfg || {}), ...Object.keys(d)])].filter((k) => JSON.stringify((prevCfg || {})[k] ?? null) !== JSON.stringify(d[k] ?? null));
+        const aptsAdded = d.apts.filter((a: string) => !(prevCfg?.apts || []).includes(a)), aptsRemoved = (prevCfg?.apts || []).filter((a: string) => !d.apts.includes(a));
+        if (keys.length) await audit(db, O, c, "settings", "update", "", keys.join(", "), { keys, aptsAdded, aptsRemoved }); }
       return json(null);
     }
     case "kv_req_decide": { // confirm or decline a guest's request from the booking page; the guest gets an email
@@ -897,6 +931,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
       const cfg = (await getConfig(db, O)) || {}, dir = cfg.direct || {};
       if (body.ok === true) await run(db, "UPDATE bookings SET tag = '', updated_at = ? WHERE id = ?", nowIso(), b.id);
       else await run(db, "DELETE FROM bookings WHERE id = ?", b.id);
+      await audit(db, O, c, "booking", body.ok === true ? "confirm" : "decline", b.id, bLabel(b), { nights: b.nights, price: b.price, price_cur: b.price_cur });
       let mailed = "";
       const g = body.ok === true ? await one(db, "SELECT token FROM guides WHERE org_id = ? AND apt = ?", O, b.apt) : null;
       if (b.email) mailed = await sendMail(env, db, { to: b.email, ...mails.requestAnswer(org.name, body.ok === true, { apt: b.apt, date: b.date, nights: b.nights, price: b.price, cur: b.price_cur, phone: dir.phone || "", email: dir.email || "", note: str(body.note, 300), guide: g ? `https://espace.md/g/${g.token}` : "" }), kind: "request", orgId: O });
@@ -933,9 +968,20 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
         created++;
       }
       for (let i = 0; i < stmts.length; i += 50) await db.batch(stmts.slice(i, i + 50));
+      if (created || added.length) await audit(db, O, c, "import", "import", "", `${created}`, { created, dup, closed: inClosed, bad: bad.length, aptsAdded: added });
       return json({ created, dup, closed: inClosed, bad: bad.length, badRows: bad.slice(0, 20), aptsAdded: added });
     }
     // ---------- Telegram for this person in this company ----------
+    // ---------- change log ----------
+    case "kv_audit": { // newest first, 100 at a time; filter by kind, by one record, or by text
+      const before = Math.floor(num(body.before)) || 0, kind = str(body.kind, 20), ref = str(body.ref, 60), q = str(body.q, 60).trim();
+      const where = ["org_id = ?"], args: any[] = [O];
+      if (before > 0) { where.push("id < ?"); args.push(before); }
+      if (kind === "other") where.push("kind NOT IN ('booking', 'expense')"); else if (kind) { where.push("kind = ?"); args.push(kind); }
+      if (ref) { where.push("ref = ?"); args.push(ref); }
+      if (q) { where.push("(label LIKE ? OR who LIKE ? OR data LIKE ?)"); args.push(`%${q}%`, `%${q}%`, `%${q}%`); }
+      return json(await all(db, `SELECT id, at, who, kind, action, ref, label, data FROM audit WHERE ${where.join(" AND ")} ORDER BY id DESC LIMIT 100`, ...args));
+    }
     // ---------- monthly statements for apartment owners ----------
     // ---------- an apartment owner's own view (role "prop"): their apartments only, no phones, no other units ----------
     case "kv_prop_load": {
@@ -967,13 +1013,19 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
       if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(ym)) return json({ message: "bad_month" }, 400);
       const cfg = (await getConfig(db, O)) || {}, ow = (cfg.owners || []).find((x: any) => x && x.id === oid);
       if (!ow) return json({ message: "no_owner" }, 404);
-      if (body.undo === true) { await run(db, "DELETE FROM owner_payouts WHERE org_id = ? AND owner_id = ? AND ym = ?", O, oid, ym); return json(true); }
+      if (body.undo === true) {
+        const was = await one(db, "SELECT amount, method, paid_on FROM owner_payouts WHERE org_id = ? AND owner_id = ? AND ym = ?", O, oid, ym);
+        await run(db, "DELETE FROM owner_payouts WHERE org_id = ? AND owner_id = ? AND ym = ?", O, oid, ym);
+        if (was) await audit(db, O, c, "owner", "unpay", oid, `${ow.name} · ${ym}`, was);
+        return json(true);
+      }
       const amount = Math.round(num(body.amount) * 100) / 100, method = ["bank", "cash", "card"].includes(body.method) ? body.method : "bank";
       const paidOn = isDate(body.paid_on) ? body.paid_on : today();
       if (!(amount >= 0) || amount > 10000000) return json({ message: "bad_amount" }, 400);
       await run(db, `INSERT INTO owner_payouts(org_id, owner_id, ym, amount, method, note, paid_on, by_name) VALUES (?,?,?,?,?,?,?,?)
         ON CONFLICT (org_id, owner_id, ym) DO UPDATE SET amount = excluded.amount, method = excluded.method, note = excluded.note, paid_on = excluded.paid_on, by_name = excluded.by_name`,
         O, oid, ym, amount, method, str(body.note, 200), paidOn, str(c.user.name || c.user.email, 60));
+      await audit(db, O, c, "owner", "pay", oid, `${ow.name} · ${ym}`, { amount, method, paid_on: paidOn });
       let mailed = "";
       const to = str(ow.email, 200).trim();
       if (body.notify === true && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) {
@@ -1075,6 +1127,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
       if (data.units && data.units[from] != null) { data.units[to] = data.units[from]; delete data.units[from]; }
       for (const ow of data.owners || []) if (Array.isArray(ow?.apts)) ow.apts = ow.apts.map((a: string) => (a === from ? to : a));
       await run(db, "UPDATE ical_feeds SET apt = ? WHERE org_id = ? AND apt = ?", to, O, from);
+      await audit(db, O, c, "settings", "rename", "", `${from} → ${to}`, { from, to });
       await db.batch([
         db.prepare("UPDATE tasks SET apt = ? WHERE org_id = ? AND apt = ?").bind(to, O, from),
         db.prepare("UPDATE checks SET apt = ? WHERE org_id = ? AND apt = ?").bind(to, O, from),
