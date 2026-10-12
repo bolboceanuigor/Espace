@@ -724,6 +724,7 @@ body.calmode .wrap{padding-bottom:0;max-width:none}
 .aud .a2{margin-top:2px}.aud .a3{font-size:13px;color:var(--muted);margin-top:3px;display:flex;flex-direction:column;gap:1px}.aud .a3 s{opacity:.75}.aud .a3 b{color:var(--ink)}.aud .a3 .del{text-decoration:line-through}.aud.a-delete .a2,.aud.a-unpay .a2,.aud.a-decline .a2{color:var(--exp)}
 .sguest{padding:10px 12px;border-radius:14px;background:var(--surface);margin-bottom:6px;display:flex;flex-direction:column;gap:2px}
 .txt th{font-size:12px;color:var(--muted);text-align:left;font-weight:600;padding:6px 4px}.txt th.r{text-align:right}.txt tr.txq td{font-size:12.5px;color:var(--muted);background:var(--bg)}.txt tr.txy td{font-weight:700;border-top:2px solid var(--ink)}.tx-ok{color:var(--ok);font-weight:600}.tx-bad{color:var(--exp);font-weight:600}
+.bv-ct2{margin-top:12px}.kst{padding:12px;border-radius:12px;background:var(--bg);display:flex;flex-direction:column;gap:3px}.kst.ok b{color:var(--ok)}.kst .actions{margin-top:8px}
 .ownapts{display:flex;flex-wrap:wrap;gap:6px}.ownapts label{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:6px 11px;font-size:13.5px;cursor:pointer}
 .ownapts label.on{border-color:var(--accent);background:rgba(var(--a1-rgb),.08)}.ownapts label.off{opacity:.5;cursor:default}.ownapts input{width:16px;height:16px;accent-color:var(--accent)}
 .otab{width:100%;border-collapse:collapse;font-size:13.5px}.otab td{padding:6px 4px;border-bottom:1px solid var(--line);vertical-align:top}.otab td.r{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}.otab tr.ex td{color:var(--exp)}
@@ -1237,7 +1238,7 @@ async function api(fn,args={}){
   if(!r.ok){const m=(j&&j.message)||t||("HTTP "+r.status); const err=new Error(m); err.code=/bad_session/.test(m)?"bad_pin":m; if(m==="month_closed")closedHit=Date.now(); if(m==="subscription_expired"){EXPIRED=true;RO=true;document.body.classList.add("ro");subBar()} throw err}
   return j;
 }
-function mapB(b){return {tag:b.tag||"",price:+b.price||0,price_cur:b.price_cur||"EUR",pay_status:b.pay_status||"",id:b.id,date:b.date,apt:b.apt,guest:b.guest||"",nights:+b.nights||0,mdl:+b.mdl||0,eur:+b.eur||0,usd:+b.usd||0,pay:b.pay||"",who:b.who||"",note:b.note||"",source:b.source||"",phone:b.phone||"",oth:+b.oth||0,oth_cur:b.oth_cur||"",util:+b.util||0,util_cur:b.util_cur||"MDL",verified:!!b.verified,verifiedAt:b.verified_at||null,shiftId:b.shift_id||null,createdAt:Date.parse(b.created_at)||0,updatedAt:Date.parse(b.updated_at)||0}}
+function mapB(b){return {tag:b.tag||"",price:+b.price||0,price_cur:b.price_cur||"EUR",pay_status:b.pay_status||"",id:b.id,date:b.date,apt:b.apt,guest:b.guest||"",nights:+b.nights||0,mdl:+b.mdl||0,eur:+b.eur||0,usd:+b.usd||0,pay:b.pay||"",who:b.who||"",note:b.note||"",source:b.source||"",phone:b.phone||"",pax:+b.pax||0,email:b.email||"",oth:+b.oth||0,oth_cur:b.oth_cur||"",util:+b.util||0,util_cur:b.util_cur||"MDL",verified:!!b.verified,verifiedAt:b.verified_at||null,shiftId:b.shift_id||null,createdAt:Date.parse(b.created_at)||0,updatedAt:Date.parse(b.updated_at)||0}}
 function mapE(e){return {...({id:e.id,date:e.date,apt:e.apt||"",category:e.category||"",mdl:+e.mdl||0,eur:+e.eur||0,usd:+e.usd||0,who:e.who||"",note:e.note||"",oth:+e.oth||0,oth_cur:e.oth_cur||"",yearly:!!e.yearly,createdAt:Date.parse(e.created_at)||0,updatedAt:Date.parse(e.updated_at)||0}),shiftId:e.shift_id||null}}
 async function reload(){
   const d=await api("kv_load");
@@ -1681,9 +1682,9 @@ document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest
   OWN=null;saveCfg({...cfg,owners:out},"Собственники сохранены")});
 /* CHANGE LOG: who changed what (bookings, expenses, payouts, settings, team) */
 const AF={date:"Дата",apt:"Объект",guest:"Гость",nights:"Ночей",mdl:"Лей",eur:"€",usd:"$",oth:"Другая валюта",oth_cur:"Код валюты",util:"Коммуналка",util_cur:"Валюта коммуналки",pay:"Оплата",who:"Принял",note:"Заметка",source:"Откуда",phone:"Телефон",pax:"Гостей",price:"Цена",price_cur:"Валюта цены",pay_status:"Статус оплаты",tag:"Метка",category:"Категория",yearly:"Годовой",amount:"Сумма",method:"Как",paid_on:"Дата выплаты",role:"Роль",created:"Добавлено",dup:"Уже были",bad:"Пропущено",aptsAdded:"Новые объекты",aptsRemoved:"Удалены объекты",from:"Было",to:"Стало"};
-const AA={create:"добавил(а)",update:"изменил(а)",delete:"удалил(а)",request:"заявка со страницы бронирования",confirm:"подтвердил(а) заявку",decline:"отклонил(а) заявку",import:"импорт из файла",rename:"переименовал(а) объект",pay:"отметил(а) выплату",unpay:"снял(а) отметку о выплате",close:"закрыл(а) месяц",open:"открыл(а) месяц",add:"дал(а) доступ",remove:"убрал(а) доступ",role:"сменил(а) роль"};
+const AA={contract:"создал(а) договор",signed:"гость подписал договор",create:"добавил(а)",update:"изменил(а)",delete:"удалил(а)",request:"заявка со страницы бронирования",confirm:"подтвердил(а) заявку",decline:"отклонил(а) заявку",import:"импорт из файла",rename:"переименовал(а) объект",pay:"отметил(а) выплату",unpay:"снял(а) отметку о выплате",close:"закрыл(а) месяц",open:"открыл(а) месяц",add:"дал(а) доступ",remove:"убрал(а) доступ",role:"сменил(а) роль"};
 const AK={booking:"Бронь",expense:"Расход",settings:"Настройки",owner:"Собственник",team:"Команда",month:"Месяц",import:"Импорт"};
-const AS={tax:"налоги",taxPaid:"оплата налогов",apts:"объекты",units:"детали объектов",addr:"адреса",owners:"собственники",pricing:"сезоны и цены",direct:"страница бронирования",rates:"курс валют",other:"другие валюты",people:"менеджеры",checklist:"чек-лист",onboarded:"первая настройка",archived:"архив объектов",payouts:"выплаты горничным",duty:"график смен",groups:"группы"};
+const AS={contract:"договор",tax:"налоги",taxPaid:"оплата налогов",apts:"объекты",units:"детали объектов",addr:"адреса",owners:"собственники",pricing:"сезоны и цены",direct:"страница бронирования",rates:"курс валют",other:"другие валюты",people:"менеджеры",checklist:"чек-лист",onboarded:"первая настройка",archived:"архив объектов",payouts:"выплаты горничным",duty:"график смен",groups:"группы"};
 const PST={unpaid:"не оплачено",part:"частично",paid:"оплачено"};
 function audVal(f,v){if(v==null||v===""||v===0&&!["nights","pax"].includes(f))return "—";if(Array.isArray(v))return v.map(esc).join(", ")||"—";
   if(f==="date"||f==="paid_on")return dm(String(v));if(f==="tag")return ((TAGS.find(t=>t[0]===v)||[])[1])||String(v);if(f==="pay_status")return PST[v]||String(v);
@@ -1776,6 +1777,37 @@ document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.c
     a.push(["Итого",rows.reduce((x,r)=>x+r.base,0),"",rows.reduce((x,r)=>x+r.tax,0),"",""]);a.push([]);a.push([`Курс: 1 € = ${cfg.rates.eur} лей`]);
     const wb=XLSX.utils.book_new(),ws=XLSX.utils.aoa_to_sheet(a);ws["!cols"]=[14,14,10,12,12,12].map(wch=>({wch}));XLSX.utils.book_append_sheet(wb,ws,"Налоги");
     XLSX.writeFile(wb,`${orgName()}${own?"_"+own:""}_налоги_${TAXY}.xlsx`)}});
+/* CONTRACTS: the rental contract filled from the booking, signed by the guest on their phone */
+async function kLoad(bid){const box=$("bv-k");if(!box||box.dataset.bid!==bid)return;let k=null;try{k=await api("kv_contract_get",{booking_id:bid})}catch(e){box.innerHTML="";return}
+  if(!$("bv-k")||$("bv-k").dataset.bid!==bid)return;const b=bookings.find(x=>x.id===bid)||{};
+  $("bv-k").innerHTML=k&&k.status==="signed"?`<div class="kst ok"><b>✓ Договор № ${esc(k.number)} подписан</b><span class="small">${esc(k.guest_name)}${k.guest_doc?" · "+esc(k.guest_doc):""} · ${fdtS(k.signed_at)}</span><div class="actions"><a class="btn sm" href="${esc(k.url)}" target="_blank" rel="noopener">Открыть договор</a></div></div>`
+    :`<div class="kst"><b>${k?`Договор № ${esc(k.number)} · ждёт подписи`:"Договор с гостем"}</b><span class="small">${k?(k.views?`гость открывал: ${k.views}`:"гость ещё не открывал"):"заполнится из брони — гость подпишет на телефоне"}</span>
+      ${RO?"":`<div class="actions">${b.email?`<button type="button" class="btn sm primary" data-ksend="${esc(bid)}">✉ Отправить на ${esc(b.email)}</button>`:""}<button type="button" class="btn sm${b.email?"":" primary"}" data-kcopy="${esc(bid)}">${k?"Скопировать ссылку":"Создать и скопировать ссылку"}</button>${b.phone?`<button type="button" class="btn sm" data-kwa="${esc(bid)}">WhatsApp</button>`:""}</div>`}</div>`}
+async function kMake(bid,send){try{return await api("kv_contract",{booking_id:bid,send})}catch(e){toast(e.code==="no_email"?"У брони нет email гостя":"Не получилось");return null}}
+document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("[data-ksend],[data-kcopy],[data-kwa]");if(!t)return;const d=t.dataset,bid=d.ksend||d.kcopy||d.kwa;
+  if(d.kwa){const w=window.open("about:blank","_blank");const r=await kMake(bid,false);const b=bookings.find(x=>x.id===bid)||{};if(!r){if(w)w.close();return}
+    const msg=`Bună ziua! Contractul de închiriere nr. ${r.number} pentru ${b.apt}: ${r.url}`;if(w)w.location.href="https://wa.me/"+digits(b.phone)+"?text="+encodeURIComponent(msg);kLoad(bid);return}
+  t.disabled=true;const r=await kMake(bid,!!d.ksend);t.disabled=false;if(!r)return;
+  if(d.ksend)toast(r.mailed==="failed"?"Письмо не ушло — скопируй ссылку":"Договор отправлен гостю");else gCopy(r.url,"Ссылка на договор скопирована — отправь гостю");kLoad(bid)});
+let KT=null,KL="ro"; // contract template being edited
+function contractSection(){const c=cfg.contract||{};if(!KT)KT={...(c.tpl||{})};
+  const f=(k,l,ph)=>`<div><label class="l" for="ks-${k}">${l}</label><input type="text" id="ks-${k}" value="${esc(c[k]||"")}" placeholder="${esc(ph||"")}" ${RO?"disabled":""}></div>`;
+  return `<div class="card"><p class="small" style="margin-top:0">В каждой брони есть кнопка «Договор»: он заполняется из брони, гость открывает ссылку, вписывает имя и документ и подписывает пальцем на телефоне. Подписанный договор хранится здесь же и уходит копией на email.</p>
+    <div class="grid2">${f("landlord","Наймодатель — имя или фирма",orgName())}${f("idno","IDNO / IDNP","")}</div>
+    <div class="grid2">${f("addr","Адрес наймодателя","")}${f("phone","Телефон",(cfg.direct||{}).phone||"")}</div>
+    <div class="grid2">${f("city","Город договора","Chișinău")}${f("deposit","Залог","например: 100 € или нет")}</div>
+    <label class="l" for="ks-rules">Правила дома</label><textarea id="ks-rules" rows="4" ${RO?"disabled":""} placeholder="Заезд с 14:00, выезд до 12:00. Без вечеринок. Домашние животные — по согласованию.">${esc(c.rules||"")}</textarea></div>
+  <h3>Текст договора</h3><div class="card"><div class="seg" style="margin-bottom:10px">${["ro","ru","en"].map(l=>`<button type="button" data-kl="${l}" aria-pressed="${KL===l}">${l.toUpperCase()}</button>`).join("")}</div>
+    <textarea id="ks-tpl" rows="14" style="width:100%;font-size:13.5px" placeholder="Пусто — стандартный договор. Нажми «Взять стандартный текст», чтобы поправить его." ${RO?"disabled":""}>${esc(KT[KL]||"")}</textarea>
+    <p class="small">Подстановки: {nr} {data} {oras} {firma} {idno} {adresa_firma} {tel} {obiect} {adresa} {sosire} {plecare} {checkin} {checkout} {nopti} {pret} {garantie} {reguli} — из брони и настроек; {oaspete} {act} {cetatenie} {persoane} — гость вписывает сам.</p>
+    ${RO?"":`<div class="actions"><button type="button" class="btn sm" id="ks-std">Взять стандартный текст</button><button type="button" class="btn primary" id="ks-save">Сохранить</button></div>`}</div>`}
+document.addEventListener("input",e=>{if(e.target.id==="ks-tpl"&&KT)KT[KL]=e.target.value});
+document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("[data-kl],#ks-std,#ks-save");if(!t)return;
+  if(t.dataset.kl){KL=t.dataset.kl;renderSettings();return}
+  if(t.id==="ks-std"){try{const r=await api("kv_contract_preview",{lang:KL});KT[KL]=r.text;renderSettings()}catch(x){toast("Не получилось")}return}
+  const g=k=>($("ks-"+k)?$("ks-"+k).value.trim():"");const tpl={};for(const l of ["ro","ru","en"])if(String(KT[l]||"").trim())tpl[l]=String(KT[l]).slice(0,20000);
+  const next={...cfg,contract:{landlord:g("landlord").slice(0,120),idno:g("idno").slice(0,30),addr:g("addr").slice(0,200),phone:g("phone").slice(0,40),city:g("city").slice(0,60),deposit:g("deposit").slice(0,120),rules:g("rules").slice(0,3000),tpl}};
+  KT=null;saveCfg(next,"Договор сохранён")});
 async function impRead(file){const name=file.name;let rows=[];
   if(/\.csv$/i.test(name)||file.type==="text/csv"){const t=await file.text(),sep=(t.split("\n")[0].match(/;/g)||[]).length>(t.split("\n")[0].match(/,/g)||[]).length?";":",";
     rows=t.split(/\r?\n/).filter(l=>l.trim()).map(l=>{const out=[];let cur="",q=false;for(let i=0;i<l.length;i++){const c=l[i];if(q){if(c==='"'&&l[i+1]==='"'){cur+='"';i++}else if(c==='"')q=false;else cur+=c}else if(c==='"')q=true;else if(c===sep){out.push(cur);cur=""}else cur+=c}out.push(cur);return out})}
@@ -2094,6 +2126,7 @@ function bookView(id){const b=bookings.find(x=>x.id===id);if(!b)return;const tg=
    <div class="bv-rows">${rows.map(([k,v])=>`<div><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join("")}</div>
    ${b.tag==="req"&&!RO?`<div class="bv-req"><p class="small">Заявка со страницы бронирования${b.email?" · "+esc(b.email):""}${b.pax?" · гостей: "+b.pax:""}. Даты пока заняты для неё.</p><div class="actions"><button type="button" class="btn primary" data-reqok="${esc(b.id)}">✓ Подтвердить</button><button type="button" class="btn danger" data-reqno="${esc(b.id)}">Отклонить</button></div></div>`:""}
    ${RO?"":`<button type="button" class="btn${b.tag==="req"?"":" primary"} bv-edit" data-bedit="${esc(b.id)}">Изменить бронь</button>`}
+   ${b.nights>0&&b.tag!=="closed"?`<div class="bv-ct2" id="bv-k" data-bid="${esc(b.id)}">${(setTimeout(()=>kLoad(b.id),0),"")}</div>`:""}
    <button type="button" class="linkbtn" data-audref="${esc(b.id)}" style="margin-top:10px">🕘 История изменений</button></div>`)}
 document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("[data-reqok],[data-reqno]");if(!t)return;const ok=!!t.dataset.reqok,id=t.dataset.reqok||t.dataset.reqno;
   if(!ok&&!t.classList.contains("armed")){t.classList.add("armed");t.textContent="Точно отклонить?";return}
@@ -2737,6 +2770,7 @@ function renderSettings(){
     `],
     apts:["home","Объекты",`${cfg.apts.length} ${plural(cfg.apts.length,"объект","объекта","объектов")} · детали, адреса, фото, порядок`,()=>aptsSection()],
     pricing:["rate","Сезоны и выходные",(()=>{const P=cfg.pricing||{},n=(P.seasons||[]).length;return [P.weekend?"выходные +"+P.weekend+"%":"",n?n+" "+plural(n,"сезон","сезона","сезонов"):""].filter(Boolean).join(" · ")||"цены выше в сезон и по выходным"})(),()=>pricingSection()],
+    contract:["chk","Договор с гостем",(cfg.contract||{}).landlord?"наймодатель: "+(cfg.contract||{}).landlord:"подпись гостя на телефоне",()=>contractSection()],
     owners:["mgr","Собственники",(cfg.owners||[]).length?(cfg.owners||[]).map(o=>o.name).join(", "):"комиссия, выплаты и отчёт за месяц",()=>ownersSection()],
     import:["chk","Импорт из Excel",`брони и объекты из файла · Excel, CSV, RealtyCalendar`,()=>importSection()],
     direct:["web","Страница бронирования",cfg.direct&&cfg.direct.on?"включена · "+ME.org.code+".espace.md/rezerva":"гости бронируют напрямую, без комиссии",()=>directSection()],
@@ -3583,7 +3617,7 @@ document.addEventListener("click",e=>{
   if(t.id==="show-flags"){showAllFlags=true;renderFin();return}
   if(t.id==="x-refresh"){reload().then(()=>toast("Обновлено"));return}
   if(t.id==="open-settings"){settingsPage();return}
-  if(ds.setsec!=null){stOpen=null;OWN=null;settingsPage(ds.setsec);scrollTo(0,0);return}
+  if(ds.setsec!=null){stOpen=null;OWN=null;KT=null;settingsPage(ds.setsec);scrollTo(0,0);return}
   if(ds.stopen!=null){stOpen=stOpen===ds.stopen?null:ds.stopen;renderSettings();const el=document.querySelector(`[data-stopen="${ds.stopen}"]`);if(el&&stOpen)el.scrollIntoView({block:"start",behavior:"smooth"});return}
   if(t.id==="open-hv"||ds.openhv!=null){handoverPage();return}
   if(t.id==="hv-new"){hvOpen(hvNew());return}

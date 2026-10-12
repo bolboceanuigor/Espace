@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Contract</title>
+<meta name="theme-color" content="#1b2a2f">
+<link rel="icon" href="/icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;700&display=swap" rel="stylesheet">
+<style>
+/* A guest's rental contract: a paper page to read, then a short form and a signature pad. */
+:root{--stone:#eef0ec;--paper:#ffffff;--ink:#1b2a2f;--muted:#66727a;--line:#dde1dc;--wine:#8a1f3d;--wine-soft:#f6e7ec;--plus:#2f7a4d;--err:#a33a2c;--r:14px}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--stone:#121a1d;--paper:#1a2428;--ink:#edf1ef;--muted:#9aa6ab;--line:#2a363b;--wine:#e0718f;--wine-soft:#3a1f28;--plus:#6fcf97;--err:#f08a7a}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--stone);color:var(--ink);font:15.5px/1.6 "Golos Text",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+button,input{font:inherit;color:inherit}
+.wrap{max-width:760px;margin:0 auto;padding:0 16px 56px}
+.top{display:flex;align-items:center;gap:10px;padding:18px 0 0}
+.brand{font-weight:700}
+.lang{margin-left:auto;display:flex;gap:2px;background:var(--paper);border:1px solid var(--line);border-radius:999px;padding:3px}
+.lang button{border:0;background:none;border-radius:999px;padding:5px 11px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer}
+.lang button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.print{border:1px solid var(--line);background:var(--paper);border-radius:999px;padding:6px 13px;font-size:13px;font-weight:600;cursor:pointer}
+.status{margin:20px 0 12px;padding:12px 16px;border-radius:var(--r);background:var(--wine-soft);font-weight:600}
+.status.ok{background:color-mix(in srgb,var(--plus) 14%,var(--paper));color:var(--plus)}
+.doc{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);padding:26px 24px;white-space:pre-wrap;font-size:15px;line-height:1.65}
+.doc .t1{font-family:Unbounded,"Golos Text",sans-serif;font-size:18px;font-weight:700;letter-spacing:-.01em;display:block;margin-bottom:4px;line-height:1.3}
+.doc mark{background:var(--wine-soft);color:inherit;border-radius:4px;padding:0 3px}
+.doc mark.empty{color:var(--muted)}
+.sig{margin-top:18px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:flex-end;white-space:normal}
+.sig img{height:90px;max-width:100%;display:block;border-bottom:1px solid var(--ink)}
+.sig small{display:block;color:var(--muted);font-size:12.5px}
+h2{font-size:18px;margin:30px 0 12px}
+form{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:12px 0 5px}
+label:first-child{margin-top:0}
+input[type=text],input[type=email],input[type=number]{width:100%;height:46px;border:1px solid var(--line);border-radius:12px;padding:0 13px;background:var(--paper);font-size:16px}
+input:focus{outline:2px solid var(--wine);outline-offset:1px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pad{position:relative;border:1.5px dashed var(--muted);border-radius:12px;background:var(--paper);touch-action:none;height:180px}
+.pad canvas{width:100%;height:100%;display:block;border-radius:12px;cursor:crosshair}
+.pad span{position:absolute;left:14px;bottom:10px;font-size:12.5px;color:var(--muted);pointer-events:none}
+.clr{border:0;background:none;color:var(--wine);font-weight:600;padding:6px 0;cursor:pointer;font-size:13.5px}
+.agree{display:flex;gap:10px;align-items:flex-start;margin-top:14px;font-size:14.5px;color:var(--ink);font-weight:500}
+.agree input{width:20px;height:20px;margin-top:2px;accent-color:var(--wine);flex:none}
+.go{width:100%;height:52px;border:0;border-radius:999px;background:var(--wine);color:#fff;font-weight:700;font-size:16px;margin-top:16px;cursor:pointer}
+.go:disabled{opacity:.6}
+.err{color:var(--err);font-weight:600;font-size:14px;margin-top:10px;min-height:1em}
+.msg{padding:60px 0;text-align:center;color:var(--muted)}
+@media (max-width:520px){.doc{padding:20px 16px;font-size:14.5px}.g2{grid-template-columns:1fr}}
+@media print{body{background:#fff}.lang,.print,form,h2,.status{display:none}.doc{border:0;padding:0}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><span class="brand" id="co">espace.md</span><button type="button" class="print" id="pr"></button>
+    <div class="lang" role="group" aria-label="Limba"><button type="button" data-l="ro">RO</button><button type="button" data-l="ru">RU</button><button type="button" data-l="en">EN</button></div></div>
+  <main id="main"><div class="msg">…</div></main>
+</div>
+<script>
+(function(){
+const T={
+  ro:{print:"Tipărește / PDF",todo:"Citiți contractul, completați datele și semnați mai jos.",signed:d=>`✓ Semnat electronic pe ${d}`,form:"Datele dumneavoastră și semnătura",name:"Numele și prenumele",doc:"Actul de identitate (seria și numărul)",country:"Cetățenia",pax:"Câte persoane",email:"Email (pentru copia contractului)",sig:"Semnați cu degetul sau mouse-ul",clear:"Șterge semnătura",agree:"Am citit contractul și regulile casei și sunt de acord cu ele.",go:"Semnez contractul",sending:"Se trimite…",
+    eDet:"Completați numele, actul de identitate și cetățenia.",eSig:"Semnați în chenar.",eAgree:"Bifați acordul cu contractul.",eNet:"Nu s-a trimis. Verificați internetul și încercați din nou.",gone:"Contractul nu a fost găsit. Cereți un link nou gazdei.",guestSig:"Semnătura locatarului",hostSig:"Locator",blank:"________"},
+  ru:{print:"Печать / PDF",todo:"Прочитайте договор, заполните данные и подпишите ниже.",signed:d=>`✓ Подписан электронно ${d}`,form:"Ваши данные и подпись",name:"Имя и фамилия",doc:"Документ (серия и номер)",country:"Гражданство",pax:"Сколько человек",email:"Email (для копии договора)",sig:"Подпишите пальцем или мышью",clear:"Стереть подпись",agree:"Я прочитал(а) договор и правила дома и согласен(на) с ними.",go:"Подписать договор",sending:"Отправляю…",
+    eDet:"Заполните имя, документ и гражданство.",eSig:"Подпишите в рамке.",eAgree:"Отметьте согласие с договором.",eNet:"Не отправилось. Проверьте интернет и попробуйте ещё раз.",gone:"Договор не найден. Попросите новую ссылку.",guestSig:"Подпись нанимателя",hostSig:"Наймодатель",blank:"________"},
+  en:{print:"Print / PDF",todo:"Read the agreement, fill in your details and sign below.",signed:d=>`✓ Signed electronically on ${d}`,form:"Your details and signature",name:"Full name",doc:"ID document (series and number)",country:"Citizenship",pax:"Number of people",email:"Email (for a copy)",sig:"Sign with your finger or mouse",clear:"Clear signature",agree:"I have read the agreement and the house rules and accept them.",go:"Sign the agreement",sending:"Sending…",
+    eDet:"Fill in your name, ID document and citizenship.",eSig:"Sign inside the box.",eAgree:"Tick the box to accept the agreement.",eNet:"Not sent. Check your connection and try again.",gone:"Agreement not found. Ask your host for a new link.",guestSig:"Guest’s signature",hostSig:"Host",blank:"________"}};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const tok=(location.pathname.match(/\/contract\/([a-f0-9]{32})/)||[])[1]||new URLSearchParams(location.search).get("t")||"";
+let L=(document.cookie.match(/(?:^|;\s*)es_lang=(ro|ru|en)/)||[])[1]||(navigator.languages||[navigator.language||""]).map(x=>String(x).slice(0,2).toLowerCase()).map(x=>x==="mo"?"ro":x).find(x=>T[x])||"ro";
+let K=null,err=false,F={name:"",doc:"",country:"",pax:"",email:""},strokes=0,ink=0,sigURL="",agree=false,busy=false,emsg="";
+const when=iso=>{const d=new Date(iso);return d.toLocaleDateString(L==="en"?"en-GB":L==="ru"?"ru-RU":"ro-RO")+" "+d.toLocaleTimeString(L==="en"?"en-GB":L==="ru"?"ru-RU":"ro-RO",{hour:"2-digit",minute:"2-digit"})};
+function docHTML(text){const t=T[L];const v={oaspete:F.name,act:F.doc,cetatenie:F.country,persoane:F.pax?String(F.pax):""};
+  const lines=esc(text).split("\n");lines[0]=`<span class="t1">${lines[0]}</span>`;
+  return lines.join("\n").replace(/\{(oaspete|act|cetatenie|persoane)\}/g,(m,k)=>`<mark data-ph="${k}" class="${v[k]?"":"empty"}">${v[k]?esc(v[k]):t.blank}</mark>`)}
+function render(){const t=T[L];document.documentElement.lang=L;$("pr").textContent=t.print;
+  document.querySelectorAll("[data-l]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.l===L)));
+  if(err||K&&K.gone){$("main").innerHTML=`<div class="msg">${esc(t.gone)}</div>`;return}
+  if(!K)return;$("co").textContent=K.company;document.title=K.company+" · "+(K.number||"");
+  if(K.signed){$("main").innerHTML=`<div class="status ok">${esc(t.signed(when(K.signed.at)))}</div><div class="doc">${(()=>{const l=esc(K.signed.text).split("\n");l[0]=`<span class="t1">${l[0]}</span>`;return l.join("\n")})()}
+    <div class="sig"><div><small>${t.hostSig}</small><b>${esc(K.company)}</b></div><div><img src="${esc(K.signed.signature)}" alt=""><small>${t.guestSig} · ${esc(K.guest.name)} · ${esc(when(K.signed.at))}</small></div></div></div>`;return}
+  $("main").innerHTML=`<div class="status">${esc(t.todo)}</div><div class="doc" id="doc">${docHTML(K.texts[L]||K.texts.ro||"")}</div>
+  <h2>${t.form}</h2><form id="sf" novalidate>
+    <label for="f-name">${t.name}</label><input type="text" id="f-name" autocomplete="name" value="${esc(F.name)}">
+    <div class="g2"><div><label for="f-doc">${t.doc}</label><input type="text" id="f-doc" value="${esc(F.doc)}"></div><div><label for="f-country">${t.country}</label><input type="text" id="f-country" value="${esc(F.country)}"></div></div>
+    <div class="g2"><div><label for="f-pax">${t.pax}</label><input type="number" id="f-pax" min="1" max="50" inputmode="numeric" value="${esc(F.pax)}"></div><div><label for="f-email">${t.email}</label><input type="email" id="f-email" autocomplete="email" value="${esc(F.email)}"></div></div>
+    <label>${t.sig}</label><div class="pad"><canvas id="pad"></canvas><span>✍</span></div><button type="button" class="clr" id="clr">${t.clear}</button>
+    <label class="agree"><input type="checkbox" id="f-agree" ${agree?"checked":""}><span>${t.agree}</span></label>
+    <button type="submit" class="go" id="go" ${busy?"disabled":""}>${busy?t.sending:t.go}</button><div class="err" id="err">${esc(emsg)}</div></form>`;
+  setupPad()}
+function setupPad(){const c=$("pad");if(!c)return;const r=c.getBoundingClientRect(),dpr=window.devicePixelRatio||1;c.width=Math.max(300,(r.width||600))*dpr;c.height=Math.max(150,(r.height||180))*dpr;
+  const x=c.getContext&&c.getContext("2d");if(!x)return;x.scale(dpr,dpr);x.lineWidth=2.4;x.lineCap="round";x.lineJoin="round";x.strokeStyle=getComputedStyle(document.body).color||"#1b2a2f";
+  if(sigURL){const im=new Image();im.onload=()=>x.drawImage(im,0,0,c.width/dpr,c.height/dpr);im.src=sigURL}
+  let down=false,lx=0,ly=0;const pos=e=>{const b=c.getBoundingClientRect();return [e.clientX-b.left,e.clientY-b.top]};
+  c.addEventListener("pointerdown",e=>{down=true;[lx,ly]=pos(e);c.setPointerCapture&&c.setPointerCapture(e.pointerId);strokes++});
+  c.addEventListener("pointermove",e=>{if(!down)return;const [nx,ny]=pos(e);x.beginPath();x.moveTo(lx,ly);x.lineTo(nx,ny);x.stroke();ink+=Math.hypot(nx-lx,ny-ly);lx=nx;ly=ny});
+  const up=()=>{if(!down)return;down=false;try{sigURL=c.toDataURL("image/png")}catch(e){}};c.addEventListener("pointerup",up);c.addEventListener("pointerleave",up)}
+// keep typed values in the contract text as the guest types
+document.addEventListener("input",e=>{const id=e.target.id;if(!/^f-/.test(id))return;const k=id.slice(2);if(k==="agree")return;F[k]=e.target.value.trim();
+  const map={name:"oaspete",doc:"act",country:"cetatenie",pax:"persoane"};if(!map[k])return;
+  document.querySelectorAll(`#doc mark[data-ph="${map[k]}"]`).forEach(m=>{m.textContent=F[k]||T[L].blank;m.classList.toggle("empty",!F[k])})});
+document.addEventListener("change",e=>{if(e.target.id==="f-agree")agree=e.target.checked});
+document.addEventListener("click",e=>{const b=e.target.closest("[data-l]");if(b){L=b.dataset.l;try{document.cookie="es_lang="+L+";path=/;max-age=31536000;samesite=lax"}catch(x){}render();return}
+  if(e.target.id==="pr"){window.print();return}
+  if(e.target.id==="clr"){strokes=0;ink=0;sigURL="";render()}});
+document.addEventListener("submit",async e=>{if(e.target.id!=="sf")return;e.preventDefault();const t=T[L];
+  const fail=m=>{emsg=m;$("err").textContent=m};
+  if(F.name.length<3||F.doc.length<4||!F.country)return fail(t.eDet);
+  if(!sigURL||ink<40)return fail(t.eSig);
+  if(!agree)return fail(t.eAgree);
+  busy=true;emsg="";render();
+  try{const r=await fetch("/api/pub_contract_sign",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({token:tok,name:F.name,doc:F.doc,country:F.country,pax:+F.pax||1,email:F.email,signature:sigURL,agree:true,lang:L})});
+    const j=await r.json().catch(()=>null);if(!r.ok)throw new Error((j&&j.message)||"x");
+    K=await load();busy=false;render();scrollTo(0,0)}
+  catch(x){busy=false;emsg=x.message==="need_signature"?t.eSig:x.message==="need_details"?t.eDet:t.eNet;render()}});
+const load=()=>fetch("/api/pub_contract",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({token:tok})}).then(r=>r.ok?r.json():Promise.reject());
+render();
+if(!tok){err=true;render()}else load().then(j=>{K=j;F.name=j.guest.name||"";F.pax=j.guest.pax?String(j.guest.pax):"";render()}).catch(()=>{err=true;render()});
+})();
+</script>
+</body>
+</html>

@@ -13,6 +13,7 @@ import { handleAdmin, logEvent, activeAnnouncement, getSettings, createInvoice }
 import { sendMail, mails, dailyMail, orgEmail } from "../../lib/mail";
 import { botName, linkCode, webhookSecret, handleUpdate, tgNotify } from "../../lib/telegram";
 import { syncFeed, syncDue, feedUrlOk, sourceOf, newIcalKey } from "../../lib/ical";
+import { contractTexts, fill, DEFAULT_TPL } from "../../lib/contract";
 
 
 // A one-time link to set a password. Opening it proves the email belongs to the person, so it is the only way
@@ -360,6 +361,37 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
   if (fn === "org_public") {
     const o = isSlug(str(body.slug, 40)) ? await one(db, "SELECT name, code FROM orgs WHERE code = ?", str(body.slug, 40)) : null;
     return o ? json({ name: o.name, slug: o.code }) : json({ message: "not_found" }, 404);
+  }
+  // ---------- a guest's rental contract (<slug>.espace.md/contract/<token>), public by its secret link ----------
+  if (fn === "pub_contract" || fn === "pub_contract_sign") {
+    const tok = str(body.token, 64);
+    const k = /^[a-f0-9]{32}$/.test(tok) ? await one(db, "SELECT k.*, o.code, o.name AS org_name, o.id AS oid FROM contracts k JOIN orgs o ON o.id = k.org_id WHERE k.token = ?", tok) : null;
+    if (!k || (reqSlug && k.code !== reqSlug)) return json({ message: "not_found" }, 404);
+    const b = await one(db, "SELECT guest, pax, email, apt, date, nights FROM bookings WHERE org_id = ? AND id = ?", k.org_id, k.booking_id);
+    if (fn === "pub_contract") {
+      await run(db, "UPDATE contracts SET views = views + 1 WHERE token = ?", tok);
+      return json({ company: k.org_name, number: k.number, status: k.status, texts: JSON.parse(k.texts || "{}"), lang: k.lang,
+        guest: { name: k.guest_name || b?.guest || "", doc: k.guest_doc, country: k.guest_country, pax: k.guest_pax || b?.pax || 0 },
+        signed: k.status === "signed" ? { at: k.signed_at, text: k.signed_text, signature: k.signature } : null, gone: !b });
+    }
+    if (k.status === "signed") return json({ message: "already_signed" }, 409);
+    if (!b) return json({ message: "not_found" }, 404);
+    const name = str(body.name, 100).trim(), doc = str(body.doc, 60).trim(), country = str(body.country, 60).trim(), pax = Math.max(1, Math.min(50, Math.floor(num(body.pax)) || 1));
+    const lang = ["ro", "ru", "en"].includes(body.lang) ? body.lang : "ro", sig = str(body.signature, 300000);
+    if (name.length < 3 || doc.length < 4 || !country) return json({ message: "need_details" }, 400);
+    if (body.agree !== true) return json({ message: "need_agree" }, 400);
+    if (!/^data:image\/png;base64,[A-Za-z0-9+/=]{400,}$/.test(sig)) return json({ message: "need_signature" }, 400);
+    const texts = JSON.parse(k.texts || "{}"), text = fill(texts[lang] || texts.ro || "", { oaspete: name, act: doc, cetatenie: country, persoane: String(pax) });
+    const at = nowIso();
+    await run(db, `UPDATE contracts SET status = 'signed', lang = ?, guest_name = ?, guest_doc = ?, guest_country = ?, guest_pax = ?, signed_text = ?, signature = ?, signed_at = ?, signed_ip = ?, signed_ua = ? WHERE token = ? AND status != 'signed'`,
+      lang, name, doc, country, pax, text, sig, at, request.headers.get("cf-connecting-ip") || "", str(request.headers.get("user-agent"), 200), tok);
+    await audit(db, k.org_id, null, "booking", "signed", k.booking_id, bLabel({ ...b, guest: name }), { number: k.number }, "web");
+    await notify(db, k.org_id, ["manager"], { title: `Contract semnat: ${b.apt}`, body: `${name} · ${b.date} · nr. ${k.number}` });
+    const url = `https://${k.code}.espace.md/contract/${tok}`, gmail = str(body.email, 200).trim() || b.email || "";
+    if (isEmail(gmail)) await sendMail(env, db, { to: gmail, ...mails.contractSigned(k.org_name, { number: k.number, apt: b.apt, date: b.date, url, guest: true }), kind: "contract", orgId: k.org_id });
+    const co = await orgEmail(db, k.org_id);
+    if (co) await sendMail(env, db, { to: co, ...mails.contractSigned(k.org_name, { number: k.number, apt: b.apt, date: b.date, url, guest: false, name }), kind: "contract", orgId: k.org_id });
+    return json({ ok: true, at });
   }
   // ---------- an owner's monthly statement (<slug>.espace.md/raport/<token>), public by its secret link ----------
   if (fn === "pub_owner_report") {
@@ -972,6 +1004,35 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
       return json({ created, dup, closed: inClosed, bad: bad.length, badRows: bad.slice(0, 20), aptsAdded: added });
     }
     // ---------- Telegram for this person in this company ----------
+    // ---------- rental contracts with guests ----------
+    case "kv_contract_get": { // the booking's contract, if any
+      const k = await one(db, "SELECT token, number, status, lang, guest_name, guest_doc, guest_country, signed_at, views, created_at FROM contracts WHERE org_id = ? AND booking_id = ?", O, str(body.booking_id, 40));
+      return json(k ? { ...k, url: `https://${org.code}.espace.md/contract/${k.token}` } : null);
+    }
+    case "kv_contract_preview": { // the standard text, to start editing from
+      const l = ["ro", "ru", "en"].includes(body.lang) ? body.lang : "ro";
+      return json({ text: (DEFAULT_TPL as any)[l] });
+    }
+    case "kv_contract": { // make (or refresh, while unsigned) the booking's contract; optionally email the link to the guest
+      const b = await one(db, "SELECT * FROM bookings WHERE org_id = ? AND id = ?", O, str(body.booking_id, 40));
+      if (!b || !(b.nights > 0) || b.tag === "closed") return json({ message: "not_found" }, 404);
+      const cfg = (await getConfig(db, O)) || {};
+      let k = await one(db, "SELECT token, number, status FROM contracts WHERE org_id = ? AND booking_id = ?", O, b.id);
+      if (!k) {
+        const y = today().slice(0, 4), n = await one(db, "SELECT COUNT(*) AS n FROM contracts WHERE org_id = ? AND number LIKE ?", O, `%/${y}`);
+        k = { token: randHex(16), number: `${(n?.n || 0) + 1}/${y}`, status: "sent" };
+        await run(db, "INSERT INTO contracts(token, org_id, booking_id, number, texts) VALUES (?,?,?,?,?)", k.token, O, b.id, k.number, JSON.stringify(contractTexts(cfg, org.name, b, k.number, today())));
+        await audit(db, O, c, "booking", "contract", b.id, bLabel(b), { number: k.number });
+      } else if (k.status !== "signed") await run(db, "UPDATE contracts SET texts = ? WHERE token = ?", JSON.stringify(contractTexts(cfg, org.name, b, k.number, today())), k.token);
+      const url = `https://${org.code}.espace.md/contract/${k.token}`;
+      let mailed = "";
+      const to = str(body.email, 200).trim() || b.email;
+      if (body.send === true && k.status !== "signed") {
+        if (!isEmail(to)) return json({ message: "no_email", url, token: k.token, number: k.number, status: k.status }, 400);
+        mailed = await sendMail(env, db, { to, ...mails.contractLink(org.name, { number: k.number, apt: b.apt, date: b.date, nights: b.nights, url }), kind: "contract", orgId: O });
+      }
+      return json({ token: k.token, number: k.number, status: k.status, url, mailed });
+    }
     // ---------- change log ----------
     case "kv_audit": { // newest first, 100 at a time; filter by kind, by one record, or by text
       const before = Math.floor(num(body.before)) || 0, kind = str(body.kind, 20), ref = str(body.ref, 60), q = str(body.q, 60).trim();

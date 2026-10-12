@@ -150,6 +150,23 @@ export const mails = {
         r.url ? { url: r.url, ro: "Vezi raportul", ru: "Открыть отчёт" } : undefined),
     };
   },
+  // a guest gets the link to read and sign the rental contract
+  contractLink: (org: string, r: { number: string; apt: string; date: string; nights: number; url: string }) => ({
+    subject: `${org}: contractul de închiriere nr. ${r.number} — semnați online`,
+    html: layout(
+      { title: "Contractul de închiriere", body: `<p><b>${esc(org)}</b> vă trimite contractul nr. ${esc(r.number)} pentru <b>${esc(r.apt)}</b>, de pe ${dmy(r.date)}, ${r.nights} ${r.nights === 1 ? "noapte" : "nopți"}. Îl citiți și îl semnați pe telefon în 2 minute — e nevoie de numele complet și actul de identitate.</p>` },
+      { title: "Договор аренды", body: `<p>${esc(org)} отправляет договор № ${esc(r.number)}: ${esc(r.apt)}, с ${dmy(r.date)}, ночей: ${r.nights}. Прочитать и подписать можно с телефона за 2 минуты. Contract also available in English.</p>` },
+      { url: r.url, ro: "Citește și semnează", ru: "Прочитать и подписать" }),
+  }),
+  contractSigned: (org: string, r: { number: string; apt: string; date: string; url: string; guest: boolean; name?: string }) => ({
+    subject: r.guest ? `${org}: contractul nr. ${r.number} e semnat` : `Contract semnat: ${r.apt}, ${dmy(r.date)} — ${r.name || ""}`,
+    html: layout(
+      r.guest ? { title: "Contractul e semnat", body: `<p>Mulțumim! Contractul nr. ${esc(r.number)} cu <b>${esc(org)}</b> pentru ${esc(r.apt)}, de pe ${dmy(r.date)}, e semnat. Îl puteți deschide oricând, tipări sau salva ca PDF.</p>` }
+        : { title: "Contract semnat de oaspete", body: `<p><b>${esc(r.name || "")}</b> a semnat contractul nr. ${esc(r.number)} pentru <b>${esc(r.apt)}</b>, de pe ${dmy(r.date)}.</p>` },
+      r.guest ? { title: "Договор подписан", body: `<p>Договор № ${esc(r.number)} с ${esc(org)} подписан. Его можно открыть, распечатать или сохранить в PDF.</p>` }
+        : { title: "Гость подписал договор", body: `<p>${esc(r.name || "")} подписал(а) договор № ${esc(r.number)}: ${esc(r.apt)}, ${dmy(r.date)}.</p>` },
+      { url: r.url, ro: "Deschide contractul", ru: "Открыть договор" }),
+  }),
   // the day before check-in, to a guest who booked on the company's page: time, address, contact, the guest guide
   arrival: (org: string, r: any) => ({
     subject: `${org}: vă așteptăm mâine · ${r.apt}`,

@@ -406,3 +406,26 @@ CREATE TABLE IF NOT EXISTS audit (
 );
 CREATE INDEX IF NOT EXISTS audit_org_idx ON audit(org_id, id);
 CREATE INDEX IF NOT EXISTS audit_ref_idx ON audit(org_id, ref);
+
+-- rental contracts signed by guests (see lib/contract.ts); one per booking
+CREATE TABLE IF NOT EXISTS contracts (
+  token TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL,
+  booking_id TEXT NOT NULL,
+  number TEXT NOT NULL DEFAULT '',
+  texts TEXT NOT NULL DEFAULT '{}',      -- {ro, ru, en} with company and booking details filled in
+  status TEXT NOT NULL DEFAULT 'sent',   -- sent | signed
+  lang TEXT NOT NULL DEFAULT '',
+  guest_name TEXT NOT NULL DEFAULT '',
+  guest_doc TEXT NOT NULL DEFAULT '',
+  guest_country TEXT NOT NULL DEFAULT '',
+  guest_pax INTEGER NOT NULL DEFAULT 0,
+  signed_text TEXT NOT NULL DEFAULT '',
+  signature TEXT NOT NULL DEFAULT '',    -- PNG data URL drawn by the guest
+  signed_at TEXT NOT NULL DEFAULT '',
+  signed_ip TEXT NOT NULL DEFAULT '',
+  signed_ua TEXT NOT NULL DEFAULT '',
+  views INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS contracts_booking ON contracts(org_id, booking_id);
