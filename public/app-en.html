@@ -1577,7 +1577,7 @@ function ownerCalc(o,y=mon.y,m=mon.m){const st=monthStats(y,m),n=daysIn(y,m),apt
       .map(([b,k])=>({date:b.date,nights:+b.nights||0,n:b.nights>0?Math.round(b.nights*k):0,guest:String(b.guest||"").trim().split(/\s+/)[0].slice(0,30),source:b.source||"",amount:r2((eurOf(b)+utilEur(b))*k)}));
     const exps=expenses.filter(e=>e.apt===a).map(e=>[e,expShare(e,y,m)]).filter(([,k])=>k>0).sort(([x],[z])=>x.date.localeCompare(z.date))
       .map(([e,k])=>({date:e.date,cat:e.category||"",note:String(e.note||"").slice(0,80),amount:r2(eurOf(e)*k),yearly:!!e.yearly}));
-    return {apt:a,nights:s.nights||0,days:n,inc:r2(s.inc),exp:r2(s.exp),stays,exps}});
+    return {apt:a,nights:Math.min(n,stays.reduce((x,b)=>x+b.n,0)),days:n,inc:r2(s.inc),exp:r2(s.exp),stays,exps}});
   const inc=r2(units.reduce((x,u)=>x+u.inc,0)),exp=r2(units.reduce((x,u)=>x+u.exp,0)),fee=r2(inc*(+o.fee||0)/100),ded=o.exp!==false;
   return {owner:{name:o.name||""},fee:+o.fee||0,expDed:ded,rate:cfg.rates.eur,units,tot:{inc,exp,fee,pay:r2(inc-fee-(ded?exp:0)),nights:units.reduce((x,u)=>x+u.nights,0),days:n*units.length}}}
 const ymNow=()=>mon.y+"-"+String(mon.m+1).padStart(2,"0");
@@ -1612,7 +1612,9 @@ document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.c
   if(d.oopen){const w=window.open("about:blank","_blank");const r=await ownerPublish(d.oopen,false);if(r&&w)w.location.href=r.url;else if(w)w.close();return}
   if(d.ocopy){const r=await ownerPublish(d.ocopy,false);if(r)gCopy(r.url,"Statement link copied");return}
   if(d.osend){t.disabled=true;const r=await ownerPublish(d.osend,true);t.disabled=false;if(r){toast(r.mailed==="failed"?"The email didn’t go out — copy the link and send it yourself":"Statement sent");const x=$("own-st");if(x)x.textContent=ownStTxt({sent_at:new Date().toISOString(),views:0})}}});
-function ownersSection(){if(!OWN)OWN=JSON.parse(JSON.stringify(cfg.owners||[]));
+let OWN_T={},ownTL=0; // email → role in the team (to show who already has access)
+async function ownTeam(){if(ROLE!=="owner")return;try{const l=await api("team_list");OWN_T={};l.forEach(u=>OWN_T[String(u.email).toLowerCase()]=u.role);ownTL=Date.now();if(document.querySelector("[data-owacc],.own-acc"))renderSettings()}catch(e){}}
+function ownersSection(){if(!OWN)OWN=JSON.parse(JSON.stringify(cfg.owners||[]));if(ROLE==="owner"&&Date.now()-ownTL>5000){ownTL=Date.now();setTimeout(ownTeam,0)}
   return `<div class="card"><p class="small" style="margin:0">If you manage apartments for their owners: say whose they are and what commission you take. Finance will show what to pay each one, and the monthly statement — bookings, expenses, commission — goes to them by link or email.</p></div>
   ${OWN.map((o,i)=>`<div class="card"><div class="grid2"><div><label class="l">Owner’s name</label><input type="text" data-ow="${i}" data-f="name" value="${esc(o.name||"")}" placeholder="John Smith"></div>
       <div><label class="l">Email <em>— for statements</em></label><input type="email" data-ow="${i}" data-f="email" value="${esc(o.email||"")}" placeholder="nume@gmail.com"></div></div>
@@ -1621,12 +1623,15 @@ function ownersSection(){if(!OWN)OWN=JSON.parse(JSON.stringify(cfg.owners||[]));
     <label class="dtog" style="margin:10px 0"><input type="checkbox" data-ow="${i}" data-f="exp" ${o.exp!==false?"checked":""}><span><b>Apartment expenses are deducted from the payout</b><small>cleaning, repairs, utilities — everything recorded on these apartments</small></span></label>
     <label class="l">Owner’s apartments</label><div class="ownapts">${cfg.apts.map(a=>{const other=OWN.find((x,j)=>j!==i&&(x.apts||[]).includes(a)),on=(o.apts||[]).includes(a);
       return `<label class="${on?"on":other?"off":""}"><input type="checkbox" data-owapt="${i}" value="${esc(a)}" ${on?"checked":""} ${other?"disabled":""}>${esc(a)}${other?` · ${esc(other.name||"…")}`:""}</label>`}).join("")}</div>
-    ${RO?"":`<div class="actions"><button type="button" class="btn sm danger" data-owdel="${i}">Delete</button></div>`}</div>`).join("")}
+    ${RO?"":`<div class="actions">${ROLE==="owner"&&o.email&&(cfg.owners||[]).some(x=>x.id===o.id&&x.email===o.email)?(OWN_T[String(o.email).toLowerCase()]==="prop"?`<span class="small own-acc">✓ sees their apartments in the app</span>`:`<button type="button" class="btn sm" data-owacc="${i}">Give access to the app</button>`):""}<button type="button" class="btn sm danger" data-owdel="${i}">Delete</button></div>`}</div>`).join("")}
   ${RO?"":`<div class="actions"><button type="button" class="btn" data-owadd="1">＋ Owner</button><button type="button" class="btn primary" id="ow-save">Save</button></div>`}`}
 document.addEventListener("input",e=>{const d=e.target.dataset;if(!OWN||!d||d.ow==null)return;const o=OWN[+d.ow];if(!o)return;o[d.f]=e.target.type==="checkbox"?e.target.checked:e.target.value});
 document.addEventListener("change",e=>{const d=e.target.dataset;if(!OWN||!d)return;
   if(d.ow!=null&&d.f==="exp"){OWN[+d.ow].exp=e.target.checked;return}
   if(d.owapt!=null){const o=OWN[+d.owapt],a=e.target.value;o.apts=(o.apts||[]).filter(x=>x!==a);if(e.target.checked)o.apts.push(a);renderSettings()}});
+document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("[data-owacc]");if(!t||!OWN)return;const o=OWN[+t.dataset.owacc];if(!o)return;
+  t.disabled=true;try{await api("team_add",{email:o.email,name:o.name,role:"prop"});OWN_T[String(o.email).toLowerCase()]="prop";toast("Done — "+o.email+" got an email with the sign-in link");renderSettings()}
+  catch(x){t.disabled=false;toast(x.code==="already_member"?"This email is already in the team with another role":"Didn’t work")}});
 document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-owadd],[data-owdel],#ow-save");if(!t||!OWN)return;
   if(t.dataset.owadd){OWN.push({id:"o"+Math.random().toString(36).slice(2,9),name:"",email:"",phone:"",fee:20,exp:true,apts:[]});renderSettings();return}
   if(t.dataset.owdel!=null){OWN.splice(+t.dataset.owdel,1);renderSettings();return}
@@ -2566,7 +2571,6 @@ function renderSettings(){
   const SEC={
     push:["bell","Notifications","on this phone",()=>`<div class="card"><p class="small" id="push-st" style="margin-top:0">…</p><div class="actions"><button class="btn primary" id="push-on">🔔 Turn on on this phone</button><button class="btn" id="push-test" hidden>Check</button></div>
       <p class="small" style="margin-bottom:0">You’ll get: apartment cleaned, a cleaner reported a breakdown, the 8:00 morning summary and your reminders («Cleanings» tab). Turn them on on every phone that needs them.</p></div>
-    <h3>Telegram</h3><div class="card" id="tg-box"><span class="small">Uploading…</span></div>${(setTimeout(tgLoad,0),"")}
     `],
     rate:["rate","Exchange rates",`1 € = ${cfg.rates.eur} lei · 1 $ = ${cfg.rates.usd} €${(cfg.other||[]).length?" · +"+(cfg.other||[]).length:""}`,()=>`<div class="card"><div class="grid2">
       <div><label class="l" for="r-eur">Lei for 1 €</label><input id="r-eur" inputmode="decimal" value="${cfg.rates.eur}"></div>
@@ -3572,7 +3576,7 @@ document.addEventListener("click",async e=>{
 });
 setInterval(()=>{const a=document.activeElement;if(CPIN&&document.visibilityState==="visible"&&!(a&&a.matches&&a.matches("input,select")))clReload()},60000);
 /* ---------- espace.md: accounts, companies, subscription ---------- */
-const ROLE_T={owner:"Owner",manager:"Manager",checker:"Payment check",viewer:"View-only"};
+const ROLE_T={owner:"Owner",manager:"Manager",checker:"Payment check",viewer:"View-only",prop:"Apartment owner"};
 function orgName(){return ME&&ME.org?ME.org.name:"espace.md"}
 function billLine(){const b=ME&&ME.billing;if(!b)return "";if(b.expired)return "balance ran out — view-only";return b.in_trial&&!(b.balance>0)?"trial until "+fd(b.trial_ends):"balance "+fmt(b.balance)+" lei · until "+fd(b.active_until)}
 function fd(d){return d?d.slice(8,10)+"."+d.slice(5,7)+"."+d.slice(0,4):""}
@@ -3612,7 +3616,7 @@ async function billLoad(){const box=$("bill-box");if(!box)return;try{const b=awa
     go.disabled=true;try{const r=await api("bill_invoice",{amount:v});toast("Done: № "+r.number+" — sent to email");window.open("/f/"+r.token,"_blank");billLoad()}catch(e){toast(e.code==="too_many_open"?"There are already 5 unpaid invoices":"Didn’t work")}finally{go.disabled=false}}
   }catch(e){box.innerHTML='<span class="small">Didn’t load</span>'}}
 async function teamLoad(){const el=$("team-list");if(!el)return;try{const list=await api("team_list");
-  el.innerHTML=list.map(u=>`<div class="tmrow"><span class="m"><b>${esc(u.name||u.email)}</b><small>${esc(u.email)}</small></span>${u.role==="owner"||u.id===(ME&&ME.user.id)?`<span class="small">${ROLE_T[u.role]}</span>`:`<select data-tmrole="${esc(u.id)}" aria-label="Role">${["manager","checker","viewer","owner"].map(r=>`<option value="${r}"${u.role===r?" selected":""}>${ROLE_T[r]}</option>`).join("")}</select><button class="btn sm danger" data-tmdel="${esc(u.id)}">Remove</button>`}</div>`).join("")}catch(e){el.textContent="Didn’t load"}}
+  el.innerHTML=list.map(u=>`<div class="tmrow"><span class="m"><b>${esc(u.name||u.email)}</b><small>${esc(u.email)}</small></span>${u.role==="prop"?`<span class="small">${ROLE_T.prop}</span><button class="btn sm danger" data-tmdel="${esc(u.id)}">Remove</button>`:u.role==="owner"||u.id===(ME&&ME.user.id)?`<span class="small">${ROLE_T[u.role]}</span>`:`<select data-tmrole="${esc(u.id)}" aria-label="Role">${["manager","checker","viewer","owner"].map(r=>`<option value="${r}"${u.role===r?" selected":""}>${ROLE_T[r]}</option>`).join("")}</select><button class="btn sm danger" data-tmdel="${esc(u.id)}">Remove</button>`}</div>`).join("")}catch(e){el.textContent="Didn’t load"}}
 async function logout(){try{await api("auth_logout")}catch(e){}ls.set("tok","");PIN=null;ME=null;RO=false;document.body.classList.remove("ro");closeSheet();lock("")}
 let GMODE="login";
 function gMode(m){GMODE=m;document.querySelectorAll("[data-gmode]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.gmode===m)));
@@ -3625,6 +3629,7 @@ document.addEventListener("click",e=>{const a=e.target.closest("#g-forgot,#g-bac
 function lock(msg){PIN=null;$("app").hidden=true;$("cl-app").hidden=true;$("gate").hidden=false;gMode(GMODE);$("g-msg").innerHTML=msg?`<div class="msg bad">${esc(msg)}</div>`:"";$("g-pw").value="";$("g-pin").value=""}
 const G_ERR={not_confirmed:"This account isn’t confirmed yet — open the email with the link, or tap «Forgot password?» to get it again",bad_login:"Wrong email or password",locked:"Too many attempts — wait 15 minutes",email_taken:"This email is already registered — sign in",bad_email:"Check email",pw_too_short:"Password — at least 8 characters",need_names:"Fill in the company name and your name",bad_pin:"Wrong PIN",not_member:"This account has no access to this company",bad_token:"The link has expired or was already used — request a new one",pw_too_short:"Password — at least 8 characters",bad_email:"Enter email",locked:"Too many attempts — wait 15 minutes"};
 async function enterApp(token,me){PIN=token;ls.set("tok",token);ls.set("cl","");setMe(me);
+  if(me.role==="prop"){location.replace("/proprietar"+location.search);return}
   if(!me.org){$("gate").hidden=false;$("g-msg").innerHTML=`<div class="msg bad">This account has no access to any company.</div>`;return}
   $("gate").hidden=true;$("app").hidden=false;fitHdr();await reload();loadPhotos()}
 async function gSubmit(){

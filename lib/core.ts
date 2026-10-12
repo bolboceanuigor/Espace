@@ -100,12 +100,15 @@ export async function loadSession(db: D1Database, env: Env, token: string): Prom
 }
 
 // ---------- roles ----------
-// owner: everything + team; manager: everything but team; checker: read + payment checks; viewer: read only
-export const ROLES = ["owner", "manager", "checker", "viewer"];
+// prop: only their own apartments (PROP_FNS); owner: everything + team; manager: everything but team; checker: read + payment checks; viewer: read only
+export const ROLES = ["owner", "manager", "checker", "viewer", "prop"];
+// prop: an apartment owner the company works for — sees only their own apartments, through /proprietar
+export const PROP_FNS = ["kv_prop_load"];
 export const READ_FNS = ["kv_load", "kv_photos", "kv_guides", "kv_task_photo", "kv_push_key", "kv_push_sub", "excel", "excel_handovers", "billing", "kv_ical_list", "kv_tg_status", "kv_tg_link", "kv_tg_unlink", "kv_owner_reports"];
 export const CHECKER_FNS = ["kv_verify", "kv_month_close", "kv_month_open"];
 export function roleAllows(role: string, fn: string) {
   if (role === "owner") return true;
+  if (role === "prop") return PROP_FNS.includes(fn);
   if (fn.startsWith("team_")) return false;
   if (role === "manager") return true;
   if (READ_FNS.includes(fn)) return true;

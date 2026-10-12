@@ -616,7 +616,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
   const O = c.org.id, org = c.org;
   if (!roleAllows(c.role, fn)) return json({ message: "read_only" }, 403);
   // unpaid or blocked: the data stays visible, nothing can be changed
-  if (isExpired(org) && !READ_FNS.includes(fn) && !fn.startsWith("team_") && fn !== "bill_invoice") return json({ message: "subscription_expired" }, 402);
+  if (isExpired(org) && !READ_FNS.includes(fn) && !fn.startsWith("team_") && fn !== "bill_invoice" && fn !== "kv_prop_load") return json({ message: "subscription_expired" }, 402);
 
   if (fn === "billing") {
     // the balance history: top-ups and the daily fees, the fees grouped by month
@@ -657,9 +657,11 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
       await run(db, "INSERT INTO users(id, email, name, pw_hash) VALUES (?,?,?,'')", u.id, email, name);
       invited = true;
     }
+    { const m = await one(db, "SELECT role FROM members WHERE org_id = ? AND user_id = ?", O, u.id); // an apartment owner's access never replaces a team member's role
+      if (m && (m.role === "prop") !== (role === "prop")) return json({ message: "already_member" }, 409); }
     await run(db, "INSERT INTO members(org_id, user_id, role) VALUES (?,?,?) ON CONFLICT (org_id, user_id) DO UPDATE SET role = excluded.role", O, u.id, role);
     const url = u.pw_hash ? orgUrlOf(org.code, request) : await passwordLink(db, request, u.id, 72, { slug: org.code });
-    const mailed = await sendMail(env, db, { to: email, ...mails.invite(c.user.name || c.user.email, org.name, org.code, url, !u.pw_hash), kind: "invite", orgId: O });
+    const mailed = await sendMail(env, db, { to: email, ...(role === "prop" ? mails.inviteProp(org.name, org.code, url, !u.pw_hash) : mails.invite(c.user.name || c.user.email, org.name, org.code, url, !u.pw_hash)), kind: "invite", orgId: O });
     return json({ id: u.id, invited: invited || !u.pw_hash, mailed });
   }
   if (fn === "team_role" || fn === "team_remove") {
@@ -672,7 +674,8 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
       await run(db, "DELETE FROM sessions WHERE user_id = ? AND org_id = ?", uid, O);
       return json(true);
     }
-    const role = ROLES.includes(body.role) ? body.role : "manager";
+    const role = ROLES.includes(body.role) && body.role !== "prop" ? body.role : "manager";
+    if (m.role === "prop") return json({ message: "is_prop" }, 409);
     await run(db, "UPDATE members SET role = ? WHERE org_id = ? AND user_id = ?", role, O, uid);
     return json(role);
   }
@@ -933,6 +936,25 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     }
     // ---------- Telegram for this person in this company ----------
     // ---------- monthly statements for apartment owners ----------
+    // ---------- an apartment owner's own view (role "prop"): their apartments only, no phones, no other units ----------
+    case "kv_prop_load": {
+      const cfg = (await getConfig(db, O)) || {};
+      const ow = (cfg.owners || []).find((x: any) => x && String(x.email || "").trim().toLowerCase() === String(c.user.email).toLowerCase());
+      if (!ow) return json({ message: "no_owner", company: org.name }, 404);
+      const apts: string[] = (ow.apts || []).filter((a: string) => (cfg.apts || []).includes(a));
+      const from = addDays(today(), -430), till = addDays(today(), 400);
+      let bookings: any[] = [], expenses: any[] = [];
+      if (apts.length) {
+        const q = apts.map(() => "?").join(",");
+        bookings = (await all(db, `SELECT date, apt, nights, guest, source, tag, mdl, eur, usd, oth, oth_cur, util, util_cur FROM bookings WHERE org_id = ? AND apt IN (${q}) AND date >= ? AND date < ? AND tag != 'req' ORDER BY date`, O, ...apts, from, till))
+          .map((b: any) => ({ ...b, guest: b.tag === "closed" ? "" : String(b.guest || "").trim().split(/\s+/)[0].slice(0, 30) }));
+        expenses = await all(db, `SELECT date, apt, category, note, mdl, eur, usd, oth, oth_cur, yearly FROM expenses WHERE org_id = ? AND apt IN (${q}) AND date >= ? AND date < ? ORDER BY date`, O, ...apts, addDays(from, -366), till);
+      }
+      const reports = await all(db, "SELECT ym, token, sent_at, updated_at FROM owner_reports WHERE org_id = ? AND owner_id = ? ORDER BY ym DESC", O, ow.id);
+      return json({ company: org.name, slug: org.code, owner: { name: ow.name, fee: +ow.fee || 0, exp: ow.exp !== false }, apts, rates: cfg.rates || { eur: 20, usd: 0.9 }, other: cfg.other || [],
+        units: Object.fromEntries(apts.map((a) => { const u = (cfg.units || {})[a] || {}; return [a, { kind: u.kind || "", area: u.area || "", bedrooms: u.bedrooms || "", guests: u.guests || "" }]; })),
+        bookings, expenses, reports });
+    }
     case "kv_owner_reports": { // which statements exist for a month: sent when, opened how many times
       const ym = str(body.ym, 7);
       return json(await all(db, "SELECT owner_id, token, ym, updated_at, sent_at, sent_to, views, viewed_at FROM owner_reports WHERE org_id = ? AND ym = ?", O, ym));

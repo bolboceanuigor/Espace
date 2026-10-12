@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Apartamentele mele</title>
+<meta name="theme-color" content="#1b2a2f">
+<link rel="icon" href="/icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;700&display=swap" rel="stylesheet">
+<style>
+/* The apartment owner's own view: what my apartments earned, when they're booked, what I get paid. Same family as the statement page. */
+:root{--stone:#eef0ec;--paper:#ffffff;--ink:#1b2a2f;--muted:#66727a;--line:#dde1dc;--wine:#8a1f3d;--wine-soft:#f6e7ec;--busy:#8a1f3d;--block:#c9ced1;--plus:#2f7a4d;--minus:#a33a2c;--r:14px}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--stone:#121a1d;--paper:#1a2428;--ink:#edf1ef;--muted:#9aa6ab;--line:#2a363b;--wine:#e0718f;--wine-soft:#3a1f28;--busy:#e0718f;--block:#3a4549;--plus:#6fcf97;--minus:#f08a7a}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--stone);color:var(--ink);font:15.5px/1.55 "Golos Text",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit}
+.wrap{max-width:820px;margin:0 auto;padding:0 16px 56px}
+.top{display:flex;align-items:center;gap:10px;padding:18px 0 0;flex-wrap:wrap}
+.brand{font-weight:700}
+.brand small{display:block;font-weight:500;color:var(--muted);font-size:12.5px}
+.lang{margin-left:auto;display:flex;gap:2px;background:var(--paper);border:1px solid var(--line);border-radius:999px;padding:3px}
+.lang button{border:0;background:none;border-radius:999px;padding:5px 11px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer}
+.lang button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.out{border:1px solid var(--line);background:var(--paper);border-radius:999px;padding:6px 13px;font-size:13px;font-weight:600;cursor:pointer}
+.mnav{display:flex;align-items:center;gap:8px;margin:22px 0 4px}
+.mnav h1{font-family:Unbounded,"Golos Text",sans-serif;font-size:clamp(24px,5vw,34px);letter-spacing:-.02em;margin:0;flex:1;line-height:1.1}
+.mnav button{width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--paper);font-size:20px;cursor:pointer}
+.mnav button:disabled{opacity:.35;cursor:default}
+.sub{color:var(--muted);margin:0 0 14px;font-size:14px}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.pay{padding:20px 20px 16px;border-bottom:1px dashed var(--line)}
+.pay small{display:block;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--wine)}
+.pay b{display:block;font-family:Unbounded,"Golos Text",sans-serif;font-size:clamp(32px,8vw,48px);letter-spacing:-.03em;line-height:1.1;margin-top:6px;font-variant-numeric:tabular-nums}
+.pay .st{font-size:13.5px;color:var(--muted);margin-top:6px}
+.pay .st a{color:var(--wine);font-weight:600}
+.sum{padding:6px 20px 12px}
+.row{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:0}
+.row .v{font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:600}
+.minus{color:var(--minus)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border-top:1px solid var(--line)}
+.stats div{background:var(--paper);padding:11px 14px}
+.stats small{display:block;font-size:12px;color:var(--muted)}
+.stats b{font-size:18px;font-variant-numeric:tabular-nums}
+h2{font-size:17px;margin:28px 0 10px;display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+h2 span{font-size:13px;font-weight:500;color:var(--muted)}
+.apt{padding:14px 16px}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:4px}
+.cal .wd{font-size:11px;color:var(--muted);text-align:center;font-weight:600}
+.cal .d{aspect-ratio:1/1;max-height:44px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:13px;font-variant-numeric:tabular-nums;background:color-mix(in srgb,var(--stone) 60%,var(--paper))}
+.cal .d.b{background:var(--busy);color:#fff;font-weight:600}
+.cal .d.x{background:var(--block);color:var(--muted)}
+.cal .d.t{outline:2px solid var(--ink);outline-offset:-2px}
+.keys{display:flex;gap:14px;font-size:12.5px;color:var(--muted);margin-top:8px;flex-wrap:wrap}
+.keys i{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:-1px;margin-right:5px}
+table{width:100%;border-collapse:collapse;font-size:14px;margin-top:12px}
+td{padding:8px 4px;border-top:1px solid var(--line);vertical-align:top}
+td.r{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+tr.ex td{color:var(--minus)}
+.muted{color:var(--muted)}
+.year td,.year th{padding:8px 10px;border-top:1px solid var(--line);text-align:right;font-variant-numeric:tabular-nums}
+.year th{font-size:12px;color:var(--muted);font-weight:600;border-top:0}
+.year td:first-child,.year th:first-child{text-align:left}
+.year tr.cur td{font-weight:700}
+.year tr.tot td{border-top:2px solid var(--ink);font-weight:700}
+.reps a{display:flex;justify-content:space-between;gap:10px;padding:12px 16px;border-top:1px solid var(--line);text-decoration:none;color:inherit}
+.reps a:first-child{border-top:0}
+.reps a span{color:var(--muted);font-size:13px}
+.note{color:var(--muted);font-size:13px;margin-top:18px}
+.msg{padding:60px 0;text-align:center;color:var(--muted)}
+@media (max-width:520px){.stats b{font-size:16px}.src{display:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><span class="brand" id="co">espace.md</span>
+    <div class="lang" role="group" aria-label="Limba"><button type="button" data-l="ro">RO</button><button type="button" data-l="ru">RU</button><button type="button" data-l="en">EN</button></div>
+    <button type="button" class="out" id="out"></button></div>
+  <main id="main"><div class="msg">…</div></main>
+</div>
+<script>
+(function(){
+const T={
+  ro:{months:["Ianuarie","Februarie","Martie","Aprilie","Mai","Iunie","Iulie","August","Septembrie","Octombrie","Noiembrie","Decembrie"],mshort:["ian","feb","mar","apr","mai","iun","iul","aug","sep","oct","noi","dec"],wd:["L","Ma","Mi","J","V","S","D"],
+    out:"Ieși",hello:n=>`Bună, ${n}`,pay:"De primit",payNeg:"De achitat",inc:"Venit din rezervări",fee:"Comisionul administratorului",exp:"Cheltuieli ale apartamentelor",expNo:"Cheltuieli (nu se scad)",nights:"Nopți ocupate",occ:"Ocupare",adr:"Preț mediu / noapte",
+    sent:"Raportul lunii a fost trimis",open:"deschide",prelim:"Calcul curent — se poate schimba până la raportul lunii",busy:"ocupat",block:"închis",today:"azi",none:"Nicio rezervare în această lună",year:y=>`Anul ${y}`,month:"Luna",payCol:"De primit",reps:"Rapoarte primite",noReps:"Încă nu ați primit rapoarte.",
+    foot:r=>`Sume în euro, la cursul 1 € = ${r} lei. O rezervare care trece dintr-o lună în alta se împarte pe nopți.`,noOwner:"Contul dumneavoastră nu e legat încă de apartamente. Scrieți administratorului.",err:"Nu s-a încărcat. Încercați din nou peste un minut.",total:"Total",n:"n.",of:"din",units:"apartamente",unit:"apartament",blocked:"închis de proprietar"},
+  ru:{months:["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"],mshort:["янв","фев","мар","апр","май","июн","июл","авг","сен","окт","ноя","дек"],wd:["Пн","Вт","Ср","Чт","Пт","Сб","Вс"],
+    out:"Выйти",hello:n=>`Здравствуйте, ${n}`,pay:"К получению",payNeg:"К оплате",inc:"Доход от броней",fee:"Комиссия управляющего",exp:"Расходы квартир",expNo:"Расходы (не вычитаются)",nights:"Занято ночей",occ:"Загрузка",adr:"Средняя цена ночи",
+    sent:"Отчёт за месяц отправлен",open:"открыть",prelim:"Текущий расчёт — может измениться до отчёта за месяц",busy:"занято",block:"закрыто",today:"сегодня",none:"В этом месяце броней нет",year:y=>`${y} год`,month:"Месяц",payCol:"К получению",reps:"Полученные отчёты",noReps:"Отчётов пока нет.",
+    foot:r=>`Суммы в евро, по курсу 1 € = ${r} лей. Бронь на стыке месяцев делится по ночам.`,noOwner:"Ваш аккаунт ещё не привязан к квартирам. Напишите управляющему.",err:"Не загрузилось. Попробуйте через минуту.",total:"Итого",n:"н.",of:"из",units:"квартир",unit:"квартира",blocked:"закрыто собственником"},
+  en:{months:["January","February","March","April","May","June","July","August","September","October","November","December"],mshort:["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],wd:["Mo","Tu","We","Th","Fr","Sa","Su"],
+    out:"Sign out",hello:n=>`Hello, ${n}`,pay:"Your payout",payNeg:"You owe",inc:"Income from bookings",fee:"Manager’s commission",exp:"Apartment expenses",expNo:"Expenses (not deducted)",nights:"Nights booked",occ:"Occupancy",adr:"Average nightly rate",
+    sent:"This month’s statement was sent",open:"open",prelim:"Running figure — may change until the month’s statement",busy:"booked",block:"closed",today:"today",none:"No bookings this month",year:y=>`Year ${y}`,month:"Month",payCol:"Payout",reps:"Statements received",noReps:"No statements yet.",
+    foot:r=>`Amounts in euro, at 1 € = ${r} lei. A booking across two months is split by nights.`,noOwner:"Your account isn’t linked to apartments yet. Write to your manager.",err:"Couldn’t load. Try again in a minute.",total:"Total",n:"n.",of:"of",units:"apartments",unit:"apartment",blocked:"closed"}};
+const DATA={ro:{"Уборка":"Curățenie","Ремонт":"Reparație","Коммунальные":"Utilități","Бельё и химия":"Lenjerie și detergenți","Интернет и ТВ":"Internet și TV","Налоги":"Impozite","Комиссии":"Comisioane","Прочее":"Altele","Прямой":"Direct","Повторный":"Revenit","Квартира":"Apartament"},
+  en:{"Уборка":"Cleaning","Ремонт":"Repairs","Коммунальные":"Utilities","Бельё и химия":"Linen and supplies","Интернет и ТВ":"Internet and TV","Налоги":"Taxes","Комиссии":"Fees","Прочее":"Other","Прямой":"Direct","Повторный":"Returning","Квартира":"Apartment"},ru:{}};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const money=n=>(Math.round((+n||0)*100)/100).toLocaleString("ro-RO",{minimumFractionDigits:2,maximumFractionDigits:2})+" €";
+const money0=n=>Math.round(+n||0).toLocaleString("ro-RO")+" €";
+const DAY=864e5,toT=d=>Date.parse(d+"T00:00:00Z"),fromT=t=>new Date(t).toISOString().slice(0,10),dm=d=>d.slice(8,10)+"."+d.slice(5,7);
+const tok=(()=>{try{return localStorage.getItem("kv_tok")||""}catch(e){return ""}})();
+const SLUG=(()=>{const h=location.hostname;if(h.endsWith(".espace.md"))return h.slice(0,-".espace.md".length);let c="";try{c=new URLSearchParams(location.search).get("c")||sessionStorage.getItem("es_c")||""}catch(e){}return c.toLowerCase()})();
+let L=(document.cookie.match(/(?:^|;\s*)es_lang=(ro|ru|en)/)||[])[1]||(navigator.languages||[navigator.language||""]).map(x=>String(x).slice(0,2).toLowerCase()).map(x=>x==="mo"?"ro":x).find(x=>T[x])||"ro";
+const now=new Date(),todayS=fromT(Date.UTC(now.getFullYear(),now.getMonth(),now.getDate()));
+let D=null,err="",Y=now.getFullYear(),M=now.getMonth();
+const tr=v=>(DATA[L]||{})[v]||v;
+async function api(fn,body={}){const r=await fetch("/api/"+fn,{method:"POST",headers:{"content-type":"application/json","x-espace-org":SLUG,authorization:"Bearer "+tok},body:JSON.stringify(body)});
+  const j=await r.json().catch(()=>null);if(!r.ok){const e=new Error((j&&j.message)||"http_"+r.status);e.status=r.status;throw e}return j}
+function toApp(){try{localStorage.setItem("kv_tok","")}catch(e){}location.replace("/"+location.search)}
+// the same rules as the company app: money received, in €, split by nights between months
+const rateOf=c=>((D.other||[]).find(o=>o.code===c)||{}).rate||0;
+const eurOf=x=>(+x.mdl||0)/D.rates.eur+(+x.eur||0)+(+x.usd||0)*D.rates.usd+(+x.oth||0)*rateOf(x.oth_cur);
+const utilEur=b=>{const u=+b.util||0;return !u?0:b.util_cur==="EUR"?u:b.util_cur==="USD"?u*D.rates.usd:u/D.rates.eur};
+const mS=(y,m)=>Date.UTC(y,m,1),mE=(y,m)=>Date.UTC(y,m+1,1),dIn=(y,m)=>new Date(Date.UTC(y,m+1,0)).getUTCDate();
+function shareOf(b,y,m){const s=mS(y,m),e=mE(y,m),t=toT(b.date);if(!(b.nights>0))return t>=s&&t<e?1:0;const ov=Math.max(0,Math.min(t+b.nights*DAY,e)-Math.max(t,s))/DAY;return ov/b.nights}
+function expShare(e,y,m){if(!e.yearly){const t=toT(e.date);return t>=mS(y,m)&&t<mE(y,m)?1:0}const d=(y*12+m)-(+e.date.slice(0,4)*12+(+e.date.slice(5,7)-1));return d>=0&&d<12?1/12:0}
+function calc(y,m){const n=dIn(y,m);
+  const units=D.apts.map(a=>{const stays=D.bookings.filter(b=>b.apt===a&&b.tag!=="closed").map(b=>[b,shareOf(b,y,m)]).filter(([,k])=>k>0)
+      .map(([b,k])=>({date:b.date,nights:+b.nights||0,n:b.nights>0?Math.round(b.nights*k):0,guest:b.guest,source:b.source,amount:(eurOf(b)+utilEur(b))*k}));
+    const exps=D.expenses.filter(e=>e.apt===a).map(e=>[e,expShare(e,y,m)]).filter(([,k])=>k>0).map(([e,k])=>({date:e.date,cat:e.category,note:e.note,yearly:!!e.yearly,amount:eurOf(e)*k}));
+    const inc=stays.reduce((x,s)=>x+s.amount,0),exp=exps.reduce((x,e)=>x+e.amount,0),nights=Math.min(n,stays.reduce((x,s)=>x+s.n,0));
+    return {apt:a,stays,exps,inc,exp,nights,days:n}});
+  const inc=units.reduce((x,u)=>x+u.inc,0),exp=units.reduce((x,u)=>x+u.exp,0),fee=inc*D.owner.fee/100,nights=units.reduce((x,u)=>x+u.nights,0);
+  return {units,inc,exp,fee,pay:inc-fee-(D.owner.exp?exp:0),nights,days:n*units.length}}
+function cal(a,y,m){const n=dIn(y,m),first=(new Date(Date.UTC(y,m,1)).getUTCDay()+6)%7,t=T[L],cells=[];
+  const st={};for(const b of D.bookings){if(b.apt!==a||!(b.nights>0))continue;for(let i=0;i<b.nights;i++){const d=fromT(toT(b.date)+i*DAY);if(st[d]!=="b")st[d]=b.tag==="closed"?"x":"b"}}
+  for(let i=0;i<first;i++)cells.push(`<span></span>`);
+  for(let i=1;i<=n;i++){const d=fromT(Date.UTC(y,m,i)),c=st[d]||"";cells.push(`<span class="d ${c}${d===todayS?" t":""}" title="${d}">${i}</span>`)}
+  return `<div class="cal">${t.wd.map(w=>`<span class="wd">${w}</span>`).join("")}${cells.join("")}</div>`}
+function render(){const t=T[L];document.documentElement.lang=L;$("out").textContent=t.out;
+  document.querySelectorAll("[data-l]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.l===L)));
+  if(err){$("main").innerHTML=`<div class="msg">${esc(err==="no_owner"?t.noOwner:t.err)}</div>`;return}
+  if(!D)return;
+  $("co").innerHTML=`${esc(D.company)}<small>${esc(t.hello(D.owner.name))}</small>`;document.title=D.company;
+  const R=calc(Y,M),ym=Y+"-"+String(M+1).padStart(2,"0"),rep=D.reports.find(r=>r.ym===ym&&r.sent_at),occ=R.days?Math.round(R.nights/R.days*100):0;
+  const minT=toT(todayS)-13*31*DAY,maxT=toT(todayS)+12*31*DAY;
+  let h=`<div class="mnav"><button type="button" data-mv="-1" aria-label="‹" ${mS(Y,M-1)<minT?"disabled":""}>‹</button><h1>${t.months[M]} ${Y}</h1><button type="button" data-mv="1" aria-label="›" ${mS(Y,M+1)>maxT?"disabled":""}>›</button></div>
+  <p class="sub">${D.apts.length} ${D.apts.length===1?t.unit:t.units}: ${D.apts.map(esc).join(", ")}</p>
+  <div class="card"><div class="pay"><small>${R.pay<0?t.payNeg:t.pay}</small><b>${money(Math.abs(R.pay))}</b>
+    <div class="st">${rep?`✓ ${t.sent} · <a href="/raport/${esc(rep.token)}">${t.open}</a>`:esc(t.prelim)}</div></div>
+    <div class="sum"><div class="row"><span>${t.inc}</span><span class="v">${money(R.inc)}</span></div>
+      <div class="row"><span>${t.fee} · ${D.owner.fee}%</span><span class="v minus">− ${money(R.fee)}</span></div>
+      <div class="row"><span>${D.owner.exp?t.exp:t.expNo}</span><span class="v${D.owner.exp?" minus":""}">${D.owner.exp?"− ":""}${money(R.exp)}</span></div></div>
+    <div class="stats"><div><small>${t.nights}</small><b>${R.nights} / ${R.days}</b></div><div><small>${t.occ}</small><b>${occ}%</b></div><div><small>${t.adr}</small><b>${money0(R.nights?R.inc/R.nights:0)}</b></div></div></div>`;
+  for(const u of R.units){
+    h+=`<h2>${esc(u.apt)}<span>${u.nights}/${u.days} ${t.n} · ${u.days?Math.round(u.nights/u.days*100):0}%</span></h2><div class="card apt">${cal(u.apt,Y,M)}
+      <div class="keys"><span><i style="background:var(--busy)"></i>${t.busy}</span><span><i style="background:var(--block)"></i>${t.block}</span></div><table>
+      ${u.stays.map(s=>`<tr><td>${dm(s.date)}</td><td>${s.n}${s.n!==s.nights?` <span class="muted">${t.of} ${s.nights}</span>`:""} ${t.n}</td><td>${esc(s.guest)}<span class="src muted">${s.source?" · "+esc(tr(s.source)):""}</span></td><td class="r">${money(s.amount)}</td></tr>`).join("")||`<tr><td colspan="4" class="muted">${t.none}</td></tr>`}
+      ${u.exps.map(e=>`<tr class="ex"><td>${dm(e.date)}</td><td colspan="2">${esc(tr(e.cat))}${e.note?" · "+esc(e.note):""}${e.yearly?" · 1/12":""}</td><td class="r">− ${money(e.amount)}</td></tr>`).join("")}
+      </table></div>`}
+  // the year at a glance
+  const rows=[...Array(12)].map((_,m)=>({m,...calc(Y,m)})),tot=rows.reduce((x,r)=>({inc:x.inc+r.inc,pay:x.pay+r.pay,nights:x.nights+r.nights,days:x.days+r.days}),{inc:0,pay:0,nights:0,days:0});
+  h+=`<h2>${t.year(Y)}</h2><div class="card"><table class="year" style="margin:0"><tr><th>${t.month}</th><th>${t.occ}</th><th>${t.inc}</th><th>${t.payCol}</th></tr>
+    ${rows.map(r=>`<tr class="${r.m===M?"cur":""}"><td>${t.mshort[r.m]}</td><td>${r.days?Math.round(r.nights/r.days*100):0}%</td><td>${r.inc?money0(r.inc):"—"}</td><td>${r.inc||r.exp?money0(r.pay):"—"}</td></tr>`).join("")}
+    <tr class="tot"><td>${t.total}</td><td>${tot.days?Math.round(tot.nights/tot.days*100):0}%</td><td>${money0(tot.inc)}</td><td>${money0(tot.pay)}</td></tr></table></div>`;
+  const reps=D.reports.filter(r=>r.sent_at);
+  h+=`<h2>${t.reps}</h2><div class="card reps">${reps.length?reps.map(r=>`<a href="/raport/${esc(r.token)}"><b>${t.months[+r.ym.slice(5,7)-1]} ${r.ym.slice(0,4)}</b><span>${new Date(r.sent_at).toLocaleDateString(L==="en"?"en-GB":L==="ru"?"ru-RU":"ro-RO")} ›</span></a>`).join(""):`<div class="apt muted">${t.noReps}</div>`}</div>`;
+  h+=`<p class="note">${esc(t.foot(D.rates.eur))}</p>`;
+  $("main").innerHTML=h}
+document.addEventListener("click",async e=>{const b=e.target.closest("[data-l]");if(b){L=b.dataset.l;try{document.cookie="es_lang="+L+";path=/;max-age=31536000;samesite=lax"}catch(x){}render();return}
+  const mv=e.target.closest("[data-mv]");if(mv&&!mv.disabled){M+=+mv.dataset.mv;if(M<0){M=11;Y--}if(M>11){M=0;Y++}render();scrollTo(0,0);return}
+  if(e.target.id==="out"){try{await api("auth_logout")}catch(x){}toApp()}});
+render();
+if(!tok)location.replace("/"+location.search);
+else api("kv_prop_load").then(j=>{D=j;render()}).catch(e=>{if(e.status===401)return toApp();if(e.status===403)return location.replace("/"+location.search);err=e.message==="no_owner"?"no_owner":"x";render()});
+})();
+</script>
+</body>
+</html>

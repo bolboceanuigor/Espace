@@ -72,6 +72,14 @@ export const mails = {
       { title: `Доступ к ${esc(org)}`, body: `<p><b>${esc(by)}</b> добавил(а) вас в команду <b>${esc(org)}</b> на espace.md (<b>${esc(slug)}.espace.md</b>). ${needsPassword ? "Задайте пароль кнопкой ниже — ссылка действует 3 дня." : "Входите с вашим email и паролем."}</p>` },
       { url, ro: needsPassword ? "Alege parola" : "Deschide compania", ru: needsPassword ? "Задать пароль" : "Открыть компанию" }),
   }),
+  // an apartment owner gets their own view: occupancy, income, payout and statements of their apartments
+  inviteProp: (org: string, slug: string, url: string, needsPassword: boolean) => ({
+    subject: `${org}: apartamentele dumneavoastră pe espace.md`,
+    html: layout(
+      { title: "Vedeți apartamentele dumneavoastră online", body: `<p><b>${esc(org)}</b> vă administrează apartamentele și v-a dat acces la <b>${esc(slug)}.espace.md</b>: calendarul ocupării, veniturile, cheltuielile, suma de plată și rapoartele lunare — doar pentru apartamentele dumneavoastră.</p><p>${needsPassword ? "Alegeți parola cu butonul de mai jos (linkul e valabil <b>3 zile</b>), apoi intrați cu acest email și parola." : "Intrați cu emailul și parola pe care le aveți deja."}</p>` },
+      { title: "Ваши квартиры онлайн", body: `<p><b>${esc(org)}</b> открыл вам доступ на <b>${esc(slug)}.espace.md</b>: загрузка, доход, расходы, сумма к выплате и отчёты — только по вашим квартирам. ${needsPassword ? "Задайте пароль кнопкой ниже — ссылка действует 3 дня." : "Входите с вашим email и паролем."}</p>` },
+      { url, ro: needsPassword ? "Alege parola" : "Deschide", ru: needsPassword ? "Задать пароль" : "Открыть" }),
+  }),
   reset: (url: string) => ({
     // the time in the subject keeps each request a separate email (Gmail would otherwise stack them and the older, used link is easy to click)
     subject: `Resetarea parolei espace.md · ${new Date().toLocaleTimeString("ro-RO", { timeZone: "Europe/Chisinau", hour: "2-digit", minute: "2-digit" })}`,
