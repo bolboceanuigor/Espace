@@ -890,6 +890,39 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
       if (b.email) mailed = await sendMail(env, db, { to: b.email, ...mails.requestAnswer(org.name, body.ok === true, { apt: b.apt, date: b.date, nights: b.nights, price: b.price, cur: b.price_cur, phone: dir.phone || "", email: dir.email || "", note: str(body.note, 300), guide: g ? `https://espace.md/g/${g.token}` : "" }), kind: "request", orgId: O });
       return json({ ok: true, mailed });
     }
+    // ---------- import bookings from a spreadsheet (Excel / CSV / RealtyCalendar export), parsed in the app ----------
+    case "kv_import": {
+      const rows = Array.isArray(body.rows) ? body.rows.slice(0, 3000) : [];
+      if (!rows.length) return json({ message: "empty" }, 400);
+      const cfg = (await getConfig(db, O)) || { apts: [] };
+      const apts: string[] = [...(cfg.apts || [])], added: string[] = [];
+      const SRC: Record<string, string> = { airbnb: "Airbnb", booking: "Booking", "booking.com": "Booking", instagram: "Instagram", direct: "Прямой", direct_: "Прямой", "прямой": "Прямой", "direct booking": "Прямой" };
+      const ok: any[] = [], bad: number[] = [];
+      rows.forEach((r: any, i: number) => {
+        const apt = str(r.apt, 100).trim(), date = isDate(r.date) ? r.date : "", nights = Math.floor(num(r.nights));
+        if (!apt || !date || !(nights >= 0 && nights <= 366)) { bad.push(i); return; }
+        if (!apts.includes(apt)) { if (body.create !== true) { bad.push(i); return; } apts.push(apt); added.push(apt); }
+        const src = str(r.source, 50).trim();
+        ok.push({ apt, date, nights, guest: str(r.guest, 200).trim(), phone: str(r.phone, 40).trim(), email: isEmail(str(r.email, 120)) ? str(r.email, 120).toLowerCase() : "",
+          pax: Math.max(0, Math.min(500, Math.floor(num(r.pax)))), price: Math.max(0, num(r.price)), price_cur: ["EUR", "MDL", "USD"].includes(str(r.cur, 5).toUpperCase()) ? str(r.cur, 5).toUpperCase() : "EUR",
+          source: SRC[src.toLowerCase()] || src, note: str(r.note, 500).trim() });
+      });
+      if (apts.length > 70 && !(Number(org.custom_price) > 0)) return json({ message: "too_many_apts", count: apts.length }, 409);
+      if (added.length) { cfg.apts = apts; await run(db, "INSERT INTO app_config(org_id,data) VALUES (?,?) ON CONFLICT (org_id) DO UPDATE SET data = excluded.data", O, JSON.stringify(cfg)); }
+      // the same stay (unit, date, nights) already in the calendar is skipped, so importing the same file twice is harmless
+      const have = new Set((await all(db, "SELECT apt, date, nights FROM bookings WHERE org_id = ?", O)).map((b: any) => `${b.apt}|${b.date}|${b.nights}`));
+      const closed = new Set((await all(db, "SELECT ym FROM month_close WHERE org_id = ?", O)).map((r: any) => r.ym));
+      let created = 0, dup = 0, inClosed = 0; const now = nowIso(), stmts: D1PreparedStatement[] = [];
+      for (const b of ok) {
+        if (closed.has(b.date.slice(0, 7))) { inClosed++; continue; } // checked months stay as they are
+        const k = `${b.apt}|${b.date}|${b.nights}`; if (have.has(k)) { dup++; continue; } have.add(k);
+        stmts.push(db.prepare(`INSERT INTO bookings(id, org_id, date, apt, guest, nights, phone, email, pax, price, price_cur, pay_status, source, note, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+          .bind(uuid(), O, b.date, b.apt, b.guest, b.nights, b.phone, b.email, b.pax, b.price, b.price_cur, b.price ? "unpaid" : "", b.source, b.note, now, now));
+        created++;
+      }
+      for (let i = 0; i < stmts.length; i += 50) await db.batch(stmts.slice(i, i + 50));
+      return json({ created, dup, closed: inClosed, bad: bad.length, badRows: bad.slice(0, 20), aptsAdded: added });
+    }
     // ---------- Telegram for this person in this company ----------
     case "kv_tg_status": {
       const name = await botName(env, db);

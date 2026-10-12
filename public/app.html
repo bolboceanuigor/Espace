@@ -916,6 +916,9 @@ body.wizon{overflow:hidden}
 .dtog{display:flex;gap:12px;align-items:flex-start;cursor:pointer}.dtog input{width:22px;height:22px;margin-top:2px;flex:none;accent-color:var(--accent)}.dtog span{display:flex;flex-direction:column;gap:2px}.dtog small{color:var(--muted)}
 .bv-req{margin:12px 0;padding:12px;border-radius:12px;background:var(--accent-soft)}.bv-req p{margin:0 0 8px}.btn.danger.armed{background:#b42318;color:#fff}
 .srow{display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--line)}.srow:first-of-type{border-top:0}.srow>input{flex:1;min-width:110px}.srow label{width:86px}.srow label small{display:block;font-size:11px;color:var(--muted)}.srow label input{width:100%;text-align:center}
+.impmap{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.impmap label small{display:block;font-size:11.5px;color:var(--muted);margin-bottom:2px}.impmap select{width:100%;height:38px;border:1px solid var(--line);border-radius:9px;background:var(--bg);padding:0 6px}
+@media (max-width:560px){.impmap{grid-template-columns:1fr 1fr}}
+.impprev{overflow:auto;border:1px solid var(--line);border-radius:10px}.impprev table{width:100%;border-collapse:collapse;font-size:13px}.impprev th,.impprev td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}.impprev tr.bad td{color:#b42318}
 .uical{margin-top:6px}.ifeed{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line)}.ifeed .iu{flex:1;min-width:0;display:flex;flex-direction:column}.ifeed .iu b{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ifeed .iu small{color:var(--muted)}.ifeed.bad .iu small{color:#b42318}
 .isrc{font-size:11.5px;font-weight:700;padding:3px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
 .iadd{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}.iadd select{width:auto;flex:none}.iadd input{flex:1;min-width:160px}
@@ -1528,6 +1531,54 @@ document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest
   t.closest(".trates").querySelectorAll("[data-trate]").forEach(inp=>{const k=inp.dataset.trate,v=String(inp.value).replace(",",".").trim(),cur=t.closest(".trates").querySelector(`[data-trcur="${k}"]`).value;
     cfg.apts.forEach(a=>{const u=unitOf(a);if(u.group===g&&u.rtype===k){const x={...u};if(v===""||!(+v>0)){delete x.price;delete x.pcur}else{x.price=+v;x.pcur=cur}units[a]=x}})});
   saveCfg({...cfg,units},"Тарифы сохранены")});
+/* IMPORT — bookings (and missing units) from a spreadsheet: Excel/CSV exports of RealtyCalendar, Booking, old tables.
+   The file is read here, columns are guessed from their names (RU/RO/EN) and can be changed, then rows go to kv_import. */
+let IMP=null; // {name, head:[], rows:[[]], map:{field:colIndex}, create:true}
+const IMP_F=[["apt","Объект"],["date","Заезд"],["out","Выезд"],["nights","Ночей"],["guest","Гость"],["phone","Телефон"],["email","Email"],["pax","Гостей"],["price","Сумма"],["cur","Валюта"],["source","Источник"],["note","Заметка"]];
+const IMP_SYN={apt:/^(квартир|объект|апарт|номер|комнат|apartament|obiect|unitat|unit|apartment|property|room|listing|camer)/i,date:/(заезд|check.?in|arrival|sosire|начало|de la|^from|^start|^date$|^дата$|^data$)/i,out:/(выезд|check.?out|departure|plecare|конец|până|pana|^to$|^end)/i,
+  nights:/(ноч|night|nop[tț]i)/i,guest:/(гост[ья]$|^гость|имя|фио|guest|^name|oaspete|^nume|client|клиент)/i,phone:/(телефон|phone|telefon|^tel)/i,email:/(e-?mail|почта)/i,pax:/(гостей|человек|persons|guests|persoane|adul|pax)/i,
+  price:/(сумм|цена|стоимост|итог|price|total|amount|pre[tț]|^suma|sum$)/i,cur:/(валют|currency|valut|moned)/i,source:/(источник|канал|source|channel|surs|platform|площадк)/i,note:/(примеч|коммент|заметк|note|comment|observa|not[ăa])/i};
+function impGuess(head){const map={},used=new Set();for(const [f] of IMP_F){const i=head.findIndex((h,j)=>!used.has(j)&&IMP_SYN[f].test(String(h||"").trim()));if(i>=0){map[f]=i;used.add(i)}}return map}
+function impDate(v){if(v==null||v==="")return "";if(v instanceof Date&&!isNaN(v))return v.getFullYear()+"-"+String(v.getMonth()+1).padStart(2,"0")+"-"+String(v.getDate()).padStart(2,"0");
+  if(typeof v==="number"&&v>20000&&v<80000)return fromT(Date.UTC(1899,11,30)+Math.round(v)*DAY); // Excel day number
+  const t=String(v).trim();let m=/^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(t);if(m)return `${m[1]}-${m[2].padStart(2,"0")}-${m[3].padStart(2,"0")}`;
+  m=/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})/.exec(t);if(m){const y=m[3].length===2?"20"+m[3]:m[3];return `${y}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`}return ""}
+function impMoney(v){if(typeof v==="number")return {n:v,cur:""};const t=String(v||"");const cur=/€|eur/i.test(t)?"EUR":/\$|usd/i.test(t)?"USD":/lei|mdl|лей/i.test(t)?"MDL":"";
+  let x=t.replace(/[^\d.,-]/g,"");if(/,\d{1,2}$/.test(x))x=x.replace(/\./g,"").replace(",",".");else x=x.replace(/,/g,"");return {n:+x||0,cur}}
+function impRows(){if(!IMP)return [];const M=IMP.map,g=(r,f)=>M[f]!=null?r[M[f]]:"";
+  return IMP.rows.map(r=>{const date=impDate(g(r,"date")),out=impDate(g(r,"out"));let nights=parseInt(g(r,"nights"),10);if(!(nights>=0)&&date&&out)nights=Math.round((toT(out)-toT(date))/DAY);
+    const pm=impMoney(g(r,"price")),cur=String(g(r,"cur")||"").toUpperCase().replace("€","EUR").replace("$","USD").replace(/LEI|ЛЕЙ/,"MDL")||pm.cur||"EUR";
+    return {apt:String(g(r,"apt")||"").trim(),date,nights:nights>=0?nights:NaN,guest:String(g(r,"guest")||"").trim(),phone:String(g(r,"phone")||"").trim(),email:String(g(r,"email")||"").trim(),
+      pax:parseInt(g(r,"pax"),10)||0,price:pm.n,cur,source:String(g(r,"source")||"").trim(),note:String(g(r,"note")||"").trim()}})}
+const impOk=r=>r.apt&&r.date&&r.nights>=0&&r.nights<=366;
+function importSection(){
+  if(!IMP)return `<div class="card"><p style="margin-top:0">Перенесите брони из старой таблицы, RealtyCalendar или выгрузки Booking — нужен файл Excel (.xlsx) или CSV, где в каждой строке одна бронь: объект, дата заезда, выезд или число ночей, по желанию гость, телефон, сумма, источник.</p>
+    ${RO?"":`<label class="btn primary" style="display:inline-flex;cursor:pointer">Выбрать файл<input type="file" id="imp-file" accept=".xlsx,.xls,.csv,text/csv" hidden></label>`}
+    <p class="small" style="margin-bottom:0">Одинаковые брони (тот же объект, дата и ночи) не дублируются — файл можно загрузить ещё раз. Закрытые после проверки месяцы не меняются.</p></div>`;
+  const rows=impRows(),good=rows.filter(impOk),newApts=[...new Set(good.map(r=>r.apt).filter(a=>!cfg.apts.includes(a)))];
+  const sel=f=>`<select data-impf="${f}"><option value="">—</option>${IMP.head.map((h,i)=>`<option value="${i}"${IMP.map[f]===i?" selected":""}>${esc(String(h||"колонка "+(i+1)).slice(0,30))}</option>`).join("")}</select>`;
+  return `<div class="card"><div class="setadd" style="justify-content:space-between;align-items:center"><b>${esc(IMP.name)}</b><button type="button" class="btn sm" id="imp-reset">Другой файл</button></div>
+    <p class="small">Строк: ${IMP.rows.length} · подходят: <b>${good.length}</b>${rows.length-good.length?` · без объекта или даты: ${rows.length-good.length}`:""}</p>
+    <label class="l">Какая колонка что значит</label><div class="impmap">${IMP_F.map(([f,t])=>`<label><small>${t}${["apt","date"].includes(f)?" *":""}</small>${sel(f)}</label>`).join("")}</div>
+    <label class="l">Первые строки</label><div class="impprev"><table><thead><tr><th>Объект</th><th>Заезд</th><th>Ночей</th><th>Гость</th><th>Сумма</th><th>Источник</th></tr></thead><tbody>${rows.slice(0,6).map(r=>`<tr class="${impOk(r)?"":"bad"}"><td>${esc(r.apt)}</td><td>${r.date?dm(r.date)+" "+r.date.slice(0,4):"?"}</td><td>${isNaN(r.nights)?"?":r.nights}</td><td>${esc(r.guest)}</td><td>${r.price?fmt(r.price)+" "+(CUR_L[r.cur]||r.cur):""}</td><td>${esc(r.source)}</td></tr>`).join("")}</tbody></table></div>
+    ${newApts.length?`<label class="dtog" style="margin-top:12px"><input type="checkbox" id="imp-create" ${IMP.create?"checked":""}><span><b>Создать новые объекты: ${newApts.length}</b><small>${esc(newApts.slice(0,10).join(", "))}${newApts.length>10?" …":""}</small></span></label>`:""}
+    <div class="actions"><button type="button" class="btn primary" id="imp-go" ${good.length?"":"disabled"}>Импортировать ${good.length}</button></div></div>`}
+async function impRead(file){const name=file.name;let rows=[];
+  if(/\.csv$/i.test(name)||file.type==="text/csv"){const t=await file.text(),sep=(t.split("\n")[0].match(/;/g)||[]).length>(t.split("\n")[0].match(/,/g)||[]).length?";":",";
+    rows=t.split(/\r?\n/).filter(l=>l.trim()).map(l=>{const out=[];let cur="",q=false;for(let i=0;i<l.length;i++){const c=l[i];if(q){if(c==='"'&&l[i+1]==='"'){cur+='"';i++}else if(c==='"')q=false;else cur+=c}else if(c==='"')q=true;else if(c===sep){out.push(cur);cur=""}else cur+=c}out.push(cur);return out})}
+  else{await loadXLSX();const wb=XLSX.read(await file.arrayBuffer(),{cellDates:true});const ws=wb.Sheets[wb.SheetNames[0]];rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:""})}
+  // the header row: the first of the first 10 rows where at least two columns are recognised
+  let hi=rows.slice(0,10).findIndex(r=>Object.keys(impGuess(r.map(String))).length>=2);if(hi<0)hi=0;
+  const head=(rows[hi]||[]).map(x=>String(x));IMP={name,head,rows:rows.slice(hi+1).filter(r=>r.some(x=>String(x).trim())),map:impGuess(head),create:true}}
+document.addEventListener("change",async e=>{if(e.target.id==="imp-file"&&e.target.files[0]){try{await impRead(e.target.files[0]);renderSettings()}catch(x){toast("Не получилось прочитать файл")}}
+  else if(e.target.dataset&&e.target.dataset.impf){IMP.map[e.target.dataset.impf]=e.target.value===""?undefined:+e.target.value;renderSettings()}
+  else if(e.target.id==="imp-create"){IMP.create=e.target.checked}});
+document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("#imp-reset,#imp-go");if(!t)return;
+  if(t.id==="imp-reset"){IMP=null;renderSettings();return}
+  const good=impRows().filter(impOk);t.disabled=true;let tot={created:0,dup:0,closed:0,bad:0,aptsAdded:[]};
+  try{for(let i=0;i<good.length;i+=500){const r=await api("kv_import",{rows:good.slice(i,i+500),create:IMP.create});tot.created+=r.created;tot.dup+=r.dup;tot.closed+=r.closed||0;tot.bad+=r.bad;tot.aptsAdded.push(...r.aptsAdded)}
+    IMP=null;await reload();renderSettings();toast(`Импортировано: ${tot.created}${tot.dup?` · уже были: ${tot.dup}`:""}${tot.closed?` · в закрытых месяцах: ${tot.closed}`:""}${tot.bad?` · пропущено: ${tot.bad}`:""}${tot.aptsAdded.length?` · новых объектов: ${tot.aptsAdded.length}`:""}`)}
+  catch(x){t.disabled=false;toast(x.code==="too_many_apts"?"Больше 70 объектов — тариф индивидуальный, напишите нам":"Не получилось")}});
 /* TELEGRAM — each person links their own chat to the espace.md bot; managers' notifications then arrive there too
    (new bookings and requests, cleanings done, repairs). */
 async function tgLoad(){const box=$("tg-box");if(!box)return;
@@ -2472,6 +2523,7 @@ function renderSettings(){
     `],
     apts:["home","Объекты",`${cfg.apts.length} ${plural(cfg.apts.length,"объект","объекта","объектов")} · детали, адреса, фото, порядок`,()=>aptsSection()],
     pricing:["rate","Сезоны и выходные",(()=>{const P=cfg.pricing||{},n=(P.seasons||[]).length;return [P.weekend?"выходные +"+P.weekend+"%":"",n?n+" "+plural(n,"сезон","сезона","сезонов"):""].filter(Boolean).join(" · ")||"цены выше в сезон и по выходным"})(),()=>pricingSection()],
+    import:["chk","Импорт из Excel",`брони и объекты из файла · Excel, CSV, RealtyCalendar`,()=>importSection()],
     direct:["web","Страница бронирования",cfg.direct&&cfg.direct.on?"включена · "+ME.org.code+".espace.md/rezerva":"гости бронируют напрямую, без комиссии",()=>directSection()],
     people:["mgr","Менеджеры",cfg.people.join(", ")||"не указаны",()=>`<div class="card"><label class="l" for="set-people">Менеджеры — кто принимает деньги и работает сменами <em>— через запятую</em></label><input type="text" id="set-people" value="${esc(cfg.people.join(", "))}">
       <div class="actions"><button class="btn primary" id="save-people">Сохранить</button></div></div>

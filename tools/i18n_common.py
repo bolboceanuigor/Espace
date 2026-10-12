@@ -5,7 +5,7 @@ RUN = re.compile(r'[А-Яа-яЁё][А-Яа-яЁё0-9 ,.:;!?«»()\-–—/+%№
 # the translated builds only show them translated on screen (DISPLAY_* in build_i18n.py)
 DATA = {"Кэш", "Счёт", "Счёт+Кэш", "Прямой", "Повторный", "Коммунальные", "Уборка", "Ремонт", "Бельё и химия",
         "Комиссии", "Прочее", "Интернет и ТВ", "Налоги", "Квартира 1", "из смены", "доплата к авансу"}
-REGEX_LIT = re.compile(r'/((?:[^/\n\\*]|\\.)(?:[^/\n\\]|\\.)*)/[gimsuy]*(?=[.,;)\s])')
+REGEX_LIT = re.compile(r'/((?:[^/\n\\*]|\\.)(?:[^/\n\\]|\\.)*)/[gimsuy]*(?=[.,;)}\s])')
 
 def protected_spans(s):
     spans = []
@@ -14,7 +14,7 @@ def protected_spans(s):
         before = head[-1:]
         if before and before not in "(,=:!&|?;{}[>" and not head.endswith("return"):
             continue  # a "/" inside text, not a regex
-        if re.search(r'[А-Яа-яЁё]', m.group(1)) and len(m.group(1)) < 120 and not m.group(1).startswith('*'):
+        if re.search(r'[А-Яа-яЁё]', m.group(1)) and len(m.group(1)) < 400 and not m.group(1).startswith('*'):
             spans.append((m.start(), m.end()))
     return spans
 
