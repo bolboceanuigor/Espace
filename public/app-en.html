@@ -909,6 +909,10 @@ body.wizon{overflow:hidden}
 .wizf{position:sticky;bottom:0;display:flex;justify-content:space-between;gap:10px;padding:14px 0 max(6px,env(safe-area-inset-bottom));background:linear-gradient(transparent,var(--bg) 30%)}.wizf .btn{min-width:120px}
 .cl-beds{margin-top:6px;font-size:14px}
 .hint.bad{color:#b42318;font-weight:600}
+.pcur{display:flex;gap:6px}.pcur input{flex:1;min-width:0}.pcur select{width:auto;flex:none}
+.trates{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:6px 0 8px}.trates>small{display:block;color:var(--muted);font-weight:600;margin-bottom:6px}
+.trate{display:flex;align-items:center;gap:6px;margin-bottom:6px}.trate span{flex:1;min-width:0;font-weight:600;font-size:14px}.trate em{font-style:normal;color:var(--muted);font-weight:400}.trate input{width:96px;height:38px}.trate select{width:auto;height:38px}
+.sh-grp{display:flex;align-items:center;height:22px;background:var(--surface);border-bottom:1px solid var(--line);position:sticky;left:0}.sh-grp b{position:sticky;left:0;padding:0 10px;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);white-space:nowrap}
 .uical{margin-top:6px}.ifeed{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line)}.ifeed .iu{flex:1;min-width:0;display:flex;flex-direction:column}.ifeed .iu b{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ifeed .iu small{color:var(--muted)}.ifeed.bad .iu small{color:#b42318}
 .isrc{font-size:11.5px;font-weight:700;padding:3px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
 .iadd{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}.iadd select{width:auto;flex:none}.iadd input{flex:1;min-width:160px}
@@ -1287,6 +1291,7 @@ function readB(){for(const k of BF) form[k]=$("f-"+k).value}
 function capHint(){const el=$("f-cap");if(!el)return;const u=unitOf(form.apt||""),c=capOf(u),p=parseInt(($("f-pax")||{}).value,10)||0;
   el.className="hint"+(c&&p>c?" bad":"");el.textContent=!c?"":p>c?"More than it fits: maximum "+c:"Sleeps up to "+c+(bedsOf(u)?" · "+bedsOf(u):"")}
 document.addEventListener("input",e=>{if(e.target.id==="f-pax")capHint()});
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-psug]");if(!t)return;readB();form.price=t.dataset.psug;form.price_cur=t.dataset.pcur;fillB();infoB()});
 function fillB(){
   fAptOpen=false;fTagOpen=false;
   for(const k of BF) $("f-"+k).value=form[k]??"";
@@ -1330,7 +1335,8 @@ const svgPh='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke=
 function infoB(){
   const b=asB(), msgs=[];
   {const c=$("f-contact"),h=contactHTML(b.phone);c.innerHTML=h;c.hidden=!h}
-  {const ps=payState({...b,id:form.id}),c=CUR_L[ps.cur];$("f-pinfo").innerHTML=b.price?`Received <b>${fmt0(fromEurC(ps.got,ps.cur))} ${c}</b> of ${fmt0(b.price)} ${c}${ps.left?` · left <b style="color:#f7a44c">${fmt0(ps.left)} ${c}</b>`:" · all paid"}`:(ps.got>0.5?"":"Nothing received yet");document.querySelectorAll("#f-pst [data-pst]").forEach(x=>x.setAttribute("aria-pressed",x.dataset.pst===ps.state))}
+  {const ps=payState({...b,id:form.id}),c=CUR_L[ps.cur],u=unitOf(b.apt||""),sug=!b.price&&+u.price>0&&b.nights>0&&!b.tag?Math.round(+u.price*b.nights*100)/100:0;
+   $("f-pinfo").innerHTML=sug?`By rate: ${fmt(+u.price)} ${CUR_L[u.pcur||"EUR"]} × ${b.nights} = <b>${fmt(sug)} ${CUR_L[u.pcur||"EUR"]}</b> <button type="button" class="btn sm" data-psug="${sug}" data-pcur="${esc(u.pcur||"EUR")}">Use it</button>`:b.price?`Received <b>${fmt0(fromEurC(ps.got,ps.cur))} ${c}</b> of ${fmt0(b.price)} ${c}${ps.left?` · left <b style="color:#f7a44c">${fmt0(ps.left)} ${c}</b>`:" · all paid"}`:(ps.got>0.5?"":"Nothing received yet");document.querySelectorAll("#f-pst [data-pst]").forEach(x=>x.setAttribute("aria-pressed",x.dataset.pst===ps.state))}
   if(b.date&&b.nights>0){const e=toT(b.date)+b.nights*DAY;$("f-out").textContent="Check-out: "+dm(fromT(e))+" ("+WD[new Date(e).getUTCDay()]+") · "+b.nights+" "+plural(b.nights,"night","nights","nights");}
   else $("f-out").textContent=b.nights===0?"0 nights — e.g. the balance for a booking already recorded":"";
   const tot=[b.mdl,b.eur,b.usd,b.oth,b.util].some(x=>isNaN(x))?null:eurOf(b)+utilEur(b);
@@ -1480,7 +1486,7 @@ function unitForm(a){const u=unitOf(a),b=u.beds||{},groups=[...new Set(cfg.apts.
     <div class="grid4">${n("uf-area",u.area,"Size, m²","45")}${n("uf-bedrooms",u.bedrooms,"Bedrooms","1")}${n("uf-baths",u.baths,"Bathrooms","1")}${n("uf-floor",u.floor,"Floor","")}</div>
     <label class="l">Beds</label>
     <div class="grid4 ubeds">${BEDT.map(([k,t])=>`<div class="ubed"><small>${t}</small><div class="stp"><button type="button" data-ustep="${k}" data-d="-1" aria-label="−">−</button><b id="uf-b-${k}">${b[k]||0}</b><button type="button" data-ustep="${k}" data-d="1" aria-label="+">+</button></div></div>`).join("")}</div>
-    <div class="grid2">${n("uf-guests",u.guests,"Max guests","by beds: "+capAuto(u))}${n("uf-price",u.price,"Price per night","optional")}</div>
+    <div class="grid2">${n("uf-guests",u.guests,"Max guests","by beds: "+capAuto(u))}<div><label class="l" for="uf-price">Price per night</label><div class="pcur"><input type="text" inputmode="decimal" id="uf-price" value="${esc(u.price??"")}" placeholder="optional"><select id="uf-pcur" aria-label="Currency">${[["EUR","€"],["MDL","lei"],["USD","$"]].map(([c,l])=>`<option value="${c}"${(u.pcur||"EUR")===c?" selected":""}>${l}</option>`).join("")}</select></div></div></div>
     <div class="grid2"><div><label class="l" for="uf-cin">Check-in from</label><input type="time" id="uf-cin" value="${esc(u.cin||"14:00")}"></div><div><label class="l" for="uf-cout">Check-out by</label><input type="time" id="uf-cout" value="${esc(u.cout||"12:00")}"></div></div>
     <label class="l">Amenities</label>
     <div class="uamen">${AMEN.map(([k,t])=>`<button type="button" data-uamen="${k}" aria-pressed="${(u.amen||[]).includes(k)}">${t}</button>`).join("")}</div>
@@ -1506,10 +1512,19 @@ function hotelForm(){return `<div class="card uform"><b>Hotel or guesthouse room
 // room names: just the number; if a name is taken, the hotel name goes in front
 function roomNames(hotel,start,n,taken){const out=[];let s=parseInt(start,10);if(!(s>=0))s=1;
   for(let i=0;i<n;i++){let nm=String(s+i);if(taken.includes(nm)||out.includes(nm))nm=(hotel?hotel+" ":"")+nm;out.push(nm)}return out}
+// a hotel's room types: how many rooms, their rate (same for the whole type)
+function typeRates(G){const by={};G.items.forEach(([a])=>{const u=unitOf(a);if(u.rtype){(by[u.rtype]=by[u.rtype]||{n:0,price:"",pcur:u.pcur||"EUR"}).n++;if(+u.price>0)by[u.rtype].price=u.price,by[u.rtype].pcur=u.pcur||"EUR"}});
+  const ks=Object.keys(by);if(!ks.length)return "";
+  return `<div class="trates"><small>Rates by room type</small>${ks.map(k=>`<div class="trate"><span>${esc((ROOMT[k]||[k])[0])} <em>× ${by[k].n}</em></span><input type="text" inputmode="decimal" data-trate="${esc(k)}" data-tgrp="${esc(G.g)}" value="${esc(by[k].price)}" placeholder="price/night" aria-label="Price"><select data-trcur="${esc(k)}" aria-label="Currency">${[["EUR","€"],["MDL","lei"],["USD","$"]].map(([c,l])=>`<option value="${c}"${by[k].pcur===c?" selected":""}>${l}</option>`).join("")}</select></div>`).join("")}
+    ${RO?"":`<button type="button" class="btn sm" data-trsave="${esc(G.g)}">Save rates</button>`}</div>`}
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-trsave]");if(!t)return;const g=t.dataset.trsave,units={...(cfg.units||{})};
+  t.closest(".trates").querySelectorAll("[data-trate]").forEach(inp=>{const k=inp.dataset.trate,v=String(inp.value).replace(",",".").trim(),cur=t.closest(".trates").querySelector(`[data-trcur="${k}"]`).value;
+    cfg.apts.forEach(a=>{const u=unitOf(a);if(u.group===g&&u.rtype===k){const x={...u};if(v===""||!(+v>0)){delete x.price;delete x.pcur}else{x.price=+v;x.pcur=cur}units[a]=x}})});
+  saveCfg({...cfg,units},"Rates saved")});
 function aptsSection(){
   const groups=[];cfg.apts.forEach((a,i)=>{const g=unitOf(a).group||"";let G=groups.find(x=>x.g===g);if(!G)groups.push(G={g,items:[]});G.items.push([a,i])});
   const multi=groups.length>1||groups[0]&&groups[0].g;
-  return `<div class="card" style="padding-top:6px">${groups.map(G=>`${multi?`<div class="ugrp"><b>${G.g?esc(G.g):"No building"}</b><small>${G.items.length}</small></div>`:""}${G.items.map(([a,i])=>unitCard(a,i)).join("")}`).join("")}
+  return `<div class="card" style="padding-top:6px">${groups.map(G=>`${multi?`<div class="ugrp"><b>${G.g?esc(G.g):"No building"}</b><small>${G.items.length}</small></div>`:""}${G.g?typeRates(G):""}${G.items.map(([a,i])=>unitCard(a,i)).join("")}`).join("")}
       <div class="actions"><button class="btn primary" id="save-addr">Save addresses</button></div></div>
     <div class="card"><b>Add</b>
       <div class="setadd two" style="margin-top:8px"><input type="text" id="new-apt" placeholder="Name: Apartment Decebal 6"><button class="btn" id="add-apt">＋ Apartment or house</button></div>
@@ -1520,7 +1535,7 @@ function aptsSection(){
 function unitSave(a){const num0=id=>{const v=String(($(id)||{}).value||"").replace(",",".").trim();return v===""?"":Math.max(0,+v||0)};
   const beds={};BEDT.forEach(([k])=>{const v=+(($("uf-b-"+k)||{}).textContent||0);if(v>0)beds[k]=v});
   const u={kind:$("uf-kind").value,group:$("uf-group").value.trim().slice(0,60),area:num0("uf-area"),bedrooms:num0("uf-bedrooms"),baths:num0("uf-baths"),floor:($("uf-floor").value||"").trim().slice(0,10),
-    beds,guests:num0("uf-guests"),price:num0("uf-price"),cin:$("uf-cin").value,cout:$("uf-cout").value,
+    beds,guests:num0("uf-guests"),price:num0("uf-price"),pcur:num0("uf-price")===""?"":$("uf-pcur").value,cin:$("uf-cin").value,cout:$("uf-cout").value,
     amen:[...document.querySelectorAll("[data-uamen][aria-pressed=true]")].map(x=>x.dataset.uamen),note:$("uf-note").value.trim().slice(0,500)};
   Object.keys(u).forEach(k=>{if(u[k]===""||u[k]==null||(Array.isArray(u[k])&&!u[k].length)||(k==="beds"&&!Object.keys(u.beds).length))delete u[k]});
   uOpen="";saveCfg({...cfg,units:{...(cfg.units||{}),[a]:u}},"Saved")}
@@ -1778,8 +1793,9 @@ function renderCal(){
   head+=`</div></div></div>`;
   const tdMark=tdIdx>=0&&tdIdx<n?`<i class="td" style="left:${tdIdx*W}px"></i>`:"";
   let rows="";
-  const occ=occMap();
+  const occ=occMap(), grouped=cfg.apts.some(a=>unitOf(a).group);let lastG=null,nG=0;
   for(const a of cfg.apts){
+    if(grouped){const g=unitOf(a).group||"";if(g!==lastG){lastG=g;nG++;rows+=`<div class="sh-grp" style="width:${Lw+n*W}px"><b>${esc(g||"Others")}</b></div>`}}
     let nights=0; for(let i=0;i<n;i++) if(occ[a+"|"+(s0+i*DAY)]) nights++;
     const list=bookings.filter(b=>b.apt===a&&b.nights>0&&toT(b.date)<s0+n*DAY&&toT(b.date)+b.nights*DAY>s0).sort((x,y)=>x.date.localeCompare(y.date));
     let bars="";
@@ -1798,7 +1814,7 @@ function renderCal(){
   }
   $("c-body").innerHTML=`<div class="sh sq" style="--W:${W}px;--L:${Lw}px;--H:${H}px;width:${Lw+n*W}px">${head}${rows}</div>`;
   {const el=$("c-body"),key=todayStr()+"|"+W,keep=calKey===key?el.scrollLeft:null,t0=el.scrollTop;calKey=key;
-   el.style.height=(HEADH+cfg.apts.length*H+2)+"px";el.style.scrollPaddingLeft=Lw+"px";
+   el.style.height=(HEADH+cfg.apts.length*H+nG*22+2)+"px";el.style.scrollPaddingLeft=Lw+"px";
    requestAnimationFrame(()=>{el.scrollLeft=keep!=null?keep:BACK*W;el.scrollTop=t0;
      // layout may settle after the first paint (header hidden, fonts): re-fit once if the size should change
      calMon();el.onscroll=()=>{cancelAnimationFrame(calMR);calMR=requestAnimationFrame(calMon)};
