@@ -1507,7 +1507,8 @@ function aptsSection(){
       <div class="actions"><button class="btn primary" id="save-addr">Salvează adresele</button></div></div>
     <div class="card"><b>Adaugă</b>
       <div class="setadd two" style="margin-top:8px"><input type="text" id="new-apt" placeholder="Nume: Apartament Decebal 6"><button class="btn" id="add-apt">＋ Apartament sau casă</button></div>
-      <button type="button" class="btn" data-uhotel="1" style="margin-top:8px;width:100%">＋ Camere de hotel sau hostel</button></div>
+      <button type="button" class="btn" data-uhotel="1" style="margin-top:8px;width:100%">＋ Camere de hotel sau hostel</button>
+      <button type="button" class="btn" data-wizagain="1" style="margin-top:8px;width:100%">✦ Asistent de configurare: obiecte și echipă, pas cu pas</button></div>
     ${uHotel?hotelForm():""}
     <p class="small" style="margin-bottom:0">Apasă pe ⚙ de lângă apartament ca să completezi suprafața, dormitoarele, paturile și dotările — menajerele vor vedea câtă lenjerie trebuie. Un apartament șters iese din calendar, dar rezervările și cheltuielile lui rămân în rapoarte.</p>`}
 function unitSave(a){const num0=id=>{const v=String(($(id)||{}).value||"").replace(",",".").trim();return v===""?"":Math.max(0,+v||0)};
@@ -1548,12 +1549,14 @@ function wizStart(){W={step:0,kinds:[],units:[{name:"",kind:"apt",bedrooms:"1",d
   mgr:[],cl:[],tiers:null,busy:false};
   api("billing").then(b=>{if(W){W.tiers=b.tiers;if(W.step===3)wizRender()}}).catch(()=>{});wizRender()}
 const WK=[["apt","Apartamente","chirie pe zi a apartamentelor și garsonierelor"],["house","Case și vile","întregi, cu sau fără curte"],["hotel","Hotel sau pensiune","camere de diferite tipuri"],["hostel","Hostel","paturi în camere comune"]];
-function wizUnits(){ // what the wizard will create
-  const taken=[],units={},apts=[];
-  if(W.kinds.includes("apt")||W.kinds.includes("house"))W.units.forEach((u,i)=>{let nm=(u.name||"").trim()||((u.kind==="house"||u.kind==="villa"?"Casă ":"Apartament ")+(i+1));while(apts.includes(nm))nm+=" ·";apts.push(nm);
+// what stays when the wizard adds units: everything except the untouched starter apartment
+const wizBase=()=>cfg.apts.filter(a=>!(a===DEF_APT&&!bookings.some(b=>b.apt===a)&&!Object.keys(unitOf(a)).length));
+function wizUnits(){ // what the wizard will create (new names never clash with existing ones)
+  const base=wizBase(),units={},apts=[],clash=nm=>apts.includes(nm)||base.includes(nm);
+  if(W.kinds.includes("apt")||W.kinds.includes("house"))W.units.forEach((u,i)=>{let nm=(u.name||"").trim()||((u.kind==="house"||u.kind==="villa"?"Casă ":"Apartament ")+(i+1));while(clash(nm))nm+=" ·";apts.push(nm);
     const beds={};["dbl","sgl","sofa"].forEach(k=>{if(+u[k]>0)beds[k]=+u[k]});const x={kind:u.kind,beds};if(+u.bedrooms>0)x.bedrooms=+u.bedrooms;if(+u.area>0)x.area=+u.area;if(+u.guests>0)x.guests=+u.guests;units[nm]=x});
   if(W.kinds.includes("hotel")||W.kinds.includes("hostel")){const h=W.hotel.name.trim()||"Hotel";let start=parseInt(W.hotel.start,10)||1;
-    W.hotel.rooms.forEach(r=>{const n=Math.max(0,Math.min(200,parseInt(r.n,10)||0));const names=roomNames(h,start,n,apts);start+=n;const [,beds,g]=ROOMT[r.t];
+    W.hotel.rooms.forEach(r=>{const n=Math.max(0,Math.min(200,parseInt(r.n,10)||0));const names=roomNames(h,start,n,[...base,...apts]);start+=n;const [,beds,g]=ROOMT[r.t];
       names.forEach(nm=>{apts.push(nm);units[nm]={kind:r.t==="bed"?"bed":"room",group:h,rtype:r.t,beds:{...beds},guests:+r.g||g}})})}
   return {apts,units}}
 function wizPrice(n){if(!W.tiers)return "";const t=W.tiers.find(([lo,hi])=>n<=hi);return t?t[2]+" lei/lună":"individual"}
@@ -1580,11 +1583,11 @@ function wizRender(){let el=$("wiz");if(!W){if(el)el.remove();document.body.clas
     <div class="wsec"><div class="wsh"><b>Menajere</b><span class="small">intră doar cu PIN și își văd curățeniile, fără bani</span></div>
       ${W.cl.map((m,i)=>`<div class="wr"><input type="text" data-wc="${i}" data-f="name" value="${esc(m.name)}" placeholder="Nume"><input type="text" inputmode="numeric" data-wc="${i}" data-f="pin" value="${esc(m.pin)}" placeholder="PIN, 4+ cifre"><button type="button" class="iconbtn" data-wcdel="${i}" aria-label="Scoate">✕</button></div>`).join("")}
       <button type="button" class="btn" data-wcadd="1">＋ Menajeră</button></div>`;
-  if(st===3){const {apts}=wizUnits(),mg=W.mgr.filter(m=>m.email.trim()),cl=W.cl.filter(m=>m.name.trim());
+  if(st===3){const {apts}=wizUnits(),total=wizBase().length+apts.length,mg=W.mgr.filter(m=>m.email.trim()),cl=W.cl.filter(m=>m.name.trim());
     body=`<h2>Totul e gata de pornire</h2>
       <div class="wsum"><div><b>${apts.length}</b><span>${plural(apts.length,"unitate","unități","unități")}</span></div><div><b>${mg.length}</b><span>${plural(mg.length,"manager","manageri","manageri")}</span></div><div><b>${cl.length}</b><span>${plural(cl.length,"menajeră","menajere","menajere")}</span></div></div>
       <p class="small">${esc(apts.slice(0,12).join(", "))}${apts.length>12?" …":""}</p>
-      ${apts.length>70?`<p class="msg bad">Peste 70 de unități — tariful e individual. Scrieți-ne și configurăm totul.</p>`:`<p>Tarif: <b>${wizPrice(apts.length)||"…"}</b>${ME&&ME.billing&&ME.billing.in_trial?" — după perioada de probă":""}. Plată în avans, se scade pe zile.</p>`}
+      ${total>70?`<p class="msg bad">Peste 70 de unități — tariful e individual. Scrieți-ne și configurăm totul.</p>`:`<p>${wizBase().length?`Total obiecte după adăugare: <b>${total}</b>. `:""}Tarif: <b>${wizPrice(total)||"…"}</b>${ME&&ME.billing&&ME.billing.in_trial?" — după perioada de probă":""}. Plată în avans, se scade pe zile.</p>`}
       ${mg.length?`<p class="small">Managerii primesc un email cu link — își aleg singuri parola.</p>`:""}
       ${cl.length?`<p class="small">Menajerele intră pe ${esc(ME.org.code)}.espace.md → «Sunt menajeră» cu PIN.</p>`:""}`}
   el.innerHTML=`<div class="wizc"><div class="wizh"><span class="wlogo">e.</span><div class="wsteps">${S.map((s,i)=>`<span class="${i<st?"done":i===st?"cur":""}">${s}</span>`).join("")}</div><button type="button" class="linkbtn" data-wiz="skip">Sari peste</button></div>
@@ -1601,6 +1604,7 @@ document.addEventListener("input",e=>{if(!W||!e.target.closest||!e.target.closes
   wizHPrev()});
 document.addEventListener("change",e=>{if(!W||!e.target.closest||!e.target.closest("#wiz"))return;const d=e.target.dataset;
   if(d.wu!=null)W.units[+d.wu][d.f]=e.target.value;if(d.wr!=null){W.hotel.rooms[+d.wr][d.f]=e.target.value;wizRender()}if(d.wm!=null)W.mgr[+d.wm][d.f]=e.target.value});
+document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("[data-wizagain]")&&!RO){wizStart();W.again=true;wizRender()}});
 document.addEventListener("click",async e=>{if(!W)return;const t=e.target.closest("#wiz [data-wk],#wiz [data-wiz],#wiz [data-wuadd],#wiz [data-wudel],#wiz [data-wradd],#wiz [data-wrdel],#wiz [data-wmadd],#wiz [data-wmdel],#wiz [data-wcadd],#wiz [data-wcdel]");if(!t)return;const d=t.dataset;
   if(d.wk){W.kinds=W.kinds.includes(d.wk)?W.kinds.filter(x=>x!==d.wk):[...W.kinds,d.wk];if(d.wk==="house"&&W.kinds.includes("house")&&!W.kinds.includes("apt"))W.units.forEach(u=>{if(u.kind==="apt")u.kind="house"});if(d.wk==="hostel"&&W.kinds.includes("hostel")&&!W.kinds.includes("hotel"))W.hotel.rooms=[{t:"bed",n:"8"}];wizRender();return}
   if(d.wuadd==="1"){W.units.push({name:"",kind:W.units[W.units.length-1].kind,bedrooms:"1",dbl:1,sgl:0,sofa:0,guests:"",area:""});wizRender();return}
@@ -1613,13 +1617,13 @@ document.addEventListener("click",async e=>{if(!W)return;const t=e.target.closes
   if(d.wcadd){W.cl.push({name:"",pin:""});wizRender();return}
   if(d.wcdel!=null){W.cl.splice(+d.wcdel,1);wizRender();return}
   if(d.wiz==="back"){W.step=Math.max(0,W.step-1);wizRender();return}
-  if(d.wiz==="skip"){W=null;wizRender();saveCfg({...cfg,onboarded:true},"Poți configura din Meniu → Setări");return}
+  if(d.wiz==="skip"){const again=W.again;W=null;wizRender();if(!again)saveCfg({...cfg,onboarded:true},"Poți configura din Meniu → Setări");return}
   if(d.wiz==="next"){
     if(W.step===1){const {apts}=wizUnits();if(!apts.length){toast("Adăugați cel puțin o unitate");return}}
     if(W.step===2){if(W.mgr.some(m=>m.email.trim()&&!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(m.email.trim()))){toast("Verifică email manageri");return}
       if(W.cl.some(m=>m.name.trim()&&String(m.pin).trim().length<4)){toast("PIN menajerei — minimum 4 cifre");return}}
     W.step++;wizRender();return}
-  if(d.wiz==="done"){const {apts,units}=wizUnits();if(apts.length>70){toast("Peste 70 — scrieți-ne");return}
+  if(d.wiz==="done"){const {apts:fresh,units}=wizUnits(),apts=[...wizBase(),...fresh];if(apts.length>70&&!(ME&&ME.billing&&ME.billing.custom)){toast("Peste 70 — scrieți-ne");return}
     W.busy=true;wizRender();const errs=[];
     try{await api("kv_set_config",{p_data:{...cfg,apts,units:{...(cfg.units||{}),...units},onboarded:true}})}catch(x){W.busy=false;wizRender();toast("Nu s-a salvat — verifică internetul");return}
     for(const c of W.cl.filter(m=>m.name.trim()))try{await api("kv_staff_save",{s:{id:null,name:c.name.trim(),salary:0,extra_rate:0,cycle_start:"",on_days:3,off_days:3,pin:String(c.pin).trim()}})}catch(x){errs.push(c.name)}

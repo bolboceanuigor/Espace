@@ -1507,7 +1507,8 @@ function aptsSection(){
       <div class="actions"><button class="btn primary" id="save-addr">Сохранить адреса</button></div></div>
     <div class="card"><b>Добавить</b>
       <div class="setadd two" style="margin-top:8px"><input type="text" id="new-apt" placeholder="Название: Квартира Decebal 6"><button class="btn" id="add-apt">＋ Квартира или дом</button></div>
-      <button type="button" class="btn" data-uhotel="1" style="margin-top:8px;width:100%">＋ Номера отеля или хостела</button></div>
+      <button type="button" class="btn" data-uhotel="1" style="margin-top:8px;width:100%">＋ Номера отеля или хостела</button>
+      <button type="button" class="btn" data-wizagain="1" style="margin-top:8px;width:100%">✦ Мастер настройки: объекты и команда по шагам</button></div>
     ${uHotel?hotelForm():""}
     <p class="small" style="margin-bottom:0">Нажми на ⚙ рядом с квартирой, чтобы заполнить площадь, спальни, кровати и удобства — горничные увидят, сколько белья нужно. Удалённая квартира уходит из календаря, но её брони и расходы остаются в отчётах.</p>`}
 function unitSave(a){const num0=id=>{const v=String(($(id)||{}).value||"").replace(",",".").trim();return v===""?"":Math.max(0,+v||0)};
@@ -1548,12 +1549,14 @@ function wizStart(){W={step:0,kinds:[],units:[{name:"",kind:"apt",bedrooms:"1",d
   mgr:[],cl:[],tiers:null,busy:false};
   api("billing").then(b=>{if(W){W.tiers=b.tiers;if(W.step===3)wizRender()}}).catch(()=>{});wizRender()}
 const WK=[["apt","Квартиры","посуточная аренда квартир и студий"],["house","Дома и виллы","целиком, с двором или без"],["hotel","Отель или гостевой дом","номера разных типов"],["hostel","Хостел","места в общих комнатах"]];
-function wizUnits(){ // what the wizard will create
-  const taken=[],units={},apts=[];
-  if(W.kinds.includes("apt")||W.kinds.includes("house"))W.units.forEach((u,i)=>{let nm=(u.name||"").trim()||((u.kind==="house"||u.kind==="villa"?"Дом ":"Квартира ")+(i+1));while(apts.includes(nm))nm+=" ·";apts.push(nm);
+// what stays when the wizard adds units: everything except the untouched starter apartment
+const wizBase=()=>cfg.apts.filter(a=>!(a===DEF_APT&&!bookings.some(b=>b.apt===a)&&!Object.keys(unitOf(a)).length));
+function wizUnits(){ // what the wizard will create (new names never clash with existing ones)
+  const base=wizBase(),units={},apts=[],clash=nm=>apts.includes(nm)||base.includes(nm);
+  if(W.kinds.includes("apt")||W.kinds.includes("house"))W.units.forEach((u,i)=>{let nm=(u.name||"").trim()||((u.kind==="house"||u.kind==="villa"?"Дом ":"Квартира ")+(i+1));while(clash(nm))nm+=" ·";apts.push(nm);
     const beds={};["dbl","sgl","sofa"].forEach(k=>{if(+u[k]>0)beds[k]=+u[k]});const x={kind:u.kind,beds};if(+u.bedrooms>0)x.bedrooms=+u.bedrooms;if(+u.area>0)x.area=+u.area;if(+u.guests>0)x.guests=+u.guests;units[nm]=x});
   if(W.kinds.includes("hotel")||W.kinds.includes("hostel")){const h=W.hotel.name.trim()||"Отель";let start=parseInt(W.hotel.start,10)||1;
-    W.hotel.rooms.forEach(r=>{const n=Math.max(0,Math.min(200,parseInt(r.n,10)||0));const names=roomNames(h,start,n,apts);start+=n;const [,beds,g]=ROOMT[r.t];
+    W.hotel.rooms.forEach(r=>{const n=Math.max(0,Math.min(200,parseInt(r.n,10)||0));const names=roomNames(h,start,n,[...base,...apts]);start+=n;const [,beds,g]=ROOMT[r.t];
       names.forEach(nm=>{apts.push(nm);units[nm]={kind:r.t==="bed"?"bed":"room",group:h,rtype:r.t,beds:{...beds},guests:+r.g||g}})})}
   return {apts,units}}
 function wizPrice(n){if(!W.tiers)return "";const t=W.tiers.find(([lo,hi])=>n<=hi);return t?t[2]+" лей/месяц":"индивидуально"}
@@ -1580,11 +1583,11 @@ function wizRender(){let el=$("wiz");if(!W){if(el)el.remove();document.body.clas
     <div class="wsec"><div class="wsh"><b>Горничные</b><span class="small">входят только по PIN и видят свои уборки, без денег</span></div>
       ${W.cl.map((m,i)=>`<div class="wr"><input type="text" data-wc="${i}" data-f="name" value="${esc(m.name)}" placeholder="Имя"><input type="text" inputmode="numeric" data-wc="${i}" data-f="pin" value="${esc(m.pin)}" placeholder="PIN, 4+ цифр"><button type="button" class="iconbtn" data-wcdel="${i}" aria-label="Убрать">✕</button></div>`).join("")}
       <button type="button" class="btn" data-wcadd="1">＋ Горничная</button></div>`;
-  if(st===3){const {apts}=wizUnits(),mg=W.mgr.filter(m=>m.email.trim()),cl=W.cl.filter(m=>m.name.trim());
+  if(st===3){const {apts}=wizUnits(),total=wizBase().length+apts.length,mg=W.mgr.filter(m=>m.email.trim()),cl=W.cl.filter(m=>m.name.trim());
     body=`<h2>Всё готово к запуску</h2>
       <div class="wsum"><div><b>${apts.length}</b><span>${plural(apts.length,"объект","объекта","объектов")}</span></div><div><b>${mg.length}</b><span>${plural(mg.length,"менеджер","менеджера","менеджеров")}</span></div><div><b>${cl.length}</b><span>${plural(cl.length,"горничная","горничные","горничных")}</span></div></div>
       <p class="small">${esc(apts.slice(0,12).join(", "))}${apts.length>12?" …":""}</p>
-      ${apts.length>70?`<p class="msg bad">Больше 70 объектов — тариф индивидуальный. Напишите нам, и мы всё настроим.</p>`:`<p>Тариф: <b>${wizPrice(apts.length)||"…"}</b>${ME&&ME.billing&&ME.billing.in_trial?" — после пробного периода":""}. Оплата вперёд, списывается по дням.</p>`}
+      ${total>70?`<p class="msg bad">Больше 70 объектов — тариф индивидуальный. Напишите нам, и мы всё настроим.</p>`:`<p>${wizBase().length?`Всего объектов будет: <b>${total}</b>. `:""}Тариф: <b>${wizPrice(total)||"…"}</b>${ME&&ME.billing&&ME.billing.in_trial?" — после пробного периода":""}. Оплата вперёд, списывается по дням.</p>`}
       ${mg.length?`<p class="small">Менеджерам придёт письмо со ссылкой — они сами зададут пароль.</p>`:""}
       ${cl.length?`<p class="small">Горничные входят на ${esc(ME.org.code)}.espace.md → «Я горничная» со своим PIN.</p>`:""}`}
   el.innerHTML=`<div class="wizc"><div class="wizh"><span class="wlogo">e.</span><div class="wsteps">${S.map((s,i)=>`<span class="${i<st?"done":i===st?"cur":""}">${s}</span>`).join("")}</div><button type="button" class="linkbtn" data-wiz="skip">Пропустить</button></div>
@@ -1601,6 +1604,7 @@ document.addEventListener("input",e=>{if(!W||!e.target.closest||!e.target.closes
   wizHPrev()});
 document.addEventListener("change",e=>{if(!W||!e.target.closest||!e.target.closest("#wiz"))return;const d=e.target.dataset;
   if(d.wu!=null)W.units[+d.wu][d.f]=e.target.value;if(d.wr!=null){W.hotel.rooms[+d.wr][d.f]=e.target.value;wizRender()}if(d.wm!=null)W.mgr[+d.wm][d.f]=e.target.value});
+document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("[data-wizagain]")&&!RO){wizStart();W.again=true;wizRender()}});
 document.addEventListener("click",async e=>{if(!W)return;const t=e.target.closest("#wiz [data-wk],#wiz [data-wiz],#wiz [data-wuadd],#wiz [data-wudel],#wiz [data-wradd],#wiz [data-wrdel],#wiz [data-wmadd],#wiz [data-wmdel],#wiz [data-wcadd],#wiz [data-wcdel]");if(!t)return;const d=t.dataset;
   if(d.wk){W.kinds=W.kinds.includes(d.wk)?W.kinds.filter(x=>x!==d.wk):[...W.kinds,d.wk];if(d.wk==="house"&&W.kinds.includes("house")&&!W.kinds.includes("apt"))W.units.forEach(u=>{if(u.kind==="apt")u.kind="house"});if(d.wk==="hostel"&&W.kinds.includes("hostel")&&!W.kinds.includes("hotel"))W.hotel.rooms=[{t:"bed",n:"8"}];wizRender();return}
   if(d.wuadd==="1"){W.units.push({name:"",kind:W.units[W.units.length-1].kind,bedrooms:"1",dbl:1,sgl:0,sofa:0,guests:"",area:""});wizRender();return}
@@ -1613,13 +1617,13 @@ document.addEventListener("click",async e=>{if(!W)return;const t=e.target.closes
   if(d.wcadd){W.cl.push({name:"",pin:""});wizRender();return}
   if(d.wcdel!=null){W.cl.splice(+d.wcdel,1);wizRender();return}
   if(d.wiz==="back"){W.step=Math.max(0,W.step-1);wizRender();return}
-  if(d.wiz==="skip"){W=null;wizRender();saveCfg({...cfg,onboarded:true},"Настроить можно в Меню → Настройки");return}
+  if(d.wiz==="skip"){const again=W.again;W=null;wizRender();if(!again)saveCfg({...cfg,onboarded:true},"Настроить можно в Меню → Настройки");return}
   if(d.wiz==="next"){
     if(W.step===1){const {apts}=wizUnits();if(!apts.length){toast("Добавьте хотя бы один объект");return}}
     if(W.step===2){if(W.mgr.some(m=>m.email.trim()&&!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(m.email.trim()))){toast("Проверь email менеджера");return}
       if(W.cl.some(m=>m.name.trim()&&String(m.pin).trim().length<4)){toast("PIN горничной — минимум 4 цифры");return}}
     W.step++;wizRender();return}
-  if(d.wiz==="done"){const {apts,units}=wizUnits();if(apts.length>70){toast("Больше 70 — напишите нам");return}
+  if(d.wiz==="done"){const {apts:fresh,units}=wizUnits(),apts=[...wizBase(),...fresh];if(apts.length>70&&!(ME&&ME.billing&&ME.billing.custom)){toast("Больше 70 — напишите нам");return}
     W.busy=true;wizRender();const errs=[];
     try{await api("kv_set_config",{p_data:{...cfg,apts,units:{...(cfg.units||{}),...units},onboarded:true}})}catch(x){W.busy=false;wizRender();toast("Не сохранилось — проверь интернет");return}
     for(const c of W.cl.filter(m=>m.name.trim()))try{await api("kv_staff_save",{s:{id:null,name:c.name.trim(),salary:0,extra_rate:0,cycle_start:"",on_days:3,off_days:3,pin:String(c.pin).trim()}})}catch(x){errs.push(c.name)}
