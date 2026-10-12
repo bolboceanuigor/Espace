@@ -136,6 +136,20 @@ export const mails = {
         { url: r.url, ro: "Deschide raportul", ru: "Открыть отчёт" }),
     };
   },
+  // the owner was paid for a month
+  ownerPaid: (org: string, r: { name: string; ym: string; amount: number; method: string; paidOn: string; url: string }) => {
+    const LRO = ["ianuarie", "februarie", "martie", "aprilie", "mai", "iunie", "iulie", "august", "septembrie", "octombrie", "noiembrie", "decembrie"];
+    const LRU = ["январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"];
+    const MRO: any = { bank: "prin transfer", cash: "în numerar", card: "pe card" }, MRU: any = { bank: "переводом", cash: "наличными", card: "на карту" };
+    const mi = +r.ym.slice(5, 7) - 1, y = r.ym.slice(0, 4);
+    return {
+      subject: `${org}: plata pentru ${LRO[mi]} ${y} — ${lei2(r.amount)} €`,
+      html: layout(
+        { title: `Plata pentru ${LRO[mi]} ${y}`, body: `<p>Bună${r.name ? ", " + esc(r.name) : ""}! <b>${esc(org)}</b> v-a achitat <b>${lei2(r.amount)} €</b> pentru ${LRO[mi]} ${y}, ${MRO[r.method] || ""}, pe ${dmy(r.paidOn)}.</p>` },
+        { title: `Выплата за ${LRU[mi]} ${y}`, body: `<p>${esc(org)} выплатил вам <b>${lei2(r.amount)} €</b> за ${LRU[mi]} ${y}, ${MRU[r.method] || ""}, ${dmy(r.paidOn)}.</p>` },
+        r.url ? { url: r.url, ro: "Vezi raportul", ru: "Открыть отчёт" } : undefined),
+    };
+  },
   // the day before check-in, to a guest who booked on the company's page: time, address, contact, the guest guide
   arrival: (org: string, r: any) => ({
     subject: `${org}: vă așteptăm mâine · ${r.apt}`,

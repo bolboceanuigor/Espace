@@ -91,5 +91,22 @@
 "видит свои квартиры в приложении": "își vede apartamentele în aplicație",
 "уже в команде с другой ролью": "e deja în echipă cu alt rol",
 "Дать доступ в приложение": "Dă acces în aplicație",
-"Собственник квартир": "Proprietar de apartamente"
+"Собственник квартир": "Proprietar de apartamente",
+"Выплата за этот месяц ещё не отмечена.": "Plata pentru această lună nu e încă marcată.",
+"Не выплачено за прошлые месяцы": "Neachitat pentru lunile trecute",
+"Отмечено, но письмо не ушло": "Marcat, dar emailul nu a plecat",
+"Сообщить собственнику на": "Anunță proprietarul pe",
+"Выплата собственнику": "Plata către proprietar",
+"Выплата отмечена": "Plata a fost marcată",
+"Отметить выплату": "Marchează plata",
+"Проверь сумму": "Verifică suma",
+"не выплачено": "neachitat",
+"отметил(а)": "marcat de",
+"переводом": "prin transfer",
+"Выплачено": "Achitat",
+"выплачено": "achitat",
+"наличными": "în numerar",
+"на карту": "pe card",
+"платежа": "plății",
+"Как": "Cum"
 }

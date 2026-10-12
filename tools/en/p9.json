@@ -91,5 +91,22 @@
 "видит свои квартиры в приложении": "sees their apartments in the app",
 "уже в команде с другой ролью": "is already in the team with another role",
 "Дать доступ в приложение": "Give access to the app",
-"Собственник квартир": "Apartment owner"
+"Собственник квартир": "Apartment owner",
+"Выплата за этот месяц ещё не отмечена.": "The payout for this month isn’t marked yet.",
+"Не выплачено за прошлые месяцы": "Not paid for earlier months",
+"Отмечено, но письмо не ушло": "Marked, but the email didn’t go out",
+"Сообщить собственнику на": "Tell the owner by",
+"Выплата собственнику": "Payout to the owner",
+"Выплата отмечена": "Payout marked",
+"Отметить выплату": "Mark as paid",
+"Проверь сумму": "Check the amount",
+"не выплачено": "not paid",
+"отметил(а)": "marked by",
+"переводом": "by transfer",
+"Выплачено": "Paid",
+"выплачено": "paid",
+"наличными": "in cash",
+"на карту": "to card",
+"платежа": "payment",
+"Как": "How"
 }

@@ -376,3 +376,17 @@ CREATE TABLE IF NOT EXISTS owner_reports (
   viewed_at TEXT NOT NULL DEFAULT ''
 );
 CREATE UNIQUE INDEX IF NOT EXISTS owner_reports_key ON owner_reports(org_id, owner_id, ym);
+
+-- payouts to apartment owners: one per owner and month, marked in the app after paying
+CREATE TABLE IF NOT EXISTS owner_payouts (
+  org_id TEXT NOT NULL,
+  owner_id TEXT NOT NULL,
+  ym TEXT NOT NULL,
+  amount REAL NOT NULL DEFAULT 0,
+  method TEXT NOT NULL DEFAULT '',        -- bank | cash | card
+  note TEXT NOT NULL DEFAULT '',
+  paid_on TEXT NOT NULL DEFAULT '',        -- the day the money went out
+  by_name TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  PRIMARY KEY (org_id, owner_id, ym)
+);

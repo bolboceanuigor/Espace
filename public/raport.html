@@ -31,6 +31,7 @@ h1{font-family:Unbounded,"Golos Text",sans-serif;font-weight:700;font-size:clamp
 .pay small{display:block;font-size:12.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--wine)}
 .pay b{display:block;font-family:Unbounded,"Golos Text",sans-serif;font-size:clamp(34px,8vw,52px);letter-spacing:-.03em;line-height:1.1;margin-top:6px;font-variant-numeric:tabular-nums}
 .pay span{color:var(--muted);font-size:14px}
+.pay .paid{display:block;margin-top:8px;color:var(--plus);font-weight:600}
 .sum{padding:8px 22px 14px}
 .row{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line)}
 .row:last-child{border-bottom:0}
@@ -65,11 +66,11 @@ tr.t td{font-weight:700;border-bottom:0}
 (function(){
 const T={
   ro:{months:["ianuarie","februarie","martie","aprilie","mai","iunie","iulie","august","septembrie","octombrie","noiembrie","decembrie"],title:"Raport lunar",for:"pentru",pay:"De plată către proprietar",payNeg:"Proprietarul datorează",inc:"Venit din rezervări",fee:"Comisionul administratorului",exp:"Cheltuieli ale apartamentelor",expNo:"Cheltuieli (nu se scad)",total:"De plată",nights:"Nopți ocupate",occ:"Ocupare",adr:"Preț mediu pe noapte",units:"apartamente",unit:"apartament",date:"Data",stay:"Nopți",guest:"Oaspete",amount:"Suma",none:"Nicio rezervare în această lună",sum:"Total apartament",yearly:"1/12 din cheltuiala anuală",split:"din",print:"Tipărește / PDF",
-    foot:(r,d)=>`Sume în euro, la cursul 1 € = ${r} lei. O rezervare care trece dintr-o lună în alta se împarte pe nopți. Actualizat ${d}.`,gone:"Raportul nu a fost găsit. Cereți un link nou administratorului.",n:"n."},
+    foot:(r,d)=>`Sume în euro, la cursul 1 € = ${r} lei. O rezervare care trece dintr-o lună în alta se împarte pe nopți. Actualizat ${d}.`,gone:"Raportul nu a fost găsit. Cereți un link nou administratorului.",n:"n.",paid:(a,d,m)=>`✓ Achitat ${a} pe ${d}, ${({bank:"prin transfer",cash:"în numerar",card:"pe card"})[m]||""}`},
   ru:{months:["январь","февраль","март","апрель","май","июнь","июль","август","сентябрь","октябрь","ноябрь","декабрь"],title:"Отчёт за месяц",for:"для",pay:"К выплате собственнику",payNeg:"Собственник должен",inc:"Доход от броней",fee:"Комиссия управляющего",exp:"Расходы квартир",expNo:"Расходы (не вычитаются)",total:"К выплате",nights:"Занято ночей",occ:"Загрузка",adr:"Средняя цена ночи",units:"квартир",unit:"квартира",date:"Дата",stay:"Ночей",guest:"Гость",amount:"Сумма",none:"В этом месяце броней нет",sum:"Итого по квартире",yearly:"1/12 годового расхода",split:"из",print:"Печать / PDF",
-    foot:(r,d)=>`Суммы в евро, по курсу 1 € = ${r} лей. Бронь на стыке месяцев делится по ночам. Обновлено ${d}.`,gone:"Отчёт не найден. Попросите у управляющего новую ссылку.",n:"н."},
+    foot:(r,d)=>`Суммы в евро, по курсу 1 € = ${r} лей. Бронь на стыке месяцев делится по ночам. Обновлено ${d}.`,gone:"Отчёт не найден. Попросите у управляющего новую ссылку.",n:"н.",paid:(a,d,m)=>`✓ Выплачено ${a} ${d}, ${({bank:"переводом",cash:"наличными",card:"на карту"})[m]||""}`},
   en:{months:["January","February","March","April","May","June","July","August","September","October","November","December"],title:"Monthly statement",for:"for",pay:"Payout to the owner",payNeg:"Owner owes",inc:"Income from bookings",fee:"Manager’s commission",exp:"Apartment expenses",expNo:"Expenses (not deducted)",total:"Payout",nights:"Nights booked",occ:"Occupancy",adr:"Average nightly rate",units:"apartments",unit:"apartment",date:"Date",stay:"Nights",guest:"Guest",amount:"Amount",none:"No bookings this month",sum:"Apartment total",yearly:"1/12 of a yearly expense",split:"of",print:"Print / PDF",
-    foot:(r,d)=>`Amounts in euro, at 1 € = ${r} lei. A booking across two months is split by nights. Updated ${d}.`,gone:"Statement not found. Ask your manager for a new link.",n:"n."}};
+    foot:(r,d)=>`Amounts in euro, at 1 € = ${r} lei. A booking across two months is split by nights. Updated ${d}.`,gone:"Statement not found. Ask your manager for a new link.",n:"n.",paid:(a,d,m)=>`✓ Paid ${a} on ${d}, ${({bank:"by transfer",cash:"in cash",card:"to card"})[m]||""}`}};
 // values stored in the company app in Russian (expense categories, sources)
 const DATA={ro:{"Уборка":"Curățenie","Ремонт":"Reparație","Коммунальные":"Utilități","Бельё и химия":"Lenjerie și detergenți","Интернет и ТВ":"Internet și TV","Налоги":"Impozite","Комиссии":"Comisioane","Прочее":"Altele","Прямой":"Direct","Повторный":"Revenit","Квартира":"Apartament"},
   en:{"Уборка":"Cleaning","Ремонт":"Repairs","Коммунальные":"Utilities","Бельё и химия":"Linen and supplies","Интернет и ТВ":"Internet and TV","Налоги":"Taxes","Комиссии":"Fees","Прочее":"Other","Прямой":"Direct","Повторный":"Returning","Квартира":"Apartment"},ru:{}};
@@ -89,7 +90,7 @@ function render(){const t=T[L];document.documentElement.lang=L;$("pr").textConte
   document.title=`${t.title} · ${t.months[mi]} ${y} · ${R.company}`;$("co").textContent=R.company;
   const occ=X.days?Math.round(X.nights/X.days*100):0,adr=X.nights?X.inc/X.nights:0;
   let h=`<h1>${esc(t.title)}<br>${esc(t.months[mi])} ${y}</h1><p class="sub">${D.owner&&D.owner.name?esc(t.for)+" <b>"+esc(D.owner.name)+"</b> · ":""}${units.length} ${units.length===1?t.unit:t.units}: ${units.map(u=>esc(u.apt)).join(", ")}</p>
-  <div class="sheet"><div class="pay"><small>${X.pay<0?t.payNeg:t.pay}</small><b>${money(Math.abs(X.pay))}</b></div>
+  <div class="sheet"><div class="pay"><small>${X.pay<0?t.payNeg:t.pay}</small><b>${money(Math.abs(X.pay))}</b>${R.paid?`<span class="paid">${esc(t.paid(money(R.paid.amount),R.paid.paid_on.slice(8,10)+"."+R.paid.paid_on.slice(5,7)+"."+R.paid.paid_on.slice(0,4),R.paid.method))}</span>`:""}</div>
     <div class="sum"><div class="row"><span>${t.inc}</span><span class="v">${money(X.inc)}</span></div>
       <div class="row"><span>${t.fee} · ${D.fee}%</span><span class="v minus">− ${money(X.fee)}</span></div>
       <div class="row"><span>${D.expDed?t.exp:t.expNo}</span><span class="v${D.expDed?" minus":""}">${D.expDed?"− ":""}${money(X.exp)}</span></div>

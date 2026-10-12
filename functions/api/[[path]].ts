@@ -352,7 +352,8 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     const r = /^[a-f0-9]{32}$/.test(tok) ? await one(db, "SELECT r.*, o.code, o.name AS org_name FROM owner_reports r JOIN orgs o ON o.id = r.org_id WHERE r.token = ?", tok) : null;
     if (!r || (reqSlug && r.code !== reqSlug)) return json({ message: "not_found" }, 404);
     await run(db, "UPDATE owner_reports SET views = views + 1, viewed_at = ? WHERE token = ?", nowIso(), tok);
-    return json({ company: r.org_name, slug: r.code, ym: r.ym, at: r.updated_at || r.created_at, data: JSON.parse(r.data) });
+    const paid = await one(db, "SELECT amount, method, paid_on FROM owner_payouts WHERE org_id = ? AND owner_id = ? AND ym = ?", r.org_id, r.owner_id, r.ym);
+    return json({ company: r.org_name, slug: r.code, ym: r.ym, at: r.updated_at || r.created_at, data: JSON.parse(r.data), paid: paid || null });
   }
   // ---------- direct booking page (<slug>.espace.md/rezerva), public ----------
   if (fn === "pub_listing" || fn === "pub_request" || fn === "pub_photo") {
@@ -951,9 +952,35 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
         expenses = await all(db, `SELECT date, apt, category, note, mdl, eur, usd, oth, oth_cur, yearly FROM expenses WHERE org_id = ? AND apt IN (${q}) AND date >= ? AND date < ? ORDER BY date`, O, ...apts, addDays(from, -366), till);
       }
       const reports = await all(db, "SELECT ym, token, sent_at, updated_at FROM owner_reports WHERE org_id = ? AND owner_id = ? ORDER BY ym DESC", O, ow.id);
+      const payouts = await all(db, "SELECT ym, amount, method, paid_on FROM owner_payouts WHERE org_id = ? AND owner_id = ? ORDER BY ym DESC", O, ow.id);
       return json({ company: org.name, slug: org.code, owner: { name: ow.name, fee: +ow.fee || 0, exp: ow.exp !== false }, apts, rates: cfg.rates || { eur: 20, usd: 0.9 }, other: cfg.other || [],
         units: Object.fromEntries(apts.map((a) => { const u = (cfg.units || {})[a] || {}; return [a, { kind: u.kind || "", area: u.area || "", bedrooms: u.bedrooms || "", guests: u.guests || "" }]; })),
-        bookings, expenses, reports });
+        bookings, expenses, reports, payouts });
+    }
+    case "kv_owner_payouts": { // payouts made to owners (all of them, or one owner)
+      const oid = str(body.owner, 40);
+      return json(oid ? await all(db, "SELECT * FROM owner_payouts WHERE org_id = ? AND owner_id = ? ORDER BY ym DESC", O, oid)
+        : await all(db, "SELECT * FROM owner_payouts WHERE org_id = ? ORDER BY ym DESC LIMIT 2000", O));
+    }
+    case "kv_owner_pay": { // mark a month as paid to the owner (or undo it); optionally tell the owner by email
+      const ym = str(body.ym, 7), oid = str(body.owner, 40);
+      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(ym)) return json({ message: "bad_month" }, 400);
+      const cfg = (await getConfig(db, O)) || {}, ow = (cfg.owners || []).find((x: any) => x && x.id === oid);
+      if (!ow) return json({ message: "no_owner" }, 404);
+      if (body.undo === true) { await run(db, "DELETE FROM owner_payouts WHERE org_id = ? AND owner_id = ? AND ym = ?", O, oid, ym); return json(true); }
+      const amount = Math.round(num(body.amount) * 100) / 100, method = ["bank", "cash", "card"].includes(body.method) ? body.method : "bank";
+      const paidOn = isDate(body.paid_on) ? body.paid_on : today();
+      if (!(amount >= 0) || amount > 10000000) return json({ message: "bad_amount" }, 400);
+      await run(db, `INSERT INTO owner_payouts(org_id, owner_id, ym, amount, method, note, paid_on, by_name) VALUES (?,?,?,?,?,?,?,?)
+        ON CONFLICT (org_id, owner_id, ym) DO UPDATE SET amount = excluded.amount, method = excluded.method, note = excluded.note, paid_on = excluded.paid_on, by_name = excluded.by_name`,
+        O, oid, ym, amount, method, str(body.note, 200), paidOn, str(c.user.name || c.user.email, 60));
+      let mailed = "";
+      const to = str(ow.email, 200).trim();
+      if (body.notify === true && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) {
+        const rep = await one(db, "SELECT token FROM owner_reports WHERE org_id = ? AND owner_id = ? AND ym = ?", O, oid, ym);
+        mailed = await sendMail(env, db, { to, ...mails.ownerPaid(org.name, { name: ow.name, ym, amount, method, paidOn, url: rep ? `https://${org.code}.espace.md/raport/${rep.token}` : "" }), kind: "owner_paid", orgId: O });
+      }
+      return json({ ok: true, mailed });
     }
     case "kv_owner_reports": { // which statements exist for a month: sent when, opened how many times
       const ym = str(body.ym, 7);

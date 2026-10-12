@@ -61,6 +61,7 @@ td{padding:8px 4px;border-top:1px solid var(--line);vertical-align:top}
 td.r{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 tr.ex td{color:var(--minus)}
 .muted{color:var(--muted)}
+.ok{color:var(--plus)}
 .year td,.year th{padding:8px 10px;border-top:1px solid var(--line);text-align:right;font-variant-numeric:tabular-nums}
 .year th{font-size:12px;color:var(--muted);font-weight:600;border-top:0}
 .year td:first-child,.year th:first-child{text-align:left}
@@ -87,22 +88,22 @@ const T={
   ro:{months:["Ianuarie","Februarie","Martie","Aprilie","Mai","Iunie","Iulie","August","Septembrie","Octombrie","Noiembrie","Decembrie"],mshort:["ian","feb","mar","apr","mai","iun","iul","aug","sep","oct","noi","dec"],wd:["L","Ma","Mi","J","V","S","D"],
     out:"Ieși",hello:n=>`Bună, ${n}`,pay:"De primit",payNeg:"De achitat",inc:"Venit din rezervări",fee:"Comisionul administratorului",exp:"Cheltuieli ale apartamentelor",expNo:"Cheltuieli (nu se scad)",nights:"Nopți ocupate",occ:"Ocupare",adr:"Preț mediu / noapte",
     sent:"Raportul lunii a fost trimis",open:"deschide",prelim:"Calcul curent — se poate schimba până la raportul lunii",busy:"ocupat",block:"închis",today:"azi",none:"Nicio rezervare în această lună",year:y=>`Anul ${y}`,month:"Luna",payCol:"De primit",reps:"Rapoarte primite",noReps:"Încă nu ați primit rapoarte.",
-    foot:r=>`Sume în euro, la cursul 1 € = ${r} lei. O rezervare care trece dintr-o lună în alta se împarte pe nopți.`,noOwner:"Contul dumneavoastră nu e legat încă de apartamente. Scrieți administratorului.",err:"Nu s-a încărcat. Încercați din nou peste un minut.",total:"Total",n:"n.",of:"din",units:"apartamente",unit:"apartament",blocked:"închis de proprietar"},
+    foot:r=>`Sume în euro, la cursul 1 € = ${r} lei. O rezervare care trece dintr-o lună în alta se împarte pe nopți.`,noOwner:"Contul dumneavoastră nu e legat încă de apartamente. Scrieți administratorului.",err:"Nu s-a încărcat. Încercați din nou peste un minut.",total:"Total",n:"n.",of:"din",units:"apartamente",unit:"apartament",blocked:"închis de proprietar",paid:(a,d,m)=>`Achitat ${a} pe ${d}, ${({bank:"prin transfer",cash:"în numerar",card:"pe card"})[m]||""}`,unpaid:"Încă neachitat"},
   ru:{months:["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"],mshort:["янв","фев","мар","апр","май","июн","июл","авг","сен","окт","ноя","дек"],wd:["Пн","Вт","Ср","Чт","Пт","Сб","Вс"],
     out:"Выйти",hello:n=>`Здравствуйте, ${n}`,pay:"К получению",payNeg:"К оплате",inc:"Доход от броней",fee:"Комиссия управляющего",exp:"Расходы квартир",expNo:"Расходы (не вычитаются)",nights:"Занято ночей",occ:"Загрузка",adr:"Средняя цена ночи",
     sent:"Отчёт за месяц отправлен",open:"открыть",prelim:"Текущий расчёт — может измениться до отчёта за месяц",busy:"занято",block:"закрыто",today:"сегодня",none:"В этом месяце броней нет",year:y=>`${y} год`,month:"Месяц",payCol:"К получению",reps:"Полученные отчёты",noReps:"Отчётов пока нет.",
-    foot:r=>`Суммы в евро, по курсу 1 € = ${r} лей. Бронь на стыке месяцев делится по ночам.`,noOwner:"Ваш аккаунт ещё не привязан к квартирам. Напишите управляющему.",err:"Не загрузилось. Попробуйте через минуту.",total:"Итого",n:"н.",of:"из",units:"квартир",unit:"квартира",blocked:"закрыто собственником"},
+    foot:r=>`Суммы в евро, по курсу 1 € = ${r} лей. Бронь на стыке месяцев делится по ночам.`,noOwner:"Ваш аккаунт ещё не привязан к квартирам. Напишите управляющему.",err:"Не загрузилось. Попробуйте через минуту.",total:"Итого",n:"н.",of:"из",units:"квартир",unit:"квартира",blocked:"закрыто собственником",paid:(a,d,m)=>`Выплачено ${a} ${d}, ${({bank:"переводом",cash:"наличными",card:"на карту"})[m]||""}`,unpaid:"Ещё не выплачено"},
   en:{months:["January","February","March","April","May","June","July","August","September","October","November","December"],mshort:["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],wd:["Mo","Tu","We","Th","Fr","Sa","Su"],
     out:"Sign out",hello:n=>`Hello, ${n}`,pay:"Your payout",payNeg:"You owe",inc:"Income from bookings",fee:"Manager’s commission",exp:"Apartment expenses",expNo:"Expenses (not deducted)",nights:"Nights booked",occ:"Occupancy",adr:"Average nightly rate",
     sent:"This month’s statement was sent",open:"open",prelim:"Running figure — may change until the month’s statement",busy:"booked",block:"closed",today:"today",none:"No bookings this month",year:y=>`Year ${y}`,month:"Month",payCol:"Payout",reps:"Statements received",noReps:"No statements yet.",
-    foot:r=>`Amounts in euro, at 1 € = ${r} lei. A booking across two months is split by nights.`,noOwner:"Your account isn’t linked to apartments yet. Write to your manager.",err:"Couldn’t load. Try again in a minute.",total:"Total",n:"n.",of:"of",units:"apartments",unit:"apartment",blocked:"closed"}};
+    foot:r=>`Amounts in euro, at 1 € = ${r} lei. A booking across two months is split by nights.`,noOwner:"Your account isn’t linked to apartments yet. Write to your manager.",err:"Couldn’t load. Try again in a minute.",total:"Total",n:"n.",of:"of",units:"apartments",unit:"apartment",blocked:"closed",paid:(a,d,m)=>`Paid ${a} on ${d}, ${({bank:"by transfer",cash:"in cash",card:"to card"})[m]||""}`,unpaid:"Not paid yet"}};
 const DATA={ro:{"Уборка":"Curățenie","Ремонт":"Reparație","Коммунальные":"Utilități","Бельё и химия":"Lenjerie și detergenți","Интернет и ТВ":"Internet și TV","Налоги":"Impozite","Комиссии":"Comisioane","Прочее":"Altele","Прямой":"Direct","Повторный":"Revenit","Квартира":"Apartament"},
   en:{"Уборка":"Cleaning","Ремонт":"Repairs","Коммунальные":"Utilities","Бельё и химия":"Linen and supplies","Интернет и ТВ":"Internet and TV","Налоги":"Taxes","Комиссии":"Fees","Прочее":"Other","Прямой":"Direct","Повторный":"Returning","Квартира":"Apartment"},ru:{}};
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const money=n=>(Math.round((+n||0)*100)/100).toLocaleString("ro-RO",{minimumFractionDigits:2,maximumFractionDigits:2})+" €";
 const money0=n=>Math.round(+n||0).toLocaleString("ro-RO")+" €";
-const DAY=864e5,toT=d=>Date.parse(d+"T00:00:00Z"),fromT=t=>new Date(t).toISOString().slice(0,10),dm=d=>d.slice(8,10)+"."+d.slice(5,7);
+const fdt=d=>d?d.slice(8,10)+"."+d.slice(5,7)+"."+d.slice(0,4):"",DAY=864e5,toT=d=>Date.parse(d+"T00:00:00Z"),fromT=t=>new Date(t).toISOString().slice(0,10),dm=d=>d.slice(8,10)+"."+d.slice(5,7);
 const tok=(()=>{try{return localStorage.getItem("kv_tok")||""}catch(e){return ""}})();
 const SLUG=(()=>{const h=location.hostname;if(h.endsWith(".espace.md"))return h.slice(0,-".espace.md".length);let c="";try{c=new URLSearchParams(location.search).get("c")||sessionStorage.getItem("es_c")||""}catch(e){}return c.toLowerCase()})();
 let L=(document.cookie.match(/(?:^|;\s*)es_lang=(ro|ru|en)/)||[])[1]||(navigator.languages||[navigator.language||""]).map(x=>String(x).slice(0,2).toLowerCase()).map(x=>x==="mo"?"ro":x).find(x=>T[x])||"ro";
@@ -137,12 +138,12 @@ function render(){const t=T[L];document.documentElement.lang=L;$("out").textCont
   if(err){$("main").innerHTML=`<div class="msg">${esc(err==="no_owner"?t.noOwner:t.err)}</div>`;return}
   if(!D)return;
   $("co").innerHTML=`${esc(D.company)}<small>${esc(t.hello(D.owner.name))}</small>`;document.title=D.company;
-  const R=calc(Y,M),ym=Y+"-"+String(M+1).padStart(2,"0"),rep=D.reports.find(r=>r.ym===ym&&r.sent_at),occ=R.days?Math.round(R.nights/R.days*100):0;
+  const R=calc(Y,M),ym=Y+"-"+String(M+1).padStart(2,"0"),paid=(D.payouts||[]).find(p=>p.ym===ym),rep=D.reports.find(r=>r.ym===ym&&r.sent_at),occ=R.days?Math.round(R.nights/R.days*100):0;
   const minT=toT(todayS)-13*31*DAY,maxT=toT(todayS)+12*31*DAY;
   let h=`<div class="mnav"><button type="button" data-mv="-1" aria-label="‹" ${mS(Y,M-1)<minT?"disabled":""}>‹</button><h1>${t.months[M]} ${Y}</h1><button type="button" data-mv="1" aria-label="›" ${mS(Y,M+1)>maxT?"disabled":""}>›</button></div>
   <p class="sub">${D.apts.length} ${D.apts.length===1?t.unit:t.units}: ${D.apts.map(esc).join(", ")}</p>
   <div class="card"><div class="pay"><small>${R.pay<0?t.payNeg:t.pay}</small><b>${money(Math.abs(R.pay))}</b>
-    <div class="st">${rep?`✓ ${t.sent} · <a href="/raport/${esc(rep.token)}">${t.open}</a>`:esc(t.prelim)}</div></div>
+    <div class="st">${paid?`<b class="ok">✓ ${esc(t.paid(money(paid.amount),fdt(paid.paid_on),paid.method))}</b><br>`:""}${rep?`✓ ${t.sent} · <a href="/raport/${esc(rep.token)}">${t.open}</a>`:esc(t.prelim)}${!paid&&rep?" · "+esc(t.unpaid):""}</div></div>
     <div class="sum"><div class="row"><span>${t.inc}</span><span class="v">${money(R.inc)}</span></div>
       <div class="row"><span>${t.fee} · ${D.owner.fee}%</span><span class="v minus">− ${money(R.fee)}</span></div>
       <div class="row"><span>${D.owner.exp?t.exp:t.expNo}</span><span class="v${D.owner.exp?" minus":""}">${D.owner.exp?"− ":""}${money(R.exp)}</span></div></div>
@@ -156,7 +157,7 @@ function render(){const t=T[L];document.documentElement.lang=L;$("out").textCont
   // the year at a glance
   const rows=[...Array(12)].map((_,m)=>({m,...calc(Y,m)})),tot=rows.reduce((x,r)=>({inc:x.inc+r.inc,pay:x.pay+r.pay,nights:x.nights+r.nights,days:x.days+r.days}),{inc:0,pay:0,nights:0,days:0});
   h+=`<h2>${t.year(Y)}</h2><div class="card"><table class="year" style="margin:0"><tr><th>${t.month}</th><th>${t.occ}</th><th>${t.inc}</th><th>${t.payCol}</th></tr>
-    ${rows.map(r=>`<tr class="${r.m===M?"cur":""}"><td>${t.mshort[r.m]}</td><td>${r.days?Math.round(r.nights/r.days*100):0}%</td><td>${r.inc?money0(r.inc):"—"}</td><td>${r.inc||r.exp?money0(r.pay):"—"}</td></tr>`).join("")}
+    ${rows.map(r=>`<tr class="${r.m===M?"cur":""}"><td>${t.mshort[r.m]}</td><td>${r.days?Math.round(r.nights/r.days*100):0}%</td><td>${r.inc?money0(r.inc):"—"}</td><td>${(D.payouts||[]).some(p=>p.ym===Y+"-"+String(r.m+1).padStart(2,"0"))?'<span class="ok">✓</span> ':""}${r.inc||r.exp?money0(r.pay):"—"}</td></tr>`).join("")}
     <tr class="tot"><td>${t.total}</td><td>${tot.days?Math.round(tot.nights/tot.days*100):0}%</td><td>${money0(tot.inc)}</td><td>${money0(tot.pay)}</td></tr></table></div>`;
   const reps=D.reports.filter(r=>r.sent_at);
   h+=`<h2>${t.reps}</h2><div class="card reps">${reps.length?reps.map(r=>`<a href="/raport/${esc(r.token)}"><b>${t.months[+r.ym.slice(5,7)-1]} ${r.ym.slice(0,4)}</b><span>${new Date(r.sent_at).toLocaleDateString(L==="en"?"en-GB":L==="ru"?"ru-RU":"ro-RO")} ›</span></a>`).join(""):`<div class="apt muted">${t.noReps}</div>`}</div>`;

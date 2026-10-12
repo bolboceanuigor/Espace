@@ -718,6 +718,8 @@ body.calmode .wrap{padding-bottom:0;max-width:none}
 .fapts{display:flex;flex-direction:column;gap:8px}
 .fowner{width:100%;text-align:left;border:0;background:var(--surface);color:var(--ink);border-radius:18px;padding:13px 14px;display:flex;flex-direction:column;gap:5px;margin-bottom:8px;cursor:pointer}
 .fowner .fa1{display:flex;justify-content:space-between;gap:10px}.fowner .fa3{font-size:13px;color:var(--muted)}.fowner .ost{font-size:12.5px;color:var(--accent)}
+.fowner .orow{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}.opd{font-style:normal;font-size:12.5px;font-weight:600;color:var(--exp)}.opd.ok{color:var(--ok)}
+.opaybox.ok{display:flex;flex-direction:column;gap:4px}.opaybox.ok b{color:var(--ok)}
 .ownapts{display:flex;flex-wrap:wrap;gap:6px}.ownapts label{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:6px 11px;font-size:13.5px;cursor:pointer}
 .ownapts label.on{border-color:var(--accent);background:rgba(var(--a1-rgb),.08)}.ownapts label.off{opacity:.5;cursor:default}.ownapts input{width:16px;height:16px;accent-color:var(--accent)}
 .otab{width:100%;border-collapse:collapse;font-size:13.5px}.otab td{padding:6px 4px;border-bottom:1px solid var(--line);vertical-align:top}.otab td.r{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}.otab tr.ex td{color:var(--exp)}
@@ -1581,15 +1583,44 @@ function ownerCalc(o,y=mon.y,m=mon.m){const st=monthStats(y,m),n=daysIn(y,m),apt
   const inc=r2(units.reduce((x,u)=>x+u.inc,0)),exp=r2(units.reduce((x,u)=>x+u.exp,0)),fee=r2(inc*(+o.fee||0)/100),ded=o.exp!==false;
   return {owner:{name:o.name||""},fee:+o.fee||0,expDed:ded,rate:cfg.rates.eur,units,tot:{inc,exp,fee,pay:r2(inc-fee-(ded?exp:0)),nights:units.reduce((x,u)=>x+u.nights,0),days:n*units.length}}}
 const ymNow=()=>mon.y+"-"+String(mon.m+1).padStart(2,"0");
-let ownSt={}; // statements of the shown month: owner id → {sent_at, views, …}
-async function ownStatus(){const ym=ymNow();try{const l=await api("kv_owner_reports",{ym});if(ymNow()!==ym)return;ownSt={};(l||[]).forEach(x=>ownSt[x.owner_id]=x)}catch(e){return}
-  document.querySelectorAll("[data-ostat]").forEach(el=>el.textContent=ownStTxt(ownSt[el.dataset.ostat]))}
+let ownSt={}, OWP=null; // statements of the shown month: owner id → {sent_at, views, …}; payouts: owner id → {ym: row}
+async function ownStatus(){const ym=ymNow();try{const [l,pp]=await Promise.all([api("kv_owner_reports",{ym}),api("kv_owner_payouts")]);if(ymNow()!==ym)return;ownSt={};(l||[]).forEach(x=>ownSt[x.owner_id]=x);
+  OWP={};(pp||[]).forEach(x=>{(OWP[x.owner_id]=OWP[x.owner_id]||{})[x.ym]=x})}catch(e){return}
+  document.querySelectorAll("[data-ostat]").forEach(el=>el.textContent=ownStTxt(ownSt[el.dataset.ostat]));
+  document.querySelectorAll("[data-opaid]").forEach(el=>el.innerHTML=ownPaidBadge(el.dataset.opaid));
+  const pb=$("own-pay");if(pb)pb.innerHTML=ownPayBlock(pb.dataset.owner)}
+const PAY_M={bank:"prin transfer",cash:"în numerar",card:"pe card"};
+const ownPaid=(id,ym=ymNow())=>OWP&&OWP[id]&&OWP[id][ym];
+function ownPaidBadge(id){if(!OWP)return "";const x=ownPaid(id),o=(cfg.owners||[]).find(q=>q.id===id);if(x)return `<em class="opd ok">✓ achitat ${fmt(x.amount)} € · ${dm(x.paid_on)}</em>`;
+  return o&&ownerCalc(o).tot.pay>0.5&&ymNow()<=todayStr().slice(0,7)?`<em class="opd">neachitat</em>`:""}
+// months before the shown one with something to pay and no payout marked (last 12)
+function ownDebts(o){if(!OWP)return [];const out=[];for(let i=1;i<=12;i++){const t=new Date(Date.UTC(mon.y,mon.m-i,1)),y=t.getUTCFullYear(),m=t.getUTCMonth(),ym=y+"-"+String(m+1).padStart(2,"0");
+  if(ownPaid(o.id,ym))continue;const r=ownerCalc(o,y,m);if(r.tot.pay>0.5)out.push({y,m,ym,pay:r.tot.pay})}return out}
+function ownPayBlock(id){const o=(cfg.owners||[]).find(q=>q.id===id);if(!o)return "";if(!OWP)return `<span class="small">…</span>`;
+  const x=ownPaid(id),T=ownerCalc(o).tot,debts=ownDebts(o);
+  let h=x?`<div class="opaybox ok"><b>✓ Achitat ${fmt(x.amount)} €</b><span class="small">${fd(x.paid_on)} · ${PAY_M[x.method]||""}${x.note?" · "+esc(x.note):""}${x.by_name?" · marcat de "+esc(x.by_name):""}</span>${RO?"":`<button type="button" class="linkbtn" data-opundo="${esc(id)}">Anulează bifa</button>`}</div>`
+    :RO?`<p class="small">Plata pentru această lună nu e încă marcată.</p>`:`<div class="opaybox"><div class="grid2"><div><label class="l" for="op-amt">Achitat, €</label><input id="op-amt" inputmode="decimal" value="${T.pay>0?Math.round(T.pay*100)/100:0}"></div>
+      <div><label class="l" for="op-date">Data</label><input type="date" id="op-date" value="${todayStr()}"></div></div>
+      <div class="grid2"><div><label class="l" for="op-m">Cum</label><select id="op-m" style="width:100%;height:40px">${Object.entries(PAY_M).map(([k,v])=>`<option value="${k}">${v}</option>`).join("")}</select></div>
+      <div><label class="l" for="op-note">Notă</label><input id="op-note" placeholder="№ plății"></div></div>
+      ${o.email?`<label class="dtog" style="margin-top:10px"><input type="checkbox" id="op-notify" checked><span><b>Anunță proprietarul pe email</b><small>${esc(o.email)}</small></span></label>`:""}
+      <div class="actions"><button type="button" class="btn primary" data-opay="${esc(id)}">Marchează plata</button></div></div>`;
+  if(debts.length)h+=`<p class="small" style="margin-bottom:0"><b>Neachitat pentru lunile trecute:</b> ${debts.map(d=>`<button type="button" class="linkbtn" data-ogo="${d.ym}">${MONTHS[d.m]} ${d.y} — ${fmt0(d.pay)} €</button>`).join(", ")}</p>`;
+  return h}
+document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("[data-opay],[data-opundo],[data-ogo]");if(!t)return;const d=t.dataset;
+  if(d.ogo){const id=sheetCtx&&sheetCtx.apt;mon.y=+d.ogo.slice(0,4);mon.m=+d.ogo.slice(5,7)-1;renderView();if(id)ownerSheet(id);return}
+  const id=d.opay||d.opundo;
+  if(d.opundo){try{await api("kv_owner_pay",{owner:id,ym:ymNow(),undo:true});toast("Bifa a fost anulată")}catch(x){toast("Nu a reușit");return}}
+  else{const amount=+String($("op-amt").value).replace(",",".").replace(/\s/g,"");if(!(amount>=0)){toast("Verifică suma");return}
+    t.disabled=true;try{const r=await api("kv_owner_pay",{owner:id,ym:ymNow(),amount,paid_on:$("op-date").value,method:$("op-m").value,note:$("op-note").value.trim(),notify:!!($("op-notify")&&$("op-notify").checked)});
+      toast(r.mailed==="failed"?"Marcat, dar emailul nu a plecat":"Plata a fost marcată")}catch(x){t.disabled=false;toast(x.code==="no_owner"?"Mai întâi salvează proprietarul în Setări":"Nu a reușit");return}}
+  await ownStatus();renderView()});
 const ownStTxt=x=>!x?"":x.sent_at?`raport trimis ${fdtS(x.sent_at).slice(0,5)}${x.views?` · vizualizări: ${x.views}`:" · încă nedeschis"}`:x.views?`vizualizări: ${x.views}`:"link creat";
 function finOwners(){const O=cfg.owners||[];
   if(!O.length)return RO?"":`<h3>Proprietari</h3><div class="empty">Administrezi apartamente ale altor proprietari? Adaugă-i în <button type="button" class="linkbtn" data-setsec="owners">⚙ Setări → Proprietari</button> — aici vei vedea cât trebuie să le plătești, iar raportul lunar le pleacă prin link.</div>`;
   setTimeout(ownStatus,0);
   return `<h3>Proprietari · ${MONTHS[mon.m].toLowerCase()}</h3>${O.map(o=>{const r=ownerCalc(o);return `<button type="button" class="fowner" data-owner="${esc(o.id)}"><div class="fa1"><b>${esc(o.name||"—")}</b><strong>${fmt0(r.tot.pay)} €</strong></div>
-    <div class="fa3">${r.units.length} ${plural(r.units.length,"unitate","unități","unități")} · venit ${fmt0(r.tot.inc)} € · comision ${r.fee}% ${fmt0(r.tot.fee)} €${r.expDed?` · cheltuieli ${fmt0(r.tot.exp)} €`:""}</div><span class="ost" data-ostat="${esc(o.id)}">${esc(ownStTxt(ownSt[o.id]))}</span></button>`}).join("")}`}
+    <div class="fa3">${r.units.length} ${plural(r.units.length,"unitate","unități","unități")} · venit ${fmt0(r.tot.inc)} € · comision ${r.fee}% ${fmt0(r.tot.fee)} €${r.expDed?` · cheltuieli ${fmt0(r.tot.exp)} €`:""}</div><span class="orow"><span class="ost" data-ostat="${esc(o.id)}">${esc(ownStTxt(ownSt[o.id]))}</span><span data-opaid="${esc(o.id)}">${ownPaidBadge(o.id)}</span></span></button>`}).join("")}`}
 function ownerSheet(id){const o=(cfg.owners||[]).find(x=>x.id===id);if(!o)return;const r=ownerCalc(o),T=r.tot;
   const html=`<p class="small" style="margin:0 0 10px">${MONTHS[mon.m]} ${mon.y} · ${r.units.length} ${plural(r.units.length,"unitate","unități","unități")} · ocupat ${T.nights} din ${T.days} nopți</p>
     <div class="tiles"><div class="tile inc"><span>Venit</span><b class="num">${fmt0(T.inc)} €</b><small>${T.nights} ${plural(T.nights,"noapte","nopți","nopți")}</small></div>
@@ -1597,6 +1628,8 @@ function ownerSheet(id){const o=(cfg.owners||[]).find(x=>x.id===id);if(!o)return
       <div class="tile exp"><span>Cheltuieli</span><b class="num">${fmt0(T.exp)} €</b><small>${r.expDed?"se scad":"nu se scad"}</small></div>
       <div class="tile ok"><span>De plată</span><b class="num">${T.pay<0?"−":""}${fmt(Math.abs(T.pay))} €</b><small>venit − comision${r.expDed?" − cheltuieli":""}</small></div></div>
     <p class="small" id="own-st">${esc(ownStTxt(ownSt[o.id]))}</p>
+    <h3>Plata către proprietar</h3><div class="card" id="own-pay" data-owner="${esc(o.id)}">${ownPayBlock(o.id)}</div>
+    <h3>Raport</h3>
     ${RO?"":`<div class="actions">${o.email?`<button class="btn primary" data-osend="${esc(o.id)}">✉ Trimite raportul la ${esc(o.email)}</button>`:""}<button class="btn" data-ocopy="${esc(o.id)}">Copiază linkul</button><button class="btn" data-oopen="${esc(o.id)}">Deschide raportul</button></div>
       ${o.email?"":`<p class="small">Adaugă email proprietarului în Setări — raportul îi va pleca pe email.</p>`}`}
     ${r.units.map(u=>`<h3>${esc(u.apt)} <span class="count">${u.nights}/${u.days}</span></h3><div class="card" style="padding:8px 12px"><table class="otab">
