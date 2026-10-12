@@ -52,14 +52,25 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           MAIL_FROM: ${{ secrets.MAIL_FROM }}
           MAIL_REPLY_TO: ${{ secrets.MAIL_REPLY_TO }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         run: |
-          for k in SUPERADMIN_EMAIL CRON_KEY RESEND_API_KEY MAIL_FROM MAIL_REPLY_TO; do
+          for k in SUPERADMIN_EMAIL CRON_KEY RESEND_API_KEY MAIL_FROM MAIL_REPLY_TO TELEGRAM_BOT_TOKEN; do
             v="${!k}"; if [ -n "$v" ]; then echo "$v" | npx wrangler pages secret put "$k" --project-name espace > /dev/null; echo "set $k"; fi
           done
       - name: Deploy
         run: |
           npx wrangler pages deploy public --project-name espace --branch main --commit-dirty=true > /tmp/out.txt 2>&1 || { echo "::error::deploy failed: $(tr '\n' ' ' < /tmp/out.txt | tail -c 600)"; exit 1; }
           echo "::notice::Deployed: $(grep -o 'https://[a-z0-9.-]*pages.dev' /tmp/out.txt | tail -1)"
+      - name: Telegram bot webhook (managers' notifications)
+        continue-on-error: true
+        env:
+          TG: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CRON_KEY: ${{ secrets.CRON_KEY }}
+        run: |
+          if [ -z "$TG" ] || [ -z "$CRON_KEY" ]; then echo "::notice::Telegram bot not configured (TELEGRAM_BOT_TOKEN)"; exit 0; fi
+          SECRET=$(printf '%s' "$CRON_KEY" | sha256sum | cut -c1-32)
+          R=$(curl -s "https://api.telegram.org/bot$TG/setWebhook" --data-urlencode "url=https://espace.md/api/tg_webhook" -d "secret_token=$SECRET" -d 'allowed_updates=["message"]')
+          echo "::notice::Telegram webhook: $(echo "$R" | jq -c '{ok,description}')"
       - name: Router for espace.md and *.espace.md
         # needs the espace.md zone on Cloudflare and a token with Workers Scripts: Edit + Workers Routes: Edit
         continue-on-error: true

@@ -7,6 +7,8 @@ export interface Env {
   RESEND_API_KEY?: string;   // emails (resend.com); without it emails are only logged
   MAIL_FROM?: string;        // e.g. "espace.md <noreply@espace.md>"
   MAIL_REPLY_TO?: string;    // where replies go, e.g. the owner's inbox
+  TELEGRAM_BOT_TOKEN?: string; // the espace.md bot: managers link their Telegram and get the app's notifications there
+  TELEGRAM_API?: string;       // only for local tests: a fake Telegram API address
 }
 
 export const json = (data: unknown, status = 200) =>
@@ -100,7 +102,7 @@ export async function loadSession(db: D1Database, env: Env, token: string): Prom
 // ---------- roles ----------
 // owner: everything + team; manager: everything but team; checker: read + payment checks; viewer: read only
 export const ROLES = ["owner", "manager", "checker", "viewer"];
-export const READ_FNS = ["kv_load", "kv_photos", "kv_guides", "kv_task_photo", "kv_push_key", "kv_push_sub", "excel", "excel_handovers", "billing", "kv_ical_list"];
+export const READ_FNS = ["kv_load", "kv_photos", "kv_guides", "kv_task_photo", "kv_push_key", "kv_push_sub", "excel", "excel_handovers", "billing", "kv_ical_list", "kv_tg_status", "kv_tg_link", "kv_tg_unlink"];
 export const CHECKER_FNS = ["kv_verify", "kv_month_close", "kv_month_open"];
 export function roleAllows(role: string, fn: string) {
   if (role === "owner") return true;

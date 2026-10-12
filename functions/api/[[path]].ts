@@ -11,6 +11,7 @@ import {
 import { hostOf, siteOf, slugOk, isSlug } from "../../lib/host";
 import { handleAdmin, logEvent, activeAnnouncement, getSettings, createInvoice } from "../../lib/admin";
 import { sendMail, mails, dailyMail, orgEmail } from "../../lib/mail";
+import { botName, linkCode, webhookSecret, handleUpdate, tgNotify } from "../../lib/telegram";
 import { syncFeed, syncDue, feedUrlOk, sourceOf, newIcalKey } from "../../lib/ical";
 
 
@@ -245,8 +246,11 @@ async function getVapid(db: D1Database): Promise<Vapid> {
   return JSON.parse((await one(db, "SELECT v FROM sys_state WHERE k = 'vapid'")).v);
 }
 /** who: "manager" | "staff:<id>" | "staff" (all cleaners of this company) */
+// env of the current request, for helpers that don't get it passed (the bindings are the same for every request)
+let ENV: Env | null = null;
 async function notify(db: D1Database, O: string, who: string[], msg: { title: string; body?: string; tag?: string }) {
   for (const w of who) await run(db, "INSERT INTO notifs(org_id, target, title, body) VALUES (?,?,?,?)", O, w, msg.title, msg.body || "").catch(() => {});
+  if (ENV && who.includes("manager")) await tgNotify(ENV, db, O, msg).catch(() => 0); // linked Telegram chats
   const conds: string[] = [], args: string[] = [];
   for (const w of who) {
     if (w === "manager") conds.push("staff_id = ''");
@@ -325,7 +329,14 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
   const fn = String(([] as string[]).concat((params as any).path || []).pop() || "");
   let body: any = {};
   try { body = await request.json(); } catch { return json({ message: "bad_json" }, 400); }
-  const db = env.DB;
+  const db = env.DB; ENV = env;
+  // Telegram calls this with every message sent to the bot
+  if (fn === "tg_webhook") {
+    const sec = await webhookSecret(env);
+    if (!sec || !sameStr(request.headers.get("x-telegram-bot-api-secret-token") || "", sec)) return json({ message: "forbidden" }, 403);
+    await handleUpdate(env, db, body).catch(() => {});
+    return json(true);
+  }
   // which company this request is for: the subdomain (rentwill.espace.md), or on test hosts the x-espace-org header
   const site = siteOf(hostOf(request));
   const reqSlug = site.kind === "tenant" ? site.slug : site.kind === "dev" ? str(request.headers.get("x-espace-org"), 40).toLowerCase() : "";
@@ -878,6 +889,22 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
       const g = body.ok === true ? await one(db, "SELECT token FROM guides WHERE org_id = ? AND apt = ?", O, b.apt) : null;
       if (b.email) mailed = await sendMail(env, db, { to: b.email, ...mails.requestAnswer(org.name, body.ok === true, { apt: b.apt, date: b.date, nights: b.nights, price: b.price, cur: b.price_cur, phone: dir.phone || "", email: dir.email || "", note: str(body.note, 300), guide: g ? `https://espace.md/g/${g.token}` : "" }), kind: "request", orgId: O });
       return json({ ok: true, mailed });
+    }
+    // ---------- Telegram for this person in this company ----------
+    case "kv_tg_status": {
+      const name = await botName(env, db);
+      const chats = await all(db, "SELECT chat_id, name, created_at FROM tg_links WHERE org_id = ? AND user_id = ?", O, c.user.id);
+      return json({ configured: !!name, bot: name, chats });
+    }
+    case "kv_tg_link": {
+      const name = await botName(env, db);
+      if (!name) return json({ message: "tg_off" }, 409);
+      const code = await linkCode(db, O, c.user.id);
+      return json({ url: `https://t.me/${name}?start=${code}`, code });
+    }
+    case "kv_tg_unlink": {
+      await run(db, "DELETE FROM tg_links WHERE org_id = ? AND user_id = ?", O, c.user.id);
+      return json(true);
     }
     // ---------- calendar sync (iCal) for one unit ----------
     case "kv_ical_list": {

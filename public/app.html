@@ -1528,6 +1528,20 @@ document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest
   t.closest(".trates").querySelectorAll("[data-trate]").forEach(inp=>{const k=inp.dataset.trate,v=String(inp.value).replace(",",".").trim(),cur=t.closest(".trates").querySelector(`[data-trcur="${k}"]`).value;
     cfg.apts.forEach(a=>{const u=unitOf(a);if(u.group===g&&u.rtype===k){const x={...u};if(v===""||!(+v>0)){delete x.price;delete x.pcur}else{x.price=+v;x.pcur=cur}units[a]=x}})});
   saveCfg({...cfg,units},"Тарифы сохранены")});
+/* TELEGRAM — each person links their own chat to the espace.md bot; managers' notifications then arrive there too
+   (new bookings and requests, cleanings done, repairs). */
+async function tgLoad(){const box=$("tg-box");if(!box)return;
+  try{const r=await api("kv_tg_status");if(!$("tg-box"))return;
+    if(!r.configured){box.innerHTML=`<p class="small" style="margin:0">Telegram скоро будет доступен.</p>`;return}
+    box.innerHTML=r.chats.length?`<p style="margin:0 0 8px">✅ Подключено: ${r.chats.map(c=>`<b>${esc(c.name||"Telegram")}</b>`).join(", ")}. Уведомления для менеджеров приходят в @${esc(r.bot)}.</p>
+        <div class="actions"><button type="button" class="btn" id="tg-link">Подключить ещё один</button><button type="button" class="btn danger" id="tg-off">Отключить</button></div>`
+      :`<p style="margin:0 0 8px">Получайте уведомления в Telegram: новые брони и заявки, убранные квартиры, поломки.</p><div class="actions"><button type="button" class="btn primary" id="tg-link">Подключить Telegram</button></div>
+        <p class="small" style="margin:8px 0 0">Откроется бот @${esc(r.bot)} — нажмите там «Start».</p>`}
+  catch(e){box.innerHTML='<span class="small">Не загрузилось</span>'}}
+document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("#tg-link,#tg-off");if(!t)return;
+  try{if(t.id==="tg-link"){const r=await api("kv_tg_link");window.open(r.url,"_blank");const box=$("tg-box");box.insertAdjacentHTML("beforeend",`<p class="small" style="margin:8px 0 0">Нажмите «Start» в Telegram, потом <button type="button" class="linkbtn" id="tg-recheck">обновить</button>. Если не открылось: <a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.url)}</a></p>`);return}
+    if(t.id==="tg-off"){await api("kv_tg_unlink");toast("Telegram отключён");tgLoad()}}catch(x){toast("Не получилось")}});
+document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("#tg-recheck"))tgLoad()});
 /* DIRECT BOOKING PAGE — <slug>.espace.md/rezerva: guests see free units with prices and send a request,
    which lands in the calendar as «Заявка» (dates held) until a manager confirms or declines it. */
 /* SEASONS & WEEKENDS — the nightly price of every unit goes up or down by % in a season (dates repeat every year)
@@ -2427,6 +2441,7 @@ function renderSettings(){
   const SEC={
     push:["bell","Уведомления","на этом телефоне",()=>`<div class="card"><p class="small" id="push-st" style="margin-top:0">…</p><div class="actions"><button class="btn primary" id="push-on">🔔 Включить на этом телефоне</button><button class="btn" id="push-test" hidden>Проверить</button></div>
       <p class="small" style="margin-bottom:0">Придут: квартира убрана, горничная сообщила о поломке, сводка утром в 8:00 и твои напоминания (вкладка «Уборки»). Включи на каждом телефоне, где нужно.</p></div>
+    <h3>Telegram</h3><div class="card" id="tg-box"><span class="small">Загружаю…</span></div>${(setTimeout(tgLoad,0),"")}
     `],
     rate:["rate","Курс валют",`1 € = ${cfg.rates.eur} лей · 1 $ = ${cfg.rates.usd} €${(cfg.other||[]).length?" · +"+(cfg.other||[]).length:""}`,()=>`<div class="card"><div class="grid2">
       <div><label class="l" for="r-eur">Лей за 1 €</label><input id="r-eur" inputmode="decimal" value="${cfg.rates.eur}"></div>
