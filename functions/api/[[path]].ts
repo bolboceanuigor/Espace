@@ -192,8 +192,11 @@ async function cleanerView(db: D1Database, O: string, me: any, td: string) {
   }
   const repairs = tasks.filter((t: any) => t.kind === "repair" && t.status !== "done").map((t: any) => ({ id: t.id, apt: t.apt, note: t.note, date: t.date, reported_by: t.reported_by }));
   const addr: Record<string, string> = {}; for (const a of cfg.apts || []) if (cfg.addr && cfg.addr[a]) addr[a] = cfg.addr[a];
+  // beds per unit, so the cleaner knows how much linen to bring (the app words it in her language)
+  const beds: Record<string, any> = {};
+  for (const a of cfg.apts || []) { const u = (cfg.units || {})[a]; if (u && u.beds && Object.keys(u.beds).length) beds[a] = { beds: u.beds, guests: +u.guests || 0 }; }
   const notifs = await all(db, "SELECT id, at, title, body FROM notifs WHERE org_id = ? AND target IN ('staff', ?) ORDER BY id DESC LIMIT 30", O, "staff:" + me.id);
-  return { me: { id: me.id, name: me.name }, apts: cfg.apts || [], addr, days, repairs, notifs };
+  return { me: { id: me.id, name: me.name }, apts: cfg.apts || [], addr, beds, days, repairs, notifs };
 }
 
 // a paid repair leaves money traces: an expense (id = task id) and, if paid from the till,
@@ -616,19 +619,19 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
       { const old = isUuid(b.id) ? await one(db, "SELECT date FROM bookings WHERE org_id = ? AND id = ?", O, b.id) : null; if (await monthClosed(db, O, b.date, old?.date)) return CLOSED(); }
       const v = { date: b.date, apt: str(b.apt, 100), guest: str(b.guest, 200), nights: Math.min(366, Math.floor(num(b.nights))),
         mdl: num(b.mdl), eur: num(b.eur), usd: num(b.usd), pay: str(b.pay, 50), who: str(b.who, 50), note: str(b.note, 1000),
-        source: str(b.source, 50), phone: str(b.phone, 40), oth: num(b.oth), oth_cur: str(b.oth_cur, 10).toUpperCase(), util: num(b.util),
+        source: str(b.source, 50), phone: str(b.phone, 40), pax: Math.max(0, Math.min(500, Math.floor(num(b.pax)))), oth: num(b.oth), oth_cur: str(b.oth_cur, 10).toUpperCase(), util: num(b.util),
         price: Math.max(0, num(b.price)), price_cur: (["MDL", "EUR", "USD"].includes(str(b.price_cur, 5).toUpperCase()) ? str(b.price_cur, 5).toUpperCase() : "EUR"), pay_status: (["unpaid", "part", "paid"].includes(str(b.pay_status, 10)) ? str(b.pay_status, 10) : ""), tag: (TAGS.includes(str(b.tag, 10)) ? str(b.tag, 10) : ""),
         util_cur: (["MDL", "EUR", "USD"].includes(str(b.util_cur, 5).toUpperCase()) ? str(b.util_cur, 5).toUpperCase() : "MDL") };
       if (isUuid(b.id)) {
         const r = await one(db, `UPDATE bookings SET verified=(verified AND mdl=? AND eur=? AND usd=? AND oth IS ? AND util=? AND pay=?),
-          date=?, apt=?, guest=?, nights=?, mdl=?, eur=?, usd=?, pay=?, who=?, note=?, source=?, phone=?, oth=?, oth_cur=?, util=?, util_cur=?, price=?, price_cur=?, pay_status=?, tag=?, updated_at=? WHERE org_id=? AND id=? RETURNING id`,
+          date=?, apt=?, guest=?, nights=?, mdl=?, eur=?, usd=?, pay=?, who=?, note=?, source=?, phone=?, pax=?, oth=?, oth_cur=?, util=?, util_cur=?, price=?, price_cur=?, pay_status=?, tag=?, updated_at=? WHERE org_id=? AND id=? RETURNING id`,
           v.mdl, v.eur, v.usd, v.oth, v.util, v.pay,
-          v.date, v.apt, v.guest, v.nights, v.mdl, v.eur, v.usd, v.pay, v.who, v.note, v.source, v.phone, v.oth, v.oth_cur, v.util, v.util_cur, v.price, v.price_cur, v.pay_status, v.tag, nowIso(), O, b.id);
+          v.date, v.apt, v.guest, v.nights, v.mdl, v.eur, v.usd, v.pay, v.who, v.note, v.source, v.phone, v.pax, v.oth, v.oth_cur, v.util, v.util_cur, v.price, v.price_cur, v.pay_status, v.tag, nowIso(), O, b.id);
         return json(r?.id ?? null);
       }
       const id = uuid(), t = nowIso();
-      await run(db, "INSERT INTO bookings(id,org_id,date,apt,guest,nights,mdl,eur,usd,pay,who,note,source,phone,oth,oth_cur,util,util_cur,price,price_cur,pay_status,tag,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-        id, O, v.date, v.apt, v.guest, v.nights, v.mdl, v.eur, v.usd, v.pay, v.who, v.note, v.source, v.phone, v.oth, v.oth_cur, v.util, v.util_cur, v.price, v.price_cur, v.pay_status, v.tag, t, t);
+      await run(db, "INSERT INTO bookings(id,org_id,date,apt,guest,nights,mdl,eur,usd,pay,who,note,source,phone,pax,oth,oth_cur,util,util_cur,price,price_cur,pay_status,tag,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        id, O, v.date, v.apt, v.guest, v.nights, v.mdl, v.eur, v.usd, v.pay, v.who, v.note, v.source, v.phone, v.pax, v.oth, v.oth_cur, v.util, v.util_cur, v.price, v.price_cur, v.pay_status, v.tag, t, t);
       return json(id);
     }
     case "kv_verify": {
@@ -821,6 +824,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
       if (data.apts.includes(to)) return json({ message: "name_exists" }, 409);
       data.apts = data.apts.map((a: string) => (a === from ? to : a));
       if (data.addr && data.addr[from] != null) { data.addr[to] = data.addr[from]; delete data.addr[from]; }
+      if (data.units && data.units[from] != null) { data.units[to] = data.units[from]; delete data.units[from]; }
       await db.batch([
         db.prepare("UPDATE tasks SET apt = ? WHERE org_id = ? AND apt = ?").bind(to, O, from),
         db.prepare("UPDATE checks SET apt = ? WHERE org_id = ? AND apt = ?").bind(to, O, from),

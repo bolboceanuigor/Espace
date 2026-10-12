@@ -877,6 +877,39 @@ body.calmode .wrap{padding-bottom:0;max-width:none}
 .bar .vk{color:#1d7a3a;font-weight:800}
 .billbal{display:flex;align-items:baseline;justify-content:space-between;margin:10px 0 2px}.billbal b{font-size:26px;letter-spacing:-.02em}
 .billpay{border:1px solid var(--line);border-radius:12px;padding:12px;margin:0 0 14px}.billq{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 8px}.billrow{display:flex;gap:8px}.billrow input{flex:1;min-width:0}
+/* units: details form, hotel rooms, grouped list */
+.aptset .um{flex:1;min-width:0;display:flex;flex-direction:column}.aptset .um small{color:var(--muted);font-size:12.5px;line-height:1.35;white-space:normal}
+.aptset.open{background:var(--surface);border-radius:14px;margin:0 -8px;padding:6px 8px 10px}
+.ibtn.del{color:var(--muted)}.ibtn.del:hover{color:#b42318}.ibtn.del.armed{width:auto;padding:0 10px;font-size:12.5px;font-weight:700;color:#fff;background:#b42318;border-radius:10px}
+.ugrp{display:flex;align-items:baseline;gap:8px;margin:14px 2px 2px;padding-top:10px;border-top:1px solid var(--line);font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}.ugrp:first-child{border-top:0;margin-top:6px}.ugrp b{color:var(--ink)}
+.uform{margin-top:10px}.uform select,.uform textarea{width:100%;box-sizing:border-box}.uform textarea{border:1px solid var(--line);border-radius:9px;background:var(--bg);padding:8px 12px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+@media (max-width:520px){.uform .grid4{grid-template-columns:1fr 1fr}}
+.ubed{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:6px 8px;text-align:center}.ubed small{display:block;color:var(--muted);font-size:11.5px;margin-bottom:4px}
+.stp{display:flex;align-items:center;justify-content:space-between;gap:4px}.stp button{width:30px;height:30px;border:0;border-radius:9px;background:var(--accent-soft);color:var(--accent);font-size:18px;font-weight:700;cursor:pointer}.stp b{font-size:16px;min-width:18px}
+.uamen{display:flex;flex-wrap:wrap;gap:6px}.uamen button{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:6px 11px;font-size:13px;color:var(--muted);cursor:pointer}.uamen button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+/* set-up wizard */
+body.wizon{overflow:hidden}
+.wiz{position:fixed;inset:0;z-index:80;background:var(--bg);overflow:auto;display:flex;justify-content:center;padding:max(16px,env(safe-area-inset-top)) 16px 16px}
+.wizc{width:100%;max-width:680px;display:flex;flex-direction:column;min-height:100%}
+.wizh{display:flex;align-items:center;gap:12px;padding:6px 0 14px}.wlogo{width:36px;height:36px;border-radius:50%;background:#202248;color:#fff;display:grid;place-items:center;font-weight:800;flex:none}
+.wsteps{flex:1;display:flex;gap:6px;overflow:hidden}.wsteps span{flex:1;font-size:12px;font-weight:600;color:var(--muted);border-top:3px solid var(--line);padding-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.wsteps span.done{border-color:var(--accent);color:var(--ink)}.wsteps span.cur{border-color:var(--accent);color:var(--accent)}
+.wizb{flex:1}.wizb h2{font-size:24px;margin:8px 0 4px;letter-spacing:-.02em}
+.wk{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}.wkc{text-align:left;border:1.5px solid var(--line);background:var(--surface);border-radius:16px;padding:16px;cursor:pointer;display:flex;flex-direction:column;gap:4px}.wkc b{font-size:16px}.wkc small{color:var(--muted)}.wkc[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+@media (max-width:520px){.wk{grid-template-columns:1fr}}
+.wsec{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;margin-top:14px}.wsh{display:flex;align-items:baseline;gap:8px;margin-bottom:8px;flex-wrap:wrap}.wsh b{font-size:16px}
+.wu{border-top:1px solid var(--line);padding:10px 0}.wu:first-of-type{border-top:0}.wu1{display:flex;gap:8px}.wu1 input{flex:1;min-width:0}.wu1 select{width:auto}
+.wu2{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin-top:6px}.wu2 label small,.wr label small{display:block;font-size:11px;color:var(--muted);margin-bottom:2px}.wu2 input{text-align:center;padding:0 4px}
+@media (max-width:520px){.wu2{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.wr{display:flex;gap:8px;align-items:flex-end;margin-bottom:8px;flex-wrap:wrap}.wr>input,.wr>select{flex:1;min-width:120px}.wr label{width:80px}.wr label input{text-align:center}
+.wadd{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:10px}.wmany{display:flex;align-items:center;gap:8px}.wadd input{width:64px;text-align:center}
+.wiz select,.uform select{height:44px;border:1px solid var(--line);border-radius:9px;background:var(--bg);padding:0 10px;min-width:0}
+.wr select{flex:1;min-width:140px}.wu1 select{flex:none;width:auto;max-width:46%}
+.wsum{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0}.wsum div{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;text-align:center}.wsum b{display:block;font-size:30px;letter-spacing:-.02em}.wsum span{color:var(--muted);font-size:13px}
+.wizf{position:sticky;bottom:0;display:flex;justify-content:space-between;gap:10px;padding:14px 0 max(6px,env(safe-area-inset-bottom));background:linear-gradient(transparent,var(--bg) 30%)}.wizf .btn{min-width:120px}
+.cl-beds{margin-top:6px;font-size:14px}
+.hint.bad{color:#b42318;font-weight:600}
+.sh-name .cap{margin-left:5px;font-size:10.5px;font-weight:600;color:var(--muted);white-space:nowrap}.fpax .hint{align-self:end;padding-bottom:12px}
 .langsw{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}.langsw button{border:0;background:none;padding:5px 12px;font:inherit;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer}.langsw button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}.langsw button:not([aria-pressed="true"]):hover{color:var(--ink)}
 </style>
 </head>
@@ -952,6 +985,7 @@ body.calmode .wrap{padding-bottom:0;max-width:none}
           <div><label class="l" for="f-guest">Guest</label><input type="text" id="f-guest" placeholder="Guest name" autocomplete="off"></div>
           <div><label class="l" for="f-phone">Phone <em>— optional</em></label><input type="tel" id="f-phone" placeholder="+373…" autocomplete="off"></div>
         </div>
+        <div class="grid2 fpax"><div><label class="l" for="f-pax">Guests <em>— how many people</em></label><input id="f-pax" inputmode="numeric" placeholder="2" autocomplete="off"></div><div class="hint" id="f-cap"></div></div>
         <div class="fcontact" id="f-contact" hidden></div>
         <label class="l" for="f-price">Booking price <em>— how much the guest should pay in total</em></label>
         <div class="grid2"><div class="cur"><input id="f-price" inputmode="decimal" placeholder="0" aria-label="Booking price"><span id="f-price-lbl">€</span></div><div class="seg" id="f-pricecur"></div></div>
@@ -1062,9 +1096,11 @@ body.calmode .wrap{padding-bottom:0;max-width:none}
 
 <script>
 (function(){
+// the starter apartment name, stored in Russian by the server (escaped so the translated builds keep it)
+const DEF_APT="\u041a\u0432\u0430\u0440\u0442\u0438\u0440\u0430 1";
 const DEFAULT_CFG={
   rates:{eur:20,usd:0.85},
-  apts:["Apartment 1"],
+  apts:[DEF_APT],
   people:[], pays:["Кэш","Счёт","Airbnb","Счёт+Кэш"],
   sources:["Booking","Airbnb","Instagram","Viber/Telegram","Прямой","Повторный"],
   categories:["Коммунальные","Уборка","Ремонт","Бельё и химия","Комиссии","Прочее"],
@@ -1239,12 +1275,17 @@ function monthStats(y=mon.y,m=mon.m){
 
 /* booking form */
 let form=blankB();
-function blankB(keep={}){return{tag:"",price:"",price_cur:"EUR",pay_status:"",util:"",util_cur:"MDL",id:null,apt:keep.apt||"",date:keep.date||todayStr(),nights:1,guest:"",phone:"",mdl:"",eur:"",usd:"",oth:"",oth_cur:"",pay:ls.get("pay")||"Кэш",who:ls.get("who")||"",source:"",note:"",createdAt:null}}
-const BF=["date","nights","guest","phone","mdl","eur","usd","oth","util","note","price"];
+function blankB(keep={}){return{tag:"",price:"",price_cur:"EUR",pay_status:"",util:"",util_cur:"MDL",id:null,apt:keep.apt||"",date:keep.date||todayStr(),nights:1,guest:"",phone:"",pax:"",mdl:"",eur:"",usd:"",oth:"",oth_cur:"",pay:ls.get("pay")||"Кэш",who:ls.get("who")||"",source:"",note:"",createdAt:null}}
+const BF=["date","nights","guest","phone","pax","mdl","eur","usd","oth","util","note","price"];
 function readB(){for(const k of BF) form[k]=$("f-"+k).value}
+// how many people fit, from the unit's details; warns when the booking has more
+function capHint(){const el=$("f-cap");if(!el)return;const u=unitOf(form.apt||""),c=capOf(u),p=parseInt(($("f-pax")||{}).value,10)||0;
+  el.className="hint"+(c&&p>c?" bad":"");el.textContent=!c?"":p>c?"More than it fits: maximum "+c:"Sleeps up to "+c+(bedsOf(u)?" · "+bedsOf(u):"")}
+document.addEventListener("input",e=>{if(e.target.id==="f-pax")capHint()});
 function fillB(){
   fAptOpen=false;fTagOpen=false;
   for(const k of BF) $("f-"+k).value=form[k]??"";
+  if(!+form.pax)$("f-pax").value="";setTimeout(capHint,0);
   $("f-title").textContent=form.id?"Edit booking":"New booking";
   $("f-cancel").hidden=!form.id; $("f-del").hidden=!form.id; disarm("f-del");
   $("f-ver").hidden=!form.verified; if(form.verified) $("f-ver").textContent="✓ Payment checked"+(form.verifiedAt?" "+dm(String(form.verifiedAt).slice(0,10)):"")+". If you change the amount or payment method, the tick will have to be set again.";
@@ -1252,7 +1293,7 @@ function fillB(){
   $("f-oth-row").hidden=!(+form.oth||form.oth_cur); $("f-oth-toggle").hidden=!$("f-oth-row").hidden;
   renderChipsB(); renderSegsB(); infoB();
 }
-function asB(){return{tag:form.tag||"",price:num(form.price)||0,price_cur:form.price_cur||"EUR",pay_status:form.pay_status||"",util:num(form.util)||0,util_cur:form.util_cur||"MDL",oth:num(form.oth),oth_cur:form.oth_cur,id:form.id,apt:form.apt,date:form.date,nights:parseInt(form.nights,10)||0,guest:String(form.guest).trim(),phone:String(form.phone).trim(),mdl:num(form.mdl),eur:num(form.eur),usd:num(form.usd),pay:form.pay,who:form.who,source:form.source,note:String(form.note).trim()}}
+function asB(){return{tag:form.tag||"",price:num(form.price)||0,price_cur:form.price_cur||"EUR",pay_status:form.pay_status||"",util:num(form.util)||0,util_cur:form.util_cur||"MDL",oth:num(form.oth),oth_cur:form.oth_cur,id:form.id,apt:form.apt,date:form.date,nights:parseInt(form.nights,10)||0,guest:String(form.guest).trim(),phone:String(form.phone).trim(),pax:parseInt(form.pax,10)||0,mdl:num(form.mdl),eur:num(form.eur),usd:num(form.usd),pay:form.pay,who:form.who,source:form.source,note:String(form.note).trim()}}
 let fAptOpen=false,fTagOpen=false;
 function renderChipsB(){
   const d=/^\d{4}-\d\d-\d\d$/.test(form.date)?toT(form.date):null;
@@ -1390,11 +1431,11 @@ function renderToday(){
   renderShift();
 }
 /* FIRST STEPS: shown to the owner/manager until the company is set up */
-function renderSetup(){const el=$("setup-card");if(!el)return;
+function renderSetup(){if(!W&&wizNeeded())wizStart();const el=$("setup-card");if(!el)return;
   const key="setup_hide_"+(ME&&ME.org?ME.org.id:"");
   if(RO||!ME||!ME.org||!["owner","manager"].includes(ROLE)||ls.get(key)==="1"){el.innerHTML="";return}
   const steps=[
-    ["apts",cfg.apts.length>1||cfg.apts[0]!=="Apartment 1","Add your apartments","Name, address, floor and photo — cleaners see them.","Apartments"],
+    ["apts",cfg.apts.length>1||cfg.apts[0]!==DEF_APT,"Add your apartments","Name, address, floor and photo — cleaners see them.","Apartments"],
     ["book",bookings.length>0,"Add the first booking","Check-in date, nights, amount and source — it shows up in the calendar right away.","Add a booking"],
     ["staff",staffAll.length>0,"Add a cleaner with a PIN","She signs in at "+(ME.org.code)+".espace.md → «I’m a cleaner» and sees her cleanings.","Cleaners"]];
   const done=steps.filter(x=>x[1]).length;
@@ -1407,6 +1448,184 @@ document.addEventListener("click",e=>{const b=e.target.closest("[data-setup]");i
   if(k==="apts"){stOpen=null;settingsPage("apts");scrollTo(0,0);return}
   if(k==="staff"){stOpen="new";settingsPage("staff");scrollTo(0,0);return}
   if(k==="book"){show("add");setMode("b");scrollTo(0,0);return}});
+/* UNITS — details of every apartment / house / hotel room live in cfg.units[name]:
+   kind, group (building or hotel), area, bedrooms, baths, floor, beds {dbl,sgl,sofa,bunk}, guests, price, cin, cout, amen[], note.
+   cfg.apts stays the list of names used everywhere (calendar, bookings, cleanings); a deleted unit moves to cfg.archived. */
+const UKIND={apt:"Apartment",studio:"Studio",house:"House",villa:"Villa",room:"Room",bed:"Hostel bed"};
+const ROOMT={single:["Single",{sgl:1},1],double:["Double",{dbl:1},2],twin:["Twin",{sgl:2},2],triple:["Triple",{dbl:1,sgl:1},3],family:["Family",{dbl:1,sgl:2},4],suite:["Suite",{dbl:1,sofa:1},4],bed:["Hostel bed",{bunk:1},1]};
+const BEDT=[["dbl","double"],["sgl","single"],["sofa","sofa bed"],["bunk","bunk"]];
+const AMEN=[["wifi","Wi-Fi"],["ac","Air conditioning"],["heat","Heating"],["kitchen","Kitchen"],["washer","Washing machine"],["dryer","Dryer"],["dish","Dishwasher"],["tv","TV"],["parking","Parking"],["balcony","Balcony"],["elevator","Lift"],["iron","Iron"],["hair","Hair dryer"],["crib","Baby cot"],["work","Workspace"],["pets","Pets allowed"],["selfin","Self check-in"],["view","Nice view"]];
+const unitOf=a=>(cfg.units||{})[a]||{};
+const bedsOf=u=>{const b=u.beds||{};return BEDT.filter(([k])=>b[k]>0).map(([k,t])=>b[k]+"× "+t).join(" · ")};
+const capAuto=u=>{const b=u.beds||{};return (b.dbl||0)*2+(b.sgl||0)+(b.sofa||0)*2+(b.bunk||0)*2};
+const capOf=u=>+u.guests||capAuto(u);
+function unitLine(a){const u=unitOf(a),p=[];
+  if(u.kind&&u.kind!=="apt")p.push(UKIND[u.kind]||"");
+  if(u.area)p.push(u.area+" m²");
+  if(u.bedrooms)p.push(u.bedrooms+" "+plural(+u.bedrooms,"bedroom","bedrooms","bedrooms"));
+  const b=bedsOf(u);if(b)p.push(b);
+  const c=capOf(u);if(c)p.push("guests: "+c);
+  return p.filter(Boolean).join(" · ")}
+let uOpen="", uHotel=false, uDelArm="";
+function unitForm(a){const u=unitOf(a),b=u.beds||{},groups=[...new Set(cfg.apts.map(x=>unitOf(x).group).filter(Boolean))];
+  const n=(id,v,lbl,ph)=>`<div><label class="l" for="${id}">${lbl}</label><input type="text" inputmode="decimal" id="${id}" value="${esc(v??"")}" placeholder="${esc(ph||"")}"></div>`;
+  return `<div class="uform">
+    <div class="grid2"><div><label class="l" for="uf-kind">Type</label><select id="uf-kind">${Object.entries(UKIND).map(([k,t])=>`<option value="${k}"${(u.kind||"apt")===k?" selected":""}>${t}</option>`).join("")}</select></div>
+      <div><label class="l" for="uf-group">Building or hotel</label><input type="text" id="uf-group" list="uf-groups" value="${esc(u.group||"")}" placeholder="optional"><datalist id="uf-groups">${groups.map(g=>`<option value="${esc(g)}">`).join("")}</datalist></div></div>
+    <div class="grid4">${n("uf-area",u.area,"Size, m²","45")}${n("uf-bedrooms",u.bedrooms,"Bedrooms","1")}${n("uf-baths",u.baths,"Bathrooms","1")}${n("uf-floor",u.floor,"Floor","")}</div>
+    <label class="l">Beds</label>
+    <div class="grid4 ubeds">${BEDT.map(([k,t])=>`<div class="ubed"><small>${t}</small><div class="stp"><button type="button" data-ustep="${k}" data-d="-1" aria-label="−">−</button><b id="uf-b-${k}">${b[k]||0}</b><button type="button" data-ustep="${k}" data-d="1" aria-label="+">+</button></div></div>`).join("")}</div>
+    <div class="grid2">${n("uf-guests",u.guests,"Max guests","by beds: "+capAuto(u))}${n("uf-price",u.price,"Price per night","optional")}</div>
+    <div class="grid2"><div><label class="l" for="uf-cin">Check-in from</label><input type="time" id="uf-cin" value="${esc(u.cin||"14:00")}"></div><div><label class="l" for="uf-cout">Check-out by</label><input type="time" id="uf-cout" value="${esc(u.cout||"12:00")}"></div></div>
+    <label class="l">Amenities</label>
+    <div class="uamen">${AMEN.map(([k,t])=>`<button type="button" data-uamen="${k}" aria-pressed="${(u.amen||[]).includes(k)}">${t}</button>`).join("")}</div>
+    <label class="l" for="uf-note">Notes</label><textarea id="uf-note" rows="2" placeholder="key box code, where the linen is…">${esc(u.note||"")}</textarea>
+    <div class="actions"><button type="button" class="btn primary" data-usave="${esc(a)}">Save</button><button type="button" class="btn" data-uedit="">Cancel</button></div></div>`}
+function unitCard(a,i){const line=unitLine(a);
+  return `<div class="aptset${uOpen===a?" open":""}"><div class="ah setrow">${thumb(a)}<span class="um"><b>${esc(a)}</b><small>${line?esc(line):"details not filled in"}</small></span>
+      <button type="button" class="ibtn" data-uedit="${esc(a)}" aria-label="Details ${esc(a)}">${setIc("det")}</button>
+      <button type="button" class="ibtn" data-photo="${esc(a)}" aria-label="Photos ${esc(a)}">${setIc("cam")}</button>
+      <button type="button" class="ibtn" data-ren="${esc(a)}" aria-label="Rename ${esc(a)}">${setIc("pen")}</button>
+      <button type="button" class="ibtn" data-up="${i}" ${i?"":"disabled"} aria-label="Higher">${setIc("up")}</button>
+      <button type="button" class="ibtn del${uDelArm===a?" armed":""}" data-udel="${esc(a)}" aria-label="Delete ${esc(a)}">${uDelArm===a?"Sure?":setIc("del")}</button></div>
+    <input type="text" data-addr="${esc(a)}" value="${esc((cfg.addr||{})[a]||"")}" placeholder="Address: Decebal 6/2, apt. 61, floor 7" aria-label="Address ${esc(a)}">
+    ${uOpen===a?unitForm(a):""}</div>`}
+function hotelForm(){return `<div class="card uform"><b>Hotel or guesthouse rooms</b>
+    <div class="grid2"><div><label class="l" for="uh-name">Hotel name</label><input type="text" id="uh-name" list="uf-groups" placeholder="Hotel Central"></div>
+      <div><label class="l" for="uh-start">First room number</label><input type="text" inputmode="numeric" id="uh-start" value="101"></div></div>
+    <div class="grid2"><div><label class="l" for="uh-type">Room type</label><select id="uh-type">${Object.entries(ROOMT).map(([k,[t]])=>`<option value="${k}">${t}</option>`).join("")}</select></div>
+      <div><label class="l" for="uh-n">How many rooms</label><input type="text" inputmode="numeric" id="uh-n" value="5"></div></div>
+    <p class="small" id="uh-prev"></p>
+    <div class="actions"><button type="button" class="btn primary" id="uh-add">Create rooms</button><button type="button" class="btn" data-uhotel="0">Cancel</button></div></div>`}
+// room names: just the number; if a name is taken, the hotel name goes in front
+function roomNames(hotel,start,n,taken){const out=[];let s=parseInt(start,10);if(!(s>=0))s=1;
+  for(let i=0;i<n;i++){let nm=String(s+i);if(taken.includes(nm)||out.includes(nm))nm=(hotel?hotel+" ":"")+nm;out.push(nm)}return out}
+function aptsSection(){
+  const groups=[];cfg.apts.forEach((a,i)=>{const g=unitOf(a).group||"";let G=groups.find(x=>x.g===g);if(!G)groups.push(G={g,items:[]});G.items.push([a,i])});
+  const multi=groups.length>1||groups[0]&&groups[0].g;
+  return `<div class="card" style="padding-top:6px">${groups.map(G=>`${multi?`<div class="ugrp"><b>${G.g?esc(G.g):"No building"}</b><small>${G.items.length}</small></div>`:""}${G.items.map(([a,i])=>unitCard(a,i)).join("")}`).join("")}
+      <div class="actions"><button class="btn primary" id="save-addr">Save addresses</button></div></div>
+    <div class="card"><b>Add</b>
+      <div class="setadd two" style="margin-top:8px"><input type="text" id="new-apt" placeholder="Name: Apartment Decebal 6"><button class="btn" id="add-apt">＋ Apartment or house</button></div>
+      <button type="button" class="btn" data-uhotel="1" style="margin-top:8px;width:100%">＋ Hotel or hostel rooms</button></div>
+    ${uHotel?hotelForm():""}
+    <p class="small" style="margin-bottom:0">Tap ⚙ next to an apartment to fill in the size, bedrooms, beds and amenities — cleaners will see how much linen is needed. A deleted apartment leaves the calendar, but its bookings and expenses stay in the reports.</p>`}
+function unitSave(a){const num0=id=>{const v=String(($(id)||{}).value||"").replace(",",".").trim();return v===""?"":Math.max(0,+v||0)};
+  const beds={};BEDT.forEach(([k])=>{const v=+(($("uf-b-"+k)||{}).textContent||0);if(v>0)beds[k]=v});
+  const u={kind:$("uf-kind").value,group:$("uf-group").value.trim().slice(0,60),area:num0("uf-area"),bedrooms:num0("uf-bedrooms"),baths:num0("uf-baths"),floor:($("uf-floor").value||"").trim().slice(0,10),
+    beds,guests:num0("uf-guests"),price:num0("uf-price"),cin:$("uf-cin").value,cout:$("uf-cout").value,
+    amen:[...document.querySelectorAll("[data-uamen][aria-pressed=true]")].map(x=>x.dataset.uamen),note:$("uf-note").value.trim().slice(0,500)};
+  Object.keys(u).forEach(k=>{if(u[k]===""||u[k]==null||(Array.isArray(u[k])&&!u[k].length)||(k==="beds"&&!Object.keys(u.beds).length))delete u[k]});
+  uOpen="";saveCfg({...cfg,units:{...(cfg.units||{}),[a]:u}},"Saved")}
+function unitDelete(a){
+  if(cfg.apts.length<=1){toast("At least one apartment must remain");return}
+  const t=todayStr();
+  if(bookings.some(b=>b.apt===a&&endOf(b)>t)){toast("This apartment has upcoming bookings — move or delete them first");uDelArm="";settingsPage("apts");return}
+  uDelArm="";uOpen="";
+  saveCfg({...cfg,apts:cfg.apts.filter(x=>x!==a),archived:[...new Set([...(cfg.archived||[]),a])]},"Deleted — history kept")}
+document.addEventListener("click",e=>{const t=e.target.closest("[data-uedit],[data-ustep],[data-uamen],[data-usave],[data-udel],[data-uhotel],#uh-add");if(!t)return;const ds=t.dataset;
+  if(ds.uedit!=null){uOpen=uOpen===ds.uedit?"":ds.uedit;uDelArm="";settingsPage("apts");return}
+  if(ds.ustep){const el=$("uf-b-"+ds.ustep);el.textContent=Math.max(0,Math.min(20,(+el.textContent||0)+(+ds.d)));const g=$("uf-guests");if(g&&!g.value){const b={};BEDT.forEach(([k])=>b[k]=+$("uf-b-"+k).textContent);g.placeholder="by beds: "+capAuto({beds:b})}return}
+  if(ds.uamen){t.setAttribute("aria-pressed",String(t.getAttribute("aria-pressed")!=="true"));return}
+  if(ds.usave){unitSave(ds.usave);return}
+  if(ds.udel){if(uDelArm!==ds.udel){uDelArm=ds.udel;settingsPage("apts");setTimeout(()=>{if(uDelArm===ds.udel){uDelArm="";settingsPage("apts")}},4000);return}unitDelete(ds.udel);return}
+  if(ds.uhotel!=null){uHotel=ds.uhotel==="1";settingsPage("apts");if(uHotel)setTimeout(()=>{$("uh-name").focus();hotelPrev()},0);return}
+  if(t.id==="uh-add"){const hotel=$("uh-name").value.trim().slice(0,60),n=Math.max(1,Math.min(200,parseInt($("uh-n").value,10)||0)),type=$("uh-type").value;
+    if(!hotel){toast("Enter the hotel name");return}
+    const names=roomNames(hotel,$("uh-start").value,n,cfg.apts);
+    if(cfg.apts.length+names.length>70&&!(ME&&ME.billing&&ME.billing.custom)){toast("More than 70 — the plan is individual, write to us");return}
+    const [,beds,guests]=ROOMT[type],units={...(cfg.units||{})};
+    names.forEach(nm=>units[nm]={kind:type==="bed"?"bed":"room",group:hotel,rtype:type,beds:{...beds},guests});
+    uHotel=false;saveCfg({...cfg,apts:[...cfg.apts,...names],units},"Rooms created: "+names.length);return}});
+function hotelPrev(){const el=$("uh-prev");if(!el)return;const n=Math.max(1,Math.min(200,parseInt(($("uh-n")||{}).value,10)||0));const names=roomNames(($("uh-name")||{}).value||"",($("uh-start")||{}).value,n,cfg.apts);
+  el.textContent="Will be created: "+(names.length>4?names.slice(0,2).join(", ")+" … "+names[names.length-1]:names.join(", "))}
+document.addEventListener("input",e=>{if(e.target.closest&&e.target.closest("#uh-n,#uh-start,#uh-name"))hotelPrev()});
+
+/* SET-UP WIZARD — once, for a new company's owner: what you run → the units → who works → summary */
+let W=null;
+const wizNeeded=()=>ROLE==="owner"&&!RO&&!(ME&&ME.support)&&!cfg.onboarded&&cfg.apts.length===1&&cfg.apts[0]===DEF_APT&&!bookings.length;
+function wizStart(){W={step:0,kinds:[],units:[{name:"",kind:"apt",bedrooms:"1",dbl:1,sgl:0,sofa:0,guests:"",area:""}],hotel:{name:"",start:"101",rooms:[{t:"double",n:"5"}]},
+  mgr:[],cl:[],tiers:null,busy:false};
+  api("billing").then(b=>{if(W){W.tiers=b.tiers;if(W.step===3)wizRender()}}).catch(()=>{});wizRender()}
+const WK=[["apt","Apartments","short-term rental of apartments and studios"],["house","Houses and villas","entire homes, with or without a yard"],["hotel","Hotel or guesthouse","rooms of different types"],["hostel","Hostel","beds in shared rooms"]];
+function wizUnits(){ // what the wizard will create
+  const taken=[],units={},apts=[];
+  if(W.kinds.includes("apt")||W.kinds.includes("house"))W.units.forEach((u,i)=>{let nm=(u.name||"").trim()||((u.kind==="house"||u.kind==="villa"?"House ":"Apartment ")+(i+1));while(apts.includes(nm))nm+=" ·";apts.push(nm);
+    const beds={};["dbl","sgl","sofa"].forEach(k=>{if(+u[k]>0)beds[k]=+u[k]});const x={kind:u.kind,beds};if(+u.bedrooms>0)x.bedrooms=+u.bedrooms;if(+u.area>0)x.area=+u.area;if(+u.guests>0)x.guests=+u.guests;units[nm]=x});
+  if(W.kinds.includes("hotel")||W.kinds.includes("hostel")){const h=W.hotel.name.trim()||"Hotel";let start=parseInt(W.hotel.start,10)||1;
+    W.hotel.rooms.forEach(r=>{const n=Math.max(0,Math.min(200,parseInt(r.n,10)||0));const names=roomNames(h,start,n,apts);start+=n;const [,beds,g]=ROOMT[r.t];
+      names.forEach(nm=>{apts.push(nm);units[nm]={kind:r.t==="bed"?"bed":"room",group:h,rtype:r.t,beds:{...beds},guests:+r.g||g}})})}
+  return {apts,units}}
+function wizPrice(n){if(!W.tiers)return "";const t=W.tiers.find(([lo,hi])=>n<=hi);return t?t[2]+" lei/month":"individual"}
+function wizRender(){let el=$("wiz");if(!W){if(el)el.remove();document.body.classList.remove("wizon");return}
+  if(!el){el=document.createElement("div");el.id="wiz";el.className="wiz";el.setAttribute("role","dialog");el.setAttribute("aria-modal","true");document.body.appendChild(el);document.body.classList.add("wizon")}
+  const S=["Type","Units","Team","Done"],st=W.step;
+  let body="";
+  if(st===0)body=`<h2>What do you rent out?</h2><p class="small">Pick several if you like — we’ll set them all up at once.</p>
+    <div class="wk">${WK.map(([k,t,s])=>`<button type="button" class="wkc" data-wk="${k}" aria-pressed="${W.kinds.includes(k)}"><b>${t}</b><small>${s}</small></button>`).join("")}</div>`;
+  if(st===1){body=`<h2>Your units</h2>`;
+    if(W.kinds.includes("apt")||W.kinds.includes("house"))body+=`<div class="wsec"><div class="wsh"><b>Apartments and houses</b><span class="small">${W.units.length}</span></div>
+      ${W.units.map((u,i)=>`<div class="wu"><div class="wu1"><input type="text" data-wu="${i}" data-f="name" value="${esc(u.name)}" placeholder="${u.kind==="house"||u.kind==="villa"?"House":"Apartment"} ${i+1}"><select data-wu="${i}" data-f="kind">${["apt","studio","house","villa"].map(k=>`<option value="${k}"${u.kind===k?" selected":""}>${UKIND[k]}</option>`).join("")}</select>${W.units.length>1?`<button type="button" class="iconbtn" data-wudel="${i}" aria-label="Remove">✕</button>`:""}</div>
+        <div class="wu2">${[["bedrooms","Bedrooms"],["dbl","Double"],["sgl","Single"],["sofa","Sofa bed"],["guests","Guests"],["area","m²"]].map(([f,l])=>`<label><small>${l}</small><input type="text" inputmode="numeric" data-wu="${i}" data-f="${f}" value="${esc(u[f]??"")}" placeholder="${f==="guests"?String((+u.dbl||0)*2+(+u.sgl||0)+(+u.sofa||0)*2):""}"></label>`).join("")}</div></div>`).join("")}
+      <div class="wadd"><button type="button" class="btn" data-wuadd="1">＋ One more</button><span class="wmany"><span class="small">Several at once:</span><input type="text" inputmode="numeric" id="wu-many" placeholder="10"><button type="button" class="btn" data-wuadd="many">Create rows</button></span></div></div>`;
+    if(W.kinds.includes("hotel")||W.kinds.includes("hostel"))body+=`<div class="wsec"><div class="wsh"><b>${W.kinds.includes("hotel")?"Hotel":"Hostel"}</b></div>
+      <div class="grid2"><div><label class="l">Name</label><input type="text" data-wh="name" value="${esc(W.hotel.name)}" placeholder="Hotel Central"></div><div><label class="l">First room number</label><input type="text" inputmode="numeric" data-wh="start" value="${esc(W.hotel.start)}"></div></div>
+      <label class="l">Rooms by type</label>
+      ${W.hotel.rooms.map((r,i)=>`<div class="wr"><select data-wr="${i}" data-f="t">${Object.entries(ROOMT).map(([k,[t]])=>`<option value="${k}"${r.t===k?" selected":""}>${t}</option>`).join("")}</select><label><small>How many</small><input type="text" inputmode="numeric" data-wr="${i}" data-f="n" value="${esc(r.n)}"></label><label><small>Guests</small><input type="text" inputmode="numeric" data-wr="${i}" data-f="g" value="${esc(r.g??"")}" placeholder="${ROOMT[r.t][2]}"></label>${W.hotel.rooms.length>1?`<button type="button" class="iconbtn" data-wrdel="${i}" aria-label="Remove">✕</button>`:""}</div>`).join("")}
+      <button type="button" class="btn" data-wradd="1">＋ Another room type</button><p class="small" id="w-hprev"></p></div>`;}
+  if(st===2)body=`<h2>Who works with you?</h2><p class="small">You can skip this and add them later in Settings.</p>
+    <div class="wsec"><div class="wsh"><b>Managers</b><span class="small">welcome guests and take money, work in shifts — they get an email to set a password</span></div>
+      ${W.mgr.map((m,i)=>`<div class="wr"><input type="text" data-wm="${i}" data-f="name" value="${esc(m.name)}" placeholder="Name"><input type="email" data-wm="${i}" data-f="email" value="${esc(m.email)}" placeholder="email"><select data-wm="${i}" data-f="role">${[["manager","Manager"],["checker","Checks payments"],["viewer","View-only"]].map(([k,t])=>`<option value="${k}"${m.role===k?" selected":""}>${t}</option>`).join("")}</select><button type="button" class="iconbtn" data-wmdel="${i}" aria-label="Remove">✕</button></div>`).join("")}
+      <button type="button" class="btn" data-wmadd="1">＋ Manager</button></div>
+    <div class="wsec"><div class="wsh"><b>Cleaners</b><span class="small">sign in only with a PIN and see their cleanings, no money</span></div>
+      ${W.cl.map((m,i)=>`<div class="wr"><input type="text" data-wc="${i}" data-f="name" value="${esc(m.name)}" placeholder="Name"><input type="text" inputmode="numeric" data-wc="${i}" data-f="pin" value="${esc(m.pin)}" placeholder="PIN, 4+ digits"><button type="button" class="iconbtn" data-wcdel="${i}" aria-label="Remove">✕</button></div>`).join("")}
+      <button type="button" class="btn" data-wcadd="1">＋ Cleaner</button></div>`;
+  if(st===3){const {apts}=wizUnits(),mg=W.mgr.filter(m=>m.email.trim()),cl=W.cl.filter(m=>m.name.trim());
+    body=`<h2>All set to launch</h2>
+      <div class="wsum"><div><b>${apts.length}</b><span>${plural(apts.length,"unit","units","units")}</span></div><div><b>${mg.length}</b><span>${plural(mg.length,"manager","managers","managers")}</span></div><div><b>${cl.length}</b><span>${plural(cl.length,"cleaner","cleaners","cleaners")}</span></div></div>
+      <p class="small">${esc(apts.slice(0,12).join(", "))}${apts.length>12?" …":""}</p>
+      ${apts.length>70?`<p class="msg bad">More than 70 units — the plan is individual. Write to us and we’ll set everything up.</p>`:`<p>Plan: <b>${wizPrice(apts.length)||"…"}</b>${ME&&ME.billing&&ME.billing.in_trial?" — after the trial":""}. Prepaid, charged by the day.</p>`}
+      ${mg.length?`<p class="small">Managers get an email with a link — they set their own password.</p>`:""}
+      ${cl.length?`<p class="small">Cleaners sign in at ${esc(ME.org.code)}.espace.md → «I’m a cleaner» with their PIN.</p>`:""}`}
+  el.innerHTML=`<div class="wizc"><div class="wizh"><span class="wlogo">e.</span><div class="wsteps">${S.map((s,i)=>`<span class="${i<st?"done":i===st?"cur":""}">${s}</span>`).join("")}</div><button type="button" class="linkbtn" data-wiz="skip">Skip</button></div>
+    <div class="wizb">${body}</div>
+    <div class="wizf">${st?`<button type="button" class="btn" data-wiz="back">Back</button>`:"<span></span>"}<button type="button" class="btn primary" data-wiz="${st===3?"done":"next"}" ${st===0&&!W.kinds.length||W.busy?"disabled":""}>${st===3?(W.busy?"Creating…":"Create"):"Next"}</button></div></div>`;
+  wizHPrev()}
+function wizHPrev(){const el=$("w-hprev");if(!el)return;const {apts,units}=wizUnits();const rooms=apts.filter(a=>units[a].kind==="room"||units[a].kind==="bed");el.textContent=rooms.length?"Will be created: "+(rooms.length>4?rooms.slice(0,2).join(", ")+" … "+rooms[rooms.length-1]:rooms.join(", "))+" ("+rooms.length+")":""}
+document.addEventListener("input",e=>{if(!W||!e.target.closest||!e.target.closest("#wiz"))return;const d=e.target.dataset;
+  if(d.wu!=null){W.units[+d.wu][d.f]=e.target.value;if(["dbl","sgl","sofa"].includes(d.f)){const u=W.units[+d.wu],g=document.querySelector(`[data-wu="${d.wu}"][data-f="guests"]`);if(g)g.placeholder=String((+u.dbl||0)*2+(+u.sgl||0)+(+u.sofa||0)*2)}}
+  if(d.wh)W.hotel[d.wh]=e.target.value;
+  if(d.wr!=null)W.hotel.rooms[+d.wr][d.f]=e.target.value;
+  if(d.wm!=null)W.mgr[+d.wm][d.f]=e.target.value;
+  if(d.wc!=null)W.cl[+d.wc][d.f]=e.target.value;
+  wizHPrev()});
+document.addEventListener("change",e=>{if(!W||!e.target.closest||!e.target.closest("#wiz"))return;const d=e.target.dataset;
+  if(d.wu!=null)W.units[+d.wu][d.f]=e.target.value;if(d.wr!=null){W.hotel.rooms[+d.wr][d.f]=e.target.value;wizRender()}if(d.wm!=null)W.mgr[+d.wm][d.f]=e.target.value});
+document.addEventListener("click",async e=>{if(!W)return;const t=e.target.closest("#wiz [data-wk],#wiz [data-wiz],#wiz [data-wuadd],#wiz [data-wudel],#wiz [data-wradd],#wiz [data-wrdel],#wiz [data-wmadd],#wiz [data-wmdel],#wiz [data-wcadd],#wiz [data-wcdel]");if(!t)return;const d=t.dataset;
+  if(d.wk){W.kinds=W.kinds.includes(d.wk)?W.kinds.filter(x=>x!==d.wk):[...W.kinds,d.wk];if(d.wk==="house"&&W.kinds.includes("house")&&!W.kinds.includes("apt"))W.units.forEach(u=>{if(u.kind==="apt")u.kind="house"});if(d.wk==="hostel"&&W.kinds.includes("hostel")&&!W.kinds.includes("hotel"))W.hotel.rooms=[{t:"bed",n:"8"}];wizRender();return}
+  if(d.wuadd==="1"){W.units.push({name:"",kind:W.units[W.units.length-1].kind,bedrooms:"1",dbl:1,sgl:0,sofa:0,guests:"",area:""});wizRender();return}
+  if(d.wuadd==="many"){const n=Math.max(1,Math.min(70,parseInt($("wu-many").value,10)||0));const last=W.units[W.units.length-1];while(W.units.length<n)W.units.push({...last,name:""});if(W.units.length>n)W.units=W.units.slice(0,n);wizRender();return}
+  if(d.wudel!=null){W.units.splice(+d.wudel,1);wizRender();return}
+  if(d.wradd){W.hotel.rooms.push({t:"single",n:"2"});wizRender();return}
+  if(d.wrdel!=null){W.hotel.rooms.splice(+d.wrdel,1);wizRender();return}
+  if(d.wmadd){W.mgr.push({name:"",email:"",role:"manager"});wizRender();return}
+  if(d.wmdel!=null){W.mgr.splice(+d.wmdel,1);wizRender();return}
+  if(d.wcadd){W.cl.push({name:"",pin:""});wizRender();return}
+  if(d.wcdel!=null){W.cl.splice(+d.wcdel,1);wizRender();return}
+  if(d.wiz==="back"){W.step=Math.max(0,W.step-1);wizRender();return}
+  if(d.wiz==="skip"){W=null;wizRender();saveCfg({...cfg,onboarded:true},"You can set it up in Menu → Settings");return}
+  if(d.wiz==="next"){
+    if(W.step===1){const {apts}=wizUnits();if(!apts.length){toast("Add at least one unit");return}}
+    if(W.step===2){if(W.mgr.some(m=>m.email.trim()&&!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(m.email.trim()))){toast("Check email managers");return}
+      if(W.cl.some(m=>m.name.trim()&&String(m.pin).trim().length<4)){toast("PIN for the cleaner — at least 4 digits");return}}
+    W.step++;wizRender();return}
+  if(d.wiz==="done"){const {apts,units}=wizUnits();if(apts.length>70){toast("More than 70 — write to us");return}
+    W.busy=true;wizRender();const errs=[];
+    try{await api("kv_set_config",{p_data:{...cfg,apts,units:{...(cfg.units||{}),...units},onboarded:true}})}catch(x){W.busy=false;wizRender();toast("Not saved — check the internet");return}
+    for(const c of W.cl.filter(m=>m.name.trim()))try{await api("kv_staff_save",{s:{id:null,name:c.name.trim(),salary:0,extra_rate:0,cycle_start:"",on_days:3,off_days:3,pin:String(c.pin).trim()}})}catch(x){errs.push(c.name)}
+    for(const m of W.mgr.filter(m=>m.email.trim()))try{await api("team_add",{name:m.name.trim()||m.email.trim(),email:m.email.trim(),role:m.role})}catch(x){errs.push(m.email)}
+    W=null;wizRender();await reload();toast(errs.length?"Done, but couldn’t add: "+errs.join(", "):"Company set up");return}});
+
 /* MANAGERS' TO-DO */
 let todos=[], tdDay="", tdTime="", tdShowDone=false;
 const p2=n=>String(n).padStart(2,"0");
@@ -1536,7 +1755,8 @@ function renderCal(){
       const label=b.tag==="closed"?("Closed"+(b.note?" · "+b.note:"")):[b.guest||"no name",b.phone].filter(Boolean).join(" ");
       bars+=`<div class="bar${lz?" half":""}${(R-L)*W-4<64?" narrow":""}${st<0?" cut-l":""}${en>n?" cut-r":""}${over?" over":""}${b.tag==="closed"?" closed":""}${payActive(b)&&payState(b).state==="unpaid"?" unp":""}" data-edit="${esc(b.id)}" style="${lz}left:${L*W+2}px;width:${(R-L)*W-4}px;background-color:${barCol(b)}" title="${esc(label+" · "+dm(b.date)+" → "+dm(endOf(b))+" · "+amounts(b)+((st<0||en>n)?" · this month "+Math.round(shareOf(b,mon.y,mon.m)*b.nights)+" of "+b.nights+" nights":""))}">${over?"‼ ":""}${b.verified?`<span class="vk">✓</span>`:""}${bd}<span class="nm">${esc(label)}</span>${(()=>{if(payActive(b)){const ps=payState(b);if(ps.state!=="paid"){const t=ps.state==="unpaid"?(b.price?"unpaid "+fmt0(+b.price)+(ps.cur==="EUR"?"€":ps.cur==="USD"?"$":""):"unpaid"):(ps.left?"more "+fmt0(ps.left)+(ps.cur==="EUR"?"€":ps.cur==="USD"?"$":""):"deposit");return `<span class="amt pst">${esc(t)}</span>`}}const cut=false;if(!shortAmt(b))return "";if((R-L)*W-4<64){const k=cut?shareOf(b,mon.y,mon.m):1;return `<span class="amt tiny" title="${esc(shortAmt(b,k))}">${esc(tinyAmt(b,k))}</span>`}if(!cut)return `<span class="amt">${esc(shortAmt(b))}</span>`;const k=shareOf(b,mon.y,mon.m);return `<span class="amt" title="for this month ${esc(shortAmt(b,k))} of ${esc(shortAmt(b))}">${esc(shortAmt(b,k))}</span>`})()}</div>`;
     }
-    rows+=`<div class="sh-row"><div class="sh-name" data-aptpage="${esc(a)}"><span>${esc(a)}</span><em>${nights}</em></div><div class="sh-tl" data-tl="${esc(a)}" style="width:${n*W}px">${wk}${mLine}${tdMark}${bars}</div></div>`;
+    const uc=capOf(unitOf(a)),ul=unitLine(a),ug=unitOf(a).group;
+    rows+=`<div class="sh-row${ug?" grp":""}"><div class="sh-name" data-aptpage="${esc(a)}" title="${esc([ug,ul].filter(Boolean).join(" · "))}"><span>${esc(a)}${uc?`<small class="cap">👤${uc}</small>`:""}</span><em>${nights}</em></div><div class="sh-tl" data-tl="${esc(a)}" style="width:${n*W}px">${wk}${mLine}${tdMark}${bars}</div></div>`;
   }
   $("c-body").innerHTML=`<div class="sh sq" style="--W:${W}px;--L:${Lw}px;--H:${H}px;width:${Lw+n*W}px">${head}${rows}</div>`;
   {const el=$("c-body"),key=todayStr()+"|"+W,keep=calKey===key?el.scrollLeft:null,t0=el.scrollTop;calKey=key;
@@ -2086,7 +2306,7 @@ async function clnSaveTask(t,msg){try{await api("kv_task_save",{t});
   if(st&&t.date&&(t.kind==="clean"||t.kind==="general")&&t.status!=="skip"&&!isDuty(st,t.date)){const duty=setWork(t.date,st.id,true);try{await api("kv_set_config",{p_data:{...cfg,duty}});cfg={...cfg,duty};msg=(msg?msg+" · ":"")+st.name+" working "+dm(t.date)}catch(e){}}
   await reload();if(msg)toast(msg)}catch(e){toast("Not saved")}}
 let setSec="", stOpen=null;
-const SET_IC={rate:'<circle cx="9" cy="9" r="6"/><path d="M15.5 9.2a6 6 0 1 1-6.3 6.3"/><path d="M9 6.5v5M7.3 8h2.6"/>',chk:'<rect x="4" y="3" width="16" height="18" rx="3"/><path d="m8 10 2 2 4-4M8 16h8"/>',home:'<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9v12h14V9"/><path d="M10 21v-6h4v6"/>',mgr:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/>',lock:'<rect x="4.5" y="10.5" width="15" height="10.5" rx="3"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5M12 15v2"/>',cam:'<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',pen:'<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>',up:'<path d="M12 19V5M6 11l6-6 6 6"/>'};
+const SET_IC={del:'<path d="M4 7h16M10 11v6M14 11v6"/><path d="M6 7l1 13h10l1-13M9 7V4h6v3"/>',det:'<path d="M4 6h10M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',rate:'<circle cx="9" cy="9" r="6"/><path d="M15.5 9.2a6 6 0 1 1-6.3 6.3"/><path d="M9 6.5v5M7.3 8h2.6"/>',chk:'<rect x="4" y="3" width="16" height="18" rx="3"/><path d="m8 10 2 2 4-4M8 16h8"/>',home:'<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9v12h14V9"/><path d="M10 21v-6h4v6"/>',mgr:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/>',lock:'<rect x="4.5" y="10.5" width="15" height="10.5" rx="3"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5M12 15v2"/>',cam:'<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',pen:'<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>',up:'<path d="M12 19V5M6 11l6-6 6 6"/>'};
 const setIc=k=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${SET_IC[k]||MI[k]||""}</svg>`;
 function settingsPage(sec){ // Settings — a page with sub-pages
   if(typeof sec==="string")setSec=sec;
@@ -2125,16 +2345,7 @@ function renderSettings(){
       <div class="actions"><button class="btn sm" id="chk-add">+ Item</button><button class="btn sm primary" id="chk-save">Save the checklist</button></div>
       <p class="small" style="margin-bottom:0">0 days — check at every cleaning. 30 — once a month: the item shows up for cleaners when it hasn’t been ticked in this apartment for a while.</p></div>
     `],
-    apts:["home","Apartments",`${cfg.apts.length} ${plural(cfg.apts.length,"apartment","apartments","apartments")} · addresses, photos, order`,()=>`<div class="card" style="padding-top:6px">
-      ${cfg.apts.map((a,i)=>`<div class="aptset"><div class="ah">${thumb(a)}<b>${esc(a)}</b>
-        <button type="button" class="ibtn" data-photo="${esc(a)}" aria-label="Photos ${esc(a)}">${setIc("cam")}</button>
-        <button type="button" class="ibtn" data-ren="${esc(a)}" aria-label="Rename ${esc(a)}">${setIc("pen")}</button>
-        <button type="button" class="ibtn" data-up="${i}" ${i?"":"disabled"} aria-label="Higher">${setIc("up")}</button></div>
-        <input type="text" data-addr="${esc(a)}" value="${esc((cfg.addr||{})[a]||"")}" placeholder="Address: Decebal 6/2, apt. 61, floor 7" aria-label="Address ${esc(a)}"></div>`).join("")}
-      <div class="actions"><button class="btn primary" id="save-addr">Save addresses</button></div>
-      <div class="setadd two"><input type="text" id="new-apt" placeholder="New apartment"><button class="btn" id="add-apt">＋ Add</button></div>
-      <p class="small" style="margin-bottom:0">Cleaners see the address in their cleanings and in the list notification (with an «on the map» button). The photo is compressed automatically. Renaming also changes the name in all old bookings and expenses.</p></div>
-    `],
+    apts:["home","Units",`${cfg.apts.length} ${plural(cfg.apts.length,"unit","units","units")} · details, addresses, photos, order`,()=>aptsSection()],
     people:["mgr","Managers",cfg.people.join(", ")||"not given",()=>`<div class="card"><label class="l" for="set-people">Managers — who take money and work in shifts <em>— comma-separated</em></label><input type="text" id="set-people" value="${esc(cfg.people.join(", "))}">
       <div class="actions"><button class="btn primary" id="save-people">Save</button></div></div>
     `],
@@ -2785,7 +2996,7 @@ document.addEventListener("click",e=>{
   if(ds.go){const g=ds.go;if(g==="shifts"){handoverPage();return}if(g==="guide"){guidePage();return}if(g==="bell"){bellSheet(notifs,"bellseen","bell-badge");return}if(["todo","rep","rem"].includes(g)){clnTab=g;ls.set("hubtab2",g);show("tasks")}else if(g==="clean")show("cln");else if(g==="verify"){vFilter="todo";verifyPage()}else if(g==="settings")settingsPage("");else show(g);scrollTo(0,0);return}
   if(ds.view){if(t.closest("#tabs")&&ds.view==="today"){hvHome();return}if(t.closest("#tabs")&&ds.view===view&&view==="menu")return;if(ds.view==="add"&&view!=="add"){form=blankB();eform=blankE();fillB();fillE()}show(ds.view);return}
   if(ds.mode){setMode(ds.mode);renderView();return}
-  if(ds.apt!=null){readB();form.apt=ds.apt;fAptOpen=false;renderChipsB();infoB();return}
+  if(ds.apt!=null){readB();form.apt=ds.apt;fAptOpen=false;renderChipsB();infoB();capHint();return}
   if(ds.aptchg){fAptOpen=true;renderChipsB();return}
   if(ds.pay!=null){form.pay=form.pay===ds.pay?"":ds.pay;renderSegsB();return}
   if(ds.who!=null){form.who=form.who===ds.who?"":ds.who;renderSegsB();return}
@@ -3068,6 +3279,7 @@ function renderCl(){
   day.items.forEach((it,i)=>{const key=day.date+"|"+(it.booking_id||it.task_id);const set=clChecked[key]||(clChecked[key]=new Set());const done=it.status==="done";
     h+=`<div class="card clc${done?" done":""}"><div class="clh"><b>${esc(it.apt)}</b>${it.time?`<span class="pill warn">⏰ ${esc(it.time)}</span>`:""}${it.kind==="general"?`<span class="pill warn">Deep cleaning</span>`:`<span class="small">${it.booking_id?"after check-out":"cleaning"}</span>`}${done?`<span class="pill ok">✓ cleaned</span>`:""}</div>
       ${cl.addr&&cl.addr[it.apt]?`<div style="margin-top:6px;font-size:14.5px">📍 ${esc(cl.addr[it.apt])} <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cl.addr[it.apt]+", Chișinău")}" target="_blank" rel="noopener" style="font-weight:600;white-space:nowrap">on the map →</a></div>`:""}
+      ${cl.beds&&cl.beds[it.apt]?`<div class="cl-beds">🛏 ${esc(bedsOf(cl.beds[it.apt]))} · guests: ${capOf(cl.beds[it.apt])}</div>`:""}
       ${it.note?`<div class="small" style="margin-top:4px">${esc(it.note)}</div>`:""}
       <div style="margin-top:8px">${it.checklist.map(c=>`<label class="chk${c.last!==undefined?" due":""}"><input type="checkbox" data-clchk="${esc(key)}" data-item="${esc(c.id)}" ${set.has(c.id)||done?"checked":""} ${done?"disabled":""}><span>${esc(c.text)}${c.last!==undefined?`<em>🚩 special attention today · ${c.last?"not done "+c.age+" days":"never ticked yet"}</em>`:""}</span></label>`).join("")}</div>
       <div class="actions" style="margin-top:8px">${done?`<button class="btn" data-clundo="${i}">Undo the tick</button>`:`<button class="btn primary" data-cldone="${i}">✓ Cleaned</button>`}</div></div>`});

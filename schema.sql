@@ -73,6 +73,7 @@ CREATE TABLE IF NOT EXISTS bookings (
   note TEXT NOT NULL DEFAULT '',
   source TEXT NOT NULL DEFAULT '',
   phone TEXT NOT NULL DEFAULT '',
+  pax INTEGER NOT NULL DEFAULT 0,          -- number of guests
   verified INTEGER NOT NULL DEFAULT 0,
   verified_at TEXT,
   shift_id TEXT,
