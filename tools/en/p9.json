@@ -170,5 +170,16 @@
 "Было": "Before",
 "Всё": "All",
 "да": "yes",
-"оплачено": "paid"
+"оплачено": "paid",
+"Ищет во всех месяцах: имя гостя, телефон (можно последние цифры)": "Searches all months: guest name, phone (the last digits work too)",
+"объект, заметку, источник. Расходы — по категории и заметке.": "unit, note, source. Expenses — by category and note.",
+"Показаны 60 последних — уточни запрос.": "Showing the latest 60 — narrow the search.",
+"Поиск по всем броням": "Search all bookings",
+"Имя, телефон, объект": "Name, phone, unit",
+"Броней не найдено": "No bookings found",
+"сейчас живёт": "staying now",
+"последний": "last",
+"впереди": "upcoming",
+"Гости": "Guests",
+"Поиск": "Search"
 }

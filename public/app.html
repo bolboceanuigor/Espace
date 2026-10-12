@@ -722,6 +722,7 @@ body.calmode .wrap{padding-bottom:0;max-width:none}
 .opaybox.ok{display:flex;flex-direction:column;gap:4px}.opaybox.ok b{color:var(--ok)}
 .aud{padding:10px 2px;border-bottom:1px solid var(--line)}.aud .a1{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted)}.aud .ak{font-weight:700;text-transform:uppercase;letter-spacing:.04em}
 .aud .a2{margin-top:2px}.aud .a3{font-size:13px;color:var(--muted);margin-top:3px;display:flex;flex-direction:column;gap:1px}.aud .a3 s{opacity:.75}.aud .a3 b{color:var(--ink)}.aud .a3 .del{text-decoration:line-through}.aud.a-delete .a2,.aud.a-unpay .a2,.aud.a-decline .a2{color:var(--exp)}
+.sguest{padding:10px 12px;border-radius:14px;background:var(--surface);margin-bottom:6px;display:flex;flex-direction:column;gap:2px}
 .ownapts{display:flex;flex-wrap:wrap;gap:6px}.ownapts label{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:6px 11px;font-size:13.5px;cursor:pointer}
 .ownapts label.on{border-color:var(--accent);background:rgba(var(--a1-rgb),.08)}.ownapts label.off{opacity:.5;cursor:default}.ownapts input{width:16px;height:16px;accent-color:var(--accent)}
 .otab{width:100%;border-collapse:collapse;font-size:13.5px}.otab td{padding:6px 4px;border-bottom:1px solid var(--line);vertical-align:top}.otab td.r{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}.otab tr.ex td{color:var(--exp)}
@@ -962,6 +963,7 @@ body.wizon{overflow:hidden}
 <header class="top"><div class="top-in">
   <div class="brand"><img src="/logo-64.png" alt=""><span id="org-name">espace.md</span></div>
   <div class="month" id="monthbox"><button id="mprev" aria-label="Предыдущий месяц">‹</button><span id="mlabel"></span><button id="mnext" aria-label="Следующий месяц">›</button></div>
+  <button class="iconbtn" id="open-search" aria-label="Поиск" title="Поиск по всем броням"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button>
   <button class="iconbtn vbtn" id="open-bell" aria-label="Уведомления" title="Уведомления"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg><span class="badge" id="bell-badge" hidden></span></button>
   <button class="iconbtn vbtn" id="open-verify" hidden aria-label="Проверка оплат" title="Проверка оплат"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.7 2.7L16.5 9"/></svg><span class="badge" id="v-badge" hidden></span></button>
   <button class="iconbtn" id="open-settings" hidden aria-label="Настройки"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg></button>
@@ -1709,6 +1711,34 @@ document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest
   if(!AUD)return;
   if(t.dataset.audmore){audLoad(true);return}
   AUD.kind=t.dataset.audk;document.querySelectorAll("[data-audk]").forEach(b=>b.setAttribute("aria-pressed",String(b===t)));audLoad(false)});
+/* SEARCH: every booking and expense, all months — by guest, phone, email, unit, note */
+const fold=v=>String(v||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/\u0451/g,"\u0435");
+const digits=v=>String(v||"").replace(/\D/g,"");
+const fdy=d=>d?d.slice(8,10)+"."+d.slice(5,7)+"."+d.slice(0,4):"";
+function srchHit(q){const t=fold(q).trim(),dq=digits(q),words=t.split(/\s+/).filter(Boolean);if(!t)return null;
+  const has=(hay)=>words.every(w=>hay.includes(w));
+  const bs=bookings.filter(b=>{if(dq.length>=4&&digits(b.phone).includes(dq))return true;return has(fold([b.guest,b.apt,b.note,b.source,b.email,b.phone,b.who].join(" ")))}).sort((x,y)=>y.date.localeCompare(x.date));
+  const es=expenses.filter(e=>has(fold([e.category,e.apt,e.note,e.who].join(" ")))).sort((x,y)=>y.date.localeCompare(x.date));
+  // the same guest across stays: grouped by phone, else by name
+  const G={};for(const b of bs){if(b.tag==="closed"||!(b.guest||b.phone))continue;const k=digits(b.phone).slice(-8)||fold(b.guest).trim();if(!k)continue;const g=G[k]=G[k]||{name:b.guest,phone:b.phone,n:0,nights:0,sum:0,last:"",apts:new Set()};
+    g.n++;g.nights+=b.nights>0?+b.nights:0;g.sum+=eurOf(b)+utilEur(b);if(b.date>g.last){g.last=b.date;if(b.guest)g.name=b.guest}if(!g.phone&&b.phone)g.phone=b.phone;g.apts.add(b.apt)}
+  const guests=Object.values(G).filter(g=>g.n>1).sort((x,y)=>y.n-x.n).slice(0,5);
+  return {bs,es,guests}}
+function srchRender(){const box=$("srch-res");if(!box)return;const q=$("srch-q").value,r=srchHit(q);
+  if(!r){box.innerHTML=`<p class="small">Ищет во всех месяцах: имя гостя, телефон (можно последние цифры), email, объект, заметку, источник. Расходы — по категории и заметке.</p>`;return}
+  const td=todayStr();let h="";
+  if(r.guests.length)h+=`<h3>Гости <span class="count">${r.guests.length}</span></h3>${r.guests.map(g=>`<div class="sguest"><b>${esc(g.name||"без имени")}</b>${g.phone?` <span class="small">${esc(g.phone)}</span>`:""}<span class="small">${g.n} ${plural(g.n,"заезд","заезда","заездов")} · ${g.nights} ${plural(g.nights,"ночь","ночи","ночей")} · ${fmt0(g.sum)} € · последний ${fdy(g.last)} · ${[...g.apts].map(esc).join(", ")}</span></div>`).join("")}`;
+  h+=`<h3>Брони <span class="count">${r.bs.length}</span></h3>`+(r.bs.length?`<div class="list">${r.bs.slice(0,60).map(b=>`<button type="button" class="bk" data-sview="${esc(b.id)}">${thumb(b.apt)}<div class="m"><b>${esc(b.tag==="closed"?"Закрыто":b.guest||"без имени")} ${srcBadge(b.source)}</b><div class="l2">${esc(b.apt)} · ${fdy(b.date)}${b.nights>0?" · "+b.nights+" н.":""}${endOf(b)>td&&b.date<=td?" · сейчас живёт":b.date>td?" · впереди":""}${b.phone?" · "+esc(b.phone):""}</div></div><div class="a">${esc(amounts(b)||"—")}</div></button>`).join("")}</div>${r.bs.length>60?`<p class="small">Показаны 60 последних — уточни запрос.</p>`:""}`:`<div class="empty">Броней не найдено</div>`);
+  if(r.es.length)h+=`<h3>Расходы <span class="count">${r.es.length}</span></h3><div class="list">${r.es.slice(0,20).map(e=>rowE(e).replace(dm(e.date),fdy(e.date))).join("")}</div>`;
+  box.innerHTML=h}
+function searchPage(q){openSheet("Поиск",`<input type="search" id="srch-q" placeholder="Имя, телефон, объект…" autocomplete="off" style="width:100%" value="${esc(q||"")}"><div id="srch-res"></div>`,{type:"search",apt:""});srchRender();setTimeout(()=>{const i=$("srch-q");if(i){i.focus();i.select()}},50)}
+let srchT=0;
+document.addEventListener("input",e=>{if(e.target.id!=="srch-q")return;clearTimeout(srchT);srchT=setTimeout(srchRender,150)});
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("#open-search,[data-sview]");if(!t)return;
+  if(t.id==="open-search"){searchPage("");return}
+  const b=bookings.find(x=>x.id===t.dataset.sview);if(!b)return;mon.y=+b.date.slice(0,4);mon.m=+b.date.slice(5,7)-1;renderView();bookView(b.id)});
+document.addEventListener("keydown",e=>{if(!PIN||$("app").hidden)return;const a=document.activeElement;if(a&&a.matches&&a.matches("input,textarea,select,[contenteditable]"))return;
+  if(e.key==="/"||((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k")){e.preventDefault();searchPage("")}});
 async function impRead(file){const name=file.name;let rows=[];
   if(/\.csv$/i.test(name)||file.type==="text/csv"){const t=await file.text(),sep=(t.split("\n")[0].match(/;/g)||[]).length>(t.split("\n")[0].match(/,/g)||[]).length?";":",";
     rows=t.split(/\r?\n/).filter(l=>l.trim()).map(l=>{const out=[];let cur="",q=false;for(let i=0;i<l.length;i++){const c=l[i];if(q){if(c==='"'&&l[i+1]==='"'){cur+='"';i++}else if(c==='"')q=false;else cur+=c}else if(c==='"')q=true;else if(c===sep){out.push(cur);cur=""}else cur+=c}out.push(cur);return out})}

@@ -169,5 +169,16 @@
 "брони": "rezervări",
 "Было": "Înainte",
 "Всё": "Tot",
-"да": "da"
+"да": "da",
+"Ищет во всех месяцах: имя гостя, телефон (можно последние цифры)": "Caută în toate lunile: numele oaspetelui, telefonul (merg și ultimele cifre)",
+"объект, заметку, источник. Расходы — по категории и заметке.": "obiectul, nota, sursa. Cheltuielile — după categorie și notă.",
+"Показаны 60 последних — уточни запрос.": "Se arată ultimele 60 — precizează căutarea.",
+"Поиск по всем броням": "Caută în toate rezervările",
+"Имя, телефон, объект": "Nume, telefon, obiect",
+"Броней не найдено": "Nicio rezervare găsită",
+"сейчас живёт": "locuiește acum",
+"последний": "ultimul",
+"впереди": "urmează",
+"Гости": "Oaspeți",
+"Поиск": "Căutare"
 }
