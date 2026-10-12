@@ -913,6 +913,8 @@ body.wizon{overflow:hidden}
 .trates{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:6px 0 8px}.trates>small{display:block;color:var(--muted);font-weight:600;margin-bottom:6px}
 .trate{display:flex;align-items:center;gap:6px;margin-bottom:6px}.trate span{flex:1;min-width:0;font-weight:600;font-size:14px}.trate em{font-style:normal;color:var(--muted);font-weight:400}.trate input{width:96px;height:38px}.trate select{width:auto;height:38px}
 .sh-grp{display:flex;align-items:center;height:22px;background:var(--surface);border-bottom:1px solid var(--line);position:sticky;left:0}.sh-grp b{position:sticky;left:0;padding:0 10px;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);white-space:nowrap}
+.dtog{display:flex;gap:12px;align-items:flex-start;cursor:pointer}.dtog input{width:22px;height:22px;margin-top:2px;flex:none;accent-color:var(--accent)}.dtog span{display:flex;flex-direction:column;gap:2px}.dtog small{color:var(--muted)}
+.bv-req{margin:12px 0;padding:12px;border-radius:12px;background:var(--accent-soft)}.bv-req p{margin:0 0 8px}.btn.danger.armed{background:#b42318;color:#fff}
 .uical{margin-top:6px}.ifeed{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line)}.ifeed .iu{flex:1;min-width:0;display:flex;flex-direction:column}.ifeed .iu b{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ifeed .iu small{color:var(--muted)}.ifeed.bad .iu small{color:#b42318}
 .isrc{font-size:11.5px;font-weight:700;padding:3px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
 .iadd{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}.iadd select{width:auto;flex:none}.iadd input{flex:1;min-width:160px}
@@ -1521,6 +1523,29 @@ document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest
   t.closest(".trates").querySelectorAll("[data-trate]").forEach(inp=>{const k=inp.dataset.trate,v=String(inp.value).replace(",",".").trim(),cur=t.closest(".trates").querySelector(`[data-trcur="${k}"]`).value;
     cfg.apts.forEach(a=>{const u=unitOf(a);if(u.group===g&&u.rtype===k){const x={...u};if(v===""||!(+v>0)){delete x.price;delete x.pcur}else{x.price=+v;x.pcur=cur}units[a]=x}})});
   saveCfg({...cfg,units},"Rates saved")});
+/* DIRECT BOOKING PAGE — <slug>.espace.md/rezerva: guests see free units with prices and send a request,
+   which lands in the calendar as «Request» (dates held) until a manager confirms or declines it. */
+function directSection(){const d=cfg.direct||{},url="https://"+ME.org.code+".espace.md/rezerva",hid=new Set(d.hidden||[]);
+  const withPrice=cfg.apts.filter(a=>+unitOf(a).price>0),noPrice=cfg.apts.filter(a=>!(+unitOf(a).price>0));
+  return `<div class="card"><label class="dtog"><input type="checkbox" id="dr-on" ${d.on?"checked":""} ${RO?"disabled":""}><span><b>Take bookings on your own page</b><small>Guests pick dates, see free units and the price, and send a request. No commission.</small></span></label>
+    <div class="iexp" style="margin-top:12px"><b>Link for guests</b><div class="iexpr" style="margin-top:6px"><input type="text" readonly value="${esc(url)}" id="dr-url"><button type="button" class="btn sm" id="dr-copy">Copy</button><a class="btn sm" href="${esc(url)}" target="_blank" rel="noopener">Open</a></div>
+      <p class="small" style="margin:6px 0 0">Put it on Instagram, your website, in Google Maps and in your replies to guests.</p></div></div>
+  <div class="card"><b>What guests see</b>
+    <label class="l" for="dr-intro">Welcome text</label><textarea id="dr-intro" rows="2" maxlength="400" placeholder="Apartments in central Chișinău, check-in 24/7">${esc(d.intro||"")}</textarea>
+    <div class="grid2"><div><label class="l" for="dr-phone">Phone / WhatsApp</label><input type="tel" id="dr-phone" value="${esc(d.phone||"")}" placeholder="+373…"></div><div><label class="l" for="dr-email">Email</label><input type="email" id="dr-email" value="${esc(d.email||"")}"></div></div>
+    <div class="grid2"><div><label class="l" for="dr-min">Minimum nights</label><input type="text" inputmode="numeric" id="dr-min" value="${esc(d.min||1)}"></div><div></div></div>
+    <label class="l" for="dr-terms">Terms <em>— payment, deposit, cancellation</em></label><textarea id="dr-terms" rows="3" maxlength="1500" placeholder="30% prepayment after confirmation. Free cancellation up to 3 days before.">${esc(d.terms||"")}</textarea>
+    <label class="l">Units on the page <em>— only units with a nightly price are shown</em></label>
+    <div class="uamen">${withPrice.map(a=>`<button type="button" data-drunit="${esc(a)}" aria-pressed="${!hid.has(a)}">${esc(a)}</button>`).join("")||`<span class="small">No unit has a price yet.</span>`}</div>
+    ${noPrice.length?`<p class="small" style="margin:8px 0 0">No price, hidden from guests: ${esc(noPrice.slice(0,8).join(", "))}${noPrice.length>8?" …":""}. Set the price in «Units» → ⚙.</p>`:""}
+    ${RO?"":`<div class="actions"><button type="button" class="btn primary" id="dr-save">Save</button></div>`}</div>`}
+document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("#dr-save,#dr-copy,[data-drunit]");if(!t)return;
+  if(t.dataset.drunit!=null){t.setAttribute("aria-pressed",String(t.getAttribute("aria-pressed")!=="true"));return}
+  if(t.id==="dr-copy"){try{await navigator.clipboard.writeText($("dr-url").value);toast("Link copied")}catch(x){$("dr-url").select()}return}
+  const em=$("dr-email").value.trim();if(em&&!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em)){toast("Check email");return}
+  const direct={on:$("dr-on").checked,intro:$("dr-intro").value.trim().slice(0,400),phone:$("dr-phone").value.trim().slice(0,40),email:em,min:Math.max(1,Math.min(30,parseInt($("dr-min").value,10)||1)),terms:$("dr-terms").value.trim().slice(0,1500),
+    hidden:[...document.querySelectorAll("[data-drunit][aria-pressed=false]")].map(x=>x.dataset.drunit)};
+  saveCfg({...cfg,direct},direct.on?"Booking page is on":"Saved")});
 function aptsSection(){
   const groups=[];cfg.apts.forEach((a,i)=>{const g=unitOf(a).group||"";let G=groups.find(x=>x.g===g);if(!G)groups.push(G={g,items:[]});G.items.push([a,i])});
   const multi=groups.length>1||groups[0]&&groups[0].g;
@@ -1748,9 +1773,9 @@ const fromEurC=(v,c)=>c==="MDL"?v*(+cfg.rates.eur||20):c==="USD"?v/(+cfg.rates.u
 function payState(b){const air=b.source==="Airbnb"||b.pay==="Airbnb",got=b.nights>0?paidEur(b):eurOf(b),pe=b.price?toEurC(+b.price,b.price_cur||"EUR"):0;
   let state=b.pay_status||(air?"paid":pe?(got>=pe*0.98?"paid":got>0.5?"part":"unpaid"):(got>0.5?"paid":"unpaid"));
   const left=pe&&got<pe?Math.round(fromEurC(pe-got,b.price_cur||"EUR")):0;return {state,got,pe,left,cur:b.price_cur||"EUR"}}
-const payActive=b=>b.nights>0&&b.tag!=="closed"&&endOf(b)>=todayStr();
+const payActive=b=>b.nights>0&&b.tag!=="closed"&&b.tag!=="req"&&endOf(b)>=todayStr();
 // calendar colour = who made the booking (Excel keeps colouring by who took the money)
-const TAGS=[["booking","Booking","#f7c58a"],["airbnb","Airbnb","#f6a5a3"],["closed","Closed","#5a606c"]];
+const TAGS=[["booking","Booking","#f7c58a"],["airbnb","Airbnb","#f6a5a3"],["req","Request","#a9c8f5"],["closed","Closed","#5a606c"]];
 function bookView(id){const b=bookings.find(x=>x.id===id);if(!b)return;const tg=TAGS.find(x=>x[0]===tagOf(b));
   const nn=+b.nights||0,nw=nn%10===1&&nn%100!==11?"night":[2,3,4].includes(nn%10)&&![12,13,14].includes(nn%100)?"nights":"nights";
   const cs=v=>fmt0(v)+" "+(CUR_L[b.price_cur||"EUR"]||b.price_cur||"");
@@ -1762,7 +1787,11 @@ function bookView(id){const b=bookings.find(x=>x.id===id);if(!b)return;const tg=
   openSheet(b.tag==="closed"?"Closed":(b.guest||"No name"),`<div class="bv">${tg?`<div class="bv-tag"><i style="background:${tg[2]}"></i>${esc(tg[1])}</div>`:""}${pay}
    ${ct?`<div class="fcontact bv-ct">${ct}</div>`:b.tag==="closed"?"":`<div class="bv-nophone">No phone given</div>`}
    <div class="bv-rows">${rows.map(([k,v])=>`<div><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join("")}</div>
-   ${RO?"":`<button type="button" class="btn primary bv-edit" data-bedit="${esc(b.id)}">Edit booking</button>`}</div>`)}
+   ${b.tag==="req"&&!RO?`<div class="bv-req"><p class="small">Request from the booking page${b.email?" · "+esc(b.email):""}${b.pax?" · guests: "+b.pax:""}. The dates are held for it for now.</p><div class="actions"><button type="button" class="btn primary" data-reqok="${esc(b.id)}">✓ Confirm</button><button type="button" class="btn danger" data-reqno="${esc(b.id)}">Decline</button></div></div>`:""}
+   ${RO?"":`<button type="button" class="btn${b.tag==="req"?"":" primary"} bv-edit" data-bedit="${esc(b.id)}">Edit booking</button>`}</div>`)}
+document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("[data-reqok],[data-reqno]");if(!t)return;const ok=!!t.dataset.reqok,id=t.dataset.reqok||t.dataset.reqno;
+  if(!ok&&!t.classList.contains("armed")){t.classList.add("armed");t.textContent="Decline for sure?";return}
+  t.disabled=true;try{const r=await api("kv_req_decide",{id,ok});closeSheet();await reload();toast((ok?"Booking confirmed":"Request declined")+(r.mailed==="sent"?" · the guest got an email":""))}catch(x){t.disabled=false;toast("Didn’t work")}});
 function tagOf(b){if(b.tag)return b.tag;if(b.source==="Airbnb"||b.pay==="Airbnb")return "airbnb";if(b.source==="Booking")return "booking";return ""}
 function barCol(b){const tg=tagOf(b),c=(TAGS.find(x=>x[0]===tg)||[])[2];if(c)return c;if(b.source==="Airbnb"||b.pay==="Airbnb")return "#f6a5a3";const i=cfg.people.indexOf(b.who);return i>=0&&i<WHO_COL.length?WHO_COL[i]:"#e4e2e8"}
 function fitCal(){const el=$("c-body");if(!el||$("v-cal").hidden)return;if(el.querySelector(".sh.sq"))return;const top=el.getBoundingClientRect().top;const nav=$("tabs");const bottom=getComputedStyle(nav).position==="fixed"?Math.max(0,window.innerHeight-nav.getBoundingClientRect().top):0;el.style.height=Math.max(260,window.innerHeight-top-bottom-10)+"px"}
@@ -2076,7 +2105,7 @@ function dayRows(d){
   cfg.apts.forEach(a=>{const same=bookings.filter(b=>b.apt===a&&b.nights>0&&b.date===d).sort((x,y)=>(x.createdAt||0)-(y.createdAt||0));
     same.slice(0,-1).forEach(b=>{const t=cleanT(b);rows.push({t,b,apt:a,kind:"clean",between:true,staff:t?.staff_id||duty,time:t?.time||"",status:t?.status||"todo",sent:!!t?.sent,inToday:true})})});
   const manualApt=new Set(tasks.filter(t=>(t.kind==="general"||(t.kind==="clean"&&!t.booking_id))&&t.date===d&&t.status!=="skip").map(t=>t.apt));
-  bookings.filter(b=>b.nights>0&&b.tag!=="closed"&&endOf(b)===d).forEach(b=>{const t=cleanT(b);if(!t&&manualApt.has(b.apt))return;rows.push({t,b,apt:b.apt,kind:"clean",staff:t?.staff_id||duty,time:t?.time||"",status:t?.status||"todo",sent:!!t?.sent,inToday:inT(b.apt)})});
+  bookings.filter(b=>b.nights>0&&b.tag!=="closed"&&b.tag!=="req"&&endOf(b)===d).forEach(b=>{const t=cleanT(b);if(!t&&manualApt.has(b.apt))return;rows.push({t,b,apt:b.apt,kind:"clean",staff:t?.staff_id||duty,time:t?.time||"",status:t?.status||"todo",sent:!!t?.sent,inToday:inT(b.apt)})});
   tasks.filter(t=>(t.kind==="general"||(t.kind==="clean"&&!t.booking_id))&&t.date===d).forEach(t=>rows.push({t,apt:t.apt,kind:t.kind,manual:true,staff:t.staff_id||duty,time:t.time||"",status:t.status,sent:!!t.sent,inToday:inT(t.apt)}));
   return rows.sort((a,b)=>(a.time||"99").localeCompare(b.time||"99")||cfg.apts.indexOf(a.apt)-cfg.apts.indexOf(b.apt));
 }
@@ -2360,7 +2389,7 @@ async function clnSaveTask(t,msg){try{await api("kv_task_save",{t});
   if(st&&t.date&&(t.kind==="clean"||t.kind==="general")&&t.status!=="skip"&&!isDuty(st,t.date)){const duty=setWork(t.date,st.id,true);try{await api("kv_set_config",{p_data:{...cfg,duty}});cfg={...cfg,duty};msg=(msg?msg+" · ":"")+st.name+" working "+dm(t.date)}catch(e){}}
   await reload();if(msg)toast(msg)}catch(e){toast("Not saved")}}
 let setSec="", stOpen=null;
-const SET_IC={del:'<path d="M4 7h16M10 11v6M14 11v6"/><path d="M6 7l1 13h10l1-13M9 7V4h6v3"/>',det:'<path d="M4 6h10M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',rate:'<circle cx="9" cy="9" r="6"/><path d="M15.5 9.2a6 6 0 1 1-6.3 6.3"/><path d="M9 6.5v5M7.3 8h2.6"/>',chk:'<rect x="4" y="3" width="16" height="18" rx="3"/><path d="m8 10 2 2 4-4M8 16h8"/>',home:'<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9v12h14V9"/><path d="M10 21v-6h4v6"/>',mgr:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/>',lock:'<rect x="4.5" y="10.5" width="15" height="10.5" rx="3"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5M12 15v2"/>',cam:'<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',pen:'<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>',up:'<path d="M12 19V5M6 11l6-6 6 6"/>'};
+const SET_IC={web:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',del:'<path d="M4 7h16M10 11v6M14 11v6"/><path d="M6 7l1 13h10l1-13M9 7V4h6v3"/>',det:'<path d="M4 6h10M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',rate:'<circle cx="9" cy="9" r="6"/><path d="M15.5 9.2a6 6 0 1 1-6.3 6.3"/><path d="M9 6.5v5M7.3 8h2.6"/>',chk:'<rect x="4" y="3" width="16" height="18" rx="3"/><path d="m8 10 2 2 4-4M8 16h8"/>',home:'<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9v12h14V9"/><path d="M10 21v-6h4v6"/>',mgr:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/>',lock:'<rect x="4.5" y="10.5" width="15" height="10.5" rx="3"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5M12 15v2"/>',cam:'<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',pen:'<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>',up:'<path d="M12 19V5M6 11l6-6 6 6"/>'};
 const setIc=k=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${SET_IC[k]||MI[k]||""}</svg>`;
 function settingsPage(sec){ // Settings — a page with sub-pages
   if(typeof sec==="string")setSec=sec;
@@ -2400,6 +2429,7 @@ function renderSettings(){
       <p class="small" style="margin-bottom:0">0 days — check at every cleaning. 30 — once a month: the item shows up for cleaners when it hasn’t been ticked in this apartment for a while.</p></div>
     `],
     apts:["home","Units",`${cfg.apts.length} ${plural(cfg.apts.length,"unit","units","units")} · details, addresses, photos, order`,()=>aptsSection()],
+    direct:["web","Booking page",cfg.direct&&cfg.direct.on?"on · "+ME.org.code+".espace.md/rezerva":"guests book directly, no commission",()=>directSection()],
     people:["mgr","Managers",cfg.people.join(", ")||"not given",()=>`<div class="card"><label class="l" for="set-people">Managers — who take money and work in shifts <em>— comma-separated</em></label><input type="text" id="set-people" value="${esc(cfg.people.join(", "))}">
       <div class="actions"><button class="btn primary" id="save-people">Save</button></div></div>
     `],
@@ -2511,7 +2541,7 @@ const hvDay=r=>{const d=(r.kind==="exp"?(r.ed||r.d):r.d)||(hv&&hv.date_from)||to
 // unpaid stays from the days just before this shift (late check-in, money taken the next day)
 const bNoMoney=b=>!(+b.mdl||+b.eur||+b.usd||+b.oth)&&b.pay!=="Airbnb";
 function hvUnpaid(){if(!hv||!hv.date_from)return [];const inS=new Set(hv.rows.map(r=>r.bid).filter(Boolean)),from=hv.date_from,lim=fromT(toT(from)-3*DAY);
-  return bookings.filter(b=>b.nights>0&&b.tag!=="closed"&&b.date<from&&b.date>=lim&&endOf(b)>=from&&!inS.has(b.id)&&b.shiftId!==hv.id&&bNoMoney(b)).sort((a,b)=>a.date.localeCompare(b.date))}
+  return bookings.filter(b=>b.nights>0&&b.tag!=="closed"&&b.tag!=="req"&&b.date<from&&b.date>=lim&&endOf(b)>=from&&!inS.has(b.id)&&b.shiftId!==hv.id&&bNoMoney(b)).sort((a,b)=>a.date.localeCompare(b.date))}
 function hvAdopt(id){if(hvTarget==="page")hvSetMode("edit");const b=bookings.find(x=>x.id===id);if(!b)return;const air=b.source==="Airbnb"||b.pay==="Airbnb";const lei=b.pay==="Счёт"?{schet:b.mdl||"",mdl:""}:{schet:"",mdl:b.mdl||""};
     const nr={...rowEmpty(),apt:b.apt,d:b.date,n:String(b.nights),guest:b.guest,src:b.source,bid:b.id,adopt:1,note:b.note||"",...lei,eur:b.eur||"",src:air?"Airbnb":b.source,usd:b.usd||"",util:b.util||"",ucur:b.util_cur||"MDL"};
     if(b.oth&&b.oth_cur){if(!hv.cols.includes(b.oth_cur))hv.cols.push(b.oth_cur);nr.oth={[b.oth_cur]:b.oth}}
@@ -2537,7 +2567,7 @@ function hvRowsHTML(){
   const page=hvTarget==="page";
   return (page?hvUnpaidHTML():"")+hvDays().map((d,k)=>{
     const idx=hv.rows.map((r,i)=>i).filter(i=>hvDay(hv.rows[i])===d);
-    const sug=bookings.filter(b=>b.date===d&&b.nights>0&&b.tag!=="closed"&&!inShift.has(b.id)&&(!b.shiftId||b.shiftId===hv.id)).sort((x,y)=>hvRank(x)-hvRank(y));
+    const sug=bookings.filter(b=>b.date===d&&b.nights>0&&b.tag!=="closed"&&b.tag!=="req"&&!inShift.has(b.id)&&(!b.shiftId||b.shiftId===hv.id)).sort((x,y)=>hvRank(x)-hvRank(y));
     if(page&&!idx.length&&!sug.length) return "";
     if(page) return `<div class="ldayh">${d===todayStr()?"Today":WD[new Date(toT(d)).getUTCDay()]+", "+dm(d)}</div>
       ${sug.length?`<div class="apts" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr));margin-bottom:8px">${sug.map(b=>`<button type="button" class="chip nodot" data-hvsug="${esc(b.id)}" style="text-align:left"><b>${esc(b.apt)}</b> <span class="small">${esc(b.guest||"")} · ${b.nights} n. · record</span></button>`).join("")}</div>`:""}
@@ -2901,7 +2931,7 @@ function hvListHTML(){
   // newest day first: today on top, earlier days of the shift below
   for(const d of hvDays().slice().reverse()){
     const rows=used.filter(x=>hvDay(x.r)===d);
-    const sug=bookings.filter(b=>b.date===d&&b.nights>0&&b.tag!=="closed"&&!inShift.has(b.id)&&(!b.shiftId||b.shiftId===hv.id)).sort((x,y)=>hvRank(x)-hvRank(y));
+    const sug=bookings.filter(b=>b.date===d&&b.nights>0&&b.tag!=="closed"&&b.tag!=="req"&&!inShift.has(b.id)&&(!b.shiftId||b.shiftId===hv.id)).sort((x,y)=>hvRank(x)-hvRank(y));
     // advances taken in another shift for a stay that starts today: info only, not in this till and not in the table
     const adv=bookings.filter(b=>b.date===d&&b.nights>0&&b.shiftId&&b.shiftId!==hv.id&&!inShift.has(b.id)&&(b.mdl||b.eur||b.usd||b.oth)&&b.pay!=="Airbnb");
     if(!rows.length&&!sug.length&&!adv.length) continue;

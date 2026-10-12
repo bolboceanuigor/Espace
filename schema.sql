@@ -74,6 +74,7 @@ CREATE TABLE IF NOT EXISTS bookings (
   source TEXT NOT NULL DEFAULT '',
   phone TEXT NOT NULL DEFAULT '',
   pax INTEGER NOT NULL DEFAULT 0,          -- number of guests
+  email TEXT NOT NULL DEFAULT '',          -- guest email (direct booking requests)
   ext_uid TEXT NOT NULL DEFAULT '',        -- imported from an iCal feed: the event's UID
   ext_feed TEXT NOT NULL DEFAULT '',       -- …and the feed (ical_feeds.id)
   verified INTEGER NOT NULL DEFAULT 0,

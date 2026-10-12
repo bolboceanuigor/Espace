@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Rezervare</title>
+<meta name="description" content="Rezervă direct, fără comision.">
+<meta name="theme-color" content="#1b2a2f">
+<link rel="icon" href="/icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;700&display=swap" rel="stylesheet">
+<style>
+/* A company's own booking page. Palette: Chișinău limestone and Moldovan wine; the availability strip is the one bold element. */
+:root{
+  --stone:#eef0ec; --paper:#ffffff; --ink:#1b2a2f; --muted:#66727a; --line:#dde1dc;
+  --wine:#8a1f3d; --wine-ink:#ffffff; --wine-soft:#f6e7ec; --free:#2f7a4d; --free-soft:#e3f1e8; --busy:#c9ced1;
+  --r:14px;
+}
+@media (prefers-color-scheme:dark){:root{--stone:#121a1d;--paper:#1a2428;--ink:#edf1ef;--muted:#9aa6ab;--line:#2a363b;--wine:#e0718f;--wine-ink:#1a0d12;--wine-soft:#3a1f28;--free:#6fcf97;--free-soft:#1d3427;--busy:#3a4549}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--stone);color:var(--ink);font:16px/1.55 "Golos Text",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+button,input,textarea,select{font:inherit;color:inherit}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--wine);outline-offset:2px}
+.wrap{max-width:980px;margin:0 auto;padding:0 18px}
+
+header{padding:28px 0 18px}
+.top{display:flex;align-items:center;gap:12px}
+.lang{margin-left:auto;display:flex;gap:2px;background:var(--paper);border:1px solid var(--line);border-radius:999px;padding:3px}
+.lang button{border:0;background:none;border-radius:999px;padding:5px 11px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer}
+.lang button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+h1{font-family:Unbounded,"Golos Text",sans-serif;font-weight:700;font-size:clamp(30px,6vw,52px);line-height:1.05;letter-spacing:-.02em;margin:26px 0 10px;max-width:16ch}
+.intro{font-size:18px;color:var(--muted);margin:0;max-width:60ch}
+.contact{display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;font-weight:600}
+.contact a{text-decoration:none;border-bottom:2px solid var(--line)}.contact a:hover{border-color:var(--wine)}
+
+/* search: dates and guests */
+.search{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--stone) 88%,transparent);backdrop-filter:blur(10px);padding:12px 0;margin-top:8px}
+.sbox{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r);padding:8px}
+.sf{display:flex;flex-direction:column;padding:4px 10px;border-radius:10px}
+.sf:focus-within{background:var(--stone)}
+.sf label{font-size:12.5px;color:var(--muted);font-weight:500}
+.sf input{border:0;background:none;padding:2px 0;font-weight:600;font-size:16px;min-width:0;width:100%}
+.sf input:focus{outline:none}
+.guests{display:flex;align-items:center;gap:6px;padding:0 6px}
+.guests span{display:flex;flex-direction:column;align-items:center;min-width:56px}
+.guests small{font-size:12.5px;color:var(--muted)}
+.guests b{font-size:16px}
+.stp{width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:var(--paper);font-size:18px;font-weight:600;cursor:pointer}
+.stp:disabled{opacity:.35;cursor:default}
+.summary{margin:10px 2px 0;font-size:14.5px;color:var(--muted);min-height:1.4em}
+@media (max-width:640px){.sbox{grid-template-columns:1fr 1fr}.guests{grid-column:1/-1;justify-content:space-between;padding:6px 10px;border-top:1px solid var(--line)}}
+
+/* units */
+main{padding:6px 0 60px}
+.unit{display:grid;grid-template-columns:240px 1fr;gap:20px;background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:14px;margin-top:14px}
+.unit.off{opacity:.62}
+.ph{aspect-ratio:4/3;border-radius:12px;background:var(--stone);overflow:hidden;display:grid;place-items:center;color:var(--muted);font-size:13px}
+.ph img{width:100%;height:100%;object-fit:cover;display:block}
+.ub{display:flex;flex-direction:column;min-width:0}
+.uh{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.uh h2{font-size:21px;line-height:1.2;margin:0;font-weight:700}
+.uh .kind{color:var(--muted);font-size:14px}
+.facts{margin:6px 0 0;color:var(--ink);font-size:15px}
+.am{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.am span{font-size:13px;padding:3px 10px;border-radius:999px;background:var(--stone);color:var(--muted)}
+.strip{display:grid;grid-template-columns:repeat(14,1fr);gap:3px;margin-top:14px}
+.strip i{height:26px;border-radius:6px;background:var(--free-soft);position:relative;display:flex;align-items:flex-end;justify-content:center;font-style:normal;font-size:10.5px;color:var(--free);font-weight:600;padding-bottom:2px}
+.strip i.b{background:var(--busy);color:transparent}
+.strip i.sel{box-shadow:inset 0 0 0 2px var(--wine)}
+.strip i.b.sel{background:repeating-linear-gradient(135deg,var(--busy) 0 4px,var(--wine-soft) 4px 8px)}
+.legend{display:flex;gap:14px;font-size:12.5px;color:var(--muted);margin-top:6px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.uf{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-top:auto;padding-top:14px;flex-wrap:wrap}
+.price b{font-size:22px;font-weight:700}.price span{color:var(--muted);font-size:14px}
+.price small{display:block;color:var(--muted);font-size:14px}
+.go{border:0;border-radius:12px;background:var(--wine);color:var(--wine-ink);font-weight:700;padding:12px 20px;font-size:16px;cursor:pointer}
+.go:disabled{background:var(--busy);color:var(--muted);cursor:default}
+.why{font-size:14px;color:var(--muted)}
+.why button{border:0;background:none;padding:0;color:var(--wine);font-weight:600;cursor:pointer;text-decoration:underline}
+@media (max-width:640px){.unit{grid-template-columns:1fr}.strip i{font-size:9.5px}}
+.empty{background:var(--paper);border:1px dashed var(--line);border-radius:18px;padding:28px;text-align:center;color:var(--muted);margin-top:14px}
+.terms{margin-top:26px;background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:18px 20px}
+.terms h3{margin:0 0 6px;font-size:16px}.terms p{margin:0;white-space:pre-line;color:var(--muted)}
+footer{padding:26px 0 40px;color:var(--muted);font-size:13.5px;text-align:center}
+footer a{color:var(--muted)}
+
+/* request sheet */
+.sheet{position:fixed;inset:0;z-index:20;display:flex;align-items:flex-end;justify-content:center;background:rgba(10,18,20,.45)}
+.sheet[hidden]{display:none}
+.sh{background:var(--paper);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:22px 22px 0 0;padding:22px 20px calc(20px + env(safe-area-inset-bottom))}
+@media (min-width:700px){.sheet{align-items:center}.sh{border-radius:22px}}
+@media (prefers-reduced-motion:no-preference){.sh{animation:up .22s ease-out}@keyframes up{from{transform:translateY(24px);opacity:.4}}}
+.sh h3{margin:0 0 4px;font-size:21px}
+.sum{background:var(--stone);border-radius:12px;padding:12px 14px;margin:12px 0 4px;font-size:15px}
+.sum div{display:flex;justify-content:space-between;gap:10px}.sum div+div{margin-top:4px}.sum .t{font-weight:700;font-size:17px;border-top:1px solid var(--line);padding-top:6px;margin-top:6px}
+.f{margin-top:12px}.f label{display:block;font-size:14px;font-weight:600;margin-bottom:5px}
+.f input,.f textarea{width:100%;border:1.5px solid var(--line);border-radius:12px;background:var(--paper);padding:12px 14px;font-size:16px}
+.f input:focus,.f textarea:focus{outline:none;border-color:var(--wine)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media (max-width:480px){.two{grid-template-columns:1fr}}
+.note{font-size:13.5px;color:var(--muted);margin:12px 0 0}
+.msg{min-height:1.3em;margin:10px 0 0;font-weight:600;color:#b42318}
+.acts{display:flex;gap:10px;margin-top:14px}.acts .go{flex:1}
+.ghost{border:1px solid var(--line);background:none;border-radius:12px;padding:12px 18px;font-weight:600;cursor:pointer}
+.done{text-align:center;padding:10px 4px}.done .ok{width:56px;height:56px;border-radius:50%;background:var(--free-soft);color:var(--free);display:grid;place-items:center;margin:4px auto 12px;font-size:28px}
+.closed{padding:80px 0;text-align:center}
+</style>
+</head>
+<body>
+<header class="wrap">
+  <div class="top"><div class="lang" role="group" aria-label="Limba"><button type="button" data-l="ro">RO</button><button type="button" data-l="ru">RU</button><button type="button" data-l="en">EN</button></div></div>
+  <h1 id="name">&nbsp;</h1>
+  <p class="intro" id="intro"></p>
+  <div class="contact" id="contact"></div>
+</header>
+<div class="search"><div class="wrap">
+  <div class="sbox">
+    <div class="sf"><label for="din" data-t="in">Sosire</label><input type="date" id="din"></div>
+    <div class="sf"><label for="dout" data-t="out">Plecare</label><input type="date" id="dout"></div>
+    <div class="guests"><button type="button" class="stp" id="gm" aria-label="−">−</button><span><small data-t="guests">Persoane</small><b id="gn">2</b></span><button type="button" class="stp" id="gp" aria-label="+">+</button></div>
+  </div>
+  <p class="summary" id="summary" aria-live="polite"></p>
+</div></div>
+<main class="wrap" id="list"></main>
+<div class="wrap"><section class="terms" id="terms" hidden><h3 data-t="terms">Condiții</h3><p id="terms-t"></p></section></div>
+<footer class="wrap"><span data-t="foot">Rezervare directă, fără comision</span> · <a href="https://espace.md" target="_blank" rel="noopener">espace.md</a></footer>
+
+<div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sh-h"><div class="sh" id="sh"></div></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
+const T={
+ ro:{in:"Sosire",out:"Plecare",guests:"Persoane",terms:"Condiții",foot:"Rezervare directă, fără comision",night:["noapte","nopți","de nopți"],from:"de la",perNight:"/ noapte",total:"total",book:"Rezervă",
+   pick:"Alege datele ca să vezi ce e liber și cât costă.",found:n=>n===1?"1 variantă liberă":n+" variante libere",none:"Nimic liber pentru aceste date. Încearcă alte zile.",
+   busy:"Ocupat în aceste zile.",freeFrom:"Liber din",tryIt:"Alege aceste date",tooMany:c=>`Încap maximum ${c} persoane.`,minN:n=>`Minimum ${n} ${n===1?"noapte":"nopți"}.`,
+   free:"liber",taken:"ocupat",guestsL:"pers.",bedrooms:["dormitor","dormitoare","de dormitoare"],m2:"m²",
+   reqH:"Cerere de rezervare",yourName:"Numele",phone:"Telefon / WhatsApp",email:"Email",msg:"Mesaj (opțional)",send:"Trimite cererea",back:"Înapoi",
+   need:"Scrie numele și un telefon sau un email.",badEmail:"Verifică emailul.",net:"Nu e legătură. Încearcă din nou.",takenErr:"Între timp, aceste date au fost rezervate. Alege altele.",lock:"Prea multe cereri. Încearcă peste 15 minute.",
+   after:"Cererea nu e încă o rezervare: gazda o confirmă și primești răspunsul pe email sau la telefon.",
+   doneH:"Cererea a fost trimisă",doneP:(o)=>`${o} a primit cererea. Te contactează în curând pentru confirmare.`,close:"Închide",
+   closed:"Rezervările online nu sunt deschise acum.",notFound:"Pagina nu există.",nights:"Nopți",perNightL:"Preț pe noapte",guestsS:"Persoane",
+   kind:{apt:"Apartament",studio:"Garsonieră",house:"Casă",villa:"Vilă",room:"Cameră",bed:"Loc în hostel"},
+   beds:{dbl:"pat dublu",sgl:"pat single",sofa:"canapea",bunk:"pat supraetajat"},
+   am:{wifi:"Wi-Fi",ac:"Aer condiționat",heat:"Încălzire",kitchen:"Bucătărie",washer:"Mașină de spălat",dryer:"Uscător",dish:"Mașină de vase",tv:"TV",parking:"Parcare",balcony:"Balcon",elevator:"Lift",iron:"Fier de călcat",hair:"Uscător de păr",crib:"Pătuț",work:"Loc de muncă",pets:"Animale permise",selfin:"Self check-in",view:"Priveliște"},
+   cin:"Check-in de la",cout:"check-out până la"},
+ ru:{in:"Заезд",out:"Выезд",guests:"Гостей",terms:"Условия",foot:"Прямое бронирование без комиссии",night:["ночь","ночи","ночей"],from:"от",perNight:"/ ночь",total:"итого",book:"Забронировать",
+   pick:"Выберите даты, чтобы увидеть свободные варианты и цену.",found:n=>"Свободно: "+n,none:"На эти даты свободных нет. Попробуйте другие дни.",
+   busy:"На эти даты занято.",freeFrom:"Свободно с",tryIt:"Выбрать эти даты",tooMany:c=>`Вмещает максимум ${c} чел.`,minN:n=>`Минимум ${n} ноч.`,
+   free:"свободно",taken:"занято",guestsL:"чел.",bedrooms:["спальня","спальни","спален"],m2:"м²",
+   reqH:"Заявка на бронирование",yourName:"Имя",phone:"Телефон / WhatsApp",email:"Email",msg:"Сообщение (необязательно)",send:"Отправить заявку",back:"Назад",
+   need:"Напишите имя и телефон или email.",badEmail:"Проверьте email.",net:"Нет связи. Попробуйте ещё раз.",takenErr:"Пока вы выбирали, эти даты заняли. Выберите другие.",lock:"Слишком много заявок. Попробуйте через 15 минут.",
+   after:"Заявка — ещё не бронь: хозяин подтвердит её, ответ придёт на email или по телефону.",
+   doneH:"Заявка отправлена",doneP:(o)=>`${o} получил заявку и скоро свяжется с вами для подтверждения.`,close:"Закрыть",
+   closed:"Онлайн-бронирование сейчас закрыто.",notFound:"Такой страницы нет.",nights:"Ночей",perNightL:"Цена за ночь",guestsS:"Гостей",
+   kind:{apt:"Квартира",studio:"Студия",house:"Дом",villa:"Вилла",room:"Номер",bed:"Место в хостеле"},
+   beds:{dbl:"двуспальная кровать",sgl:"односпальная",sofa:"диван",bunk:"двухъярусная"},
+   am:{wifi:"Wi-Fi",ac:"Кондиционер",heat:"Отопление",kitchen:"Кухня",washer:"Стиральная машина",dryer:"Сушилка",dish:"Посудомойка",tv:"Телевизор",parking:"Парковка",balcony:"Балкон",elevator:"Лифт",iron:"Утюг",hair:"Фен",crib:"Детская кроватка",work:"Рабочее место",pets:"Можно с животными",selfin:"Самостоятельное заселение",view:"Красивый вид"},
+   cin:"Заезд с",cout:"выезд до"},
+ en:{in:"Check-in",out:"Check-out",guests:"Guests",terms:"Terms",foot:"Direct booking, no commission",night:["night","nights","nights"],from:"from",perNight:"/ night",total:"total",book:"Book",
+   pick:"Choose your dates to see what’s free and the price.",found:n=>n===1?"1 option free":n+" options free",none:"Nothing free for these dates. Try other days.",
+   busy:"Taken on these dates.",freeFrom:"Free from",tryIt:"Pick these dates",tooMany:c=>`Sleeps up to ${c}.`,minN:n=>`Minimum ${n} ${n===1?"night":"nights"}.`,
+   free:"free",taken:"taken",guestsL:"guests",bedrooms:["bedroom","bedrooms","bedrooms"],m2:"m²",
+   reqH:"Booking request",yourName:"Name",phone:"Phone / WhatsApp",email:"Email",msg:"Message (optional)",send:"Send request",back:"Back",
+   need:"Add your name and a phone or email.",badEmail:"Check the email.",net:"No connection. Try again.",takenErr:"These dates were just booked. Choose others.",lock:"Too many requests. Try again in 15 minutes.",
+   after:"A request isn’t a booking yet: the host confirms it and you get the answer by email or phone.",
+   doneH:"Request sent",doneP:(o)=>`${o} got your request and will contact you soon to confirm.`,close:"Close",
+   closed:"Online booking isn’t open right now.",notFound:"This page doesn’t exist.",nights:"Nights",perNightL:"Price per night",guestsS:"Guests",
+   kind:{apt:"Apartment",studio:"Studio",house:"House",villa:"Villa",room:"Room",bed:"Hostel bed"},
+   beds:{dbl:"double bed",sgl:"single bed",sofa:"sofa bed",bunk:"bunk bed"},
+   am:{wifi:"Wi-Fi",ac:"Air conditioning",heat:"Heating",kitchen:"Kitchen",washer:"Washer",dryer:"Dryer",dish:"Dishwasher",tv:"TV",parking:"Parking",balcony:"Balcony",elevator:"Lift",iron:"Iron",hair:"Hair dryer",crib:"Crib",work:"Workspace",pets:"Pets allowed",selfin:"Self check-in",view:"Nice view"},
+   cin:"Check-in from",cout:"check-out by"}};
+let L=(()=>{try{const s=localStorage.getItem("es_book_lang");if(T[s])return s}catch(e){}const n=(navigator.language||"").slice(0,2);return n==="ru"?"ru":n==="en"?"en":"ro"})();
+const t=k=>T[L][k];
+const plural=(n,[a,b,c])=>L==="ru"?(n%10===1&&n%100!==11?a:[2,3,4].includes(n%10)&&![12,13,14].includes(n%100)?b:c):L==="ro"?(n===1?a:n%100>=20||n%100===0&&n>0?c:b):(n===1?a:b);
+const CUR={EUR:"€",USD:"$",MDL:"lei"};
+const money=(v,c)=>(Math.round(v*100)/100).toLocaleString(L==="en"?"en-GB":L==="ru"?"ru-RU":"ro-MD",{maximumFractionDigits:2})+"\u00a0"+(CUR[c]||"€");
+const DAY=864e5,toT=d=>Date.parse(d+"T00:00:00Z"),fromT=x=>new Date(x).toISOString().slice(0,10),addD=(d,n)=>fromT(toT(d)+n*DAY);
+const todayS=()=>{const n=new Date();return new Date(Date.UTC(n.getFullYear(),n.getMonth(),n.getDate())).toISOString().slice(0,10)};
+const fdm=d=>{const x=new Date(d+"T00:00:00Z");return x.toLocaleDateString(L==="en"?"en-GB":L==="ru"?"ru-RU":"ro-MD",{day:"numeric",month:"short",timeZone:"UTC"})};
+// which company: its own address, or ?c=slug while testing on the pages.dev address
+const SLUG=(()=>{const h=location.hostname,m=/^([a-z0-9-]+)\.espace\.md$/.exec(h);if(m&&!["www","admin"].includes(m[1]))return m[1];return new URLSearchParams(location.search).get("c")||""})();
+async function api(fn,body={}){const r=await fetch("/api/"+fn,{method:"POST",headers:{"Content-Type":"application/json",...(SLUG?{"X-Espace-Org":SLUG}:{})},body:JSON.stringify({slug:SLUG,...body})});
+  const j=await r.json().catch(()=>({}));if(!r.ok)throw Object.assign(new Error(j.message||"http"),{code:j.message||"http",data:j});return j}
+let D=null,G=2,din="",dout="";
+const free=(u,from,n)=>!(u.busy||[]).some(([d,k])=>d<addD(from,n)&&addD(d,k)>from);
+function nextFree(u,from,n){for(let i=1;i<=90;i++){const d=addD(from,i);if(free(u,d,n))return d}return ""}
+function renderStatic(){document.documentElement.lang=L;document.querySelectorAll("[data-l]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.l===L)));
+  document.querySelectorAll("[data-t]").forEach(el=>{const v=t(el.dataset.t);if(typeof v==="string")el.textContent=v});
+  if(!D)return;$("name").textContent=D.name;document.title=D.name;$("intro").textContent=D.intro||"";
+  $("contact").innerHTML=[D.phone?`<a href="tel:${esc(D.phone.replace(/[^+\d]/g,""))}">${esc(D.phone)}</a>`:"",D.phone?`<a href="https://wa.me/${esc(D.phone.replace(/\D/g,""))}" target="_blank" rel="noopener">WhatsApp</a>`:"",D.email?`<a href="mailto:${esc(D.email)}">${esc(D.email)}</a>`:""].join("");
+  $("terms").hidden=!D.terms;$("terms-t").textContent=D.terms||""}
+function facts(u){const p=[];if(u.bedrooms)p.push(u.bedrooms+" "+plural(+u.bedrooms,t("bedrooms")));
+  const b=u.beds||{};const bl=Object.entries(b).filter(([,v])=>v>0).map(([k,v])=>v+" × "+(t("beds")[k]||k));if(bl.length)p.push(bl.join(", "));
+  if(u.guests)p.push("≤ "+u.guests+" "+t("guestsL"));if(u.area)p.push(u.area+" "+t("m2"));return p.join(" · ")}
+function render(){const nights=din&&dout?Math.round((toT(dout)-toT(din))/DAY):0,has=nights>0;
+  $("gn").textContent=G;$("gm").disabled=G<=1;
+  const rows=D.units.map(u=>{const fitG=!u.guests||G<=+u.guests,okMin=!has||nights>=D.min,isFree=has&&free(u,din,nights);
+    const ok=has&&isFree&&fitG&&okMin;return {u,ok,isFree,fitG,okMin,total:has?+u.price*nights:0}});
+  rows.sort((a,b)=>(b.ok-a.ok)||(+a.u.price-+b.u.price));
+  const n=rows.filter(r=>r.ok).length;
+  $("summary").textContent=!has?t("pick"):nights<D.min?t("minN")(D.min):n?t("found")(n)+" · "+fdm(din)+" — "+fdm(dout)+", "+nights+" "+plural(nights,t("night")):t("none");
+  const start=has?din:todayS(),days=[...Array(14)].map((_,i)=>addD(start,i));
+  $("list").innerHTML=rows.map(({u,ok,isFree,fitG,okMin,total})=>{
+    const strip=days.map(d=>{const busy=!free(u,d,1),sel=has&&d>=din&&d<dout;return `<i class="${busy?"b":""}${sel?" sel":""}" title="${fdm(d)} · ${busy?t("taken"):t("free")}">${new Date(d+"T00:00:00Z").getUTCDate()}</i>`}).join("");
+    let why="";if(has&&!isFree){const nf=nextFree(u,din,nights);why=`${t("busy")}${nf?` ${t("freeFrom")} ${fdm(nf)}. <button type="button" data-try="${esc(nf)}">${t("tryIt")}</button>`:""}`}
+    else if(has&&!fitG)why=t("tooMany")(u.guests);else if(has&&!okMin)why=t("minN")(D.min);
+    const am=(u.amen||[]).slice(0,7).map(k=>`<span>${esc(t("am")[k]||k)}</span>`).join("");
+    const kind=[t("kind")[u.kind]||"",u.group||""].filter(Boolean).join(" · ");
+    return `<article class="unit${has&&!ok?" off":""}">
+      <div class="ph" data-ph="${esc(u.name)}">${esc(u.name)}</div>
+      <div class="ub"><div class="uh"><h2>${esc(u.name)}</h2>${kind?`<span class="kind">${esc(kind)}</span>`:""}</div>
+        ${facts(u)?`<p class="facts">${esc(facts(u))}</p>`:""}${am?`<div class="am">${am}</div>`:""}
+        <div class="strip">${strip}</div>
+        <div class="legend"><span><i style="background:var(--free-soft)"></i>${t("free")}</span><span><i style="background:var(--busy)"></i>${t("taken")}</span>${u.cin||u.cout?`<span>${t("cin")} ${esc(u.cin||"14:00")}, ${t("cout")} ${esc(u.cout||"12:00")}</span>`:""}</div>
+        <div class="uf"><div class="price">${has&&ok?`<b>${money(total,u.pcur)}</b> <span>${t("total")}</span><small>${money(+u.price,u.pcur)} ${t("perNight")} × ${nights}</small>`:`<span>${t("from")}</span> <b>${money(+u.price,u.pcur)}</b> <span>${t("perNight")}</span>`}</div>
+          ${has&&ok?`<button type="button" class="go" data-book="${esc(u.name)}">${t("book")}</button>`:why?`<p class="why">${why}</p>`:""}</div></div></article>`}).join("")||`<div class="empty">${t("none")}</div>`;
+  loadPhotos()}
+// photos: one request per unit, only when its card is near the screen
+const PH={};let io=null;
+function loadPhotos(){const els=[...document.querySelectorAll("[data-ph]")];
+  const put=el=>{const a=el.dataset.ph;if(PH[a]!==undefined){if(PH[a])el.innerHTML=`<img src="${PH[a]}" alt="${esc(a)}" loading="lazy">`;return}
+    PH[a]=null;api("pub_photo",{apt:a}).then(r=>{PH[a]=r.data||"";document.querySelectorAll(`[data-ph="${CSS.escape(a)}"]`).forEach(put)}).catch(()=>{PH[a]=""})};
+  if(!("IntersectionObserver" in window)){els.forEach(put);return}
+  io&&io.disconnect();io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){io.unobserve(e.target);put(e.target)}}),{rootMargin:"300px"});els.forEach(el=>PH[el.dataset.ph]?put(el):io.observe(el))}
+function openReq(name){const u=D.units.find(x=>x.name===name);if(!u)return;const nights=Math.round((toT(dout)-toT(din))/DAY);
+  const sh=$("sh");sh.innerHTML=`<h3 id="sh-h">${t("reqH")}</h3><div class="sum"><div><span>${esc(u.name)}</span><span>${fdm(din)} — ${fdm(dout)}</span></div><div><span>${t("guestsS")}: ${G}</span><span>${nights} ${plural(nights,t("night"))} × ${money(+u.price,u.pcur)}</span></div><div class="t"><span>${t("total")}</span><span>${money(+u.price*nights,u.pcur)}</span></div></div>
+    <form id="rf" novalidate><div class="f"><label for="r-name">${t("yourName")}</label><input id="r-name" autocomplete="name" maxlength="80" required></div>
+    <div class="two"><div class="f"><label for="r-phone">${t("phone")}</label><input id="r-phone" type="tel" autocomplete="tel" maxlength="40"></div><div class="f"><label for="r-email">${t("email")}</label><input id="r-email" type="email" autocomplete="email" maxlength="120"></div></div>
+    <div class="f"><label for="r-msg">${t("msg")}</label><textarea id="r-msg" rows="2" maxlength="600"></textarea></div>
+    <p class="note">${t("after")}</p><p class="msg" id="r-err" role="alert"></p>
+    <div class="acts"><button type="button" class="ghost" data-close="1">${t("back")}</button><button class="go" id="r-go">${t("send")}</button></div></form>`;
+  $("sheet").hidden=false;setTimeout(()=>$("r-name").focus(),50);
+  $("rf").onsubmit=async e=>{e.preventDefault();const v={name:$("r-name").value.trim(),phone:$("r-phone").value.trim(),email:$("r-email").value.trim(),message:$("r-msg").value.trim()},err=$("r-err");
+    if(!v.name||(!v.phone&&!v.email)){err.textContent=t("need");return}if(v.email&&!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.email)){err.textContent=t("badEmail");return}
+    const b=$("r-go");b.disabled=true;try{await api("pub_request",{...v,apt:u.name,date:din,nights,guests:G});
+      sh.innerHTML=`<div class="done"><div class="ok">✓</div><h3 id="sh-h">${t("doneH")}</h3><p>${esc(t("doneP")(D.name))}</p><div class="sum"><div><span>${esc(u.name)}</span><span>${fdm(din)} — ${fdm(dout)}</span></div></div><div class="acts"><button type="button" class="go" data-close="1">${t("close")}</button></div></div>`;
+      u.busy=[...(u.busy||[]),[din,nights]];render()}
+    catch(x){b.disabled=false;err.textContent=x.code==="taken"?t("takenErr"):x.code==="locked"?t("lock"):x.code==="too_many_guests"?t("tooMany")(x.data.cap):x.code==="need_contact"?t("need"):t("net");if(x.code==="taken")load()}}}
+function closeSheet(){$("sheet").hidden=true}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-book],[data-try],[data-close],[data-l]");if(!b){if(e.target===$("sheet"))closeSheet();return}
+  if(b.dataset.l){L=b.dataset.l;try{localStorage.setItem("es_book_lang",L)}catch(x){}renderStatic();if(D)render();return}
+  if(b.dataset.close){closeSheet();return}
+  if(b.dataset.try){const n=Math.round((toT(dout)-toT(din))/DAY);din=b.dataset.try;dout=addD(din,n);$("din").value=din;$("dout").value=dout;render();scrollTo({top:0,behavior:"smooth"});return}
+  if(b.dataset.book)openReq(b.dataset.book)});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("sheet").hidden)closeSheet()});
+$("din").addEventListener("change",()=>{din=$("din").value;if(din&&(!dout||dout<=din)){dout=addD(din,Math.max(D?D.min:1,1));$("dout").value=dout}$("dout").min=din?addD(din,1):"";render()});
+$("dout").addEventListener("change",()=>{dout=$("dout").value;render()});
+$("gm").onclick=()=>{G=Math.max(1,G-1);render()};$("gp").onclick=()=>{G=Math.min(30,G+1);render()};
+async function load(){try{D=await api("pub_listing");renderStatic();const t0=todayS();$("din").min=t0;$("dout").min=addD(t0,1);render()}
+  catch(x){$("name").textContent=x.data&&x.data.name||"";$("list").innerHTML=`<div class="closed"><p>${x.code==="closed"?t("closed"):t("notFound")}</p></div>`;document.querySelector(".search").hidden=true;renderStatic()}}
+renderStatic();load();
+</script>
+</body>
+</html>

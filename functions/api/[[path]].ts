@@ -10,7 +10,7 @@ import {
 } from "../../lib/core";
 import { hostOf, siteOf, slugOk, isSlug } from "../../lib/host";
 import { handleAdmin, logEvent, activeAnnouncement, getSettings, createInvoice } from "../../lib/admin";
-import { sendMail, mails, dailyMail } from "../../lib/mail";
+import { sendMail, mails, dailyMail, orgEmail } from "../../lib/mail";
 import { syncFeed, syncDue, feedUrlOk, sourceOf, newIcalKey } from "../../lib/ical";
 
 
@@ -149,7 +149,7 @@ async function cleanerView(db: D1Database, O: string, me: any, td: string) {
   const staff = await all(db, "SELECT * FROM staff WHERE org_id = ? AND active = 1 ORDER BY created_at", O);
   const staffIdsAll = staff.map((x: any) => x.id);
   const from = addDays(td, -1), to = addDays(td, 6);
-  const bks = await all(db, "SELECT id, apt, date, nights FROM bookings WHERE org_id = ? AND nights > 0 AND date >= ? AND date <= ?", O, addDays(from, -400), to);
+  const bks = await all(db, "SELECT id, apt, date, nights FROM bookings WHERE org_id = ? AND nights > 0 AND tag NOT IN ('closed','req') AND date >= ? AND date <= ?", O, addDays(from, -400), to);
   const tasks = await all(db, "SELECT id, kind, date, apt, staff_id, status, note, booking_id, reported_by, time, sent FROM tasks WHERE org_id = ? AND ((date >= ? AND date <= ?) OR (kind = 'repair' AND status != 'done'))", O, from, to);
   const lastRows = await all(db, "SELECT apt, item, MAX(date) AS last FROM checks WHERE org_id = ? GROUP BY apt, item", O);
   const last: Record<string, string> = {}; for (const r of lastRows) last[r.apt + "|" + r.item] = r.last;
@@ -334,6 +334,52 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
   if (fn === "org_public") {
     const o = isSlug(str(body.slug, 40)) ? await one(db, "SELECT name, code FROM orgs WHERE code = ?", str(body.slug, 40)) : null;
     return o ? json({ name: o.name, slug: o.code }) : json({ message: "not_found" }, 404);
+  }
+  // ---------- direct booking page (<slug>.espace.md/rezerva), public ----------
+  if (fn === "pub_listing" || fn === "pub_request" || fn === "pub_photo") {
+    const code = (reqSlug || str(body.slug, 40)).toLowerCase();
+    const org = isSlug(code) ? await one(db, "SELECT * FROM orgs WHERE code = ?", code) : null;
+    if (!org) return json({ message: "not_found" }, 404);
+    const cfg = (await getConfig(db, org.id)) || {}, dir = cfg.direct || {};
+    if (!dir.on || isExpired(await chargeOrg(db, org))) return json({ message: "closed", name: org.name }, 403);
+    const hidden = new Set(dir.hidden || []);
+    const units = (cfg.apts || []).filter((a: string) => !hidden.has(a) && +((cfg.units || {})[a]?.price) > 0);
+    if (fn === "pub_photo") {
+      const apt = str(body.apt, 100); if (!units.includes(apt)) return json({ message: "not_found" }, 404);
+      const ph = await one(db, "SELECT data FROM apt_photos WHERE org_id = ? AND apt = ?", org.id, apt);
+      return json({ data: ph?.data || "" });
+    }
+    const t = today(), till = addDays(t, 400);
+    const taken = await all(db, "SELECT apt, date, nights FROM bookings WHERE org_id = ? AND nights > 0 AND date < ? AND date >= ?", org.id, till, addDays(t, -60));
+    const busy = (apt: string, from: string, nights: number) => taken.some((b: any) => b.apt === apt && b.date < addDays(from, nights) && addDays(b.date, b.nights) > from);
+    if (fn === "pub_listing") {
+      const PUB = ["kind", "group", "area", "bedrooms", "baths", "floor", "beds", "guests", "price", "pcur", "cin", "cout", "amen", "rtype"];
+      return json({
+        name: org.name, slug: org.code, min: Math.max(1, +dir.min || 1), phone: dir.phone || "", email: dir.email || "", terms: dir.terms || "", intro: dir.intro || "",
+        units: units.map((a: string) => { const u = (cfg.units || {})[a] || {}, o: any = { name: a, addr: dir.addr === false ? "" : ((cfg.addr || {})[a] || "").split(",")[0] }; for (const k of PUB) if (u[k] != null && u[k] !== "") o[k] = u[k];
+          o.busy = taken.filter((b: any) => b.apt === a && addDays(b.date, b.nights) > t).map((b: any) => [b.date, b.nights]); return o; }),
+      });
+    }
+    // pub_request: a guest asks for dates; it lands in the calendar as a request the manager confirms or declines
+    const ip = request.headers.get("cf-connecting-ip") || "x", local = ["localhost", "127.0.0.1"].includes(new URL(request.url).hostname);
+    if (!local) { if (await throttled(db, "breq:" + ip)) return json({ message: "locked" }, 429); await failHit(db, "breq:" + ip); }
+    const apt = str(body.apt, 100), date = isDate(body.date) ? body.date : "", nights = Math.floor(num(body.nights));
+    const name = str(body.name, 80).trim(), phone = str(body.phone, 40).trim(), email = str(body.email, 120).trim().toLowerCase(), pax = Math.max(1, Math.min(50, Math.floor(num(body.guests)) || 1));
+    if (!units.includes(apt)) return json({ message: "bad_unit" }, 400);
+    if (!date || date < t || nights < Math.max(1, +dir.min || 1) || nights > 60) return json({ message: "bad_dates" }, 400);
+    if (!name || (!phone && !isEmail(email)) || (email && !isEmail(email))) return json({ message: "need_contact" }, 400);
+    const u = (cfg.units || {})[apt] || {}, cap = +u.guests || 0;
+    if (cap && pax > cap) return json({ message: "too_many_guests", cap }, 400);
+    if (busy(apt, date, nights)) return json({ message: "taken" }, 409);
+    const price = Math.round(+u.price * nights * 100) / 100, cur = ["EUR", "MDL", "USD"].includes(u.pcur) ? u.pcur : "EUR";
+    const id = uuid(), now = nowIso(), msg = str(body.message, 600).trim();
+    await run(db, `INSERT INTO bookings(id, org_id, date, apt, guest, nights, phone, email, pax, source, tag, note, price, price_cur, pay_status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,'Прямой','req',?,?,?, 'unpaid', ?, ?)`,
+      id, org.id, date, apt, name, nights, phone, email, pax, ("Cerere online" + (msg ? ": " + msg : "")).slice(0, 1000), price, cur, now, now);
+    await notify(db, org.id, ["manager"], { title: `Cerere de rezervare: ${apt}`, body: `${name} · ${date} · ${nights} n. · ${pax} pers.${phone ? " · " + phone : ""}` });
+    const owner = await orgEmail(db, org.id);
+    if (owner) await sendMail(env, db, { to: owner, ...mails.requestNew(org.name, org.code, { apt, date, nights, pax, name, phone, email, msg, price, cur }), kind: "request", orgId: org.id });
+    if (email) await sendMail(env, db, { to: email, ...mails.requestGot(org.name, { apt, date, nights, pax, price, cur, phone: dir.phone || "", email: dir.email || "" }), kind: "request", orgId: org.id });
+    return json({ ok: true, id, price, cur });
   }
   if (fn === "site_info") { // the operator's public details for the legal pages
     const st = await getSettings(db);
@@ -822,6 +868,16 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
       await run(db, "INSERT INTO app_config(org_id,data) VALUES (?,?) ON CONFLICT (org_id) DO UPDATE SET data = excluded.data", O, s);
       return json(null);
     }
+    case "kv_req_decide": { // confirm or decline a guest's request from the booking page; the guest gets an email
+      const b = await one(db, "SELECT * FROM bookings WHERE org_id = ? AND id = ? AND tag = 'req'", O, str(body.id, 40));
+      if (!b) return json({ message: "not_found" }, 404);
+      const cfg = (await getConfig(db, O)) || {}, dir = cfg.direct || {};
+      if (body.ok === true) await run(db, "UPDATE bookings SET tag = '', updated_at = ? WHERE id = ?", nowIso(), b.id);
+      else await run(db, "DELETE FROM bookings WHERE id = ?", b.id);
+      let mailed = "";
+      if (b.email) mailed = await sendMail(env, db, { to: b.email, ...mails.requestAnswer(org.name, body.ok === true, { apt: b.apt, date: b.date, nights: b.nights, price: b.price, cur: b.price_cur, phone: dir.phone || "", email: dir.email || "", note: str(body.note, 300) }), kind: "request", orgId: O });
+      return json({ ok: true, mailed });
+    }
     // ---------- calendar sync (iCal) for one unit ----------
     case "kv_ical_list": {
       const apt = str(body.apt, 100), cfg = await getConfig(db, O);
@@ -948,7 +1004,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
       const t = nowIso();
       // checkouts of that day with no task row yet go to the cleaner on duty
       if (duty === sid) {
-        const bks = await all(db, "SELECT id, apt, date, nights, created_at FROM bookings WHERE org_id = ? AND nights > 0 AND tag != 'closed' AND date >= ? AND date <= ? ORDER BY created_at", O, addDays(date, -400), date);
+        const bks = await all(db, "SELECT id, apt, date, nights, created_at FROM bookings WHERE org_id = ? AND nights > 0 AND tag NOT IN ('closed','req') AND date >= ? AND date <= ? ORDER BY created_at", O, addDays(date, -400), date);
         const need = bks.filter((b: any) => addDays(b.date, b.nights) === date);
         // a second check-in in the same apartment on the same day needs a cleaning in between
         for (const a of new Set(bks.filter((b: any) => b.date === date).map((b: any) => b.apt))) { const same = bks.filter((b: any) => b.date === date && b.apt === a); need.push(...same.slice(0, -1)); }

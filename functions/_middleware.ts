@@ -3,7 +3,7 @@ import { hostOf, siteOf } from "../lib/host";
 
 interface Env { DB: D1Database; ASSETS: Fetcher }
 const PAGES: Record<string, string> = { site: "/site", admin: "/admin", tenant: "/app" };
-const SPLIT = ["/site", "/site.html", "/admin", "/admin.html", "/app", "/app.html", "/app-ro", "/app-ro.html", "/app-en", "/app-en.html"];
+const SPLIT = ["/site", "/site.html", "/admin", "/admin.html", "/app", "/app.html", "/app-ro", "/app-ro.html", "/app-en", "/app-en.html", "/book", "/book.html"];
 
 // company app language: the es_lang cookie (set by the RO/RU/EN switch) wins, else the browser's first known language, else Romanian
 export type Lang = "ro" | "ru" | "en";
@@ -39,6 +39,12 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
     const h = new Headers(r.headers);
     h.set("cache-control", "no-cache");
     if (s.kind === "tenant") h.set("vary", "cookie, accept-language");
+    return new Response(r.body, { status: r.status, headers: h });
+  }
+  // a company's direct booking page for guests: <slug>.espace.md/rezerva
+  if (s.kind === "tenant" && (p === "/rezerva" || p === "/rezerva/" || p === "/book" || p === "/booking")) {
+    const r = await env.ASSETS.fetch(new URL("/book", url));
+    const h = new Headers(r.headers); h.set("cache-control", "no-cache");
     return new Response(r.body, { status: r.status, headers: h });
   }
   if (SPLIT.includes(p)) return Response.redirect("https://" + hostOf(request) + "/", 302);

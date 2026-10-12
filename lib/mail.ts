@@ -93,6 +93,28 @@ export const mails = {
       { title: "Emailul de intrare s-a schimbat", body: `<p>Pentru <b>${esc(org)}</b> intrarea în espace.md se face de acum cu <b>${esc(email)}</b>, nu cu această adresă. Dacă nu ai cerut tu schimbarea, răspunde la acest email.</p>` },
       { title: "Email для входа изменён", body: `<p>Для <b>${esc(org)}</b> вход в espace.md теперь по адресу <b>${esc(email)}</b>, а не по этому. Если вы этого не просили — ответьте на это письмо.</p>` }),
   }),
+  // direct booking page: a guest's request, to the company and to the guest; then the company's answer
+  requestNew: (org: string, slug: string, r: any) => ({
+    subject: `Cerere de rezervare: ${r.apt} · ${dmy(r.date)} · ${r.nights} n.`,
+    html: layout(
+      { title: "Cerere nouă de pe pagina de rezervare", body: `<p><b>${esc(r.name)}</b> vrea <b>${esc(r.apt)}</b> de pe <b>${dmy(r.date)}</b>, ${r.nights} ${r.nights === 1 ? "noapte" : "nopți"}, ${r.pax} pers. — ${lei2(r.price)} ${curL(r.cur)}.</p><p>${r.phone ? "Telefon: <b>" + esc(r.phone) + "</b><br>" : ""}${r.email ? "Email: " + esc(r.email) + "<br>" : ""}${r.msg ? "Mesaj: " + esc(r.msg) : ""}</p><p>Datele sunt rezervate provizoriu în calendar. Confirmă sau respinge cererea în aplicație — oaspetele primește răspunsul pe email.</p>` },
+      { title: "Новая заявка со страницы бронирования", body: `<p><b>${esc(r.name)}</b> — <b>${esc(r.apt)}</b>, с ${dmy(r.date)}, ${r.nights} н., ${r.pax} чел. Подтвердите или отклоните заявку в приложении.</p>` },
+      { url: orgUrl(slug), ro: "Deschide aplicația", ru: "Открыть приложение" }),
+  }),
+  requestGot: (org: string, r: any) => ({
+    subject: `${org}: am primit cererea ta (${dmy(r.date)})`,
+    html: layout(
+      { title: "Cererea a fost trimisă", body: `<p>Mulțumim! <b>${esc(org)}</b> a primit cererea pentru <b>${esc(r.apt)}</b>, de pe <b>${dmy(r.date)}</b>, ${r.nights} ${r.nights === 1 ? "noapte" : "nopți"}, ${r.pax} pers. Total: <b>${lei2(r.price)} ${curL(r.cur)}</b>.</p><p>Rezervarea devine fermă după confirmare — primești un email.${r.phone ? " Telefon: " + esc(r.phone) + "." : ""}</p>` },
+      { title: "Заявка отправлена", body: `<p>Спасибо! <b>${esc(org)}</b> получил заявку: <b>${esc(r.apt)}</b>, с ${dmy(r.date)}, ${r.nights} н. Итого: ${lei2(r.price)} ${curL(r.cur)}. Бронь станет окончательной после подтверждения — придёт письмо.</p>` }),
+  }),
+  requestAnswer: (org: string, yes: boolean, r: any) => ({
+    subject: yes ? `${org}: rezervarea e confirmată (${dmy(r.date)})` : `${org}: datele nu sunt disponibile`,
+    html: layout(
+      yes ? { title: "Rezervarea e confirmată", body: `<p><b>${esc(r.apt)}</b>, de pe <b>${dmy(r.date)}</b>, ${r.nights} ${r.nights === 1 ? "noapte" : "nopți"}. Total: <b>${lei2(r.price)} ${curL(r.cur)}</b>.${r.note ? "<br>" + esc(r.note) : ""}</p><p>${r.phone ? "Telefon: <b>" + esc(r.phone) + "</b>. " : ""}Vă așteptăm!</p>` }
+          : { title: "Din păcate, datele nu sunt disponibile", body: `<p>${esc(org)} nu poate confirma cererea pentru ${esc(r.apt)} de pe ${dmy(r.date)}.${r.note ? "<br>" + esc(r.note) : ""} Încercați alte date pe pagina de rezervare.</p>` },
+      yes ? { title: "Бронь подтверждена", body: `<p>${esc(r.apt)}, с ${dmy(r.date)}, ${r.nights} н. Итого: ${lei2(r.price)} ${curL(r.cur)}. Ждём вас!</p>` }
+          : { title: "К сожалению, даты недоступны", body: `<p>${esc(org)} не может подтвердить заявку на ${esc(r.apt)} с ${dmy(r.date)}.</p>` }),
+  }),
   trialEnding: (org: string, slug: string, ends: string, price: number | null, balance: number) => ({
     subject: `Perioada de probă ${org} se termină pe ${dmy(ends)}`,
     html: layout(
@@ -135,6 +157,7 @@ export const mails = {
       { title: "Спасибо, оплата получена", body: `<p>Зачислили <b>${lei2(amount)} лей</b> на счёт <b>${esc(org)}</b>. Баланс: <b>${lei2(balance)} лей</b>${until ? `, хватит примерно до <b>${dmy(until)}</b> при текущем числе квартир` : ""}.</p>` }),
   }),
 };
+const curL = (c: string) => ({ EUR: "€", USD: "$", MDL: "lei" } as any)[c] || c;
 const lei2 = (n: number) => (Math.round(n * 100) / 100).toFixed(2).replace(".", ",");
 
 // once a day: trial ending in 3 days, subscription just ended, invoice due in 3 days / today
