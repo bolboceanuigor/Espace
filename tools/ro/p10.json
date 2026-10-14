@@ -56,5 +56,11 @@
 "Мастер": "Meșter",
 "Начал": "Am început",
 "сеть": "rețea",
-"мин": "min"
+"мин": "min",
+"Если заполнить комнаты, кровати выше посчитаются сами. Гости увидят раскладку на странице бронирования.": "Dacă completezi camerele, paturile de mai sus se calculează singure. Oaspeții văd împărțirea pe pagina de rezervare.",
+"необязательно — как на": "opțional — ca pe",
+"Кровати по комнатам": "Paturi pe camere",
+"Убрать комнату": "Șterge camera",
+"Комната": "Camera",
+"Спальня": "Dormitor"
 }

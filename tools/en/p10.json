@@ -56,5 +56,11 @@
 "Мастер": "Repairman",
 "Начал": "Started",
 "сеть": "network",
-"мин": "min"
+"мин": "min",
+"Если заполнить комнаты, кровати выше посчитаются сами. Гости увидят раскладку на странице бронирования.": "Fill in the rooms and the bed totals above add up by themselves. Guests see the layout on the booking page.",
+"необязательно — как на": "optional — like on",
+"Кровати по комнатам": "Beds by room",
+"Убрать комнату": "Remove room",
+"Комната": "Room",
+"Спальня": "Bedroom"
 }

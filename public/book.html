@@ -105,6 +105,7 @@ footer a{color:var(--muted)}
 .ghost{border:1px solid var(--line);background:none;border-radius:12px;padding:12px 18px;font-weight:600;cursor:pointer}
 .done{text-align:center;padding:10px 4px}.done .ok{width:56px;height:56px;border-radius:50%;background:var(--free-soft);color:var(--free);display:grid;place-items:center;margin:4px auto 12px;font-size:28px}
 .closed{padding:80px 0;text-align:center}
+.lay{list-style:none;margin:2px 0 8px;padding:0;font-size:13.5px;color:var(--muted);display:flex;flex-wrap:wrap;gap:2px 14px}.lay b{color:var(--ink,inherit);font-weight:600}
 </style>
 </head>
 <body>
@@ -219,7 +220,7 @@ function render(){const nights=din&&dout?Math.round((toT(dout)-toT(din))/DAY):0,
     return `<article class="unit${has&&!ok?" off":""}">
       <div class="ph" data-ph="${esc(u.name)}">${esc(u.name)}</div>
       <div class="ub"><div class="uh"><h2>${esc(u.name)}</h2>${kind?`<span class="kind">${esc(kind)}</span>`:""}</div>
-        ${facts(u)?`<p class="facts">${esc(facts(u))}</p>`:""}${am?`<div class="am">${am}</div>`:""}
+        ${facts(u)?`<p class="facts">${esc(facts(u))}</p>`:""}${(u.layout||[]).length?`<ul class="lay">${u.layout.map(r=>`<li><b>${esc(r.n||"")}</b> ${esc(Object.entries(r.b||{}).filter(([,v])=>v>0).map(([k,v])=>v+" × "+(t("beds")[k]||k)).join(", "))}</li>`).join("")}</ul>`:""}${am?`<div class="am">${am}</div>`:""}
         <div class="strip">${strip}</div>
         <div class="legend"><span><i style="background:var(--free-soft)"></i>${t("free")}</span><span><i style="background:var(--busy)"></i>${t("taken")}</span>${u.cin||u.cout?`<span>${t("cin")} ${esc(u.cin||"14:00")}, ${t("cout")} ${esc(u.cout||"12:00")}</span>`:""}</div>
         <div class="uf"><div class="price">${has&&ok?`<b>${money(total,u.pcur)}</b> <span>${t("total")}</span><small>${(()=>{const st=stayP(u.price,din,nights);return st===+u.price*nights?`${money(+u.price,u.pcur)} ${t("perNight")} × ${nights}`:`≈ ${money(st/nights,u.pcur)} ${t("perNight")} × ${nights}`})()}${extras(u)?" "+extras(u):""}</small>`:`<span>${t("from")}</span> <b>${money(+u.price,u.pcur)}</b> <span>${t("perNight")}</span>${extras(u)?`<small>${extras(u)}</small>`:""}`}</div>

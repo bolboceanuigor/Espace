@@ -899,6 +899,7 @@ body.calmode .wrap{padding-bottom:0;max-width:none}
 @media (max-width:520px){.uform .grid4{grid-template-columns:1fr 1fr}}
 .cl-acc{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:6px;font-size:14.5px}.cl-acc b{font-variant-numeric:tabular-nums;letter-spacing:.03em}
 .fxrow{display:grid;grid-template-columns:1fr 150px auto auto;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}.fxrow.off{opacity:.55}@media (max-width:560px){.fxrow{grid-template-columns:1fr 1fr}}
+.layrow{display:grid;grid-template-columns:minmax(0,1.4fr) repeat(4,minmax(0,1fr)) auto;gap:6px;align-items:end;margin-bottom:6px}.layrow small{display:block;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.layrow input{width:100%;box-sizing:border-box}@media (max-width:520px){.layrow{grid-template-columns:repeat(4,minmax(0,1fr)) auto}.layrow>input{grid-column:1/-1}}
 .usec{margin:12px 0 2px;border:1px solid var(--line);border-radius:12px;padding:8px 12px;background:var(--bg)}.usec summary{cursor:pointer;font-weight:700;font-size:14.5px;padding:4px 0}.usec summary small{font-weight:500;color:var(--muted);margin-left:6px}.usec[open] summary{margin-bottom:6px}
 .ucopy{margin-top:12px;border:1px dashed var(--line);border-radius:12px;padding:10px 12px}.ucl{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:4px 10px;max-height:240px;overflow:auto}.ucl label{display:flex;gap:8px;align-items:center;font-size:14px;padding:3px 0}
 .ubed{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:6px 8px;text-align:center}.ubed small{display:block;color:var(--muted);font-size:11.5px;margin-bottom:4px}
@@ -1514,6 +1515,10 @@ function unitForm(a){const u=unitOf(a),b=u.beds||{},groups=[...new Set(cfg.apts.
     <div class="grid4">${n("uf-area",u.area,"Size, m²","45")}${n("uf-bedrooms",u.bedrooms,"Bedrooms","1")}${n("uf-baths",u.baths,"Bathrooms","1")}${n("uf-floor",u.floor,"Floor","")}</div>
     <label class="l">Beds</label>
     <div class="grid4 ubeds">${BEDT.map(([k,t])=>`<div class="ubed"><small>${t}</small><div class="stp"><button type="button" data-ustep="${k}" data-d="-1" aria-label="−">−</button><b id="uf-b-${k}">${b[k]||0}</b><button type="button" data-ustep="${k}" data-d="1" aria-label="+">+</button></div></div>`).join("")}</div>
+    <details class="usec ulay"${(u.layout||[]).length?" open":""}><summary>Beds by room <small>optional — like on Airbnb</small></summary>
+      <div id="uf-lay">${(u.layout||[]).map(r=>layRow(r)).join("")}</div>
+      <button type="button" class="btn sm" data-layadd="1">＋ Room</button>
+      <p class="small" style="margin:6px 0 0">Fill in the rooms and the bed totals above add up by themselves. Guests see the layout on the booking page.</p></details>
     <div class="grid2">${n("uf-guests",u.guests,"Max guests","by beds: "+capAuto(u))}<div><label class="l" for="uf-price">Price per night</label><div class="pcur"><input type="text" inputmode="decimal" id="uf-price" value="${esc(u.price??"")}" placeholder="optional"><select id="uf-pcur" aria-label="Currency">${[["EUR","€"],["MDL","lei"],["USD","$"]].map(([c,l])=>`<option value="${c}"${(u.pcur||"EUR")===c?" selected":""}>${l}</option>`).join("")}</select></div></div></div>
     <div class="grid2"><div><label class="l" for="uf-cin">Check-in from</label><input type="time" id="uf-cin" value="${esc(u.cin||"14:00")}"></div><div><label class="l" for="uf-cout">Check-out by</label><input type="time" id="uf-cout" value="${esc(u.cout||"12:00")}"></div></div>
     <label class="l">Amenities</label>
@@ -1530,11 +1535,23 @@ function unitForm(a){const u=unitOf(a),b=u.beds||{},groups=[...new Set(cfg.apts.
     <div class="actions"><button type="button" class="btn primary" data-usave="${esc(a)}">Save</button>${cfg.apts.length>1?`<button type="button" class="btn" data-ucopy="${esc(a)}">Copy to others…</button>`:""}<button type="button" class="btn" data-uedit="">Cancel</button></div>
     ${cfg.apts.length>1?copyPanel(a):""}</div>`}
 // copy the shared details (size, beds, prices, amenities, cleaning, booking terms) from one unit to others; names, codes, address, notes stay
-const UCOPY_K=["kind","area","bedrooms","baths","beds","guests","price","pcur","cin","cout","amen","cmin","cpay","cfee","dep","minn"];
+const UCOPY_K=["layout","kind","area","bedrooms","baths","beds","guests","price","pcur","cin","cout","amen","cmin","cpay","cfee","dep","minn"];
 function copyPanel(a){const others=cfg.apts.filter(x=>x!==a),u=unitOf(a);
   return `<div class="ucopy" id="ucopy" hidden><b>Copy to other units</b><p class="small" style="margin:2px 0 8px">Copied: type, area, bedrooms, beds, guests, price, check-in times, amenities, cleaning and booking terms. Name, address, codes and notes stay as they are on each one.</p>
     <div class="ucl">${others.map(x=>`<label><input type="checkbox" data-ucpt="${esc(x)}"${unitOf(x).group&&unitOf(x).group===u.group?" checked":""}> ${esc(x)}</label>`).join("")}</div>
     <div class="actions"><button type="button" class="btn sm" data-ucpall="1">Select all</button><button type="button" class="btn primary" data-ucpgo="${esc(a)}">Copy</button></div></div>`}
+// one room of the bed layout: name + how many beds of each kind
+function layRow(r){r=r||{n:"",b:{}};const b=r.b||{};
+  return `<div class="layrow"><input type="text" data-lay="n" value="${esc(r.n||"")}" placeholder="Bedroom 1" aria-label="Room">${BEDT.map(([k,t])=>`<label><small>${t}</small><input type="text" inputmode="numeric" data-lay="${k}" value="${b[k]||""}" placeholder="0"></label>`).join("")}<button type="button" class="iconbtn" data-laydel="1" aria-label="Remove room">✕</button></div>`}
+function layRead(){return [...document.querySelectorAll("#uf-lay .layrow")].map(row=>{const b={};BEDT.forEach(([k])=>{const v=Math.max(0,Math.min(20,parseInt(row.querySelector(`[data-lay="${k}"]`).value,10)||0));if(v)b[k]=v});
+  return {n:row.querySelector('[data-lay="n"]').value.trim().slice(0,40),b}}).filter(r=>r.n||Object.keys(r.b).length)}
+// rooms filled in → the bed totals follow them
+function laySync(){const L=layRead();if(!L.length)return;BEDT.forEach(([k])=>{const el=$("uf-b-"+k);if(el)el.textContent=L.reduce((a,r)=>a+(r.b[k]||0),0)});
+  const g=$("uf-guests");if(g){const b={};BEDT.forEach(([k])=>b[k]=+$("uf-b-"+k).textContent);g.placeholder="by beds: "+capAuto({beds:b})}}
+document.addEventListener("input",e=>{if(e.target.closest&&e.target.closest("#uf-lay"))laySync()});
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-layadd],[data-laydel]");if(!t)return;
+  if(t.dataset.layadd){const box=$("uf-lay");box.insertAdjacentHTML("beforeend",layRow({n:"",b:{}}));const ins=box.querySelectorAll('.layrow [data-lay="n"]');ins[ins.length-1].focus();return}
+  t.closest(".layrow").remove();laySync()});
 function unitCard(a,i){const line=unitLine(a);
   return `<div class="aptset${uOpen===a?" open":""}"><div class="ah setrow">${thumb(a)}<span class="um"><b>${esc(a)}</b><small>${line?esc(line):"details not filled in"}</small></span>
       <button type="button" class="ibtn" data-uedit="${esc(a)}" aria-label="Details ${esc(a)}">${setIc("det")}</button>
@@ -1914,14 +1931,14 @@ function aptsSection(){
     ${uHotel?hotelForm():""}
     <p class="small" style="margin-bottom:0">Tap ⚙ next to an apartment to fill in the size, bedrooms, beds and amenities — cleaners will see how much linen is needed. A deleted apartment leaves the calendar, but its bookings and expenses stay in the reports.</p>`}
 // the form's fields; keys the form doesn't show (rtype, the iCal key…) are kept as they were
-const UFORM_K=["kind","group","area","bedrooms","baths","floor","beds","guests","price","pcur","cin","cout","amen","note","wifi","wpass","door","park","cmin","cpay","cfee","dep","minn"];
+const UFORM_K=["layout","kind","group","area","bedrooms","baths","floor","beds","guests","price","pcur","cin","cout","amen","note","wifi","wpass","door","park","cmin","cpay","cfee","dep","minn"];
 function unitRead(a){const num0=id=>{const v=String(($(id)||{}).value||"").replace(",",".").trim();return v===""?"":Math.max(0,+v||0)},txt=(id,n)=>String(($(id)||{}).value||"").trim().slice(0,n);
   const beds={};BEDT.forEach(([k])=>{const v=+(($("uf-b-"+k)||{}).textContent||0);if(v>0)beds[k]=v});
   const u={...unitOf(a)};UFORM_K.forEach(k=>delete u[k]);
   Object.assign(u,{kind:$("uf-kind").value,group:$("uf-group").value.trim().slice(0,60),area:num0("uf-area"),bedrooms:num0("uf-bedrooms"),baths:num0("uf-baths"),floor:($("uf-floor").value||"").trim().slice(0,10),
     beds,guests:num0("uf-guests"),price:num0("uf-price"),pcur:num0("uf-price")===""?"":$("uf-pcur").value,cin:$("uf-cin").value,cout:$("uf-cout").value,
     amen:[...document.querySelectorAll("[data-uamen][aria-pressed=true]")].map(x=>x.dataset.uamen),note:$("uf-note").value.trim().slice(0,500),
-    wifi:txt("uf-wifi",60),wpass:txt("uf-wpass",60),door:txt("uf-door",60),park:txt("uf-park",80),cmin:num0("uf-cmin"),cpay:num0("uf-cpay"),cfee:num0("uf-cfee"),dep:num0("uf-dep"),minn:num0("uf-minn")});
+    layout:layRead(),    wifi:txt("uf-wifi",60),wpass:txt("uf-wpass",60),door:txt("uf-door",60),park:txt("uf-park",80),cmin:num0("uf-cmin"),cpay:num0("uf-cpay"),cfee:num0("uf-cfee"),dep:num0("uf-dep"),minn:num0("uf-minn")});
   if(u.minn!=="")u.minn=Math.min(60,Math.round(u.minn))||"";
   Object.keys(u).forEach(k=>{if(u[k]===""||u[k]===0&&["cmin","cpay","cfee","dep","minn"].includes(k)||u[k]==null||(Array.isArray(u[k])&&!u[k].length)||(k==="beds"&&!Object.keys(u.beds).length))delete u[k]});
   return u}
