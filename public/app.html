@@ -12,9 +12,9 @@
 <meta name="apple-mobile-web-app-title" content="espace.md">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>espace.md</title>
-<script>(function(){var a="",k="wow";try{k=localStorage.getItem("kv_skin_pick")==="host"?"host":"wow";localStorage.setItem("kv_skin",k);a=localStorage.getItem("kv_accent")||""}catch(e){}var d=document.documentElement;d.setAttribute("data-skin",k);if(a)d.setAttribute("data-accent",a);document.querySelector('meta[name="theme-color"]').content=k==="host"?"#ffffff":"#14171d"})()</script>
+<script>(function(){var a="",k="host";try{k=localStorage.getItem("kv_skin_pick")==="wow"?"wow":"host";localStorage.setItem("kv_skin",k);a=localStorage.getItem("kv_accent")||""}catch(e){}var d=document.documentElement;d.setAttribute("data-skin",k);if(a)d.setAttribute("data-accent",a);document.querySelector('meta[name="theme-color"]').content=k==="host"?"#ffffff":"#14171d"})()</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&family=Cormorant+Garamond:wght@600;700&family=Onest:wght@400;500;600;700&family=Unbounded:wght@600;700;800&family=Montserrat:wght@600;700;800&family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&family=Cormorant+Garamond:wght@600;700&family=Onest:wght@400;500;600;700&family=Unbounded:wght@600;700;800&family=Montserrat:wght@600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap">
 <style>
 :root{--a1:var(--hl,#fed36a);--a2:#f8ae52;--a3:#ef8159;--a1-rgb:254,211,106;--a-soft:#3b3422}
 :root[data-accent="violet"]{--a1:#c4b0ff;--a2:#a98cf8;--a3:#e48bd6;--a1-rgb:196,176,255;--a-soft:#2e2843}
@@ -78,82 +78,126 @@ body.kb nav.tabs{display:none!important}
   :root[data-skin="wow"] nav.tabs button.mid svg{border-radius:0;padding:0;margin-top:0;background:none;color:inherit;outline:0;box-shadow:none;width:24px;height:24px}
   :root[data-skin="wow"] .wrap{padding-bottom:calc(100px + env(safe-area-inset-bottom,0px))}
 }
-/* HOST — light, airy skin (a reinterpretation of modern PMS dashboards): white cards, soft grey canvas, blue accent, left sidebar on desktop */
+/* LIGHT ("host") — Espace's light look, built from the reference PMS screens: white canvas, hairline grids,
+   one deep-indigo brand colour for action and selection, channel colours only on bookings, almost no shadows.
+   Tokens first; components below only use tokens. */
 :root[data-skin="host"]{
-  --bg:#f4f6fa; --surface:#ffffff; --raised:#f8f9fc; --ink:#141b2d; --fg:#141b2d; --muted:#667085; --line:#e4e7ee;
-  --accent:#2f5bea; --accent-ink:#ffffff; --accent-soft:#eaf0ff; --occ:#e6ecfb; --occ-ink:#1d2b5c;
-  --inc:#2f5bea; --exp:#d9480f; --exp-soft:#fdeee6; --ok:#12805c; --ok-soft:#e3f6ee;
-  --warn:#b54708; --warn-soft:#fef0e1; --bad:#d92d20; --bad-soft:#fdecea; --gold:#2f5bea; --cream:#ffffff;
-  --a1:#2f5bea; --a2:#4a6cf7; --a3:#7357f6; --a1-rgb:47,91,234; --a-soft:#eaf0ff;
-  --hink:#ffffff; --hink-rgb:255,255,255; --hink2:#dfe6ff; --hl:#2f5bea; --hl-rgb:47,91,234; --d0:#f4f6fa; --d1:#ffffff; --d2:#eef1f6; --dtx:#141b2d; --dwe:#f8f9fc;
-  --font:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; --display:"Inter",system-ui,sans-serif;
-  --r:14px; --side:240px; --sh:0 1px 2px rgba(16,24,40,.05),0 1px 3px rgba(16,24,40,.06); color-scheme:light}
-:root[data-skin="host"] body{-webkit-font-smoothing:antialiased;font-size:14.5px;letter-spacing:-.003em}
-:root[data-skin="host"] .card,:root[data-skin="host"] .mtile{border-color:var(--line);box-shadow:var(--sh);border-radius:var(--r)}
-:root[data-skin="host"] h2{font-size:22px;font-weight:700;letter-spacing:-.02em}
-:root[data-skin="host"] h1.day{font-family:var(--display);font-weight:700;letter-spacing:-.02em}
-:root[data-skin="host"] h3{font-size:11.5px;font-weight:600;letter-spacing:.07em;color:#8a93a6}
-:root[data-skin="host"] header.top{background:#fff;border-bottom-color:var(--line)}
-:root[data-skin="host"] .brand{font-family:var(--display);font-weight:700;font-size:16px;letter-spacing:-.01em}
-:root[data-skin="host"] .iconbtn,:root[data-skin="host"] .month{background:#fff;border-color:var(--line);box-shadow:var(--sh)}
-:root[data-skin="host"] .btn{border-radius:10px;font-weight:600;background:#fff;border-color:#d7dce5;box-shadow:0 1px 2px rgba(16,24,40,.05)}
-:root[data-skin="host"] .btn:hover{background:#f7f8fb}
-:root[data-skin="host"] .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 1px 2px rgba(47,91,234,.25)}
-:root[data-skin="host"] .btn.primary:hover{background:#244bd1}
-:root[data-skin="host"] .chip{border-radius:999px;background:#fff;border-color:#d7dce5}
-:root[data-skin="host"] input,:root[data-skin="host"] select,:root[data-skin="host"] textarea{background:#fff;border-color:#d0d5dd;border-radius:10px}
-:root[data-skin="host"] input:focus,:root[data-skin="host"] select:focus,:root[data-skin="host"] textarea:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(47,91,234,.12);outline:0}
-:root[data-skin="host"] .mtile{min-height:96px}
-:root[data-skin="host"] .mtile .mi{background:var(--accent-soft);color:var(--accent);border-radius:12px}
-:root[data-skin="host"] .mtile:hover{border-color:#c7d2fe}
+  --bg:#f6f7f9; --surface:#ffffff; --raised:#fafbfc; --ink:#1b1f3b; --fg:#1b1f3b; --muted:#6b7084; --line:#e6e8ee; --line2:#d6d9e1;
+  --accent:#2e3192; --accent-h:#25277a; --accent-ink:#ffffff; --accent-soft:#eceefb; --occ:#eceefb; --occ-ink:#2e3192;
+  --inc:#2e3192; --exp:#c2410c; --exp-soft:#fdeee5; --ok:#15803d; --ok-soft:#e6f4ea; --warn:#b45309; --warn-soft:#fdf2e3; --bad:#c62828; --bad-soft:#fdecec; --gold:#2e3192; --cream:#ffffff;
+  --ch-airbnb:#e0606a; --ch-booking:#2f62d4; --ch-direct:#2e3192; --ch-insta:#b24f8d; --ch-msg:#6f5fe0; --ch-repeat:#d9853b; --ch-closed:#4fa57c; --ch-req:#9b90dc; --ch-other:#5b6b8c;
+  --a1:#2e3192; --a2:#2e3192; --a3:#2e3192; --a1-rgb:46,49,146; --a-soft:#eceefb;
+  --hink:#ffffff; --hink-rgb:255,255,255; --hink2:#e3e5f7; --hl:#2e3192; --hl-rgb:46,49,146; --d0:#f6f7f9; --d1:#ffffff; --d2:#f0f1f5; --dtx:#1b1f3b; --dwe:#fafbfc;
+  --font:"Onest",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; --display:"Onest",system-ui,sans-serif;
+  --r:12px; --r-sm:8px; --side:232px; --sh:0 1px 2px rgba(17,20,45,.04); --sh-pop:0 12px 32px rgba(17,20,45,.14); --ring:0 0 0 3px rgba(46,49,146,.16); color-scheme:light}
+:root[data-skin="host"] body{-webkit-font-smoothing:antialiased;font-size:14.5px}
+/* type */
+:root[data-skin="host"] h1.day,:root[data-skin="host"] h2{font-family:var(--display);font-weight:600;letter-spacing:-.015em}
+:root[data-skin="host"] h2{font-size:20px}
+:root[data-skin="host"] h3{font-size:11.5px;font-weight:600;letter-spacing:.06em;color:var(--muted)}
+:root[data-skin="host"] h3 .count{background:var(--accent-soft);color:var(--accent)}
+:root[data-skin="host"] .mgroup{color:var(--muted);font-weight:600}
+/* surfaces: hairline borders, no floating cards */
+:root[data-skin="host"] .card,:root[data-skin="host"] .mtile,:root[data-skin="host"] .trow,:root[data-skin="host"] .owrow,:root[data-skin="host"] .stitem{background:var(--surface);border:1px solid var(--line);box-shadow:none;border-radius:var(--r)}
+:root[data-skin="host"] .mtile{min-height:92px;transition:border-color .15s,background .15s}
+:root[data-skin="host"] .mtile:hover{border-color:var(--line2);background:var(--raised)}
+:root[data-skin="host"] .mtile .mi{background:var(--accent-soft);color:var(--accent);border-radius:10px}
+:root[data-skin="host"] .mtile b{font-weight:600}
+:root[data-skin="host"] .empty{border:1px dashed var(--line2);background:transparent;color:var(--muted)}
+/* header */
+:root[data-skin="host"] header.top{background:var(--surface);border-bottom:1px solid var(--line)}
+:root[data-skin="host"] .brand{font-family:var(--display);font-weight:600;font-size:15.5px;letter-spacing:-.01em}
+:root[data-skin="host"] .iconbtn,:root[data-skin="host"] .month{background:var(--surface);border:1px solid var(--line);box-shadow:none}
+:root[data-skin="host"] .iconbtn:hover,:root[data-skin="host"] .month button:hover{background:var(--d2)}
+/* buttons: one primary colour, quiet secondaries */
+:root[data-skin="host"] .btn{border-radius:var(--r-sm);font-weight:600;background:var(--surface);border:1px solid var(--line2);color:var(--ink);box-shadow:none;transition:background .15s,border-color .15s}
+:root[data-skin="host"] .btn:hover{background:var(--d2)}
+:root[data-skin="host"] .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+:root[data-skin="host"] .btn.primary:hover{background:var(--accent-h)}
+:root[data-skin="host"] .btn.danger{background:var(--surface);border-color:#f0c4c4;color:var(--bad)}
+:root[data-skin="host"] .btn:disabled{opacity:.5}
+:root[data-skin="host"] .chip{border-radius:999px;background:var(--surface);border:1px solid var(--line2);box-shadow:none}
+:root[data-skin="host"] .chip[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+:root[data-skin="host"] .closebtn,:root[data-skin="host"] .plusbtn,:root[data-skin="host"] .sendbtn,:root[data-skin="host"] .tdaddbtn,:root[data-skin="host"] .tdfab,:root[data-skin="host"] .gcommon{background:var(--accent)!important;color:#fff;box-shadow:none}
+:root[data-skin="host"] .tdfab{box-shadow:var(--sh-pop)}
+:root[data-skin="host"] .plusbtn.on{background:var(--surface)!important;color:var(--accent);box-shadow:inset 0 0 0 1.5px var(--accent)}
+:root[data-skin="host"] .dpseg button[aria-pressed="true"],:root[data-skin="host"] .ms-seg button[aria-pressed="true"]{background:var(--accent)!important;color:#fff!important}
+:root[data-skin="host"] .fbar i,:root[data-skin="host"] .gt-bar i{background:var(--accent)!important}
+:root[data-skin="host"] .gshare{background:var(--accent-soft);color:var(--ink);--hink:#1b1f3b;--hink-rgb:27,31,59;--a1:#fff}
+/* segmented controls (like the Home tabs of the reference) */
 :root[data-skin="host"] .hubnav{background:var(--bg)}
-:root[data-skin="host"] .hubnav button{border-radius:12px;box-shadow:var(--sh)}
+:root[data-skin="host"] .hubnav button{border:1px solid var(--line);border-radius:999px;background:var(--surface);box-shadow:none;color:var(--muted)}
 :root[data-skin="host"] .hubnav button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
-:root[data-skin="host"] .trow{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:8px}
-:root[data-skin="host"] .aptbtn{background:#fff;color:var(--ink);box-shadow:var(--sh);border:1px solid var(--line)}
-:root[data-skin="host"] .aptbtn .cbar.ok{background:#e3f6ee;color:#12805c}:root[data-skin="host"] .aptbtn .cbar.bad{background:#fdecea;color:#d92d20}:root[data-skin="host"] .aptbtn .cbar.busy{background:#f2f4f7;color:#667085}
-:root[data-skin="host"] .hvrow .cur:not(.chgcell){background:#fff;border-color:#d0d5dd}
+/* forms */
+:root[data-skin="host"] input,:root[data-skin="host"] select,:root[data-skin="host"] textarea{background:var(--surface);border:1px solid var(--line2);border-radius:var(--r-sm);color:var(--ink)}
+:root[data-skin="host"] input:focus,:root[data-skin="host"] select:focus,:root[data-skin="host"] textarea:focus{border-color:var(--accent);box-shadow:var(--ring);outline:0}
+:root[data-skin="host"] label.l{color:var(--muted);font-weight:500}
+:root[data-skin="host"] .hvrow .cur:not(.chgcell){background:var(--surface);border-color:var(--line2)}
 :root[data-skin="host"] .tchk{border-color:var(--accent)}
 :root[data-skin="host"] .gate a{color:var(--accent);text-decoration:none;font-weight:600}:root[data-skin="host"] .gate a:hover{text-decoration:underline}
-/* balance card: calm blue gradient instead of the gold card */
-:root[data-skin="host"] .bal{position:relative;overflow:hidden;margin-top:12px;padding:18px 18px 16px;border-radius:18px;background:linear-gradient(135deg,#2f5bea 0%,#4f6ff5 55%,#6d5cf6 100%);color:#fff;box-shadow:0 12px 28px rgba(47,91,234,.22)}
-:root[data-skin="host"] .bal .who,:root[data-skin="host"] .bal-sub,:root[data-skin="host"] .bal-amt small,:root[data-skin="host"] .bal .acct span{color:rgba(255,255,255,.82)}
-:root[data-skin="host"] .bal-amt{font-weight:800;font-size:40px;letter-spacing:-.03em}
-:root[data-skin="host"] .bal .acct{background:rgba(255,255,255,.14);border-radius:14px}
-:root[data-skin="host"] .bal .acct .cur{background:#fff!important;color:#2f5bea}
-:root[data-skin="host"] .bal .qa button{color:#fff}
-:root[data-skin="host"] .bal .qa button i{background:rgba(255,255,255,.18)}
-:root[data-skin="host"] .bal .qa button.pri i{background:#fff;color:#2f5bea}
-:root[data-skin="host"] .bal-top .btn{background:rgba(255,255,255,.16);color:#fff;border-color:transparent;box-shadow:none}
-/* calendar: white grid, soft channel-coloured bookings */
-:root[data-skin="host"] #c-body{box-shadow:var(--sh)}
-:root[data-skin="host"] .sh-name{color:var(--ink);font-weight:600}
-:root[data-skin="host"] .sh-day{color:#344054}
-:root[data-skin="host"] .bar{box-shadow:none;border-left:3px solid rgba(20,27,45,.25);border-radius:7px}
-:root[data-skin="host"] .bar.unp{background-image:repeating-linear-gradient(135deg,rgba(255,255,255,0) 0 7px,rgba(255,255,255,.45) 7px 11px)}
+:root[data-skin="host"] .gate .card{box-shadow:var(--sh)}
+/* the coloured "hero" blocks become plain white panels; their pills turn indigo */
+:root[data-skin="host"] .bal{position:relative;overflow:hidden;margin-top:12px;padding:16px;border-radius:var(--r);background:var(--surface);border:1px solid var(--line);color:var(--ink);box-shadow:none;
+  --hink:#2e3192; --hink-rgb:46,49,146; --hink2:#6b7084; --a1:#ffffff; --a2:#e6e8ee; --a3:#e6e8ee; box-shadow:none!important}
+:root[data-skin="host"] .seg button[aria-pressed="true"],:root[data-skin="host"] .hlwho button[aria-pressed="true"],:root[data-skin="host"] .rpchip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+:root[data-skin="host"] .mt2,:root[data-skin="host"] .mt2.on{background:var(--surface)!important;border:1px solid var(--line)!important;box-shadow:none!important}
+:root[data-skin="host"] .mt2.on{border-color:var(--accent)!important;box-shadow:inset 0 0 0 1px var(--accent)!important}
+:root[data-skin="host"] .mt2.on .ava{background:var(--accent);color:#fff}
+:root[data-skin="host"] .bal .clbig .ok,:root[data-skin="host"] .bal [aria-pressed="true"]{background:var(--accent)!important;color:#fff!important}
+:root[data-skin="host"] .bal .clbig .ok span{color:rgba(255,255,255,.8)!important}
+:root[data-skin="host"] .bal .clbar i.on{background:var(--accent)}
+:root[data-skin="host"] .bal-amt{font-weight:700;letter-spacing:-.02em}
+/* apartment tiles */
+:root[data-skin="host"] .aptbtn{background:var(--surface);color:var(--ink);border:1px solid var(--line);box-shadow:none}
+:root[data-skin="host"] .aptbtn .cbar.ok{background:var(--ok-soft);color:var(--ok)}:root[data-skin="host"] .aptbtn .cbar.bad{background:var(--bad-soft);color:var(--bad)}:root[data-skin="host"] .aptbtn .cbar.busy{background:var(--d2);color:var(--muted)}
+/* calendar: hairline grid, property photos, channel-coloured bars with white text */
+:root[data-skin="host"] #c-body{box-shadow:none;border-color:var(--line)}
+:root[data-skin="host"] .sh-name{color:var(--ink);font-weight:600;gap:8px}
+:root[data-skin="host"] .sh-name .tn{display:block}
+:root[data-skin="host"] .sh-day{color:var(--ink);font-weight:600!important;display:flex;flex-direction:column-reverse;align-items:center;justify-content:center;gap:2px;border-right-color:var(--line)!important}
+:root[data-skin="host"] .sh-day small{color:var(--muted)!important;font-weight:500!important;margin:0!important;font-size:11px!important}
+:root[data-skin="host"] .sh-day.we small{color:var(--muted)!important}
+:root[data-skin="host"] .sh-day.we{background:var(--raised);color:var(--ink)!important}
+:root[data-skin="host"] .sh-day.today{background:transparent!important;color:var(--ink)!important}
+:root[data-skin="host"] .sh-day.today b{background:var(--accent);color:#fff;border-radius:999px;min-width:24px;padding:2px 5px;box-sizing:border-box}
+:root[data-skin="host"] .sh-tl .td{background:rgba(46,49,146,.05)!important;box-shadow:inset 1px 0 0 rgba(46,49,146,.25),inset -1px 0 0 rgba(46,49,146,.25)}
+:root[data-skin="host"] .bar{color:#fff;border-radius:5px;box-shadow:none}
+:root[data-skin="host"] .bar .nm{font-weight:600}
+:root[data-skin="host"] .bar.lt{color:var(--ink)}
+:root[data-skin="host"] .bar.closed{background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.22) 0 6px,rgba(255,255,255,0) 6px 12px);color:#fff}
+:root[data-skin="host"] .bar.unp{background-image:none}
+@media (max-width:599px){:root[data-skin="host"] .sh-name .tn{display:none}}
+:root[data-skin="host"] .bar .amt{background:rgba(255,255,255,.92)}
+:root[data-skin="host"] .bar .vk{color:#fff}
+/* sheets, toasts */
+:root[data-skin="host"] .toast{background:#1b1f3b;color:#fff;border-radius:var(--r-sm);box-shadow:var(--sh-pop)}
+/* phone: flat tab bar, active item marked by a bar above the icon */
 @media (max-width:859px){
-  :root[data-skin="host"] nav.tabs{background:#fff;border-top:1px solid var(--line);box-shadow:0 -4px 16px rgba(16,24,40,.05)}
-  :root[data-skin="host"] nav.tabs button{color:#667085;font-weight:500}
+  :root[data-skin="host"] nav.tabs{background:var(--surface);border-top:1px solid var(--line);box-shadow:none}
+  :root[data-skin="host"] nav.tabs button{position:relative;color:#8a8fa3;font-weight:500;padding-top:10px}
   :root[data-skin="host"] nav.tabs button[aria-current="true"]{color:var(--accent);font-weight:600}
-  :root[data-skin="host"] nav.tabs button.mid svg{background:var(--accent);color:#fff;box-shadow:0 6px 16px rgba(47,91,234,.35);border-radius:16px}
-  :root[data-skin="host"] nav.tabs button.mid[aria-current="true"] svg{outline:3px solid #dbe4ff}
+  :root[data-skin="host"] nav.tabs button[aria-current="true"]::before{content:"";position:absolute;top:0;left:50%;width:28px;height:3px;margin-left:-14px;border-radius:0 0 3px 3px;background:var(--accent)}
+  :root[data-skin="host"] nav.tabs button.mid svg{width:22px;height:22px;padding:0;margin:0;border-radius:0;background:none;color:inherit;box-shadow:none;outline:0!important}
 }
 /* desktop: fixed left sidebar with the sections, content to the right */
 @media (min-width:860px){
   :root[data-skin="host"] #app{padding-left:var(--side)}
   :root[data-skin="host"] #app header.top{left:var(--side)}
-  :root[data-skin="host"] #app header.top .brand{position:fixed;left:0;top:0;width:var(--side);box-sizing:border-box;height:64px;padding:0 20px;margin:0;z-index:31;background:#fff;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
-  :root[data-skin="host"] nav.tabs{position:fixed;left:0;top:0;bottom:0;width:var(--side);box-sizing:border-box;z-index:30;display:flex;flex-direction:column;gap:2px;padding:76px 12px 16px;background:#fff;border-right:1px solid var(--line)}
-  :root[data-skin="host"] nav.tabs button{justify-content:flex-start;width:100%;font-size:14px;font-weight:500;color:#344054;padding:10px 12px;border-radius:10px;gap:10px}
-  :root[data-skin="host"] nav.tabs button:hover{background:#f4f6fa}
+  :root[data-skin="host"] #app header.top .brand{position:fixed;left:0;top:0;width:var(--side);box-sizing:border-box;height:60px;padding:0 18px;margin:0;z-index:31;background:var(--surface);border-right:1px solid var(--line)}
+  :root[data-skin="host"] nav.tabs{position:fixed;left:0;top:0;bottom:0;width:var(--side);box-sizing:border-box;z-index:30;display:flex;flex-direction:column;gap:2px;padding:68px 10px 16px;background:var(--surface);border-right:1px solid var(--line)}
+  :root[data-skin="host"] nav.tabs button{justify-content:flex-start;width:100%;font-size:14px;font-weight:500;color:#41465c;padding:9px 12px;border-radius:var(--r-sm);gap:10px;position:relative}
+  :root[data-skin="host"] nav.tabs button:hover{background:var(--d2)}
   :root[data-skin="host"] nav.tabs button[aria-current="true"]{background:var(--accent-soft);color:var(--accent);font-weight:600}
-  :root[data-skin="host"] nav.tabs button svg{width:19px;height:19px}
+  :root[data-skin="host"] nav.tabs button[aria-current="true"]::before{content:"";position:absolute;left:-10px;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:var(--accent)}
+  :root[data-skin="host"] nav.tabs button svg{width:18px;height:18px}
   :root[data-skin="host"] nav.tabs button.mid{order:-1}
-  :root[data-skin="host"] .wrap{max-width:1180px;padding-inline:28px}
-  :root[data-skin="host"] .top-in{max-width:1180px;padding-inline:28px;min-height:46px;justify-content:flex-end}
+  :root[data-skin="host"] .wrap{max-width:1160px;padding-inline:28px}
+  :root[data-skin="host"] .top-in{max-width:1160px;padding-inline:28px;min-height:42px;justify-content:flex-end}
   :root[data-skin="host"] body.calmode #app header.top .brand{display:flex!important}
   :root[data-skin="host"] body.calmode .wrap{max-width:none}
 }
+/* everything else (dark look): the calendar photo slot stays hidden */
+.sh-name .tn{display:none;font-style:normal;flex:none;width:28px;height:28px;border-radius:50%;background:var(--accent-soft) center/cover no-repeat;color:var(--accent);font-size:11px;font-weight:700;place-items:center}
 /* bank-card hero (wow) */
 :root[data-skin="wow"] .bal{position:relative;overflow:hidden;margin-top:12px;padding:18px 18px 16px;border-radius:28px;background:linear-gradient(135deg,var(--a1) 0%,var(--a2) 52%,var(--a3) 100%);color:var(--hink,#17140a);box-shadow:0 20px 40px rgba(239,129,89,.22)}
 :root[data-skin="wow"] .bal::before{content:"";position:absolute;width:220px;height:220px;border-radius:50%;right:-70px;top:-90px;background:rgba(255,255,255,.18)}
@@ -2262,7 +2306,12 @@ document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.c
   if(!ok&&!t.classList.contains("armed")){t.classList.add("armed");t.textContent="Точно отклонить?";return}
   t.disabled=true;try{const r=await api("kv_req_decide",{id,ok});closeSheet();await reload();toast((ok?"Бронь подтверждена":"Заявка отклонена")+(r.mailed==="sent"?" · гостю ушло письмо":""))}catch(x){t.disabled=false;toast("Не получилось")}});
 function tagOf(b){if(b.tag)return b.tag;if(b.source==="Airbnb"||b.pay==="Airbnb")return "airbnb";if(b.source==="Booking")return "booking";return ""}
-function barCol(b){const tg=tagOf(b),c=(TAGS.find(x=>x[0]===tg)||[])[2];if(c)return c;if(b.source==="Airbnb"||b.pay==="Airbnb")return "#f6a5a3";const i=cfg.people.indexOf(b.who);return i>=0&&i<WHO_COL.length?WHO_COL[i]:"#e4e2e8"}
+// light look: bookings coloured by channel, like the reference PMS calendars (the dark look keeps its colours)
+const LIGHT=()=>document.documentElement.getAttribute("data-skin")==="host";
+const CH_VAR={"Airbnb":"--ch-airbnb","Booking":"--ch-booking","Прямой":"--ch-direct","Instagram":"--ch-insta","Viber/Telegram":"--ch-msg","Повторный":"--ch-repeat"};
+function barColLight(b){const tg=tagOf(b);if(tg==="closed")return "var(--ch-closed)";if(tg==="req")return "var(--ch-req)";if(tg==="airbnb"||b.source==="Airbnb"||b.pay==="Airbnb")return "var(--ch-airbnb)";if(tg==="booking")return "var(--ch-booking)";
+  const v=CH_VAR[b.source];return v?`var(${v})`:b.source?"var(--ch-other)":"var(--ch-direct)"}
+function barCol(b){if(LIGHT())return barColLight(b);const tg=tagOf(b),c=(TAGS.find(x=>x[0]===tg)||[])[2];if(c)return c;if(b.source==="Airbnb"||b.pay==="Airbnb")return "#f6a5a3";const i=cfg.people.indexOf(b.who);return i>=0&&i<WHO_COL.length?WHO_COL[i]:"#e4e2e8"}
 function fitCal(){const el=$("c-body");if(!el||$("v-cal").hidden)return;if(el.querySelector(".sh.sq"))return;const top=el.getBoundingClientRect().top;const nav=$("tabs");const bottom=getComputedStyle(nav).position==="fixed"?Math.max(0,window.innerHeight-nav.getBoundingClientRect().top):0;el.style.height=Math.max(260,window.innerHeight-top-bottom-10)+"px"}
 let calW=46, calRT=null;
 window.addEventListener("resize",()=>{fitCal();clearTimeout(calRT);calRT=setTimeout(()=>{if(view==="cal")renderCal()},200)});
@@ -2287,7 +2336,7 @@ function renderCal(){
    head+=`<div class="sh-days">`;
    var mLine=segs.slice(1).map(g=>`<i class="mline" style="left:${g.at*W}px"></i>`).join(""),mStarts=new Set(segs.slice(1).map(g=>g.at))}
   let wk="";
-  for(let i=0;i<n;i++){const t=s0+i*DAY,dt=new Date(t),wd=dt.getUTCDay();const we=wd===0||wd===6;if(we)wk+=`<i class="wk" style="left:${i*W}px"></i>`;head+=`<div class="sh-day${we?" we":""}${t===td?" today":""}${mStarts.has(i)?" m1":""}">${dt.getUTCDate()}<small>${WD[wd]}</small></div>`}
+  for(let i=0;i<n;i++){const t=s0+i*DAY,dt=new Date(t),wd=dt.getUTCDay();const we=wd===0||wd===6;if(we)wk+=`<i class="wk" style="left:${i*W}px"></i>`;head+=`<div class="sh-day${we?" we":""}${t===td?" today":""}${mStarts.has(i)?" m1":""}"><b>${dt.getUTCDate()}</b><small>${WD[wd]}</small></div>`}
   head+=`</div></div></div>`;
   const tdMark=tdIdx>=0&&tdIdx<n?`<i class="td" style="left:${tdIdx*W}px"></i>`:"";
   let rows="";
@@ -2308,7 +2357,7 @@ function renderCal(){
       bars+=`<div class="bar${lz?" half":""}${(R-L)*W-4<64?" narrow":""}${st<0?" cut-l":""}${en>n?" cut-r":""}${over?" over":""}${b.tag==="closed"?" closed":""}${payActive(b)&&payState(b).state==="unpaid"?" unp":""}" data-edit="${esc(b.id)}" style="${lz}left:${L*W+2}px;width:${(R-L)*W-4}px;background-color:${barCol(b)}" title="${esc(label+" · "+dm(b.date)+" → "+dm(endOf(b))+" · "+amounts(b)+((st<0||en>n)?" · в этом месяце "+Math.round(shareOf(b,mon.y,mon.m)*b.nights)+" из "+b.nights+" ночей":""))}">${over?"‼ ":""}${b.verified?`<span class="vk">✓</span>`:""}${bd}<span class="nm">${esc(label)}</span>${(()=>{if(payActive(b)){const ps=payState(b);if(ps.state!=="paid"){const t=ps.state==="unpaid"?(b.price?"не опл. "+fmt0(+b.price)+(ps.cur==="EUR"?"€":ps.cur==="USD"?"$":""):"не опл."):(ps.left?"ещё "+fmt0(ps.left)+(ps.cur==="EUR"?"€":ps.cur==="USD"?"$":""):"аванс");return `<span class="amt pst">${esc(t)}</span>`}}const cut=false;if(!shortAmt(b))return "";if((R-L)*W-4<64){const k=cut?shareOf(b,mon.y,mon.m):1;return `<span class="amt tiny" title="${esc(shortAmt(b,k))}">${esc(tinyAmt(b,k))}</span>`}if(!cut)return `<span class="amt">${esc(shortAmt(b))}</span>`;const k=shareOf(b,mon.y,mon.m);return `<span class="amt" title="за этот месяц ${esc(shortAmt(b,k))} из ${esc(shortAmt(b))}">${esc(shortAmt(b,k))}</span>`})()}</div>`;
     }
     const uc=capOf(unitOf(a)),ul=unitLine(a),ug=unitOf(a).group;
-    rows+=`<div class="sh-row${ug?" grp":""}"><div class="sh-name" data-aptpage="${esc(a)}" title="${esc([ug,ul].filter(Boolean).join(" · "))}"><span>${esc(a)}${uc?`<small class="cap">👤${uc}</small>`:""}</span><em>${nights}</em></div><div class="sh-tl" data-tl="${esc(a)}" style="width:${n*W}px">${wk}${mLine}${tdMark}${bars}</div></div>`;
+    rows+=`<div class="sh-row${ug?" grp":""}"><div class="sh-name" data-aptpage="${esc(a)}" title="${esc([ug,ul].filter(Boolean).join(" · "))}">${photos[a]?`<i class="tn" style="background-image:url('${photos[a]}')"></i>`:""}<span>${esc(a)}${uc?`<small class="cap">👤${uc}</small>`:""}</span><em>${nights}</em></div><div class="sh-tl" data-tl="${esc(a)}" style="width:${n*W}px">${wk}${mLine}${tdMark}${bars}</div></div>`;
   }
   $("c-body").innerHTML=`<div class="sh sq" style="--W:${W}px;--L:${Lw}px;--H:${H}px;width:${Lw+n*W}px">${head}${rows}</div>`;
   {const el=$("c-body"),key=todayStr()+"|"+W,keep=calKey===key?el.scrollLeft:null,t0=el.scrollTop;calKey=key;
@@ -2703,7 +2752,7 @@ function renderMenu(){
     ${T("exp","🧾","Расходы","траты по месяцам")}${T("fin","📊","Финансы","доход, итоги, год")}
     ${T("verify","✅","Проверка оплат","сверка денег за месяц",vb)}${T("shifts","🗂️","Все смены","закрытые пересменки")}${T("log","🕘","Журнал изменений","кто что поменял")}${T("tax","🧮","Налоги",(()=>{const n=taxNext();return n?`к оплате ${fmt0(n.tax)} лей до ${dm(n.due)}`:"доход и налог по месяцам"})())}</div>
     <div class="mgroup">Гости и настройки</div><div class="mtiles">${T("guide","📖","Гид для гостей","Wi‑Fi, вход, правила")}${T("settings","⚙️","Настройки","квартиры, горничные, PIN")}</div>
-    <div class="mgroup">Вид · на этом телефоне</div><div class="skinsw">${[["wow","Тёмный","#14171d","#2a303b"],["host","Светлый","#ffffff","#2f5bea"]].map(([k,l,c1,c2])=>`<button type="button" data-skinpick="${k}" aria-pressed="${(document.documentElement.getAttribute("data-skin")||"wow")===k}"><i style="background:linear-gradient(135deg,${c1} 50%,${c2} 50%);box-shadow:inset 0 0 0 1px rgba(127,127,127,.35)"></i>${l}</button>`).join("")}</div>
+    <div class="mgroup">Вид · на этом телефоне</div><div class="skinsw">${[["wow","Тёмный","#14171d","#2a303b"],["host","Светлый","#ffffff","#2f5bea"]].map(([k,l,c1,c2])=>`<button type="button" data-skinpick="${k}" aria-pressed="${(document.documentElement.getAttribute("data-skin")||"host")===k}"><i style="background:linear-gradient(135deg,${c1} 50%,${c2} 50%);box-shadow:inset 0 0 0 1px rgba(127,127,127,.35)"></i>${l}</button>`).join("")}</div>
     ${document.documentElement.getAttribute("data-skin")==="host"?"":`<div class="mgroup">Цвет приложения · на этом телефоне</div><div class="skinsw">${[["","Жёлтый","#fed36a","#ef8159"],["violet","Фиолетовый","#c4b0ff","#e48bd6"],["sky","Голубой","#8fcbff","#8f8cff"]].map(([k,l,c1,c2])=>`<button type="button" data-accent="${k}" aria-pressed="${ac===k}"><i style="background:linear-gradient(135deg,${c1},${c2})"></i>${l}</button>`).join("")}</div>`}`;
 }
 function hubCounts(){const nowS=todayStr()+"T"+p2(new Date().getHours())+":"+p2(new Date().getMinutes());
