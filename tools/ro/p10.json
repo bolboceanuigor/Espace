@@ -65,5 +65,14 @@
 "Спальня": "Dormitor",
 "Светлый": "Luminos",
 "Тёмный": "Întunecat",
-"Вид": "Aspect"
+"Вид": "Aspect",
+"иконка на главном экране, открывается на весь экран, уведомления": "pictogramă pe ecranul principal, se deschide pe tot ecranul, notificări",
+"иконка появится рядом с другими приложениями": "pictograma apare lângă celelalte aplicații",
+"На экран Домой»": "Adaugă pe ecranul principal»",
+"как приложение": "ca aplicație",
+"Установить": "Instalează",
+"Установите": "Instalează",
+"Поделиться": "Partajare",
+"Выберите": "Alege",
+"внизу": "din josul"
 }

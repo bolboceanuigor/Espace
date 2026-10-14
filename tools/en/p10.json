@@ -65,5 +65,14 @@
 "Спальня": "Bedroom",
 "Светлый": "Light",
 "Тёмный": "Dark",
-"Вид": "Look"
+"Вид": "Look",
+"иконка на главном экране, открывается на весь экран, уведомления": "icon on the home screen, opens full screen, notifications",
+"иконка появится рядом с другими приложениями": "the icon appears next to your other apps",
+"На экран Домой»": "Add to Home Screen»",
+"как приложение": "as an app",
+"Установить": "Install",
+"Установите": "Install",
+"Поделиться": "Share",
+"Выберите": "Choose",
+"внизу": "at the bottom of"
 }
