@@ -897,6 +897,10 @@ body.calmode .wrap{padding-bottom:0;max-width:none}
 .uform{margin-top:10px}.uform select,.uform textarea{width:100%;box-sizing:border-box}.uform textarea{border:1px solid var(--line);border-radius:9px;background:var(--bg);padding:8px 12px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
 @media (max-width:520px){.uform .grid4{grid-template-columns:1fr 1fr}}
+.cl-acc{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:6px;font-size:14.5px}.cl-acc b{font-variant-numeric:tabular-nums;letter-spacing:.03em}
+.fxrow{display:grid;grid-template-columns:1fr 150px auto auto;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}.fxrow.off{opacity:.55}@media (max-width:560px){.fxrow{grid-template-columns:1fr 1fr}}
+.usec{margin:12px 0 2px;border:1px solid var(--line);border-radius:12px;padding:8px 12px;background:var(--bg)}.usec summary{cursor:pointer;font-weight:700;font-size:14.5px;padding:4px 0}.usec summary small{font-weight:500;color:var(--muted);margin-left:6px}.usec[open] summary{margin-bottom:6px}
+.ucopy{margin-top:12px;border:1px dashed var(--line);border-radius:12px;padding:10px 12px}.ucl{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:4px 10px;max-height:240px;overflow:auto}.ucl label{display:flex;gap:8px;align-items:center;font-size:14px;padding:3px 0}
 .ubed{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:6px 8px;text-align:center}.ubed small{display:block;color:var(--muted);font-size:11.5px;margin-bottom:4px}
 .stp{display:flex;align-items:center;justify-content:space-between;gap:4px}.stp button{width:30px;height:30px;border:0;border-radius:9px;background:var(--accent-soft);color:var(--accent);font-size:18px;font-weight:700;cursor:pointer}.stp b{font-size:16px;min-width:18px}
 .uamen{display:flex;flex-wrap:wrap;gap:6px}.uamen button{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:6px 11px;font-size:13px;color:var(--muted);cursor:pointer}.uamen button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
@@ -1145,7 +1149,7 @@ const WD=["Su","Mo","Tu","We","Th","Fr","Sa"];
 const WD_L=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const DAY=86400000;
 let clnOpenRow=null;
-let staff=[], staffAll=[], tasks=[], checksLast={}, clnDay=null, clnForm=null, reminders=[], clnSwap=false, clnPayOpen=null, clnAddSt=false;
+let staff=[], staffAll=[], fixers=[], tasks=[], checksLast={}, clnDay=null, clnForm=null, reminders=[], clnSwap=false, clnPayOpen=null, clnAddSt=false;
 /* PUSH NOTIFICATIONS */
 const pushSupported=()=>"serviceWorker" in navigator&&"PushManager" in window&&"Notification" in window;
 const isStandalone=()=>matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
@@ -1247,7 +1251,7 @@ async function reload(){
   expenses=(d.expenses||[]).map(mapE);
   handovers=(d.handovers||[]).map(h=>({...h,totals:h.totals||{}}));
   VI={};(d.vinfo||[]).forEach(r=>{let sn={};try{sn=JSON.parse(r.snap||"{}")}catch(e){}VI[r.kind+":"+r.ref_id]={...r,snap:sn}});closedM={};(d.closedMonths||[]).forEach(r=>closedM[r.ym]=r);
-  reminders=d.reminders||[]; todos=d.todos||[]; notifs=d.notifs||[]; bellNew(notifs); bellUpdate(notifs,"bell-badge","bellseen"); staffAll=d.staff||[]; staff=staffAll.filter(x=>x.active!==false);
+  reminders=d.reminders||[]; todos=d.todos||[]; notifs=d.notifs||[]; bellNew(notifs); bellUpdate(notifs,"bell-badge","bellseen"); {const isFix=x=>(cfg.staffRole||{})[x.id]==="fix";fixers=(d.staff||[]).filter(isFix);staffAll=(d.staff||[]).filter(x=>!isFix(x))} staff=staffAll.filter(x=>x.active!==false);
   if((cfg.payouts||[]).some(p=>!p.shift)&&!window._poSync){window._poSync=1;setTimeout(()=>payoutsToShift().then(n=>{window._poSync=0;if(n){toast("Cleaner payouts are recorded in the Shift");reload()}}).catch(()=>{window._poSync=0}),500)} tasks=d.tasks||[]; checksLast={}; (d.checks||[]).forEach(r=>checksLast[r.apt+"|"+r.item]=r.last);
   loaded=true; $("banner").hidden=true; renderView(); tabBadge(); refreshAptTiles(); vBadge(); if(view==="verify"&&!vBusy)renderVerify();
 }
@@ -1503,6 +1507,7 @@ function unitLine(a){const u=unitOf(a),p=[];
 let uOpen="", uHotel=false, uDelArm="";
 function unitForm(a){const u=unitOf(a),b=u.beds||{},groups=[...new Set(cfg.apts.map(x=>unitOf(x).group).filter(Boolean))];
   const n=(id,v,lbl,ph)=>`<div><label class="l" for="${id}">${lbl}</label><input type="text" inputmode="decimal" id="${id}" value="${esc(v??"")}" placeholder="${esc(ph||"")}"></div>`;
+  const t=(id,v,lbl,ph)=>`<div><label class="l" for="${id}">${lbl}</label><input type="text" id="${id}" value="${esc(v??"")}" placeholder="${esc(ph||"")}" autocomplete="off"></div>`;
   return `<div class="uform">
     <div class="grid2"><div><label class="l" for="uf-kind">Type</label><select id="uf-kind">${Object.entries(UKIND).map(([k,t])=>`<option value="${k}"${(u.kind||"apt")===k?" selected":""}>${t}</option>`).join("")}</select></div>
       <div><label class="l" for="uf-group">Building or hotel</label><input type="text" id="uf-group" list="uf-groups" value="${esc(u.group||"")}" placeholder="optional"><datalist id="uf-groups">${groups.map(g=>`<option value="${esc(g)}">`).join("")}</datalist></div></div>
@@ -1513,9 +1518,23 @@ function unitForm(a){const u=unitOf(a),b=u.beds||{},groups=[...new Set(cfg.apts.
     <div class="grid2"><div><label class="l" for="uf-cin">Check-in from</label><input type="time" id="uf-cin" value="${esc(u.cin||"14:00")}"></div><div><label class="l" for="uf-cout">Check-out by</label><input type="time" id="uf-cout" value="${esc(u.cout||"12:00")}"></div></div>
     <label class="l">Amenities</label>
     <div class="uamen">${AMEN.map(([k,t])=>`<button type="button" data-uamen="${k}" aria-pressed="${(u.amen||[]).includes(k)}">${t}</button>`).join("")}</div>
-    <label class="l" for="uf-note">Notes</label><textarea id="uf-note" rows="2" placeholder="key box code, where the linen is…">${esc(u.note||"")}</textarea>
+    <details class="usec"${u.wifi||u.wpass||u.door||u.park||u.cmin||u.cpay?" open":""}><summary>Access and cleaning <small>the maid sees this</small></summary>
+      <div class="grid2">${t("uf-wifi",u.wifi,"Wi-Fi: network","")}${t("uf-wpass",u.wpass,"Wi-Fi: password","")}</div>
+      <div class="grid2">${t("uf-door",u.door,"Door or key box code","")}${t("uf-park",u.park,"Parking","spot 12, in the yard")}</div>
+      <div class="grid2">${n("uf-cmin",u.cmin,"Cleaning takes, min","60")}${n("uf-cpay",u.cpay,"Maid pay per cleaning, lei","maid’s usual rate")}</div>
+      <p class="small" style="margin:2px 0 0">This amount replaces the general “per apartment” rate — you can pay more for bigger apartments.</p></details>
+    <details class="usec"${u.cfee||u.dep||u.minn?" open":""}><summary>Booking terms <small>guests see this on the booking page</small></summary>
+      <div class="grid4">${n("uf-cfee",u.cfee,"Cleaning fee","0")}${n("uf-dep",u.dep,"Deposit","0")}${n("uf-minn",u.minn,"Minimum nights","1")}<div><label class="l">&nbsp;</label><div class="small" style="padding-top:12px">in the price currency</div></div></div></details>
+    <label class="l" for="uf-note">Notes</label><textarea id="uf-note" rows="2" placeholder="where the linen is, quirks…">${esc(u.note||"")}</textarea>
     <div class="uical" id="uf-ical" data-apt="${esc(a)}"><label class="l">Sync with Airbnb and Booking</label><div id="uf-ical-body" class="small">Uploading…</div></div>
-    <div class="actions"><button type="button" class="btn primary" data-usave="${esc(a)}">Save</button><button type="button" class="btn" data-uedit="">Cancel</button></div></div>`}
+    <div class="actions"><button type="button" class="btn primary" data-usave="${esc(a)}">Save</button>${cfg.apts.length>1?`<button type="button" class="btn" data-ucopy="${esc(a)}">Copy to others…</button>`:""}<button type="button" class="btn" data-uedit="">Cancel</button></div>
+    ${cfg.apts.length>1?copyPanel(a):""}</div>`}
+// copy the shared details (size, beds, prices, amenities, cleaning, booking terms) from one unit to others; names, codes, address, notes stay
+const UCOPY_K=["kind","area","bedrooms","baths","beds","guests","price","pcur","cin","cout","amen","cmin","cpay","cfee","dep","minn"];
+function copyPanel(a){const others=cfg.apts.filter(x=>x!==a),u=unitOf(a);
+  return `<div class="ucopy" id="ucopy" hidden><b>Copy to other units</b><p class="small" style="margin:2px 0 8px">Copied: type, area, bedrooms, beds, guests, price, check-in times, amenities, cleaning and booking terms. Name, address, codes and notes stay as they are on each one.</p>
+    <div class="ucl">${others.map(x=>`<label><input type="checkbox" data-ucpt="${esc(x)}"${unitOf(x).group&&unitOf(x).group===u.group?" checked":""}> ${esc(x)}</label>`).join("")}</div>
+    <div class="actions"><button type="button" class="btn sm" data-ucpall="1">Select all</button><button type="button" class="btn primary" data-ucpgo="${esc(a)}">Copy</button></div></div>`}
 function unitCard(a,i){const line=unitLine(a);
   return `<div class="aptset${uOpen===a?" open":""}"><div class="ah setrow">${thumb(a)}<span class="um"><b>${esc(a)}</b><small>${line?esc(line):"details not filled in"}</small></span>
       <button type="button" class="ibtn" data-uedit="${esc(a)}" aria-label="Details ${esc(a)}">${setIc("det")}</button>
@@ -1894,24 +1913,39 @@ function aptsSection(){
       <button type="button" class="btn" data-wizagain="1" style="margin-top:8px;width:100%">✦ Set-up assistant: units and team, step by step</button></div>
     ${uHotel?hotelForm():""}
     <p class="small" style="margin-bottom:0">Tap ⚙ next to an apartment to fill in the size, bedrooms, beds and amenities — cleaners will see how much linen is needed. A deleted apartment leaves the calendar, but its bookings and expenses stay in the reports.</p>`}
-function unitSave(a){const num0=id=>{const v=String(($(id)||{}).value||"").replace(",",".").trim();return v===""?"":Math.max(0,+v||0)};
+// the form's fields; keys the form doesn't show (rtype, the iCal key…) are kept as they were
+const UFORM_K=["kind","group","area","bedrooms","baths","floor","beds","guests","price","pcur","cin","cout","amen","note","wifi","wpass","door","park","cmin","cpay","cfee","dep","minn"];
+function unitRead(a){const num0=id=>{const v=String(($(id)||{}).value||"").replace(",",".").trim();return v===""?"":Math.max(0,+v||0)},txt=(id,n)=>String(($(id)||{}).value||"").trim().slice(0,n);
   const beds={};BEDT.forEach(([k])=>{const v=+(($("uf-b-"+k)||{}).textContent||0);if(v>0)beds[k]=v});
-  const u={kind:$("uf-kind").value,group:$("uf-group").value.trim().slice(0,60),area:num0("uf-area"),bedrooms:num0("uf-bedrooms"),baths:num0("uf-baths"),floor:($("uf-floor").value||"").trim().slice(0,10),
+  const u={...unitOf(a)};UFORM_K.forEach(k=>delete u[k]);
+  Object.assign(u,{kind:$("uf-kind").value,group:$("uf-group").value.trim().slice(0,60),area:num0("uf-area"),bedrooms:num0("uf-bedrooms"),baths:num0("uf-baths"),floor:($("uf-floor").value||"").trim().slice(0,10),
     beds,guests:num0("uf-guests"),price:num0("uf-price"),pcur:num0("uf-price")===""?"":$("uf-pcur").value,cin:$("uf-cin").value,cout:$("uf-cout").value,
-    amen:[...document.querySelectorAll("[data-uamen][aria-pressed=true]")].map(x=>x.dataset.uamen),note:$("uf-note").value.trim().slice(0,500)};
-  Object.keys(u).forEach(k=>{if(u[k]===""||u[k]==null||(Array.isArray(u[k])&&!u[k].length)||(k==="beds"&&!Object.keys(u.beds).length))delete u[k]});
-  uOpen="";saveCfg({...cfg,units:{...(cfg.units||{}),[a]:u}},"Saved")}
+    amen:[...document.querySelectorAll("[data-uamen][aria-pressed=true]")].map(x=>x.dataset.uamen),note:$("uf-note").value.trim().slice(0,500),
+    wifi:txt("uf-wifi",60),wpass:txt("uf-wpass",60),door:txt("uf-door",60),park:txt("uf-park",80),cmin:num0("uf-cmin"),cpay:num0("uf-cpay"),cfee:num0("uf-cfee"),dep:num0("uf-dep"),minn:num0("uf-minn")});
+  if(u.minn!=="")u.minn=Math.min(60,Math.round(u.minn))||"";
+  Object.keys(u).forEach(k=>{if(u[k]===""||u[k]===0&&["cmin","cpay","cfee","dep","minn"].includes(k)||u[k]==null||(Array.isArray(u[k])&&!u[k].length)||(k==="beds"&&!Object.keys(u.beds).length))delete u[k]});
+  return u}
+function unitSave(a){const u=unitRead(a);uOpen="";saveCfg({...cfg,units:{...(cfg.units||{}),[a]:u}},"Saved")}
+function unitCopy(a){const targets=[...document.querySelectorAll("[data-ucpt]:checked")].map(x=>x.dataset.ucpt).filter(x=>cfg.apts.includes(x));
+  if(!targets.length){toast("Tick where to copy");return}
+  const src=unitRead(a),units={...(cfg.units||{}),[a]:src};
+  targets.forEach(x=>{const v={...unitOf(x)};UCOPY_K.forEach(k=>{if(src[k]!=null)v[k]=Array.isArray(src[k])?[...src[k]]:typeof src[k]==="object"?{...src[k]}:src[k];else delete v[k]});
+    if(v.rtype&&src.kind!==v.kind)delete v.rtype;units[x]=v});
+  uOpen="";saveCfg({...cfg,units},"Copied to "+targets.length+" "+plural(targets.length,"unit","units","units"))}
 function unitDelete(a){
   if(cfg.apts.length<=1){toast("At least one apartment must remain");return}
   const t=todayStr();
   if(bookings.some(b=>b.apt===a&&endOf(b)>t)){toast("This apartment has upcoming bookings — move or delete them first");uDelArm="";settingsPage("apts");return}
   uDelArm="";uOpen="";
   saveCfg({...cfg,apts:cfg.apts.filter(x=>x!==a),archived:[...new Set([...(cfg.archived||[]),a])]},"Deleted — history kept")}
-document.addEventListener("click",e=>{const t=e.target.closest("[data-uedit],[data-ustep],[data-uamen],[data-usave],[data-udel],[data-uhotel],#uh-add");if(!t)return;const ds=t.dataset;
+document.addEventListener("click",e=>{const t=e.target.closest("[data-uedit],[data-ustep],[data-uamen],[data-usave],[data-ucopy],[data-ucpall],[data-ucpgo],[data-udel],[data-uhotel],#uh-add");if(!t)return;const ds=t.dataset;
   if(ds.uedit!=null){uOpen=uOpen===ds.uedit?"":ds.uedit;uDelArm="";settingsPage("apts");if(uOpen)setTimeout(()=>icalLoad(uOpen),0);return}
   if(ds.ustep){const el=$("uf-b-"+ds.ustep);el.textContent=Math.max(0,Math.min(20,(+el.textContent||0)+(+ds.d)));const g=$("uf-guests");if(g&&!g.value){const b={};BEDT.forEach(([k])=>b[k]=+$("uf-b-"+k).textContent);g.placeholder="by beds: "+capAuto({beds:b})}return}
   if(ds.uamen){t.setAttribute("aria-pressed",String(t.getAttribute("aria-pressed")!=="true"));return}
   if(ds.usave){unitSave(ds.usave);return}
+  if(ds.ucopy){const p=$("ucopy");if(p){p.hidden=!p.hidden;if(!p.hidden)p.scrollIntoView({block:"nearest",behavior:"smooth"})}return}
+  if(ds.ucpall){const bs=[...document.querySelectorAll("[data-ucpt]")],all=bs.every(x=>x.checked);bs.forEach(x=>x.checked=!all);return}
+  if(ds.ucpgo){unitCopy(ds.ucpgo);return}
   if(ds.udel){if(uDelArm!==ds.udel){uDelArm=ds.udel;settingsPage("apts");setTimeout(()=>{if(uDelArm===ds.udel){uDelArm="";settingsPage("apts")}},4000);return}unitDelete(ds.udel);return}
   if(ds.uhotel!=null){uHotel=ds.uhotel==="1";settingsPage("apts");if(uHotel)setTimeout(()=>{$("uh-name").focus();hotelPrev()},0);return}
   if(t.id==="uh-add"){const hotel=$("uh-name").value.trim().slice(0,60),n=Math.max(1,Math.min(200,parseInt($("uh-n").value,10)||0)),type=$("uh-type").value;
@@ -1992,8 +2026,9 @@ function wizRender(){let el=$("wiz");if(!W){if(el)el.remove();document.body.clas
       ${W.mgr.map((m,i)=>`<div class="wr"><input type="text" data-wm="${i}" data-f="name" value="${esc(m.name)}" placeholder="Name"><input type="email" data-wm="${i}" data-f="email" value="${esc(m.email)}" placeholder="email"><select data-wm="${i}" data-f="role">${[["manager","Manager"],["checker","Checks payments"],["viewer","View-only"]].map(([k,t])=>`<option value="${k}"${m.role===k?" selected":""}>${t}</option>`).join("")}</select><button type="button" class="iconbtn" data-wmdel="${i}" aria-label="Remove">✕</button></div>`).join("")}
       <button type="button" class="btn" data-wmadd="1">＋ Manager</button></div>
     <div class="wsec"><div class="wsh"><b>Cleaners</b><span class="small">sign in only with a PIN and see their cleanings, no money</span></div>
-      ${W.cl.map((m,i)=>`<div class="wr"><input type="text" data-wc="${i}" data-f="name" value="${esc(m.name)}" placeholder="Name"><input type="text" inputmode="numeric" data-wc="${i}" data-f="pin" value="${esc(m.pin)}" placeholder="PIN, 4+ digits"><button type="button" class="iconbtn" data-wcdel="${i}" aria-label="Remove">✕</button></div>`).join("")}
-      <button type="button" class="btn" data-wcadd="1">＋ Cleaner</button></div>`;
+      ${W.cl.map((m,i)=>`<div class="wr">${m.role==="fix"?`<span class="pill">🔧 Repairman</span>`:""}<input type="text" data-wc="${i}" data-f="name" value="${esc(m.name)}" placeholder="${m.role==="fix"?"Repairman’s name":"Name"}"><input type="text" inputmode="numeric" data-wc="${i}" data-f="pin" value="${esc(m.pin)}" placeholder="PIN, 4+ digits"><button type="button" class="iconbtn" data-wcdel="${i}" aria-label="Remove">✕</button></div>`).join("")}
+      <button type="button" class="btn" data-wcadd="1">＋ Cleaner</button> <button type="button" class="btn" data-wcadd="fix">＋ Repairman</button>
+      <p class="small" style="margin:6px 0 0">The repairman also signs in with a PIN, but sees only “To fix”.</p></div>`;
   if(st===3){const {apts}=wizUnits(),total=wizBase().length+apts.length,mg=W.mgr.filter(m=>m.email.trim()),cl=W.cl.filter(m=>m.name.trim());
     body=`<h2>All set to launch</h2>
       <div class="wsum"><div><b>${apts.length}</b><span>${plural(apts.length,"unit","units","units")}</span></div><div><b>${mg.length}</b><span>${plural(mg.length,"manager","managers","managers")}</span></div><div><b>${cl.length}</b><span>${plural(cl.length,"cleaner","cleaners","cleaners")}</span></div></div>
@@ -2025,7 +2060,7 @@ document.addEventListener("click",async e=>{if(!W)return;const t=e.target.closes
   if(d.wrdel!=null){W.hotel.rooms.splice(+d.wrdel,1);wizRender();return}
   if(d.wmadd){W.mgr.push({name:"",email:"",role:"manager"});wizRender();return}
   if(d.wmdel!=null){W.mgr.splice(+d.wmdel,1);wizRender();return}
-  if(d.wcadd){W.cl.push({name:"",pin:""});wizRender();return}
+  if(d.wcadd){W.cl.push({name:"",pin:"",role:d.wcadd==="fix"?"fix":"clean"});wizRender();return}
   if(d.wcdel!=null){W.cl.splice(+d.wcdel,1);wizRender();return}
   if(d.wiz==="back"){W.step=Math.max(0,W.step-1);wizRender();return}
   if(d.wiz==="skip"){const again=W.again;W=null;wizRender();if(!again)saveCfg({...cfg,onboarded:true},"You can set it up in Menu → Settings");return}
@@ -2037,7 +2072,9 @@ document.addEventListener("click",async e=>{if(!W)return;const t=e.target.closes
   if(d.wiz==="done"){const {apts:fresh,units}=wizUnits(),apts=[...wizBase(),...fresh];if(apts.length>70&&!(ME&&ME.billing&&ME.billing.custom)){toast("More than 70 — write to us");return}
     W.busy=true;wizRender();const errs=[];
     try{await api("kv_set_config",{p_data:{...cfg,apts,units:{...(cfg.units||{}),...units},onboarded:true}})}catch(x){W.busy=false;wizRender();toast("Not saved — check the internet");return}
-    for(const c of W.cl.filter(m=>m.name.trim()))try{await api("kv_staff_save",{s:{id:null,name:c.name.trim(),salary:0,extra_rate:0,cycle_start:"",on_days:3,off_days:3,pin:String(c.pin).trim()}})}catch(x){errs.push(c.name)}
+    const fixIds=[];
+    for(const c of W.cl.filter(m=>m.name.trim()))try{const sid=await api("kv_staff_save",{s:{id:null,name:c.name.trim(),salary:0,extra_rate:0,cycle_start:"",on_days:3,off_days:3,pin:String(c.pin).trim()}});if(c.role==="fix")fixIds.push(sid)}catch(x){errs.push(c.name)}
+    if(fixIds.length)try{const cur=(await api("kv_load")).config||cfg;await api("kv_set_config",{p_data:{...cur,staffRole:{...(cur.staffRole||{}),...Object.fromEntries(fixIds.map(i=>[i,"fix"]))}}})}catch(x){errs.push("repairmen")}
     for(const m of W.mgr.filter(m=>m.email.trim()))try{await api("team_add",{name:m.name.trim()||m.email.trim(),email:m.email.trim(),role:m.role})}catch(x){errs.push(m.email)}
     W=null;wizRender();await reload();toast(errs.length?"Done, but couldn’t add: "+errs.join(", "):"Company set up");return}});
 
@@ -2459,7 +2496,7 @@ async function saveMany(list,msg){try{for(const t of list)await api("kv_task_sav
 function listBlock(st,rows,d){
   const vis=withTimes(rows.filter(r=>r.status!=="skip")), pending=rows.filter(r=>!r.sent).length, wasSent=rows.some(r=>r.sent&&r.t);
   const off=st&&!isDuty(st,d);
-  const dm_=st?dayMoney(st,d,rows.filter(r=>r.status==="done").map(r=>({kind:r.kind}))):null,dmode=st?dayPayOf(st,d):null;
+  const dm_=st?dayMoney(st,d,rows.filter(r=>r.status==="done").map(r=>({kind:r.kind,apt:r.apt}))):null,dmode=st?dayPayOf(st,d):null;
   let h=`<div class="card" style="margin-top:12px;padding:12px"><div class="clh">${st?`<button type="button" class="stname" data-mopen="${esc(st.id)}">${esc(st.name)} <span>▾</span></button>`:`<b style="font-size:17px">Not assigned</b>`}${st?`<span class="pill ${off?"":"ok"}">${off?"day off":"on shift"}</span>`:""}<span class="small" style="margin-left:auto">${vis.length} ${plural(vis.length,"apartment","apartments","apartments")}</span></div>
     ${vis.length?`<div class="lstart">Starts at <b>${esc(vis[0].eff)}</b>${vis.length>1?` · last on ${esc(vis[vis.length-1].eff)}`:""}</div>`:""}`;
   const dp=st?deepPlan(vis.filter(r=>r.kind!=="general").map(r=>r.apt),d,deepN()):{};
@@ -2490,7 +2527,7 @@ const MSG_I='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-w
 function contactOf(st){const c=(cfg.contacts||{})[st.id];if(!c||!c.phone)return null;const raw=String(c.phone).trim();let dg=raw.replace(/\D/g,"");if(dg.length===9&&dg[0]==="0")dg="373"+dg.slice(1);
   const app=MSG_N[c.app]?c.app:"wa";const url=app==="wa"?"https://wa.me/"+dg:app==="vb"?"viber://chat?number=%2B"+dg:(raw.startsWith("@")?"https://t.me/"+raw.slice(1):"https://t.me/+"+dg);return {app,url,phone:raw}}
 function setWork(d,id,on){const before=dutyAll(d).map(x=>x.id);let l=on?[...new Set([...before,id])]:before.filter(x=>x!==id);const duty={...(cfg.duty||{})},cut=fromT(toT(todayStr())-60*DAY);for(const k of Object.keys(duty))if(k<cut)delete duty[k];duty[d]=l;return duty}
-function maidSheet(id){const st=staff.find(x=>x.id===id);if(!st)return;const d=clnDay||todayStr(),on=isDuty(st,d),P=payOf(st),mm=dayPayOf(st,d),c=(cfg.contacts||{})[id]||{},rowsD=(window._clnRows||[]).filter(r=>r.staff===id&&r.status==="done").map(r=>({kind:r.kind})),money=dayMoney(st,d,rowsD);
+function maidSheet(id){const st=staff.find(x=>x.id===id);if(!st)return;const d=clnDay||todayStr(),on=isDuty(st,d),P=payOf(st),mm=dayPayOf(st,d),c=(cfg.contacts||{})[id]||{},rowsD=(window._clnRows||[]).filter(r=>r.staff===id&&r.status==="done").map(r=>({kind:r.kind,apt:r.apt})),money=dayMoney(st,d,rowsD);
   const f=(k,l,v,ph)=>`<div><label class="l">${l}</label><input inputmode="decimal" data-mf="${k}" data-id="${esc(id)}" value="${v===0||v==null?"":esc(v)}" placeholder="${ph||"0"}"></div>`;
   const type=mm.type==="none"?"fixedm":mm.type;
   openSheet(st.name+" · "+dm(d),`<div class="msheet">
@@ -2515,7 +2552,9 @@ const DPAY_T={shift:"Shift · salary",apt:"For apartments",fixed:"Fixed per day"
 function dayPayOf(st,d){const o=((cfg.dayPay||{})[d]||{})[st.id];if(o&&DPAY_T[o.type])return o;const P=payOf(st);return {type:P.type==="fixed"?"none":P.type,def:true}}
 function dayMoney(st,d,doneRows){const P=payOf(st),m=dayPayOf(st,d),n=doneRows.length,nGen=doneRows.filter(t=>t.kind==="general").length;
   if(m.type==="shift"){if(!n)return {sum:0,how:"shift — nothing cleaned yet"};const per=(+st.salary||0)/(P.full||15),ov=Math.max(0,n-P.limit);return {sum:per+ov*P.over,how:`shift ${fmt0(per)} lei${ov?` + ${ov} above the quota × ${fmt0(P.over)}`:""}`}}
-  if(m.type==="apt"){const sum=(n-nGen)*P.apt+nGen*P.gen;return {sum,how:`${n-nGen} apt. × ${fmt0(P.apt)}${nGen?` + ${nGen} deep × ${fmt0(P.gen)}`:""}`}}
+  if(m.type==="apt"){const reg=doneRows.filter(t=>t.kind!=="general"),own=reg.filter(t=>+unitOf(t.apt||"").cpay>0),std=reg.length-own.length,ownSum=own.reduce((a,t)=>a+ +unitOf(t.apt).cpay,0);
+    const sum=std*P.apt+ownSum+nGen*P.gen;
+    return {sum,how:[std?`${std} apt. × ${fmt0(P.apt)}`:"",own.length?`${own.map(t=>t.apt).join(", ")} — ${fmt0(ownSum)} at the unit’s rate`:"",nGen?`${nGen} deep × ${fmt0(P.gen)}`:""].filter(Boolean).join(" + ")||`0 apt.`}}
   if(m.type==="fixed")return {sum:+m.amount||0,how:"fixed per day"};
   if(m.type==="hour"){const h=hoursOf(st.id,d);return {sum:h*P.hour,how:`${fmt(h)} h × ${fmt0(P.hour)}`}}
   return {sum:0,how:"included in the monthly amount"}}
@@ -2763,6 +2802,11 @@ function renderSettings(){
         <div class="actions"><button class="btn sm primary" data-stsave="${x.id}">Save</button>${x.id!=="new"?`<button class="btn sm danger" data-stoff="${x.id}">Remove</button>`:""}</div></div></div>`).join("")}
       <p class="small" style="margin-bottom:0">With this PIN the cleaner opens the same site and sees only her own cleanings, no money. 3/3 schedule: set the first day she starts her 3 working days. Don’t set a schedule for helpers you call when needed — add them for the day in «Cleanings» → «Change».</p></div>
     `],
+    fix:["rep","Repairmen",fixers.filter(x=>x.active!==false).map(x=>x.name).join(", ")||"plumber, electrician…",()=>`<div class="card" style="padding-top:6px">
+      <p class="small" style="margin:6px 0 10px">The repairman signs in at ${esc(ME.org.code)}.espace.md → «I’m a cleaner» with their PIN. He sees only the “To fix” list — address, door code, what broke — and marks “Started” and “Done” with the amount. The amount goes straight into expenses as “Repairs”. He doesn’t see cleanings or the company’s money.</p>
+      ${[...fixers,{id:"new",name:"",has_pin:false,active:true}].map(x=>`<div class="fxrow${x.active===false?" off":""}"><input type="text" id="fx-name-${x.id}" value="${esc(x.name)}" placeholder="${x.id==="new"?"New repairman’s name":"Name"}" aria-label="Name"><input type="text" inputmode="numeric" id="fx-pin-${x.id}" placeholder="${x.has_pin?"PIN set — a new one?":"PIN, 4+ digits"}" aria-label="PIN" autocomplete="off">
+        <button type="button" class="btn${x.id==="new"?" primary":""} sm" data-fxsave="${x.id}">${x.id==="new"?"＋ Add":"Save"}</button>${x.id==="new"?"":`<button type="button" class="btn sm" data-fxoff="${x.id}">${x.active===false?"Restore":"Disconnect"}</button>`}</div>`).join("")}
+      <p class="small" style="margin-bottom:0">${tasks.filter(t=>t.kind==="repair"&&t.status!=="done").length} ${plural(tasks.filter(t=>t.kind==="repair"&&t.status!=="done").length,"repair waiting","repairs waiting","repairs waiting")} now.</p></div>`],
     check:["chk","Cleaning checklist",`${checklist().length} ${plural(checklist().length,"item","items","items")}`,()=>`<div class="card" style="padding-top:6px">
       ${checklist().map(c=>`<div class="ckrow"><input type="text" id="ck-t-${c.id}" value="${esc(c.text)}" aria-label="Item"><span class="small">check once every</span><input inputmode="numeric" id="ck-e-${c.id}" value="${c.every}" aria-label="once every days"><span class="small">days</span><button class="ibtn del" data-chkdel="${c.id}" aria-label="Delete item">✕</button></div>`).join("")}
       <div class="actions"><button class="btn sm" id="chk-add">+ Item</button><button class="btn sm primary" id="chk-save">Save the checklist</button></div>
@@ -3542,6 +3586,13 @@ document.addEventListener("click",e=>{
   if(ds.repsave){const tk=tasks.find(x=>x.id===ds.repsave);if(!tk)return;const cost=num($("rd-cost").value||0)||0,done_by=$("rd-by").value.trim(),result=$("rd-res").value.trim();t.disabled=true;(async()=>{try{await api("kv_task_save",{t:{...tk,status:"done",cost,done_by,result}});const cat=cfg.categories.includes("Ремонт")?"Ремонт":cfg.categories[0],sh=openShift(),till=cost>0&&repTill&&sh;if(till){const rows=[...(sh.rows||[]),{...rowEmpty(),kind:"exp",cat,apt:tk.apt,mdl:-cost,note:tk.note+(done_by?" · "+done_by:""),ed:todayStr(),eid:tk.id}];await api("kv_save_handover",{h:{...sh,rows}});if(hv&&hv.id===sh.id&&hvTimer===null&&!hvSaving)hv=null}else if(cost>0)await api("kv_save_expense",{e:{id:tk.id,new:true,date:todayStr(),apt:tk.apt,category:cat,mdl:cost,eur:0,usd:0,oth:0,oth_cur:"",who:"",note:tk.note+(done_by?" · "+done_by:"")}});repDoneId=null;await reload();toast(till?"Done · minus in the shift till":cost>0?"Done · expense added":"Done")}catch(e){t.disabled=false;toast("Not saved")}})();return}
   if(ds.repdel){repOpenId=null;api("kv_task_delete",{p_id:ds.repdel}).then(()=>{if(hv&&hvTimer===null&&!hvSaving)hv=null}).then(reload).then(()=>toast("Deleted"));return}
   if(ds.reppic){api("kv_task_photo",{p_id:ds.reppic}).then(u=>openSheet("Photos",u?`<img src="${u}" style="width:100%;border-radius:12px;margin-top:10px">`:"No photo",{type:"pic"}));return}
+  if(ds.fxsave!=null||ds.fxoff!=null){const id=ds.fxsave||ds.fxoff,x=fixers.find(f=>f.id===id)||{},name=(($(`fx-name-${id}`)||{}).value||x.name||"").trim(),pin=String(($(`fx-pin-${id}`)||{}).value||"").trim();
+    if(!name){toast("Enter the name");return}if(id==="new"&&pin.length<4){toast("PIN — at least 4 digits");return}if(pin&&!/^\d{4,}$/.test(pin)){toast("PIN — digits only, at least 4");return}
+    const active=ds.fxoff!=null?x.active===false:x.active!==false;t.disabled=true;
+    (async()=>{try{const sid=await api("kv_staff_save",{s:{id:id==="new"?null:id,name,salary:0,extra_rate:0,cycle_start:"",on_days:3,off_days:3,pin,active}});
+      if(id==="new")await api("kv_set_config",{p_data:{...cfg,staffRole:{...(cfg.staffRole||{}),[sid]:"fix"}}});
+      await reload();renderView();toast(id==="new"?"Repairman added":ds.fxoff!=null?(active?"The repairman is back on the team":"Repairman disabled — he can no longer sign in"):"Saved")}
+    catch(e){t.disabled=false;toast(e.code==="pin_taken"?"This PIN is already taken — pick another":e.code==="pin_too_short"?"PIN — at least 4 digits":"Not saved")}})();return}
   if(ds.stsave!=null){const id=ds.stsave;const g=k=>($(`st-${k}-${id}`)||{}).value;(async()=>{try{const type=g("ptype")||"shift",sal=type==="fixed"?(g("fixed")||0):(g("salary")||0);const sid=await api("kv_staff_save",{s:{id:id==="new"?null:id,name:g("name"),salary:sal,extra_rate:g("over")||0,cycle_start:g("cycle"),on_days:3,off_days:3,pin:g("pin")||""}});
     const pid=id==="new"?sid:id;if(pid){const pay={...(cfg.pay||{}),[pid]:{type,full:g("full"),limit:g("limit"),over:g("over"),apt:g("apt"),gen:g("gen"),hour:g("hour"),fixed:g("fixed")}};const next={...cfg,pay};await api("kv_set_config",{p_data:next});cfg=next}
     await reload();toast("Saved");settingsPage()}catch(e){toast(e.code==="pin_taken"?"This PIN is taken — pick another":e.code==="pin_too_short"?"PIN — at least 4 characters":"Not saved")}})();return}
@@ -3700,7 +3751,35 @@ let CPIN=null, CORG="", cl=null, clDay=null, clChecked={};
 async function clApi(fn,args={}){const r=await fetch("/api/"+fn,{method:"POST",headers:{"Content-Type":"application/json","X-Espace-Org":SLUG},body:JSON.stringify({org:CORG,s_pin:CPIN,today:todayStr(),...args})});const t=await r.text();let j=null;try{j=t?JSON.parse(t):null}catch(e){}if(!r.ok){const e=new Error((j&&j.message)||"HTTP "+r.status);e.code=j&&j.message;throw e}return j}
 async function startCleaner(code,p,me){CORG=code;CPIN=p;PIN=null;ls.set("cl",JSON.stringify({code,pin:p}));ls.set("tok","");$("gate").hidden=true;$("app").hidden=true;$("cl-app").hidden=false;$("cl-name").textContent=me.name;$("cl-org").textContent=me.org||"espace.md";await clReload()}
 async function clReload(){try{cl=await clApi("cl_load");notifs=cl.notifs||[];bellNew(notifs);bellUpdate(notifs,"cl-bell-badge","clbellseen");if(!clDay||!cl.days.some(d=>d.date===clDay))clDay=todayStr();renderCl()}catch(e){if(e.code==="bad_pin"){ls.set("cl","");location.reload()}}}
+// door code, Wi-Fi, parking and how long the cleaning takes — what she needs at the door
+function clAccess(a){const x=(cl.access||{})[a];if(!x)return "";const p=[];
+  if(x.door)p.push(`🔑 Code: <b>${esc(x.door)}</b>`);if(x.wifi||x.wpass)p.push(`📶 ${esc(x.wifi||"Wi-Fi")}${x.wpass?` · <b>${esc(x.wpass)}</b>`:""}`);if(x.park)p.push(`🅿 ${esc(x.park)}`);if(x.cmin&&cl.me.role!=="fix")p.push(`⏱ ~${esc(x.cmin)} min`);
+  return p.length?`<div class="cl-acc">${p.map(v=>`<span>${v}</span>`).join("")}</div>`:""}
+// a repairman's screen: only the repair list, with "started" and "done + cost"
+let clFixOpen=null;
+function renderFix(){
+  const rs=cl.repairs||[];
+  let h=`<h2 style="margin-top:14px">Hi, ${esc(cl.me.name)}!</h2><p class="small">To fix: <b>${rs.length}</b></p>`;
+  if(!rs.length)h+=`<div class="empty">Everything is fixed 👍</div>`;
+  h+=`<div class="list">${rs.map(r=>`<div class="card clc"><div class="clh"><b>${esc(r.apt)}</b>${r.status==="progress"?`<span class="pill warn">in progress</span>`:""}<span class="small" style="margin-left:auto">${dm(r.date)}${r.reported_by?" · "+esc(r.reported_by):""}</span></div>
+      <div style="margin-top:6px;font-size:15px">${esc(r.note)}</div>
+      ${cl.addr&&cl.addr[r.apt]?`<div style="margin-top:6px;font-size:14.5px">📍 ${esc(cl.addr[r.apt])} <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cl.addr[r.apt]+", Chișinău")}" target="_blank" rel="noopener" style="font-weight:600;white-space:nowrap">on the map →</a></div>`:""}
+      ${clAccess(r.apt)}
+      ${clFixOpen===r.id?`<div class="grid2" style="margin-top:8px"><div><label class="l">What you did</label><input type="text" id="fx-res" placeholder="replaced the gasket"></div><div><label class="l">Spent, lei</label><input type="text" inputmode="decimal" id="fx-cost" placeholder="0"></div></div>
+        <div class="actions"><button class="btn primary" data-fxdone="${esc(r.id)}">✓ Done</button><button class="btn" data-fxcancel="1">Cancel</button></div>`
+      :`<div class="actions" style="margin-top:8px">${r.status==="progress"?"":`<button class="btn" data-fxstart="${esc(r.id)}">Started</button>`}<button class="btn primary" data-fxopen="${esc(r.id)}">✓ Fixed</button></div>`}</div>`).join("")}</div>`;
+  h+=`<h3>Found another problem?</h3><div class="card"><div class="grid2"><div><label class="l">Apartment</label><select id="clr-apt" style="width:100%;height:40px">${cl.apts.map(a=>`<option>${esc(a)}</option>`).join("")}</select></div><div><label class="l">Photo (optional)</label><input type="file" id="clr-photo" accept="image/*"></div></div>
+    <label class="l">What’s wrong</label><input type="text" id="clr-note" placeholder="e.g. the tap is leaking"><div class="actions"><button class="btn primary" id="clr-send">Save</button></div></div>`;
+  $("cl-body").innerHTML=h}
+document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("[data-fxstart],[data-fxopen],[data-fxdone],[data-fxcancel]");if(!t||!cl)return;const d=t.dataset;
+  if(d.fxopen){clFixOpen=d.fxopen;renderFix();setTimeout(()=>{const x=$("fx-res");if(x)x.focus()},0);return}
+  if(d.fxcancel){clFixOpen=null;renderFix();return}
+  t.disabled=true;
+  try{if(d.fxstart){await clApi("cl_fix",{id:d.fxstart,start:true});toast("Marked: in progress")}
+    else{await clApi("cl_fix",{id:d.fxdone,result:$("fx-res").value.trim(),cost:num($("fx-cost").value||0)||0});clFixOpen=null;toast("Done ✓ The manager was notified")}
+    await clReload()}catch(x){t.disabled=false;toast(x.code==="already_done"?"Already closed":"Not saved — check the internet")}});
 function renderCl(){
+  if(cl.me&&cl.me.role==="fix"){renderFix();return}
   const day=cl.days.find(d=>d.date===clDay)||cl.days[0];
   let h=`<div class="card" id="cl-push" hidden style="margin-top:12px"><b>🔔 Notifications</b><p class="small" id="cl-push-st"></p><div class="actions"><button class="btn primary" id="cl-push-on">Turn on notifications</button></div><p class="small" style="margin-bottom:0">You’ll know about a new cleaning right away and get the day’s list in the morning.</p></div><h2 style="margin-top:14px">Hi, ${esc(cl.me.name)}!</h2><div class="clday">${cl.days.map(d=>`<button type="button" data-clday="${d.date}" aria-pressed="${d.date===clDay}" class="${d.on_duty?"":"off"}">${d.date===todayStr()?"Today":WD[new Date(toT(d.date)).getUTCDay()]+" "+dm(d.date)}<small>${d.items.length} ${plural(d.items.length,"cleaning","cleanings","cleanings")}${d.on_duty?"":" · day off"}</small></button>`).join("")}</div>`;
   if(!day.items.length) h+=`<div class="empty">${day.on_duty?"No cleanings on this day.":"Day off by schedule — no cleanings."}</div>`;
@@ -3708,6 +3787,7 @@ function renderCl(){
     h+=`<div class="card clc${done?" done":""}"><div class="clh"><b>${esc(it.apt)}</b>${it.time?`<span class="pill warn">⏰ ${esc(it.time)}</span>`:""}${it.kind==="general"?`<span class="pill warn">Deep cleaning</span>`:`<span class="small">${it.booking_id?"after check-out":"cleaning"}</span>`}${done?`<span class="pill ok">✓ cleaned</span>`:""}</div>
       ${cl.addr&&cl.addr[it.apt]?`<div style="margin-top:6px;font-size:14.5px">📍 ${esc(cl.addr[it.apt])} <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cl.addr[it.apt]+", Chișinău")}" target="_blank" rel="noopener" style="font-weight:600;white-space:nowrap">on the map →</a></div>`:""}
       ${cl.beds&&cl.beds[it.apt]?`<div class="cl-beds">🛏 ${esc(bedsOf(cl.beds[it.apt]))} · guests: ${capOf(cl.beds[it.apt])}</div>`:""}
+      ${clAccess(it.apt)}
       ${it.note?`<div class="small" style="margin-top:4px">${esc(it.note)}</div>`:""}
       <div style="margin-top:8px">${it.checklist.map(c=>`<label class="chk${c.last!==undefined?" due":""}"><input type="checkbox" data-clchk="${esc(key)}" data-item="${esc(c.id)}" ${set.has(c.id)||done?"checked":""} ${done?"disabled":""}><span>${esc(c.text)}${c.last!==undefined?`<em>🚩 special attention today · ${c.last?"not done "+c.age+" days":"never ticked yet"}</em>`:""}</span></label>`).join("")}</div>
       <div class="actions" style="margin-top:8px">${done?`<button class="btn" data-clundo="${i}">Undo the tick</button>`:`<button class="btn primary" data-cldone="${i}">✓ Cleaned</button>`}</div></div>`});

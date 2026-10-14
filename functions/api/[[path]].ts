@@ -122,6 +122,8 @@ async function syncShift(db: D1Database, O: string, hid: string, person: string,
 const dayNum = (d: string) => Math.round(Date.parse(d + "T00:00:00Z") / 86400000);
 const addDays = (d: string, n: number) => new Date((dayNum(d) + n) * 86400000).toISOString().slice(0, 10);
 // a manual swap for that day (config.duty[date] = staff id) wins over the schedule
+// cfg.staffRole[id] = "fix": a repairman — signs in with a PIN like a maid, sees and closes repairs, never gets cleanings
+const staffRole = (cfg: any, id: string) => (cfg?.staffRole?.[id] === "fix" ? "fix" : "clean");
 function isDutyC(st: any, d: string, cfg: any, staffIds: string[]) {
   const o = cfg?.duty?.[d]; const l = (Array.isArray(o) ? o : o ? [o] : []).filter((id: string) => staffIds.includes(id));
   if (l.length) return l.includes(st.id); return onDuty(st, d);
@@ -193,13 +195,18 @@ async function cleanerView(db: D1Database, O: string, me: any, td: string) {
     items.sort((a, b) => (a.time || "99").localeCompare(b.time || "99") || (cfg.apts || []).indexOf(a.apt) - (cfg.apts || []).indexOf(b.apt));
     days.push({ date: d, on_duty: isDutyC(me, d, cfg, staffIdsAll), items });
   }
-  const repairs = tasks.filter((t: any) => t.kind === "repair" && t.status !== "done").map((t: any) => ({ id: t.id, apt: t.apt, note: t.note, date: t.date, reported_by: t.reported_by }));
+  const repairs = tasks.filter((t: any) => t.kind === "repair" && t.status !== "done").map((t: any) => ({ id: t.id, apt: t.apt, note: t.note, date: t.date, reported_by: t.reported_by, status: t.status }));
   const addr: Record<string, string> = {}; for (const a of cfg.apts || []) if (cfg.addr && cfg.addr[a]) addr[a] = cfg.addr[a];
   // beds per unit, so the cleaner knows how much linen to bring (the app words it in her language)
   const beds: Record<string, any> = {};
   for (const a of cfg.apts || []) { const u = (cfg.units || {})[a]; if (u && u.beds && Object.keys(u.beds).length) beds[a] = { beds: u.beds, guests: +u.guests || 0 }; }
   const notifs = await all(db, "SELECT id, at, title, body FROM notifs WHERE org_id = ? AND target IN ('staff', ?) ORDER BY id DESC LIMIT 30", O, "staff:" + me.id);
-  return { me: { id: me.id, name: me.name }, apts: cfg.apts || [], addr, beds, days, repairs, notifs };
+  const role = staffRole(cfg, me.id);
+  // door codes and Wi-Fi only for the places she goes to this week (a repairman: where repairs wait)
+  const mine = new Set<string>(role === "fix" ? repairs.map((r: any) => r.apt) : days.flatMap((d: any) => d.items.map((i: any) => i.apt)));
+  const access: Record<string, any> = {};
+  for (const a of mine) { const u = (cfg.units || {})[a] || {}, o: any = {}; for (const k of ["wifi", "wpass", "door", "park", "cmin"]) if (u[k]) o[k] = u[k]; if (Object.keys(o).length) access[a] = o; }
+  return { me: { id: me.id, name: me.name, role }, apts: cfg.apts || [], addr, beds, access, days: role === "fix" ? days.map((d: any) => ({ ...d, items: [] })) : days, repairs, notifs };
 }
 
 // a paid repair leaves money traces: an expense (id = task id) and, if paid from the till,
@@ -420,7 +427,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     const taken = await all(db, "SELECT apt, date, nights FROM bookings WHERE org_id = ? AND nights > 0 AND date < ? AND date >= ?", org.id, till, addDays(t, -60));
     const busy = (apt: string, from: string, nights: number) => taken.some((b: any) => b.apt === apt && b.date < addDays(from, nights) && addDays(b.date, b.nights) > from);
     if (fn === "pub_listing") {
-      const PUB = ["kind", "group", "area", "bedrooms", "baths", "floor", "beds", "guests", "price", "pcur", "cin", "cout", "amen", "rtype"];
+      const PUB = ["kind", "group", "area", "bedrooms", "baths", "floor", "beds", "guests", "price", "pcur", "cin", "cout", "amen", "rtype", "minn", "cfee", "dep"];
       return json({
         name: org.name, slug: org.code, min: Math.max(1, +dir.min || 1), pricing: { weekend: +(cfg.pricing?.weekend) || 0, seasons: (cfg.pricing?.seasons || []).map((x: any) => ({ from: x.from, to: x.to, pct: +x.pct || 0, min: +x.min || 0 })) }, phone: dir.phone || "", email: dir.email || "", terms: dir.terms || "", intro: dir.intro || "",
         units: units.map((a: string) => { const u = (cfg.units || {})[a] || {}, o: any = { name: a, addr: dir.addr === false ? "" : ((cfg.addr || {})[a] || "").split(",")[0] }; for (const k of PUB) if (u[k] != null && u[k] !== "") o[k] = u[k];
@@ -433,12 +440,12 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     const apt = str(body.apt, 100), date = isDate(body.date) ? body.date : "", nights = Math.floor(num(body.nights));
     const name = str(body.name, 80).trim(), phone = str(body.phone, 40).trim(), email = str(body.email, 120).trim().toLowerCase(), pax = Math.max(1, Math.min(50, Math.floor(num(body.guests)) || 1));
     if (!units.includes(apt)) return json({ message: "bad_unit" }, 400);
-    if (!date || date < t || nights < minNights(cfg.pricing, date, +dir.min || 1) || nights > 60) return json({ message: "bad_dates" }, 400);
-    if (!name || (!phone && !isEmail(email)) || (email && !isEmail(email))) return json({ message: "need_contact" }, 400);
     const u = (cfg.units || {})[apt] || {}, cap = +u.guests || 0;
+    if (!date || date < t || nights < Math.max(minNights(cfg.pricing, date, +dir.min || 1), +u.minn || 1) || nights > 60) return json({ message: "bad_dates" }, 400);
+    if (!name || (!phone && !isEmail(email)) || (email && !isEmail(email))) return json({ message: "need_contact" }, 400);
     if (cap && pax > cap) return json({ message: "too_many_guests", cap }, 400);
     if (busy(apt, date, nights)) return json({ message: "taken" }, 409);
-    const price = stayPrice(+u.price, date, nights, cfg.pricing), cur = ["EUR", "MDL", "USD"].includes(u.pcur) ? u.pcur : "EUR";
+    const price = Math.round((stayPrice(+u.price, date, nights, cfg.pricing) + (+u.cfee > 0 ? +u.cfee : 0)) * 100) / 100, cur = ["EUR", "MDL", "USD"].includes(u.pcur) ? u.pcur : "EUR";
     const id = uuid(), now = nowIso(), msg = str(body.message, 600).trim();
     await run(db, `INSERT INTO bookings(id, org_id, date, apt, guest, nights, phone, email, pax, source, tag, note, price, price_cur, pay_status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,'Прямой','req',?,?,?, 'unpaid', ?, ?)`,
       id, org.id, date, apt, name, nights, phone, email, pax, ("Cerere online" + (msg ? ": " + msg : "")).slice(0, 1000), price, cur, now, now);
@@ -604,6 +611,24 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
         await run(db, "INSERT OR IGNORE INTO checks(org_id,apt,item,date,staff_id) VALUES (?,?,?,?,?)", O, task.apt, str(c, 20), task.date, me.id);
       if (done && task) waitUntil(notify(db, O, ["manager"], { title: "✓ Убрано: " + task.apt, body: me.name + " · " + localNow().hm, tag: "done-" + id }).catch(() => {}));
       return json(id);
+    }
+    if (fn === "cl_fix") {
+      // a repairman closes a repair (or marks it started); the cost becomes a "Ремонт" expense, like when the manager closes it
+      const cfg = (await getConfig(db, O)) || {};
+      if (staffRole(cfg, me.id) !== "fix") return json({ message: "forbidden" }, 403);
+      const tk = isUuid(body.id) ? await one(db, "SELECT * FROM tasks WHERE org_id = ? AND id = ? AND kind = 'repair'", O, body.id) : null;
+      if (!tk) return json({ message: "not_found" }, 404);
+      if (tk.status === "done") return json({ message: "already_done" }, 409);
+      const t = nowIso();
+      if (body.start === true) { await run(db, "UPDATE tasks SET status = 'progress', staff_id = ?, updated_at = ? WHERE org_id = ? AND id = ?", me.id, t, O, tk.id); return json(true); }
+      const result = str(body.result, 500).trim(), cost = Math.max(0, Math.min(1e6, Math.round(num(body.cost) * 100) / 100));
+      await run(db, "UPDATE tasks SET status = 'done', staff_id = ?, done_by = ?, result = ?, cost = ?, done_at = ?, updated_at = ? WHERE org_id = ? AND id = ?", me.id, me.name, result, cost, t, t, O, tk.id);
+      if (cost > 0) {
+        const cat = Array.isArray(cfg.categories) && cfg.categories.includes("Ремонт") ? "Ремонт" : (Array.isArray(cfg.categories) && cfg.categories[0]) || "Ремонт";
+        await run(db, "INSERT OR IGNORE INTO expenses(id, org_id, date, apt, category, mdl, who, note, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)", tk.id, O, td, tk.apt, cat, cost, me.name, (tk.note + " · " + me.name).slice(0, 500), t, t);
+      }
+      waitUntil(notify(db, O, ["manager"], { title: "🔧 Починено: " + tk.apt, body: tk.note + (result ? " → " + result : "") + " — " + me.name + (cost ? ` · ${cost} лей` : "") }).catch(() => {}));
+      return json(true);
     }
     if (fn === "cl_report") {
       const apt = str(body.apt, 100), note = str(body.note, 500), photo = typeof body.photo === "string" ? body.photo : "";
