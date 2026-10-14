@@ -198,9 +198,6 @@ body.kb nav.tabs{display:none!important}
 }
 /* everything else (dark look): the calendar photo slot stays hidden */
 .sh-name .tn{display:none;font-style:normal;flex:none;width:28px;height:28px;border-radius:50%;background:var(--accent-soft) center/cover no-repeat;color:var(--accent);font-size:11px;font-weight:700;place-items:center}
-/* install card */
-.instcard{margin-top:12px}#inst-card .instcard{margin-bottom:12px}.inst-h{display:flex;align-items:center;gap:12px}.inst-h img{border-radius:11px;flex:none}.inst-h>div{flex:1;min-width:0}.inst-h b{display:block;font-size:15.5px}.inst-h small{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
-.inst-steps{margin:12px 0 0;padding-left:20px;display:grid;gap:6px;font-size:14px}
 /* feel like an app: no grey tap flash, no accidental text selection on controls, no rubber-band when installed */
 html{-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%}
 button,.btn,.chip,nav.tabs,.mtile,.bar,.sh-name,.sh-day{-webkit-user-select:none;user-select:none;touch-action:manipulation}
@@ -1115,7 +1112,6 @@ body.wizon{overflow:hidden}
   <div id="banner" class="banner" hidden></div>
 
   <section id="v-today">
-    <div id="inst-card"></div>
     <div id="setup-card"></div>
     <div id="shift-body"></div>
   </section>
@@ -1283,19 +1279,6 @@ let staff=[], staffAll=[], fixers=[], tasks=[], checksLast={}, clnDay=null, clnF
 const pushSupported=()=>"serviceWorker" in navigator&&"PushManager" in window&&"Notification" in window;
 const isStandalone=()=>matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
 if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(()=>{});
-/* INSTALL — the site saved to the home screen opens full screen like an app (manifest + service worker).
-   Chrome/Android/desktop offer a one-tap prompt; iPhone needs Share → "Add to Home Screen", so we show the steps. */
-let instEvt=null;window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();instEvt=e;if(typeof view!=="undefined"&&(view==="menu"||view==="today"))try{renderView()}catch(x){}});
-window.addEventListener("appinstalled",()=>{instEvt=null;try{localStorage.setItem("kv_inst_hide","1")}catch(x){}toast("espace.md e pe ecranul principal ✓")});
-const isIOS=()=>/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
-function installCard(compact){if(isStandalone())return "";if(!instEvt&&!isIOS())return "";
-  const SH='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>';
-  return `<div class="card instcard"><div class="inst-h"><img src="/icon-192.png" alt="" width="44" height="44"><div><b>Install espace.md as an app</b><small>icon on the home screen, opens full screen, notifications</small></div>${compact?`<button type="button" class="iconbtn" data-insthide="1" aria-label="Hide">✕</button>`:""}</div>
-    ${instEvt?`<button type="button" class="btn primary" data-inst="1" style="width:100%;margin-top:12px">Install</button>`
-      :`<ol class="inst-steps"><li>Tap ${SH} <b>Share</b> at the bottom of Safari</li><li>Choose <b>«Add to Home Screen»</b></li><li>Tap <b>Add</b> — the icon appears next to your other apps</li></ol>`}</div>`}
-document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("[data-inst],[data-insthide]");if(!t)return;
-  if(t.dataset.insthide){try{localStorage.setItem("kv_inst_hide","1")}catch(x){}t.closest(".instcard").remove();return}
-  if(instEvt){instEvt.prompt();try{await instEvt.userChoice}catch(x){}instEvt=null;try{renderView()}catch(x){}}});
 function u8key(k){const t=k.replace(/-/g,"+").replace(/_/g,"/");return Uint8Array.from(atob(t+"=".repeat((4-t.length%4)%4)),c=>c.charCodeAt(0))}
 async function pushState(){if(!pushSupported())return "unsupported";if(Notification.permission==="denied")return "denied";try{const reg=await navigator.serviceWorker.getRegistration();const sub=reg&&await reg.pushManager.getSubscription();return sub&&Notification.permission==="granted"?"on":"off"}catch(e){return "off"}}
 async function pushEnable(call){
@@ -1607,7 +1590,6 @@ function stayCard(b,kind){
 
 /* TODAY */
 function renderToday(){
-  {const el=$("inst-card");let hide=false;try{hide=localStorage.getItem("kv_inst_hide")==="1"}catch(x){}if(el)el.innerHTML=!hide&&innerWidth<860?installCard(true):""}
   renderSetup();
   renderShift();
 }
@@ -2770,7 +2752,7 @@ function setAccent(k){try{localStorage.setItem("kv_accent",k)}catch(e){}if(k)doc
 function renderMenu(){
   const c=hubCounts(), vb=+(($("v-badge")||{}).textContent||0)||0, ac=document.documentElement.getAttribute("data-accent")||"";
   const T=(go,ic,l,sub,n)=>`<button type="button" class="mtile" data-go="${go}"><span class="mi">${svgI(go)}</span><div><b>${l}</b>${sub?`<small>${sub}</small>`:""}</div>${n?`<em>${n}</em>`:""}</button>`;
-  $("menu-body").innerHTML=`${installCard(false)}<div class="mgroup">Money</div><div class="mtiles">
+  $("menu-body").innerHTML=`<div class="mgroup">Money</div><div class="mtiles">
     ${T("exp","🧾","Expenses","spending by month")}${T("fin","📊","Finance","income, totals, year")}
     ${T("verify","✅","Payment check","checking the month’s money",vb)}${T("shifts","🗂️","All shifts","closed handovers")}${T("log","🕘","Change log","who changed what")}${T("tax","🧮","Налоги",(()=>{const n=taxNext();return n?`due ${fmt0(n.tax)} lei by ${dm(n.due)}`:"income and tax by month"})())}</div>
     <div class="mgroup">Guests and settings</div><div class="mtiles">${T("guide","📖","Guest guide","Wi‑Fi, entry, rules")}${T("settings","⚙️","Settings","apartments, cleaners, PIN")}</div>
