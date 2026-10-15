@@ -175,25 +175,25 @@ export const mails = {
       { title: "Ждём вас завтра", body: `<p><b>${esc(r.apt)}</b>, ${dmy(r.date)}${r.cin ? ", заезд с " + esc(r.cin) : ""}.${r.addr ? "<br>Адрес: " + esc(r.addr) : ""}${r.phone ? "<br>Телефон: " + esc(r.phone) : ""}</p>${r.guide ? "<p>В гиде — как добраться, коды, Wi-Fi и правила.</p>" : ""}` },
       r.guide ? { url: r.guide, ro: "Deschide ghidul oaspetelui", ru: "Открыть гид" } : undefined),
   }),
-  trialEnding: (org: string, slug: string, ends: string, price: number | null, balance: number) => ({
+  trialEnding: (org: string, slug: string, ends: string, daily: number, apts: number, balance: number) => ({
     subject: `Perioada de probă ${org} se termină pe ${dmy(ends)}`,
     html: layout(
-      { title: "Proba se termină în 3 zile", body: `<p>Perioada gratuită pentru <b>${esc(org)}</b> se termină pe <b>${dmy(ends)}</b>.${price ? ` Tariful tău e <b>${price} lei pe lună</b>, plătit în avans: suplinești contul, iar zilnic se scade partea zilei (${lei2(price * 12 / 365)} lei).` : ""}${balance > 0 ? ` Pe cont ai acum <b>${lei2(balance)} lei</b>.` : " Pe cont nu sunt bani încă — fără suplinire, după această dată datele rămân, dar nu se mai pot face modificări."}</p><p>Factura de suplinire o poți cere din aplicație: Meniu → Setări → Abonament.</p>` },
-      { title: "Пробный период заканчивается через 3 дня", body: `<p>Бесплатный период для <b>${esc(org)}</b> заканчивается <b>${dmy(ends)}</b>.${price ? ` Ваш тариф — <b>${price} лей в месяц</b>, оплата вперёд: пополняете счёт, каждый день списывается доля дня (${lei2(price * 12 / 365)} лей).` : ""}${balance > 0 ? ` Сейчас на счёте <b>${lei2(balance)} лей</b>.` : " Без пополнения после этой даты данные сохранятся, но изменять их будет нельзя."} Счёт на пополнение — в приложении: Меню → Настройки → Подписка.</p>` },
+      { title: "Proba se termină în 3 zile", body: `<p>Perioada gratuită pentru <b>${esc(org)}</b> se termină pe <b>${dmy(ends)}</b>.${daily ? ` Apoi, în fiecare zi se scad <b>${lei2(daily)} credite</b> (${apts} ${apts === 1 ? "unitate" : "unități"} × 1 credit). 1 credit = 1 leu.` : ""}${balance > 0 ? ` Ai acum <b>${lei2(balance)} credite</b>.` : " Încă nu ai credite — fără suplinire, după această dată datele rămân, dar nu se mai pot face modificări."}</p><p>Suplinești din aplicație: Meniu → Setări → Abonament.</p>` },
+      { title: "Пробный период заканчивается через 3 дня", body: `<p>Бесплатный период для <b>${esc(org)}</b> заканчивается <b>${dmy(ends)}</b>.${daily ? ` Дальше каждый день списывается <b>${lei2(daily)} кредитов</b> (${apts} объектов × 1 кредит). 1 кредит = 1 лей.` : ""}${balance > 0 ? ` Сейчас у вас <b>${lei2(balance)} кредитов</b>.` : " Без пополнения после этой даты данные сохранятся, но изменять их будет нельзя."} Пополнить — в приложении: Меню → Настройки → Подписка.</p>` },
       { url: orgUrl(slug), ro: "Deschide compania", ru: "Открыть компанию" }),
   }),
   lowBalance: (org: string, slug: string, balance: number, days: number) => ({
-    subject: `${org}: soldul ajunge pentru ${days} ${days === 1 ? "zi" : "zile"}`,
+    subject: `${org}: creditele ajung pentru ${days} ${days === 1 ? "zi" : "zile"}`,
     html: layout(
-      { title: "Suplinește contul", body: `<p>Pe contul <b>${esc(org)}</b> au rămas <b>${lei2(balance)} lei</b> — ajung pentru <b>${days} ${days === 1 ? "zi" : "zile"}</b>. Când banii se termină, aplicația trece în modul doar vizualizare până la suplinire.</p><p>Factura o ceri din aplicație: Meniu → Setări → Abonament.</p>` },
-      { title: "Пополните счёт", body: `<p>На счёте <b>${esc(org)}</b> осталось <b>${lei2(balance)} лей</b> — хватит на <b>${days}</b> дн. Когда деньги закончатся, приложение перейдёт в режим просмотра до пополнения. Счёт на пополнение — Меню → Настройки → Подписка.</p>` },
+      { title: "Suplinește creditele", body: `<p>Pe contul <b>${esc(org)}</b> au rămas <b>${lei2(balance)} credite</b> — ajung pentru <b>${days} ${days === 1 ? "zi" : "zile"}</b>. Când se termină, aplicația trece în modul doar vizualizare până la suplinire.</p><p>Suplinești din aplicație: Meniu → Setări → Abonament.</p>` },
+      { title: "Пополните кредиты", body: `<p>На счёте <b>${esc(org)}</b> осталось <b>${lei2(balance)} кредитов</b> — хватит на <b>${days}</b> дн. Когда они закончатся, приложение перейдёт в режим просмотра до пополнения. Пополнить — Меню → Настройки → Подписка.</p>` },
       { url: orgUrl(slug), ro: "Deschide compania", ru: "Открыть компанию" }),
   }),
   expired: (org: string, slug: string) => ({
-    subject: `${org}: soldul s-a terminat — doar vizualizare`,
+    subject: `${org}: creditele s-au terminat — doar vizualizare`,
     html: layout(
-      { title: "Soldul s-a terminat", body: `<p>Banii de pe contul <b>${esc(org)}</b> s-au terminat. Datele sunt în siguranță și le poți vedea, dar modificările sunt oprite până la suplinire. Ceri factura din aplicație (Meniu → Setări → Abonament) sau răspunde la acest email.</p>` },
-      { title: "Деньги на счёте закончились", body: `<p>Средства на счёте <b>${esc(org)}</b> закончились. Данные в сохранности и доступны для просмотра, но изменения остановлены до пополнения. Счёт — в приложении (Меню → Настройки → Подписка) или ответьте на это письмо.</p>` },
+      { title: "Creditele s-au terminat", body: `<p>Creditele de pe contul <b>${esc(org)}</b> s-au terminat. Datele sunt în siguranță și le poți vedea, dar modificările sunt oprite până la suplinire. Ceri factura din aplicație (Meniu → Setări → Abonament) sau răspunde la acest email.</p>` },
+      { title: "Кредиты закончились", body: `<p>Кредиты на счёте <b>${esc(org)}</b> закончились. Данные в сохранности и доступны для просмотра, но изменения остановлены до пополнения. Счёт — в приложении (Меню → Настройки → Подписка) или ответьте на это письмо.</p>` },
       { url: orgUrl(slug), ro: "Deschide compania", ru: "Открыть компанию" }),
   }),
   invoice: (org: string, number: string, amount: number, due: string, url: string) => ({
@@ -211,10 +211,10 @@ export const mails = {
       { url, ro: "Deschide factura", ru: "Открыть счёт" }),
   }),
   paid: (org: string, amount: number, balance: number, until: string) => ({
-    subject: `Plată primită — ${org}: sold ${lei2(balance)} lei`,
+    subject: `Plată primită — ${org}: ${lei2(balance)} credite`,
     html: layout(
-      { title: "Mulțumim, plata a ajuns", body: `<p>Am pus <b>${lei2(amount)} lei</b> pe contul <b>${esc(org)}</b>. Sold: <b>${lei2(balance)} lei</b>${until ? `, ajunge aproximativ până la <b>${dmy(until)}</b> la numărul actual de apartamente` : ""}.</p>` },
-      { title: "Спасибо, оплата получена", body: `<p>Зачислили <b>${lei2(amount)} лей</b> на счёт <b>${esc(org)}</b>. Баланс: <b>${lei2(balance)} лей</b>${until ? `, хватит примерно до <b>${dmy(until)}</b> при текущем числе квартир` : ""}.</p>` }),
+      { title: "Mulțumim, plata a ajuns", body: `<p>Am adăugat <b>${lei2(amount)} credite</b> pe contul <b>${esc(org)}</b> (1 credit = 1 leu). Ai acum <b>${lei2(balance)} credite</b>${until ? `, ajung aproximativ până la <b>${dmy(until)}</b> la numărul actual de unități` : ""}.</p>` },
+      { title: "Спасибо, оплата получена", body: `<p>Зачислили <b>${lei2(amount)} кредитов</b> на счёт <b>${esc(org)}</b> (1 кредит = 1 лей). Теперь у вас <b>${lei2(balance)} кредитов</b>${until ? `, хватит примерно до <b>${dmy(until)}</b> при текущем числе объектов` : ""}.</p>` }),
   }),
 };
 const curL = (c: string) => ({ EUR: "€", USD: "$", MDL: "lei" } as any)[c] || c;
@@ -231,7 +231,7 @@ export async function dailyMail(env: Env, db: D1Database) {
     const b = await billingOf(db, o);
     const to = await orgEmail(db, o.id); if (!to) continue;
     const last = await one(db, "SELECT id FROM payments WHERE org_id = ? ORDER BY created_at DESC LIMIT 1", o.id);
-    if (o.trial_ends === addDays(t, 3)) { await sendMail(env, db, { to, ...mails.trialEnding(o.name, o.code, o.trial_ends, b.price, b.balance), kind: "trial_ending", orgId: o.id, key: `trial3:${o.id}:${o.trial_ends}` }); n++; }
+    if (o.trial_ends === addDays(t, 3)) { await sendMail(env, db, { to, ...mails.trialEnding(o.name, o.code, o.trial_ends, b.daily, b.apts, b.balance), kind: "trial_ending", orgId: o.id, key: `trial3:${o.id}:${o.trial_ends}` }); n++; }
     // balance running low (once per top-up), after the trial
     if (!b.expired && !b.in_trial && b.daily && b.days_left <= 3) { await sendMail(env, db, { to, ...mails.lowBalance(o.name, o.code, b.balance, Math.max(0, b.days_left)), kind: "low_balance", orgId: o.id, key: `low:${o.id}:${last?.id || "none"}` }); n++; }
     // just ran out: yesterday was the last covered day

@@ -6,7 +6,7 @@ import { newVapid, sendPush, type Vapid } from "../../lib/push";
 import {
   type Env, type Ctx, json, sleep, nowIso, uuid, num, str, isDate, isUuid, snum, isEmail, all, one, run,
   starterConfig, hashPin, pinMatches, hashPassword, passwordMatches, throttled, failHit, failClear, newSession, bearer, loadSession,
-  ROLES, roleAllows, READ_FNS, TRIAL_DAYS, TIERS, today, addMonths, isExpired, billingOf, chargeOrg, topUp, stayPrice, minNights, randCode, randHex, sameStr, sha256hex,
+  ROLES, roleAllows, READ_FNS, TRIAL_DAYS, today, addMonths, isExpired, billingOf, chargeOrg, topUp, stayPrice, minNights, randCode, randHex, sameStr, sha256hex,
 } from "../../lib/core";
 import { hostOf, siteOf, slugOk, isSlug } from "../../lib/host";
 import { handleAdmin, logEvent, activeAnnouncement, getSettings, createInvoice } from "../../lib/admin";
@@ -14,11 +14,37 @@ import { sendMail, mails, dailyMail, orgEmail } from "../../lib/mail";
 import { botName, linkCode, webhookSecret, handleUpdate, tgNotify } from "../../lib/telegram";
 import { syncFeed, syncDue, feedUrlOk, sourceOf, newIcalKey } from "../../lib/ical";
 import { contractTexts, fill, DEFAULT_TPL } from "../../lib/contract";
+import { maibConfig, maibCheckout, maibVerify } from "../../lib/maib";
 
 
 // A one-time link to set a password. Opening it proves the email belongs to the person, so it is the only way
 // to get a password: at sign-up, when added to a team, when the email changes, and for "forgot password".
 // The link opens the company's own address (the admin's for the platform owner).
+// maib → us after a payment. Only a correctly signed "Executed" payment of the exact amount adds credits, once per order.
+async function maibCallback(request: Request, env: Env, waitUntil: (p: Promise<any>) => void) {
+  const cfg = maibConfig(env), raw = await request.text(), db = env.DB;
+  if (!cfg.ok) return new Response("not configured", { status: 503 });
+  if (!(await maibVerify(cfg.key, raw, request.headers.get("x-signature") || "", request.headers.get("x-signature-timestamp") || ""))) return new Response("bad signature", { status: 401 });
+  let d: any = {}; try { d = JSON.parse(raw); } catch { return new Response("bad json", { status: 400 }); }
+  const p = await one(db, "SELECT * FROM maib_payments WHERE id = ?", str(d.orderId, 40));
+  if (!p) return new Response("OK"); // not ours / unknown: acknowledge so maib stops retrying
+  const status = String(d.paymentStatus || ""), paidAmount = Number(d.paymentAmount ?? d.amount), cur = String(d.paymentCurrency || d.currency || "MDL");
+  const card = str(d.senderCardNumber, 30).slice(-4), method = str(d.paymentMethod, 20);
+  if (status === "Executed" && cur === "MDL" && Math.abs(paidAmount - p.amount) < 0.01) {
+    const claim = await one(db, "UPDATE maib_payments SET status = 'paid', payment_id = ?, method = ?, card = ?, paid_at = ? WHERE id = ? AND status != 'paid' RETURNING id", str(d.paymentId, 60), method, card, nowIso(), p.id);
+    if (!claim) return new Response("OK"); // already counted
+    const org = await one(db, "SELECT * FROM orgs WHERE id = ?", p.org_id);
+    if (!org) return new Response("OK");
+    const r = await topUp(db, org, p.amount, { method: "maib", note: `maib ${method || "card"}${card ? " ·" + card : ""} · ${p.id}` });
+    await logEvent(db, "payment", org.id, "maib", `Plată online maib: +${p.amount} credite (${p.id})`);
+    const to = await orgEmail(db, org.id);
+    if (to) waitUntil(sendMail(env, db, { to, ...mails.paid(org.name, p.amount, r.balance, r.active_until), kind: "paid", orgId: org.id, key: "paid:maib:" + p.id }).catch(() => {}));
+    waitUntil(notify(db, org.id, ["manager"], { title: `+${p.amount} кредитов`, body: `Оплата картой прошла · баланс ${r.balance}` }).catch(() => {}));
+  } else if (status && status !== "Executed" && p.status === "new") {
+    await run(db, "UPDATE maib_payments SET status = 'failed', payment_id = ?, method = ? WHERE id = ? AND status = 'new'", str(d.paymentId, 60), status.slice(0, 20), p.id);
+  }
+  return new Response("OK");
+}
 function orgUrlOf(slug: string, request: Request) {
   const h = hostOf(request);
   return h.endsWith("espace.md") || siteOf(h).kind !== "dev" ? `https://${slug}.espace.md/` : `${new URL(request.url).origin}/app?c=${encodeURIComponent(slug)}`;
@@ -350,6 +376,8 @@ async function audit(db: D1Database, O: string, c: { user?: any } | null, kind: 
 export const onRequest: PagesFunction<Env> = async ({ request, env, params, waitUntil }) => {
   if (request.method !== "POST") return json({ message: "method_not_allowed" }, 405);
   const fn = String(([] as string[]).concat((params as any).path || []).pop() || "");
+  // maib calls this after every card / MIA payment: the signature covers the exact raw body, so read it as text first
+  if (fn === "maib_callback") return maibCallback(request, env, waitUntil);
   let body: any = {};
   try { body = await request.json(); } catch { return json({ message: "bad_json" }, 400); }
   const db = env.DB; ENV = env;
@@ -691,7 +719,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
   const O = c.org.id, org = c.org;
   if (!roleAllows(c.role, fn)) return json({ message: "read_only" }, 403);
   // unpaid or blocked: the data stays visible, nothing can be changed
-  if (isExpired(org) && !READ_FNS.includes(fn) && !fn.startsWith("team_") && fn !== "bill_invoice" && fn !== "kv_prop_load") return json({ message: "subscription_expired" }, 402);
+  if (isExpired(org) && !READ_FNS.includes(fn) && !fn.startsWith("team_") && fn !== "bill_invoice" && fn !== "bill_pay" && fn !== "bill_pay_status" && fn !== "kv_prop_load") return json({ message: "subscription_expired" }, 402);
 
   if (fn === "billing") {
     // the balance history: top-ups and the daily fees, the fees grouped by month
@@ -700,7 +728,38 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
       all(db, "SELECT substr(day, 1, 7) AS month, COUNT(*) AS days, SUM(amount) AS amount, MIN(day) AS first, MAX(day) AS last, MAX(apts) AS apts FROM charges WHERE org_id = ? GROUP BY month ORDER BY month DESC LIMIT 24", O),
       all(db, "SELECT number, token, issued_at, due_at, amount, months, status FROM invoices WHERE org_id = ? AND status != 'void' ORDER BY created_at DESC", O),
     ]);
-    return json({ ...(await billingOf(db, org)), tiers: TIERS, payments, charges, invoices });
+    return json({ ...(await billingOf(db, org)), payments, charges, invoices, maib: maibConfig(env).ok, maib_sandbox: maibConfig(env).sandbox });
+  }
+  if (fn === "bill_pay") { // top up credits by card / Apple Pay / Google Pay / MIA: returns maib's payment page
+    const cfg = maibConfig(env);
+    if (!cfg.ok) return json({ message: "maib_off" }, 409);
+    const amount = Math.round(num(body.amount));
+    if (!(amount >= 50) || amount > 50000) return json({ message: "bad_amount" }, 400);
+    const recent = await one(db, "SELECT COUNT(*) AS n FROM maib_payments WHERE org_id = ? AND created_at > ?", O, new Date(Date.now() - 3600000).toISOString());
+    if (recent.n >= 20) return json({ message: "too_many" }, 429);
+    const id = "ESP" + Date.now().toString(36).toUpperCase() + randHex(3).toUpperCase();
+    const back = orgUrlOf(org.code, request), sep = "";
+    const lang = /^(ro|ru|en)$/.test(str(body.lang, 2)) ? str(body.lang, 2) : "ro";
+    await run(db, "INSERT INTO maib_payments(id, org_id, amount, user_id) VALUES (?,?,?,?)", id, O, amount, c.user.id);
+    try {
+      const r = await maibCheckout(cfg, {
+        orderId: id, amount, lang, description: `Credite espace.md — ${org.name} (${org.code})`,
+        payer: { name: c.user.name || "", email: c.user.email, ip: request.headers.get("cf-connecting-ip") || "", ua: request.headers.get("user-agent") || "" },
+        callbackUrl: new URL("/api/maib_callback", siteOf(hostOf(request)).kind === "dev" ? new URL(request.url).origin : "https://espace.md").href,
+        successUrl: `${back}${sep}#plata=ok&o=${id}`, failUrl: `${back}${sep}#plata=fail&o=${id}`,
+      });
+      await run(db, "UPDATE maib_payments SET checkout_id = ? WHERE id = ?", r.checkoutId, id);
+      return json({ id, url: r.checkoutUrl, sandbox: cfg.sandbox });
+    } catch (e: any) {
+      await run(db, "UPDATE maib_payments SET status = 'failed', method = ? WHERE id = ?", "error: " + String(e?.message || e).slice(0, 180), id);
+      return json({ message: "maib_error" }, 502);
+    }
+  }
+  if (fn === "bill_pay_status") { // after maib sends the guest back: has the callback arrived yet?
+    const p = await one(db, "SELECT id, amount, status, paid_at FROM maib_payments WHERE org_id = ? AND id = ?", O, str(body.id, 40));
+    if (!p) return json({ message: "not_found" }, 404);
+    const b = p.status === "paid" ? await billingOf(db, await one(db, "SELECT * FROM orgs WHERE id = ?", O)) : null;
+    return json({ ...p, balance: b ? b.balance : undefined, billing: b });
   }
   if (fn === "bill_invoice") { // the company asks for an invoice to top up its balance
     const amount = Math.round(num(body.amount) * 100) / 100;
@@ -975,7 +1034,6 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
         for (const [apt, u] of Object.entries<any>(old?.units || {})) if (u?.ical && d.apts.includes(apt)) { d.units = d.units || {}; d.units[apt] = { ...(d.units[apt] || {}), ical: d.units[apt]?.ical || u.ical }; } }
       const s = JSON.stringify(d); if (s.length > 300000) return json({ message: "too_big" }, 400);
       // over 70 apartments the price is individual — the platform owner sets it up by hand
-      if (d.apts.length > 70 && !(Number(org.custom_price) > 0)) return json({ message: "too_many_apts" }, 409);
       await run(db, "INSERT INTO app_config(org_id,data) VALUES (?,?) ON CONFLICT (org_id) DO UPDATE SET data = excluded.data", O, s);
       { const keys = [...new Set([...Object.keys(prevCfg || {}), ...Object.keys(d)])].filter((k) => JSON.stringify((prevCfg || {})[k] ?? null) !== JSON.stringify(d[k] ?? null));
         const aptsAdded = d.apts.filter((a: string) => !(prevCfg?.apts || []).includes(a)), aptsRemoved = (prevCfg?.apts || []).filter((a: string) => !d.apts.includes(a));
@@ -1011,7 +1069,6 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
           pax: Math.max(0, Math.min(500, Math.floor(num(r.pax)))), price: Math.max(0, num(r.price)), price_cur: ["EUR", "MDL", "USD"].includes(str(r.cur, 5).toUpperCase()) ? str(r.cur, 5).toUpperCase() : "EUR",
           source: SRC[src.toLowerCase()] || src, note: str(r.note, 500).trim() });
       });
-      if (apts.length > 70 && !(Number(org.custom_price) > 0)) return json({ message: "too_many_apts", count: apts.length }, 409);
       if (added.length) { cfg.apts = apts; await run(db, "INSERT INTO app_config(org_id,data) VALUES (?,?) ON CONFLICT (org_id) DO UPDATE SET data = excluded.data", O, JSON.stringify(cfg)); }
       // the same stay (unit, date, nights) already in the calendar is skipped, so importing the same file twice is harmless
       const have = new Set((await all(db, "SELECT apt, date, nights FROM bookings WHERE org_id = ?", O)).map((b: any) => `${b.apt}|${b.date}|${b.nights}`));

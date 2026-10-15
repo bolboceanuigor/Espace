@@ -293,11 +293,11 @@ function csv(name,rows){const q=v=>{v=v==null?"":String(v);return /[",\n;]/.test
 
 /* ---------- views ---------- */
 const V={};
-V.overview=async()=>{await refresh("ov");const k=OV.kpi,s=OV.series;renderNav();
+V.overview=async()=>{await refresh("ov","orgs");const k=OV.kpi,s=OV.series;renderNav();
   const delta=k.collected_prev?Math.round((k.collected_month-k.collected_prev)/k.collected_prev*100):null;
   const mrrPrev=s.mrr[s.mrr.length-2]||0,mrrNow=k.mrr,md=mrrPrev?Math.round((mrrNow-mrrPrev)/mrrPrev*100):null;
-  const ATT={trial_end:o=>[pill("info","Probă"),`Proba se termină ${o.days<=0?"azi":`în ${o.days} ${plural(o.days,"zi","zile")}`} · tarif ${lei(o.price)}`,"Factură",`inv:${o.org_id}`],
-    renewal:o=>[pill("ok","Reînnoire"),`Abonamentul expiră în ${o.days} ${plural(o.days,"zi","zile")} · ${lei(o.price)}`,"Factură",`inv:${o.org_id}`],
+  const ATT={trial_end:o=>[pill("info","Probă"),`Proba se termină ${o.days<=0?"azi":`în ${o.days} ${plural(o.days,"zi","zile")}`} · ≈ ${lei(o.price)} / lună`,"Factură",`inv:${o.org_id}`],
+    renewal:o=>[pill("ok","Reînnoire"),`Creditele ajung ${o.days} ${plural(o.days,"zi","zile")} · ≈ ${lei(o.price)} / lună`,"Factură",`inv:${o.org_id}`],
     expired:o=>[pill("bad","Expirat"),`Expirat de ${-o.days} ${plural(-o.days,"zi","zile")} — sună clientul`,"Deschide",`org:${o.org_id}`],
     inactive:o=>[pill("warn","Inactiv"),`Plătește, dar nu lucrează în aplicație din ${o.since?fd(o.since.slice(0,10)):"start"}`,"Deschide",`org:${o.org_id}`],
     lead_new:o=>[pill("warn","Cerere nouă"),`${esc(o.phone||"")} · ${ago(o.at)}`,"Cereri","#leads"],
@@ -322,7 +322,7 @@ V.overview=async()=>{await refresh("ov");const k=OV.kpi,s=OV.series;renderNav();
   <div class="grid3">
     <div class="panel"><div class="hd"><h2>Încasări pe luni</h2></div><div class="bd">${bars("c-rev",s.months.map(mon),s.revenue,{fmt:lei,h:110})}</div></div>
     <div class="panel"><div class="hd"><h2>Înregistrări pe săptămâni</h2></div><div class="bd">${bars("c-sig",s.weeks.map(w=>w.slice(8,10)+"."+w.slice(5,7)),s.signups,{fmt:v=>v+" "+plural(v,"companie","companii"),h:110})}</div></div>
-    <div class="panel"><div class="hd"><h2>Clienți pe trepte</h2></div><div class="bd">${(()=>{const mx=Math.max(1,...OV.tiers.map(t=>t.orgs));return OV.tiers.map(t=>`<div style="display:flex;align-items:center;gap:10px;padding:4px 0"><span class="num" style="width:54px">${t.lo}–${t.hi}</span><span style="flex:1"><span class="bar-mini" style="width:${Math.max(2,t.orgs/mx*100)}%;${t.orgs?"":"background:var(--line)"}"></span></span><span class="num" style="width:24px;text-align:right">${t.orgs}</span><span class="mute num" style="width:68px;text-align:right">${nf(t.price)} lei</span></div>`).join("")})()}</div></div>
+    <div class="panel"><div class="hd"><h2>Credite pe zi</h2></div><div class="bd">${(()=>{const L=(ORGS||[]).filter(o=>o.state!=="blocked");const d=L.reduce((a,o)=>a+(+o.daily||0),0),u=L.reduce((a,o)=>a+(+o.apts||0),0),bal=L.reduce((a,o)=>a+(+o.balance||0),0);return `<div class="facts" style="border:0"><div><span>Tarif general</span><b>${nf(OV.rate||1)}</b><span class="sub">credite / unitate / zi</span></div><div><span>Unități</span><b>${nf(u)}</b></div><div><span>Se scad pe zi</span><b>${nf(Math.round(d))}</b><span class="sub">≈ ${nf(Math.round(d*30))} lei / lună</span></div><div><span>Credite la clienți</span><b>${nf(Math.round(bal))}</b></div></div>`})()}</div></div>
   </div>
   <div class="panel" style="margin-top:16px"><div class="hd"><h2>Activitate recentă</h2><span class="sp"></span><a href="#activity">Toată activitatea</a></div><div class="bd" style="padding-top:4px">${evList(OV.events)}</div></div>`};
 
@@ -336,15 +336,15 @@ V.companies=async()=>{if(!ORGS)await refresh("orgs");renderNav();const t=today()
   $("view").innerHTML=`<div class="ph"><div><h1>Companii</h1><div class="mute">${ORGS.length} ${plural(ORGS.length,"companie","companii")}</div></div><span class="sp"></span><button class="btn" id="csv-orgs">Export CSV</button><button class="btn p" data-act="new-org">Companie nouă</button></div>
   <div class="toolbar"><div class="chips">${CH.map(([k,l])=>`<button class="chip" data-f="${k}" aria-pressed="${F.state===k}">${l}<span class="n">${cnt(k)}</span></button>`).join("")}</div>
   <span style="flex:1"></span><input id="fq" placeholder="Filtrează…" value="${esc(F.q)}" style="max-width:220px"></div>
-  <div class="tw"><table><thead><tr>${[["name","Companie"],["state","Stare"],["apts","Apart.","r"],["price","Tarif","r"],["active_until","Activ până"],["last_activity","Ultima activitate"],["bookings_30d","Rezervări 30z","r"],["paid_total","Încasat total","r"],["created_at","Creată"]].map(([k,l,c])=>`<th class="s ${c||""}" data-sort="${k}">${l} <span class="ar">${F.sort===k?(F.dir>0?"↑":"↓"):""}</span></th>`).join("")}</tr></thead><tbody id="org-rows"></tbody></table></div>`;
+  <div class="tw"><table><thead><tr>${[["name","Companie"],["state","Stare"],["apts","Apart.","r"],["daily","Credite/zi","r"],["active_until","Activ până"],["last_activity","Ultima activitate"],["bookings_30d","Rezervări 30z","r"],["paid_total","Încasat total","r"],["created_at","Creată"]].map(([k,l,c])=>`<th class="s ${c||""}" data-sort="${k}">${l} <span class="ar">${F.sort===k?(F.dir>0?"↑":"↓"):""}</span></th>`).join("")}</tr></thead><tbody id="org-rows"></tbody></table></div>`;
   rows();
   $("fq").oninput=e=>{F.q=e.target.value;rows()};
-  $("csv-orgs").onclick=()=>csv("companii-espace.csv",[["Companie","Adresa","Stare","Apartamente","Tarif lei","Activ pana","Proba pana","Platit pana","Proprietar","Email","Membri","Rezervari 30 zile","Incasat total","Ultima activitate","Creata"],...ORGS.map(o=>[o.name,o.code+".espace.md",STATE[o.state][1],o.apts,o.price,o.active_until,o.trial_ends,o.paid_until,o.owner_name,o.owner_email,o.members,o.bookings_30d,o.paid_total,o.last_activity,o.created_at.slice(0,10)])]);
+  $("csv-orgs").onclick=()=>csv("companii-espace.csv",[["Companie","Adresa","Stare","Apartamente","Credite pe zi","Activ pana","Proba pana","Platit pana","Proprietar","Email","Membri","Rezervari 30 zile","Incasat total","Ultima activitate","Creata"],...ORGS.map(o=>[o.name,o.code+".espace.md",STATE[o.state][1],o.apts,o.daily,o.active_until,o.trial_ends,o.paid_until,o.owner_name,o.owner_email,o.members,o.bookings_30d,o.paid_total,o.last_activity,o.created_at.slice(0,10)])]);
   function rows(){const q=F.q.toLowerCase().trim(),soon=new Date(Date.now()-14*864e5).toISOString().slice(0,10);
     let L=ORGS.filter(o=>F.state==="all"||(F.state==="soon"?(o.state!=="expired"&&o.state!=="blocked"&&o.days_left<=7):F.state==="inactive"?(o.state==="paid"&&(!o.last_activity||o.last_activity.slice(0,10)<soon)):o.state===F.state));
     if(q)L=L.filter(o=>[o.name,o.code,o.owner_email,o.owner_name,o.billing&&o.billing.idno].join(" ").toLowerCase().includes(q));
     L.sort((a,b)=>{const x=a[F.sort]??"",y=b[F.sort]??"";return (typeof x==="number"&&typeof y==="number"?x-y:String(x).localeCompare(String(y)))*F.dir});
-    $("org-rows").innerHTML=L.length?L.map(o=>`<tr class="click" data-org="${esc(o.id)}"><td><b>${esc(o.name)}</b><span class="sub">${esc(o.code)}.espace.md · ${esc(o.owner_email)}</span></td><td>${statePill(o)}${daysPill(o)}</td><td class="r num">${o.apts}</td><td class="r num">${lei(o.price)}${o.custom_price?'<span class="sub">individual</span>':""}</td><td class="num">${fd(o.active_until)}</td><td>${ago(o.last_activity)}<span class="sub">login: ${ago(o.last_login)}</span></td><td class="r num">${o.bookings_30d}</td><td class="r num">${lei(o.paid_total)}</td><td class="num">${fd(o.created_at.slice(0,10))}</td></tr>`).join(""):`<tr><td colspan="9"><div class="empty">Nicio companie în acest filtru.</div></td></tr>`}
+    $("org-rows").innerHTML=L.length?L.map(o=>`<tr class="click" data-org="${esc(o.id)}"><td><b>${esc(o.name)}</b><span class="sub">${esc(o.code)}.espace.md · ${esc(o.owner_email)}</span></td><td>${statePill(o)}${daysPill(o)}</td><td class="r num">${o.apts}</td><td class="r num">${nf(o.daily||0)}${o.apt_rate>0?'<span class="sub">tarif propriu</span>':""}</td><td class="num">${fd(o.active_until)}</td><td>${ago(o.last_activity)}<span class="sub">login: ${ago(o.last_login)}</span></td><td class="r num">${o.bookings_30d}</td><td class="r num">${lei(o.paid_total)}</td><td class="num">${fd(o.created_at.slice(0,10))}</td></tr>`).join(""):`<tr><td colspan="9"><div class="empty">Nicio companie în acest filtru.</div></td></tr>`}
   V.companies.rows=rows};
 
 /* one company */
@@ -354,9 +354,9 @@ V.company=async(id)=>{const d=await api("sa_org",{org_id:id});const o=d.org;rend
   $("view").innerHTML=`<div class="crumb"><a href="#companies">Companii</a> / ${esc(o.name)}</div>
   <div class="chead"><div class="ava">${esc((o.name||"?").slice(0,1).toUpperCase())}</div><div class="m"><h1>${esc(o.name)}</h1>
     <div class="ink2"><a href="${ORG_URL(o.code)}" target="_blank" rel="noopener">${esc(o.code)}.espace.md</a> · ${esc(o.owner_name)} · <a href="mailto:${esc(o.owner_email)}">${esc(o.owner_email)}</a></div>
-    <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">${statePill(o)}${o.custom_price?pill("gray","Preț individual"):""}</div></div>
+    <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">${statePill(o)}${o.apt_rate>0?pill("gray","Tarif propriu"):""}</div></div>
     <div class="acts"><button class="btn" data-act="support" data-id="${esc(o.id)}">Deschide ca suport</button><button class="btn" data-act="invoice" data-id="${esc(o.id)}">Factură nouă</button><button class="btn p" data-act="pay" data-id="${esc(o.id)}">Înregistrează plata</button></div></div>
-  <div class="facts"><div><span>Sold</span><b>${lei2(o.balance)}</b></div><div><span>Tarif</span><b>${lei(o.price)}</b><span class="sub">${o.daily!=null?lei2(o.daily)+" / zi":""}</span></div><div><span>Activ până</span><b>${fd(o.active_until)}</b></div><div><span>Apartamente</span><b>${o.apts}</b></div><div><span>Încasat total</span><b>${lei(o.paid_total)}</b></div></div>
+  <div class="facts"><div><span>Credite</span><b>${nf(o.balance)}</b></div><div><span>Se scad pe zi</span><b>${nf(o.daily||0)}</b><span class="sub">${o.apts} × ${nf(o.rate||1)} credite</span></div><div><span>Activ până</span><b>${fd(o.active_until)}</b></div><div><span>Apartamente</span><b>${o.apts}</b></div><div><span>Încasat total</span><b>${lei(o.paid_total)}</b></div></div>
   <div class="tabs" role="tablist" style="margin-top:16px">${tabs.map(([k,l])=>`<button role="tab" data-tab="${k}" aria-selected="${TAB===k}">${l}</button>`).join("")}</div>
   <div id="tabbody"></div>`;
   const B=$("tabbody");
@@ -366,7 +366,7 @@ V.company=async(id)=>{const d=await api("sa_org",{org_id:id});const o=d.org;rend
       <p class="ink2" style="margin:12px 0 0">Ultima activitate: <b>${ago(o.last_activity)}</b> · ultimul login: <b>${ago(o.last_login)}</b> · menajere active: <b>${o.staff}</b> · ghiduri: <b>${d.usage.guides}</b></p></div></div>
     <div class="panel"><div class="hd"><h2>Abonament</h2></div><div class="bd">
       <div class="form"><div><label class="f">Probă până la</label><input type="date" id="o-trial" value="${esc(o.trial_ends)}"></div><div><label class="f">Scăzut până la</label><input value="${fd(o.charged_through||o.paid_until)}" disabled></div>
-      <div><label class="f">Preț individual, lei/lună</label><input type="number" min="0" id="o-price" value="${o.custom_price||""}" placeholder="după trepte: ${o.tier_price??"individual"}"></div><div><label class="f">Adresa</label><input id="o-slug" value="${esc(o.code)}" autocapitalize="off" spellcheck="false"></div></div>
+      <div><label class="f">Tarif propriu, credite / unitate / zi</label><input type="number" min="0" max="1000" step="0.01" id="o-price" value="${o.apt_rate||""}" placeholder="general: ${o.rate&&!o.apt_rate?o.rate:"1"}"></div><div><label class="f">Adresa</label><input id="o-slug" value="${esc(o.code)}" autocapitalize="off" spellcheck="false"></div></div>
       <div class="actions"><button class="btn" data-act="save-sub" data-id="${esc(o.id)}">Salvează</button><span class="msg" id="sub-msg"></span><span style="flex:1"></span>${o.status==="blocked"?`<button class="btn" data-act="status" data-st="active" data-id="${esc(o.id)}">Deblochează</button>`:`<button class="btn d" data-act="status" data-st="blocked" data-id="${esc(o.id)}">Blochează</button>`}</div></div></div>
     </div>
     <div class="panel" style="margin-top:16px"><div class="hd"><h2>Notițe interne</h2><span class="sp"></span><span class="mute">văzute doar de tine</span></div><div class="bd"><textarea id="o-note" rows="4" placeholder="Ce ați vorbit, ce îi trebuie, când să revii…">${esc(o.note||"")}</textarea><div class="actions"><button class="btn" data-act="save-note" data-id="${esc(o.id)}">Salvează notița</button><span class="msg" id="note-msg"></span></div></div></div>`;
@@ -434,9 +434,9 @@ V.settings=async()=>{const s=await api("sa_settings");renderNav();
     <div class="full" style="margin-top:12px"><label style="display:flex;gap:8px;align-items:center;font-weight:600"><input type="checkbox" id="s-vat" style="width:auto"${s.vat?" checked":""}> Plătitor de TVA</label></div>
     <div><label class="f" for="s-vat_rate">Cota TVA, %</label><input id="s-vat_rate" type="number" value="${esc(s.vat_rate)}"></div></div>
     <div class="actions"><button class="btn p" data-act="save-settings">Salvează</button><span class="msg" id="set-msg"></span></div></div></div>
-  <div class="panel"><div class="hd"><h2>Prețuri</h2></div><div class="bd"><p class="ink2" style="margin-top:0">Treptele de preț sunt aceleași pe site, în aplicație și aici. Pentru 71+ apartamente pui preț individual în fișa companiei.</p>
-    ${(OV?OV.tiers:[]).map(t=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line2)"><span>${t.lo}–${t.hi} apartamente</span><b class="num">${nf(t.price)} lei</b></div>`).join("")}
-    <p class="mute">Ca să schimbi prețurile, scrie-mi — se schimbă în cod, ca să fie la fel peste tot.</p></div></div></div>`;
+  <div class="panel"><div class="hd"><h2>Prețuri · credite</h2></div><div class="bd"><p class="ink2" style="margin-top:0">1 credit = 1 leu. Fiecare companie plătește în avans; în fiecare zi se scad <b>unități × tarif</b> credite. Tariful general e pentru toate companiile fără tarif propriu (pe care îl pui în fișa companiei).</p>
+    <div class="form"><div><label class="f" for="s-apt_rate">Tarif general, credite / unitate / zi</label><input id="s-apt_rate" type="number" min="0.01" max="1000" step="0.01" value="${esc(s.apt_rate??1)}"></div></div>
+    <p class="mute">Ex.: 5 apartamente × 1 = 5 credite pe zi ≈ 150 lei pe lună. Se salvează cu butonul din stânga.</p></div></div></div>`;
   if(!OV){await refresh("ov");V.settings()}};
 
 /* ---------- dialogs ---------- */
@@ -462,8 +462,8 @@ async function act(a,ds){
     <div class="form"><div><label class="f">Suma primită, lei</label><input id="p-a" type="number" min="0" step="0.01" value="${o&&o.price||""}"></div>
     <div><label class="f">Metoda</label><select id="p-meth"><option value="transfer">Transfer bancar</option><option value="card">Card</option><option value="cash">Numerar</option><option value="other">Altceva</option></select></div><div><label class="f">Notă</label><input id="p-n" placeholder="ex. ordin nr. 15"></div></div>`,
     async()=>{const r=await api("sa_pay",{org_id:ds.id,amount:+val("p-a"),method:val("p-meth"),note:val("p-n")});ORGS=null;OV=null;toast("Sold "+lei2(r.balance)+" · activ până la "+fd(r.active_until));reloadView()})}
-  if(a==="invoice"){await needOrgs();const o=orgOf(ds.id);return dialog(`<h2>Factură de suplinire</h2><p class="mute" style="margin:0">${esc(o?o.name:"")} · ${o?o.apts:0} apartamente · ${lei(o&&o.price)} / lună · sold ${lei2(o&&o.balance)}</p>
-    <div class="form"><div><label class="f">Suma, lei</label><input id="i-a" type="number" min="1" step="0.01" value="${o&&o.price?o.price*3:""}"></div><div><label class="f">Notă pe factură</label><input id="i-n"></div></div>`,
+  if(a==="invoice"){await needOrgs();const o=orgOf(ds.id);return dialog(`<h2>Factură de suplinire</h2><p class="mute" style="margin:0">${esc(o?o.name:"")} · ${o?o.apts:0} unități · ${nf(o&&o.daily||0)} credite / zi · sold ${nf(o&&o.balance||0)} credite</p>
+    <div class="form"><div><label class="f">Suma, lei</label><input id="i-a" type="number" min="1" step="0.01" value="${o&&o.daily?Math.max(100,Math.ceil(o.daily*30/100)*100):200}"></div><div><label class="f">Notă pe factură</label><input id="i-n"></div></div>`,
     async()=>{const r=await api("sa_invoice_create",{org_id:ds.id,amount:val("i-a"),note:val("i-n")});OV=null;toast("Factura "+r.number+" e gata");window.open("/f/"+r.token,"_blank","noopener");reloadView()})}
   if(a==="inv-paid"){if(!confirm("Marchezi factura ca achitată? Suma intră pe soldul companiei."))return;try{const r=await api("sa_invoice_status",{org_id:ds.org,id:ds.id,status:"paid"});ORGS=null;OV=null;toast("Achitată · sold "+lei2(r.balance)+" · activ până "+fd(r.active_until));reloadView()}catch(e){toast(errText(e))}return}
   if(a==="inv-void"){if(!confirm("Anulezi factura?"))return;try{await api("sa_invoice_status",{org_id:ds.org,id:ds.id,status:"void"});OV=null;toast("Factura e anulată");reloadView()}catch(e){toast(errText(e))}return}
@@ -472,7 +472,7 @@ async function act(a,ds){
   if(a==="status"){if(ds.st==="blocked"&&!confirm("Blochezi compania? Datele rămân, dar nu mai pot modifica nimic."))return;await api("sa_status",{org_id:ds.id,status:ds.st});ORGS=null;OV=null;toast(ds.st==="blocked"?"Blocată":"Deblocată");return reloadView()}
   if(a==="save-sub"){const m=$("sub-msg");m.className="msg";try{const o=orgOf(ds.id)||{};const tr=val("o-trial"),pr=val("o-price"),sl=val("o-slug").toLowerCase();
     if(tr&&tr!==o.trial_ends)await api("sa_trial",{org_id:ds.id,trial_ends:tr});
-    if(String(+pr||0)!==String(o.custom_price||0))await api("sa_price",{org_id:ds.id,price:+pr||0});
+    if(String(+pr||0)!==String(o.apt_rate||0))await api("sa_price",{org_id:ds.id,rate:+pr||0});
     if(sl&&sl!==o.code){if(!confirm("Schimbi adresa în "+sl+".espace.md? Vechea adresă nu va mai funcționa."))return;await api("sa_slug",{org_id:ds.id,slug:sl})}
     ORGS=null;OV=null;await refresh("orgs");toast("Salvat");reloadView()}catch(e){m.className="msg bad";m.textContent=errText(e)}return}
   if(a==="save-note"){await api("sa_note",{org_id:ds.id,note:$("o-note").value});$("note-msg").className="msg ok";$("note-msg").textContent="Salvat";ORGS=null;return}
@@ -484,7 +484,7 @@ async function act(a,ds){
   if(a==="ann-save"){try{await api("sa_ann_save",{text:val("an-text"),level:val("an-level"),ends:val("an-ends")});toast("Anunțul e publicat");reloadView()}catch(e){$("an-msg").className="msg bad";$("an-msg").textContent=errText(e)}return}
   if(a==="ann-off"){await api("sa_ann_save",{id:ds.id,text:ds.text,level:ds.level,ends:ds.ends,active:false});return reloadView()}
   if(a==="ann-del"){if(!confirm("Ștergi anunțul?"))return;await api("sa_ann_delete",{id:ds.id});return reloadView()}
-  if(a==="save-settings"){const b={vat:$("s-vat").checked,vat_rate:+val("s-vat_rate")};for(const k of ["name","idno","vat_code","address","bank","bic","iban","email","phone","prefix","due_days","footer"])b[k]=k==="due_days"?+val("s-"+k):val("s-"+k);
+  if(a==="save-settings"){const b={vat:$("s-vat").checked,vat_rate:+val("s-vat_rate"),apt_rate:+val("s-apt_rate")||1};for(const k of ["name","idno","vat_code","address","bank","bic","iban","email","phone","prefix","due_days","footer"])b[k]=k==="due_days"?+val("s-"+k):val("s-"+k);
     try{await api("sa_settings_save",b);$("set-msg").className="msg ok";$("set-msg").textContent="Salvat"}catch(e){$("set-msg").className="msg bad";$("set-msg").textContent=errText(e)}return}
 }
 function leadDialog(id){const x=LEADS.find(l=>l.id===id);if(!x)return;

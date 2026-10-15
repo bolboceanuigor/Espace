@@ -53,8 +53,12 @@ jobs:
           MAIL_FROM: ${{ secrets.MAIL_FROM }}
           MAIL_REPLY_TO: ${{ secrets.MAIL_REPLY_TO }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          MAIB_CLIENT_ID: ${{ secrets.MAIB_CLIENT_ID }}
+          MAIB_CLIENT_SECRET: ${{ secrets.MAIB_CLIENT_SECRET }}
+          MAIB_SIGNATURE_KEY: ${{ secrets.MAIB_SIGNATURE_KEY }}
+          MAIB_SANDBOX: ${{ secrets.MAIB_SANDBOX }}
         run: |
-          for k in SUPERADMIN_EMAIL CRON_KEY RESEND_API_KEY MAIL_FROM MAIL_REPLY_TO TELEGRAM_BOT_TOKEN; do
+          for k in SUPERADMIN_EMAIL CRON_KEY RESEND_API_KEY MAIL_FROM MAIL_REPLY_TO TELEGRAM_BOT_TOKEN MAIB_CLIENT_ID MAIB_CLIENT_SECRET MAIB_SIGNATURE_KEY MAIB_SANDBOX; do
             v="${!k}"; if [ -n "$v" ]; then echo "$v" | npx wrangler pages secret put "$k" --project-name espace > /dev/null; echo "set $k"; fi
           done
       - name: Deploy

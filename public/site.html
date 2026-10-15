@@ -214,12 +214,12 @@ dialog .row .btn{flex:1}
 <div class="hero"><div class="wrap">
   <div>
     <h1 data-t="h1">Rezervări, curățenii și casa — fără Excel și zeci de mesaje în Viber.</h1>
-    <p class="lead" data-t="lead">espace.md e aplicația în care o echipă din Chișinău administrează zilnic peste 20 de apartamente în chirie pe zi. Acum o poți folosi și tu, pentru 1 apartament sau pentru 70.</p>
+    <p class="lead" data-t="lead">espace.md e aplicația în care o echipă din Chișinău administrează zilnic peste 20 de apartamente în chirie pe zi. Acum o poți folosi și tu, pentru 1 apartament sau pentru 100.</p>
     <div class="ctas">
       <a class="btn primary" href="#start" data-t="cta_trial">Încearcă 14 zile gratuit</a>
       <a class="btn ghost" href="#preturi" data-t="cta_prices">Vezi prețurile</a>
     </div>
-    <p class="fine" data-t="fine">Fără card. De la 199 lei pe lună după perioada de probă.</p>
+    <p class="fine" data-t="fine">Fără card. După probă — 1 leu pe zi pentru fiecare apartament.</p>
   </div>
 
   <div class="board" aria-label="Exemplu: calendarul rezervărilor" role="img">
@@ -298,21 +298,22 @@ dialog .row .btn{flex:1}
 <section class="tint" id="preturi">
   <div class="wrap pricing">
     <div>
-      <div class="head" style="margin-bottom:0"><h2 data-t="price_h">Plătești după numărul de apartamente</h2><p data-t="price_p">Un preț pe lună pentru toată echipa — nu pentru fiecare om. Toate funcțiile sunt incluse în orice tarif.</p></div>
+      <div class="head" style="margin-bottom:0"><h2 data-t="price_h">1 leu pe zi pentru fiecare apartament</h2><p data-t="price_p">Cumperi credite: 1 credit = 1 leu. În fiecare zi se scade câte 1 credit pentru fiecare apartament, casă sau cameră. Toată echipa și toate funcțiile sunt incluse.</p></div>
       <ul class="incl">
         <li data-t="i1">14 zile gratuit, fără card</li>
         <li data-t="i2">Utilizatori și menajere nelimitați</li>
-        <li data-t="i3">Plată în avans: suplinești contul, zilnic se scade doar ziua folosită</li>
+        <li data-t="i3">Suplinești cu 100, 200, 500 sau câte credite vrei — cu cardul sau pe factură</li>
         <li data-t="i4">Ajutor la pornire: îți introducem apartamentele împreună</li>
       </ul>
       <div class="calc">
         <label for="apts"><span data-t="calc_l">Câte apartamente ai?</span> <b id="apts-n">8</b></label>
-        <input type="range" id="apts" min="1" max="80" value="8">
-        <div class="out"><b id="apts-p">399 lei</b><span data-t="per_month">pe lună</span></div>
+        <input type="range" id="apts" min="1" max="100" value="8">
+        <div class="out"><b id="apts-p">8 credite</b><span data-t="per_day">pe zi</span></div>
+        <div class="out" style="margin-top:2px"><b id="apts-m" style="font-size:inherit">≈ 240 lei</b><span data-t="per_month">pe lună</span></div>
       </div>
     </div>
     <table class="ptable" id="ptable">
-      <thead><tr><th data-t="t_apts">Apartamente</th><th data-t="t_month">Pe lună</th></tr></thead>
+      <thead><tr><th data-t="t_apts">Suplinești</th><th data-t="t_month">Îți ajunge</th></tr></thead>
       <tbody></tbody>
     </table>
   </div>
@@ -333,9 +334,9 @@ dialog .row .btn{flex:1}
     <div class="faq">
       <details><summary data-t="q1">Trebuie să instalez ceva?</summary><p data-t="a1">Nu. Se deschide în browser pe telefon sau calculator. Pe telefon o poți pune pe ecranul principal ca o aplicație și primești notificări.</p></details>
       <details><summary data-t="q2">Se sincronizează cu Booking și Airbnb?</summary><p data-t="a2">Deocamdată rezervările se introduc în calendar de manager — durează câteva secunde. Importul automat al calendarelor e următorul lucru la care lucrăm.</p></details>
-      <details><summary data-t="q3">Ce se întâmplă după cele 14 zile?</summary><p data-t="a3">Suplinești contul cu orice sumă — pe factură, transfer în lei. În fiecare zi se scade partea zilei din tariful lunar (la 199 lei/lună — 6,54 lei pe zi). Când banii se termină, datele rămân și le poți vedea și exporta, dar nu mai poți face modificări până la suplinire.</p></details>
+      <details><summary data-t="q3">Ce se întâmplă după cele 14 zile?</summary><p data-t="a3">Suplinești credite cu cardul (Visa, Mastercard, Apple Pay, Google Pay prin maib) sau pe factură. În fiecare zi se scade câte 1 credit (1 leu) pentru fiecare apartament — la 5 apartamente, 5 credite pe zi. Când creditele se termină, datele rămân și le poți vedea și exporta, dar nu mai poți face modificări până la suplinire.</p></details>
       <details><summary data-t="q4">Cine îmi vede datele?</summary><p data-t="a4">Doar oamenii pe care îi adaugi tu. Fiecare companie are adresa ei și datele ei, separate de ale celorlalte.</p></details>
-      <details><summary data-t="q5">Am un singur apartament. Merită?</summary><p data-t="a5">Pentru 1–4 apartamente costă 199 lei pe lună. Merită dacă ai o menajeră și oaspeți din mai multe surse — atunci nu mai ții totul în cap.</p></details>
+      <details><summary data-t="q5">Am un singur apartament. Merită?</summary><p data-t="a5">Un apartament costă 1 leu pe zi — circa 30 de lei pe lună. Merită dacă ai o menajeră și oaspeți din mai multe surse — atunci nu mai ții totul în cap.</p></details>
       <details><summary data-t="q6">Pot trece de la RealtyCalendar sau din Excel?</summary><p data-t="a6">Da. Scrie-ne și te ajutăm să muți apartamentele și rezervările viitoare.</p></details>
     </div>
   </div>
@@ -404,8 +405,8 @@ const T={
  ro:{},
  ru:{nav_features:"Возможности",nav_pricing:"Цены",nav_faq:"Вопросы",signin:"Войти",try:"Попробовать",
   h1:"Брони, уборки и касса — без Excel и десятков сообщений в Viber.",
-  lead:"espace.md — приложение, в котором команда из Кишинёва каждый день ведёт больше 20 квартир посуточно. Теперь им можете пользоваться и вы — для 1 квартиры или для 70.",
-  cta_trial:"Попробовать 14 дней бесплатно",cta_prices:"Посмотреть цены",fine:"Без карты. От 199 лей в месяц после пробного периода.",
+  lead:"espace.md — приложение, в котором команда из Кишинёва каждый день ведёт больше 20 квартир посуточно. Теперь им можете пользоваться и вы — для 1 квартиры или для 100.",
+  cta_trial:"Попробовать 14 дней бесплатно",cta_prices:"Посмотреть цены",fine:"Без карты. После пробного периода — 1 лей в день за каждую квартиру.",
   board_title:"Календарь · октябрь",board_m:"6 квартир",src_direct:"Напрямую",chip_clean:"🧹 Сегодня: 3 уборки, первая в 10:00",
   pain_h:"Что меняется с первой недели",
   p1_h:"Все брони на одном экране",p1:"Booking, Airbnb, Instagram и постоянные гости — в одном календаре, с суммой, источником и тем, кто получил деньги.",
@@ -417,15 +418,15 @@ const T={
   r3_h:"Гость",r3_s:"без приложения, только ссылка",r3_1:"Гид на румынском, русском и английском",r3_2:"Wi‑Fi, как войти, парковка, правила, выезд",r3_3:"Карта, фото и видео для каждой квартиры",
   r4_h:"Владелец",r4_s:"и кто проверяет деньги",r4_1:"Доход, расходы и загрузка по месяцам",r4_2:"Проверка каждой оплаты и каждой смены",r4_3:"Экспорт в Excel, лист на каждую квартиру",r4_4:"Отдельный доступ: менеджер, бухгалтер, только просмотр",
   how_h:"Запускаетесь за один вечер",s1_h:"Создаёте компанию",s1:"Выбираете адрес, например <b>vashe-imya.espace.md</b>. Это минута.",s2_h:"Добавляете квартиры",s2:"Название, адрес, этаж, фото. Потом брони на эту неделю.",s3_h:"Зовёте команду",s3:"Менеджеры входят по email, горничные — по PIN. Каждый видит только своё.",
-  price_h:"Платите за количество квартир",price_p:"Одна цена в месяц за всю команду — не за каждого человека. Все функции входят в любой тариф.",
-  i1:"14 дней бесплатно, без карты",i2:"Неограниченно пользователей и горничных",i3:"Оплата вперёд: пополняете счёт, каждый день списывается только прошедший день",i4:"Помощь на старте: внесём квартиры вместе с вами",
-  calc_l:"Сколько у вас квартир?",per_month:"в месяц",t_apts:"Квартир",t_month:"В месяц",indiv:"индивидуально",lei:"лей",
+  price_h:"1 лей в день за каждую квартиру",price_p:"Покупаете кредиты: 1 кредит = 1 лей. Каждый день списывается 1 кредит за каждую квартиру, дом или номер. Вся команда и все функции включены.",
+  i1:"14 дней бесплатно, без карты",i2:"Неограниченно пользователей и горничных",i3:"Пополняете на 100, 200, 500 или сколько хотите кредитов — картой или по счёту",i4:"Помощь на старте: внесём квартиры вместе с вами",
+  calc_l:"Сколько у вас квартир?",per_month:"в месяц",per_day:"в день",t_apts:"Пополняете",t_month:"Хватит на",indiv:"индивидуально",lei:"лей",cr:"кредитов",cr1:"кредит",cr2:"кредита",d1:"день",d2:"дня",d5:"дней",
   proof:"квартир в Кишинёве каждый день ведутся в espace.md: брони, смены, горничные и проверка каждой оплаты.",proof_s:"Мы сделали приложение для своей команды, на тех задачах, с которыми сталкиваемся каждый день. Всё, что вы видите на этой странице, используется на практике.",
   faq_h:"Вопросы",q1:"Нужно что-то устанавливать?",a1:"Нет. Открывается в браузере на телефоне или компьютере. На телефоне можно добавить на главный экран как приложение и получать уведомления.",
   q2:"Есть синхронизация с Booking и Airbnb?",a2:"Пока брони вносит менеджер — это несколько секунд. Автоматический импорт календарей — следующее, над чем мы работаем.",
-  q3:"Что будет после 14 дней?",a3:"Пополняете счёт на любую сумму — по счёту, переводом в леях. Каждый день списывается доля дня от месячного тарифа (при 199 лей/месяц — 6,54 лей в день). Когда деньги закончатся, данные останутся — их можно смотреть и выгрузить, но менять нельзя до пополнения.",
+  q3:"Что будет после 14 дней?",a3:"Пополняете кредиты картой (Visa, Mastercard, Apple Pay, Google Pay через maib) или по счёту. Каждый день списывается 1 кредит (1 лей) за каждую квартиру — при 5 квартирах 5 кредитов в день. Когда кредиты закончатся, данные останутся — их можно смотреть и выгрузить, но менять нельзя до пополнения.",
   q4:"Кто видит мои данные?",a4:"Только люди, которых вы добавили. У каждой компании свой адрес и свои данные, отдельно от других.",
-  q5:"У меня одна квартира. Есть смысл?",a5:"Для 1–4 квартир — 199 лей в месяц. Есть смысл, если у вас горничная и гости из разных источников: больше не нужно держать всё в голове.",
+  q5:"У меня одна квартира. Есть смысл?",a5:"Одна квартира — 1 лей в день, около 30 лей в месяц. Есть смысл, если у вас горничная и гости из разных источников: больше не нужно держать всё в голове.",
   q6:"Можно перейти с RealtyCalendar или из Excel?",a6:"Да. Напишите нам — поможем перенести квартиры и будущие брони.",
   start_h:"Попробуйте на своих квартирах",start_p:"Создайте компанию сейчас и получите её адрес. Или оставьте номер — позвоним и покажем приложение.",
   reg_h:"Создать компанию",reg_p:"14 дней бесплатно. Без карты.",f_org:"Название компании",f_slug:"Адрес компании",slug_hint:"Латинские буквы, цифры и дефис. Здесь будут входить менеджеры и горничные.",
@@ -440,7 +441,7 @@ const T={
   e_notfound:"Компании с таким адресом нет.",nu_exista:"Компании {s}.espace.md не существует. Проверьте адрес или создайте свою.",creating:"Создаём…",pw_note:"Мы пришлём на email ссылку — подтвердите адрес и задайте пароль. Входить в компанию можно будет только с этим email.",
   sent_h:"Проверьте почту",sent_p:"Компания {s} создана. Мы отправили письмо на {e} — откройте ссылку в нём, чтобы подтвердить адрес и задать пароль. Ссылка действует 3 дня.",sent_spam:"Не пришло за пару минут? Проверьте «Спам» или отправьте ещё раз.",sent_again:"Отправить ещё раз",sent_ok:"Отправили ещё раз."},
 };
-const RO={e_terms:"Bifează că accepți Termenii și Politica de confidențialitate.",indiv:"individual",lei:"lei",e_slug_bad:"Între 3 și 30 de caractere: litere latine, cifre și cratimă.",e_slug_taken:"Adresa e deja ocupată — alege alta.",ok_slug:"Adresa e liberă.",
+const RO={cr:"credite",cr1:"credit",cr2:"credite",d1:"zi",d2:"zile",d5:"de zile",per_day:"pe zi",e_terms:"Bifează că accepți Termenii și Politica de confidențialitate.",indiv:"individual",lei:"lei",e_slug_bad:"Între 3 și 30 de caractere: litere latine, cifre și cratimă.",e_slug_taken:"Adresa e deja ocupată — alege alta.",ok_slug:"Adresa e liberă.",
   e_need:"Completează toate câmpurile.",e_email:"Verifică emailul.",e_pw:"Parola trebuie să aibă minimum 8 caractere.",e_email_taken:"Emailul e deja înregistrat — intră în compania ta.",e_net:"Nu e legătură cu serverul, mai încearcă o dată.",
   e_contact:"Lasă un telefon ca să te putem contacta.",ok_lead:"Mulțumim! Te sunăm azi.",e_locked:"Prea multe încercări — mai încearcă peste 15 minute.",e_notfound:"Nu există o companie cu această adresă.",
   nu_exista:"Compania {s}.espace.md nu există. Verifică adresa sau creează-ți una.",creating:"Se creează…",
@@ -471,12 +472,12 @@ document.querySelectorAll("[data-lang]").forEach(b=>b.addEventListener("click",(
 })();
 
 /* prices — same steps as the app */
-const TIERS=[[1,4,199],[5,7,299],[8,11,399],[12,15,499],[16,20,599],[21,30,799],[31,70,1199]];
-const priceFor=n=>{const x=TIERS.find(([,hi])=>n<=hi);return x?x[2]:null};
-const fmt=n=>n.toLocaleString("ro-MD").replace(/ |\s/g," ");
-function table(){const n=+$("apts").value,cur=priceFor(n);
-  $("ptable").querySelector("tbody").innerHTML=TIERS.map(([lo,hi,p])=>`<tr${n>=lo&&n<=hi?' class="mark"':""}><td>${lo}–${hi}</td><td><b>${fmt(p)}</b> ${t("lei")}</td></tr>`).join("")+`<tr${cur==null?' class="mark"':""}><td>71+</td><td>${t("indiv")}</td></tr>`}
-function calc(){const n=+$("apts").value,p=priceFor(n);$("apts-n").textContent=n>=80?"80+":n;$("apts-p").textContent=p!=null?fmt(p)+" "+t("lei"):t("indiv")}
+const RATE=1,PACKS=[100,200,500,1000],fmt=n=>new Intl.NumberFormat("ro-MD").format(n);
+const pl=(n,a,b,c)=>{if(document.documentElement.lang==="ro")return n===1?a:(n===0||n%100>=1&&n%100<=19)?b:c;const m=n%10,h=n%100;return m===1&&h!==11?a:m>=2&&m<=4&&(h<12||h>14)?b:c};
+const cr=n=>fmt(n)+" "+pl(n,t("cr1"),t("cr2"),t("cr")),dd=n=>fmt(n)+" "+pl(n,t("d1"),t("d2"),t("d5"));
+function table(){const n=+$("apts").value,d=n*RATE;
+  $("ptable").querySelector("tbody").innerHTML=PACKS.map(p=>`<tr${p===200?' class="mark"':""}><td><b>${cr(p)}</b> · ${fmt(p)} ${t("lei")}</td><td>${dd(Math.floor(p/d))}</td></tr>`).join("")}
+function calc(){const n=+$("apts").value,d=n*RATE;$("apts-n").textContent=n>=100?"100+":n;$("apts-p").textContent=cr(d);$("apts-m").textContent="≈ "+fmt(d*30)+" "+t("lei")}
 $("apts").addEventListener("input",()=>{calc();table()});
 
 /* company address */

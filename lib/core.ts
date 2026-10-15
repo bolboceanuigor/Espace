@@ -1,4 +1,4 @@
-// espace.md — shared helpers: D1 access, hashing, sessions, roles, subscription tiers.
+// espace.md — shared helpers: D1 access, hashing, sessions, roles, prepaid credits.
 
 export interface Env {
   DB: D1Database;
@@ -115,13 +115,15 @@ export function roleAllows(role: string, fn: string) {
   return role === "checker" && CHECKER_FNS.includes(fn);
 }
 
-// ---------- subscription ----------
-// monthly price in lei by number of apartments (the RealtyCalendar-style steps); 71+ = individual
-export const TIERS: [number, number, number][] = [[1, 4, 199], [5, 7, 299], [8, 11, 399], [12, 15, 499], [16, 20, 599], [21, 30, 799], [31, 70, 1199]];
+// ---------- subscription: prepaid credits ----------
+// 1 credit = 1 leu. Every day each unit (apartment, house, hotel room) costs RATE credits — 1 by default,
+// set for everyone in the admin panel (Settings → apt_rate) or per company (orgs.apt_rate). No tiers, no unit limit.
+export const RATE_DEFAULT = 1;
+export const TOPUPS = [100, 200, 500, 1000];
 export const TRIAL_DAYS = 14;
-export function tierFor(n: number) {
-  const t = TIERS.find(([, hi]) => n <= hi);
-  return t ? { from: t[0], to: t[1], price: t[2] } : { from: 71, to: null, price: null };
+export async function globalRate(db: D1Database) {
+  const r = await one(db, "SELECT v FROM sys_state WHERE k = 'seller'").catch(() => null);
+  try { const v = r ? Number(JSON.parse(r.v).apt_rate) : NaN; return v > 0 ? v : RATE_DEFAULT; } catch { return RATE_DEFAULT; }
 }
 export const today = () => nowIso().slice(0, 10);
 export const addDays = (d: string, n: number) => new Date(Date.parse(d + "T00:00:00Z") + n * 86400000).toISOString().slice(0, 10);
@@ -133,10 +135,10 @@ export function addMonths(d: string, n: number) {
   return t.toISOString().slice(0, 10);
 }
 // ---------- prepaid balance ----------
-// The company tops up its balance (orgs.balance, lei); every day the day's share of the monthly tier price is taken:
-// daily = monthly × 12 / 365, e.g. 199 lei/month → 6,54 lei/day. No balance for today → read-only until the next top-up.
+// The company tops up credits (orgs.balance; 1 credit = 1 leu); every day units × rate credits are taken.
+// No credits for today → read-only until the next top-up.
 // Free days: up to trial_ends, and up to paid_until (time paid before the balance system). Days charged: up to charged_through.
-export const dailyRate = (monthly: number) => Math.round((monthly * 12 / 365) * 100) / 100;
+const round2 = (n: number) => Math.round(n * 100) / 100;
 const maxStr = (...a: string[]) => a.map((x) => x || "").sort().pop() || "";
 export const freeUntil = (org: any) => maxStr(org.trial_ends, org.paid_until);
 export const coveredUntil = (org: any) => maxStr(freeUntil(org), org.charged_through);
@@ -147,17 +149,20 @@ export async function aptCount(db: D1Database, orgId: string) {
   try { return c ? (JSON.parse(c.data).apts || []).length : 0; } catch { return 0; }
 }
 export async function priceOf(db: D1Database, org: any) {
-  const apts = await aptCount(db, org.id), tier = tierFor(apts);
-  const custom = Number(org.custom_price) > 0 ? Number(org.custom_price) : 0;
-  const price = custom || tier.price;
-  return { apts, tier, custom: !!custom, price, daily: price == null ? null : dailyRate(price) };
+  const apts = await aptCount(db, org.id), own = Number(org.apt_rate) > 0 ? Number(org.apt_rate) : 0;
+  const rate = own || await globalRate(db), daily = round2(apts * rate);
+  // price = about a month, for the panels and invoices; the charge itself is always the daily amount
+  return { apts, rate, custom: !!own, daily, price: round2(daily * 30) };
 }
 // takes today's fee (and any day the cron missed while the balance was enough); returns the org row as it is now
 export async function chargeOrg(db: D1Database, org: any): Promise<any> {
   const t = today();
   if (!org || org.status === "blocked" || coveredUntil(org) >= t) return org;
   const p = await priceOf(db, org);
-  if (p.daily == null) return org; // 71+ without an individual price yet: nothing to take
+  if (!(p.daily > 0)) { // no units: nothing to pay, stays open
+    await run(db, "UPDATE orgs SET charged_through = ? WHERE id = ? AND charged_through < ?", t, org.id, t);
+    return (await one(db, "SELECT * FROM orgs WHERE id = ?", org.id)) || org;
+  }
   let d = maxStr(addDays(coveredUntil(org) || addDays(t, -1), 1), org.bill_from);
   if (d < addDays(t, -31)) d = addDays(t, -31);
   for (let i = 0; d <= t && i < 32; i++, d = addDays(d, 1)) {
@@ -187,7 +192,7 @@ export async function billingOf(db: D1Database, org: any) {
   const daysPaid = p.daily ? Math.floor(balance / p.daily + 1e-9) : 0;
   const until = expired ? covered : (p.daily ? addDays(covered, daysPaid) : "");
   return {
-    apts: p.apts, tier: p.tier, price: p.price, custom: p.custom, daily: p.daily, balance, status: org.status,
+    apts: p.apts, rate: p.rate, price: p.price, custom: p.custom, daily: p.daily, balance, status: org.status, topups: TOPUPS,
     trial_ends: org.trial_ends, in_trial: (org.trial_ends || "") >= t, expired, active_until: until, covered_until: covered,
     days_left: until ? Math.round((Date.parse(until + "T00:00:00Z") - Date.parse(t + "T00:00:00Z")) / 86400000) : 9999,
   };

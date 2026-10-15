@@ -237,6 +237,11 @@ button,.btn,.chip,nav.tabs,.mtile,.bar,.sh-name,.sh-day{-webkit-user-select:none
   :root[data-skin="host"] .sheet .panel{max-width:480px;width:480px;height:100vh;max-height:none;border-radius:0;border-left:1px solid var(--line);box-shadow:0 16px 60px rgba(17,20,45,.16);animation:drawer .22s ease-out}
   @keyframes drawer{from{transform:translateX(40px);opacity:.6}to{transform:none;opacity:1}}
 }
+/* credits */
+.bcred{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0 4px}.bcred>div{border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:2px;background:var(--surface)}.bcred b{font-size:24px;font-weight:600;letter-spacing:-.01em;font-variant-numeric:tabular-nums}.bcred small{color:var(--muted);font-size:12px}
+.bpacks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:10px 0}.bpack{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:12px;padding:12px 8px;display:flex;flex-direction:column;align-items:center;gap:2px}.bpack b{font-size:20px}.bpack span,.bpack small{font-size:12px;color:var(--muted)}.bpack.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);background:var(--accent-soft)}
+.billbtns{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.billbtns .btn{flex:1;min-width:180px;height:46px}
+@media (max-width:520px){.bpacks{grid-template-columns:repeat(2,minmax(0,1fr))}.bcred b{font-size:20px}}
 /* bank-card hero (wow) */
 :root[data-skin="wow"] .bal{position:relative;overflow:hidden;margin-top:12px;padding:18px 18px 16px;border-radius:28px;background:linear-gradient(135deg,var(--a1) 0%,var(--a2) 52%,var(--a3) 100%);color:var(--hink,#17140a);box-shadow:0 20px 40px rgba(239,129,89,.22)}
 :root[data-skin="wow"] .bal::before{content:"";position:absolute;width:220px;height:220px;border-radius:50%;right:-70px;top:-90px;background:rgba(255,255,255,.18)}
@@ -1390,7 +1395,7 @@ const catIcon=c=>CAT_ICON[c]||"📌";
 const catCol=c=>CAT_COL[Math.max(0,cfg.categories.indexOf(c))%CAT_COL.length];
 const telDigits=p=>(p||"").replace(/[^\d+]/g,"");
 
-const RO_OK=["kv_load","kv_photos","kv_guides","kv_task_photo","kv_push_key","kv_push_sub","billing","bill_invoice","auth_me","auth_logout","auth_switch","auth_password","auth_new_org"];
+const RO_OK=["kv_load","kv_photos","kv_guides","kv_task_photo","kv_push_key","kv_push_sub","billing","bill_invoice","bill_pay","bill_pay_status","auth_me","auth_logout","auth_switch","auth_password","auth_new_org"];
 const CHECK_OK=["kv_verify","kv_month_close","kv_month_open"];
 let ME=null, ROLE="", EXPIRED=false;
 const SLUG=(()=>{const h=location.hostname;if(h.endsWith(".espace.md"))return h.slice(0,-".espace.md".length);let c="";try{c=new URLSearchParams(location.search).get("c")||sessionStorage.getItem("es_c")||""}catch(e){}c=c.toLowerCase().replace(/[^a-z0-9-]/g,"");try{if(c)sessionStorage.setItem("es_c",c)}catch(e){}return c})();
@@ -2168,7 +2173,6 @@ document.addEventListener("click",e=>{const t=e.target.closest("[data-uedit],[da
   if(t.id==="uh-add"){const hotel=$("uh-name").value.trim().slice(0,60),n=Math.max(1,Math.min(200,parseInt($("uh-n").value,10)||0)),type=$("uh-type").value;
     if(!hotel){toast("Enter the hotel name");return}
     const names=roomNames(hotel,$("uh-start").value,n,cfg.apts);
-    if(cfg.apts.length+names.length>70&&!(ME&&ME.billing&&ME.billing.custom)){toast("More than 70 — the plan is individual, write to us");return}
     const [,beds,guests]=ROOMT[type],units={...(cfg.units||{})};
     names.forEach(nm=>units[nm]={kind:type==="bed"?"bed":"room",group:hotel,rtype:type,beds:{...beds},guests});
     uHotel=false;saveCfg({...cfg,apts:[...cfg.apts,...names],units},"Rooms created: "+names.length);return}});
@@ -2209,7 +2213,7 @@ let W=null;
 const wizNeeded=()=>ROLE==="owner"&&!RO&&!(ME&&ME.support)&&!cfg.onboarded&&cfg.apts.length===1&&cfg.apts[0]===DEF_APT&&!bookings.length;
 function wizStart(){W={step:0,kinds:[],units:[{name:"",kind:"apt",bedrooms:"1",dbl:1,sgl:0,sofa:0,guests:"",area:""}],hotel:{name:"",start:"101",rooms:[{t:"double",n:"5"}]},
   mgr:[],cl:[],tiers:null,busy:false};
-  api("billing").then(b=>{if(W){W.tiers=b.tiers;if(W.step===3)wizRender()}}).catch(()=>{});wizRender()}
+  api("billing").then(b=>{if(W){W.rate=b.rate||1;if(W.step===3)wizRender()}}).catch(()=>{});wizRender()}
 const WK=[["apt","Apartments","short-term rental of apartments and studios"],["house","Houses and villas","entire homes, with or without a yard"],["hotel","Hotel or guesthouse","rooms of different types"],["hostel","Hostel","beds in shared rooms"]];
 // what stays when the wizard adds units: everything except the untouched starter apartment
 const wizBase=()=>cfg.apts.filter(a=>!(a===DEF_APT&&!bookings.some(b=>b.apt===a)&&!Object.keys(unitOf(a)).length));
@@ -2221,7 +2225,7 @@ function wizUnits(){ // what the wizard will create (new names never clash with 
     W.hotel.rooms.forEach(r=>{const n=Math.max(0,Math.min(200,parseInt(r.n,10)||0));const names=roomNames(h,start,n,[...base,...apts]);start+=n;const [,beds,g]=ROOMT[r.t];
       names.forEach(nm=>{apts.push(nm);units[nm]={kind:r.t==="bed"?"bed":"room",group:h,rtype:r.t,beds:{...beds},guests:+r.g||g}})})}
   return {apts,units}}
-function wizPrice(n){if(!W.tiers)return "";const t=W.tiers.find(([lo,hi])=>n<=hi);return t?t[2]+" lei/month":"individual"}
+function wizPrice(n){const r=W.rate||1;return fmt(Math.round(n*r*100)/100)+" "+plural(Math.round(n*r),"credit","credits","credits")+" per day"}
 function wizRender(){let el=$("wiz");if(!W){if(el)el.remove();document.body.classList.remove("wizon");return}
   if(!el){el=document.createElement("div");el.id="wiz";el.className="wiz";el.setAttribute("role","dialog");el.setAttribute("aria-modal","true");document.body.appendChild(el);document.body.classList.add("wizon")}
   const S=["Type","Units","Team","Done"],st=W.step;
@@ -2250,7 +2254,7 @@ function wizRender(){let el=$("wiz");if(!W){if(el)el.remove();document.body.clas
     body=`<h2>All set to launch</h2>
       <div class="wsum"><div><b>${apts.length}</b><span>${plural(apts.length,"unit","units","units")}</span></div><div><b>${mg.length}</b><span>${plural(mg.length,"manager","managers","managers")}</span></div><div><b>${cl.length}</b><span>${plural(cl.length,"cleaner","cleaners","cleaners")}</span></div></div>
       <p class="small">${esc(apts.slice(0,12).join(", "))}${apts.length>12?" …":""}</p>
-      ${total>70?`<p class="msg bad">More than 70 units — the plan is individual. Write to us and we’ll set everything up.</p>`:`<p>${wizBase().length?`Total units after adding: <b>${total}</b>. `:""}Plan: <b>${wizPrice(total)||"…"}</b>${ME&&ME.billing&&ME.billing.in_trial?" — after the trial":""}. Prepaid, charged by the day.</p>`}
+      <p>${wizBase().length?`Total units after adding: <b>${total}</b>. `:""}Cost: <b>${wizPrice(total)}</b>${ME&&ME.billing&&ME.billing.in_trial?" — after the trial":""}. 1 credit = 1 leu, 1 credit per unit per day; you top up in advance.</p>
       ${mg.length?`<p class="small">Managers get an email with a link — they set their own password.</p>`:""}
       ${cl.length?`<p class="small">Cleaners sign in at ${esc(ME.org.code)}.espace.md → «I’m a cleaner» with their PIN.</p>`:""}`}
   el.innerHTML=`<div class="wizc"><div class="wizh"><span class="wlogo">e.</span><div class="wsteps">${S.map((s,i)=>`<span class="${i<st?"done":i===st?"cur":""}">${s}</span>`).join("")}</div><button type="button" class="linkbtn" data-wiz="skip">Skip</button></div>
@@ -2286,7 +2290,7 @@ document.addEventListener("click",async e=>{if(!W)return;const t=e.target.closes
     if(W.step===2){if(W.mgr.some(m=>m.email.trim()&&!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(m.email.trim()))){toast("Check email managers");return}
       if(W.cl.some(m=>m.name.trim()&&String(m.pin).trim().length<4)){toast("PIN for the cleaner — at least 4 digits");return}}
     W.step++;wizRender();return}
-  if(d.wiz==="done"){const {apts:fresh,units}=wizUnits(),apts=[...wizBase(),...fresh];if(apts.length>70&&!(ME&&ME.billing&&ME.billing.custom)){toast("More than 70 — write to us");return}
+  if(d.wiz==="done"){const {apts:fresh,units}=wizUnits(),apts=[...wizBase(),...fresh];
     W.busy=true;wizRender();const errs=[];
     try{await api("kv_set_config",{p_data:{...cfg,apts,units:{...(cfg.units||{}),...units},onboarded:true}})}catch(x){W.busy=false;wizRender();toast("Not saved — check the internet");return}
     const fixIds=[];
@@ -4053,7 +4057,7 @@ setInterval(()=>{const a=document.activeElement;if(CPIN&&document.visibilityStat
 /* ---------- espace.md: accounts, companies, subscription ---------- */
 const ROLE_T={owner:"Owner",manager:"Manager",checker:"Payment check",viewer:"View-only",prop:"Apartment owner"};
 function orgName(){return ME&&ME.org?ME.org.name:"espace.md"}
-function billLine(){const b=ME&&ME.billing;if(!b)return "";if(b.expired)return "balance ran out — view-only";return b.in_trial&&!(b.balance>0)?"trial until "+fd(b.trial_ends):"balance "+fmt(b.balance)+" lei · until "+fd(b.active_until)}
+function billLine(){const b=ME&&ME.billing;if(!b)return "";if(b.expired)return "credits ran out — view only";return b.in_trial&&!(b.balance>0)?"trial until "+fd(b.trial_ends):fmt(b.balance)+" "+plural(Math.floor(b.balance),"credit","credits","credits")+" · until "+fd(b.active_until)}
 function fd(d){return d?d.slice(8,10)+"."+d.slice(5,7)+"."+d.slice(0,4):""}
 function annBar(){let el=$("annbar");const a=ME&&ME.announcement;let seen="";try{seen=localStorage.getItem("kv_ann_seen")||""}catch(e){}
   const sup=ME&&ME.support;
@@ -4068,28 +4072,38 @@ function subBar(){annBar();let el=$("subbar");const b=ME&&ME.billing;
   if(!el){el=document.createElement("div");el.id="subbar";el.className="subbar";$("app").prepend(el)}
   const exp=EXPIRED||b.expired;el.classList.toggle("bad",exp);
   const more=`<button class="btn sm" data-setopen="bill">Top up</button>`;
-  el.innerHTML=exp?`Your balance has run out — data is visible, but changes are disabled. ${more}`:b.in_trial&&!(b.balance>0)?`Trial until ${fd(b.trial_ends)}. Top up your balance to keep working. ${more}`:`Balance lasts until ${fd(b.active_until)} (days: ${Math.max(0,b.days_left)}). ${more}`}
+  el.innerHTML=exp?`Credits have run out — your data is visible, but changes are disabled. ${more}`:b.in_trial&&!(b.balance>0)?`Trial until ${fd(b.trial_ends)}. Top up credits to keep working. ${more}`:`Credits last until ${fd(b.active_until)} (days: ${Math.max(0,b.days_left)}). ${more}`}
 function setMe(me){ME=me;ROLE=me.role||"";EXPIRED=!!(me.billing&&me.billing.expired);
   RO=ROLE==="viewer"||ROLE==="checker"||EXPIRED;document.body.classList.toggle("ro",RO);
   $("org-name").textContent=orgName();document.title=orgName()+" · espace.md";subBar()}
 async function billLoad(){const box=$("bill-box");if(!box)return;try{const b=await api("billing");
-  const rows=b.tiers.map(([lo,hi,pr])=>`<tr${b.apts>=lo&&b.apts<=hi||(b.apts<lo&&lo===1)?' class="cur"':""}><td>${lo}–${hi}</td><td style="text-align:right"><b>${pr}</b> lei</td><td style="text-align:right">${fmt(Math.round(pr*12/365*100)/100)} lei</td></tr>`).join("");
-  const canPay=(ROLE==="owner"||ROLE==="manager")&&!(ME&&ME.support), m=b.price||0;
-  const quick=m?[1,3,6,12].map(n=>`<button type="button" class="btn sm" data-billq="${m*n}">${n} ${n===1?"month":"mo."} · ${m*n} lei</button>`).join(""):"";
+  const canPay=(ROLE==="owner"||ROLE==="manager")&&!(ME&&ME.support),cr=n=>fmt(n)+" "+plural(Math.floor(n),"credit","credits","credits");
+  const days=n=>b.daily?Math.floor(n/b.daily):0;
   const MN=["january","february","march","april","may","june","july","august","september","october","november","december"];
-  box.innerHTML=`<div class="billtop"><b>${b.expired?"Your balance has run out":b.in_trial?"Trial until "+fd(b.trial_ends):"Subscription active"}</b><span class="small">${b.expired?"data is view-only":b.daily?"lasts until "+fd(b.active_until)+" · days: "+Math.max(0,b.days_left):""}</span></div>
-    <div class="billbal"><span class="small">Balance</span><b>${fmt(b.balance)} lei</b></div>
-    <p style="margin:6px 0 4px">Apartments now: <b>${b.apts}</b> → plan <b>${b.price!=null?b.price+" lei/month":"individual"}</b>${b.daily?`, is taken <b>${fmt(b.daily)} lei per day</b>`:""}</p>
-    <p class="small" style="margin:0 0 10px">Prepaid: you top up your balance, and each day the day’s share of today’s plan is taken. When the money runs out, the app switches to view-only — no data is lost.${b.in_trial?" Trial days are free.":""}</p>
-    ${canPay?`<div class="billpay"><label class="l" for="bill-amt">Top up by, lei</label><div class="billq">${quick}</div><div class="billrow"><input id="bill-amt" inputmode="decimal" value="${m*3||""}" placeholder="amount"><button class="btn primary" id="bill-go" type="button">Get the invoice</button></div><p class="small" style="margin:6px 0 0">The invoice goes to email, pay by bank transfer. The money appears on your balance as soon as it arrives.</p></div>`:""}
-    <table class="billt"><thead><tr><th style="text-align:left">Apartments</th><th style="text-align:right">Per month</th><th style="text-align:right">Per day</th></tr></thead><tbody>${rows}<tr><td>71+</td><td style="text-align:right">individual</td><td></td></tr></tbody></table>
-    ${b.invoices&&b.invoices.length?`<b>Invoices</b>${b.invoices.map(x=>`<div class="small"><a href="/f/${esc(x.token)}" target="_blank" rel="noopener">№ ${esc(x.number)}</a> · ${fd(x.issued_at)} · ${fmt(x.amount)} lei · ${x.status==="paid"?"paid":"due by "+fd(x.due_at)}</div>`).join("")}<br>`:""}
-    ${b.payments&&b.payments.length?`<b>Top-ups</b>${b.payments.map(x=>`<div class="small">${fd(x.created_at.slice(0,10))} · +${fmt(x.amount)} lei${x.balance_after!=null?" → balance "+fmt(x.balance_after)+" lei":x.paid_until?" → until "+fd(x.paid_until):""}</div>`).join("")}<br>`:""}
-    ${b.charges&&b.charges.length?`<b>Charges</b>${b.charges.map(x=>`<div class="small">${MN[+x.month.slice(5,7)-1]} ${x.month.slice(0,4)} · days: ${x.days} · −${fmt(x.amount)} lei</div>`).join("")}`:""}`;
-  box.querySelectorAll("[data-billq]").forEach(q=>q.onclick=()=>{$("bill-amt").value=q.dataset.billq});
-  const go=$("bill-go");if(go)go.onclick=async()=>{const v=+String($("bill-amt").value).replace(",",".").replace(/\s/g,"");if(!(v>=50)){toast("Minimum 50 lei");return}
-    go.disabled=true;try{const r=await api("bill_invoice",{amount:v});toast("Done: № "+r.number+" — sent to email");window.open("/f/"+r.token,"_blank");billLoad()}catch(e){toast(e.code==="too_many_open"?"There are already 5 unpaid invoices":"Didn’t work")}finally{go.disabled=false}}
+  const packs=(b.topups||[100,200,500,1000]).map((n,i)=>`<button type="button" class="bpack${i===1?" on":""}" data-billq="${n}"><b>${fmt(n)}</b><span>credits</span><small>${b.daily?"≈ "+days(n)+" "+plural(days(n),"day","days","days"):""}</small></button>`).join("");
+  box.innerHTML=`<div class="billtop"><b>${b.expired?"Credits have run out":b.in_trial?"Trial until "+fd(b.trial_ends):"Subscription active"}</b><span class="small">${b.expired?"data is visible, changes return after a top-up":b.active_until?"lasts until "+fd(b.active_until):""}</span></div>
+    <div class="bcred"><div><span class="small">Credits</span><b>${fmt(b.balance)}</b></div><div><span class="small">Used per day</span><b>${fmt(b.daily||0)}</b><small>${b.apts} ${plural(b.apts,"unit","units","units")} × ${fmt(b.rate||1)}</small></div><div><span class="small">${b.in_trial&&!(b.balance>0)?"Trial still lasts":"Lasts for"}</span><b>${b.daily?Math.max(0,b.days_left):"∞"}</b><small>${plural(Math.max(0,b.days_left),"day","days","days")}</small></div></div>
+    <p class="small" style="margin:8px 0 12px">1 credit = 1 leu. Every day we deduct ${fmt(b.rate||1)} ${plural(Math.round(b.rate||1),"credit","credits","credits")} for each unit (apartment, house, room). When credits run out, the app switches to view-only until you top up — no data is lost.</p>
+    ${canPay?`<div class="billpay"><b>Top up</b><div class="bpacks">${packs}</div><div class="billrow"><input id="bill-amt" inputmode="numeric" value="${(b.topups||[100,200])[1]||200}" aria-label="How many credits"><span class="small" style="align-self:center">credits = lei</span></div>
+      <div class="billbtns">${b.maib?`<button class="btn primary" id="bill-card">Pay by card${b.maib_sandbox?" (test)":""}</button>`:""}<button class="btn${b.maib?"":" primary"}" id="bill-go">Invoice (bank transfer)</button></div>
+      <p class="small" style="margin:8px 0 0">${b.maib?"By card Visa / Mastercard, Apple Pay, Google Pay or MIA — via maib. Credits are added right after payment.":"The invoice goes to email; credits are added as soon as the payment arrives."}</p></div>`:""}
+    ${b.invoices&&b.invoices.length?`<b>Invoices</b>${b.invoices.map(x=>`<div class="small"><a href="/f/${esc(x.token)}" target="_blank" rel="noopener">№ ${esc(x.number)}</a> · ${fd(x.issued_at)} · ${fmt(x.amount)} lei · ${x.status==="paid"?"paid":"awaiting payment"}</div>`).join("")}`:""}
+    ${b.payments&&b.payments.length?`<b>Top-ups</b>${b.payments.map(x=>`<div class="small">${fd(x.created_at.slice(0,10))} · +${cr(x.amount)}${x.balance_after!=null?" → "+cr(x.balance_after):""}${x.note?" · "+esc(x.note):""}</div>`).join("")}`:""}
+    ${b.charges&&b.charges.length?`<b>Charges</b>${b.charges.map(x=>`<div class="small">${MN[+x.month.slice(5,7)-1]} ${x.month.slice(0,4)} · days: ${x.days} · −${cr(x.amount)}</div>`).join("")}`:""}`;
+  box.querySelectorAll("[data-billq]").forEach(q=>q.onclick=()=>{$("bill-amt").value=q.dataset.billq;box.querySelectorAll(".bpack").forEach(x=>x.classList.toggle("on",x===q))});
+  const amt=()=>Math.round(+String(($("bill-amt")||{}).value||"").replace(",",".").replace(/\s/g,""));
+  const go=$("bill-go");if(go)go.onclick=async()=>{const v=amt();if(!(v>=50)){toast("Minimum 50 credits");return}
+    go.disabled=true;try{const r=await api("bill_invoice",{amount:v});toast("Done: № "+r.number+" — sent to email");window.open("/f/"+r.token,"_blank");billLoad()}catch(e){toast(e.code==="too_many_open"?"There are already 5 unpaid invoices":"Didn’t work")}finally{go.disabled=false}};
+  const card=$("bill-card");if(card)card.onclick=async()=>{const v=amt();if(!(v>=50)){toast("Minimum 50 credits");return}if(v>50000){toast("Maximum 50,000 at a time");return}
+    card.disabled=true;try{const r=await api("bill_pay",{amount:v,lang:document.documentElement.lang||"ro"});try{sessionStorage.setItem("es_pay",r.id)}catch(x){}location.href=r.url}catch(e){card.disabled=false;toast(e.code==="maib_off"?"Card payment is not enabled yet":e.code==="too_many"?"Too many attempts — try again later":"maib did not respond — try again or choose an invoice")}};
   }catch(e){box.innerHTML='<span class="small">Didn’t load</span>'}}
+// back from maib's payment page: #plata=ok&o=<id> — wait for the bank's confirmation and show the new credits
+async function payReturn(){const h=location.hash;if(!/[#&]plata=/.test(h))return;const q=new URLSearchParams(h.slice(1)),id=q.get("o")||"",ok=q.get("plata")==="ok";
+  history.replaceState(null,"",location.pathname+location.search);
+  if(!ok){toast("The payment did not go through — no money was taken. You can try again.");return}
+  toast("Checking the payment…");
+  for(let i=0;i<15;i++){try{const r=await api("bill_pay_status",{id});if(r.status==="paid"){toast("Added: +"+fmt(r.amount)+" credits. Balance: "+fmt(r.balance));try{setMe(await api("auth_me"))}catch(x){}if(!$("bill-box"))return;billLoad();return}if(r.status==="failed"){toast("The bank declined the payment — no money was taken.");return}}catch(e){}await new Promise(r=>setTimeout(r,2000))}
+  toast("The bank accepted the payment — credits will appear within a minute.")}
 async function teamLoad(){const el=$("team-list");if(!el)return;try{const list=await api("team_list");
   el.innerHTML=list.map(u=>`<div class="tmrow"><span class="m"><b>${esc(u.name||u.email)}</b><small>${esc(u.email)}</small></span>${u.role==="prop"?`<span class="small">${ROLE_T.prop}</span><button class="btn sm danger" data-tmdel="${esc(u.id)}">Remove</button>`:u.role==="owner"||u.id===(ME&&ME.user.id)?`<span class="small">${ROLE_T[u.role]}</span>`:`<select data-tmrole="${esc(u.id)}" aria-label="Role">${["manager","checker","viewer","owner"].map(r=>`<option value="${r}"${u.role===r?" selected":""}>${ROLE_T[r]}</option>`).join("")}</select><button class="btn sm danger" data-tmdel="${esc(u.id)}">Remove</button>`}</div>`).join("")}catch(e){el.textContent="Didn’t load"}}
 async function logout(){try{await api("auth_logout")}catch(e){}ls.set("tok","");PIN=null;ME=null;RO=false;document.body.classList.remove("ro");closeSheet();lock("")}
@@ -4141,7 +4155,7 @@ async function boot(){
   let cls=null;try{cls=JSON.parse(ls.get("cl")||"null")}catch(e){}
   if(cls&&cls.code===SLUG&&cls.pin){try{CORG=cls.code;CPIN=cls.pin;const me=await clApi("cl_login");await startCleaner(cls.code,cls.pin,me);return}catch(e){CPIN=null;CORG="";if(e.code==="bad_pin")ls.set("cl","");GMODE="maid";lock(e.code==="bad_pin"?"PIN was changed — enter the new one":"");return}}
   const tok=ls.get("tok");
-  if(tok){PIN=tok;try{const me=await api("auth_me");await enterApp(tok,me);return}catch(e){if(e.code==="bad_pin"){ls.set("tok","");lock("")}else lock(navigator.onLine?"The server isn’t responding — try again in a minute":"No internet");return}}
+  if(tok){PIN=tok;try{const me=await api("auth_me");await enterApp(tok,me);payReturn();return}catch(e){if(e.code==="bad_pin"){ls.set("tok","");lock("")}else lock(navigator.onLine?"The server isn’t responding — try again in a minute":"No internet");return}}
   lock("")}
 setInterval(()=>{const a=document.activeElement;if(PIN&&document.visibilityState==="visible"&&!(a&&a.matches&&a.matches("input,textarea,select")))reload().catch(e=>{if(e.code==="bad_pin")lock("Session ended — sign in again")})},60000);
 document.addEventListener("visibilitychange",()=>{if(PIN&&document.visibilityState==="visible")reload().catch(()=>{})});

@@ -429,3 +429,19 @@ CREATE TABLE IF NOT EXISTS contracts (
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 CREATE UNIQUE INDEX IF NOT EXISTS contracts_booking ON contracts(org_id, booking_id);
+
+-- card / MIA top-ups through maib Checkout: one row per payment attempt (id = the order id sent to maib)
+CREATE TABLE IF NOT EXISTS maib_payments (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL,
+  amount REAL NOT NULL,
+  status TEXT NOT NULL DEFAULT 'new',     -- new | paid | failed
+  checkout_id TEXT NOT NULL DEFAULT '',
+  payment_id TEXT NOT NULL DEFAULT '',
+  method TEXT NOT NULL DEFAULT '',
+  card TEXT NOT NULL DEFAULT '',
+  user_id TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  paid_at TEXT
+);
+CREATE INDEX IF NOT EXISTS maib_payments_org_idx ON maib_payments(org_id, created_at);

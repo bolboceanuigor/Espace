@@ -1,7 +1,7 @@
 // espace.md — the platform owner's panel (admin.espace.md): metrics, companies, invoices, leads, activity, announcements, settings.
 import {
   type Ctx, json, uuid, num, str, isDate, isEmail, all, one, run, randCode, newSession,
-  TIERS, today, addDays, addMonths, activeUntil, tierFor, dailyRate, coveredUntil, topUp, billingOf, sha256hex, hashPassword, starterConfig, randHex, failClear,
+  today, addDays, addMonths, activeUntil, coveredUntil, globalRate, RATE_DEFAULT, topUp, billingOf, sha256hex, hashPassword, starterConfig, randHex, failClear,
 } from "./core";
 import { slugOk } from "./host";
 import { sendMail, mails, orgEmail, orgUrl } from "./mail";
@@ -14,6 +14,7 @@ export async function logEvent(db: D1Database, kind: string, orgId: string, acto
 export const SELLER_DEFAULT = {
   name: "", idno: "", vat_code: "", address: "", bank: "", iban: "", bic: "", email: "", phone: "",
   vat: false, vat_rate: 20, prefix: "ESP", due_days: 5, footer: "",
+  apt_rate: 1, // credits (lei) per unit per day, for every company without its own rate
 };
 export async function getSettings(db: D1Database) {
   const r = await one(db, "SELECT v FROM sys_state WHERE k = 'seller'");
@@ -57,9 +58,10 @@ async function orgRows(db: D1Database) {
   for (const rows of [lastB, lastE, lastH, lastT]) for (const r of rows) if (r.t && (!last[r.org_id] || r.t > last[r.org_id])) last[r.org_id] = r.t;
   const pay: Record<string, any> = Object.fromEntries(pays.map((p) => [p.org_id, p]));
   const t = today();
+  const gRate = await globalRate(db);
   return orgs.map((o) => {
-    const n = apts[o.id] || 0, tier = tierFor(n), custom = Number(o.custom_price) > 0 ? Number(o.custom_price) : 0;
-    const price = custom || tier.price, daily = price == null ? null : dailyRate(price), balance = Math.round((Number(o.balance) || 0) * 100) / 100;
+    const n = apts[o.id] || 0, own = Number(o.apt_rate) > 0 ? Number(o.apt_rate) : 0, rate = own || gRate;
+    const daily = Math.round(n * rate * 100) / 100, price = Math.round(daily * 30 * 100) / 100, balance = Math.round((Number(o.balance) || 0) * 100) / 100;
     const covered = coveredUntil(o), funded = covered >= t && o.status !== "blocked";
     // how far the balance reaches after the days already covered (trial, old paid time, days taken)
     const until = funded && daily ? addDays(covered, Math.floor(balance / daily + 1e-9)) : covered;
@@ -68,7 +70,7 @@ async function orgRows(db: D1Database) {
     return {
       id: o.id, name: o.name, code: o.code, status: o.status, state, note: o.note, created_at: o.created_at,
       trial_ends: o.trial_ends, paid_until: o.paid_until, active_until: until, days_left: daysBetween(t, until || t),
-      apts: n, price, daily, balance, custom_price: custom, tier_price: tier.price, charged_through: o.charged_through || "",
+      apts: n, price, daily, balance, rate, apt_rate: own, charged_through: o.charged_through || "",
       members: mem[o.id] || 0, staff: st[o.id] || 0, bookings_30d: bb[o.id] || 0,
       last_activity: last[o.id] || "", last_login: lg[o.id] || "",
       owner_name: own[o.id]?.name || "", owner_email: own[o.id]?.email || "",
@@ -127,7 +129,7 @@ async function overview(db: D1Database) {
       this_month: thisMonth, last_month: lastMonth,
     },
     series: { months, mrr: mrrSeries, revenue, weeks, signups },
-    tiers: TIERS.map(([lo, hi, p]) => ({ lo, hi, price: p, orgs: paying.filter((o) => o.apts >= lo && o.apts <= hi && !o.custom_price).length })),
+    rate: await globalRate(db),
     attention, events: await all(db, "SELECT e.*, o.name AS org_name FROM events e LEFT JOIN orgs o ON o.id = e.org_id ORDER BY e.id DESC LIMIT 25"),
   };
 }
@@ -167,7 +169,7 @@ export async function handleAdmin(fn: string, body: any, c: Ctx, db: D1Database,
   const actor = c.user.email;
   switch (fn) {
     case "sa_overview": return json(await overview(db));
-    case "sa_orgs": return json({ orgs: await orgRows(db), tiers: TIERS });
+    case "sa_orgs": return json({ orgs: await orgRows(db), rate: await globalRate(db) });
     case "sa_leads": return json(await all(db, "SELECT l.*, o.name AS org_name, o.code AS org_code FROM leads l LEFT JOIN orgs o ON o.id = l.org_id ORDER BY l.created_at DESC LIMIT 500"));
     case "sa_lead": {
       const l = await one(db, "SELECT * FROM leads WHERE id = ?", str(body.id, 40));
@@ -199,8 +201,9 @@ export async function handleAdmin(fn: string, body: any, c: Ctx, db: D1Database,
       const cur = await getSettings(db), v: any = { ...cur };
       for (const k of Object.keys(SELLER_DEFAULT)) if (body[k] !== undefined) {
         const d = (SELLER_DEFAULT as any)[k];
-        v[k] = typeof d === "boolean" ? body[k] === true : typeof d === "number" ? Math.max(0, Math.min(365, num(body[k]))) : str(body[k], 300);
+        v[k] = typeof d === "boolean" ? body[k] === true : typeof d === "number" ? Math.max(0, Math.min(k === "apt_rate" ? 1000 : 365, num(body[k]))) : str(body[k], 300);
       }
+      if (!(v.apt_rate > 0)) v.apt_rate = RATE_DEFAULT;
       v.prefix = String(v.prefix || "ESP").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8) || "ESP";
       await run(db, "INSERT INTO sys_state(k, v) VALUES ('seller', ?) ON CONFLICT (k) DO UPDATE SET v = excluded.v", JSON.stringify(v));
       return json(v);
@@ -314,11 +317,11 @@ export async function handleAdmin(fn: string, body: any, c: Ctx, db: D1Database,
       return json({ email, mailed });
     }
     case "sa_note": await run(db, "UPDATE orgs SET note = ? WHERE id = ?", str(body.note, 2000), O); return json(true);
-    case "sa_price": { // individual monthly price (0 = by the steps); needed for 71+ apartments
-      const p = num(body.price);
-      await run(db, "UPDATE orgs SET custom_price = ? WHERE id = ?", p, O);
-      await logEvent(db, "price", O, actor, p ? `Preț individual: ${p} lei/lună` : "Preț după trepte");
-      return json(p);
+    case "sa_price": { // the company's own rate: credits per unit per day (0 = the general rate)
+      const r = Math.max(0, Math.min(1000, Math.round(num(body.rate ?? body.price) * 100) / 100));
+      await run(db, "UPDATE orgs SET apt_rate = ? WHERE id = ?", r, O);
+      await logEvent(db, "price", O, actor, r ? `Tarif propriu: ${r} credite / unitate / zi` : "Tarif general");
+      return json(r);
     }
     case "sa_billing": { // the company's details for invoices
       const b: any = {}; for (const k of BILL_FIELDS) b[k] = str(body[k], 200);
