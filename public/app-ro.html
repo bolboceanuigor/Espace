@@ -14,7 +14,7 @@
 <title>espace.md</title>
 <script>(function(){var a="",k="host";try{k=localStorage.getItem("kv_skin_pick")==="wow"?"wow":"host";localStorage.setItem("kv_skin",k);a=localStorage.getItem("kv_accent")||""}catch(e){}var d=document.documentElement;d.setAttribute("data-skin",k);if(a)d.setAttribute("data-accent",a);document.querySelector('meta[name="theme-color"]').content=k==="host"?"#ffffff":"#14171d"})()</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&family=Cormorant+Garamond:wght@600;700&family=Onest:wght@400;500;600;700&family=Unbounded:wght@600;700;800&family=Montserrat:wght@600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&family=Cormorant+Garamond:wght@600;700&family=Onest:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Unbounded:wght@600;700;800&family=Montserrat:wght@600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap">
 <style>
 :root{--a1:var(--hl,#fed36a);--a2:#f8ae52;--a3:#ef8159;--a1-rgb:254,211,106;--a-soft:#3b3422}
 :root[data-accent="violet"]{--a1:#c4b0ff;--a2:#a98cf8;--a3:#e48bd6;--a1-rgb:196,176,255;--a-soft:#2e2843}
@@ -82,14 +82,15 @@ body.kb nav.tabs{display:none!important}
    one deep-indigo brand colour for action and selection, channel colours only on bookings, almost no shadows.
    Tokens first; components below only use tokens. */
 :root[data-skin="host"]{
-  --bg:#f6f7f9; --surface:#ffffff; --raised:#fafbfc; --ink:#1b1f3b; --fg:#1b1f3b; --muted:#6b7084; --line:#e6e8ee; --line2:#d6d9e1;
-  --accent:#2e3192; --accent-h:#25277a; --accent-ink:#ffffff; --accent-soft:#eceefb; --occ:#eceefb; --occ-ink:#2e3192;
-  --inc:#2e3192; --exp:#c2410c; --exp-soft:#fdeee5; --ok:#15803d; --ok-soft:#e6f4ea; --warn:#b45309; --warn-soft:#fdf2e3; --bad:#c62828; --bad-soft:#fdecec; --gold:#2e3192; --cream:#ffffff;
-  --ch-airbnb:#e0606a; --ch-booking:#2f62d4; --ch-direct:#2e3192; --ch-insta:#b24f8d; --ch-msg:#6f5fe0; --ch-repeat:#d9853b; --ch-closed:#4fa57c; --ch-req:#9b90dc; --ch-other:#5b6b8c;
-  --a1:#2e3192; --a2:#2e3192; --a3:#2e3192; --a1-rgb:46,49,146; --a-soft:#eceefb;
-  --hink:#ffffff; --hink-rgb:255,255,255; --hink2:#e3e5f7; --hl:#2e3192; --hl-rgb:46,49,146; --d0:#f6f7f9; --d1:#ffffff; --d2:#f0f1f5; --dtx:#1b1f3b; --dwe:#fafbfc;
-  --font:"Onest",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; --display:"Onest",system-ui,sans-serif;
-  --r:12px; --r-sm:8px; --side:232px; --sh:0 1px 2px rgba(17,20,45,.04); --sh-pop:0 12px 32px rgba(17,20,45,.14); --ring:0 0 0 3px rgba(46,49,146,.16); color-scheme:light}
+  --bg:#f6f8fc; --surface:#ffffff; --raised:#f4f7fc; --ink:#13243c; --fg:#13243c; --muted:#6b7a90; --line:#e1e8f1; --line2:#d3dce8;
+  --accent:#195cdd; --accent-h:#134bb8; --accent-ink:#ffffff; --accent-soft:#e8effe; --occ:#e8effe; --occ-ink:#195cdd;
+  --inc:#195cdd; --exp:#c2410c; --exp-soft:#fdeee5; --ok:#0f7a4a; --ok-soft:#e3f4ec; --warn:#b45309; --warn-soft:#fdf2e3; --bad:#c8304f; --bad-soft:#fdecef; --gold:#195cdd; --cream:#ffffff;
+  --ch-airbnb:#d94865; --ch-booking:#2563dc; --ch-direct:#087f8c; --ch-insta:#b8407c; --ch-msg:#6d5bd0; --ch-repeat:#c47a1f; --ch-closed:#8492a6; --ch-req:#7c6fd8; --ch-other:#5d6b80;
+  --a1:#195cdd; --a2:#195cdd; --a3:#195cdd; --a1-rgb:25,92,221; --a-soft:#e8effe;
+  --hink:#ffffff; --hink-rgb:255,255,255; --hink2:#e1e9fb; --hl:#195cdd; --hl-rgb:25,92,221; --d0:#f6f8fc; --d1:#ffffff; --d2:#f0f4fa; --dtx:#13243c; --dwe:#f4f7fc;
+  --today:#f0f5ff;
+  --font:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; --display:"Inter",system-ui,sans-serif;
+  --r:12px; --r-sm:8px; --side:232px; --sh:0 1px 2px rgba(19,36,60,.04); --sh-pop:0 12px 32px rgba(19,36,60,.14); --ring:0 0 0 3px rgba(25,92,221,.18); color-scheme:light}
 :root[data-skin="host"] body{-webkit-font-smoothing:antialiased;font-size:14.5px}
 /* type */
 :root[data-skin="host"] h1.day,:root[data-skin="host"] h2{font-family:var(--display);font-weight:600;letter-spacing:-.015em}
@@ -123,7 +124,7 @@ body.kb nav.tabs{display:none!important}
 :root[data-skin="host"] .plusbtn.on{background:var(--surface)!important;color:var(--accent);box-shadow:inset 0 0 0 1.5px var(--accent)}
 :root[data-skin="host"] .dpseg button[aria-pressed="true"],:root[data-skin="host"] .ms-seg button[aria-pressed="true"]{background:var(--accent)!important;color:#fff!important}
 :root[data-skin="host"] .fbar i,:root[data-skin="host"] .gt-bar i{background:var(--accent)!important}
-:root[data-skin="host"] .gshare{background:var(--accent-soft);color:var(--ink);--hink:#1b1f3b;--hink-rgb:27,31,59;--a1:#fff}
+:root[data-skin="host"] .gshare{background:var(--accent-soft);color:var(--ink);--hink:#13243c;--hink-rgb:19,36,60;--a1:#fff}
 /* segmented controls (like the Home tabs of the reference) */
 :root[data-skin="host"] .hubnav{background:var(--bg)}
 :root[data-skin="host"] .hubnav button{border:1px solid var(--line);border-radius:999px;background:var(--surface);box-shadow:none;color:var(--muted)}
@@ -138,7 +139,7 @@ body.kb nav.tabs{display:none!important}
 :root[data-skin="host"] .gate .card{box-shadow:var(--sh)}
 /* the coloured "hero" blocks become plain white panels; their pills turn indigo */
 :root[data-skin="host"] .bal{position:relative;overflow:hidden;margin-top:12px;padding:16px;border-radius:var(--r);background:var(--surface);border:1px solid var(--line);color:var(--ink);box-shadow:none;
-  --hink:#2e3192; --hink-rgb:46,49,146; --hink2:#6b7084; --a1:#ffffff; --a2:#e6e8ee; --a3:#e6e8ee; box-shadow:none!important}
+  --hink:#195cdd; --hink-rgb:25,92,221; --hink2:#6b7a90; --a1:#ffffff; --a2:#e6e8ee; --a3:#e6e8ee; box-shadow:none!important}
 :root[data-skin="host"] .seg button[aria-pressed="true"],:root[data-skin="host"] .hlwho button[aria-pressed="true"],:root[data-skin="host"] .rpchip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
 :root[data-skin="host"] .mt2,:root[data-skin="host"] .mt2.on{background:var(--surface)!important;border:1px solid var(--line)!important;box-shadow:none!important}
 :root[data-skin="host"] .mt2.on{border-color:var(--accent)!important;box-shadow:inset 0 0 0 1px var(--accent)!important}
@@ -160,9 +161,9 @@ body.kb nav.tabs{display:none!important}
 :root[data-skin="host"] .sh-day.we{background:var(--raised);color:var(--ink)!important}
 :root[data-skin="host"] .sh-day.today{background:transparent!important;color:var(--ink)!important}
 :root[data-skin="host"] .sh-day.today b{background:var(--accent);color:#fff;border-radius:999px;min-width:24px;padding:2px 5px;box-sizing:border-box}
-:root[data-skin="host"] .sh-tl .td{background:rgba(46,49,146,.05)!important;box-shadow:inset 1px 0 0 rgba(46,49,146,.25),inset -1px 0 0 rgba(46,49,146,.25)}
-:root[data-skin="host"] .bar{color:#fff;border-radius:5px;box-shadow:none}
-:root[data-skin="host"] .bar .nm{font-weight:600}
+:root[data-skin="host"] .sh-tl .td{background:var(--today)!important;box-shadow:none}
+:root[data-skin="host"] .bar{color:#fff;border-radius:4px;box-shadow:none}
+:root[data-skin="host"] .bar .nm{font-weight:500}
 :root[data-skin="host"] .bar.lt{color:var(--ink)}
 :root[data-skin="host"] .bar.closed{background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.22) 0 6px,rgba(255,255,255,0) 6px 12px);color:#fff}
 :root[data-skin="host"] .bar.unp{background-image:none}
@@ -170,11 +171,11 @@ body.kb nav.tabs{display:none!important}
 :root[data-skin="host"] .bar .amt{background:rgba(255,255,255,.92)}
 :root[data-skin="host"] .bar .vk{color:#fff}
 /* sheets, toasts */
-:root[data-skin="host"] .toast{background:#1b1f3b;color:#fff;border-radius:var(--r-sm);box-shadow:var(--sh-pop)}
+:root[data-skin="host"] .toast{background:#13243c;color:#fff;border-radius:var(--r-sm);box-shadow:var(--sh-pop)}
 /* phone: flat tab bar, active item marked by a bar above the icon */
 @media (max-width:859px){
   :root[data-skin="host"] nav.tabs{background:var(--surface);border-top:1px solid var(--line);box-shadow:none}
-  :root[data-skin="host"] nav.tabs button{position:relative;color:#8a8fa3;font-weight:500;padding-top:10px}
+  :root[data-skin="host"] nav.tabs button{position:relative;color:var(--muted);font-weight:500;padding-top:10px}
   :root[data-skin="host"] nav.tabs button[aria-current="true"]{color:var(--accent);font-weight:600}
   :root[data-skin="host"] nav.tabs button[aria-current="true"]::before{content:"";position:absolute;top:0;left:50%;width:28px;height:3px;margin-left:-14px;border-radius:0 0 3px 3px;background:var(--accent)}
   :root[data-skin="host"] nav.tabs button.mid svg{width:22px;height:22px;padding:0;margin:0;border-radius:0;background:none;color:inherit;box-shadow:none;outline:0!important}
@@ -185,7 +186,7 @@ body.kb nav.tabs{display:none!important}
   :root[data-skin="host"] #app header.top{left:var(--side)}
   :root[data-skin="host"] #app header.top .brand{position:fixed;left:0;top:0;width:var(--side);box-sizing:border-box;height:60px;padding:0 18px;margin:0;z-index:31;background:var(--surface);border-right:1px solid var(--line)}
   :root[data-skin="host"] nav.tabs{position:fixed;left:0;top:0;bottom:0;width:var(--side);box-sizing:border-box;z-index:30;display:flex;flex-direction:column;gap:2px;padding:68px 10px 16px;background:var(--surface);border-right:1px solid var(--line)}
-  :root[data-skin="host"] nav.tabs button{justify-content:flex-start;width:100%;font-size:14px;font-weight:500;color:#41465c;padding:9px 12px;border-radius:var(--r-sm);gap:10px;position:relative}
+  :root[data-skin="host"] nav.tabs button{justify-content:flex-start;width:100%;font-size:14px;font-weight:500;color:#3d4d63;padding:9px 12px;border-radius:var(--r-sm);gap:10px;position:relative}
   :root[data-skin="host"] nav.tabs button:hover{background:var(--d2)}
   :root[data-skin="host"] nav.tabs button[aria-current="true"]{background:var(--accent-soft);color:var(--accent);font-weight:600}
   :root[data-skin="host"] nav.tabs button[aria-current="true"]::before{content:"";position:absolute;left:-10px;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:var(--accent)}
@@ -245,6 +246,46 @@ button,.btn,.chip,nav.tabs,.mtile,.bar,.sh-name,.sh-day{-webkit-user-select:none
 .udow{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}.udow label{display:flex;flex-direction:column;gap:2px;align-items:stretch;min-width:0}.udow small{font-size:11.5px;color:var(--muted,#999);text-align:center}.uform .udow input{text-align:center;padding:0 2px!important;font-size:14px;min-width:0}
 .uform .grid3{align-items:end}
 .ulos{display:flex;flex-direction:column;gap:6px}.ulos label{display:flex;align-items:center;gap:8px;font-size:14px;white-space:nowrap;flex-wrap:nowrap}.uform .ulos input{width:72px!important;flex:none;text-align:center}
+/* light look · calendar ("Operațiuni contemporane" in Figma): white sheet, own top bar, monograms, 6 days on a phone */
+:root[data-skin="host"] body.calmode,:root[data-skin="host"] #v-cal{background:var(--surface)}
+:root[data-skin="host"] #c-body{border:0!important;border-radius:0!important;background:var(--surface)}
+.cbar{display:flex;align-items:center;gap:8px;padding:14px 16px 10px;background:var(--surface)}
+.cbar[hidden]{display:none}
+.cbmon{position:relative;flex:1;min-width:0;display:flex;align-items:center;gap:4px;font-size:19px;font-weight:400;color:var(--ink);letter-spacing:-.01em;cursor:pointer;white-space:nowrap}
+.cbmon span{overflow:hidden;text-overflow:ellipsis}.cbmon svg{flex:none;color:var(--ink)}
+.cbmon input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;border:0;padding:0}
+.cbchip{height:34px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-size:12.5px;cursor:pointer;flex:none}
+.cbchip[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:#fff}
+.cbbtn{position:relative;flex:none;width:40px;height:40px;border-radius:8px;border:1px solid var(--line);background:var(--raised);color:var(--ink);display:grid;place-items:center;cursor:pointer;padding:0}
+.cbbtn.add{background:var(--accent);border-color:var(--accent);color:#fff}
+.cbbtn.on{border-color:var(--accent);color:var(--accent)}
+.cbbtn i{position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;border-radius:999px;background:var(--accent);color:#fff;font-style:normal;font-size:10px;font-weight:600;line-height:16px;text-align:center;padding:0 3px}
+:root[data-skin="host"] .sh.sq .sh-head{border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--surface)}
+:root[data-skin="host"] .sh.sq .sh-corner{box-shadow:none;background:var(--surface);border-right:1px solid var(--line)}
+:root[data-skin="host"] .sh.sq .sh-corner .ctoday{height:32px;padding:0 16px!important;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-size:14px!important;font-weight:400}
+:root[data-skin="host"] .sh.sq .sh-corner .ctoday b{display:none}
+:root[data-skin="host"] .sh.sq .sh-corner .ctoday.on{opacity:1}
+:root[data-skin="host"] .sh.sq .sh-days .sh-day{height:56px;padding-top:0!important;border-right:0!important;justify-content:center;gap:3px;background:transparent!important}
+:root[data-skin="host"] .sh.sq .sh-day b{font-size:15px;font-weight:400;line-height:1.35;color:var(--ink);padding:1px 6px;border-radius:999px}
+:root[data-skin="host"] .sh.sq .sh-day small{display:block;margin:0!important;font-size:11.5px!important;font-weight:400!important;color:var(--muted)!important}
+:root[data-skin="host"] .sh.sq .sh-day.we small{color:var(--accent)!important}
+:root[data-skin="host"] .sh.sq .sh-day.today b{background:var(--accent);color:#fff;min-width:0}
+:root[data-skin="host"] .sh-tl .wk,:root[data-skin="host"] .sh-tl .mline{display:none}
+:root[data-skin="host"] .sh-tl{background-image:none!important}
+:root[data-skin="host"] .sh-row{border-bottom:1px solid var(--line)!important}
+:root[data-skin="host"] .sh.sq .sh-name{font-size:12px;font-weight:600;color:var(--ink);gap:8px;padding:0 6px 0 10px;border-right:1px solid var(--line)}
+:root[data-skin="host"] .sh.sq .sh-name span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+:root[data-skin="host"] .sh.sq .sh-name em,:root[data-skin="host"] .sh.sq .sh-name .cap{display:none}
+:root[data-skin="host"] .sh-name .tn{display:grid!important;width:28px;height:28px;flex:none}
+:root[data-skin="host"] .sh-name .tn.mono{background:var(--accent-soft);color:var(--accent);font-size:10px;font-weight:600;place-items:center}
+:root[data-skin="host"] .sh.sq .bar{top:max(3px,calc((var(--H) - 36px) / 2));bottom:auto;height:min(36px,calc(var(--H) - 6px));padding:0 8px;display:flex;align-items:center;font-size:12px;line-height:1.4;border-radius:4px;box-shadow:none}
+:root[data-skin="host"] .sh.sq .bar .nm{font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+:root[data-skin="host"] .sh.sq .bar .amt{position:static;margin-left:auto;padding-left:6px;background:none;color:rgba(255,255,255,.92);font-size:11px;flex:none}
+:root[data-skin="host"] .bar.closed{background-image:none!important}
+:root[data-skin="host"] .sh.sq .bar .bd{display:none}
+:root[data-skin="host"] .sh.sq .bar .amt{font-weight:400!important;opacity:.85}
+:root[data-skin="host"] .sh.sq .sh-name{box-shadow:none!important;padding:0 4px 0 10px;gap:7px}
+:root[data-skin="host"] .sh.sq .bar.short .amt{display:none}
 /* calendar price mode + day rules */
 .sh.sq .sh-corner{flex-direction:column;gap:2px}
 .cpm{border:1px solid var(--line,rgba(255,255,255,.18));background:none;color:var(--muted,#aaa);font:inherit;font-size:11.5px;font-weight:700;border-radius:999px;padding:2px 10px;line-height:1.5;cursor:pointer}
@@ -1181,6 +1222,7 @@ body.wizon{overflow:hidden}
 
   <section id="v-cal" hidden>
     <div class="cal-legend" id="c-legend"></div>
+    <div class="cbar" id="c-bar" hidden></div>
     <div id="c-body"></div>
   </section>
 
@@ -2447,18 +2489,20 @@ function shortAmt(b,k=1){const r=v=>fmt0(v*k);const parts=[b.mdl?r(b.mdl)+" lei"
 let calKey="",calOff=0,calS0=0,calRefit=false,calP=10,calMR=0,calB=60;
 const MON_C=["Ian","Feb","Mar","Apr","Mai","Iun","Iul","Aug","Sep","Oct","Noi","Dec"];
 function calMon(){const el=$("c-body"),m=$("c-mon");if(!el||!m)return;const i=Math.round(el.scrollLeft/calW),a=new Date(calS0+i*DAY),b=new Date(calS0+(i+calP-1)*DAY);const ya=a.getUTCFullYear(),cy=new Date().getFullYear();
-  const t=a.getUTCMonth()===b.getUTCMonth()?MONTHS[a.getUTCMonth()]+(ya!==cy?" "+ya:""):MON_C[a.getUTCMonth()]+" – "+MON_C[b.getUTCMonth()]+(b.getUTCFullYear()!==cy?" "+b.getUTCFullYear():"");
+  const t=LIGHT()?MONTHS[a.getUTCMonth()]+" "+ya:a.getUTCMonth()===b.getUTCMonth()?MONTHS[a.getUTCMonth()]+(ya!==cy?" "+ya:""):MON_C[a.getUTCMonth()]+" – "+MON_C[b.getUTCMonth()]+(b.getUTCFullYear()!==cy?" "+b.getUTCFullYear():"");
   if(m.textContent!==t)m.textContent=t;const tb=$("c-today"),d=el.scrollLeft-calB*calW;if(tb)tb.classList.toggle("on",Math.abs(d)<2);const ar=$("c-arr");if(ar)ar.textContent=d<0?"→":"←"}let CAL_N=10;
 const CAL_I='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
 function renderCal(){
-  const P=calP=innerWidth<600?10:14, BACK=calB=60, n=BACK+366, td=toT(todayStr()), s0=calS0=td-BACK*DAY, tdIdx=BACK;
+  const LT=LIGHT(), P=calP=innerWidth<600?(LT?6:10):14, BACK=calB=60, n=BACK+366, td=toT(todayStr()), s0=calS0=td-BACK*DAY, tdIdx=BACK;
   const box=$("c-body"), CW=box.clientWidth||innerWidth;
   const nav=$("tabs"), navR=nav.getBoundingClientRect(), navH=getComputedStyle(nav).position==="fixed"&&navR.top>innerHeight/2?Math.max(0,innerHeight-navR.top):0; // a side menu (desktop) takes no height
-  const HEADH=76, availH=innerHeight-box.getBoundingClientRect().top-navH-6-HEADH;
-  const H=Math.max(26,Math.min(60,Math.floor(availH/Math.max(1,cfg.apts.length)))); // rows fill the screen height exactly
-  const Lw=Math.max(88,Math.min(innerWidth<600?110:150,Math.round(CW-P*H))), W=calW=(CW-Lw)/P; // exactly P days per page, near-square
+  const HEADH=LT?58:76, availH=innerHeight-box.getBoundingClientRect().top-navH-6-HEADH;
+  const visN=LT?cfg.apts.filter(a=>!calHidden().has(a)).length:cfg.apts.length;
+  const H=Math.max(26,Math.min(60,Math.floor(availH/Math.max(1,visN)))); // rows fill the screen height exactly
+  const Lw=LT?(innerWidth<600?110:168):Math.max(88,Math.min(innerWidth<600?110:150,Math.round(CW-P*H))), W=calW=(CW-Lw)/P;
+  calBar(LT); // exactly P days per page, near-square
   $("c-legend").innerHTML=TAGS.map(([k,l,c])=>`<span><i style="background:${c}"></i>${esc(l)}</span>`).join("")+`<span><i class="lg-unp"></i>neachitat</span>`;
-  let head=`<div class="sh-head"><div class="sh-corner"><button type="button" id="c-today" class="ctoday"><b id="c-arr">←</b> Azi</button>${RO?"":`<button type="button" id="c-pm" class="cpm" aria-pressed="${calPM}" title="Prețuri și reguli pe zile">Prețuri</button>`}</div><div class="sh-hcol"><div class="sh-mons"><div class="cmonc" style="width:${P*W}px">${CAL_I}<span id="c-mon"></span></div></div>`;
+  let head=`<div class="sh-head"><div class="sh-corner"><button type="button" id="c-today" class="ctoday"><b id="c-arr">←</b> Azi</button>${RO||LT?"":`<button type="button" id="c-pm" class="cpm" aria-pressed="${calPM}" title="Prețuri și reguli pe zile">Prețuri</button>`}</div><div class="sh-hcol">${LT?"":`<div class="sh-mons"><div class="cmonc" style="width:${P*W}px">${CAL_I}<span id="c-mon"></span></div></div>`}`;
   {const segs=[];for(let i=0;i<n;i++){const d=new Date(s0+i*DAY),k=d.getUTCFullYear()*12+d.getUTCMonth();if(!segs.length||segs[segs.length-1].k!==k)segs.push({k,m:d.getUTCMonth(),y:d.getUTCFullYear(),len:0,at:i});segs[segs.length-1].len++}
    head+=`<div class="sh-days">`;
    var mLine=segs.slice(1).map(g=>`<i class="mline" style="left:${g.at*W}px"></i>`).join(""),mStarts=new Set(segs.slice(1).map(g=>g.at))}
@@ -2468,7 +2512,9 @@ function renderCal(){
   const tdMark=tdIdx>=0&&tdIdx<n?`<i class="td" style="left:${tdIdx*W}px"></i>`:"";
   let rows="";
   const occ=occMap(), grouped=cfg.apts.some(a=>unitOf(a).group);let lastG=null,nG=0;
+  const hidU=LT?calHidden():new Set();
   for(const a of cfg.apts){
+    if(hidU.has(a))continue;
     if(grouped){const g=unitOf(a).group||"";if(g!==lastG){lastG=g;nG++;rows+=`<div class="sh-grp" style="width:${Lw+n*W}px"><b>${esc(g||"Altele")}</b></div>`}}
     let nights=0; for(let i=0;i<n;i++) if(occ[a+"|"+(s0+i*DAY)]) nights++;
     const list=bookings.filter(b=>b.apt===a&&b.nights>0&&toT(b.date)<s0+n*DAY&&toT(b.date)+b.nights*DAY>s0).sort((x,y)=>x.date.localeCompare(y.date));
@@ -2480,23 +2526,41 @@ function renderCal(){
       const st=(toT(b.date)-s0)/DAY, en=st+b.nights, L=Math.max(0,st), R=Math.min(n,en);
       const lz=lanes>1?`top:calc(${lane[b.id]*100/lanes}% + 2px);bottom:auto;height:calc(${100/lanes}% - 4px);padding-top:1px;`:"";
       const over=overlaps(b,bookings).length>0, bd=b.source==="Airbnb"?`<span class="bd A">A</span>`:b.source==="Booking"?`<span class="bd B">B</span>`:"";
-      const label=b.tag==="closed"?("Închis"+(b.note?" · "+b.note:"")):[b.guest||"fără nume",b.phone].filter(Boolean).join(" ");
-      bars+=`<div class="bar${lz?" half":""}${(R-L)*W-4<64?" narrow":""}${st<0?" cut-l":""}${en>n?" cut-r":""}${over?" over":""}${b.tag==="closed"?" closed":""}${payActive(b)&&payState(b).state==="unpaid"?" unp":""}" data-edit="${esc(b.id)}" style="${lz}left:${L*W+2}px;width:${(R-L)*W-4}px;background-color:${barCol(b)}" title="${esc(label+" · "+dm(b.date)+" → "+dm(endOf(b))+" · "+amounts(b)+((st<0||en>n)?" · luna aceasta "+Math.round(shareOf(b,mon.y,mon.m)*b.nights)+" din "+b.nights+" nopți":""))}">${over?"‼ ":""}${b.verified?`<span class="vk">✓</span>`:""}${bd}<span class="nm">${esc(label)}</span>${(()=>{if(payActive(b)){const ps=payState(b);if(ps.state!=="paid"){const t=ps.state==="unpaid"?(b.price?"neach. "+fmt0(+b.price)+(ps.cur==="EUR"?"€":ps.cur==="USD"?"$":""):"neach."):(ps.left?"încă "+fmt0(ps.left)+(ps.cur==="EUR"?"€":ps.cur==="USD"?"$":""):"avans");return `<span class="amt pst">${esc(t)}</span>`}}const cut=false;if(!shortAmt(b))return "";if((R-L)*W-4<64){const k=cut?shareOf(b,mon.y,mon.m):1;return `<span class="amt tiny" title="${esc(shortAmt(b,k))}">${esc(tinyAmt(b,k))}</span>`}if(!cut)return `<span class="amt">${esc(shortAmt(b))}</span>`;const k=shareOf(b,mon.y,mon.m);return `<span class="amt" title="pe luna aceasta ${esc(shortAmt(b,k))} din ${esc(shortAmt(b))}">${esc(shortAmt(b,k))}</span>`})()}</div>`;
+      const label=b.tag==="closed"?("Închis"+(b.note?" · "+b.note:"")):LT?(b.guest||"fără nume"):[b.guest||"fără nume",b.phone].filter(Boolean).join(" ");
+      bars+=`<div class="bar${lz?" half":""}${(R-L)*W-4<64?" narrow":""}${LT&&(R-L)*W-4<130?" short":""}${st<0?" cut-l":""}${en>n?" cut-r":""}${over?" over":""}${b.tag==="closed"?" closed":""}${payActive(b)&&payState(b).state==="unpaid"?" unp":""}" data-edit="${esc(b.id)}" style="${lz}left:${L*W+2}px;width:${(R-L)*W-4}px;background-color:${barCol(b)}" title="${esc(label+" · "+dm(b.date)+" → "+dm(endOf(b))+" · "+amounts(b)+((st<0||en>n)?" · luna aceasta "+Math.round(shareOf(b,mon.y,mon.m)*b.nights)+" din "+b.nights+" nopți":""))}">${over?"‼ ":""}${b.verified?`<span class="vk">✓</span>`:""}${bd}<span class="nm">${esc(label)}</span>${(()=>{if(payActive(b)){const ps=payState(b);if(ps.state!=="paid"){const t=ps.state==="unpaid"?(b.price?"neach. "+fmt0(+b.price)+(ps.cur==="EUR"?"€":ps.cur==="USD"?"$":""):"neach."):(ps.left?"încă "+fmt0(ps.left)+(ps.cur==="EUR"?"€":ps.cur==="USD"?"$":""):"avans");return `<span class="amt pst">${esc(t)}</span>`}}const cut=false;if(!shortAmt(b))return "";if((R-L)*W-4<64){const k=cut?shareOf(b,mon.y,mon.m):1;return `<span class="amt tiny" title="${esc(shortAmt(b,k))}">${esc(tinyAmt(b,k))}</span>`}if(!cut)return `<span class="amt">${esc(shortAmt(b))}</span>`;const k=shareOf(b,mon.y,mon.m);return `<span class="amt" title="pe luna aceasta ${esc(shortAmt(b,k))} din ${esc(shortAmt(b))}">${esc(shortAmt(b,k))}</span>`})()}</div>`;
     }
     const cells=dayCells(a,s0,n,W,list);
     const uc=capOf(unitOf(a)),ul=unitLine(a),ug=unitOf(a).group;
-    rows+=`<div class="sh-row${ug?" grp":""}"><div class="sh-name" data-aptpage="${esc(a)}" title="${esc([ug,ul].filter(Boolean).join(" · "))}">${photos[a]?`<i class="tn" style="background-image:url('${photos[a]}')"></i>`:""}<span>${esc(a)}${uc?`<small class="cap">👤${uc}</small>`:""}</span><em>${nights}</em></div><div class="sh-tl" data-tl="${esc(a)}" style="width:${n*W}px">${wk}${mLine}${tdMark}${cells}${bars}</div></div>`;
+    rows+=`<div class="sh-row${ug?" grp":""}"><div class="sh-name" data-aptpage="${esc(a)}" title="${esc([ug,ul].filter(Boolean).join(" · "))}">${photos[a]?`<i class="tn" style="background-image:url('${photos[a]}')"></i>`:LT?`<i class="tn mono">${esc(mono(a))}</i>`:""}<span>${esc(a)}${uc?`<small class="cap">👤${uc}</small>`:""}</span><em>${nights}</em></div><div class="sh-tl" data-tl="${esc(a)}" style="width:${n*W}px">${wk}${mLine}${tdMark}${cells}${bars}</div></div>`;
   }
   document.body.classList.toggle("calpm",calPM);
   $("c-body").innerHTML=`<div class="sh sq${calPM?" pm":""}" style="--W:${W}px;--L:${Lw}px;--H:${H}px;width:${Lw+n*W}px">${head}${rows}</div>`;
   {const el=$("c-body"),key=todayStr()+"|"+W,keep=calKey===key?el.scrollLeft:null,t0=el.scrollTop;calKey=key;
-   el.style.height=(HEADH+cfg.apts.length*H+nG*22+2)+"px";el.style.scrollPaddingLeft=Lw+"px";
-   requestAnimationFrame(()=>{el.scrollLeft=keep!=null?keep:BACK*W;el.scrollTop=t0;
+   el.style.height=(HEADH+cfg.apts.filter(a=>!hidU.has(a)).length*H+nG*22+2)+"px";el.style.scrollPaddingLeft=Lw+"px";
+   requestAnimationFrame(()=>{el.scrollLeft=keep!=null?keep:(LT?BACK-1:BACK)*W;el.scrollTop=t0;
      // layout may settle after the first paint (header hidden, fonts): re-fit once if the size should change
      calMon();el.onscroll=()=>{cancelAnimationFrame(calMR);calMR=requestAnimationFrame(calMon)};
-     const nR=nav.getBoundingClientRect(),nT=getComputedStyle(nav).position==="fixed"&&nR.top>innerHeight/2?Math.max(0,innerHeight-nR.top):0,H2=Math.max(26,Math.min(60,Math.floor((innerHeight-el.getBoundingClientRect().top-nT-6-HEADH)/Math.max(1,cfg.apts.length))));
+     const nR=nav.getBoundingClientRect(),nT=getComputedStyle(nav).position==="fixed"&&nR.top>innerHeight/2?Math.max(0,innerHeight-nR.top):0,H2=Math.max(26,Math.min(60,Math.floor((innerHeight-el.getBoundingClientRect().top-nT-6-HEADH)/Math.max(1,visN))));
      if(H2!==H&&!calRefit){calRefit=true;renderCal();calRefit=false}})}
 }
+// light look: the calendar has its own bar — month (tap to jump), price mode, which units to show, new booking
+const mono=a=>{const w=String(a).replace(/[^\p{L}\p{N} ]/gu," ").trim().split(/\s+/).filter(x=>/^\p{L}/u.test(x));return ((w.length>1?w[0][0]+w[1][0]:(w[0]||String(a)).slice(0,2))||"?").toUpperCase()};
+function calBar(on){const el=$("c-bar");if(!el)return;el.hidden=!on;if(!on)return;
+  const hid=calHidden(),nh=cfg.apts.filter(a=>hid.has(a)).length;
+  el.innerHTML=`<label class="cbmon"><span id="c-mon"></span><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg><input type="date" id="c-jump" aria-label="Mergi la dată"></label>
+    ${RO?"":`<button type="button" id="c-pm" class="cbchip" aria-pressed="${calPM}">Prețuri</button>`}
+    <button type="button" class="cbbtn${nh?" on":""}" id="c-flt" aria-label="Ce unități se văd" title="Ce unități se văd"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>${nh?`<i>${nh}</i>`:""}</button>
+    ${RO?"":`<button type="button" class="cbbtn add" id="c-add" aria-label="Rezervare nouă" title="Rezervare nouă"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>`}`}
+function calHidden(){try{return new Set(JSON.parse(localStorage.getItem("kv_calhide")||"[]"))}catch(e){return new Set()}}
+document.addEventListener("change",e=>{if(e.target.id!=="c-jump"||!e.target.value)return;const el=$("c-body"),i=Math.round((toT(e.target.value)-calS0)/DAY);el.scrollTo({left:Math.max(0,i)*calW,behavior:"smooth"});e.target.value=""});
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("#c-flt,#c-add,[data-calhide],#c-showall");if(!t)return;
+  if(t.id==="c-add"){newB("",todayStr());return}
+  const hid=calHidden();
+  if(t.dataset.calhide!=null){const a=t.dataset.calhide;hid.has(a)?hid.delete(a):hid.add(a);if(hid.size>=cfg.apts.length){toast("Trebuie să rămână cel puțin o unitate");return}}
+  if(t.id==="c-showall")hid.clear();
+  if(t.id!=="c-flt"){try{localStorage.setItem("kv_calhide",JSON.stringify([...hid]))}catch(x){}}
+  openSheet("Unități în calendar",`<p class="small" style="margin-top:0">Unitățile ascunse nu apar doar în calendarul de pe acest dispozitiv — rezervările și rapoartele rămân la fel.</p><div class="uamen">${cfg.apts.map(a=>`<button type="button" data-calhide="${esc(a)}" aria-pressed="${!hid.has(a)}">${esc(a)}</button>`).join("")}</div>${hid.size?`<div class="actions"><button type="button" class="btn" id="c-showall">Arată toate</button></div>`:""}`,{type:"calhide"});
+  if(t.id!=="c-flt")renderCal()});
 /* price mode: each free night shows its price and minimum stay; tap two days to select, then set price and rules */
 let calPM=(()=>{try{return localStorage.getItem("kv_calpm")==="1"}catch(e){return false}})(), pmSel=null;
 function dayCells(a,s0,n,W,list){const R=DR[a]||{},u=unitOf(a),out=[],td=todayStr();

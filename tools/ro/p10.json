@@ -198,5 +198,10 @@
 "цена": "preț",
 "Цены": "Prețuri",
 "По": "Până la",
-"С": "De la"
+"С": "De la",
+"Скрытые объекты не видны только в календаре на этом устройстве — брони и отчёты не меняются.": "Unitățile ascunse nu apar doar în calendarul de pe acest dispozitiv — rezervările și rapoartele rămân la fel.",
+"Хотя бы один объект должен остаться": "Trebuie să rămână cel puțin o unitate",
+"Какие объекты показывать": "Ce unități se văd",
+"Объекты в календаре": "Unități în calendar",
+"Перейти к дате": "Mergi la dată"
 }

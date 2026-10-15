@@ -198,5 +198,10 @@
 "цена": "price",
 "Цены": "Prices",
 "По": "To",
-"С": "From"
+"С": "From",
+"Скрытые объекты не видны только в календаре на этом устройстве — брони и отчёты не меняются.": "Hidden units disappear only from the calendar on this device — bookings and reports stay the same.",
+"Хотя бы один объект должен остаться": "At least one unit must stay",
+"Какие объекты показывать": "Which units to show",
+"Объекты в календаре": "Units in the calendar",
+"Перейти к дате": "Go to date"
 }
