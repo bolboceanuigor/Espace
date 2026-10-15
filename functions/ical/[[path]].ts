@@ -16,6 +16,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ params, env }) => {
   if (!apt) return nf();
   const from = addDays(today(), -30);
   const rows = await env.DB.prepare("SELECT id, date, nights, tag FROM bookings WHERE org_id = ? AND apt = ? AND nights > 0 AND date >= ? ORDER BY date").bind(org.id, apt, addDays(from, -366)).all();
-  const list = (rows.results || []).filter((b: any) => addDays(b.date, b.nights) >= from);
+  const list: any[] = (rows.results || []).filter((b: any) => addDays(b.date, b.nights) >= from);
+  // days closed in the calendar's price mode are blocked on the channels too (runs of days become one event)
+  const closed = ((await env.DB.prepare("SELECT day FROM day_rates WHERE org_id = ? AND apt = ? AND closed = 1 AND day >= ? ORDER BY day").bind(org.id, apt, from).all()).results || []).map((r: any) => r.day as string);
+  for (let i = 0; i < closed.length;) { let j = i; while (j + 1 < closed.length && closed[j + 1] === addDays(closed[j], 1)) j++;
+    list.push({ id: "closed-" + closed[i], date: closed[i], nights: j - i + 1, tag: "closed" }); i = j + 1; }
   return new Response(buildIcs(org.name, apt, list), { headers: { "content-type": "text/calendar; charset=utf-8", "cache-control": "no-cache" } });
 };

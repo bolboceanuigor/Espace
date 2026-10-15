@@ -6,7 +6,7 @@ import { newVapid, sendPush, type Vapid } from "../../lib/push";
 import {
   type Env, type Ctx, json, sleep, nowIso, uuid, num, str, isDate, isUuid, snum, isEmail, all, one, run,
   starterConfig, hashPin, pinMatches, hashPassword, passwordMatches, throttled, failHit, failClear, newSession, bearer, loadSession,
-  ROLES, roleAllows, READ_FNS, TRIAL_DAYS, today, addMonths, isExpired, billingOf, chargeOrg, topUp, stayPrice, minNights, randCode, randHex, sameStr, sha256hex,
+  ROLES, roleAllows, READ_FNS, TRIAL_DAYS, today, addMonths, isExpired, billingOf, chargeOrg, topUp, stayPrice, minNights, EsPrice, dayRules, randCode, randHex, sameStr, sha256hex,
 } from "../../lib/core";
 import { hostOf, siteOf, slugOk, isSlug } from "../../lib/host";
 import { handleAdmin, logEvent, activeAnnouncement, getSettings, createInvoice } from "../../lib/admin";
@@ -92,7 +92,8 @@ async function loadAll(db: D1Database, O: string) {
   const notifs = await all(db, "SELECT id, at, title, body FROM notifs WHERE org_id = ? AND target = 'manager' ORDER BY id DESC LIMIT 50", O);
   const vinfo = await all(db, "SELECT kind, ref_id, state, who, at, note, snap FROM verify_info WHERE org_id = ?", O);
   const closedMonths = await all(db, "SELECT ym, who, at FROM month_close WHERE org_id = ? ORDER BY ym", O);
-  return { config, bookings, expenses, handovers, staff, tasks, checks, reminders, todos, notifs, vinfo, closedMonths };
+  const t0 = nowIso().slice(0, 10), dayRates = await dayRules(db, O, addDays(t0, -70), addDays(t0, 430));
+  return { config, bookings, expenses, handovers, staff, tasks, checks, reminders, todos, notifs, vinfo, closedMonths, dayRates };
 }
 
 // Shift rows with a check-in date become calendar bookings (linked by shift_id); rows removed from the shift remove their booking.
@@ -451,32 +452,35 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
       const ph = await one(db, "SELECT data FROM apt_photos WHERE org_id = ? AND apt = ?", org.id, apt);
       return json({ data: ph?.data || "" });
     }
-    const t = today(), till = addDays(t, 400);
+    const t = today(), till = addDays(t, 400), rules = await dayRules(db, org.id, addDays(t, -1), addDays(till, 60));
     const taken = await all(db, "SELECT apt, date, nights FROM bookings WHERE org_id = ? AND nights > 0 AND date < ? AND date >= ?", org.id, till, addDays(t, -60));
     const busy = (apt: string, from: string, nights: number) => taken.some((b: any) => b.apt === apt && b.date < addDays(from, nights) && addDays(b.date, b.nights) > from);
     if (fn === "pub_listing") {
-      const PUB = ["kind", "group", "area", "bedrooms", "baths", "floor", "beds", "guests", "price", "pcur", "cin", "cout", "amen", "rtype", "minn", "cfee", "dep", "layout"];
+      const PUB = ["kind", "group", "area", "bedrooms", "baths", "floor", "beds", "guests", "price", "pcur", "cin", "cout", "amen", "rtype", "minn", "cfee", "dep", "layout", "dow", "xg", "xgFrom", "xc", "los", "bufB", "bufA", "arr", "lead", "maxn"];
       return json({
         name: org.name, slug: org.code, min: Math.max(1, +dir.min || 1), pricing: { weekend: +(cfg.pricing?.weekend) || 0, seasons: (cfg.pricing?.seasons || []).map((x: any) => ({ from: x.from, to: x.to, pct: +x.pct || 0, min: +x.min || 0 })) }, phone: dir.phone || "", email: dir.email || "", terms: dir.terms || "", intro: dir.intro || "",
         units: units.map((a: string) => { const u = (cfg.units || {})[a] || {}, o: any = { name: a, addr: dir.addr === false ? "" : ((cfg.addr || {})[a] || "").split(",")[0] }; for (const k of PUB) if (u[k] != null && u[k] !== "") o[k] = u[k];
-          o.busy = taken.filter((b: any) => b.apt === a && addDays(b.date, b.nights) > t).map((b: any) => [b.date, b.nights]); return o; }),
+          o.busy = taken.filter((b: any) => b.apt === a && addDays(b.date, b.nights) > t).map((b: any) => [b.date, b.nights]); o.rules = rules[a] || {}; return o; }),
+        today: t,
       });
     }
     // pub_request: a guest asks for dates; it lands in the calendar as a request the manager confirms or declines
     const ip = request.headers.get("cf-connecting-ip") || "x", local = ["localhost", "127.0.0.1"].includes(new URL(request.url).hostname);
     if (!local) { if (await throttled(db, "breq:" + ip)) return json({ message: "locked" }, 429); await failHit(db, "breq:" + ip); }
     const apt = str(body.apt, 100), date = isDate(body.date) ? body.date : "", nights = Math.floor(num(body.nights));
-    const name = str(body.name, 80).trim(), phone = str(body.phone, 40).trim(), email = str(body.email, 120).trim().toLowerCase(), pax = Math.max(1, Math.min(50, Math.floor(num(body.guests)) || 1));
+    const name = str(body.name, 80).trim(), phone = str(body.phone, 40).trim(), email = str(body.email, 120).trim().toLowerCase(), pax = Math.max(1, Math.min(50, Math.floor(num(body.guests)) || 1)), kids = Math.max(0, Math.min(20, Math.floor(num(body.kids)) || 0));
     if (!units.includes(apt)) return json({ message: "bad_unit" }, 400);
     const u = (cfg.units || {})[apt] || {}, cap = +u.guests || 0;
-    if (!date || date < t || nights < Math.max(minNights(cfg.pricing, date, +dir.min || 1), +u.minn || 1) || nights > 60) return json({ message: "bad_dates" }, 400);
+    if (!date || date < t || !(nights > 0) || nights > 90) return json({ message: "bad_dates" }, 400);
     if (!name || (!phone && !isEmail(email)) || (email && !isEmail(email))) return json({ message: "need_contact" }, 400);
-    if (cap && pax > cap) return json({ message: "too_many_guests", cap }, 400);
-    if (busy(apt, date, nights)) return json({ message: "taken" }, 409);
-    const price = Math.round((stayPrice(+u.price, date, nights, cfg.pricing) + (+u.cfee > 0 ? +u.cfee : 0)) * 100) / 100, cur = ["EUR", "MDL", "USD"].includes(u.pcur) ? u.pcur : "EUR";
+    const busyList = taken.filter((b: any) => b.apt === apt).map((b: any) => [b.date, b.nights]);
+    const ck = EsPrice.check(u, date, nights, { P: cfg.pricing, R: rules[apt] || {}, dirMin: +dir.min || 1, today: t, busy: busyList, pax, kids });
+    if (!ck.ok) return ck.why === "taken" ? json({ message: "taken" }, 409) : ck.why === "guests" ? json({ message: "too_many_guests", cap }, 400) : json({ message: "bad_dates", why: ck.why, min: ck.min }, 400);
+    const q = EsPrice.quote(u, date, nights, { P: cfg.pricing, R: rules[apt] || {}, pax, kids });
+    const price = q.total, cur = ["EUR", "MDL", "USD"].includes(u.pcur) ? u.pcur : "EUR";
     const id = uuid(), now = nowIso(), msg = str(body.message, 600).trim();
     await run(db, `INSERT INTO bookings(id, org_id, date, apt, guest, nights, phone, email, pax, source, tag, note, price, price_cur, pay_status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,'Прямой','req',?,?,?, 'unpaid', ?, ?)`,
-      id, org.id, date, apt, name, nights, phone, email, pax, ("Cerere online" + (msg ? ": " + msg : "")).slice(0, 1000), price, cur, now, now);
+      id, org.id, date, apt, name, nights, phone, email, pax + kids, ("Cerere online" + (kids ? ` (${pax} adulți, ${kids} copii)` : "") + (msg ? ": " + msg : "")).slice(0, 1000), price, cur, now, now);
     await audit(db, org.id, null, "booking", "request", id, bLabel({ apt, date, guest: name }), { nights, pax, price, price_cur: cur }, "web");
     await notify(db, org.id, ["manager"], { title: `Cerere de rezervare: ${apt}`, body: `${name} · ${date} · ${nights} n. · ${pax} pers.${phone ? " · " + phone : ""}` });
     const owner = await orgEmail(db, org.id);
@@ -820,6 +824,48 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
   switch (fn) {
     case "kv_load":
       return json(await loadAll(db, O));
+
+    // prices and rules per day, per unit (calendar price mode, bulk edits)
+    case "rates_get": {
+      const from = isDate(body.from) ? body.from : addDays(today(), -70), to = isDate(body.to) ? body.to : addDays(today(), 430);
+      return json(await dayRules(db, O, from, to < addDays(from, 800) ? to : addDays(from, 800)));
+    }
+    case "rates_set": {
+      const cfg = (await getConfig(db, O)) || {}, P = cfg.pricing || {};
+      const apts: string[] = [...new Set<string>((Array.isArray(body.apts) ? body.apts : []).map((a: any) => str(a, 100)))].filter((a: string) => (cfg.apts || []).includes(a));
+      const from = isDate(body.from) ? body.from : "", to = isDate(body.to) ? body.to : "";
+      if (!apts.length || !from || !to || to < from) return json({ message: "bad_range" }, 400);
+      if (addDays(from, 731) < to) return json({ message: "range_too_long" }, 400);
+      const wds = Array.isArray(body.wd) && body.wd.length ? new Set(body.wd.map((x: any) => Math.floor(num(x))).filter((x: number) => x >= 0 && x <= 6)) : null;
+      const days: string[] = []; for (let d = from; d <= to; d = addDays(d, 1)) if (!wds || wds.has(new Date(d + "T00:00:00Z").getUTCDay())) days.push(d);
+      if (!days.length) return json({ message: "no_days" }, 400);
+      if (apts.length * days.length > 40000) return json({ message: "too_many" }, 400);
+      const set = body.set && typeof body.set === "object" ? body.set : {}, clear = body.clear === true, has = (k: string) => Object.prototype.hasOwnProperty.call(set, k);
+      if (!clear && !["price", "pct", "min", "cta", "ctd", "closed"].some(has)) return json({ message: "nothing_to_set" }, 400);
+      if (has("pct") && !(num(set.pct) >= -90 && num(set.pct) <= 500)) return json({ message: "bad_pct" }, 400);
+      const cur = await dayRules(db, O, from, to), stmts: D1PreparedStatement[] = [], t = nowIso();
+      const del = db.prepare("DELETE FROM day_rates WHERE org_id = ? AND apt = ? AND day = ?");
+      const up = db.prepare(`INSERT INTO day_rates(org_id, apt, day, price, min, cta, ctd, closed, updated_at) VALUES (?,?,?,?,?,?,?,?,?)
+        ON CONFLICT (org_id, apt, day) DO UPDATE SET price=excluded.price, min=excluded.min, cta=excluded.cta, ctd=excluded.ctd, closed=excluded.closed, updated_at=excluded.updated_at`);
+      for (const a of apts) {
+        const u = (cfg.units || {})[a] || {}, Ra = cur[a] || {};
+        for (const d of days) {
+          if (clear) { if (Ra[d]) stmts.push(del.bind(O, a, d)); continue; }
+          const o = Ra[d] || {};
+          let price: number | null = o.p != null ? +o.p : null;
+          if (has("price")) price = set.price === null || set.price === "" ? null : Math.max(0, Math.round(num(set.price) * 100) / 100);
+          else if (has("pct")) price = Math.max(0, Math.round(EsPrice.night(u, d, P, Ra) * (1 + num(set.pct) / 100) * 100) / 100);
+          const min = has("min") ? Math.max(0, Math.min(60, Math.floor(num(set.min)))) : (+o.min || 0);
+          const f = (k: string, ok: string) => has(k) ? (set[k] ? 1 : 0) : (o[ok] ? 1 : 0);
+          const cta = f("cta", "cta"), ctd = f("ctd", "ctd"), closed = f("closed", "x");
+          if (price == null && !min && !cta && !ctd && !closed) { if (Ra[d]) stmts.push(del.bind(O, a, d)); }
+          else stmts.push(up.bind(O, a, d, price, min, cta, ctd, closed, t));
+        }
+      }
+      for (let i = 0; i < stmts.length; i += 80) await db.batch(stmts.slice(i, i + 80));
+      await audit(db, O, c, "rates", clear ? "clear" : "set", apts.join(", ").slice(0, 200), `${apts.length > 1 ? apts.length + " объектов" : apts[0]} · ${from} → ${to}`, { set: clear ? "clear" : set, wd: wds ? [...wds] : "all", days: days.length });
+      return json({ apts: apts.length, days: days.length, changed: stmts.length });
+    }
 
     case "kv_save": {
       const b = body.b || {};

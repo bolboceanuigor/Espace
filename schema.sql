@@ -445,3 +445,17 @@ CREATE TABLE IF NOT EXISTS maib_payments (
   paid_at TEXT
 );
 CREATE INDEX IF NOT EXISTS maib_payments_org_idx ON maib_payments(org_id, created_at);
+
+-- prices and rules per unit per day, set from the calendar (price mode) or in bulk: overrides the unit's price, seasons and weekend %
+CREATE TABLE IF NOT EXISTS day_rates (
+  org_id TEXT NOT NULL,
+  apt TEXT NOT NULL,
+  day TEXT NOT NULL,                      -- YYYY-MM-DD, the night that starts this day
+  price REAL,                             -- NULL = the usual price
+  min INTEGER NOT NULL DEFAULT 0,         -- min nights for a stay arriving this day (0 = usual)
+  cta INTEGER NOT NULL DEFAULT 0,         -- no arrival this day
+  ctd INTEGER NOT NULL DEFAULT 0,         -- no departure this day
+  closed INTEGER NOT NULL DEFAULT 0,      -- not for sale
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  PRIMARY KEY (org_id, apt, day)
+);

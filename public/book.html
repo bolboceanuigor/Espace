@@ -51,6 +51,7 @@ h1{font-family:Unbounded,"Golos Text",sans-serif;font-weight:700;font-size:clamp
 .stp:disabled{opacity:.35;cursor:default}
 .summary{margin:10px 2px 0;font-size:14.5px;color:var(--muted);min-height:1.4em}
 @media (max-width:640px){.sbox{grid-template-columns:1fr 1fr}.guests{grid-column:1/-1;justify-content:space-between;padding:6px 10px;border-top:1px solid var(--line)}}
+@media (max-width:640px){.sbox{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.sf{min-width:0}.sf input{min-width:0;width:100%;box-sizing:border-box}.guests{gap:2px;padding:6px 2px;min-width:0}.guests .stp{width:38px;height:38px;flex:none}.guests span{min-width:0;flex:1}}
 
 /* units */
 main{padding:6px 0 60px}
@@ -119,7 +120,8 @@ footer a{color:var(--muted)}
   <div class="sbox">
     <div class="sf"><label for="din" data-t="in">Sosire</label><input type="date" id="din"></div>
     <div class="sf"><label for="dout" data-t="out">Plecare</label><input type="date" id="dout"></div>
-    <div class="guests"><button type="button" class="stp" id="gm" aria-label="−">−</button><span><small data-t="guests">Persoane</small><b id="gn">2</b></span><button type="button" class="stp" id="gp" aria-label="+">+</button></div>
+    <div class="guests"><button type="button" class="stp" id="gm" aria-label="−">−</button><span><small data-t="adults">Adulți</small><b id="gn">2</b></span><button type="button" class="stp" id="gp" aria-label="+">+</button>
+      <button type="button" class="stp" id="km" aria-label="−">−</button><span><small data-t="kidsL">Copii</small><b id="kn">0</b></span><button type="button" class="stp" id="kp" aria-label="+">+</button></div>
   </div>
   <p class="summary" id="summary" aria-live="polite"></p>
 </div></div>
@@ -129,11 +131,12 @@ footer a{color:var(--muted)}
 
 <div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sh-h"><div class="sh" id="sh"></div></div>
 
+<script src="/price.js"></script>
 <script>
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
 const T={
- ro:{cfee:"curățenie",dep:"garanție, se returnează",in:"Sosire",out:"Plecare",guests:"Persoane",terms:"Condiții",foot:"Rezervare directă, fără comision",night:["noapte","nopți","de nopți"],from:"de la",perNight:"/ noapte",total:"total",book:"Rezervă",
+ ro:{adults:"Adulți",kidsL:"Copii",kidsS:"copii",xg:"persoane în plus",xc:"copii",los:"reducere pentru ședere lungă",why:{"closed": "Închis în aceste zile.", "no_arrival": "În ziua aceasta nu se poate face check-in.", "no_departure": "În ziua aceasta nu se poate face check-out.", "arrival_day": "Sosirea doar în zilele: ", "lead": "Rezervă cu cel puțin {n} zile înainte.", "max": "Maximum {n} nopți."},wd:["du", "lu", "ma", "mi", "joi", "vi", "sâ"],cfee:"curățenie",dep:"garanție, se returnează",in:"Sosire",out:"Plecare",guests:"Persoane",terms:"Condiții",foot:"Rezervare directă, fără comision",night:["noapte","nopți","de nopți"],from:"de la",perNight:"/ noapte",total:"total",book:"Rezervă",
    pick:"Alege datele ca să vezi ce e liber și cât costă.",found:n=>n===1?"1 variantă liberă":n+" variante libere",none:"Nimic liber pentru aceste date. Încearcă alte zile.",
    busy:"Ocupat în aceste zile.",freeFrom:"Liber din",tryIt:"Alege aceste date",tooMany:c=>`Încap maximum ${c} persoane.`,minN:n=>`Minimum ${n} ${n===1?"noapte":"nopți"}.`,
    free:"liber",taken:"ocupat",guestsL:"pers.",bedrooms:["dormitor","dormitoare","de dormitoare"],m2:"m²",
@@ -146,7 +149,7 @@ const T={
    beds:{dbl:"pat dublu",sgl:"pat single",sofa:"canapea",bunk:"pat supraetajat"},
    am:{wifi:"Wi-Fi",ac:"Aer condiționat",heat:"Încălzire",kitchen:"Bucătărie",washer:"Mașină de spălat",dryer:"Uscător",dish:"Mașină de vase",tv:"TV",parking:"Parcare",balcony:"Balcon",elevator:"Lift",iron:"Fier de călcat",hair:"Uscător de păr",crib:"Pătuț",work:"Loc de muncă",pets:"Animale permise",selfin:"Self check-in",view:"Priveliște"},
    cin:"Check-in de la",cout:"check-out până la"},
- ru:{cfee:"уборка",dep:"залог, возвращается",in:"Заезд",out:"Выезд",guests:"Гостей",terms:"Условия",foot:"Прямое бронирование без комиссии",night:["ночь","ночи","ночей"],from:"от",perNight:"/ ночь",total:"итого",book:"Забронировать",
+ ru:{adults:"Взрослые",kidsL:"Дети",kidsS:"дети",xg:"гости сверх",xc:"дети",los:"скидка за длительность",why:{"closed": "В эти дни закрыто.", "no_arrival": "В этот день нельзя заехать.", "no_departure": "В этот день нельзя выехать.", "arrival_day": "Заезд только: ", "lead": "Бронируйте минимум за {n} дн.", "max": "Максимум {n} ночей."},wd:["вс", "пн", "вт", "ср", "чт", "пт", "сб"],cfee:"уборка",dep:"залог, возвращается",in:"Заезд",out:"Выезд",guests:"Гостей",terms:"Условия",foot:"Прямое бронирование без комиссии",night:["ночь","ночи","ночей"],from:"от",perNight:"/ ночь",total:"итого",book:"Забронировать",
    pick:"Выберите даты, чтобы увидеть свободные варианты и цену.",found:n=>"Свободно: "+n,none:"На эти даты свободных нет. Попробуйте другие дни.",
    busy:"На эти даты занято.",freeFrom:"Свободно с",tryIt:"Выбрать эти даты",tooMany:c=>`Вмещает максимум ${c} чел.`,minN:n=>`Минимум ${n} ноч.`,
    free:"свободно",taken:"занято",guestsL:"чел.",bedrooms:["спальня","спальни","спален"],m2:"м²",
@@ -159,7 +162,7 @@ const T={
    beds:{dbl:"двуспальная кровать",sgl:"односпальная",sofa:"диван",bunk:"двухъярусная"},
    am:{wifi:"Wi-Fi",ac:"Кондиционер",heat:"Отопление",kitchen:"Кухня",washer:"Стиральная машина",dryer:"Сушилка",dish:"Посудомойка",tv:"Телевизор",parking:"Парковка",balcony:"Балкон",elevator:"Лифт",iron:"Утюг",hair:"Фен",crib:"Детская кроватка",work:"Рабочее место",pets:"Можно с животными",selfin:"Самостоятельное заселение",view:"Красивый вид"},
    cin:"Заезд с",cout:"выезд до"},
- en:{cfee:"cleaning",dep:"deposit, refundable",in:"Check-in",out:"Check-out",guests:"Guests",terms:"Terms",foot:"Direct booking, no commission",night:["night","nights","nights"],from:"from",perNight:"/ night",total:"total",book:"Book",
+ en:{adults:"Adults",kidsL:"Children",kidsS:"children",xg:"extra guests",xc:"children",los:"long-stay discount",why:{"closed": "Closed on these dates.", "no_arrival": "No check-in on this day.", "no_departure": "No check-out on this day.", "arrival_day": "Check-in only on: ", "lead": "Book at least {n} days ahead.", "max": "Maximum {n} nights."},wd:["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],cfee:"cleaning",dep:"deposit, refundable",in:"Check-in",out:"Check-out",guests:"Guests",terms:"Terms",foot:"Direct booking, no commission",night:["night","nights","nights"],from:"from",perNight:"/ night",total:"total",book:"Book",
    pick:"Choose your dates to see what’s free and the price.",found:n=>n===1?"1 option free":n+" options free",none:"Nothing free for these dates. Try other days.",
    busy:"Taken on these dates.",freeFrom:"Free from",tryIt:"Pick these dates",tooMany:c=>`Sleeps up to ${c}.`,minN:n=>`Minimum ${n} ${n===1?"night":"nights"}.`,
    free:"free",taken:"taken",guestsL:"guests",bedrooms:["bedroom","bedrooms","bedrooms"],m2:"m²",
@@ -184,17 +187,18 @@ const fdm=d=>{const x=new Date(d+"T00:00:00Z");return x.toLocaleDateString(L==="
 const SLUG=(()=>{const h=location.hostname,m=/^([a-z0-9-]+)\.espace\.md$/.exec(h);if(m&&!["www","admin"].includes(m[1]))return m[1];return new URLSearchParams(location.search).get("c")||""})();
 async function api(fn,body={}){const r=await fetch("/api/"+fn,{method:"POST",headers:{"Content-Type":"application/json",...(SLUG?{"X-Espace-Org":SLUG}:{})},body:JSON.stringify({slug:SLUG,...body})});
   const j=await r.json().catch(()=>({}));if(!r.ok)throw Object.assign(new Error(j.message||"http"),{code:j.message||"http",data:j});return j}
-let D=null,G=2,din="",dout="";
-// season and weekend prices — same rules as the app and the server (lib/core.ts)
-const seasonOf=d=>{const md=d.slice(5);return ((D&&D.pricing&&D.pricing.seasons)||[]).find(x=>x.from&&x.to&&(x.from<=x.to?md>=x.from&&md<=x.to:md>=x.from||md<=x.to))||null};
-const nightP=(base,d)=>{let p=+base||0;const x=seasonOf(d);if(x)p*=1+(+x.pct||0)/100;const wd=new Date(d+"T00:00:00Z").getUTCDay(),w=D&&D.pricing&&+D.pricing.weekend;if((wd===5||wd===6)&&w)p*=1+w/100;return Math.round(p*100)/100};
-const stayP=(base,d,n)=>{let t=0;for(let i=0;i<n;i++)t+=nightP(base,addD(d,i));return Math.round(t*100)/100};
-const minFor=d=>{const x=d?seasonOf(d):null;return Math.max(1,(x&&+x.min)||D.min||1)};
-const minU=(u,d)=>Math.max(minFor(d),Math.round(+u.minn||1));
-const totalU=(u,d,n)=>Math.round((stayP(u.price,d,n)+(+u.cfee>0?+u.cfee:0))*100)/100;
+let D=null,G=2,K=0,din="",dout="";
+// prices and rules: public/price.js, the same engine as the app and the server
+const OPT=u=>({P:D.pricing,R:u.rules||{},dirMin:D.min,today:D.today||todayS(),busy:u.busy||[],pax:G,kids:K});
+const minFor=d=>EsPrice.minStay({},d,D.pricing,{},D.min);
+const minU=(u,d)=>EsPrice.minStay(u,d,D.pricing,u.rules||{},D.min);
+const quoteU=(u,d,n)=>EsPrice.quote(u,d,n,OPT(u));
+const totalU=(u,d,n)=>quoteU(u,d,n).total;
+const fromP=u=>{const d=din||D.today||todayS();return EsPrice.night(u,d,D.pricing,u.rules||{})||+u.price};
 const extras=u=>[+u.cfee>0?`+ ${money(+u.cfee,u.pcur)} ${t("cfee")}`:"",+u.dep>0?`${money(+u.dep,u.pcur)} ${t("dep")}`:""].filter(Boolean).join(" · ");
-const free=(u,from,n)=>!(u.busy||[]).some(([d,k])=>d<addD(from,n)&&addD(d,k)>from);
-function nextFree(u,from,n){for(let i=1;i<=90;i++){const d=addD(from,i);if(free(u,d,n))return d}return ""}
+const free=(u,from,n)=>{const R=u.rules||{};for(let i=0;i<n;i++){const r=R[addD(from,i)];if(r&&r.x)return false}return EsPrice.free(u.busy,from,n,EsPrice.gap(u))};
+const whyText=c=>{const w=t("why");if(c.why==="arrival_day")return w.arrival_day+(c.days||[]).map(x=>t("wd")[x]).join(", ");if(c.why==="lead")return w.lead.replace("{n}",c.lead);if(c.why==="max")return w.max.replace("{n}",c.max);if(c.why==="min")return t("minN")(c.min);if(c.why==="guests")return t("tooMany")(c.cap);return w[c.why]||t("busy")};
+function nextFree(u,from,n){for(let i=1;i<=120;i++){const d=addD(from,i);if(EsPrice.check(u,d,n,OPT(u)).ok)return d}return ""}
 function renderStatic(){document.documentElement.lang=L;document.querySelectorAll("[data-l]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.l===L)));
   document.querySelectorAll("[data-t]").forEach(el=>{const v=t(el.dataset.t);if(typeof v==="string")el.textContent=v});
   if(!D)return;$("name").textContent=D.name;document.title=D.name;$("intro").textContent=D.intro||"";
@@ -204,17 +208,16 @@ function facts(u){const p=[];if(u.bedrooms)p.push(u.bedrooms+" "+plural(+u.bedro
   const b=u.beds||{};const bl=Object.entries(b).filter(([,v])=>v>0).map(([k,v])=>v+" × "+(t("beds")[k]||k));if(bl.length)p.push(bl.join(", "));
   if(u.guests)p.push("≤ "+u.guests+" "+t("guestsL"));if(u.area)p.push(u.area+" "+t("m2"));return p.join(" · ")}
 function render(){const nights=din&&dout?Math.round((toT(dout)-toT(din))/DAY):0,has=nights>0;
-  $("gn").textContent=G;$("gm").disabled=G<=1;
-  const rows=D.units.map(u=>{const fitG=!u.guests||G<=+u.guests,okMin=!has||nights>=minU(u,din),isFree=has&&free(u,din,nights);
-    const ok=has&&isFree&&fitG&&okMin;return {u,ok,isFree,fitG,okMin,total:has?totalU(u,din,nights):0}});
-  rows.sort((a,b)=>(b.ok-a.ok)||(+a.u.price-+b.u.price));
+  $("gn").textContent=G;$("gm").disabled=G<=1;$("kn").textContent=K;$("km").disabled=K<=0;
+  const rows=D.units.map(u=>{const ck=has?EsPrice.check(u,din,nights,OPT(u)):{ok:false};
+    return {u,ok:has&&ck.ok,ck,isFree:has&&ck.why!=="taken",total:has?totalU(u,din,nights):0}});
+  rows.sort((a,b)=>(b.ok-a.ok)||(fromP(a.u)-fromP(b.u)));
   const n=rows.filter(r=>r.ok).length;
   $("summary").textContent=!has?t("pick"):nights<minFor(din)?t("minN")(minFor(din)):n?t("found")(n)+" · "+fdm(din)+" — "+fdm(dout)+", "+nights+" "+plural(nights,t("night")):t("none");
   const start=has?din:todayS(),days=[...Array(14)].map((_,i)=>addD(start,i));
-  $("list").innerHTML=rows.map(({u,ok,isFree,fitG,okMin,total})=>{
+  $("list").innerHTML=rows.map(({u,ok,ck,isFree,total})=>{
     const strip=days.map(d=>{const busy=!free(u,d,1),sel=has&&d>=din&&d<dout;return `<i class="${busy?"b":""}${sel?" sel":""}" title="${fdm(d)} · ${busy?t("taken"):t("free")}">${new Date(d+"T00:00:00Z").getUTCDate()}</i>`}).join("");
-    let why="";if(has&&!isFree){const nf=nextFree(u,din,nights);why=`${t("busy")}${nf?` ${t("freeFrom")} ${fdm(nf)}. <button type="button" data-try="${esc(nf)}">${t("tryIt")}</button>`:""}`}
-    else if(has&&!fitG)why=t("tooMany")(u.guests);else if(has&&!okMin)why=t("minN")(minU(u,din));
+    let why="";if(has&&!ok){if(ck.why==="guests"||ck.why==="min"||ck.why==="max")why=esc(whyText(ck));else{const nf=nextFree(u,din,nights);why=`${esc(whyText(ck))}${nf?` ${t("freeFrom")} ${fdm(nf)}. <button type="button" data-try="${esc(nf)}">${t("tryIt")}</button>`:""}`}}
     const am=(u.amen||[]).slice(0,7).map(k=>`<span>${esc(t("am")[k]||k)}</span>`).join("");
     const kind=[t("kind")[u.kind]||"",u.group||""].filter(Boolean).join(" · ");
     return `<article class="unit${has&&!ok?" off":""}">
@@ -223,7 +226,7 @@ function render(){const nights=din&&dout?Math.round((toT(dout)-toT(din))/DAY):0,
         ${facts(u)?`<p class="facts">${esc(facts(u))}</p>`:""}${(u.layout||[]).length?`<ul class="lay">${u.layout.map(r=>`<li><b>${esc(r.n||"")}</b> ${esc(Object.entries(r.b||{}).filter(([,v])=>v>0).map(([k,v])=>v+" × "+(t("beds")[k]||k)).join(", "))}</li>`).join("")}</ul>`:""}${am?`<div class="am">${am}</div>`:""}
         <div class="strip">${strip}</div>
         <div class="legend"><span><i style="background:var(--free-soft)"></i>${t("free")}</span><span><i style="background:var(--busy)"></i>${t("taken")}</span>${u.cin||u.cout?`<span>${t("cin")} ${esc(u.cin||"14:00")}, ${t("cout")} ${esc(u.cout||"12:00")}</span>`:""}</div>
-        <div class="uf"><div class="price">${has&&ok?`<b>${money(total,u.pcur)}</b> <span>${t("total")}</span><small>${(()=>{const st=stayP(u.price,din,nights);return st===+u.price*nights?`${money(+u.price,u.pcur)} ${t("perNight")} × ${nights}`:`≈ ${money(st/nights,u.pcur)} ${t("perNight")} × ${nights}`})()}${extras(u)?" "+extras(u):""}</small>`:`<span>${t("from")}</span> <b>${money(+u.price,u.pcur)}</b> <span>${t("perNight")}</span>${extras(u)?`<small>${extras(u)}</small>`:""}`}</div>
+        <div class="uf"><div class="price">${has&&ok?`<b>${money(total,u.pcur)}</b> <span>${t("total")}</span><small>${(()=>{const q=quoteU(u,din,nights);return (q.flat?`${money(q.nights[0].p,u.pcur)} ${t("perNight")} × ${nights}`:`≈ ${money(q.avg,u.pcur)} ${t("perNight")} × ${nights}`)+(q.xg?` + ${money(q.xg,u.pcur)} ${t("xg")}`:"")+(q.xc?` + ${money(q.xc,u.pcur)} ${t("xc")}`:"")+(q.los?` − ${q.losPct}% ${t("los")}`:"")})()}${extras(u)?" "+extras(u):""}</small>`:`<span>${t("from")}</span> <b>${money(fromP(u),u.pcur)}</b> <span>${t("perNight")}</span>${extras(u)?`<small>${extras(u)}</small>`:""}`}</div>
           ${has&&ok?`<button type="button" class="go" data-book="${esc(u.name)}">${t("book")}</button>`:why?`<p class="why">${why}</p>`:""}</div></div></article>`}).join("")||`<div class="empty">${t("none")}</div>`;
   loadPhotos()}
 // photos: one request per unit, only when its card is near the screen
@@ -234,7 +237,7 @@ function loadPhotos(){const els=[...document.querySelectorAll("[data-ph]")];
   if(!("IntersectionObserver" in window)){els.forEach(put);return}
   io&&io.disconnect();io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){io.unobserve(e.target);put(e.target)}}),{rootMargin:"300px"});els.forEach(el=>PH[el.dataset.ph]?put(el):io.observe(el))}
 function openReq(name){const u=D.units.find(x=>x.name===name);if(!u)return;const nights=Math.round((toT(dout)-toT(din))/DAY);
-  const sh=$("sh");sh.innerHTML=`<h3 id="sh-h">${t("reqH")}</h3><div class="sum"><div><span>${esc(u.name)}</span><span>${fdm(din)} — ${fdm(dout)}</span></div><div><span>${t("guestsS")}: ${G}</span><span>${nights} ${plural(nights,t("night"))}</span></div>${+u.cfee>0?`<div><span>${t("cfee")}</span><span>${money(+u.cfee,u.pcur)}</span></div>`:""}<div class="t"><span>${t("total")}</span><span>${money(totalU(u,din,nights),u.pcur)}</span></div>${+u.dep>0?`<div><span>${t("dep")}</span><span>${money(+u.dep,u.pcur)}</span></div>`:""}</div>
+  const sh=$("sh");sh.innerHTML=`<h3 id="sh-h">${t("reqH")}</h3><div class="sum"><div><span>${esc(u.name)}</span><span>${fdm(din)} — ${fdm(dout)}</span></div><div><span>${t("guestsS")}: ${G}${K?` + ${K} ${t("kidsS")}`:""}</span><span>${nights} ${plural(nights,t("night"))}</span></div>${(()=>{const q=quoteU(u,din,nights),row=(k,v)=>`<div><span>${k}</span><span>${v}</span></div>`;return row(`${nights} ${plural(nights,t("night"))}`,money(q.base,u.pcur))+(q.xg?row(t("xg"),money(q.xg,u.pcur)):"")+(q.xc?row(t("xc"),money(q.xc,u.pcur)):"")+(q.los?row(`${t("los")} −${q.losPct}%`,"− "+money(q.los,u.pcur)):"")})()}${+u.cfee>0?`<div><span>${t("cfee")}</span><span>${money(+u.cfee,u.pcur)}</span></div>`:""}<div class="t"><span>${t("total")}</span><span>${money(totalU(u,din,nights),u.pcur)}</span></div>${+u.dep>0?`<div><span>${t("dep")}</span><span>${money(+u.dep,u.pcur)}</span></div>`:""}</div>
     <form id="rf" novalidate><div class="f"><label for="r-name">${t("yourName")}</label><input id="r-name" autocomplete="name" maxlength="80" required></div>
     <div class="two"><div class="f"><label for="r-phone">${t("phone")}</label><input id="r-phone" type="tel" autocomplete="tel" maxlength="40"></div><div class="f"><label for="r-email">${t("email")}</label><input id="r-email" type="email" autocomplete="email" maxlength="120"></div></div>
     <div class="f"><label for="r-msg">${t("msg")}</label><textarea id="r-msg" rows="2" maxlength="600"></textarea></div>
@@ -243,10 +246,10 @@ function openReq(name){const u=D.units.find(x=>x.name===name);if(!u)return;const
   $("sheet").hidden=false;setTimeout(()=>$("r-name").focus(),50);
   $("rf").onsubmit=async e=>{e.preventDefault();const v={name:$("r-name").value.trim(),phone:$("r-phone").value.trim(),email:$("r-email").value.trim(),message:$("r-msg").value.trim()},err=$("r-err");
     if(!v.name||(!v.phone&&!v.email)){err.textContent=t("need");return}if(v.email&&!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.email)){err.textContent=t("badEmail");return}
-    const b=$("r-go");b.disabled=true;try{await api("pub_request",{...v,apt:u.name,date:din,nights,guests:G});
+    const b=$("r-go");b.disabled=true;try{await api("pub_request",{...v,apt:u.name,date:din,nights,guests:G,kids:K});
       sh.innerHTML=`<div class="done"><div class="ok">✓</div><h3 id="sh-h">${t("doneH")}</h3><p>${esc(t("doneP")(D.name))}</p><div class="sum"><div><span>${esc(u.name)}</span><span>${fdm(din)} — ${fdm(dout)}</span></div></div><div class="acts"><button type="button" class="go" data-close="1">${t("close")}</button></div></div>`;
       u.busy=[...(u.busy||[]),[din,nights]];render()}
-    catch(x){b.disabled=false;err.textContent=x.code==="taken"?t("takenErr"):x.code==="locked"?t("lock"):x.code==="too_many_guests"?t("tooMany")(x.data.cap):x.code==="need_contact"?t("need"):t("net");if(x.code==="taken")load()}}}
+    catch(x){b.disabled=false;err.textContent=x.code==="bad_dates"&&x.data&&x.data.why?whyText(x.data):x.code==="taken"?t("takenErr"):x.code==="locked"?t("lock"):x.code==="too_many_guests"?t("tooMany")(x.data.cap):x.code==="need_contact"?t("need"):t("net");if(x.code==="taken")load()}}}
 function closeSheet(){$("sheet").hidden=true}
 document.addEventListener("click",e=>{const b=e.target.closest("[data-book],[data-try],[data-close],[data-l]");if(!b){if(e.target===$("sheet"))closeSheet();return}
   if(b.dataset.l){L=b.dataset.l;try{localStorage.setItem("es_book_lang",L)}catch(x){}renderStatic();if(D)render();return}
@@ -257,6 +260,7 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("sheet").hidden)
 $("din").addEventListener("change",()=>{din=$("din").value;if(din&&(!dout||dout<=din)){dout=addD(din,D?minFor(din):1);$("dout").value=dout}$("dout").min=din?addD(din,1):"";render()});
 $("dout").addEventListener("change",()=>{dout=$("dout").value;render()});
 $("gm").onclick=()=>{G=Math.max(1,G-1);render()};$("gp").onclick=()=>{G=Math.min(30,G+1);render()};
+$("km").onclick=()=>{K=Math.max(0,K-1);render()};$("kp").onclick=()=>{K=Math.min(20,K+1);render()};
 async function load(){try{D=await api("pub_listing");renderStatic();const t0=todayS();$("din").min=t0;$("dout").min=addD(t0,1);render()}
   catch(x){$("name").textContent=x.data&&x.data.name||"";$("list").innerHTML=`<div class="closed"><p>${x.code==="closed"?t("closed"):t("notFound")}</p></div>`;document.querySelector(".search").hidden=true;renderStatic()}}
 renderStatic();load();

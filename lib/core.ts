@@ -104,7 +104,7 @@ export async function loadSession(db: D1Database, env: Env, token: string): Prom
 export const ROLES = ["owner", "manager", "checker", "viewer", "prop"];
 // prop: an apartment owner the company works for — sees only their own apartments, through /proprietar
 export const PROP_FNS = ["kv_prop_load"];
-export const READ_FNS = ["kv_load", "kv_photos", "kv_guides", "kv_task_photo", "kv_push_key", "kv_push_sub", "excel", "excel_handovers", "billing", "kv_ical_list", "kv_tg_status", "kv_tg_link", "kv_tg_unlink", "kv_owner_reports", "kv_owner_payouts", "kv_audit", "kv_contract_get", "kv_contract_preview"];
+export const READ_FNS = ["kv_load", "rates_get", "kv_photos", "kv_guides", "kv_task_photo", "kv_push_key", "kv_push_sub", "excel", "excel_handovers", "billing", "kv_ical_list", "kv_tg_status", "kv_tg_link", "kv_tg_unlink", "kv_owner_reports", "kv_owner_payouts", "kv_audit", "kv_contract_get", "kv_contract_preview"];
 export const CHECKER_FNS = ["kv_verify", "kv_month_close", "kv_month_open"];
 export function roleAllows(role: string, fn: string) {
   if (role === "owner") return true;
@@ -212,20 +212,20 @@ export function starterConfig(ownerName: string) {
 }
 
 
-// ---------- prices by season and weekday (same rules in public/app.html and public/book.html) ----------
+// ---------- prices: one engine shared with public/app.html and public/book.html (public/price.js) ----------
+// @ts-ignore — plain JS file, also loaded by the pages; it puts EsPrice on the global object
+import "../public/price.js";
+export const EsPrice: any = (globalThis as any).EsPrice;
 // cfg.pricing = { weekend: % extra for Friday/Saturday nights, seasons: [{ name, from: "MM-DD", to: "MM-DD", pct, min }] }
-export function seasonOf(pricing: any, date: string) {
-  const md = date.slice(5);
-  return (pricing?.seasons || []).find((s: any) => s.from && s.to && (s.from <= s.to ? md >= s.from && md <= s.to : md >= s.from || md <= s.to)) || null;
-}
-export function nightPrice(base: number, date: string, pricing: any) {
-  let p = +base || 0;
-  const s = seasonOf(pricing, date); if (s) p *= 1 + (+s.pct || 0) / 100;
-  const wd = new Date(date + "T00:00:00Z").getUTCDay(); if ((wd === 5 || wd === 6) && +pricing?.weekend) p *= 1 + +pricing.weekend / 100;
-  return Math.round(p * 100) / 100;
-}
-export function stayPrice(base: number, date: string, nights: number, pricing: any) {
-  let t = 0; for (let i = 0; i < nights; i++) t += nightPrice(base, addDays(date, i), pricing);
-  return Math.round(t * 100) / 100;
-}
+export function seasonOf(pricing: any, date: string) { return EsPrice.seasonOf(pricing, date); }
+export function nightPrice(base: number, date: string, pricing: any) { return EsPrice.night({ price: base }, date, pricing); }
+export function stayPrice(base: number, date: string, nights: number, pricing: any) { return EsPrice.stay(base, date, nights, pricing); }
 export function minNights(pricing: any, date: string, fallback = 1) { const s = seasonOf(pricing, date); return Math.max(1, +(s?.min) || +fallback || 1); }
+// a unit's day rules (price, min nights, no arrival / departure, closed) as the engine wants them: { "YYYY-MM-DD": { p, min, cta, ctd, x } }
+export async function dayRules(db: D1Database, org: string, from: string, to: string, apt?: string) {
+  const rows = apt ? await all(db, "SELECT * FROM day_rates WHERE org_id = ? AND apt = ? AND day >= ? AND day <= ?", org, apt, from, to)
+    : await all(db, "SELECT * FROM day_rates WHERE org_id = ? AND day >= ? AND day <= ?", org, from, to);
+  const out: Record<string, Record<string, any>> = {};
+  for (const r of rows) { const o: any = {}; if (r.price != null) o.p = r.price; if (r.min) o.min = r.min; if (r.cta) o.cta = 1; if (r.ctd) o.ctd = 1; if (r.closed) o.x = 1; (out[r.apt] ||= {})[r.day] = o; }
+  return out;
+}
