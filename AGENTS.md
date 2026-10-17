@@ -1,6 +1,6 @@
 # AGENTS.md — instrucțiuni pentru agenții AI (Cursor, Claude) care lucrează la Espace
 
-Lucrezi la **espace.md**, un SaaS pentru administrarea apartamentelor în chirie pe termen scurt, în Moldova. Repo: `bolboceanuigor/Espace`. Citește tot textul înainte să modifici ceva. Lucrează **o etapă odată**, iar după fiecare etapă oprește-te și raportează-mi.
+Lucrezi la **espace.md**, un SaaS pentru administrarea apartamentelor în chirie pe termen scurt, în Moldova. Repo: `bolboceanuigor/Espace`. Citește tot textul înainte să modifici ceva. **Harta completă a modulelor, ce mai lipsește și ordinea de lucru: `docs/HARTA.md`** (ea are prioritate față de etapele de mai jos). Lucrează **o etapă odată**, iar după fiecare etapă oprește-te și raportează-mi.
 
 ## 1. Cum e făcută aplicația
 
