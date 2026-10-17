@@ -323,9 +323,19 @@ export async function handleAdmin(fn: string, body: any, c: Ctx, db: D1Database,
         one(db, "SELECT v FROM sys_state WHERE k = 'cron_last'"),
       ]);
       let cronLast: any = null; try { cronLast = cron ? JSON.parse(cron.v) : null; } catch {}
+      const seller = await getSettings(db);
+      const sellerMissing = (["name", "idno", "iban", "address"] as const).filter((k) => !String(seller[k] || "").trim());
       return json({
         cron: cronLast, feeds, feeds_total: feedsN?.n || 0, mails_failed: mailsBad, mails_total: mailsN?.n || 0, maib: maibBad,
-        config: { mail: !!env.RESEND_API_KEY, maib: !!((env as any).MAIB_CLIENT_ID && (env as any).MAIB_CLIENT_SECRET), maib_sandbox: !!(env as any).MAIB_SANDBOX, cron: !!env.CRON_KEY, telegram: !!(env as any).TELEGRAM_BOT_TOKEN },
+        config: {
+          mail: !!env.RESEND_API_KEY,
+          maib: !!((env as any).MAIB_CLIENT_ID && (env as any).MAIB_CLIENT_SECRET),
+          maib_sandbox: !!(env as any).MAIB_SANDBOX,
+          cron: !!env.CRON_KEY,
+          telegram: !!(env as any).TELEGRAM_BOT_TOKEN,
+          seller: sellerMissing.length === 0,
+          seller_missing: sellerMissing,
+        },
       });
     }
 
@@ -351,6 +361,33 @@ export async function handleAdmin(fn: string, body: any, c: Ctx, db: D1Database,
       if (!remaining) await logEvent(db, "broadcast", "", actor, `Mesaj „${subject}” către ${to.length} companii (${seg})`);
       return json({ total: to.length, sent, failed, remaining });
     }
+
+    case "sa_invoice_status": {
+      // resolve company from body.org_id or from the invoice itself (company Facturare tab)
+      const invId = str(body.id, 40);
+      if (!invId) return json({ message: "bad_id" }, 400);
+      let inv = str(body.org_id, 40)
+        ? await one(db, "SELECT * FROM invoices WHERE id = ? AND org_id = ?", invId, str(body.org_id, 40))
+        : null;
+      if (!inv) inv = await one(db, "SELECT * FROM invoices WHERE id = ?", invId);
+      if (!inv) return json({ message: "not_found" }, 404);
+      const invOrg = await one(db, "SELECT * FROM orgs WHERE id = ?", inv.org_id);
+      if (!invOrg) return json({ message: "not_found" }, 404);
+      if (body.status === "paid" && inv.status !== "paid") {
+        if (inv.status === "void") return json({ message: "bad_status" }, 409);
+        const claim = await run(db, "UPDATE invoices SET status = 'paid', paid_at = ? WHERE id = ? AND status = 'sent'", today(), inv.id);
+        if (!claim.meta.changes) return json({ message: "bad_status" }, 409);
+        const r = await paid(db, env, invOrg, inv.amount, actor, { note: "Factura " + inv.number, method: str(body.method, 30) || "transfer", invoiceId: inv.id });
+        await run(db, "UPDATE invoices SET payment_id = ? WHERE id = ?", r.payment_id, inv.id);
+        return json(r);
+      }
+      if (body.status === "void" && inv.status === "sent") {
+        await run(db, "UPDATE invoices SET status = 'void' WHERE id = ?", inv.id);
+        await logEvent(db, "invoice", invOrg.id, actor, `Factura ${inv.number} anulată`);
+        return json(true);
+      }
+      return json({ message: "bad_status" }, 409);
+    }
   }
 
   // ---------- one company ----------
@@ -363,7 +400,7 @@ export async function handleAdmin(fn: string, body: any, c: Ctx, db: D1Database,
       const [members, payments, invoices, events, leads] = await Promise.all([
         all(db, "SELECT u.id, u.name, u.email, u.last_login, m.role, m.created_at FROM members m JOIN users u ON u.id = m.user_id WHERE m.org_id = ? ORDER BY m.created_at", O),
         all(db, "SELECT * FROM payments WHERE org_id = ? ORDER BY created_at DESC", O),
-        all(db, "SELECT id, number, token, issued_at, due_at, period_from, period_to, months, amount, status, paid_at FROM invoices WHERE org_id = ? ORDER BY created_at DESC", O),
+        all(db, "SELECT id, org_id, number, token, issued_at, due_at, period_from, period_to, months, amount, status, paid_at FROM invoices WHERE org_id = ? ORDER BY created_at DESC", O),
         all(db, "SELECT * FROM events WHERE org_id = ? ORDER BY id DESC LIMIT 100", O),
         all(db, "SELECT id, name, status, created_at FROM leads WHERE org_id = ?", O),
       ]);
@@ -505,24 +542,6 @@ export async function handleAdmin(fn: string, body: any, c: Ctx, db: D1Database,
       const amount = body.amount !== undefined && body.amount !== "" ? Math.round(num(body.amount) * 100) / 100 : (b.price ?? 0) * Math.max(1, Math.min(24, Math.floor(num(body.months)) || 1));
       if (!(amount > 0)) return json({ message: "bad_amount" }, 400);
       return json(await createInvoice(db, env, org, amount, { note: str(body.note, 500), send: body.send !== false, actor }));
-    }
-    case "sa_invoice_status": {
-      const inv = await one(db, "SELECT * FROM invoices WHERE id = ? AND org_id = ?", str(body.id, 40), O);
-      if (!inv) return json({ message: "not_found" }, 404);
-      if (body.status === "paid" && inv.status !== "paid") {
-        if (inv.status === "void") return json({ message: "bad_status" }, 409);
-        const claim = await run(db, "UPDATE invoices SET status = 'paid', paid_at = ? WHERE id = ? AND status = 'sent'", today(), inv.id);
-        if (!claim.meta.changes) return json({ message: "bad_status" }, 409);
-        const r = await paid(db, env, org, inv.amount, actor, { note: "Factura " + inv.number, method: str(body.method, 30) || "transfer", invoiceId: inv.id });
-        await run(db, "UPDATE invoices SET payment_id = ? WHERE id = ?", r.payment_id, inv.id);
-        return json(r);
-      }
-      if (body.status === "void" && inv.status === "sent") {
-        await run(db, "UPDATE invoices SET status = 'void' WHERE id = ?", inv.id);
-        await logEvent(db, "invoice", O, actor, `Factura ${inv.number} anulată`);
-        return json(true);
-      }
-      return json({ message: "bad_status" }, 409);
     }
   }
   return json({ message: "not_found" }, 404);
