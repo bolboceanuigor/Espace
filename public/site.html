@@ -373,11 +373,11 @@ dialog .row .btn{flex:1}
         <label class="terms"><input type="checkbox" id="r-terms" required> <span data-t="terms">Accept <a href="/termeni" target="_blank">Termenii de utilizare</a> și <a href="/confidentialitate" target="_blank">Politica de confidențialitate</a></span></label>
         <div class="msg" id="reg-msg" role="alert"></div>
         <button class="btn primary" type="submit" id="reg-go" data-t="reg_go">Creează compania</button>
+        <div id="reg-google-wrap" hidden>
+          <p class="hint" style="text-align:center;margin:14px 0 8px" data-t="or">sau</p>
+          <a class="btn" id="reg-google" href="#" data-t="google_go" style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;text-decoration:none;box-sizing:border-box">Continuă cu Google</a>
+        </div>
       </form>
-      <div id="reg-google-wrap" hidden style="margin-top:12px">
-        <p class="hint" style="text-align:center;margin:0 0 8px" data-t="or">sau</p>
-        <a class="btn" id="reg-google" href="#" data-t="google_go" style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;text-decoration:none;box-sizing:border-box">Continuă cu Google</a>
-      </div>
 
       <form class="panel alt" id="lead" novalidate>
         <h3 data-t="lead_h">Preferi să vorbim?</h3>
