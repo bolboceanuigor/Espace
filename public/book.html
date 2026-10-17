@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Rezervare</title>
-<meta name="description" content="Rezervă direct, fără comision.">
+<meta name="description" content="Trimite o cerere de rezervare directă. Gazda confirmă — nu e rezervare instantanee.">
 <meta name="theme-color" content="#1b2a2f">
 <link rel="icon" href="/icon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -127,7 +127,7 @@ footer a{color:var(--muted)}
 </div></div>
 <main class="wrap" id="list"></main>
 <div class="wrap"><section class="terms" id="terms" hidden><h3 data-t="terms">Condiții</h3><p id="terms-t"></p></section></div>
-<footer class="wrap"><span data-t="foot">Rezervare directă, fără comision</span> · <a href="https://espace.md" target="_blank" rel="noopener">espace.md</a></footer>
+<<footer class="wrap"><span data-t="foot">Cerere directă — gazda confirmă</span> · <a href="https://espace.md" target="_blank" rel="noopener">espace.md</a></footer>
 
 <div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sh-h"><div class="sh" id="sh"></div></div>
 
@@ -136,7 +136,7 @@ footer a{color:var(--muted)}
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
 const T={
- ro:{adults:"Adulți",kidsL:"Copii",kidsS:"copii",xg:"persoane în plus",xc:"copii",los:"reducere pentru ședere lungă",why:{"closed": "Închis în aceste zile.", "no_arrival": "În ziua aceasta nu se poate face check-in.", "no_departure": "În ziua aceasta nu se poate face check-out.", "arrival_day": "Sosirea doar în zilele: ", "lead": "Rezervă cu cel puțin {n} zile înainte.", "max": "Maximum {n} nopți."},wd:["du", "lu", "ma", "mi", "joi", "vi", "sâ"],cfee:"curățenie",dep:"garanție, se returnează",in:"Sosire",out:"Plecare",guests:"Persoane",terms:"Condiții",foot:"Rezervare directă, fără comision",night:["noapte","nopți","de nopți"],from:"de la",perNight:"/ noapte",total:"total",book:"Rezervă",
+ ro:{adults:"Adulți",kidsL:"Copii",kidsS:"copii",xg:"persoane în plus",xc:"copii",los:"reducere pentru ședere lungă",why:{"closed": "Închis în aceste zile.", "no_arrival": "În ziua aceasta nu se poate face check-in.", "no_departure": "În ziua aceasta nu se poate face check-out.", "arrival_day": "Sosirea doar în zilele: ", "lead": "Rezervă cu cel puțin {n} zile înainte.", "max": "Maximum {n} nopți."},wd:["du", "lu", "ma", "mi", "joi", "vi", "sâ"],cfee:"curățenie",dep:"garanție, se returnează",in:"Sosire",out:"Plecare",guests:"Persoane",terms:"Condiții",foot:"Cerere directă — gazda confirmă",night:["noapte","nopți","de nopți"],from:"de la",perNight:"/ noapte",total:"total",book:"Cere rezervare",
    pick:"Alege datele ca să vezi ce e liber și cât costă.",found:n=>n===1?"1 variantă liberă":n+" variante libere",none:"Nimic liber pentru aceste date. Încearcă alte zile.",
    busy:"Ocupat în aceste zile.",freeFrom:"Liber din",tryIt:"Alege aceste date",tooMany:c=>`Încap maximum ${c} persoane.`,minN:n=>`Minimum ${n} ${n===1?"noapte":"nopți"}.`,
    free:"liber",taken:"ocupat",guestsL:"pers.",bedrooms:["dormitor","dormitoare","de dormitoare"],m2:"m²",
@@ -149,7 +149,7 @@ const T={
    beds:{dbl:"pat dublu",sgl:"pat single",sofa:"canapea",bunk:"pat supraetajat"},
    am:{wifi:"Wi-Fi",ac:"Aer condiționat",heat:"Încălzire",kitchen:"Bucătărie",washer:"Mașină de spălat",dryer:"Uscător",dish:"Mașină de vase",tv:"TV",parking:"Parcare",balcony:"Balcon",elevator:"Lift",iron:"Fier de călcat",hair:"Uscător de păr",crib:"Pătuț",work:"Loc de muncă",pets:"Animale permise",selfin:"Self check-in",view:"Priveliște"},
    cin:"Check-in de la",cout:"check-out până la"},
- ru:{adults:"Взрослые",kidsL:"Дети",kidsS:"дети",xg:"гости сверх",xc:"дети",los:"скидка за длительность",why:{"closed": "В эти дни закрыто.", "no_arrival": "В этот день нельзя заехать.", "no_departure": "В этот день нельзя выехать.", "arrival_day": "Заезд только: ", "lead": "Бронируйте минимум за {n} дн.", "max": "Максимум {n} ночей."},wd:["вс", "пн", "вт", "ср", "чт", "пт", "сб"],cfee:"уборка",dep:"залог, возвращается",in:"Заезд",out:"Выезд",guests:"Гостей",terms:"Условия",foot:"Прямое бронирование без комиссии",night:["ночь","ночи","ночей"],from:"от",perNight:"/ ночь",total:"итого",book:"Забронировать",
+ ru:{adults:"Взрослые",kidsL:"Дети",kidsS:"дети",xg:"гости сверх",xc:"дети",los:"скидка за длительность",why:{"closed": "В эти дни закрыто.", "no_arrival": "В этот день нельзя заехать.", "no_departure": "В этот день нельзя выехать.", "arrival_day": "Заезд только: ", "lead": "Бронируйте минимум за {n} дн.", "max": "Максимум {n} ночей."},wd:["вс", "пн", "вт", "ср", "чт", "пт", "сб"],cfee:"уборка",dep:"залог, возвращается",in:"Заезд",out:"Выезд",guests:"Гостей",terms:"Условия",foot:"Заявка напрямую — хозяин подтверждает",night:["ночь","ночи","ночей"],from:"от",perNight:"/ ночь",total:"итого",book:"Оставить заявку",
    pick:"Выберите даты, чтобы увидеть свободные варианты и цену.",found:n=>"Свободно: "+n,none:"На эти даты свободных нет. Попробуйте другие дни.",
    busy:"На эти даты занято.",freeFrom:"Свободно с",tryIt:"Выбрать эти даты",tooMany:c=>`Вмещает максимум ${c} чел.`,minN:n=>`Минимум ${n} ноч.`,
    free:"свободно",taken:"занято",guestsL:"чел.",bedrooms:["спальня","спальни","спален"],m2:"м²",
@@ -162,7 +162,7 @@ const T={
    beds:{dbl:"двуспальная кровать",sgl:"односпальная",sofa:"диван",bunk:"двухъярусная"},
    am:{wifi:"Wi-Fi",ac:"Кондиционер",heat:"Отопление",kitchen:"Кухня",washer:"Стиральная машина",dryer:"Сушилка",dish:"Посудомойка",tv:"Телевизор",parking:"Парковка",balcony:"Балкон",elevator:"Лифт",iron:"Утюг",hair:"Фен",crib:"Детская кроватка",work:"Рабочее место",pets:"Можно с животными",selfin:"Самостоятельное заселение",view:"Красивый вид"},
    cin:"Заезд с",cout:"выезд до"},
- en:{adults:"Adults",kidsL:"Children",kidsS:"children",xg:"extra guests",xc:"children",los:"long-stay discount",why:{"closed": "Closed on these dates.", "no_arrival": "No check-in on this day.", "no_departure": "No check-out on this day.", "arrival_day": "Check-in only on: ", "lead": "Book at least {n} days ahead.", "max": "Maximum {n} nights."},wd:["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],cfee:"cleaning",dep:"deposit, refundable",in:"Check-in",out:"Check-out",guests:"Guests",terms:"Terms",foot:"Direct booking, no commission",night:["night","nights","nights"],from:"from",perNight:"/ night",total:"total",book:"Book",
+ en:{adults:"Adults",kidsL:"Children",kidsS:"children",xg:"extra guests",xc:"children",los:"long-stay discount",why:{"closed": "Closed on these dates.", "no_arrival": "No check-in on this day.", "no_departure": "No check-out on this day.", "arrival_day": "Check-in only on: ", "lead": "Book at least {n} days ahead.", "max": "Maximum {n} nights."},wd:["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],cfee:"cleaning",dep:"deposit, refundable",in:"Check-in",out:"Check-out",guests:"Guests",terms:"Terms",foot:"Direct request — host confirms",night:["night","nights","nights"],from:"from",perNight:"/ night",total:"total",book:"Request to book",
    pick:"Choose your dates to see what’s free and the price.",found:n=>n===1?"1 option free":n+" options free",none:"Nothing free for these dates. Try other days.",
    busy:"Taken on these dates.",freeFrom:"Free from",tryIt:"Pick these dates",tooMany:c=>`Sleeps up to ${c}.`,minN:n=>`Minimum ${n} ${n===1?"night":"nights"}.`,
    free:"free",taken:"taken",guestsL:"guests",bedrooms:["bedroom","bedrooms","bedrooms"],m2:"m²",

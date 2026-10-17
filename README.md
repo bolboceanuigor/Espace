@@ -9,21 +9,8 @@ Construită pornind de la aplicația internă Rentwill, ca proiect complet separ
 - **Module:** calendar de rezervări (MDL/EUR/USD + alte valute), cheltuieli, пересменки (casa pe ture), menajere cu salariu și cicluri, curățenii și sarcini, checklist, ghid pentru oaspeți cu link public, verificarea plăților, închiderea lunii, remindere, to-do, notificări push, export Excel.
 - **Roluri în companie:** Владелец (owner) · Менеджер · Проверка оплат · Только просмотр.
 - **Menajerele** intră cu *codul companiei* + PIN-ul lor și văd doar curățeniile lor, fără bani.
-- **Abonament lunar** în trepte după numărul de apartamente, cu 14 zile de probă gratuită. Când abonamentul expiră, datele rămân vizibile, dar nu se mai poate modifica nimic.
-- **Panou de administrator** pentru proprietarul platformei: `/admin.html`. Arată toate companiile, MRR-ul și treptele de preț, și permite înregistrarea plăților, setarea perioadei de probă, blocarea și notele interne.
-
-| Apartamente | Lei / lună |
-|---|---|
-| 1–4 | 199 |
-| 5–7 | 299 |
-| 8–11 | 399 |
-| 12–15 | 499 |
-| 16–20 | 599 |
-| 21–30 | 799 |
-| 31–70 | 1.199 |
-| 71+ | individual |
-
-Treptele de preț sunt definite în `lib/core.ts` (`TIERS`).
+- **Credite preplătite:** 1 credit = 1 leu; în fiecare zi se scade ~1 credit × numărul de apartamente (`RATE_DEFAULT`, `TOPUPS`, `TRIAL_DAYS` în `lib/core.ts`). 14 zile de probă. Fără credite: datele rămân vizibile (read-only) până la suplimentare.
+- **Panou de administrator** pentru proprietarul platformei: `/admin.html`. Companii, lead-uri, facturi, plăți card, sănătate sistem, ajustare credite.
 
 ## Adrese
 
@@ -33,7 +20,9 @@ Treptele de preț sunt definite în `lib/core.ts` (`TIERS`).
 | `admin.espace.md` | panoul proprietarului platformei: companii, plăți, MRR, cereri de pe site |
 | `<companie>.espace.md` | aplicația fiecărei companii (ex. `rentwill.espace.md`); managerii intră cu email, menajerele doar cu PIN |
 
-Cloudflare Pages nu acceptă domenii wildcard, așa că `router/` e un Worker mic pus pe rutele `espace.md/*` și `*.espace.md/*`. El trimite cererea la Pages cu host-ul real în `x-espace-host`, iar `functions/_middleware.ts` alege pagina. Pe `*.pages.dev` și `localhost` toate paginile se deschid după cale: `/` (site), `/admin`, `/app?c=<companie>`.
+**Domenii live (calea principală):** DNS proxied `espace.md` + `*` → `espace-3hh.pages.dev`, iar workflow-ul `domains.yml` adaugă fiecare `<slug>.espace.md` ca domeniu custom pe proiectul Pages. Middleware-ul citește Host-ul real și alege pagina.
+
+**Router Worker (`router/`):** opțional / backup când cota de domenii Pages e plină sau vrei wildcard fără sync. Deploy-ul încearcă `wrangler deploy --config router/wrangler.toml` (`continue-on-error`). Pe `*.pages.dev` și `localhost` paginile se deschid după cale: `/` (site), `/admin`, `/app?c=<companie>`.
 
 ## Structură
 
@@ -62,7 +51,7 @@ schema.sql                 schema D1 (idempotentă)
    - `CRON_KEY`: un șir lung, aleator, folosit pentru remindere
 2. Fă push în `main`. Workflow-ul creează baza `espace` (separată de `rentwill`), aplică schema și publică pe `https://espace-3hh.pages.dev`.
 3. Înregistrează-te în aplicație cu emailul din `SUPERADMIN_EMAIL`, apoi deschide `/admin.html`.
-4. Domeniul: zona `espace.md` trebuie să fie în Cloudflare (nameservere Cloudflare). În DNS adaugi două înregistrări proxied (portocaliu): `espace.md` și `*`, ambele CNAME → `espace-3hh.pages.dev`. Tokenul are nevoie în plus de *Workers Scripts: Edit* și *Workers Routes: Edit* (zona espace.md), iar următorul deploy publică routerul.
+4. Domeniul: zona `espace.md` pe Cloudflare; DNS proxied: `espace.md` și `*` CNAME → `espace-3hh.pages.dev`. `domains.yml` înregistrează slug-urile pe Pages. Pentru Worker-ul router (opțional): token cu *Workers Scripts: Edit* + *Workers Routes: Edit*.
 
 ## Limba aplicației
 
