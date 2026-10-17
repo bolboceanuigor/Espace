@@ -226,9 +226,9 @@ h1{font-weight:700}
   <form id="lf"><label class="f" for="em">Email</label><input id="em" type="email" autocomplete="email" required>
   <label class="f" for="pw">Parolă</label><input id="pw" type="password" autocomplete="current-password" required>
   <p class="msg bad" id="lmsg" role="alert"></p><button class="btn p" style="width:100%;justify-content:center;padding:10px">Intră</button>
-  <div id="l-google-wrap" hidden><p class="mute" style="text-align:center;margin:14px 0 8px">sau</p>
-  <button class="btn" type="button" id="l-google" style="width:100%;justify-content:center">Continuă cu Google</button></div>
   <p style="text-align:center;margin:12px 0 0"><a href="#" id="forgot">Am uitat parola</a></p></form>
+  <div id="l-google-wrap" hidden><p class="mute" style="text-align:center;margin:14px 0 8px">sau</p>
+  <a class="btn" id="l-google" href="/api/google/start?mode=login&next=admin" style="width:100%;justify-content:center;text-decoration:none;display:inline-flex">Continuă cu Google</a></div>
   <form id="rf" hidden><label class="f" for="npw">Parolă nouă (minimum 8 caractere)</label><input id="npw" type="password" autocomplete="new-password" required>
   <p class="msg bad" id="rmsg" role="alert"></p><button class="btn p" style="width:100%;justify-content:center;padding:10px">Salvează parola</button></form>
 </div>
@@ -654,7 +654,6 @@ async function route(keep){const [r,id]=(location.hash.slice(1)||"overview").spl
 addEventListener("hashchange",()=>{if(!location.hash.startsWith("#company"))TAB="sum";route(false)});
 function showLogin(msg){$("app").hidden=true;$("login").hidden=false;$("lmsg").textContent=msg||"";
   fetch("/api/google_status",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"}).then(r=>r.ok?r.json():null).then(j=>{const w=$("l-google-wrap");if(w)w.hidden=!(j&&j.ok)}).catch(()=>{})}
-$("l-google")&&($("l-google").onclick=()=>{location.href="/api/google/start?mode=login&next=admin"});
 $("lf").addEventListener("submit",async e=>{e.preventDefault();$("lmsg").textContent="";
   try{const r=await fetch("/api/auth_login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:$("em").value.trim(),password:$("pw").value})});const j=await r.json();
     if(!r.ok){$("lmsg").textContent=j.message==="locked"?"Prea multe încercări — așteaptă 15 minute":"Email sau parolă greșită";return}

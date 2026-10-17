@@ -373,11 +373,11 @@ dialog .row .btn{flex:1}
         <label class="terms"><input type="checkbox" id="r-terms" required> <span data-t="terms">Accept <a href="/termeni" target="_blank">Termenii de utilizare</a> și <a href="/confidentialitate" target="_blank">Politica de confidențialitate</a></span></label>
         <div class="msg" id="reg-msg" role="alert"></div>
         <button class="btn primary" type="submit" id="reg-go" data-t="reg_go">Creează compania</button>
-        <div id="reg-google-wrap" hidden>
-          <p class="hint" style="text-align:center;margin:14px 0 8px" data-t="or">sau</p>
-          <button class="btn" type="button" id="reg-google" data-t="google_go" style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px">Continuă cu Google</button>
-        </div>
       </form>
+      <div id="reg-google-wrap" hidden style="margin-top:12px">
+        <p class="hint" style="text-align:center;margin:0 0 8px" data-t="or">sau</p>
+        <a class="btn" id="reg-google" href="#" data-t="google_go" style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;text-decoration:none;box-sizing:border-box">Continuă cu Google</a>
+      </div>
 
       <form class="panel alt" id="lead" novalidate>
         <h3 data-t="lead_h">Preferi să vorbim?</h3>
@@ -532,13 +532,13 @@ $("reg").addEventListener("submit",async e=>{e.preventDefault();const m=$("reg-m
   }
   catch(err){m.textContent=({need_terms:t("e_terms"),bad_slug:t("e_slug_bad"),slug_taken:t("e_slug_taken"),email_taken:t("e_email_taken"),bad_email:t("e_email"),pw_too_short:t("e_pw"),need_names:t("e_need")})[err.code]||t("e_net");b.disabled=false;b.innerHTML=label}});
 fetch("/api/google_status",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"}).then(r=>r.ok?r.json():null).then(j=>{const w=$("reg-google-wrap");if(w)w.hidden=!(j&&j.ok)}).catch(()=>{});
-$("reg-google").onclick=()=>{const m=$("reg-msg");m.className="msg bad";m.textContent="";
+$("reg-google").addEventListener("click",e=>{e.preventDefault();const m=$("reg-msg");m.className="msg bad";m.textContent="";
   const org_name=$("r-org").value.trim(),slug=$("r-slug").value.trim(),name=$("r-name").value.trim(),terms=$("r-terms").checked;
   if(!org_name||!slug){m.textContent=t("e_need");return}
   if(!slugValid(slug)){m.textContent=t("e_slug_bad");return}
   if(!terms){m.textContent=t("e_terms");return}
   const q=new URLSearchParams({mode:"signup",org_name,slug,terms:"1"});if(name)q.set("name",name);
-  location.href="/api/google/start?"+q.toString()};
+  location.href="/api/google/start?"+q.toString()});
 
 $("lead").addEventListener("submit",async e=>{e.preventDefault();const m=$("lead-msg");m.className="msg bad";m.textContent="";
   const v={name:$("l-name").value.trim(),phone:$("l-phone").value.trim(),apts:$("l-apts").value,message:$("l-msg").value.trim(),lang:L};

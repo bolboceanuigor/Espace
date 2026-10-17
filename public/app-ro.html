@@ -1198,17 +1198,17 @@ body.wizon{overflow:hidden}
     <div data-gf="maid"><label class="l" for="g-pin">Codul PIN <em>— îl dă managerul</em></label><div class="fld"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="16" cy="12" r="1.2"/><rect x="3" y="7" width="18" height="10" rx="2.5"/></svg><input id="g-pin" type="password" inputmode="numeric" autocomplete="off" maxlength="32"><button type="button" class="eye" data-eye="g-pin" aria-label="Arată parola"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
     <div class="msgs" id="g-msg"></div>
     <button class="btn primary" id="g-go" type="submit">Intră</button>
-    <div id="g-google-wrap" hidden>
-      <p class="small" style="margin:14px 0 10px;text-align:center">sau</p>
-      <button class="btn" type="button" id="g-google" style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px">
-        <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 8 3.1l5.7-5.7C34.2 6.1 29.4 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.9z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 12 24 12c3.1 0 5.8 1.2 8 3.1l5.7-5.7C34.2 6.1 29.4 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 10-2 13.6-5.2l-6.3-5.3C29.3 35.3 26.8 36 24 36c-5.3 0-9.7-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4.1 5.5l.1.1 6.3 5.3C39.3 37.3 44 33 44 24c0-1.3-.1-2.7-.4-3.9z"/></svg>
-        Intră cu&#160;<span>Google</span>
-      </button>
-    </div>
     <p class="small" data-gf="login" style="margin:10px 0 0;text-align:center"><a href="#" id="g-forgot">Ați uitat parola?</a></p>
     <p class="small" data-gf="forgot reset" style="margin:10px 0 0;text-align:center"><a href="#" id="g-back">Înapoi la intrare</a></p>
     <p class="small" style="margin:12px 0 0;text-align:center">Nu aveți cont? <a href="https://espace.md/#start">Creează o companie pe espace.md</a></p>
   </form>
+  <div id="g-google-wrap" hidden>
+    <p class="small" style="margin:14px 0 10px;text-align:center">sau</p>
+    <a class="btn" id="g-google" href="/api/google/start?mode=login" style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;text-decoration:none;box-sizing:border-box">
+      <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 8 3.1l5.7-5.7C34.2 6.1 29.4 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.9z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 12 24 12c3.1 0 5.8 1.2 8 3.1l5.7-5.7C34.2 6.1 29.4 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 10-2 13.6-5.2l-6.3-5.3C29.3 35.3 26.8 36 24 36c-5.3 0-9.7-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4.1 5.5l.1.1 6.3 5.3C39.3 37.3 44 33 44 24c0-1.3-.1-2.7-.4-3.9z"/></svg>
+      Intră cu&#160;<span>Google</span>
+    </a>
+  </div>
   <div id="g-lang" style="margin-top:12px;text-align:center"></div>
 </div></section>
 
@@ -4346,7 +4346,8 @@ async function teamLoad(){const el=$("team-list");if(!el)return;try{const list=a
   el.innerHTML=list.map(u=>`<div class="tmrow"><span class="m"><b>${esc(u.name||u.email)}</b><small>${esc(u.email)}</small></span>${u.role==="prop"?`<span class="small">${ROLE_T.prop}</span><button class="btn sm danger" data-tmdel="${esc(u.id)}">Scoate</button>`:u.role==="owner"||u.id===(ME&&ME.user.id)?`<span class="small">${ROLE_T[u.role]}</span>`:`<select data-tmrole="${esc(u.id)}" aria-label="Rol">${["manager","checker","viewer","owner"].map(r=>`<option value="${r}"${u.role===r?" selected":""}>${ROLE_T[r]}</option>`).join("")}</select><button class="btn sm danger" data-tmdel="${esc(u.id)}">Scoate</button>`}</div>`).join("")}catch(e){el.textContent="Nu s-a încărcat"}}
 async function logout(){try{await api("auth_logout")}catch(e){}ls.set("tok","");PIN=null;ME=null;RO=false;document.body.classList.remove("ro");closeSheet();lock("")}
 let GMODE="login",GOOGLE_OK=false;
-function syncGoogleBtn(){const w=$("g-google-wrap");if(w)w.hidden=!(GOOGLE_OK&&GMODE==="login")}
+function syncGoogleBtn(){const w=$("g-google-wrap"),a=$("g-google");if(w)w.hidden=!(GOOGLE_OK&&GMODE==="login");
+  if(a){const q=new URLSearchParams({mode:"login"});if(SLUG)q.set("slug",SLUG);a.href="/api/google/start?"+q.toString()}}
 function gMode(m){GMODE=m;document.querySelectorAll("[data-gmode]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.gmode===m)));
   document.querySelectorAll("[data-gf]").forEach(el=>el.hidden=!el.dataset.gf.split(" ").includes(m));
   $("g-go").textContent=m==="forgot"?"Trimite linkul":m==="reset"?"Salvează parola":"Intră";$("g-msg").innerHTML="";
@@ -4386,8 +4387,6 @@ async function gSubmit(){
 $("g-form").addEventListener("submit",e=>{e.preventDefault();gSubmit()});
 const G_GOOGLE_ERR={denied:"Intrarea a fost anulată",verify:"Nu am putut confirma intrarea — încearcă din nou",no_account:"Nu există cont cu această adresă — creează compania pe site",not_member:"Acest cont nu are acces la această companie",disabled:"Accesul la cont este suspendat — scrieți la suport",google_taken:"Această intrare e deja legată de alt cont",email_mismatch:"Adresa de email trebuie să coincidă cu adresa contului",google_off:"Intrarea fără parolă încă nu e activă",bad_state:"Sesiunea a expirat — apasă din nou butonul"};
 function showGoogleBtn(){fetch("/api/google_status",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"}).then(r=>r.ok?r.json():null).then(j=>{GOOGLE_OK=!!(j&&j.ok);syncGoogleBtn()}).catch(()=>{})}
-document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("#g-google");if(!b)return;e.preventDefault();
-  const q=new URLSearchParams({mode:"login"});if(SLUG)q.set("slug",SLUG);location.href="/api/google/start?"+q.toString()});
 async function boot(){
   $("g-lang").innerHTML=langSw();
   // the espace.md sign-up hands the new session over in the address: #t=<token>
