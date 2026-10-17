@@ -21,3 +21,38 @@ ALTER TABLE bookings ADD COLUMN email TEXT NOT NULL DEFAULT '';
 ALTER TABLE orgs ADD COLUMN apt_rate REAL NOT NULL DEFAULT 0;
 ALTER TABLE users ADD COLUMN disabled INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE bookings ADD COLUMN extra TEXT NOT NULL DEFAULT '{}';
+CREATE TABLE IF NOT EXISTS msg_templates (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  trigger TEXT NOT NULL,
+  offset_days INTEGER NOT NULL DEFAULT 0,
+  send_hour INTEGER NOT NULL DEFAULT 10,
+  apts TEXT NOT NULL DEFAULT '[]',
+  channels TEXT NOT NULL DEFAULT '[]',
+  subject_ro TEXT NOT NULL DEFAULT '',
+  subject_ru TEXT NOT NULL DEFAULT '',
+  subject_en TEXT NOT NULL DEFAULT '',
+  body_ro TEXT NOT NULL DEFAULT '',
+  body_ru TEXT NOT NULL DEFAULT '',
+  body_en TEXT NOT NULL DEFAULT '',
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS msg_templates_org_idx ON msg_templates(org_id);
+CREATE TABLE IF NOT EXISTS msg_sent (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL,
+  booking_id TEXT NOT NULL,
+  template_id TEXT NOT NULL DEFAULT '',
+  channel TEXT NOT NULL DEFAULT 'email',
+  to_addr TEXT NOT NULL,
+  lang TEXT NOT NULL DEFAULT 'ro',
+  subject TEXT NOT NULL DEFAULT '',
+  body TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT '',
+  detail TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS msg_sent_booking_idx ON msg_sent(org_id, booking_id, created_at);
