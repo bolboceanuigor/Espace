@@ -180,7 +180,8 @@ async function cleanerView(db: D1Database, O: string, me: any, td: string) {
   const staff = await all(db, "SELECT * FROM staff WHERE org_id = ? AND active = 1 ORDER BY created_at", O);
   const staffIdsAll = staff.map((x: any) => x.id);
   const from = addDays(td, -1), to = addDays(td, 6);
-  const bks = await all(db, "SELECT id, apt, date, nights FROM bookings WHERE org_id = ? AND nights > 0 AND tag NOT IN ('closed','req') AND date >= ? AND date <= ?", O, addDays(from, -400), to);
+  const bks = await all(db, "SELECT id, apt, date, nights, team_note, cin_time, cout_time, guest FROM bookings WHERE org_id = ? AND nights > 0 AND tag NOT IN ('closed','req') AND date >= ? AND date <= ?", O, addDays(from, -400), to);
+  const bkById: Record<string, any> = {}; for (const x of bks) bkById[x.id] = x;
   const tasks = await all(db, "SELECT id, kind, date, apt, staff_id, status, note, booking_id, reported_by, time, sent FROM tasks WHERE org_id = ? AND ((date >= ? AND date <= ?) OR (kind = 'repair' AND status != 'done'))", O, from, to);
   const lastRows = await all(db, "SELECT apt, item, MAX(date) AS last FROM checks WHERE org_id = ? GROUP BY apt, item", O);
   const last: Record<string, string> = {}; for (const r of lastRows) last[r.apt + "|" + r.item] = r.last;
@@ -215,8 +216,13 @@ async function cleanerView(db: D1Database, O: string, me: any, td: string) {
     for (const t of tasks) {
       if ((t.kind !== "clean" && t.kind !== "general") || t.date !== d || !t.sent || t.status === "skip" || t.staff_id !== me.id) continue;
       const full = t.kind === "general";
+      const bk = t.booking_id ? bkById[t.booking_id] : null;
+      const sameDay = bks.find((x: any) => x.apt === t.apt && x.date === d);
       items.push({ kind: t.kind, apt: t.apt, task_id: t.id, booking_id: t.booking_id || null, time: t.time || "", status: t.status, note: t.note,
-        checkin_today: bks.some((x: any) => x.apt === t.apt && x.date === d),
+        team_note: (bk && bk.team_note) || (sameDay && sameDay.team_note) || "",
+        cin_time: (bk && bk.cin_time) || (sameDay && sameDay.cin_time) || "",
+        guest: (bk && bk.guest) || (sameDay && sameDay.guest) || "",
+        checkin_today: !!sameDay,
         checklist: full ? listFor(t.apt, d).concat(checklist.filter((c: any) => c.every > 0).map((c: any) => ({ id: c.id, text: c.text }))).filter((c: any, i: number, a: any[]) => a.findIndex((x: any) => x.id === c.id) === i) : [...always, ...(plan[t.apt] || [])] });
     }
     items.sort((a, b) => (a.time || "99").localeCompare(b.time || "99") || (cfg.apts || []).indexOf(a.apt) - (cfg.apts || []).indexOf(b.apt));
@@ -361,7 +367,9 @@ async function meOf(db: D1Database, c: Ctx) {
 
 
 // ---------- change log ----------
-const B_F = ["date", "apt", "guest", "nights", "mdl", "eur", "usd", "oth", "oth_cur", "util", "util_cur", "pay", "who", "note", "source", "phone", "pax", "price", "price_cur", "pay_status", "tag"];
+const B_F = ["date", "apt", "guest", "nights", "mdl", "eur", "usd", "oth", "oth_cur", "util", "util_cur", "pay", "who", "note", "source", "phone", "pax", "adults", "kids", "guest_lang", "cin_time", "cout_time", "team_note", "discount", "advance", "commission", "deposit_status", "deposit_amount", "deposit_note", "price", "price_cur", "pay_status", "tag"];
+const HHMM = (v: unknown) => { const s = str(v, 5); return /^\d{2}:\d{2}$/.test(s) ? s : ""; };
+const DEP_ST = ["", "held", "returned", "retained"];
 const E_F = ["date", "apt", "category", "mdl", "eur", "usd", "oth", "oth_cur", "who", "note", "yearly"];
 const same = (a: any, b: any) => { const n = (v: any) => (v === null || v === undefined || v === "" || v === 0 ? "" : String(v)); return n(a) === n(b); };
 function diffOf(a: any, b: any, fields: string[]) { const d: Record<string, any[]> = {}; for (const f of fields) if (!same(a?.[f], b?.[f])) d[f] = [a?.[f] ?? null, b?.[f] ?? null]; return d; }
@@ -479,8 +487,9 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     const q = EsPrice.quote(u, date, nights, { P: cfg.pricing, R: rules[apt] || {}, pax, kids });
     const price = q.total, cur = ["EUR", "MDL", "USD"].includes(u.pcur) ? u.pcur : "EUR";
     const id = uuid(), now = nowIso(), msg = str(body.message, 600).trim();
-    await run(db, `INSERT INTO bookings(id, org_id, date, apt, guest, nights, phone, email, pax, source, tag, note, price, price_cur, pay_status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,'Прямой','req',?,?,?, 'unpaid', ?, ?)`,
-      id, org.id, date, apt, name, nights, phone, email, pax + kids, ("Cerere online" + (kids ? ` (${pax} adulți, ${kids} copii)` : "") + (msg ? ": " + msg : "")).slice(0, 1000), price, cur, now, now);
+    const glang = ["ro", "ru", "en"].includes(str(body.lang, 5)) ? str(body.lang, 5) : "";
+    await run(db, `INSERT INTO bookings(id, org_id, date, apt, guest, nights, phone, email, pax, adults, kids, guest_lang, source, tag, note, price, price_cur, pay_status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'Прямой','req',?,?,?, 'unpaid', ?, ?)`,
+      id, org.id, date, apt, name, nights, phone, email, pax + kids, pax, kids, glang, ("Cerere online" + (kids ? ` (${pax} adulți, ${kids} copii)` : "") + (msg ? ": " + msg : "")).slice(0, 1000), price, cur, now, now);
     await audit(db, org.id, null, "booking", "request", id, bLabel({ apt, date, guest: name }), { nights, pax, price, price_cur: cur }, "web");
     await notify(db, org.id, ["manager"], { title: `Cerere de rezervare: ${apt}`, body: `${name} · ${date} · ${nights} n. · ${pax} pers.${phone ? " · " + phone : ""}` });
     const owner = await orgEmail(db, org.id);
@@ -875,24 +884,99 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
       if (!isDate(b.date) || !str(b.apt)) return json({ message: "bad_booking" }, 400);
       const prev = isUuid(b.id) ? await one(db, "SELECT * FROM bookings WHERE org_id = ? AND id = ?", O, b.id) : null;
       if (await monthClosed(db, O, b.date, prev?.date)) return CLOSED();
+      let adults = Math.max(0, Math.min(500, Math.floor(num(b.adults))));
+      let kids = Math.max(0, Math.min(500, Math.floor(num(b.kids))));
+      if (b.adults == null && b.kids == null) { adults = Math.max(0, Math.min(500, Math.floor(num(b.pax)))); kids = 0; }
+      const pax = Math.max(0, Math.min(500, adults + kids || Math.floor(num(b.pax))));
+      if (!adults && !kids && pax) adults = pax;
+      const guest_lang = ["ro", "ru", "en"].includes(str(b.guest_lang, 5)) ? str(b.guest_lang, 5) : "";
+      const cfgSave = (await getConfig(db, O)) || {};
+      const feePct = Number((cfgSave.sourceFees || {})[str(b.source, 50)]) || 0;
+      const price = Math.max(0, num(b.price));
+      // commission: on create from channel %; on update keep existing unless the client sent a value
+      let commission = Math.max(0, num(b.commission));
+      if (!prev && feePct > 0 && price > 0 && !(num(b.commission) > 0)) commission = Math.round(price * feePct) / 100;
+      if (prev && b.commission == null) commission = Math.max(0, num(prev.commission));
       const v = { date: b.date, apt: str(b.apt, 100), guest: str(b.guest, 200), nights: Math.min(366, Math.floor(num(b.nights))),
         mdl: num(b.mdl), eur: num(b.eur), usd: num(b.usd), pay: str(b.pay, 50), who: str(b.who, 50), note: str(b.note, 1000),
-        source: str(b.source, 50), phone: str(b.phone, 40), pax: Math.max(0, Math.min(500, Math.floor(num(b.pax)))), oth: num(b.oth), oth_cur: str(b.oth_cur, 10).toUpperCase(), util: num(b.util),
-        price: Math.max(0, num(b.price)), price_cur: (["MDL", "EUR", "USD"].includes(str(b.price_cur, 5).toUpperCase()) ? str(b.price_cur, 5).toUpperCase() : "EUR"), pay_status: (["unpaid", "part", "paid"].includes(str(b.pay_status, 10)) ? str(b.pay_status, 10) : ""), tag: (TAGS.includes(str(b.tag, 10)) ? str(b.tag, 10) : ""),
+        source: str(b.source, 50), phone: str(b.phone, 40), pax, adults, kids, guest_lang,
+        cin_time: HHMM(b.cin_time), cout_time: HHMM(b.cout_time), team_note: str(b.team_note, 1000),
+        discount: Math.max(0, num(b.discount)), advance: Math.max(0, num(b.advance)), commission,
+        deposit_status: DEP_ST.includes(str(b.deposit_status, 12)) ? str(b.deposit_status, 12) : "",
+        deposit_amount: Math.max(0, num(b.deposit_amount)), deposit_note: str(b.deposit_note, 500),
+        oth: num(b.oth), oth_cur: str(b.oth_cur, 10).toUpperCase(), util: num(b.util),
+        price, price_cur: (["MDL", "EUR", "USD"].includes(str(b.price_cur, 5).toUpperCase()) ? str(b.price_cur, 5).toUpperCase() : "EUR"), pay_status: (["unpaid", "part", "paid"].includes(str(b.pay_status, 10)) ? str(b.pay_status, 10) : ""), tag: (TAGS.includes(str(b.tag, 10)) ? str(b.tag, 10) : ""),
         util_cur: (["MDL", "EUR", "USD"].includes(str(b.util_cur, 5).toUpperCase()) ? str(b.util_cur, 5).toUpperCase() : "MDL") };
       if (isUuid(b.id)) {
         const r = await one(db, `UPDATE bookings SET verified=(verified AND mdl=? AND eur=? AND usd=? AND oth IS ? AND util=? AND pay=?),
-          date=?, apt=?, guest=?, nights=?, mdl=?, eur=?, usd=?, pay=?, who=?, note=?, source=?, phone=?, pax=?, oth=?, oth_cur=?, util=?, util_cur=?, price=?, price_cur=?, pay_status=?, tag=?, updated_at=? WHERE org_id=? AND id=? RETURNING id`,
+          date=?, apt=?, guest=?, nights=?, mdl=?, eur=?, usd=?, pay=?, who=?, note=?, source=?, phone=?, pax=?, adults=?, kids=?, guest_lang=?, cin_time=?, cout_time=?, team_note=?, discount=?, advance=?, commission=?, deposit_status=?, deposit_amount=?, deposit_note=?, oth=?, oth_cur=?, util=?, util_cur=?, price=?, price_cur=?, pay_status=?, tag=?, updated_at=? WHERE org_id=? AND id=? RETURNING id`,
           v.mdl, v.eur, v.usd, v.oth, v.util, v.pay,
-          v.date, v.apt, v.guest, v.nights, v.mdl, v.eur, v.usd, v.pay, v.who, v.note, v.source, v.phone, v.pax, v.oth, v.oth_cur, v.util, v.util_cur, v.price, v.price_cur, v.pay_status, v.tag, nowIso(), O, b.id);
+          v.date, v.apt, v.guest, v.nights, v.mdl, v.eur, v.usd, v.pay, v.who, v.note, v.source, v.phone, v.pax, v.adults, v.kids, v.guest_lang, v.cin_time, v.cout_time, v.team_note, v.discount, v.advance, v.commission, v.deposit_status, v.deposit_amount, v.deposit_note, v.oth, v.oth_cur, v.util, v.util_cur, v.price, v.price_cur, v.pay_status, v.tag, nowIso(), O, b.id);
         if (r?.id && prev) { const d = diffOf(prev, v, B_F); if (Object.keys(d).length) await audit(db, O, c, "booking", "update", b.id, bLabel(v), d); }
         return json(r?.id ?? null);
       }
       const id = uuid(), t = nowIso();
-      await run(db, "INSERT INTO bookings(id,org_id,date,apt,guest,nights,mdl,eur,usd,pay,who,note,source,phone,pax,oth,oth_cur,util,util_cur,price,price_cur,pay_status,tag,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-        id, O, v.date, v.apt, v.guest, v.nights, v.mdl, v.eur, v.usd, v.pay, v.who, v.note, v.source, v.phone, v.pax, v.oth, v.oth_cur, v.util, v.util_cur, v.price, v.price_cur, v.pay_status, v.tag, t, t);
+      await run(db, "INSERT INTO bookings(id,org_id,date,apt,guest,nights,mdl,eur,usd,pay,who,note,source,phone,pax,adults,kids,guest_lang,cin_time,cout_time,team_note,discount,advance,commission,deposit_status,deposit_amount,deposit_note,oth,oth_cur,util,util_cur,price,price_cur,pay_status,tag,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        id, O, v.date, v.apt, v.guest, v.nights, v.mdl, v.eur, v.usd, v.pay, v.who, v.note, v.source, v.phone, v.pax, v.adults, v.kids, v.guest_lang, v.cin_time, v.cout_time, v.team_note, v.discount, v.advance, v.commission, v.deposit_status, v.deposit_amount, v.deposit_note, v.oth, v.oth_cur, v.util, v.util_cur, v.price, v.price_cur, v.pay_status, v.tag, t, t);
       await audit(db, O, c, "booking", "create", id, bLabel(v), snapOf(v, B_F));
       return json(id);
+    }
+    case "bk_pay_list": {
+      if (!isUuid(body.booking_id)) return json({ message: "bad_id" }, 400);
+      if (!(await one(db, "SELECT id FROM bookings WHERE org_id = ? AND id = ?", O, body.booking_id))) return json({ message: "not_found" }, 404);
+      return json(await all(db, "SELECT id, amount, cur, day, method, kind, note, created_at FROM booking_payments WHERE org_id = ? AND booking_id = ? ORDER BY day, created_at", O, body.booking_id));
+    }
+    case "bk_pay_save": {
+      const booking_id = str(body.booking_id, 40);
+      if (!isUuid(booking_id)) return json({ message: "bad_id" }, 400);
+      const bk = await one(db, "SELECT id, date FROM bookings WHERE org_id = ? AND id = ?", O, booking_id);
+      if (!bk) return json({ message: "not_found" }, 404);
+      if (await monthClosed(db, O, bk.date)) return CLOSED();
+      const amount = Math.max(0.01, num(body.amount)), cur = ["MDL", "EUR", "USD"].includes(str(body.cur, 5).toUpperCase()) ? str(body.cur, 5).toUpperCase() : "EUR";
+      const day = isDate(body.day) ? body.day : today(), method = str(body.method, 50), kind = body.kind === "refund" ? "refund" : "pay", note = str(body.note, 300);
+      if (isUuid(body.id)) {
+        const r = await one(db, "UPDATE booking_payments SET amount=?, cur=?, day=?, method=?, kind=?, note=? WHERE org_id=? AND id=? AND booking_id=? RETURNING id", amount, cur, day, method, kind, note, O, body.id, booking_id);
+        return json(r?.id ?? null);
+      }
+      const id = uuid();
+      await run(db, "INSERT INTO booking_payments(id, org_id, booking_id, amount, cur, day, method, kind, note) VALUES (?,?,?,?,?,?,?,?,?)", id, O, booking_id, amount, cur, day, method, kind, note);
+      return json(id);
+    }
+    case "bk_pay_del": {
+      if (!isUuid(body.id) || !isUuid(body.booking_id)) return json({ message: "bad_id" }, 400);
+      const bk = await one(db, "SELECT date FROM bookings WHERE org_id = ? AND id = ?", O, body.booking_id);
+      if (!bk) return json({ message: "not_found" }, 404);
+      if (await monthClosed(db, O, bk.date)) return CLOSED();
+      await run(db, "DELETE FROM booking_payments WHERE org_id = ? AND id = ? AND booking_id = ?", O, body.id, body.booking_id);
+      return json(true);
+    }
+    case "bk_file_list": {
+      if (!isUuid(body.booking_id)) return json({ message: "bad_id" }, 400);
+      if (!(await one(db, "SELECT id FROM bookings WHERE org_id = ? AND id = ?", O, body.booking_id))) return json({ message: "not_found" }, 404);
+      return json(await all(db, "SELECT id, name, mime, size, created_at FROM booking_files WHERE org_id = ? AND booking_id = ? ORDER BY created_at DESC", O, body.booking_id));
+    }
+    case "bk_file_put": {
+      if (!env.FILES) return json({ message: "need_r2", hint: "Creează un bucket R2 (ex. espace-files) în Cloudflare și leagă-l de Pages ca binding FILES. Vezi wrangler.toml." }, 503);
+      if (!isUuid(body.booking_id)) return json({ message: "bad_id" }, 400);
+      if (!(await one(db, "SELECT id FROM bookings WHERE org_id = ? AND id = ?", O, body.booking_id))) return json({ message: "not_found" }, 404);
+      const name = str(body.name, 120) || "file", mime = str(body.mime, 80) || "application/octet-stream";
+      const dataUrl = str(body.data, 900000);
+      const m = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
+      if (!m) return json({ message: "bad_data" }, 400);
+      const bin = Uint8Array.from(atob(m[2]), (ch) => ch.charCodeAt(0));
+      if (bin.length > 600000) return json({ message: "too_big" }, 400);
+      const id = uuid(), key = `${O}/${body.booking_id}/${id}`;
+      await env.FILES.put(key, bin, { httpMetadata: { contentType: m[1] || mime } });
+      await run(db, "INSERT INTO booking_files(id, org_id, booking_id, name, mime, size, r2_key) VALUES (?,?,?,?,?,?,?)", id, O, body.booking_id, name, m[1] || mime, bin.length, key);
+      return json({ id, name, mime: m[1] || mime, size: bin.length });
+    }
+    case "bk_file_del": {
+      if (!isUuid(body.id) || !isUuid(body.booking_id)) return json({ message: "bad_id" }, 400);
+      const f = await one(db, "SELECT r2_key FROM booking_files WHERE org_id = ? AND id = ? AND booking_id = ?", O, body.id, body.booking_id);
+      if (!f) return json({ message: "not_found" }, 404);
+      if (env.FILES && f.r2_key) await env.FILES.delete(f.r2_key).catch(() => {});
+      await run(db, "DELETE FROM booking_files WHERE org_id = ? AND id = ?", O, body.id);
+      return json(true);
     }
     case "kv_verify": {
       // action: ok (checked) · undo (take the check back, reason required) · problem (money doesn't match, reason required)

@@ -64,7 +64,7 @@
     if (o.busy && !free(o.busy, din, n, gap(u))) return { ok: false, why: "taken", min: min };
     return { ok: true, min: min };
   }
-  // the price of a stay, piece by piece: nights + extra guests + children − long-stay discount + cleaning
+  // the price of a stay, piece by piece: nights + extra guests + children − long-stay discount + cleaning − manual discount
   function quote(u, din, n, o) {
     o = o || {}; var nights = [], base = 0;
     for (var i = 0; i < n; i++) { var d = add(din, i), p = night(u, d, o.P, o.R); nights.push({ d: d, p: p }); base += p; }
@@ -76,9 +76,10 @@
     var L = (u && u.los) || []; for (var j = 0; j < L.length; j++) if (n >= +L[j].n && +L[j].pct > losPct) losPct = +L[j].pct;
     losPct = Math.min(90, losPct);
     var los = r2(sub * losPct / 100), cfee = n > 0 && +(u && u.cfee) > 0 ? r2(+u.cfee) : 0;
-    var total = r2(sub - los + cfee);
+    var discount = Math.max(0, r2(+o.discount || 0));
+    var total = r2(Math.max(0, sub - los + cfee - discount));
     var flat = n > 0 && nights.every(function (x) { return x.p === nights[0].p; });
-    return { nights: nights, base: base, avg: n ? r2(base / n) : 0, flat: flat, xgN: xgN, xg: xg, kids: kids, xc: xc, sub: sub, losPct: losPct, los: los, cfee: cfee, total: total };
+    return { nights: nights, base: base, avg: n ? r2(base / n) : 0, flat: flat, xgN: xgN, xg: xg, kids: kids, xc: xc, sub: sub, losPct: losPct, los: los, cfee: cfee, discount: discount, total: total };
   }
   // the old simple form, for places that only know a base price
   function stay(base, d, n, P) { var t = 0; for (var i = 0; i < n; i++) t += night({ price: base }, add(d, i), P); return r2(t); }
