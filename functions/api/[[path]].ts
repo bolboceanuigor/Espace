@@ -180,7 +180,9 @@ async function cleanerView(db: D1Database, O: string, me: any, td: string) {
   const staff = await all(db, "SELECT * FROM staff WHERE org_id = ? AND active = 1 ORDER BY created_at", O);
   const staffIdsAll = staff.map((x: any) => x.id);
   const from = addDays(td, -1), to = addDays(td, 6);
-  const bks = await all(db, "SELECT id, apt, date, nights FROM bookings WHERE org_id = ? AND nights > 0 AND tag NOT IN ('closed','req') AND date >= ? AND date <= ?", O, addDays(from, -400), to);
+  const bks = await all(db, "SELECT id, apt, date, nights, guest, extra FROM bookings WHERE org_id = ? AND nights > 0 AND tag NOT IN ('closed','req') AND date >= ? AND date <= ?", O, addDays(from, -400), to);
+  const bkOf = (x: any) => { let ex: any = {}; try { ex = typeof x.extra === "string" ? JSON.parse(x.extra || "{}") : (x.extra || {}); } catch { ex = {}; } return { id: x.id, apt: x.apt, date: x.date, nights: x.nights, guest: x.guest || "", team_note: (ex && ex.team) || "", cin_time: (ex && ex.tin) || "" }; };
+  const bkById: Record<string, any> = {}; for (const x of bks) bkById[x.id] = bkOf(x);
   const tasks = await all(db, "SELECT id, kind, date, apt, staff_id, status, note, booking_id, reported_by, time, sent FROM tasks WHERE org_id = ? AND ((date >= ? AND date <= ?) OR (kind = 'repair' AND status != 'done'))", O, from, to);
   const lastRows = await all(db, "SELECT apt, item, MAX(date) AS last FROM checks WHERE org_id = ? GROUP BY apt, item", O);
   const last: Record<string, string> = {}; for (const r of lastRows) last[r.apt + "|" + r.item] = r.last;
@@ -215,8 +217,14 @@ async function cleanerView(db: D1Database, O: string, me: any, td: string) {
     for (const t of tasks) {
       if ((t.kind !== "clean" && t.kind !== "general") || t.date !== d || !t.sent || t.status === "skip" || t.staff_id !== me.id) continue;
       const full = t.kind === "general";
+      const bk = t.booking_id ? bkById[t.booking_id] : null;
+      const sameDay = bks.find((x: any) => x.apt === t.apt && x.date === d);
+      const same = sameDay ? bkOf(sameDay) : null;
       items.push({ kind: t.kind, apt: t.apt, task_id: t.id, booking_id: t.booking_id || null, time: t.time || "", status: t.status, note: t.note,
-        checkin_today: bks.some((x: any) => x.apt === t.apt && x.date === d),
+        team_note: (bk && bk.team_note) || (same && same.team_note) || "",
+        cin_time: (bk && bk.cin_time) || (same && same.cin_time) || "",
+        guest: (bk && bk.guest) || (same && same.guest) || "",
+        checkin_today: !!sameDay,
         checklist: full ? listFor(t.apt, d).concat(checklist.filter((c: any) => c.every > 0).map((c: any) => ({ id: c.id, text: c.text }))).filter((c: any, i: number, a: any[]) => a.findIndex((x: any) => x.id === c.id) === i) : [...always, ...(plan[t.apt] || [])] });
     }
     items.sort((a, b) => (a.time || "99").localeCompare(b.time || "99") || (cfg.apts || []).indexOf(a.apt) - (cfg.apts || []).indexOf(b.apt));
@@ -910,6 +918,34 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
       if (extra !== null && extra !== "{}") await run(db, "UPDATE bookings SET extra = ? WHERE org_id = ? AND id = ?", extra, O, id).catch(() => {});
       await audit(db, O, c, "booking", "create", id, bLabel(v), snapOf(v, B_F));
       return json(id);
+    }
+    case "bk_file_list": {
+      if (!isUuid(body.booking_id)) return json({ message: "bad_id" }, 400);
+      if (!(await one(db, "SELECT id FROM bookings WHERE org_id = ? AND id = ?", O, body.booking_id))) return json({ message: "not_found" }, 404);
+      return json(await all(db, "SELECT id, name, mime, size, created_at FROM booking_files WHERE org_id = ? AND booking_id = ? ORDER BY created_at DESC", O, body.booking_id));
+    }
+    case "bk_file_put": {
+      if (!env.FILES) return json({ message: "need_r2", hint: "Creează un bucket R2 (ex. espace-files) în Cloudflare și leagă-l de Pages ca binding FILES. Vezi wrangler.toml." }, 503);
+      if (!isUuid(body.booking_id)) return json({ message: "bad_id" }, 400);
+      if (!(await one(db, "SELECT id FROM bookings WHERE org_id = ? AND id = ?", O, body.booking_id))) return json({ message: "not_found" }, 404);
+      const name = str(body.name, 120) || "file", mime = str(body.mime, 80) || "application/octet-stream";
+      const dataUrl = str(body.data, 900000);
+      const m = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
+      if (!m) return json({ message: "bad_data" }, 400);
+      const bin = Uint8Array.from(atob(m[2]), (ch) => ch.charCodeAt(0));
+      if (bin.length > 600000) return json({ message: "too_big" }, 400);
+      const id = uuid(), key = `${O}/${body.booking_id}/${id}`;
+      await env.FILES.put(key, bin, { httpMetadata: { contentType: m[1] || mime } });
+      await run(db, "INSERT INTO booking_files(id, org_id, booking_id, name, mime, size, r2_key) VALUES (?,?,?,?,?,?,?)", id, O, body.booking_id, name, m[1] || mime, bin.length, key);
+      return json({ id, name, mime: m[1] || mime, size: bin.length });
+    }
+    case "bk_file_del": {
+      if (!isUuid(body.id) || !isUuid(body.booking_id)) return json({ message: "bad_id" }, 400);
+      const f = await one(db, "SELECT r2_key FROM booking_files WHERE org_id = ? AND id = ? AND booking_id = ?", O, body.id, body.booking_id);
+      if (!f) return json({ message: "not_found" }, 404);
+      if (env.FILES && f.r2_key) await env.FILES.delete(f.r2_key).catch(() => {});
+      await run(db, "DELETE FROM booking_files WHERE org_id = ? AND id = ?", O, body.id);
+      return json(true);
     }
     case "kv_verify": {
       // action: ok (checked) · undo (take the check back, reason required) · problem (money doesn't match, reason required)

@@ -2,6 +2,7 @@
 
 export interface Env {
   DB: D1Database;
+  FILES?: R2Bucket;          // optional: booking file uploads (passport photos, contracts)
   SUPERADMIN_EMAIL?: string; // the platform owner; sees every company in /admin
   CRON_KEY?: string;         // secret for the every-few-minutes reminders ping
   RESEND_API_KEY?: string;   // emails (resend.com); without it emails are only logged
@@ -106,7 +107,7 @@ export async function loadSession(db: D1Database, env: Env, token: string): Prom
 export const ROLES = ["owner", "manager", "checker", "viewer", "prop"];
 // prop: an apartment owner the company works for — sees only their own apartments, through /proprietar
 export const PROP_FNS = ["kv_prop_load"];
-export const READ_FNS = ["kv_load", "rates_get", "kv_photos", "kv_guides", "kv_task_photo", "kv_push_key", "kv_push_sub", "excel", "excel_handovers", "billing", "kv_ical_list", "kv_tg_status", "kv_tg_link", "kv_tg_unlink", "kv_owner_reports", "kv_owner_payouts", "kv_audit", "kv_contract_get", "kv_contract_preview"];
+export const READ_FNS = ["kv_load", "rates_get", "kv_photos", "kv_guides", "kv_task_photo", "kv_push_key", "kv_push_sub", "excel", "excel_handovers", "billing", "kv_ical_list", "kv_tg_status", "kv_tg_link", "kv_tg_unlink", "kv_owner_reports", "kv_owner_payouts", "kv_audit", "kv_contract_get", "kv_contract_preview", "bk_file_list"];
 export const CHECKER_FNS = ["kv_verify", "kv_month_close", "kv_month_open"];
 export function roleAllows(role: string, fn: string) {
   if (role === "owner") return true;
