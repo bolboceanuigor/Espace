@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>espace.md — program pentru apartamente în chirie pe zi</title>
 <meta name="description" content="Rezervări, curățenii, casa pe ture și menajere într-o singură aplicație. Pentru cei care dau apartamente în chirie pe termen scurt în Moldova. 14 zile gratuit.">
-<meta name="theme-color" content="#202248">
+<meta name="theme-color" content="#0d8a7f">
 <link rel="icon" href="/icon.svg">
 <link rel="apple-touch-icon" href="/icon-180.png">
 <meta property="og:title" content="espace.md — program pentru apartamente în chirie pe zi">
@@ -16,9 +16,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
-  --ink:#14162e;--navy:#202248;--slate:#5b5f7a;--mist:#8a8ea6;--line:#e3e5ee;--paper:#f6f7fb;--white:#fff;
-  --key:#fed36a;--booking:#2a5bd7;--airbnb:#e8505b;--direct:#2c7a4b;--repeat:#c08a1e;
-  --r-s:8px;--r-m:14px;--r-l:22px;
+  --ink:#1a2332;--navy:#1b2a4a;--slate:#5b5f7a;--mist:#6b7a90;--line:#e4e9f0;--paper:#e8f2fa;--white:#fff;
+  --key:#0d8a7f;--teal:#0d8a7f;--booking:#2f5fd0;--airbnb:#e24b5a;--direct:#1fa89a;--repeat:#c08a1e;
+  --r-s:8px;--r-m:14px;--r-l:20px;
   --wrap:1120px;
 }
 *{box-sizing:border-box}
@@ -35,11 +35,11 @@ h3{font-size:19px;letter-spacing:-.01em;line-height:1.3}
 p{margin:0}
 .lead{font-size:clamp(17px,1.6vw,20px);color:var(--slate);max-width:34em}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font:inherit;font-weight:700;font-size:16px;border-radius:999px;padding:13px 22px;border:2px solid transparent;cursor:pointer;text-decoration:none;white-space:nowrap}
-.btn.primary{background:var(--navy);color:#fff}
-.btn.primary:hover{background:#2b2e5c}
-.btn.ghost{background:transparent;color:var(--navy);border-color:var(--line)}
+.btn.primary{background:var(--teal);color:#fff}
+.btn.primary:hover{background:#0a6f66}
+.btn.ghost{background:var(--white);color:var(--navy);border-color:var(--line)}
 .btn.ghost:hover{border-color:var(--navy)}
-.btn.key{background:var(--key);color:var(--ink)}
+.btn.key{background:var(--teal);color:#fff}
 .btn:disabled{opacity:.55;cursor:default}
 
 /* top bar */
@@ -59,35 +59,46 @@ p{margin:0}
 
 .notice{background:#fff4d6;color:#5a4300;text-align:center;font-size:15px;font-weight:600;padding:10px 16px}
 
-/* hero */
-.hero{padding:64px 0 72px;background:linear-gradient(var(--white),var(--paper))}
+/* hero — Match Hostfully soft blue stage */
+.hero{padding:72px 0 80px;background:linear-gradient(180deg,#e8f2fa 0%,#d2e4f4 100%)}
 .hero .wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.08fr);gap:56px;align-items:center}
 .hero h1{max-width:11.5em}
 .hero .lead{margin-top:22px}
+.hero .eyebrow{display:inline-flex;align-items:center;padding:6px 12px;border-radius:999px;background:#e6f5f3;color:var(--teal);font-size:12px;font-weight:700;margin-bottom:16px}
 .ctas{display:flex;gap:12px;flex-wrap:wrap;margin-top:30px}
 .fine{margin-top:16px;font-size:14.5px;color:var(--mist)}
 @media (max-width:960px){.hero{padding:40px 0 56px}.hero .wrap{grid-template-columns:1fr;gap:40px}}
 
-/* the booking grid: the thing every host in this business recognises */
-.board{background:#fff;border:1px solid var(--line);border-radius:var(--r-l);box-shadow:0 30px 60px -30px rgba(32,34,72,.35);overflow:hidden}
-.board-top{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
-.board-top b{font-size:15px}
-.board-top .m{margin-left:auto;font-size:13px;color:var(--mist)}
-.dots{display:flex;gap:6px}.dots i{width:9px;height:9px;border-radius:50%;background:var(--line)}
-.grid{--cols:10;--h:40px;display:grid;grid-template-columns:104px repeat(var(--cols),minmax(0,1fr));font-size:12.5px;position:relative}
-.grid .d{height:34px;display:grid;place-items:center;color:var(--mist);font-weight:600;border-bottom:1px solid var(--line)}
-.grid .d.today{color:var(--ink)}
-.grid .d.today span{background:var(--key);border-radius:999px;padding:1px 7px}
-.grid .a{height:var(--h);display:flex;align-items:center;padding-left:14px;font-weight:600;color:var(--ink);border-bottom:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.grid .c{height:var(--h);border-bottom:1px solid var(--line);border-left:1px dashed #eef0f5}
-.stay{position:absolute;height:28px;margin-top:6px;border-radius:7px;color:#fff;font-weight:700;font-size:12px;display:flex;align-items:center;padding:0 8px;white-space:nowrap;overflow:hidden;transform-origin:left center}
-.stay.k-b{background:var(--booking)}.stay.k-a{background:var(--airbnb)}.stay.k-d{background:var(--direct)}.stay.k-r{background:var(--repeat)}
-.board-foot{display:flex;flex-wrap:wrap;gap:8px;padding:12px 14px;background:var(--paper);border-top:1px solid var(--line);font-size:13px}
+/* shahmatka board — Hostfully-style pill bars + apt thumbs */
+.board{background:#fff;border:1px solid var(--line);border-radius:var(--r-l);box-shadow:0 16px 40px rgba(26,35,50,.12);overflow:hidden}
+.board-top{display:flex;align-items:center;gap:10px;padding:16px 18px;border-bottom:1px solid var(--line)}
+.board-top b{font-size:16px;font-weight:700}
+.board-top .m{margin-left:auto;font-size:13px;color:var(--mist);font-weight:600}
+.board-top .live{display:inline-flex;align-items:center;gap:6px;margin-left:8px;padding:4px 10px;border-radius:6px;background:#e6f5f3;color:var(--teal);font-size:11px;font-weight:700}
+.board-top .live::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--teal)}
+.dots{display:none}
+.grid{--cols:10;--h:56px;display:grid;grid-template-columns:72px repeat(var(--cols),minmax(0,1fr));font-size:12.5px;position:relative}
+.grid .d{height:48px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:#9aa6b5;font-weight:500;border-bottom:1px solid var(--line);font-size:11px}
+.grid .d b{font-size:14px;font-weight:600;color:var(--ink)}
+.grid .d.today{color:#e24b5a}
+.grid .d.today b{color:#e24b5a;font-weight:700}
+.grid .d.we{background:#f3f6fa}
+.grid .a{height:var(--h);display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--ink);border-bottom:1px solid var(--line);border-right:1px solid var(--line);padding:0}
+.grid .a .thumb{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:11px;font-weight:700;box-shadow:0 0 0 2px #fff}
+.grid .c{height:var(--h);border-bottom:1px solid var(--line);border-left:1px solid #eef2f6}
+.grid .c.we{background:#f3f6fa}
+.stay{position:absolute;height:28px;margin-top:14px;border-radius:14px;color:#fff;font-weight:600;font-size:12px;display:flex;align-items:center;gap:6px;padding:0 8px 0 6px;white-space:nowrap;overflow:hidden;transform-origin:left center}
+.stay .bd{flex:none;width:18px;height:18px;border-radius:5px;background:#fff;display:grid;place-items:center;font-size:10px;font-weight:800}
+.stay.k-a{background:var(--airbnb)}.stay.k-a .bd{color:var(--airbnb)}
+.stay.k-b{background:var(--booking)}.stay.k-b .bd{color:var(--booking)}
+.stay.k-d{background:var(--direct)}.stay.k-d .bd{color:var(--direct)}
+.stay.k-r{background:var(--repeat)}.stay.k-r .bd{color:var(--repeat)}
+.board-foot{display:flex;flex-wrap:wrap;gap:8px;padding:12px 14px;background:#f7fafc;border-top:1px solid var(--line);font-size:13px}
 .chip{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-weight:600}
 .chip i{width:8px;height:8px;border-radius:50%}
 .board .stay{animation:grow .7s cubic-bezier(.2,.8,.2,1) both}
 @keyframes grow{from{transform:scaleX(.02);opacity:.2}to{transform:none;opacity:1}}
-@media (max-width:520px){.grid{--cols:7}.grid .a{padding-left:10px;font-size:12px}.grid{grid-template-columns:84px repeat(var(--cols),minmax(0,1fr))}}
+@media (max-width:520px){.grid{--cols:7;--h:48px}.grid .a .thumb{width:32px;height:32px;font-size:10px}.grid{grid-template-columns:56px repeat(var(--cols),minmax(0,1fr))}.stay{height:24px;margin-top:12px;font-size:11px}}
 
 /* sections */
 section{padding:88px 0}
@@ -213,23 +224,24 @@ dialog .row .btn{flex:1}
 <main id="top">
 <div class="hero"><div class="wrap">
   <div>
-    <h1 data-t="h1">Rezervări, curățenii și casa — fără Excel și zeci de mesaje în Viber.</h1>
-    <p class="lead" data-t="lead">espace.md e aplicația în care o echipă din Chișinău administrează zilnic peste 20 de apartamente în chirie pe zi. Acum o poți folosi și tu, pentru 1 apartament sau pentru 100.</p>
+    <span class="eyebrow" data-t="eyebrow">Pentru gazde din Chișinău</span>
+    <h1 data-t="h1">Toate apartamentele.<br>Un singur calendar.</h1>
+    <p class="lead" data-t="lead">Șahmatcă ca la Hostfully — rezervări pe canale, check-in-uri și curățenii, fără haos între Excel și WhatsApp. O echipă din Chișinău o folosește zilnic pe 20+ apartamente.</p>
     <div class="ctas">
-      <a class="btn primary" href="#start" data-t="cta_trial">Încearcă 14 zile gratuit</a>
-      <a class="btn ghost" href="#preturi" data-t="cta_prices">Vezi prețurile</a>
+      <a class="btn primary" href="#start" data-t="cta_trial">Vezi calendarul · 14 zile gratis</a>
+      <a class="btn ghost" href="#preturi" data-t="cta_prices">Deschide demo</a>
     </div>
     <p class="fine" data-t="fine">Fără card. După probă — 1 leu pe zi pentru fiecare apartament.</p>
   </div>
 
-  <div class="board" aria-label="Exemplu: calendarul rezervărilor" role="img">
-    <div class="board-top"><div class="dots"><i></i><i></i><i></i></div><b data-t="board_title">Calendar · octombrie</b><span class="m" data-t="board_m">6 apartamente</span></div>
+  <div class="board" aria-label="Exemplu: calendarul rezervărilor pe toate apartamentele" role="img">
+    <div class="board-top"><b data-t="board_title">Calendar · toate apartamentele</b><span class="live">Live</span><span class="m" data-t="board_m">6 apt.</span></div>
     <div class="grid" id="grid"></div>
     <div class="board-foot">
-      <span class="chip"><i style="background:var(--booking)"></i>Booking</span>
       <span class="chip"><i style="background:var(--airbnb)"></i>Airbnb</span>
+      <span class="chip"><i style="background:var(--booking)"></i>Booking</span>
       <span class="chip"><i style="background:var(--direct)"></i><span data-t="src_direct">Direct</span></span>
-      <span class="chip" data-t="chip_clean">🧹 Azi: 3 curățenii, prima la 10:00</span>
+      <span class="chip" data-t="chip_clean">Azi: 3 curățenii</span>
     </div>
   </div>
 </div></div>
@@ -404,10 +416,11 @@ const esc=x=>String(x).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"
 const T={
  ro:{},
  ru:{nav_features:"Возможности",nav_pricing:"Цены",nav_faq:"Вопросы",signin:"Войти",try:"Попробовать",
-  h1:"Брони, уборки и касса — без Excel и десятков сообщений в Viber.",
-  lead:"espace.md — приложение, в котором команда из Кишинёва каждый день ведёт больше 20 квартир посуточно. Теперь им можете пользоваться и вы — для 1 квартиры или для 100.",
-  cta_trial:"Попробовать 14 дней бесплатно",cta_prices:"Посмотреть цены",fine:"Без карты. После пробного периода — 1 лей в день за каждую квартиру.",
-  board_title:"Календарь · октябрь",board_m:"6 квартир",src_direct:"Напрямую",chip_clean:"🧹 Сегодня: 3 уборки, первая в 10:00",
+  eyebrow:"Для хозяев из Кишинёва",
+  h1:"Все квартиры.<br>Один календарь.",
+  lead:"Шахматка как у Hostfully — брони по каналам, заезды и уборки, без хаоса между Excel и WhatsApp. Команда из Кишинёва ведёт в нём 20+ квартир каждый день.",
+  cta_trial:"Смотреть календарь · 14 дней бесплатно",cta_prices:"Открыть демо",fine:"Без карты. После пробного периода — 1 лей в день за каждую квартиру.",
+  board_title:"Календарь · все квартиры",board_m:"6 кв.",src_direct:"Напрямую",chip_clean:"Сегодня: 3 уборки",
   pain_h:"Что меняется с первой недели",
   p1_h:"Все брони на одном экране",p1:"Booking, Airbnb, Instagram и постоянные гости — в одном календаре, с суммой, источником и тем, кто получил деньги.",
   p2_h:"Горничная сама знает, что делать",p2:"Список уборок на завтра собирается из выездов гостей. Она получает его на телефон с адресом, этажом и временем и отмечает, когда закончила.",
@@ -457,17 +470,22 @@ function setLang(l){L=l;document.documentElement.lang=l;try{localStorage.setItem
   table();calc();}
 document.querySelectorAll("[data-lang]").forEach(b=>b.addEventListener("click",()=>setLang(b.dataset.lang)));
 
-/* booking grid in the hero */
+/* booking grid in the hero — Hostfully-style shahmatka */
 (function(){
-  const g=$("grid"),narrow=matchMedia("(max-width:520px)").matches,cols=narrow?7:10,start=13,today=15;
+  const g=$("grid"),narrow=matchMedia("(max-width:520px)").matches,cols=narrow?7:10,start=13,today=17;
+  const WD=["D","L","Ma","Mi","J","V","S"];
+  const hues=["#7EB8C9","#C9A07E","#8FA3C9","#A3C98F","#C98F9E","#9BB8A8"];
   const apts=["Centru 12","Botanica 3","Loft Ismail","Rîșcani 41","Studio Alba","Panoramic"];
-  const stays=[[0,0,3,"b","A. Popescu"],[0,4,3,"a","Lena K."],[1,1,4,"d","Ion M."],[1,6,4,"b","Mihai"],[2,0,2,"r","Olga"],[2,3,5,"a","Tom & Sara"],[3,2,3,"b","D. Rusu"],[3,7,3,"d","Ana"],[4,0,6,"a","Max"],[5,1,2,"d","Vlad"],[5,4,4,"b","Elena P."]];
-  let h='<div></div>';for(let d=0;d<cols;d++){const n=start+d;h+=`<div class="d${n===today?" today":""}"><span>${n}</span></div>`}
-  apts.forEach(a=>{h+=`<div class="a">${a}</div>`;for(let d=0;d<cols;d++)h+='<div class="c"></div>'});
+  const mono=a=>{const w=a.replace(/[^\p{L}\p{N} ]/gu," ").trim().split(/\s+/);return ((w[0]&&w[1]?w[0][0]+w[1][0]:(w[0]||a).slice(0,2))||"?").toUpperCase()};
+  const stays=[[0,0,3,"a","Ana M."],[0,5,3,"b","Ion P."],[1,1,4,"a","Maria"],[1,6,2,"d","Block"],[2,2,2,"d","Vlad"],[2,5,4,"b","Elena"],[3,0,5,"a","Family K."],[4,3,3,"b","Oleg"],[4,7,2,"d","Direct"],[5,1,4,"a","Sofia"]];
+  const ch={a:"A",b:"B",d:"D",r:"R"};
+  let h='<div></div>';
+  for(let d=0;d<cols;d++){const n=start+d,wd=WD[(d+0)%7];const we=wd==="S"||wd==="D";h+=`<div class="d${n===today?" today":""}${we?" we":""}"><span>${wd}</span><b>${n}</b></div>`}
+  apts.forEach((a,i)=>{h+=`<div class="a"><span class="thumb" style="background:${hues[i%hues.length]}">${mono(a)}</span></div>`;for(let d=0;d<cols;d++){const wd=WD[d%7],we=wd==="S"||wd==="D";h+=`<div class="c${we?" we":""}"></div>`}});
   g.style.setProperty("--cols",cols);g.innerHTML=h;
   const place=()=>{g.querySelectorAll(".stay").forEach(x=>x.remove());const first=g.querySelector(".a"),lw=first.offsetWidth,cw=(g.offsetWidth-lw)/cols,top0=g.querySelector(".d").offsetHeight,rh=first.offsetHeight;
-    stays.forEach(([r,d,n,k,name],i)=>{if(d>=cols)return;const len=Math.min(n,cols-d);const s=document.createElement("div");s.className="stay k-"+k;s.textContent=name;
-      s.style.left=(lw+d*cw+cw*.5+2)+"px";s.style.width=(len*cw-4-(d+len>=cols?cw*.5:0))+"px";s.style.top=(top0+r*rh)+"px";s.style.animationDelay=(.15+i*.06)+"s";g.appendChild(s)})};
+    stays.forEach(([r,d,n,k,name],i)=>{if(d>=cols)return;const len=Math.min(n,cols-d);const s=document.createElement("div");s.className="stay k-"+k;s.innerHTML=`<span class="bd">${ch[k]||"·"}</span><span>${name}</span>`;
+      s.style.left=(lw+d*cw+2)+"px";s.style.width=(len*cw-6)+"px";s.style.top=(top0+r*rh)+"px";s.style.animationDelay=(.15+i*.06)+"s";g.appendChild(s)})};
   requestAnimationFrame(place);let tm;addEventListener("resize",()=>{clearTimeout(tm);tm=setTimeout(place,120)});
 })();
 
