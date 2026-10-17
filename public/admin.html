@@ -226,6 +226,8 @@ h1{font-weight:700}
   <form id="lf"><label class="f" for="em">Email</label><input id="em" type="email" autocomplete="email" required>
   <label class="f" for="pw">Parolă</label><input id="pw" type="password" autocomplete="current-password" required>
   <p class="msg bad" id="lmsg" role="alert"></p><button class="btn p" style="width:100%;justify-content:center;padding:10px">Intră</button>
+  <div id="l-google-wrap" hidden><p class="mute" style="text-align:center;margin:14px 0 8px">sau</p>
+  <button class="btn" type="button" id="l-google" style="width:100%;justify-content:center">Continuă cu Google</button></div>
   <p style="text-align:center;margin:12px 0 0"><a href="#" id="forgot">Am uitat parola</a></p></form>
   <form id="rf" hidden><label class="f" for="npw">Parolă nouă (minimum 8 caractere)</label><input id="npw" type="password" autocomplete="new-password" required>
   <p class="msg bad" id="rmsg" role="alert"></p><button class="btn p" style="width:100%;justify-content:center;padding:10px">Salvează parola</button></form>
@@ -650,7 +652,9 @@ document.addEventListener("keydown",e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLower
 async function route(keep){const [r,id]=(location.hash.slice(1)||"overview").split("/");if(!keep)TAB=r==="company"&&TAB?TAB:"sum";
   try{if(r==="company"&&id)await V.company(id);else await (V[r]||V.overview)();if(!keep)scrollTo(0,0)}catch(e){if(e.code!=="bad_session")$("view").innerHTML=`<div class="empty">${esc(errText(e))}</div>`}}
 addEventListener("hashchange",()=>{if(!location.hash.startsWith("#company"))TAB="sum";route(false)});
-function showLogin(msg){$("app").hidden=true;$("login").hidden=false;$("lmsg").textContent=msg||""}
+function showLogin(msg){$("app").hidden=true;$("login").hidden=false;$("lmsg").textContent=msg||"";
+  fetch("/api/google_status",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"}).then(r=>r.ok?r.json():null).then(j=>{const w=$("l-google-wrap");if(w)w.hidden=!(j&&j.ok)}).catch(()=>{})}
+$("l-google")&&($("l-google").onclick=()=>{location.href="/api/google/start?mode=login&next=admin"});
 $("lf").addEventListener("submit",async e=>{e.preventDefault();$("lmsg").textContent="";
   try{const r=await fetch("/api/auth_login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:$("em").value.trim(),password:$("pw").value})});const j=await r.json();
     if(!r.ok){$("lmsg").textContent=j.message==="locked"?"Prea multe încercări — așteaptă 15 minute":"Email sau parolă greșită";return}
@@ -659,6 +663,9 @@ $("forgot").onclick=async e=>{e.preventDefault();const em=$("em").value.trim();i
   const r=await fetch("/api/auth_reset_request",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:em,from:"admin"})});
   $("lmsg").className="msg "+(r.ok?"ok":"bad");$("lmsg").textContent=r.ok?"Dacă există contul, ți-am trimis un link pe email.":"Prea multe încercări — așteaptă 15 minute."};
 let RT="";{const m=/[#&]reset=([0-9a-f]{64})/.exec(location.hash);if(m){RT=m[1];history.replaceState(null,"",location.pathname)}}
+{const m=/[#&]t=([0-9a-f]{64})/.exec(location.hash);if(m){TOK=m[1];try{localStorage.setItem("es_admin_tok",TOK)}catch(e){}history.replaceState(null,"",location.pathname)}}
+const GERR={denied:"Intrarea cu Google a fost anulată",verify:"Google nu a confirmat intrarea",no_account:"Nu există cont cu acest Google",not_admin:"Acest cont nu este administrator al platformei.",disabled:"Contul e suspendat",google_taken:"Acest Google e deja legat de alt cont",google_off:"Google încă nu e activ pe server",bad_state:"Sesiunea a expirat — încearcă din nou"};
+let GERR_MSG="";{const m=/[#&]google_err=([^&]+)/.exec(location.hash);if(m){GERR_MSG=GERR[decodeURIComponent(m[1])]||"Nu am putut intra cu Google";history.replaceState(null,"",location.pathname)}}
 $("rf").addEventListener("submit",async e=>{e.preventDefault();const r=await fetch("/api/auth_reset",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:RT,password:$("npw").value})});const j=await r.json().catch(()=>({}));
   if(!r.ok){if(j.message==="pw_too_short"){$("rmsg").textContent="Minimum 8 caractere.";return}
     RT="";$("rf").hidden=true;$("lf").hidden=false;$("lmsg").className="msg bad";
@@ -666,7 +673,7 @@ $("rf").addEventListener("submit",async e=>{e.preventDefault();const r=await fet
   RT="";$("rf").hidden=true;$("lf").hidden=false;$("em").value=j.email||"";$("lmsg").className="msg ok";$("lmsg").textContent="Parola e schimbată. Intră cu parola nouă."});
 $("out").onclick=async()=>{try{await api("auth_logout")}catch(e){}TOK="";try{localStorage.removeItem("es_admin_tok")}catch(e){}showLogin("")};
 async function start(me){ME=me;$("login").hidden=true;$("app").hidden=false;$("me-email").textContent=me.user.email;renderNav();await route(false);if(!OV)refresh("ov").then(renderNav).catch(()=>{})}
-if(RT){$("app").hidden=true;$("login").hidden=false;$("lf").hidden=true;$("rf").hidden=false}else if(TOK)api("auth_me").then(me=>me.super&&!me.support?start(me):showLogin("Acest cont nu este administrator al platformei.")).catch(()=>showLogin(""));else showLogin("");
+if(RT){$("app").hidden=true;$("login").hidden=false;$("lf").hidden=true;$("rf").hidden=false}else if(TOK)api("auth_me").then(me=>me.super&&!me.support?start(me):showLogin("Acest cont nu este administrator al platformei.")).catch(()=>showLogin(""));else showLogin(GERR_MSG);
 })();
 </script>
 </body>
