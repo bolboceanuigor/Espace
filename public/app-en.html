@@ -1259,12 +1259,22 @@ body.wizon{overflow:hidden}
           <div><label class="l" for="f-guest">Guest</label><input type="text" id="f-guest" placeholder="Guest name" autocomplete="off"></div>
           <div><label class="l" for="f-phone">Phone <em>— optional</em></label><input type="tel" id="f-phone" placeholder="+373…" autocomplete="off"></div>
         </div>
-        <div class="grid2 fpax"><div><label class="l" for="f-pax">Guests <em>— how many people</em></label><input id="f-pax" inputmode="numeric" placeholder="2" autocomplete="off"></div><div class="hint" id="f-cap"></div></div>
+        <div class="grid2 fpax"><div><label class="l" for="f-adults">Adults</label><input id="f-adults" inputmode="numeric" placeholder="2" autocomplete="off"></div><div><label class="l" for="f-kids">Kids</label><input id="f-kids" inputmode="numeric" placeholder="0" autocomplete="off"></div></div>
+        <div class="hint" id="f-cap"></div>
+        <div class="grid2"><div><label class="l" for="f-glang">Guest language</label><select id="f-glang" class="fsel"><option value="">—</option><option value="ro">RO</option><option value="ru">RU</option><option value="en">EN</option></select></div><div></div></div>
+        <div class="grid2"><div><label class="l" for="f-cin">Check-in time</label><input type="time" id="f-cin"></div><div><label class="l" for="f-cout">Check-out time</label><input type="time" id="f-cout"></div></div>
         <div class="fcontact" id="f-contact" hidden></div>
         <label class="l" for="f-price">Booking price <em>— how much the guest should pay in total</em></label>
         <div class="grid2"><div class="cur"><input id="f-price" inputmode="decimal" placeholder="0" aria-label="Booking price"><span id="f-price-lbl">€</span></div><div class="seg" id="f-pricecur"></div></div>
+        <div class="grid2"><div><label class="l" for="f-discount">Manual discount</label><input id="f-discount" inputmode="decimal" placeholder="0" autocomplete="off"></div><div><label class="l" for="f-advance">Advance (plan)</label><input id="f-advance" inputmode="decimal" placeholder="0" autocomplete="off"></div></div>
+        <div class="hint" id="f-quote"></div>
         <label class="l">Booking payment</label><div class="seg" id="f-pst"></div>
         <div class="hint" id="f-pinfo"></div>
+        <div id="f-pays" hidden></div>
+        <label class="l">Deposit</label><div class="seg" id="f-depst"></div>
+        <div class="grid2"><div class="cur"><input id="f-depamt" inputmode="decimal" placeholder="0" aria-label="Deposit amount"><span>amount</span></div><div><label class="l" for="f-depnote">Reason / note</label><input id="f-depnote" type="text" autocomplete="off"></div></div>
+        <div class="hint" id="f-comm"></div>
+        <div id="f-files" hidden></div>
         <label class="l">Received <em>— in the currency it was paid in</em></label>
         <div class="grid3">
           <div class="cur"><input id="f-mdl" inputmode="decimal" placeholder="0" aria-label="Lei"><span>lei</span></div>
@@ -1280,7 +1290,9 @@ body.wizon{overflow:hidden}
           <div><label class="l">Who received</label><div class="seg" id="f-who"></div></div>
         </div>
         <label class="l" for="f-srcsel">Booking source</label><select id="f-srcsel" class="fsel"></select><div id="f-src" hidden></div>
-        <label class="l" for="f-note">Note</label>
+        <label class="l" for="f-team">Note for the team <em>— the maid sees this</em></label>
+        <input type="text" id="f-team" placeholder="Code, late check-in, special requests…" autocomplete="off">
+        <label class="l" for="f-note">Internal note <em>— managers only</em></label>
         <input type="text" id="f-note" placeholder="Optional. «ok» — hide the warning" autocomplete="off">
         <div class="msgs" id="f-msgs"></div>
         <div class="hint" id="f-ver" hidden style="color:var(--ok)"></div>
@@ -1485,7 +1497,7 @@ async function api(fn,args={}){
   if(!r.ok){const m=(j&&j.message)||t||("HTTP "+r.status); const err=new Error(m); err.code=/bad_session/.test(m)?"bad_pin":m; if(m==="month_closed")closedHit=Date.now(); if(m==="subscription_expired"){EXPIRED=true;RO=true;document.body.classList.add("ro");subBar()} throw err}
   return j;
 }
-function mapB(b){return {tag:b.tag||"",price:+b.price||0,price_cur:b.price_cur||"EUR",pay_status:b.pay_status||"",id:b.id,date:b.date,apt:b.apt,guest:b.guest||"",nights:+b.nights||0,mdl:+b.mdl||0,eur:+b.eur||0,usd:+b.usd||0,pay:b.pay||"",who:b.who||"",note:b.note||"",source:b.source||"",phone:b.phone||"",pax:+b.pax||0,email:b.email||"",oth:+b.oth||0,oth_cur:b.oth_cur||"",util:+b.util||0,util_cur:b.util_cur||"MDL",verified:!!b.verified,verifiedAt:b.verified_at||null,shiftId:b.shift_id||null,createdAt:Date.parse(b.created_at)||0,updatedAt:Date.parse(b.updated_at)||0}}
+function mapB(b){const adults=+(b.adults||0),kids=+(b.kids||0),pax=+(b.pax||0);return {tag:b.tag||"",price:+b.price||0,price_cur:b.price_cur||"EUR",pay_status:b.pay_status||"",id:b.id,date:b.date,apt:b.apt,guest:b.guest||"",nights:+b.nights||0,mdl:+b.mdl||0,eur:+b.eur||0,usd:+b.usd||0,pay:b.pay||"",who:b.who||"",note:b.note||"",team_note:b.team_note||"",source:b.source||"",phone:b.phone||"",pax:pax||adults+kids,adults:adults||(!kids&&pax?pax:adults),kids,guest_lang:b.guest_lang||"",cin_time:b.cin_time||"",cout_time:b.cout_time||"",discount:+b.discount||0,advance:+b.advance||0,commission:+b.commission||0,deposit_status:b.deposit_status||"",deposit_amount:+b.deposit_amount||0,deposit_note:b.deposit_note||"",email:b.email||"",oth:+b.oth||0,oth_cur:b.oth_cur||"",util:+b.util||0,util_cur:b.util_cur||"MDL",verified:!!b.verified,verifiedAt:b.verified_at||null,shiftId:b.shift_id||null,createdAt:Date.parse(b.created_at)||0,updatedAt:Date.parse(b.updated_at)||0}}
 function mapE(e){return {...({id:e.id,date:e.date,apt:e.apt||"",category:e.category||"",mdl:+e.mdl||0,eur:+e.eur||0,usd:+e.usd||0,who:e.who||"",note:e.note||"",oth:+e.oth||0,oth_cur:e.oth_cur||"",yearly:!!e.yearly,createdAt:Date.parse(e.created_at)||0,updatedAt:Date.parse(e.updated_at)||0}),shiftId:e.shift_id||null}}
 async function reload(){
   const d=await api("kv_load");
@@ -1550,9 +1562,21 @@ function monthStats(y=mon.y,m=mon.m){
 
 /* booking form */
 let form=blankB();
-function blankB(keep={}){return{tag:"",price:"",price_cur:"EUR",pay_status:"",util:"",util_cur:"MDL",id:null,apt:keep.apt||"",date:keep.date||todayStr(),nights:1,guest:"",phone:"",pax:"",mdl:"",eur:"",usd:"",oth:"",oth_cur:"",pay:ls.get("pay")||"Кэш",who:ls.get("who")||"",source:"",note:"",createdAt:null}}
-const BF=["date","nights","guest","phone","pax","mdl","eur","usd","oth","util","note","price"];
-function readB(){for(const k of BF) form[k]=$("f-"+k).value}
+function blankB(keep={}){return{tag:"",price:"",price_cur:"EUR",pay_status:"",util:"",util_cur:"MDL",id:null,apt:keep.apt||"",date:keep.date||todayStr(),nights:1,guest:"",phone:"",pax:"",adults:"",kids:"",guest_lang:"",cin_time:"",cout_time:"",discount:"",advance:"",commission:0,deposit_status:"",deposit_amount:"",deposit_note:"",mdl:"",eur:"",usd:"",oth:"",oth_cur:"",pay:ls.get("pay")||"Кэш",who:ls.get("who")||"",source:"",note:"",team_note:"",createdAt:null}}
+const BF=["date","nights","guest","phone","mdl","eur","usd","oth","util","note","price","discount","advance"];
+let BK_PAYS={},BK_FILES={};
+function readB(){
+  for(const k of BF){const el=$("f-"+k);if(el)form[k]=el.value}
+  if($("f-adults"))form.adults=$("f-adults").value;
+  if($("f-kids"))form.kids=$("f-kids").value;
+  if($("f-glang"))form.guest_lang=$("f-glang").value;
+  if($("f-cin"))form.cin_time=$("f-cin").value;
+  if($("f-cout"))form.cout_time=$("f-cout").value;
+  if($("f-team"))form.team_note=$("f-team").value;
+  if($("f-depamt"))form.deposit_amount=$("f-depamt").value;
+  if($("f-depnote"))form.deposit_note=$("f-depnote").value;
+  form.pax=(parseInt(form.adults,10)||0)+(parseInt(form.kids,10)||0);
+}
 // prices by season and weekday — same rules as lib/core.ts (server) and book.html (guests)
 // the engine is public/price.js — the same file the booking page and the server use
 const seasonOf=(P,d)=>EsPrice.seasonOf(P,d);
@@ -1560,24 +1584,33 @@ const nightPrice=(base,d,P)=>EsPrice.night({price:base},d,P);
 const stayPrice=(base,d,n,P)=>EsPrice.stay(base,d,n,P);
 // a unit's price for one night / a whole stay, with its own day rules (price mode), weekday prices, extras and discounts
 const uNight=(a,d)=>EsPrice.night(unitOf(a),d,cfg.pricing,DR[a]||{});
-const uQuote=(a,d,n,pax,kids)=>EsPrice.quote(unitOf(a),d,n,{P:cfg.pricing,R:DR[a]||{},pax,kids});
+const uQuote=(a,d,n,pax,kids,discount)=>EsPrice.quote(unitOf(a),d,n,{P:cfg.pricing,R:DR[a]||{},pax,kids,discount:discount||0});
 // how many people fit, from the unit's details; warns when the booking has more
-function capHint(){const el=$("f-cap");if(!el)return;const u=unitOf(form.apt||""),c=capOf(u),p=parseInt(($("f-pax")||{}).value,10)||0;
+function capHint(){const el=$("f-cap");if(!el)return;const u=unitOf(form.apt||""),c=capOf(u),p=(parseInt(($("f-adults")||{}).value,10)||0)+(parseInt(($("f-kids")||{}).value,10)||0);
   el.className="hint"+(c&&p>c?" bad":"");el.textContent=!c?"":p>c?"More than it fits: maximum "+c:"Sleeps up to "+c+(bedsOf(u)?" · "+bedsOf(u):"")}
-document.addEventListener("input",e=>{if(e.target.id==="f-pax")capHint()});
+document.addEventListener("input",e=>{if(e.target.id==="f-adults"||e.target.id==="f-kids"||e.target.id==="f-discount"){capHint();infoB()}});
 document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-psug]");if(!t)return;readB();form.price=t.dataset.psug;form.price_cur=t.dataset.pcur;fillB();infoB()});
 function fillB(){
   fAptOpen=false;fTagOpen=false;
-  for(const k of BF) $("f-"+k).value=form[k]??"";
-  if(!+form.pax)$("f-pax").value="";setTimeout(capHint,0);
+  for(const k of BF){const el=$("f-"+k);if(el)el.value=form[k]??""}
+  const u0=unitOf(form.apt||"");
+  if($("f-adults"))$("f-adults").value=+form.adults||(+form.pax&&!+form.kids?form.pax:"")||"";
+  if($("f-kids"))$("f-kids").value=+form.kids?form.kids:"";
+  if($("f-glang"))$("f-glang").value=form.guest_lang||"";
+  if($("f-cin"))$("f-cin").value=form.cin_time||(!form.id&&u0.cin?u0.cin:"");
+  if($("f-cout"))$("f-cout").value=form.cout_time||(!form.id&&u0.cout?u0.cout:"");
+  if($("f-team"))$("f-team").value=form.team_note||"";
+  if($("f-depamt"))$("f-depamt").value=+form.deposit_amount?form.deposit_amount:"";
+  if($("f-depnote"))$("f-depnote").value=form.deposit_note||"";
+  setTimeout(capHint,0);
   $("f-title").textContent=form.id?"Edit booking":"New booking";
   $("f-cancel").hidden=!form.id; $("f-del").hidden=!form.id; disarm("f-del");
   $("f-ver").hidden=!form.verified; if(form.verified) $("f-ver").textContent="✓ Payment checked"+(form.verifiedAt?" "+dm(String(form.verifiedAt).slice(0,10)):"")+". If you change the amount or payment method, the tick will have to be set again.";
   $("f-util-row").hidden=!+form.util; $("f-util-toggle").hidden=!$("f-util-row").hidden;
   $("f-oth-row").hidden=!(+form.oth||form.oth_cur); $("f-oth-toggle").hidden=!$("f-oth-row").hidden;
-  renderChipsB(); renderSegsB(); infoB();
+  renderChipsB(); renderSegsB(); infoB(); renderBkPays(); renderBkFiles();
 }
-function asB(){return{tag:form.tag||"",price:num(form.price)||0,price_cur:form.price_cur||"EUR",pay_status:form.pay_status||"",util:num(form.util)||0,util_cur:form.util_cur||"MDL",oth:num(form.oth),oth_cur:form.oth_cur,id:form.id,apt:form.apt,date:form.date,nights:parseInt(form.nights,10)||0,guest:String(form.guest).trim(),phone:String(form.phone).trim(),pax:parseInt(form.pax,10)||0,mdl:num(form.mdl),eur:num(form.eur),usd:num(form.usd),pay:form.pay,who:form.who,source:form.source,note:String(form.note).trim()}}
+function asB(){const adults=parseInt(form.adults,10)||0,kids=parseInt(form.kids,10)||0;return{tag:form.tag||"",price:num(form.price)||0,price_cur:form.price_cur||"EUR",pay_status:form.pay_status||"",util:num(form.util)||0,util_cur:form.util_cur||"MDL",oth:num(form.oth),oth_cur:form.oth_cur,id:form.id,apt:form.apt,date:form.date,nights:parseInt(form.nights,10)||0,guest:String(form.guest).trim(),phone:String(form.phone).trim(),adults,kids,pax:adults+kids,guest_lang:form.guest_lang||"",cin_time:form.cin_time||"",cout_time:form.cout_time||"",discount:num(form.discount)||0,advance:num(form.advance)||0,commission:num(form.commission)||0,deposit_status:form.deposit_status||"",deposit_amount:num(form.deposit_amount)||0,deposit_note:String(form.deposit_note||"").trim(),mdl:num(form.mdl),eur:num(form.eur),usd:num(form.usd),pay:form.pay,who:form.who,source:form.source,note:String(form.note).trim(),team_note:String(form.team_note||"").trim()}}
 let fAptOpen=false,fTagOpen=false;
 function renderChipsB(){
   const d=/^\d{4}-\d\d-\d\d$/.test(form.date)?toT(form.date):null;
@@ -1600,6 +1633,7 @@ function renderSegsB(){
   $("f-utilcur").innerHTML=[["MDL","lei"],["EUR","€"],["USD","$"]].map(([c,l])=>`<button type="button" data-utilcur="${c}" aria-pressed="${(form.util_cur||"MDL")===c}">${l}</button>`).join("");
   $("f-pricecur").innerHTML=[["MDL","lei"],["EUR","€"],["USD","$"]].map(([c,l])=>`<button type="button" data-pricecur="${c}" aria-pressed="${(form.price_cur||"EUR")===c}">${l}</button>`).join("");$("f-price-lbl").textContent=CUR_L[form.price_cur||"EUR"];
   {const st=payState({...asB(),id:form.id});$("f-pst").innerHTML=[["unpaid","Unpaid"],["part","Prepayment"],["paid","Paid"]].map(([k,l])=>`<button type="button" data-pst="${k}" aria-pressed="${st.state===k}">${l}</button>`).join("")}
+  {const ds=form.deposit_status||"";$("f-depst").innerHTML=[["","No"],["held","Held"],["returned","Returned"],["retained","Retained"]].map(([k,l])=>`<button type="button" data-depst="${k}" aria-pressed="${ds===k}">${l}</button>`).join("")}
   $("f-srcsel").innerHTML=`<option value="">— not given —</option>`+[...new Set([...cfg.sources,...(form.source&&!cfg.sources.includes(form.source)?[form.source]:[])])].map(p=>`<option value="${esc(p)}"${form.source===p?" selected":""}>${esc(p)}</option>`).join("");
 }
 function phoneDigits(raw){let dg=String(raw||"").replace(/\D/g,"");if(dg.length===9&&dg[0]==="0")dg="373"+dg.slice(1);if(dg.length===8)dg="373"+dg;return dg}
@@ -1609,8 +1643,10 @@ const svgPh='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke=
 function infoB(){
   const b=asB(), msgs=[];
   {const c=$("f-contact"),h=contactHTML(b.phone);c.innerHTML=h;c.hidden=!h}
-  {const ps=payState({...b,id:form.id}),c=CUR_L[ps.cur],u=unitOf(b.apt||""),q=!b.price&&b.apt&&b.nights>0&&b.date&&!b.tag?uQuote(b.apt,b.date,b.nights,b.pax,0):null,sug=q&&q.base>0?q.total:0,uc=CUR_L[u.pcur||"EUR"];
-   $("f-pinfo").innerHTML=sug?`By rate: ${q.flat?`${fmt(q.nights[0].p)} ${uc} × ${b.nights}`:`${b.nights} ${plural(b.nights,"night","nights","nights")} ≈ ${fmt(q.avg)} ${uc}`}${q.xg?` + ${q.xgN} ${plural(q.xgN,"guest","of the guest","guests")} extra ${fmt(q.xg)}`:""}${q.losPct?` − discount ${q.losPct}%`:""}${q.cfee?` + cleaning ${fmt(q.cfee)}`:""} = <b>${fmt(sug)} ${uc}</b> <button type="button" class="btn sm" data-psug="${sug}" data-pcur="${esc(u.pcur||"EUR")}">Use it</button>`:b.price?`Received <b>${fmt0(fromEurC(ps.got,ps.cur))} ${c}</b> of ${fmt0(b.price)} ${c}${ps.left?` · left <b style="color:#f7a44c">${fmt0(ps.left)} ${c}</b>`:" · all paid"}`:(ps.got>0.5?"":"Nothing received yet");document.querySelectorAll("#f-pst [data-pst]").forEach(x=>x.setAttribute("aria-pressed",x.dataset.pst===ps.state))}
+  {const ps=payState({...b,id:form.id}),c=CUR_L[ps.cur],u=unitOf(b.apt||""),q=b.apt&&b.nights>0&&b.date&&!b.tag?uQuote(b.apt,b.date,b.nights,b.adults||b.pax,b.kids,b.discount):null,sug=q&&q.base>0?q.total:0,uc=CUR_L[u.pcur||"EUR"];
+   const qEl=$("f-quote");if(qEl)qEl.innerHTML=q&&q.base>0?`Quote: base ${fmt(q.base)}${q.xg?` + guests ${fmt(q.xg)}`:""}${q.xc?` + kids ${fmt(q.xc)}`:""}${q.losPct?` − LOS ${q.losPct}% (${fmt(q.los)})`:""}${q.cfee?` + cleaning ${fmt(q.cfee)}`:""}${q.discount?` − discount ${fmt(q.discount)}`:""} = <b>${fmt(q.total)} ${uc}</b>`+(b.advance?` · deposit ${fmt(b.advance)} · planned balance ${fmt(Math.max(0,q.total-b.advance))}`:""):"";
+   $("f-pinfo").innerHTML=(!b.price&&sug)?`By rate: ${q.flat?`${fmt(q.nights[0].p)} ${uc} × ${b.nights}`:`${b.nights} ${plural(b.nights,"night","nights","nights")} ≈ ${fmt(q.avg)} ${uc}`}${q.xg?` + ${q.xgN} ${plural(q.xgN,"guest","of the guest","guests")} extra ${fmt(q.xg)}`:""}${q.xc?` + kids ${fmt(q.xc)}`:""}${q.losPct?` − discount ${q.losPct}%`:""}${q.cfee?` + cleaning ${fmt(q.cfee)}`:""}${q.discount?` − manual ${fmt(q.discount)}`:""} = <b>${fmt(sug)} ${uc}</b> <button type="button" class="btn sm" data-psug="${sug}" data-pcur="${esc(u.pcur||"EUR")}">Use it</button>`:b.price?`Received <b>${fmt0(fromEurC(ps.got,ps.cur))} ${c}</b> of ${fmt0(b.price)} ${c}${ps.left?` · left <b style="color:#f7a44c">${fmt0(ps.left)} ${c}</b>`:" · all paid"}`:(ps.got>0.5?"":"Nothing received yet");document.querySelectorAll("#f-pst [data-pst]").forEach(x=>x.setAttribute("aria-pressed",x.dataset.pst===ps.state))}
+  {const fee=Number((cfg.sourceFees||{})[b.source])||0,comm=b.commission||(fee&&b.price?Math.round(b.price*fee)/100:0);const el=$("f-comm");if(el)el.textContent=fee||comm?`Channel fee${fee?` ${fee}%`:""}: ${fmt(comm)} ${CUR_L[b.price_cur||"EUR"]}`+(form.id?"":" · set on save"):""}
   if(b.date&&b.nights>0){const e=toT(b.date)+b.nights*DAY;$("f-out").textContent="Check-out: "+dm(fromT(e))+" ("+WD[new Date(e).getUTCDay()]+") · "+b.nights+" "+plural(b.nights,"night","nights","nights");}
   else $("f-out").textContent=b.nights===0?"0 nights — e.g. the balance for a booking already recorded":"";
   const tot=[b.mdl,b.eur,b.usd,b.oth,b.util].some(x=>isNaN(x))?null:eurOf(b)+utilEur(b);
@@ -1641,8 +1677,8 @@ async function saveB(){
 let bpop=false;
 function openBForm(focus){closeSheet();setMode("b");if(view==="cal"){bpop=true;document.body.classList.add("bpop");$("v-add").hidden=false;fillB();$("v-add").scrollTop=0}else{show("add");fillB();window.scrollTo({top:0})}if(focus)setTimeout(()=>{const f=$("f-guest");if(f)f.focus({preventScroll:true})},60)}
 function closeBPop(){if(!bpop)return;bpop=false;document.body.classList.remove("bpop");$("v-add").hidden=view!=="add";if(view==="cal")renderCal()}
-function editB(id){const b=bookings.find(x=>x.id===id);if(!b)return;form={...blankB(),...b,tag:b.tag||"",price:b.price||"",price_cur:b.price_cur||"EUR",pay_status:b.pay_status||"",mdl:b.mdl||"",eur:b.eur||"",usd:b.usd||"",oth:b.oth||"",util:b.util||"",util_cur:b.util_cur||"MDL"};openBForm(false)}
-function newB(apt,date){form=blankB({apt,date});openBForm(true)}
+function editB(id){const b=bookings.find(x=>x.id===id);if(!b)return;form={...blankB(),...b,tag:b.tag||"",price:b.price||"",price_cur:b.price_cur||"EUR",pay_status:b.pay_status||"",mdl:b.mdl||"",eur:b.eur||"",usd:b.usd||"",oth:b.oth||"",util:b.util||"",util_cur:b.util_cur||"MDL",adults:b.adults||"",kids:b.kids||"",discount:b.discount||"",advance:b.advance||"",deposit_amount:b.deposit_amount||"",deposit_note:b.deposit_note||"",deposit_status:b.deposit_status||"",team_note:b.team_note||"",guest_lang:b.guest_lang||"",cin_time:b.cin_time||"",cout_time:b.cout_time||"",commission:b.commission||0};openBForm(false);loadBkPays(id);loadBkFiles(id)}
+function newB(apt,date){form=blankB({apt,date});const u=unitOf(apt||"");if(u.cin)form.cin_time=u.cin;if(u.cout)form.cout_time=u.cout;openBForm(true)}
 
 /* expense form */
 let eform=blankE();
@@ -2013,7 +2049,7 @@ document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest
     out.push({id:o.id,name:name.slice(0,80),email:email.slice(0,120),phone:String(o.phone||"").trim().slice(0,40),fee,exp:o.exp!==false,apts:(o.apts||[]).filter(a=>cfg.apts.includes(a))})}
   OWN=null;saveCfg({...cfg,owners:out},"Owners saved")});
 /* CHANGE LOG: who changed what (bookings, expenses, payouts, settings, team) */
-const AF={date:"Date",apt:"Unit",guest:"Guest",nights:"Nights",mdl:"Lei",eur:"€",usd:"$",oth:"Other currency",oth_cur:"Currency code",util:"Utilities",util_cur:"Utilities currency",pay:"Payment",who:"Received by",note:"Note",source:"Source",phone:"Phone",pax:"Guests",price:"Price",price_cur:"Price currency",pay_status:"Payment status",tag:"Tag",category:"Category",yearly:"Yearly",amount:"Amount",method:"How",paid_on:"Payout date",role:"Role",created:"Added",dup:"Already there",bad:"Skipped",aptsAdded:"New units",aptsRemoved:"Units removed",from:"Before",to:"Now"};
+const AF={date:"Date",apt:"Unit",guest:"Guest",nights:"Nights",mdl:"Lei",eur:"€",usd:"$",oth:"Other currency",oth_cur:"Currency code",util:"Utilities",util_cur:"Utilities currency",pay:"Payment",who:"Received by",note:"Note",team_note:"Team note",source:"Source",phone:"Phone",pax:"Guests",adults:"Adults",kids:"Kids",guest_lang:"Language",cin_time:"Check-in",cout_time:"Check-out",discount:"Discount",advance:"Deposit",commission:"Commission",deposit_status:"Deposit",deposit_amount:"Deposit amount",deposit_note:"Deposit note",price:"Price",price_cur:"Price currency",pay_status:"Payment status",tag:"Tag",category:"Category",yearly:"Yearly",amount:"Amount",method:"How",paid_on:"Payout date",role:"Role",created:"Added",dup:"Already there",bad:"Skipped",aptsAdded:"New units",aptsRemoved:"Units removed",from:"Before",to:"Now"};
 const AA={contract:"created the contract",signed:"guest signed the contract",create:"added",update:"changed",delete:"deleted",request:"request from the booking page",confirm:"confirmed the request",decline:"declined the request",import:"import from a file",rename:"renamed a unit",pay:"marked a payout",unpay:"removed the payout mark",close:"closed the month",open:"reopened the month",add:"gave access",remove:"removed access",role:"changed the role"};
 const AK={booking:"Booking",expense:"Expense",settings:"Settings",owner:"Owner",team:"Team",month:"Month",import:"Import"};
 const AS={contract:"contract",tax:"taxes",taxPaid:"tax payments",apts:"units",units:"unit details",addr:"addresses",owners:"owners",pricing:"seasons and prices",direct:"booking page",rates:"exchange rates",other:"other currencies",people:"managers",checklist:"checklist",onboarded:"first setup",archived:"unit archive",payouts:"maid payouts",duty:"shift schedule",groups:"groups"};
@@ -2459,12 +2495,33 @@ const BAR_COL={"Airbnb":"#f6a5a3","Booking":"#bcd7f4","Instagram":"#f7d9a8","Vib
 const WHO_COL=["#dcb7de","#b6dcaf"], WHO_NAME={"О":"Oxana","И":"Igor"};
 const CUR_L={MDL:"lei",EUR:"€",USD:"$"};
 // money already received for a stay: the booking itself + top-ups (0-night rows) of the same apartment during the stay
-function paidEur(b){let e=eurOf(b);for(const x of bookings)if(x.id!==b.id&&x.nights===0&&x.apt===b.apt&&x.date>=b.date&&x.date<endOf(b))e+=eurOf(x);return e}
+function paidEur(b){let e=eurOf(b);for(const x of bookings)if(x.id!==b.id&&x.nights===0&&x.apt===b.apt&&x.date>=b.date&&x.date<endOf(b))e+=eurOf(x);
+  const rows=BK_PAYS[b.id];if(rows&&rows.length){e=0;for(const p of rows){const v=toEurC(+p.amount,p.cur||"EUR");e+=p.kind==="refund"?-v:v}}
+  return e}
 const toEurC=(v,c)=>c==="MDL"?v/(+cfg.rates.eur||20):c==="USD"?v*(+cfg.rates.usd||0.85):v;
 const fromEurC=(v,c)=>c==="MDL"?v*(+cfg.rates.eur||20):c==="USD"?v/(+cfg.rates.usd||0.85):v;
 function payState(b){const air=b.source==="Airbnb"||b.pay==="Airbnb",got=b.nights>0?paidEur(b):eurOf(b),pe=b.price?toEurC(+b.price,b.price_cur||"EUR"):0;
   let state=b.pay_status||(air?"paid":pe?(got>=pe*0.98?"paid":got>0.5?"part":"unpaid"):(got>0.5?"paid":"unpaid"));
   const left=pe&&got<pe?Math.round(fromEurC(pe-got,b.price_cur||"EUR")):0;return {state,got,pe,left,cur:b.price_cur||"EUR"}}
+async function loadBkPays(id){if(!id)return;try{BK_PAYS[id]=await api("bk_pay_list",{booking_id:id})||[];renderBkPays();infoB()}catch(e){}}
+async function loadBkFiles(id){if(!id)return;try{BK_FILES[id]=await api("bk_file_list",{booking_id:id})||[];renderBkFiles()}catch(e){}}
+function renderBkPays(){
+  const box=$("f-pays");if(!box)return;
+  if(!form.id){box.hidden=true;box.innerHTML="";return}
+  box.hidden=false;const rows=BK_PAYS[form.id]||[],c=CUR_L[form.price_cur||"EUR"];
+  box.innerHTML=`<label class="l">Payments and refunds</label><div class="card" style="padding:8px 10px">${rows.length?rows.map(p=>`<div class="setrow" style="gap:8px"><b>${p.kind==="refund"?"−":"+"}${fmt(p.amount)} ${esc(p.cur)}</b><span class="small">${dm(p.day)} · ${esc(p.method||"—")}${p.note?" · "+esc(p.note):""}</span><button type="button" class="ibtn del" data-bkpaydel="${esc(p.id)}" aria-label="Delete">✕</button></div>`).join(""):`<p class="small" style="margin:0">None yet — amounts above (lei/€/$) still count as before.</p>`}
+    <div class="setadd" style="margin-top:8px"><input type="date" id="bkpay-day" value="${todayStr()}"><input inputmode="decimal" id="bkpay-amt" placeholder="Amount"><select id="bkpay-cur">${["EUR","MDL","USD"].map(x=>`<option ${x===(form.price_cur||"EUR")?"selected":""}>${x}</option>`).join("")}</select></div>
+    <div class="setadd"><input type="text" id="bkpay-m" placeholder="Method"><select id="bkpay-kind"><option value="pay">Payment</option><option value="refund">Refund</option></select><button type="button" class="btn primary sm" id="bkpay-add">＋</button></div>
+    <p class="small" style="margin:6px 0 0">Balance due: <b>${fmt0(payState({...asB(),id:form.id}).left||0)} ${c}</b></p></div>`;
+}
+function renderBkFiles(){
+  const box=$("f-files");if(!box)return;
+  if(!form.id){box.hidden=true;box.innerHTML="";return}
+  box.hidden=false;const rows=BK_FILES[form.id]||[];
+  box.innerHTML=`<label class="l">Booking files <em>— ID, contract…</em></label><div class="card" style="padding:8px 10px">${rows.length?rows.map(f=>`<div class="setrow"><b>${esc(f.name)}</b><span class="small">${Math.round((f.size||0)/1024)} KB</span><button type="button" class="ibtn del" data-bkfiledel="${esc(f.id)}" aria-label="Delete">✕</button></div>`).join(""):`<p class="small" style="margin:0">No files</p>`}
+    <div class="actions" style="margin-top:8px"><button type="button" class="btn sm" id="bkfile-add">＋ File</button><input type="file" id="bkfile-inp" accept="image/*,.pdf" hidden></div>
+    <p class="small" style="margin:6px 0 0">Need Cloudflare R2 (binding FILES). If it is missing, upload will tell you what to configure.</p></div>`;
+}
 const payActive=b=>b.nights>0&&b.tag!=="closed"&&b.tag!=="req"&&endOf(b)>=todayStr();
 // calendar colour = who made the booking (Excel keeps colouring by who took the money)
 const TAGS=[["booking","Booking","#f7c58a"],["airbnb","Airbnb","#f6a5a3"],["req","Request","#a9c8f5"],["closed","Closed","#5a606c"]];
@@ -2474,7 +2531,9 @@ function bookView(id){const b=bookings.find(x=>x.id===id);if(!b)return;const tg=
   let pay="";if(b.tag!=="closed"){const ps=payState(b),lab={paid:"Paid",part:"Prepayment",unpaid:"Unpaid"}[ps.state]||"";
     const got=Math.round(fromEurC(ps.got,ps.cur));
     pay=`<div class="bv-pay ${ps.state}"><b>${lab}</b><span>${b.price?`received ${esc(cs(got))} of ${esc(cs(+b.price))}${ps.left?` · <i>left ${esc(cs(ps.left))}</i>`:""}`:esc(amounts(b)||"no amount given")}</span></div>`}
-  const rows=[["Apartment",b.apt],["Dates",dm(b.date)+" → "+dm(endOf(b))+" · "+nn+" "+nw],["Phone",b.phone],["Source",b.source],["Received",b.price?amounts(b):""],["Received by",[b.pay,b.who].filter(Boolean).join(" · ")],["Note",b.note]].filter(x=>x[1]);
+  const depL={held:"held",returned:"returned",retained:"retained"};
+  let depTxt="";if(b.deposit_status){depTxt=depL[b.deposit_status]||b.deposit_status;if(b.deposit_amount)depTxt+=" · "+fmt(b.deposit_amount);if(b.deposit_note)depTxt+=" · "+b.deposit_note}
+  const rows=[["Apartment",b.apt],["Dates",dm(b.date)+" → "+dm(endOf(b))+" · "+nn+" "+nw],["Time",(b.cin_time||b.cout_time)?[b.cin_time&&("check-in "+b.cin_time),b.cout_time&&("check-out "+b.cout_time)].filter(Boolean).join(" · "):""],["Guests",(b.adults||b.kids)?[b.adults&&(b.adults+" adults"),b.kids&&(b.kids+" kids")].filter(Boolean).join(", "):(b.pax?b.pax+" pax":"")],["Phone",b.phone],["Source",b.source],["Commission",b.commission?fmt(b.commission)+" "+(CUR_L[b.price_cur||"EUR"]||""):""],["Deposit",depTxt],["Received",b.price?amounts(b):""],["Received by",[b.pay,b.who].filter(Boolean).join(" · ")],["Team",b.team_note],["Note",b.note]].filter(x=>x[1]);
   const ct=contactHTML(b.phone||"");
   openSheet(b.tag==="closed"?"Closed":(b.guest||"No name"),`<div class="bv">${tg?`<div class="bv-tag"><i style="background:${tg[2]}"></i>${esc(tg[1])}</div>`:""}${pay}
    ${ct?`<div class="fcontact bv-ct">${ct}</div>`:b.tag==="closed"?"":`<div class="bv-nophone">No phone given</div>`}
@@ -3218,6 +3277,9 @@ function renderSettings(){
     `],
     apts:["home","Units",`${cfg.apts.length} ${plural(cfg.apts.length,"unit","units","units")} · details, addresses, photos, order`,()=>aptsSection()],
     pricing:["rate","Seasons & weekends",(()=>{const P=cfg.pricing||{},n=(P.seasons||[]).length;return [P.weekend?"weekends +"+P.weekend+"%":"",n?n+" "+plural(n,"season","seasons","seasons"):""].filter(Boolean).join(" · ")||"higher prices in season and on weekends"})(),()=>pricingSection()],
+    fees:["rate","Channel fees",(()=>{const F=cfg.sourceFees||{},n=Object.keys(F).filter(k=>+F[k]>0).length;return n?n+" "+plural(n,"channel","channel","channels")+" · %":"Airbnb, Booking — % on new bookings"})(),()=>`<div class="card"><p class="small" style="margin-top:0">The percent is applied to the booking price on create. Older bookings stay unchanged.</p>
+      ${cfg.sources.map(s=>`<div class="setrow"><b>${esc(s)}</b><input inputmode="decimal" data-sfee="${esc(s)}" value="${esc(String((cfg.sourceFees||{})[s]||""))}" placeholder="%" style="width:72px"><span class="small">%</span></div>`).join("")}
+      <div class="actions"><button class="btn primary" id="sfee-save">Save</button></div></div>`],
     contract:["chk","Guest contract",(cfg.contract||{}).landlord?"host: "+(cfg.contract||{}).landlord:"guest signs on the phone",()=>contractSection()],
     owners:["mgr","Owners",(cfg.owners||[]).length?(cfg.owners||[]).map(o=>o.name).join(", "):"commission, payouts and monthly statement",()=>ownersSection()],
     import:["chk","Import from Excel",`bookings and units from a file · Excel, CSV, RealtyCalendar`,()=>importSection()],
@@ -3253,6 +3315,17 @@ async function saveCfg(next,msg){try{await api("kv_set_config",{p_data:next});cf
 
 let photoApt=null;
 function pickPhoto(a){photoApt=a;$("photo-input").value="";$("photo-input").click()}
+document.addEventListener("change",async e=>{
+  if(e.target.id!=="bkfile-inp"||!form.id)return;
+  const f=e.target.files&&e.target.files[0];if(!f)return;
+  try{
+    toast("Uploading…");
+    const data=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)});
+    await api("bk_file_put",{booking_id:form.id,name:f.name,mime:f.type,data});
+    await loadBkFiles(form.id);toast("File saved");
+  }catch(err){toast(err.code==="need_r2"?"Need R2: create bucket and binding FILES in Cloudflare Pages":err.code==="too_big"?"File is too large":"Didn’t load")}
+  e.target.value="";
+});
 $("photo-input").addEventListener("change",async e=>{
   const f=e.target.files[0]; if(!f||!photoApt) return;
   try{
@@ -4044,6 +4117,12 @@ document.addEventListener("click",e=>{
   if(ds.tagopen){fTagOpen=!fTagOpen;renderChipsB();return}
   if(ds.tag!=null&&t.closest("#f-tag")){readB();form.tag=ds.tag;fTagOpen=false;renderChipsB();infoB();return}
   if(ds.pst){readB();const auto=payState({...asB(),pay_status:"",id:form.id}).state;form.pay_status=ds.pst===auto?"":ds.pst;infoB();return}
+  if(ds.depst!=null){readB();form.deposit_status=ds.depst;renderSegsB();return}
+  if(t.id==="bkpay-add"){if(!form.id)return;const amount=num($("bkpay-amt").value);if(!(amount>0)){toast("Enter the amount");return}
+    t.disabled=true;api("bk_pay_save",{booking_id:form.id,amount,cur:$("bkpay-cur").value,day:$("bkpay-day").value||todayStr(),method:$("bkpay-m").value.trim(),kind:$("bkpay-kind").value}).then(()=>loadBkPays(form.id)).catch(e=>toast(e.code==="month_closed"?"Month closed":"Not saved")).finally(()=>t.disabled=false);return}
+  if(ds.bkpaydel){api("bk_pay_del",{id:ds.bkpaydel,booking_id:form.id}).then(()=>loadBkPays(form.id)).catch(()=>toast("Failed"));return}
+  if(t.id==="bkfile-add"){$("bkfile-inp").click();return}
+  if(ds.bkfiledel){api("bk_file_del",{id:ds.bkfiledel,booking_id:form.id}).then(()=>loadBkFiles(form.id)).catch(()=>toast("Failed"));return}
   if(ds.eedit){editE(ds.eedit);return}
   if(ds.newb!=null){newB(ds.newb,todayStr());return}
   if(ds.newe!=null){newE(ds.newe);return}
@@ -4059,6 +4138,7 @@ document.addEventListener("click",e=>{
   if(ds.up!=null){const i=+ds.up;const a=[...cfg.apts];[a[i-1],a[i]]=[a[i],a[i-1]];saveCfg({...cfg,apts:a},"Order saved");return}
   if(t.id==="add-apt"){const v=$("new-apt").value.trim();if(!v)return;if(cfg.apts.includes(v)){toast("Already exists");return}saveCfg({...cfg,apts:[...cfg.apts,v]},"Apartment added");return}
   if(t.id==="save-people"){const p=$("set-people").value.split(",").map(s=>s.trim()).filter(Boolean);if(!p.length)return;saveCfg({...cfg,people:p});return}
+  if(t.id==="sfee-save"){const sourceFees={...(cfg.sourceFees||{})};document.querySelectorAll("[data-sfee]").forEach(el=>{const v=num(el.value);if(v>0)sourceFees[el.dataset.sfee]=Math.min(90,v);else delete sourceFees[el.dataset.sfee]});saveCfg({...cfg,sourceFees},"Fees saved");return}
   if(t.id==="mprev"){showAllFlags=false;mon.m--;if(mon.m<0){mon.m=11;mon.y--}renderView();return}
   if(t.id==="mnext"){showAllFlags=false;mon.m++;if(mon.m>11){mon.m=0;mon.y++}renderView();return}
   if(t.id==="f-minus"){readB();form.nights=Math.max(0,(parseInt(form.nights,10)||0)-1);$("f-nights").value=form.nights;infoB();return}
@@ -4195,6 +4275,8 @@ function renderCl(){
       ${cl.addr&&cl.addr[it.apt]?`<div style="margin-top:6px;font-size:14.5px">📍 ${esc(cl.addr[it.apt])} <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cl.addr[it.apt]+", Chișinău")}" target="_blank" rel="noopener" style="font-weight:600;white-space:nowrap">on the map →</a></div>`:""}
       ${cl.beds&&cl.beds[it.apt]?`<div class="cl-beds">🛏 ${esc(bedsOf(cl.beds[it.apt]))} · guests: ${capOf(cl.beds[it.apt])}</div>`:""}
       ${clAccess(it.apt)}
+      ${it.guest||it.cin_time?`<div class="small" style="margin-top:4px">${it.guest?esc(it.guest):""}${it.cin_time?" · check-in "+esc(it.cin_time):""}${it.checkin_today?" · check-in today":""}</div>`:""}
+      ${it.team_note?`<div class="small" style="margin-top:4px;padding:8px 10px;background:var(--accent-soft,#e6f5f3);border-radius:10px"><b>For the team:</b> ${esc(it.team_note)}</div>`:""}
       ${it.note?`<div class="small" style="margin-top:4px">${esc(it.note)}</div>`:""}
       <div style="margin-top:8px">${it.checklist.map(c=>`<label class="chk${c.last!==undefined?" due":""}"><input type="checkbox" data-clchk="${esc(key)}" data-item="${esc(c.id)}" ${set.has(c.id)||done?"checked":""} ${done?"disabled":""}><span>${esc(c.text)}${c.last!==undefined?`<em>🚩 special attention today · ${c.last?"not done "+c.age+" days":"never ticked yet"}</em>`:""}</span></label>`).join("")}</div>
       <div class="actions" style="margin-top:8px">${done?`<button class="btn" data-clundo="${i}">Undo the tick</button>`:`<button class="btn primary" data-cldone="${i}">✓ Cleaned</button>`}</div></div>`});

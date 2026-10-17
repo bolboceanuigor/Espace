@@ -8,3 +8,8 @@ binding = "DB"
 database_name = "espace"
 # filled in by the first deploy (see README); a separate database from Rentwill
 database_id = "00000000-0000-0000-0000-000000000000"
+
+# Optional: booking file uploads (ID photos). Uncomment and create the bucket in Cloudflare, then bind it on the Pages project as FILES.
+# [[r2_buckets]]
+# binding = "FILES"
+# bucket_name = "espace-files"
