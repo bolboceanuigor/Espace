@@ -87,6 +87,18 @@ CREATE TABLE IF NOT EXISTS bookings (
 );
 CREATE INDEX IF NOT EXISTS bookings_org_date_idx ON bookings(org_id, date);
 CREATE INDEX IF NOT EXISTS bookings_shift_idx ON bookings(shift_id);
+-- files on a stay (R2 key when FILES binding exists)
+CREATE TABLE IF NOT EXISTS booking_files (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL,
+  booking_id TEXT NOT NULL,
+  name TEXT NOT NULL DEFAULT '',
+  mime TEXT NOT NULL DEFAULT '',
+  size INTEGER NOT NULL DEFAULT 0,
+  r2_key TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS booking_files_bk_idx ON booking_files(org_id, booking_id);
 CREATE TABLE IF NOT EXISTS expenses (
   id TEXT PRIMARY KEY,
   org_id TEXT NOT NULL,

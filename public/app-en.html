@@ -1304,6 +1304,7 @@ body.wizon{overflow:hidden}
           <div class="grid2"><div class="cur"><input id="f-compct" inputmode="decimal" placeholder="0" aria-label="Commission, %"><span>%</span></div><div class="cur"><input id="f-com" inputmode="decimal" placeholder="0" aria-label="Commission, amount"><span id="f-com-lbl">€</span></div></div>
           <div class="hint" id="f-cominfo"></div>
         </details>
+        <div id="f-files" hidden></div>
         <div class="msgs" id="f-msgs"></div>
         <div class="hint" id="f-ver" hidden style="color:var(--ok)"></div>
         <div class="actions fact">
@@ -1598,7 +1599,16 @@ function fillB(){
   $("f-ver").hidden=!form.verified; if(form.verified) $("f-ver").textContent="✓ Payment checked"+(form.verifiedAt?" "+dm(String(form.verifiedAt).slice(0,10)):"")+". If you change the amount or payment method, the tick will have to be set again.";
   $("f-util-row").hidden=!+form.util; $("f-util-toggle").hidden=!$("f-util-row").hidden;
   $("f-oth-row").hidden=!(+form.oth||form.oth_cur); $("f-oth-toggle").hidden=!$("f-oth-row").hidden;
-  renderChipsB(); renderSegsB(); infoB();
+  renderChipsB(); renderSegsB(); infoB(); renderBkFiles();
+}
+let BK_FILES={};
+async function loadBkFiles(id){if(!id)return;try{BK_FILES[id]=await api("bk_file_list",{booking_id:id})||[];renderBkFiles()}catch(e){}}
+function renderBkFiles(){
+  const box=$("f-files");if(!box)return;
+  if(!form.id){box.hidden=true;box.innerHTML="";return}
+  box.hidden=false;const rows=BK_FILES[form.id]||[];
+  box.innerHTML=`<label class="l">Booking files <em>— ID, contract…</em></label><div class="card" style="padding:8px 10px">${rows.length?rows.map(f=>`<div class="setrow"><b>${esc(f.name)}</b><span class="small">${Math.round((f.size||0)/1024)} KB</span><button type="button" class="ibtn del" data-bkfiledel="${esc(f.id)}" aria-label="Delete">✕</button></div>`).join(""):`<p class="small" style="margin:0">No files</p>`}
+    <div class="actions" style="margin-top:8px"><button type="button" class="btn sm" id="bkfile-add">＋ File</button><input type="file" id="bkfile-inp" accept="image/*,.pdf" hidden></div></div>`;
 }
 function asB(){return{tag:form.tag||"",price:num(form.price)||0,price_cur:form.price_cur||"EUR",pay_status:form.pay_status||"",util:num(form.util)||0,util_cur:form.util_cur||"MDL",oth:num(form.oth),oth_cur:form.oth_cur,id:form.id,apt:form.apt,date:form.date,nights:parseInt(form.nights,10)||0,guest:String(form.guest).trim(),phone:String(form.phone).trim(),pax:parseInt(form.pax,10)||0,mdl:num(form.mdl),eur:num(form.eur),usd:num(form.usd),pay:form.pay,who:form.who,source:form.source,note:String(form.note).trim(),x:readX()}}
 // the extra details of a booking (More details): read from the form, or what is already in it
@@ -1684,7 +1694,7 @@ async function saveB(){
 let bpop=false;
 function openBForm(focus){closeSheet();setMode("b");if(view==="cal"){bpop=true;document.body.classList.add("bpop");$("v-add").hidden=false;fillB();$("v-add").scrollTop=0}else{show("add");fillB();window.scrollTo({top:0})}if(focus)setTimeout(()=>{const f=$("f-guest");if(f)f.focus({preventScroll:true})},60)}
 function closeBPop(){if(!bpop)return;bpop=false;document.body.classList.remove("bpop");$("v-add").hidden=view!=="add";if(view==="cal")renderCal()}
-function editB(id){const b=bookings.find(x=>x.id===id);if(!b)return;form={...blankB(),...b,tag:b.tag||"",price:b.price||"",price_cur:b.price_cur||"EUR",pay_status:b.pay_status||"",mdl:b.mdl||"",eur:b.eur||"",usd:b.usd||"",oth:b.oth||"",util:b.util||"",util_cur:b.util_cur||"MDL",x:{...(b.x||{})}};openBForm(false)}
+function editB(id){const b=bookings.find(x=>x.id===id);if(!b)return;form={...blankB(),...b,tag:b.tag||"",price:b.price||"",price_cur:b.price_cur||"EUR",pay_status:b.pay_status||"",mdl:b.mdl||"",eur:b.eur||"",usd:b.usd||"",oth:b.oth||"",util:b.util||"",util_cur:b.util_cur||"MDL",x:{...(b.x||{})}};openBForm(false);loadBkFiles(id)}
 function newB(apt,date){form=blankB({apt,date});openBForm(true)}
 
 /* expense form */
@@ -4113,6 +4123,8 @@ document.addEventListener("click",e=>{
   if(t.id==="f-minus"){readB();form.nights=Math.max(0,(parseInt(form.nights,10)||0)-1);$("f-nights").value=form.nights;infoB();return}
   if(t.id==="f-plus"){readB();form.nights=(parseInt(form.nights,10)||0)+1;$("f-nights").value=form.nights;infoB();return}
   if(t.id==="f-save"){saveB();return}
+  if(t.id==="bkfile-add"){const inp=$("bkfile-inp");if(inp)inp.click();return}
+  if(ds.bkfiledel){api("bk_file_del",{id:ds.bkfiledel,booking_id:form.id}).then(()=>loadBkFiles(form.id)).catch(()=>toast("Failed"));return}
   if(t.id==="f-x"){closeBPop();return}
   if(t.id==="f-cancel"){if(bpop){closeBPop();return}form=blankB({date:form.date});fillB();return}
   if(t.id==="f-del"){del("f-del","kv_delete",form.id,()=>{if(bpop){closeBPop();return}form=blankB({date:form.date});fillB()});return}
@@ -4182,6 +4194,7 @@ document.addEventListener("input",e=>{
   if(e.target.closest("#add-e")){readE();infoE()}
 });
 document.addEventListener("change",e=>{
+  if(e.target.id==="bkfile-inp"&&form.id){(async()=>{const f=e.target.files&&e.target.files[0];e.target.value="";if(!f)return;try{const data=f.type.startsWith("image/")?await resizeImg(f):await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)});await api("bk_file_put",{booking_id:form.id,name:f.name,mime:f.type,data});await loadBkFiles(form.id);toast("File saved")}catch(err){toast(err.code==="need_r2"?"Need R2 — see wrangler.toml":err.code==="too_big"?"File too large":"Failed")}})();return}
   if(e.target.id==="hv-from"||e.target.id==="hv-to"){hv.date_from=$("hv-from").value||hv.date_from;hv.date_to=$("hv-to").value||hv.date_to;if(hv.date_from>hv.date_to)hv.date_to=hv.date_from;if(hv.titleAuto){hv.title=hvTitleFrom(hv.date_from,hv.date_to);$("hv-title").value=hv.title}hvSort();hvRenderRows();hvRefreshTable();hvQueueSave();return}
   if(e.target.dataset&&["d","n","src","ucur","cat","ed"].includes(e.target.dataset.hvk)&&hv){const r=hv.rows[+e.target.dataset.hvr];if(r){if(e.target.dataset.hvk==="d"&&!e.target.value){r.d=todayStr()}hvSort();hvRenderRows(["d","ed"].includes(e.target.dataset.hvk)?r:null,"schet");hvRefreshTable();hvQueueSave()}return}
   if(e.target.dataset&&e.target.dataset.hvk==="apt"&&e.target.tagName==="INPUT"){hvRefreshTable();return}
@@ -4240,10 +4253,11 @@ function renderCl(){
   let h=`<div class="card" id="cl-push" hidden style="margin-top:12px"><b>🔔 Notifications</b><p class="small" id="cl-push-st"></p><div class="actions"><button class="btn primary" id="cl-push-on">Turn on notifications</button></div><p class="small" style="margin-bottom:0">You’ll know about a new cleaning right away and get the day’s list in the morning.</p></div><h2 style="margin-top:14px">Hi, ${esc(cl.me.name)}!</h2><div class="clday">${cl.days.map(d=>`<button type="button" data-clday="${d.date}" aria-pressed="${d.date===clDay}" class="${d.on_duty?"":"off"}">${d.date===todayStr()?"Today":WD[new Date(toT(d.date)).getUTCDay()]+" "+dm(d.date)}<small>${d.items.length} ${plural(d.items.length,"cleaning","cleanings","cleanings")}${d.on_duty?"":" · day off"}</small></button>`).join("")}</div>`;
   if(!day.items.length) h+=`<div class="empty">${day.on_duty?"No cleanings on this day.":"Day off by schedule — no cleanings."}</div>`;
   day.items.forEach((it,i)=>{const key=day.date+"|"+(it.booking_id||it.task_id);const set=clChecked[key]||(clChecked[key]=new Set());const done=it.status==="done";
-    h+=`<div class="card clc${done?" done":""}"><div class="clh"><b>${esc(it.apt)}</b>${it.time?`<span class="pill warn">⏰ ${esc(it.time)}</span>`:""}${it.kind==="general"?`<span class="pill warn">Deep cleaning</span>`:`<span class="small">${it.booking_id?"after check-out":"cleaning"}</span>`}${done?`<span class="pill ok">✓ cleaned</span>`:""}</div>
+    h+=`<div class="card clc${done?" done":""}"><div class="clh"><b>${esc(it.apt)}</b>${it.time?`<span class="pill warn">⏰ ${esc(it.time)}</span>`:""}${it.checkin_today?`<span class="pill warn">check-in today${it.cin_time?" · "+esc(it.cin_time):""}</span>`:""}${it.kind==="general"?`<span class="pill warn">Deep cleaning</span>`:`<span class="small">${it.booking_id?"after check-out":"cleaning"}</span>`}${done?`<span class="pill ok">✓ cleaned</span>`:""}</div>
       ${cl.addr&&cl.addr[it.apt]?`<div style="margin-top:6px;font-size:14.5px">📍 ${esc(cl.addr[it.apt])} <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cl.addr[it.apt]+", Chișinău")}" target="_blank" rel="noopener" style="font-weight:600;white-space:nowrap">on the map →</a></div>`:""}
       ${cl.beds&&cl.beds[it.apt]?`<div class="cl-beds">🛏 ${esc(bedsOf(cl.beds[it.apt]))} · guests: ${capOf(cl.beds[it.apt])}</div>`:""}
       ${clAccess(it.apt)}
+      ${it.team_note?`<div class="small" style="margin-top:4px;padding:8px 10px;background:var(--accent-soft,#e6f5f3);border-radius:10px"><b>For the team:</b> ${esc(it.team_note)}</div>`:""}
       ${it.note?`<div class="small" style="margin-top:4px">${esc(it.note)}</div>`:""}
       <div style="margin-top:8px">${it.checklist.map(c=>`<label class="chk${c.last!==undefined?" due":""}"><input type="checkbox" data-clchk="${esc(key)}" data-item="${esc(c.id)}" ${set.has(c.id)||done?"checked":""} ${done?"disabled":""}><span>${esc(c.text)}${c.last!==undefined?`<em>🚩 special attention today · ${c.last?"not done "+c.age+" days":"never ticked yet"}</em>`:""}</span></label>`).join("")}</div>
       <div class="actions" style="margin-top:8px">${done?`<button class="btn" data-clundo="${i}">Undo the tick</button>`:`<button class="btn primary" data-cldone="${i}">✓ Cleaned</button>`}</div></div>`});

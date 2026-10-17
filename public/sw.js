@@ -1,6 +1,6 @@
 // espace.md service worker: push notifications + "opens like an app" when the network drops.
 // Pages: network first, the last good copy when offline. Icons/logo: cache first. The API is never cached.
-const CACHE = "espace-shell-v1";
+const CACHE = "espace-shell-v2";
 const STATIC = ["/icon-192.png", "/icon-512.png", "/icon-180.png", "/icon.svg", "/logo-64.png", "/manifest.webmanifest"];
 self.addEventListener("install", (e) => { self.skipWaiting(); e.waitUntil(caches.open(CACHE).then((c) => c.addAll(STATIC)).catch(() => {})); });
 self.addEventListener("activate", (e) => e.waitUntil((async () => {
