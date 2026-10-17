@@ -65,6 +65,16 @@ jobs:
         run: |
           npx wrangler pages deploy public --project-name espace --branch main --commit-dirty=true > /tmp/out.txt 2>&1 || { echo "::error::deploy failed: $(tr '\n' ' ' < /tmp/out.txt | tail -c 600)"; exit 1; }
           echo "::notice::Deployed: $(grep -o 'https://[a-z0-9.-]*pages.dev' /tmp/out.txt | tail -1)"
+      - name: 5-minute heartbeat (Cloudflare Worker espace-cron)
+        continue-on-error: true
+        env:
+          CRON_KEY: ${{ secrets.CRON_KEY }}
+          APP_URL: ${{ vars.APP_URL || 'https://espace-3hh.pages.dev' }}
+        run: |
+          if [ -z "$CRON_KEY" ]; then echo "::warning::CRON_KEY missing: the 5-minute heartbeat is not deployed"; exit 0; fi
+          cd workers/cron
+          npx wrangler deploy --var "APP_URL:$APP_URL" > /tmp/w.txt 2>&1 || { echo "::warning::espace-cron deploy failed (the API token may need Workers Scripts: Edit): $(tr '\n' ' ' < /tmp/w.txt | tail -c 400)"; exit 0; }
+          echo "$CRON_KEY" | npx wrangler secret put CRON_KEY > /dev/null 2>&1 && echo "::notice::espace-cron deployed: /api/cron every 5 minutes" || echo "::warning::espace-cron: CRON_KEY not set"
       - name: Telegram bot webhook (managers' notifications)
         continue-on-error: true
         env:
