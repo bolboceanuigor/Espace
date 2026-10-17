@@ -361,6 +361,19 @@ async function meOf(db: D1Database, c: Ctx) {
 
 
 // ---------- change log ----------
+// the booking's extra details (one JSON column): children, language, arrival/departure time, a note for the team, deposit, channel commission
+function extraOf(x: any) {
+  if (!x || typeof x !== "object") return null;
+  const t = (v: any) => (typeof v === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(v) ? v : "");
+  const cur = (v: any) => (["MDL", "EUR", "USD"].includes(String(v || "").toUpperCase()) ? String(v).toUpperCase() : "");
+  const o: any = {
+    kids: Math.max(0, Math.min(50, Math.floor(num(x.kids)))), lang: str(x.lang, 12), tin: t(x.tin), tout: t(x.tout), team: str(x.team, 600),
+    dep: num(x.dep), dep_cur: cur(x.dep_cur), dep_st: ["held", "back", "kept"].includes(x.dep_st) ? x.dep_st : "", dep_kept: num(x.dep_kept), dep_note: str(x.dep_note, 200),
+    com_pct: Math.min(100, num(x.com_pct)), com: num(x.com),
+  };
+  for (const k of Object.keys(o)) if (o[k] === "" || o[k] === 0) delete o[k];
+  return JSON.stringify(o);
+}
 const B_F = ["date", "apt", "guest", "nights", "mdl", "eur", "usd", "oth", "oth_cur", "util", "util_cur", "pay", "who", "note", "source", "phone", "pax", "price", "price_cur", "pay_status", "tag"];
 const E_F = ["date", "apt", "category", "mdl", "eur", "usd", "oth", "oth_cur", "who", "note", "yearly"];
 const same = (a: any, b: any) => { const n = (v: any) => (v === null || v === undefined || v === "" || v === 0 ? "" : String(v)); return n(a) === n(b); };
@@ -481,6 +494,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     const id = uuid(), now = nowIso(), msg = str(body.message, 600).trim();
     await run(db, `INSERT INTO bookings(id, org_id, date, apt, guest, nights, phone, email, pax, source, tag, note, price, price_cur, pay_status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,'Прямой','req',?,?,?, 'unpaid', ?, ?)`,
       id, org.id, date, apt, name, nights, phone, email, pax + kids, ("Cerere online" + (kids ? ` (${pax} adulți, ${kids} copii)` : "") + (msg ? ": " + msg : "")).slice(0, 1000), price, cur, now, now);
+    { const ex = extraOf({ kids, lang: ["ro", "ru", "en"].includes(body.lang) ? body.lang : "" }); if (ex && ex !== "{}") await run(db, "UPDATE bookings SET extra = ? WHERE org_id = ? AND id = ?", ex, org.id, id).catch(() => {}); }
     await audit(db, org.id, null, "booking", "request", id, bLabel({ apt, date, guest: name }), { nights, pax, price, price_cur: cur }, "web");
     await notify(db, org.id, ["manager"], { title: `Cerere de rezervare: ${apt}`, body: `${name} · ${date} · ${nights} n. · ${pax} pers.${phone ? " · " + phone : ""}` });
     const owner = await orgEmail(db, org.id);
@@ -880,17 +894,20 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
         source: str(b.source, 50), phone: str(b.phone, 40), pax: Math.max(0, Math.min(500, Math.floor(num(b.pax)))), oth: num(b.oth), oth_cur: str(b.oth_cur, 10).toUpperCase(), util: num(b.util),
         price: Math.max(0, num(b.price)), price_cur: (["MDL", "EUR", "USD"].includes(str(b.price_cur, 5).toUpperCase()) ? str(b.price_cur, 5).toUpperCase() : "EUR"), pay_status: (["unpaid", "part", "paid"].includes(str(b.pay_status, 10)) ? str(b.pay_status, 10) : ""), tag: (TAGS.includes(str(b.tag, 10)) ? str(b.tag, 10) : ""),
         util_cur: (["MDL", "EUR", "USD"].includes(str(b.util_cur, 5).toUpperCase()) ? str(b.util_cur, 5).toUpperCase() : "MDL") };
+      const extra = extraOf(b.x); // null = an older app that does not send it: keep what is stored
       if (isUuid(b.id)) {
         const r = await one(db, `UPDATE bookings SET verified=(verified AND mdl=? AND eur=? AND usd=? AND oth IS ? AND util=? AND pay=?),
           date=?, apt=?, guest=?, nights=?, mdl=?, eur=?, usd=?, pay=?, who=?, note=?, source=?, phone=?, pax=?, oth=?, oth_cur=?, util=?, util_cur=?, price=?, price_cur=?, pay_status=?, tag=?, updated_at=? WHERE org_id=? AND id=? RETURNING id`,
           v.mdl, v.eur, v.usd, v.oth, v.util, v.pay,
           v.date, v.apt, v.guest, v.nights, v.mdl, v.eur, v.usd, v.pay, v.who, v.note, v.source, v.phone, v.pax, v.oth, v.oth_cur, v.util, v.util_cur, v.price, v.price_cur, v.pay_status, v.tag, nowIso(), O, b.id);
+        if (r?.id && extra !== null) await run(db, "UPDATE bookings SET extra = ? WHERE org_id = ? AND id = ?", extra, O, r.id).catch(() => {});
         if (r?.id && prev) { const d = diffOf(prev, v, B_F); if (Object.keys(d).length) await audit(db, O, c, "booking", "update", b.id, bLabel(v), d); }
         return json(r?.id ?? null);
       }
       const id = uuid(), t = nowIso();
       await run(db, "INSERT INTO bookings(id,org_id,date,apt,guest,nights,mdl,eur,usd,pay,who,note,source,phone,pax,oth,oth_cur,util,util_cur,price,price_cur,pay_status,tag,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         id, O, v.date, v.apt, v.guest, v.nights, v.mdl, v.eur, v.usd, v.pay, v.who, v.note, v.source, v.phone, v.pax, v.oth, v.oth_cur, v.util, v.util_cur, v.price, v.price_cur, v.pay_status, v.tag, t, t);
+      if (extra !== null && extra !== "{}") await run(db, "UPDATE bookings SET extra = ? WHERE org_id = ? AND id = ?", extra, O, id).catch(() => {});
       await audit(db, O, c, "booking", "create", id, bLabel(v), snapOf(v, B_F));
       return json(id);
     }

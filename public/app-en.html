@@ -568,6 +568,7 @@ body.bpop #add-mode,body.bpop nav.tabs{display:none!important}
 body.bpop .bpop-x{display:flex;position:sticky;top:0;margin-left:auto;margin-bottom:-44px;z-index:3;width:44px;height:44px;border-radius:50%;border:0;background:var(--d2,#2a303b);color:var(--dtx,#f5f6f8);font-size:18px;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(0,0,0,.4)}
 body.bpop #f-title{margin-top:4px;padding-right:56px}
 #f-pay{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}#f-pay button{padding:0 4px;font-size:13.5px;white-space:nowrap;justify-content:center;min-width:0}#f-pay button i{display:none}
+.fmore{margin-top:14px;border-top:1px solid var(--line);padding-top:10px}.fmore>summary{cursor:pointer;font-weight:700;font-size:14.5px;list-style:none;display:flex;align-items:center;gap:8px;padding:6px 0}.fmore>summary::-webkit-details-marker{display:none}.fmore>summary::before{content:"+";display:inline-grid;place-items:center;width:22px;height:22px;border-radius:7px;background:var(--line);font-weight:800}.fmore[open]>summary::before{content:"−"}.fmore>summary em{font-style:normal;font-weight:500;color:var(--muted);font-size:13px}.fmore textarea{width:100%;min-height:64px;border-radius:14px;border:1px solid var(--line);background:var(--bg);color:var(--fg);padding:10px 14px;font:inherit;font-size:16px}
 .fsel{width:100%;height:50px;border-radius:14px;border:1px solid var(--line);background:var(--bg);color:var(--fg);padding:0 14px;font-size:16px;font-weight:600;-webkit-appearance:none;appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 20px) 22px,calc(100% - 14px) 22px;background-size:6px 6px;background-repeat:no-repeat}
 body.bpop .recent-h,body.bpop #recent{display:none}
 .sh-hcol{display:flex;flex-direction:column}.sh-mons{display:flex;height:30px;border-bottom:1px solid rgba(255,255,255,.09)}.sh-days{display:flex}
@@ -1282,6 +1283,27 @@ body.wizon{overflow:hidden}
         <label class="l" for="f-srcsel">Booking source</label><select id="f-srcsel" class="fsel"></select><div id="f-src" hidden></div>
         <label class="l" for="f-note">Note</label>
         <input type="text" id="f-note" placeholder="Optional. «ok» — hide the warning" autocomplete="off">
+        <details class="fmore" id="f-more"><summary>More details <em>children, times, team note, deposit, commission</em></summary>
+          <div class="grid2">
+            <div><label class="l" for="f-kids">Of them children</label><input id="f-kids" inputmode="numeric" placeholder="0" autocomplete="off"></div>
+            <div><label class="l" for="f-lang">Guest language</label><select id="f-lang" class="fsel"><option value="">—</option><option value="ro">Română</option><option value="ru">Russian</option><option value="en">English</option><option value="uk">Ukrainian</option><option value="other">Other</option></select></div>
+          </div>
+          <div class="grid2">
+            <div><label class="l" for="f-tin">Check-in time</label><input type="time" id="f-tin"></div>
+            <div><label class="l" for="f-tout">Check-out time</label><input type="time" id="f-tout"></div>
+          </div>
+          <div class="hint" id="f-times"></div>
+          <label class="l" for="f-team">Team note <em>— separate from the note: what to prepare for arrival</em></label>
+          <textarea id="f-team" maxlength="600" placeholder="For example: baby cot, late arrival, key with the neighbour"></textarea>
+          <label class="l" for="f-dep">Deposit</label>
+          <div class="grid2"><input id="f-dep" inputmode="decimal" placeholder="0" aria-label="Deposit">
+            <select id="f-depcur" class="fsel" aria-label="Deposit currency"><option value="MDL">lei</option><option value="EUR">€</option><option value="USD">$</option></select></div>
+          <select id="f-depst" class="fsel" aria-label="Deposit status" style="margin-top:8px"><option value="">— not taken —</option><option value="held">Received</option><option value="back">Returned</option><option value="kept">Kept</option></select>
+          <div class="grid2" id="f-keptrow" hidden style="margin-top:8px"><input id="f-depkept" inputmode="decimal" placeholder="Amount kept" aria-label="Amount kept"><input type="text" id="f-depnote" maxlength="200" placeholder="Why it was kept" autocomplete="off"></div>
+          <label class="l" for="f-compct">Channel commission <em>— Airbnb, Booking…</em></label>
+          <div class="grid2"><div class="cur"><input id="f-compct" inputmode="decimal" placeholder="0" aria-label="Commission, %"><span>%</span></div><div class="cur"><input id="f-com" inputmode="decimal" placeholder="0" aria-label="Commission, amount"><span id="f-com-lbl">€</span></div></div>
+          <div class="hint" id="f-cominfo"></div>
+        </details>
         <div class="msgs" id="f-msgs"></div>
         <div class="hint" id="f-ver" hidden style="color:var(--ok)"></div>
         <div class="actions fact">
@@ -1485,7 +1507,8 @@ async function api(fn,args={}){
   if(!r.ok){const m=(j&&j.message)||t||("HTTP "+r.status); const err=new Error(m); err.code=/bad_session/.test(m)?"bad_pin":m; if(m==="month_closed")closedHit=Date.now(); if(m==="subscription_expired"){EXPIRED=true;RO=true;document.body.classList.add("ro");subBar()} throw err}
   return j;
 }
-function mapB(b){return {tag:b.tag||"",price:+b.price||0,price_cur:b.price_cur||"EUR",pay_status:b.pay_status||"",id:b.id,date:b.date,apt:b.apt,guest:b.guest||"",nights:+b.nights||0,mdl:+b.mdl||0,eur:+b.eur||0,usd:+b.usd||0,pay:b.pay||"",who:b.who||"",note:b.note||"",source:b.source||"",phone:b.phone||"",pax:+b.pax||0,email:b.email||"",oth:+b.oth||0,oth_cur:b.oth_cur||"",util:+b.util||0,util_cur:b.util_cur||"MDL",verified:!!b.verified,verifiedAt:b.verified_at||null,shiftId:b.shift_id||null,createdAt:Date.parse(b.created_at)||0,updatedAt:Date.parse(b.updated_at)||0}}
+function mapB(b){return {tag:b.tag||"",price:+b.price||0,price_cur:b.price_cur||"EUR",pay_status:b.pay_status||"",id:b.id,date:b.date,apt:b.apt,guest:b.guest||"",nights:+b.nights||0,mdl:+b.mdl||0,eur:+b.eur||0,usd:+b.usd||0,pay:b.pay||"",who:b.who||"",note:b.note||"",source:b.source||"",phone:b.phone||"",pax:+b.pax||0,email:b.email||"",oth:+b.oth||0,oth_cur:b.oth_cur||"",util:+b.util||0,util_cur:b.util_cur||"MDL",verified:!!b.verified,verifiedAt:b.verified_at||null,shiftId:b.shift_id||null,createdAt:Date.parse(b.created_at)||0,updatedAt:Date.parse(b.updated_at)||0,x:xOf(b.extra)}}
+function xOf(v){if(v&&typeof v==="object")return v;try{const o=JSON.parse(v||"{}");return o&&typeof o==="object"?o:{}}catch(e){return {}}}
 function mapE(e){return {...({id:e.id,date:e.date,apt:e.apt||"",category:e.category||"",mdl:+e.mdl||0,eur:+e.eur||0,usd:+e.usd||0,who:e.who||"",note:e.note||"",oth:+e.oth||0,oth_cur:e.oth_cur||"",yearly:!!e.yearly,createdAt:Date.parse(e.created_at)||0,updatedAt:Date.parse(e.updated_at)||0}),shiftId:e.shift_id||null}}
 async function reload(){
   const d=await api("kv_load");
@@ -1550,9 +1573,9 @@ function monthStats(y=mon.y,m=mon.m){
 
 /* booking form */
 let form=blankB();
-function blankB(keep={}){return{tag:"",price:"",price_cur:"EUR",pay_status:"",util:"",util_cur:"MDL",id:null,apt:keep.apt||"",date:keep.date||todayStr(),nights:1,guest:"",phone:"",pax:"",mdl:"",eur:"",usd:"",oth:"",oth_cur:"",pay:ls.get("pay")||"Кэш",who:ls.get("who")||"",source:"",note:"",createdAt:null}}
+function blankB(keep={}){return{tag:"",price:"",price_cur:"EUR",pay_status:"",util:"",util_cur:"MDL",id:null,apt:keep.apt||"",date:keep.date||todayStr(),nights:1,guest:"",phone:"",pax:"",mdl:"",eur:"",usd:"",oth:"",oth_cur:"",pay:ls.get("pay")||"Кэш",who:ls.get("who")||"",source:"",note:"",createdAt:null,x:{}}}
 const BF=["date","nights","guest","phone","pax","mdl","eur","usd","oth","util","note","price"];
-function readB(){for(const k of BF) form[k]=$("f-"+k).value}
+function readB(){for(const k of BF) form[k]=$("f-"+k).value;if($("f-kids"))form.x=readX()}
 // prices by season and weekday — same rules as lib/core.ts (server) and book.html (guests)
 // the engine is public/price.js — the same file the booking page and the server use
 const seasonOf=(P,d)=>EsPrice.seasonOf(P,d);
@@ -1568,7 +1591,7 @@ document.addEventListener("input",e=>{if(e.target.id==="f-pax")capHint()});
 document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-psug]");if(!t)return;readB();form.price=t.dataset.psug;form.price_cur=t.dataset.pcur;fillB();infoB()});
 function fillB(){
   fAptOpen=false;fTagOpen=false;
-  for(const k of BF) $("f-"+k).value=form[k]??"";
+  for(const k of BF) $("f-"+k).value=form[k]??"";fillX();
   if(!+form.pax)$("f-pax").value="";setTimeout(capHint,0);
   $("f-title").textContent=form.id?"Edit booking":"New booking";
   $("f-cancel").hidden=!form.id; $("f-del").hidden=!form.id; disarm("f-del");
@@ -1577,7 +1600,24 @@ function fillB(){
   $("f-oth-row").hidden=!(+form.oth||form.oth_cur); $("f-oth-toggle").hidden=!$("f-oth-row").hidden;
   renderChipsB(); renderSegsB(); infoB();
 }
-function asB(){return{tag:form.tag||"",price:num(form.price)||0,price_cur:form.price_cur||"EUR",pay_status:form.pay_status||"",util:num(form.util)||0,util_cur:form.util_cur||"MDL",oth:num(form.oth),oth_cur:form.oth_cur,id:form.id,apt:form.apt,date:form.date,nights:parseInt(form.nights,10)||0,guest:String(form.guest).trim(),phone:String(form.phone).trim(),pax:parseInt(form.pax,10)||0,mdl:num(form.mdl),eur:num(form.eur),usd:num(form.usd),pay:form.pay,who:form.who,source:form.source,note:String(form.note).trim()}}
+function asB(){return{tag:form.tag||"",price:num(form.price)||0,price_cur:form.price_cur||"EUR",pay_status:form.pay_status||"",util:num(form.util)||0,util_cur:form.util_cur||"MDL",oth:num(form.oth),oth_cur:form.oth_cur,id:form.id,apt:form.apt,date:form.date,nights:parseInt(form.nights,10)||0,guest:String(form.guest).trim(),phone:String(form.phone).trim(),pax:parseInt(form.pax,10)||0,mdl:num(form.mdl),eur:num(form.eur),usd:num(form.usd),pay:form.pay,who:form.who,source:form.source,note:String(form.note).trim(),x:readX()}}
+// the extra details of a booking (More details): read from the form, or what is already in it
+function readX(){const g=id=>$(id)?$(id).value.trim():null;if(g("f-kids")===null)return {...(form.x||{})};
+  const n=v=>{const x=parseFloat(String(v).replace(",","."));return isFinite(x)&&x>0?Math.round(x*100)/100:0};
+  const x={kids:parseInt(g("f-kids"),10)||0,lang:g("f-lang"),tin:g("f-tin"),tout:g("f-tout"),team:g("f-team"),dep:n(g("f-dep")),dep_cur:g("f-depcur")||"MDL",dep_st:g("f-depst"),dep_kept:n(g("f-depkept")),dep_note:g("f-depnote"),com_pct:Math.min(100,n(g("f-compct"))),com:n(g("f-com"))};
+  if(!x.dep&&!x.dep_st)delete x.dep_cur;for(const k in x)if(x[k]===""||x[k]===0)delete x[k];return x}
+function comPct(src){const c=cfg.com||{};return +c[src]||0}
+function fillX(){const x=form.x||{},set=(id,v)=>{if($(id))$(id).value=v??""};
+  set("f-kids",x.kids||"");set("f-lang",x.lang||"");set("f-tin",x.tin||"");set("f-tout",x.tout||"");set("f-team",x.team||"");
+  set("f-dep",x.dep||"");set("f-depcur",x.dep_cur||"MDL");set("f-depst",x.dep_st||"");set("f-depkept",x.dep_kept||"");set("f-depnote",x.dep_note||"");
+  set("f-compct",x.com_pct||(form.id?"":comPct(form.source)||""));set("f-com",x.com||"");
+  if($("f-more"))$("f-more").open=!!Object.keys(x).length;xHints()}
+function xHints(){if(!$("f-more"))return;const u=unitOf(form.apt||""),cur=form.price_cur||"EUR";
+  $("f-times").textContent=form.apt?"Default: check-in from "+(u.cin||"14:00")+", check-out by "+(u.cout||"12:00"):"";
+  $("f-keptrow").hidden=$("f-depst").value!=="kept";$("f-com-lbl").textContent=CUR_L[cur]||cur;
+  const pct=parseFloat(String($("f-compct").value).replace(",","."))||0,pr=num(form.price)||0,auto=pct&&pr?Math.round(pr*pct)/100:0;
+  $("f-com").placeholder=auto?String(auto):"0";
+  $("f-cominfo").textContent=auto&&!$("f-com").value?"≈ "+fmt(auto)+" "+(CUR_L[cur]||cur)+" — calculated on save ("+pct+"% of the booking price)":form.source&&comPct(form.source)?"For «"+form.source+"» saved: "+comPct(form.source)+"%":""}
 let fAptOpen=false,fTagOpen=false;
 function renderChipsB(){
   const d=/^\d{4}-\d\d-\d\d$/.test(form.date)?toT(form.date):null;
@@ -1609,7 +1649,7 @@ const svgPh='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke=
 function infoB(){
   const b=asB(), msgs=[];
   {const c=$("f-contact"),h=contactHTML(b.phone);c.innerHTML=h;c.hidden=!h}
-  {const ps=payState({...b,id:form.id}),c=CUR_L[ps.cur],u=unitOf(b.apt||""),q=!b.price&&b.apt&&b.nights>0&&b.date&&!b.tag?uQuote(b.apt,b.date,b.nights,b.pax,0):null,sug=q&&q.base>0?q.total:0,uc=CUR_L[u.pcur||"EUR"];
+  {const ps=payState({...b,id:form.id}),c=CUR_L[ps.cur],u=unitOf(b.apt||""),q=!b.price&&b.apt&&b.nights>0&&b.date&&!b.tag?uQuote(b.apt,b.date,b.nights,Math.max(0,b.pax-(+(b.x||{}).kids||0)),+(b.x||{}).kids||0):null,sug=q&&q.base>0?q.total:0,uc=CUR_L[u.pcur||"EUR"];
    $("f-pinfo").innerHTML=sug?`By rate: ${q.flat?`${fmt(q.nights[0].p)} ${uc} × ${b.nights}`:`${b.nights} ${plural(b.nights,"night","nights","nights")} ≈ ${fmt(q.avg)} ${uc}`}${q.xg?` + ${q.xgN} ${plural(q.xgN,"guest","of the guest","guests")} extra ${fmt(q.xg)}`:""}${q.losPct?` − discount ${q.losPct}%`:""}${q.cfee?` + cleaning ${fmt(q.cfee)}`:""} = <b>${fmt(sug)} ${uc}</b> <button type="button" class="btn sm" data-psug="${sug}" data-pcur="${esc(u.pcur||"EUR")}">Use it</button>`:b.price?`Received <b>${fmt0(fromEurC(ps.got,ps.cur))} ${c}</b> of ${fmt0(b.price)} ${c}${ps.left?` · left <b style="color:#f7a44c">${fmt0(ps.left)} ${c}</b>`:" · all paid"}`:(ps.got>0.5?"":"Nothing received yet");document.querySelectorAll("#f-pst [data-pst]").forEach(x=>x.setAttribute("aria-pressed",x.dataset.pst===ps.state))}
   if(b.date&&b.nights>0){const e=toT(b.date)+b.nights*DAY;$("f-out").textContent="Check-out: "+dm(fromT(e))+" ("+WD[new Date(e).getUTCDay()]+") · "+b.nights+" "+plural(b.nights,"night","nights","nights");}
   else $("f-out").textContent=b.nights===0?"0 nights — e.g. the balance for a booking already recorded":"";
@@ -1627,11 +1667,14 @@ async function saveB(){
   if(!/^\d+$/.test(String(form.nights).trim())) errs.push("Nights — a whole number (0 for a balance payment)");
   if([b.mdl,b.eur,b.usd,b.oth].some(x=>isNaN(x)||x<0)) errs.push("Amount — numbers only, no letters");
   if(b.oth&&!b.oth_cur) errs.push("Choose which currency it is");
+  if(b.x.kids&&b.pax&&b.x.kids>b.pax) errs.push("More children than guests in total");
   if(errs.length){$("f-msgs").innerHTML=errs.map(t=>`<div class="msg bad">${esc(t)}</div>`).join("");return}
+  if(b.x.com_pct&&!b.x.com&&b.price) b.x.com=Math.round(b.price*b.x.com_pct)/100;
   $("f-save").disabled=true;
   try{
     await api("kv_save",{b:{...b,id:form.id||null}}); await reload();
     if(b.pay) ls.set("pay",b.pay); if(b.who) ls.set("who",b.who);
+    if(b.source&&b.x.com_pct&&b.x.com_pct!==comPct(b.source)&&(ROLE==="owner"||ROLE==="manager")) api("kv_set_config",{p_data:{...cfg,com:{...(cfg.com||{}),[b.source]:b.x.com_pct}}}).then(()=>{cfg={...cfg,com:{...(cfg.com||{}),[b.source]:b.x.com_pct}}}).catch(()=>{});
     toast("Saved: "+(b.guest||"no name")+" · "+b.apt+" · "+dm(b.date)+(b.nights?" · "+b.nights+" n.":""));
     if(bpop){closeBPop()}else{form=blankB({date:b.date}); fillB(); window.scrollTo({top:0,behavior:"smooth"});}
   }catch(e){if(e.code==="bad_pin")return lock("Session ended — sign in again");toast(navigator.onLine?"Not saved, try again":"No internet — the record wasn’t saved")}
@@ -1641,7 +1684,7 @@ async function saveB(){
 let bpop=false;
 function openBForm(focus){closeSheet();setMode("b");if(view==="cal"){bpop=true;document.body.classList.add("bpop");$("v-add").hidden=false;fillB();$("v-add").scrollTop=0}else{show("add");fillB();window.scrollTo({top:0})}if(focus)setTimeout(()=>{const f=$("f-guest");if(f)f.focus({preventScroll:true})},60)}
 function closeBPop(){if(!bpop)return;bpop=false;document.body.classList.remove("bpop");$("v-add").hidden=view!=="add";if(view==="cal")renderCal()}
-function editB(id){const b=bookings.find(x=>x.id===id);if(!b)return;form={...blankB(),...b,tag:b.tag||"",price:b.price||"",price_cur:b.price_cur||"EUR",pay_status:b.pay_status||"",mdl:b.mdl||"",eur:b.eur||"",usd:b.usd||"",oth:b.oth||"",util:b.util||"",util_cur:b.util_cur||"MDL"};openBForm(false)}
+function editB(id){const b=bookings.find(x=>x.id===id);if(!b)return;form={...blankB(),...b,tag:b.tag||"",price:b.price||"",price_cur:b.price_cur||"EUR",pay_status:b.pay_status||"",mdl:b.mdl||"",eur:b.eur||"",usd:b.usd||"",oth:b.oth||"",util:b.util||"",util_cur:b.util_cur||"MDL",x:{...(b.x||{})}};openBForm(false)}
 function newB(apt,date){form=blankB({apt,date});openBForm(true)}
 
 /* expense form */
@@ -1725,9 +1768,9 @@ const CH_CLS=s=>s==="Airbnb"?"airbnb":s==="Booking"?"booking":s==="Прямой"
 function aziPay(b){if(!payActive(b))return "";const p=payState(b);
   return p.state==="paid"?`<span class="az-pill ok">${aziIc("check",12)}Paid</span>`:p.state==="part"?`<span class="az-pill warn">Partly · left ${fmt0(p.left)} ${CUR_SYM(p.cur)}</span>`:`<span class="az-pill bad">Unpaid${p.left?" "+fmt0(p.left)+" "+CUR_SYM(p.cur):""}</span>`}
 const CUR_SYM=c=>c==="MDL"?"lei":c==="USD"?"$":"€";
-function aziCard(b,dep){const u=unitOf(b.apt),t=dep?(u.cout||"12:00"):(u.cin||"14:00"),tel=telDigits(b.phone);
+function aziCard(b,dep){const u=unitOf(b.apt),x=b.x||{},t=dep?(x.tout||u.cout||"12:00"):(x.tin||u.cin||"14:00"),tel=telDigits(b.phone);
   return `<article class="az-card"><div class="az-top"><span class="az-ava">${esc(initialsOf(b.guest||b.apt))}</span><div class="az-who"><span class="az-eye">${dep?"Check-out by "+esc(t):"Check-in from "+esc(t)}</span><b>${esc(b.guest||"No name")}</b></div>${b.source?`<span class="az-ch ${CH_CLS(b.source)}">${esc(b.source)}</span>`:""}</div>
-    <p class="az-meta">${aziIc("home",14)}<b>${esc(b.apt)}</b><span>${dm(b.date)} – ${dm(endOf(b))}</span><span>${b.nights} ${plural(b.nights,"night","nights","nights")}</span>${b.pax?`<span>${aziIc("users",13)} ${b.pax}</span>`:""}</p>
+    <p class="az-meta">${aziIc("home",14)}<b>${esc(b.apt)}</b><span>${dm(b.date)} – ${dm(endOf(b))}</span><span>${b.nights} ${plural(b.nights,"night","nights","nights")}</span>${b.pax?`<span>${aziIc("users",13)} ${b.pax}${(b.x||{}).kids?" · children "+b.x.kids:""}</span>`:""}</p>${(b.x||{}).team?`<p class="az-meta" style="white-space:normal"><b>For the team:</b> ${esc(b.x.team)}</p>`:""}
     <div class="az-foot"><div class="az-pills">${aziPay(b)}${b.tag==="req"?`<span class="az-pill warn">Request — confirm it</span>`:""}</div>
     <div class="az-acts">${tel?`<a class="btn" href="tel:${esc(tel)}">${aziIc("phone",15)}Call</a>`:""}<button type="button" class="btn soft" data-edit="${esc(b.id)}">Open${aziIc("arrow",15)}</button></div></div></article>`}
 function renderAzi(){const el=$("azi-body");if(!el)return;const td=todayStr();
@@ -2468,13 +2511,18 @@ function payState(b){const air=b.source==="Airbnb"||b.pay==="Airbnb",got=b.night
 const payActive=b=>b.nights>0&&b.tag!=="closed"&&b.tag!=="req"&&endOf(b)>=todayStr();
 // calendar colour = who made the booking (Excel keeps colouring by who took the money)
 const TAGS=[["booking","Booking","#f7c58a"],["airbnb","Airbnb","#f6a5a3"],["req","Request","#a9c8f5"],["closed","Closed","#5a606c"]];
+const LANG_T={ro:"Română",ru:"Russian",en:"English",uk:"Ukrainian",other:"other"},DEP_T={held:"received",back:"returned",kept:"kept"};
+function xRows(b){const x=b.x||{},u=unitOf(b.apt),cs=(v,c)=>fmt0(v)+" "+(CUR_L[c]||c||"");
+  return [["Children",x.kids?String(x.kids):""],["Language",LANG_T[x.lang]||""],["Time",x.tin||x.tout?"check-in "+(x.tin||u.cin||"14:00")+" · check-out "+(x.tout||u.cout||"12:00"):""],
+    ["For the team",x.team||""],["Deposit",x.dep||x.dep_st?[x.dep?cs(x.dep,x.dep_cur||"MDL"):"",DEP_T[x.dep_st]||"",x.dep_st==="kept"&&x.dep_kept?"kept "+cs(x.dep_kept,x.dep_cur||"MDL")+(x.dep_note?" ("+x.dep_note+")":""):""].filter(Boolean).join(" · "):""],
+    ["Commission",x.com?cs(x.com,b.price_cur||"EUR")+(x.com_pct?" ("+x.com_pct+"%)":""):""]]}
 function bookView(id){const b=bookings.find(x=>x.id===id);if(!b)return;const tg=TAGS.find(x=>x[0]===tagOf(b));
   const nn=+b.nights||0,nw=nn%10===1&&nn%100!==11?"night":[2,3,4].includes(nn%10)&&![12,13,14].includes(nn%100)?"nights":"nights";
   const cs=v=>fmt0(v)+" "+(CUR_L[b.price_cur||"EUR"]||b.price_cur||"");
   let pay="";if(b.tag!=="closed"){const ps=payState(b),lab={paid:"Paid",part:"Prepayment",unpaid:"Unpaid"}[ps.state]||"";
     const got=Math.round(fromEurC(ps.got,ps.cur));
     pay=`<div class="bv-pay ${ps.state}"><b>${lab}</b><span>${b.price?`received ${esc(cs(got))} of ${esc(cs(+b.price))}${ps.left?` · <i>left ${esc(cs(ps.left))}</i>`:""}`:esc(amounts(b)||"no amount given")}</span></div>`}
-  const rows=[["Apartment",b.apt],["Dates",dm(b.date)+" → "+dm(endOf(b))+" · "+nn+" "+nw],["Phone",b.phone],["Source",b.source],["Received",b.price?amounts(b):""],["Received by",[b.pay,b.who].filter(Boolean).join(" · ")],["Note",b.note]].filter(x=>x[1]);
+  const rows=[["Apartment",b.apt],["Dates",dm(b.date)+" → "+dm(endOf(b))+" · "+nn+" "+nw],["Phone",b.phone],["Source",b.source],["Received",b.price?amounts(b):""],["Received by",[b.pay,b.who].filter(Boolean).join(" · ")],["Note",b.note],...xRows(b)].filter(x=>x[1]);
   const ct=contactHTML(b.phone||"");
   openSheet(b.tag==="closed"?"Closed":(b.guest||"No name"),`<div class="bv">${tg?`<div class="bv-tag"><i style="background:${tg[2]}"></i>${esc(tg[1])}</div>`:""}${pay}
    ${ct?`<div class="fcontact bv-ct">${ct}</div>`:b.tag==="closed"?"":`<div class="bv-nophone">No phone given</div>`}
@@ -2968,7 +3016,8 @@ function poVals(){const g=id=>num(($(id)||{}).value||0)||0;const m=g("po-mdl"),e
 function poSum(){const el=$("po-sum");if(!el)return;const v=poVals(),owed=+(el.closest(".pc-form")||{dataset:{}}).dataset.owed||0;$("po-r-eur").hidden=!v.e;$("po-r-usd").hidden=!v.u;
   el.innerHTML=v.total?`total <b>${fmt0(v.total)} lei</b> · owed ${fmt0(owed)} lei${v.total>owed+0.5?` · <em>more by ${fmt0(v.total-owed)}</em>`:""}`:`owed ${fmt0(owed)} lei`}
 document.addEventListener("input",e=>{if(/^po-(mdl|eur|usd|reur|rusd)$/.test(e.target.id))poSum()});
-document.addEventListener("change",e=>{if(e.target.id==="f-srcsel"){form.source=e.target.value;infoB()}});
+document.addEventListener("change",e=>{if(e.target.id==="f-srcsel"){form.source=e.target.value;if(!form.id&&$("f-compct")&&!(form.x||{}).com_pct)$("f-compct").value=comPct(form.source)||"";xHints();infoB()}if(e.target.id==="f-depst")xHints()});
+document.addEventListener("input",e=>{if(["f-compct","f-com","f-price","f-kids"].includes(e.target.id)){readB();xHints();infoB()}});
 let clnPayForm=null,clnJm=null,clnJOpen=false,clnOwOpen=false,clnPoDel=null,clnDeepOpen=false,clnDeepAll=false;
 document.addEventListener("toggle",e=>{const d=e.target;if(!d.classList||!d.classList.contains("pjwrap"))return;if(d.querySelector("[data-jtoggle]"))clnJOpen=d.open;else if(d.querySelector("[data-owtoggle]"))clnOwOpen=d.open},true);
 document.addEventListener("toggle",e=>{const d=e.target;if(d.classList&&d.classList.contains("deepwrap"))clnDeepOpen=d.open},true);

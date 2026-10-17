@@ -246,7 +246,7 @@ function openReq(name){const u=D.units.find(x=>x.name===name);if(!u)return;const
   $("sheet").hidden=false;setTimeout(()=>$("r-name").focus(),50);
   $("rf").onsubmit=async e=>{e.preventDefault();const v={name:$("r-name").value.trim(),phone:$("r-phone").value.trim(),email:$("r-email").value.trim(),message:$("r-msg").value.trim()},err=$("r-err");
     if(!v.name||(!v.phone&&!v.email)){err.textContent=t("need");return}if(v.email&&!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.email)){err.textContent=t("badEmail");return}
-    const b=$("r-go");b.disabled=true;try{await api("pub_request",{...v,apt:u.name,date:din,nights,guests:G,kids:K});
+    const b=$("r-go");b.disabled=true;try{await api("pub_request",{...v,apt:u.name,date:din,nights,guests:G,kids:K,lang:L});
       sh.innerHTML=`<div class="done"><div class="ok">✓</div><h3 id="sh-h">${t("doneH")}</h3><p>${esc(t("doneP")(D.name))}</p><div class="sum"><div><span>${esc(u.name)}</span><span>${fdm(din)} — ${fdm(dout)}</span></div></div><div class="acts"><button type="button" class="go" data-close="1">${t("close")}</button></div></div>`;
       u.busy=[...(u.busy||[]),[din,nights]];render()}
     catch(x){b.disabled=false;err.textContent=x.code==="bad_dates"&&x.data&&x.data.why?whyText(x.data):x.code==="taken"?t("takenErr"):x.code==="locked"?t("lock"):x.code==="too_many_guests"?t("tooMany")(x.data.cap):x.code==="need_contact"?t("need"):t("net");if(x.code==="taken")load()}}}

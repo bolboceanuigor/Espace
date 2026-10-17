@@ -81,6 +81,7 @@ CREATE TABLE IF NOT EXISTS bookings (
   verified_at TEXT,
   shift_id TEXT,
   shift_adopted INTEGER NOT NULL DEFAULT 0,
+  extra TEXT NOT NULL DEFAULT '{}',          -- kids, language, times, team note, deposit, commission (JSON)
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
