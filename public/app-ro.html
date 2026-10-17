@@ -1260,6 +1260,8 @@ body.wizon{overflow:hidden}
           <div><label class="l" for="f-guest">Oaspete</label><input type="text" id="f-guest" placeholder="Numele oaspetelui" autocomplete="off"></div>
           <div><label class="l" for="f-phone">Telefon <em>— opțional</em></label><input type="tel" id="f-phone" placeholder="+373…" autocomplete="off"></div>
         </div>
+        <label class="l" for="f-email">E-mail oaspete <em>— pentru mesaje automate</em></label>
+        <input type="email" id="f-email" placeholder="guest@email.com" autocomplete="off" maxlength="120">
         <div class="grid2 fpax"><div><label class="l" for="f-pax">Oaspeți <em>— câte persoane</em></label><input id="f-pax" inputmode="numeric" placeholder="2" autocomplete="off"></div><div class="hint" id="f-cap"></div></div>
         <div class="fcontact" id="f-contact" hidden></div>
         <label class="l" for="f-price">Prețul rezervării <em>— cât trebuie să plătească oaspetele în total</em></label>
@@ -1306,8 +1308,10 @@ body.wizon{overflow:hidden}
         </details>
         <div class="msgs" id="f-msgs"></div>
         <div class="hint" id="f-ver" hidden style="color:var(--ok)"></div>
+        <div id="f-msgbox" hidden style="margin:10px 0 0"></div>
         <div class="actions fact">
           <button class="btn primary" id="f-save">Salvează</button>
+          <button class="btn" id="f-msg" type="button" hidden>Mesaj oaspetelui</button>
           <button class="btn" id="f-cancel" hidden>Anulare</button>
           <button class="btn danger" id="f-del" hidden>Șterge</button>
         </div>
@@ -1493,7 +1497,7 @@ const catIcon=c=>CAT_ICON[c]||"📌";
 const catCol=c=>CAT_COL[Math.max(0,cfg.categories.indexOf(c))%CAT_COL.length];
 const telDigits=p=>(p||"").replace(/[^\d+]/g,"");
 
-const RO_OK=["kv_load","kv_photos","kv_guides","kv_task_photo","kv_push_key","kv_push_sub","billing","bill_invoice","bill_pay","bill_pay_status","auth_me","auth_logout","auth_switch","auth_password","auth_new_org"];
+const RO_OK=["kv_load","kv_photos","kv_guides","kv_task_photo","kv_push_key","kv_push_sub","billing","bill_invoice","bill_pay","bill_pay_status","auth_me","auth_logout","auth_switch","auth_password","auth_new_org","kv_msg_list","kv_msg_history","kv_msg_preview"];
 const CHECK_OK=["kv_verify","kv_month_close","kv_month_open"];
 let ME=null, ROLE="", EXPIRED=false;
 const SLUG=(()=>{const h=location.hostname;if(h.endsWith(".espace.md"))return h.slice(0,-".espace.md".length);let c="";try{c=new URLSearchParams(location.search).get("c")||sessionStorage.getItem("es_c")||""}catch(e){}c=c.toLowerCase().replace(/[^a-z0-9-]/g,"");try{if(c)sessionStorage.setItem("es_c",c)}catch(e){}return c})();
@@ -1573,8 +1577,8 @@ function monthStats(y=mon.y,m=mon.m){
 
 /* booking form */
 let form=blankB();
-function blankB(keep={}){return{tag:"",price:"",price_cur:"EUR",pay_status:"",util:"",util_cur:"MDL",id:null,apt:keep.apt||"",date:keep.date||todayStr(),nights:1,guest:"",phone:"",pax:"",mdl:"",eur:"",usd:"",oth:"",oth_cur:"",pay:ls.get("pay")||"Кэш",who:ls.get("who")||"",source:"",note:"",createdAt:null,x:{}}}
-const BF=["date","nights","guest","phone","pax","mdl","eur","usd","oth","util","note","price"];
+function blankB(keep={}){return{tag:"",price:"",price_cur:"EUR",pay_status:"",util:"",util_cur:"MDL",id:null,apt:keep.apt||"",date:keep.date||todayStr(),nights:1,guest:"",phone:"",email:"",pax:"",mdl:"",eur:"",usd:"",oth:"",oth_cur:"",pay:ls.get("pay")||"Кэш",who:ls.get("who")||"",source:"",note:"",createdAt:null,x:{}}}
+const BF=["date","nights","guest","phone","email","pax","mdl","eur","usd","oth","util","note","price"];
 function readB(){for(const k of BF) form[k]=$("f-"+k).value;if($("f-kids"))form.x=readX()}
 // prices by season and weekday — same rules as lib/core.ts (server) and book.html (guests)
 // the engine is public/price.js — the same file the booking page and the server use
@@ -1595,12 +1599,13 @@ function fillB(){
   if(!+form.pax)$("f-pax").value="";setTimeout(capHint,0);
   $("f-title").textContent=form.id?"Modifică rezervarea":"Rezervare nouă";
   $("f-cancel").hidden=!form.id; $("f-del").hidden=!form.id; disarm("f-del");
+  if($("f-msg"))$("f-msg").hidden=!form.id||RO;if($("f-msgbox"))$("f-msgbox").hidden=true;
   $("f-ver").hidden=!form.verified; if(form.verified) $("f-ver").textContent="✓ Plata e verificată"+(form.verifiedAt?" "+dm(String(form.verifiedAt).slice(0,10)):"")+". Dacă schimbi suma sau metoda de plată — bifa trebuie pusă din nou.";
   $("f-util-row").hidden=!+form.util; $("f-util-toggle").hidden=!$("f-util-row").hidden;
   $("f-oth-row").hidden=!(+form.oth||form.oth_cur); $("f-oth-toggle").hidden=!$("f-oth-row").hidden;
   renderChipsB(); renderSegsB(); infoB();
 }
-function asB(){return{tag:form.tag||"",price:num(form.price)||0,price_cur:form.price_cur||"EUR",pay_status:form.pay_status||"",util:num(form.util)||0,util_cur:form.util_cur||"MDL",oth:num(form.oth),oth_cur:form.oth_cur,id:form.id,apt:form.apt,date:form.date,nights:parseInt(form.nights,10)||0,guest:String(form.guest).trim(),phone:String(form.phone).trim(),pax:parseInt(form.pax,10)||0,mdl:num(form.mdl),eur:num(form.eur),usd:num(form.usd),pay:form.pay,who:form.who,source:form.source,note:String(form.note).trim(),x:readX()}}
+function asB(){return{tag:form.tag||"",price:num(form.price)||0,price_cur:form.price_cur||"EUR",pay_status:form.pay_status||"",util:num(form.util)||0,util_cur:form.util_cur||"MDL",oth:num(form.oth),oth_cur:form.oth_cur,id:form.id,apt:form.apt,date:form.date,nights:parseInt(form.nights,10)||0,guest:String(form.guest).trim(),phone:String(form.phone).trim(),email:String(form.email||"").trim().toLowerCase(),pax:parseInt(form.pax,10)||0,mdl:num(form.mdl),eur:num(form.eur),usd:num(form.usd),pay:form.pay,who:form.who,source:form.source,note:String(form.note).trim(),x:readX()}}
 // the extra details of a booking (Detalii): read from the form, or what is already in it
 function readX(){const g=id=>$(id)?$(id).value.trim():null;if(g("f-kids")===null)return {...(form.x||{})};
   const n=v=>{const x=parseFloat(String(v).replace(",","."));return isFinite(x)&&x>0?Math.round(x*100)/100:0};
@@ -1668,6 +1673,7 @@ async function saveB(){
   if([b.mdl,b.eur,b.usd,b.oth].some(x=>isNaN(x)||x<0)) errs.push("Suma — doar număr, fără litere");
   if(b.oth&&!b.oth_cur) errs.push("Alege ce valută este");
   if(b.x.kids&&b.pax&&b.x.kids>b.pax) errs.push("Sunt mai mulți copii decât oaspeți în total");
+  if(b.email&&!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(b.email)) errs.push("Verifică e-mailul oaspetelui");
   if(errs.length){$("f-msgs").innerHTML=errs.map(t=>`<div class="msg bad">${esc(t)}</div>`).join("");return}
   if(b.x.com_pct&&!b.x.com&&b.price) b.x.com=Math.round(b.price*b.x.com_pct)/100;
   $("f-save").disabled=true;
@@ -2183,6 +2189,98 @@ document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.c
   const g=k=>($("ks-"+k)?$("ks-"+k).value.trim():"");const tpl={};for(const l of ["ro","ru","en"])if(String(KT[l]||"").trim())tpl[l]=String(KT[l]).slice(0,20000);
   const next={...cfg,contract:{landlord:g("landlord").slice(0,120),idno:g("idno").slice(0,30),addr:g("addr").slice(0,200),phone:g("phone").slice(0,40),city:g("city").slice(0,60),deposit:g("deposit").slice(0,120),rules:g("rules").slice(0,3000),tpl}};
   KT=null;saveCfg(next,"Contractul a fost salvat")});
+
+/* GUEST MESSAGES (module 7): templates in Settings + send from a booking */
+let MSG=[],MSG_OPEN="",MSG_LANG="ru",MSG_BOX=null,MSG_NEW=null;
+const MSG_TR={new:"rezervare nouă",before_in:"pentru N zile înainte de sosire",on_in:"în ziua sosirii sau după",before_out:"în ziua plecării",after_out:"după plecare",cancel:"anulare rezervare"};
+const MSG_TAGS="{nume} {unitate} {adresa} {sosire} {plecare} {ora_sosire} {ora_plecare} {nopti} {oaspeti} {total} {rest} {link_ghid} {link_contract} {cod_usa} {telefon_firma} {link_harta}";
+async function msgLoad(){try{MSG=await api("kv_msg_list")}catch(e){MSG=[]}if(setSec==="msgs")renderSettings()}
+function msgWhen(t){if(t.trigger==="before_in")return "pentru "+(t.offset_days||0)+" zile înainte de sosire · "+(t.send_hour??10)+":00";
+  if(t.trigger==="on_in")return (t.offset_days?("+"+t.offset_days+" zile după sosire"):"în ziua sosirii")+" · "+(t.send_hour??10)+":00";
+  if(t.trigger==="before_out")return (t.offset_days?("pentru "+t.offset_days+" zile înainte de plecare"):"în ziua plecării")+" · "+(t.send_hour??10)+":00";
+  if(t.trigger==="after_out")return "+"+ (t.offset_days||0)+" zile după plecare · "+(t.send_hour??10)+":00";
+  return MSG_TR[t.trigger]||t.trigger}
+function msgsSection(){setTimeout(()=>{if(!MSG.length)msgLoad()},0);
+  if(MSG_OPEN==="new"||(MSG_OPEN&&MSG.some(x=>x.id===MSG_OPEN))){
+    const t=MSG_OPEN==="new"?(MSG_NEW||(MSG_NEW={id:"",name:"",trigger:"new",offset_days:0,send_hour:10,apts:[],channels:[],subject_ro:"",subject_ru:"",subject_en:"",body_ro:"",body_ru:"",body_en:"",active:true})):MSG.find(x=>x.id===MSG_OPEN);
+    const L=MSG_LANG,sub=t["subject_"+L]||"",body=t["body_"+L]||"";
+    const trig=Object.entries(MSG_TR).map(([k,l])=>`<option value="${k}"${t.trigger===k?" selected":""}>${l}</option>`).join("");
+    const aptOpts=cfg.apts.map(a=>`<label class="dtog"><input type="checkbox" data-msgapt="${esc(a)}"${(t.apts||[]).includes(a)?" checked":""}><span>${esc(a)}</span></label>`).join("");
+    const srcOpts=(cfg.sources||[]).map(s=>`<label class="dtog"><input type="checkbox" data-msgsrc="${esc(s)}"${(t.channels||[]).includes(s)?" checked":""}><span>${esc(s)}</span></label>`).join("");
+    return `<button type="button" class="gback" data-msgback>‹ Toate șabloanele</button>
+      <div class="card"><label class="l" for="msg-name">Nume</label><input id="msg-name" type="text" maxlength="80" value="${esc(t.name||"")}" ${RO?"disabled":""}>
+      <label class="l" for="msg-tr">Când se trimite</label><select id="msg-tr" class="fsel" ${RO?"disabled":""}>${trig}</select>
+      <div class="grid2"><div><label class="l" for="msg-off">Decalaj, zile</label><input id="msg-off" inputmode="numeric" value="${t.offset_days||0}" ${RO?"disabled":""}></div>
+        <div><label class="l" for="msg-hr">Ora (Chișinău)</label><input id="msg-hr" inputmode="numeric" value="${t.send_hour??10}" ${RO?"disabled":""}></div></div>
+      <label class="dtog" style="margin-top:8px"><input type="checkbox" id="msg-on"${t.active!==false?" checked":""} ${RO?"disabled":""}><span>Activat</span></label>
+      <p class="small" style="margin:10px 0 4px">Unități <em>— gol = toate</em></p><div class="uamen">${aptOpts||`<span class="small">nu sunt obiecte</span>`}</div>
+      <p class="small" style="margin:10px 0 4px">Canale <em>— gol = toate</em></p><div class="uamen">${srcOpts||`<span class="small">nu sunt canale</span>`}</div></div>
+      <h3>Text</h3><div class="card"><div class="seg" style="margin-bottom:10px">${["ro","ru","en"].map(l=>`<button type="button" data-msgl="${l}" aria-pressed="${L===l}">${l.toUpperCase()}</button>`).join("")}</div>
+        <label class="l" for="msg-sub">Subiectul mesajului</label><input id="msg-sub" type="text" maxlength="200" value="${esc(sub)}" ${RO?"disabled":""}>
+        <label class="l" for="msg-body">Text</label><textarea id="msg-body" rows="10" style="width:100%" ${RO?"disabled":""}>${esc(body)}</textarea>
+        <p class="small">Câmpuri automate: ${MSG_TAGS}</p>
+        ${RO?"":`<div class="actions"><button type="button" class="btn primary" data-msgsave="${esc(t.id||"new")}">Salvează șablonul</button>${t.id?`<button type="button" class="btn danger" data-msgdel="${esc(t.id)}">Șterge</button>`:""}</div>`}</div>`}
+  const list=MSG.length?MSG.map(t=>`<button type="button" class="setli" data-msgopen="${esc(t.id)}"><span class="ic">${setIc("pen")}</span><span class="m"><b>${esc(t.name)}</b><small>${esc(msgWhen(t))}${t.active===false?" · oprit":""}</small></span><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></button>`).join(""):`<p class="small">Încarc șabloanele…</p>`;
+  return `<div class="card"><p class="small" style="margin-top:0">Mesaje către oaspete după șablon: la rezervare nouă, cu o zi înainte de sosire, în ziua plecării și după. Serverul le trimite o dată pe oră; manual — butonul Mesaj oaspetelui în rezervare. Trebuie adresa oaspetelui în fișa rezervării.</p>
+    <div class="setlist">${list}</div>
+    ${RO?"":`<div class="actions"><button type="button" class="btn" data-msgopen="new">+ Șablon nou</button></div>`}</div>`}
+document.addEventListener("click",async e=>{
+  const t=e.target.closest&&e.target.closest("[data-msgback],[data-msgopen],[data-msgl],[data-msgsave],[data-msgdel]");if(!t)return;
+  if(t.dataset.msgback!=null){MSG_OPEN="";MSG_NEW=null;renderSettings();return}
+  if(t.dataset.msgopen!=null){MSG_OPEN=t.dataset.msgopen;MSG_LANG="ru";if(MSG_OPEN==="new")MSG_NEW=null;renderSettings();return}
+  if(t.dataset.msgl){const cur=MSG_OPEN==="new"?MSG_NEW:MSG.find(x=>x.id===MSG_OPEN);if(cur){cur["subject_"+MSG_LANG]=($("msg-sub")||{}).value||"";cur["body_"+MSG_LANG]=($("msg-body")||{}).value||""}
+    MSG_LANG=t.dataset.msgl;renderSettings();return}
+  if(t.dataset.msgdel){if(!t.classList.contains("armed")){t.classList.add("armed");t.textContent="Sigur ștergi?";return}
+    t.disabled=true;try{await api("kv_msg_del",{id:t.dataset.msgdel});MSG_OPEN="";MSG_NEW=null;await msgLoad();toast("Șablon șters")}catch(x){t.disabled=false;toast("Nu a reușit")}return}
+  if(t.dataset.msgsave!=null){const id=t.dataset.msgsave==="new"?"":t.dataset.msgsave;
+    const cur=id?MSG.find(x=>x.id===id):(MSG_NEW||{});const L=MSG_LANG;
+    const apts=[...document.querySelectorAll("[data-msgapt]:checked")].map(x=>x.dataset.msgapt);
+    const channels=[...document.querySelectorAll("[data-msgsrc]:checked")].map(x=>x.dataset.msgsrc);
+    const pack={id,name:($("msg-name")||{}).value||"",trigger:($("msg-tr")||{}).value||"new",offset_days:parseInt(($("msg-off")||{}).value,10)||0,send_hour:parseInt(($("msg-hr")||{}).value,10)||0,apts,channels,active:!!($("msg-on")||{}).checked,
+      subject_ro:cur.subject_ro||"",subject_ru:cur.subject_ru||"",subject_en:cur.subject_en||"",body_ro:cur.body_ro||"",body_ru:cur.body_ru||"",body_en:cur.body_en||""};
+    pack["subject_"+L]=($("msg-sub")||{}).value||"";pack["body_"+L]=($("msg-body")||{}).value||"";
+    t.disabled=true;try{const nid=await api("kv_msg_save",{t:pack});MSG_OPEN=nid||id;MSG_NEW=null;await msgLoad();toast("Șablon salvat")}catch(x){t.disabled=false;toast("Nu a reușit")}}
+});
+async function msgOpenBox(){const box=$("f-msgbox");if(!box||!form.id)return;if(!box.hidden){box.hidden=true;MSG_BOX=null;return}
+  box.hidden=false;box.innerHTML=`<p class="small" style="margin:0">Se încarcă…</p>`;
+  try{const [tpls,hist]=await Promise.all([api("kv_msg_list"),api("kv_msg_history",{booking_id:form.id})]);
+    let lang=(form.x||{}).lang||"ru";if(!["ro","ru","en"].includes(lang))lang="ru";
+    MSG_BOX={tpls,hist,tplId:(tpls[0]&&tpls[0].id)||"",lang,subject:"",body:"",to:form.email||""};
+    await msgPickTpl(false);msgRenderBox()}catch(e){box.innerHTML=`<p class="small" style="margin:0">Nu s-au putut încărca șabloanele</p>`}}
+async function msgPickTpl(fill){if(!MSG_BOX)return;const t=MSG_BOX.tpls.find(x=>x.id===MSG_BOX.tplId)||{};const L=MSG_BOX.lang;
+  MSG_BOX.subject=t["subject_"+L]||t.subject_ro||t.subject_ru||"";MSG_BOX.body=t["body_"+L]||t.body_ro||t.body_ru||"";
+  if(fill!==false)try{const r=await api("kv_msg_preview",{booking_id:form.id,subject:MSG_BOX.subject,body:MSG_BOX.body,lang:L});MSG_BOX.subject=r.subject;MSG_BOX.body=r.body;MSG_BOX.to=r.to||MSG_BOX.to}catch(e){}}
+function msgRenderBox(){const box=$("f-msgbox");if(!box||!MSG_BOX)return;const M=MSG_BOX,opts=M.tpls.map(t=>`<option value="${esc(t.id)}"${t.id===M.tplId?" selected":""}>${esc(t.name)}</option>`).join("");
+  const hist=M.hist&&M.hist.length?`<div class="small" style="margin-top:10px"><b>Deja trimise</b>${M.hist.slice(0,8).map(h=>`<div>${esc(fdtS(h.created_at))} · ${esc(h.subject||h.channel)} · ${esc(h.status)} → ${esc(h.to_addr||"")}</div>`).join("")}</div>`:`<p class="small" style="margin-top:10px">Pentru această rezervare încă nu s-au trimis mesaje.</p>`;
+  const ph=phoneDigits(form.phone||""),canChat=ph.length>=8;
+  box.innerHTML=`<div class="card" style="margin:0;padding:12px"><label class="l" for="mb-tpl">Șablon</label><select id="mb-tpl" class="fsel">${opts||`<option value="">— nu sunt șabloane —</option>`}</select>
+    <div class="seg" style="margin:8px 0">${["ro","ru","en"].map(l=>`<button type="button" data-mbl="${l}" aria-pressed="${M.lang===l}">${l.toUpperCase()}</button>`).join("")}</div>
+    <label class="l" for="mb-sub">Subiect</label><input id="mb-sub" type="text" maxlength="200" value="${esc(M.subject)}">
+    <label class="l" for="mb-body">Text</label><textarea id="mb-body" rows="7" style="width:100%">${esc(M.body)}</textarea>
+    <p class="small" style="margin:6px 0 0">${M.to?("Către: "+esc(M.to)):"Rezervarea nu are adresă de e-mail — salveaz-o în fișă ca să poți trimite scrisoarea."}</p>
+    <div class="actions" style="margin-top:8px"><button type="button" class="btn sm" id="mb-fill">Completează datele</button>
+      <button type="button" class="btn sm primary" id="mb-send" ${M.to?"":"disabled"}>✉ Mesaj</button>
+      ${canChat?`<a class="btn sm" id="mb-wa" target="_blank" rel="noopener">WhatsApp</a><a class="btn sm" id="mb-vb">Viber</a>`:""}
+      <button type="button" class="btn sm" id="mb-close">Închide</button></div>${hist}</div>`;
+  const syncLinks=()=>{const text=($("mb-body")||{}).value||"";if($("mb-wa"))$("mb-wa").href="https://wa.me/"+ph+"?text="+encodeURIComponent(text);
+    if($("mb-vb"))$("mb-vb").href="viber://forward?text="+encodeURIComponent(text)};syncLinks();
+  $("mb-body")&&$("mb-body").addEventListener("input",syncLinks);$("mb-sub")&&$("mb-sub").addEventListener("input",()=>{M.subject=$("mb-sub").value});
+}
+document.addEventListener("click",async e=>{
+  const t=e.target.closest&&e.target.closest("#f-msg,#mb-fill,#mb-send,#mb-close,[data-mbl]");if(!t)return;
+  if(t.id==="f-msg"){msgOpenBox();return}
+  if(t.id==="mb-close"){$("f-msgbox").hidden=true;MSG_BOX=null;return}
+  if(!MSG_BOX)return;
+  if(t.dataset.mbl){MSG_BOX.lang=t.dataset.mbl;MSG_BOX.tplId=($("mb-tpl")||{}).value||MSG_BOX.tplId;await msgPickTpl(true);msgRenderBox();return}
+  if(t.id==="mb-fill"){MSG_BOX.subject=($("mb-sub")||{}).value||"";MSG_BOX.body=($("mb-body")||{}).value||"";
+    try{const r=await api("kv_msg_preview",{booking_id:form.id,subject:MSG_BOX.subject,body:MSG_BOX.body,lang:MSG_BOX.lang});MSG_BOX.subject=r.subject;MSG_BOX.body=r.body;MSG_BOX.to=r.to||MSG_BOX.to;msgRenderBox()}catch(x){toast("Nu a reușit")}return}
+  if(t.id==="mb-send"){const subject=($("mb-sub")||{}).value||"",body=($("mb-body")||{}).value||"";if(!subject||!body){toast("Sunt necesare subiectul și textul");return}
+    t.disabled=true;try{const r=await api("kv_msg_send",{booking_id:form.id,template_id:MSG_BOX.tplId||"",subject,body,lang:MSG_BOX.lang});
+      toast(r.status==="sent"?"Mesajul a fost trimis":r.status==="skipped"?"Înregistrat — poșta platformei nu e configurată":r.status==="duplicate"?"Deja a fost trimis":"Stare: "+r.status);
+      MSG_BOX.hist=await api("kv_msg_history",{booking_id:form.id});msgRenderBox()}catch(x){toast(x.code==="no_email"?"Rezervarea nu are adresa de e-mail a oaspetelui":"Nu a reușit");t.disabled=false}}
+});
+document.addEventListener("change",async e=>{if(e.target.id!=="mb-tpl"||!MSG_BOX)return;MSG_BOX.tplId=e.target.value;await msgPickTpl(true);msgRenderBox()});
+
 async function impRead(file){const name=file.name;let rows=[];
   if(/\.csv$/i.test(name)||file.type==="text/csv"){const t=await file.text(),sep=(t.split("\n")[0].match(/;/g)||[]).length>(t.split("\n")[0].match(/,/g)||[]).length?";":",";
     rows=t.split(/\r?\n/).filter(l=>l.trim()).map(l=>{const out=[];let cur="",q=false;for(let i=0;i<l.length;i++){const c=l[i];if(q){if(c==='"'&&l[i+1]==='"'){cur+='"';i++}else if(c==='"')q=false;else cur+=c}else if(c==='"')q=true;else if(c===sep){out.push(cur);cur=""}else cur+=c}out.push(cur);return out})}
@@ -2510,7 +2608,7 @@ function payState(b){const air=b.source==="Airbnb"||b.pay==="Airbnb",got=b.night
   const left=pe&&got<pe?Math.round(fromEurC(pe-got,b.price_cur||"EUR")):0;return {state,got,pe,left,cur:b.price_cur||"EUR"}}
 const payActive=b=>b.nights>0&&b.tag!=="closed"&&b.tag!=="req"&&endOf(b)>=todayStr();
 // calendar colour = who made the booking (Excel keeps colouring by who took the money)
-const TAGS=[["booking","Booking","#f7c58a"],["airbnb","Airbnb","#f6a5a3"],["req","Cerere","#a9c8f5"],["closed","Închis","#5a606c"]];
+const TAGS=[["booking","Booking","#f7c58a"],["airbnb","Airbnb","#f6a5a3"],["req","Cerere","#a9c8f5"],["closed","Închis","#5a606c"],["cancel","Anulată","#9aa0a8"]];
 const LANG_T={ro:"Română",ru:"Rusă",en:"English",uk:"Ucraineană",other:"alta"},DEP_T={held:"primită",back:"returnată",kept:"reținută"};
 function xRows(b){const x=b.x||{},u=unitOf(b.apt),cs=(v,c)=>fmt0(v)+" "+(CUR_L[c]||c||"");
   return [["Copii",x.kids?String(x.kids):""],["Limba",LANG_T[x.lang]||""],["Ora",x.tin||x.tout?"sosire "+(x.tin||u.cin||"14:00")+" · plecare "+(x.tout||u.cout||"12:00"):""],
@@ -2522,7 +2620,7 @@ function bookView(id){const b=bookings.find(x=>x.id===id);if(!b)return;const tg=
   let pay="";if(b.tag!=="closed"){const ps=payState(b),lab={paid:"Achitat",part:"Avans",unpaid:"Neachitat"}[ps.state]||"";
     const got=Math.round(fromEurC(ps.got,ps.cur));
     pay=`<div class="bv-pay ${ps.state}"><b>${lab}</b><span>${b.price?`încasat ${esc(cs(got))} din ${esc(cs(+b.price))}${ps.left?` · <i>rămas ${esc(cs(ps.left))}</i>`:""}`:esc(amounts(b)||"suma nu e indicată")}</span></div>`}
-  const rows=[["Apartament",b.apt],["Datele",dm(b.date)+" → "+dm(endOf(b))+" · "+nn+" "+nw],["Telefon",b.phone],["De unde",b.source],["Încasat",b.price?amounts(b):""],["A primit",[b.pay,b.who].filter(Boolean).join(" · ")],["Notă",b.note],...xRows(b)].filter(x=>x[1]);
+  const rows=[["Apartament",b.apt],["Datele",dm(b.date)+" → "+dm(endOf(b))+" · "+nn+" "+nw],["Telefon",b.phone],["Email",b.email],["De unde",b.source],["Încasat",b.price?amounts(b):""],["A primit",[b.pay,b.who].filter(Boolean).join(" · ")],["Notă",b.note],...xRows(b)].filter(x=>x[1]);
   const ct=contactHTML(b.phone||"");
   openSheet(b.tag==="closed"?"Închis":(b.guest||"Fără nume"),`<div class="bv">${tg?`<div class="bv-tag"><i style="background:${tg[2]}"></i>${esc(tg[1])}</div>`:""}${pay}
    ${ct?`<div class="fcontact bv-ct">${ct}</div>`:b.tag==="closed"?"":`<div class="bv-nophone">Telefonul nu e indicat</div>`}
@@ -3268,6 +3366,7 @@ function renderSettings(){
     apts:["home","Unități",`${cfg.apts.length} ${plural(cfg.apts.length,"unitate","unități","unități")} · detalii, adrese, poze, ordine`,()=>aptsSection()],
     pricing:["rate","Sezoane și weekend",(()=>{const P=cfg.pricing||{},n=(P.seasons||[]).length;return [P.weekend?"weekend +"+P.weekend+"%":"",n?n+" "+plural(n,"sezon","sezoane","sezoane"):""].filter(Boolean).join(" · ")||"prețuri mai mari în sezon și la sfârșit de săptămână"})(),()=>pricingSection()],
     contract:["chk","Contractul cu oaspetele",(cfg.contract||{}).landlord?"locator: "+(cfg.contract||{}).landlord:"semnătura oaspetelui pe telefon",()=>contractSection()],
+    msgs:["pen","Mesaje către oaspeți",MSG.length?MSG.filter(t=>t.active!==false).length+" șabloane":"mesaje după șablon · automat și manual",()=>msgsSection()],
     owners:["mgr","Proprietari",(cfg.owners||[]).length?(cfg.owners||[]).map(o=>o.name).join(", "):"comision, plăți și raport lunar",()=>ownersSection()],
     import:["chk","Import din Excel",`rezervări și obiecte dintr-un fișier · Excel, CSV, RealtyCalendar`,()=>importSection()],
     direct:["web","Pagina de rezervare",cfg.direct&&cfg.direct.on?"pornită · "+ME.org.code+".espace.md/rezerva":"oaspeții rezervă direct, fără comision",()=>directSection()],
