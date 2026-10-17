@@ -1493,7 +1493,7 @@ const catIcon=c=>CAT_ICON[c]||"📌";
 const catCol=c=>CAT_COL[Math.max(0,cfg.categories.indexOf(c))%CAT_COL.length];
 const telDigits=p=>(p||"").replace(/[^\d+]/g,"");
 
-const RO_OK=["kv_load","kv_photos","kv_guides","kv_task_photo","kv_push_key","kv_push_sub","billing","bill_invoice","bill_pay","bill_pay_status","auth_me","auth_logout","auth_switch","auth_password","auth_new_org"];
+const RO_OK=["kv_load","kv_photos","kv_guides","kv_task_photo","kv_push_key","kv_push_sub","billing","bill_invoice","bill_pay","bill_pay_status","auth_me","auth_logout","auth_switch","auth_password","auth_new_org","kv_checkin_get"];
 const CHECK_OK=["kv_verify","kv_month_close","kv_month_open"];
 let ME=null, ROLE="", EXPIRED=false;
 const SLUG=(()=>{const h=location.hostname;if(h.endsWith(".espace.md"))return h.slice(0,-".espace.md".length);let c="";try{c=new URLSearchParams(location.search).get("c")||sessionStorage.getItem("es_c")||""}catch(e){}c=c.toLowerCase().replace(/[^a-z0-9-]/g,"");try{if(c)sessionStorage.setItem("es_c",c)}catch(e){}return c})();
@@ -2059,7 +2059,7 @@ document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest
 const AF={date:"Data",apt:"Obiect",guest:"Oaspete",nights:"Nopți",mdl:"Lei",eur:"€",usd:"$",oth:"Altă valută",oth_cur:"Codul valutei",util:"Utilități",util_cur:"Valuta utilităților",pay:"Plată",who:"A primit",note:"Notă",source:"De unde",phone:"Telefon",pax:"Oaspeți",price:"Preț",price_cur:"Valuta prețului",pay_status:"Starea plății",tag:"Etichetă",category:"Categorie",yearly:"Anual",amount:"Suma",method:"Cum",paid_on:"Data plății",role:"Rol",created:"Adăugate",dup:"Existau deja",bad:"Omise",aptsAdded:"Obiecte noi",aptsRemoved:"Obiecte șterse",from:"Înainte",to:"Acum"};
 const AA={contract:"a creat contractul",signed:"oaspetele a semnat contractul",create:"a adăugat",update:"a modificat",delete:"a șters",request:"cerere de pe pagina de rezervare",confirm:"a confirmat cererea",decline:"a respins cererea",import:"import din fișier",rename:"a redenumit obiectul",pay:"a marcat plata",unpay:"a anulat marcarea plății",close:"a închis luna",open:"a redeschis luna",add:"a dat acces",remove:"a scos accesul",role:"a schimbat rolul"};
 const AK={booking:"Rezervare",expense:"Cheltuială",settings:"Setări",owner:"Proprietar",team:"Echipa",month:"Luna",import:"Import"};
-const AS={contract:"contract",tax:"impozite",taxPaid:"plata impozitelor",apts:"obiecte",units:"detaliile obiectelor",addr:"adrese",owners:"proprietari",pricing:"sezoane și prețuri",direct:"pagina de rezervare",rates:"cursul valutar",other:"alte valute",people:"manageri",checklist:"lista de verificare",onboarded:"configurarea inițială",archived:"arhiva obiectelor",payouts:"plăți menajere",duty:"graficul turelor",groups:"grupuri"};
+const AS={checkin:"check-in online",contract:"contract",tax:"impozite",taxPaid:"plata impozitelor",apts:"obiecte",units:"detaliile obiectelor",addr:"adrese",owners:"proprietari",pricing:"sezoane și prețuri",direct:"pagina de rezervare",rates:"cursul valutar",other:"alte valute",people:"manageri",checklist:"lista de verificare",onboarded:"configurarea inițială",archived:"arhiva obiectelor",payouts:"plăți menajere",duty:"graficul turelor",groups:"grupuri"};
 const PST={unpaid:"neachitat",part:"parțial",paid:"achitat"};
 function audVal(f,v){if(v==null||v===""||v===0&&!["nights","pax"].includes(f))return "—";if(Array.isArray(v))return v.map(esc).join(", ")||"—";
   if(f==="date"||f==="paid_on")return dm(String(v));if(f==="tag")return ((TAGS.find(t=>t[0]===v)||[])[1])||String(v);if(f==="pay_status")return PST[v]||String(v);
@@ -2158,6 +2158,37 @@ async function kLoad(bid){const box=$("bv-k");if(!box||box.dataset.bid!==bid)ret
   $("bv-k").innerHTML=k&&k.status==="signed"?`<div class="kst ok"><b>✓ Contract № ${esc(k.number)} semnat</b><span class="small">${esc(k.guest_name)}${k.guest_doc?" · "+esc(k.guest_doc):""} · ${fdtS(k.signed_at)}</span><div class="actions"><a class="btn sm" href="${esc(k.url)}" target="_blank" rel="noopener">Deschide contractul</a></div></div>`
     :`<div class="kst"><b>${k?`Contract № ${esc(k.number)} · așteaptă semnătura`:"Contractul cu oaspetele"}</b><span class="small">${k?(k.views?`oaspetele l-a deschis: ${k.views}`:"oaspetele încă nu l-a deschis"):"se completează din rezervare — oaspetele semnează pe telefon"}</span>
       ${RO?"":`<div class="actions">${b.email?`<button type="button" class="btn sm primary" data-ksend="${esc(bid)}">✉ Trimite la ${esc(b.email)}</button>`:""}<button type="button" class="btn sm${b.email?"":" primary"}" data-kcopy="${esc(bid)}">${k?"Copiază linkul":"Creează și copiază linkul"}</button>${b.phone?`<button type="button" class="btn sm" data-kwa="${esc(bid)}">WhatsApp</button>`:""}</div>`}</div>`}
+
+/* ONLINE CHECK-IN: public link for the guest; fields configured in Settings */
+let CI={};
+const CI_FL=[["name","Nume"],["birth","Data nașterii"],["citizenship","Cetățenia"],["doc_type","Tipul actului"],["doc_num","Numărul actului"],["doc_issued","Emis"],["doc_expires","Expiră"],["address","Adresa"],["companions","Însoțitori"],["doc_photo","Poza actului"],["signature","Semnătura"]];
+const CI_MODE={req:"obligatoriu",opt:"opțional",hide:"ascunde"};
+async function ciLoad(bid){const box=$("bv-ci");if(!box)return;
+  try{const r=await api("kv_checkin_get",{booking_id:bid});CI[bid]=r;ciRender(bid)}catch(e){box.innerHTML=`<div class="kst"><b>Check-in online</b><span class="small">nu s-a încărcat</span></div>`}}
+function ciRender(bid){const box=$("bv-ci");if(!box)return;const r=CI[bid],b=bookings.find(x=>x.id===bid)||{};
+  if(!r){box.innerHTML=`<div class="kst"><b>Check-in online</b><span class="small">oaspetele completează datele înainte de sosire</span>${RO?"":`<div class="actions"><button type="button" class="btn sm primary" data-cimake="${esc(bid)}">Creează linkul</button></div>`}</div>`;return}
+  if(r.status==="done"){const d=r.data||{};box.innerHTML=`<div class="kst ok"><b>✓ Check-in completat</b><span class="small">${esc(d.name||b.guest||"")}${d.doc_num?" · "+esc(d.doc_num):""}${r.completed_at?" · "+fdtS(r.completed_at):""}</span>
+    <div class="small" style="margin-top:6px">${CI_FL.filter(([k])=>d[k]!=null&&k!=="signature"&&k!=="doc_photo").map(([k,l])=>`<div><b>${esc(l)}:</b> ${esc(Array.isArray(d[k])?d[k].join(", "):d[k])}</div>`).join("")}</div>
+    <div class="actions"><a class="btn sm" href="${esc(r.url)}" target="_blank" rel="noopener">Deschide formularul</a></div></div>`;return}
+  if(r.status==="purged"){box.innerHTML=`<div class="kst"><b>Check-in online</b><span class="small">datele personale au fost șterse după termenul de păstrare</span></div>`;return}
+  box.innerHTML=`<div class="kst"><b>Check-in online · așteaptă oaspetele</b><span class="small">link de completat înainte de sosire</span>
+    ${RO?"":`<div class="actions"><button type="button" class="btn sm primary" data-cicopy="${esc(bid)}">Copiază linkul</button>${b.phone?`<button type="button" class="btn sm" data-ciwa="${esc(bid)}">WhatsApp</button>`:""}</div>`}</div>`}
+document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("[data-cimake],[data-cicopy],[data-ciwa]");if(!t)return;
+  const bid=t.dataset.cimake||t.dataset.cicopy||t.dataset.ciwa;t.disabled=true;
+  try{const r=await api("kv_checkin_make",{booking_id:bid});CI[bid]=r;if(t.dataset.ciwa){const b=bookings.find(x=>x.id===bid)||{},dg=phoneDigits(b.phone);window.open("https://wa.me/"+dg+"?text="+encodeURIComponent("Link: "+r.url),"_blank")}
+    else if(t.dataset.cicopy||t.dataset.cimake)gCopy(r.url,"Linkul de check-in a fost copiat");ciRender(bid)}catch(x){toast("Nu a reușit")}t.disabled=false});
+function checkinSection(){const c=(cfg.checkin)||{},fields={...(Object.fromEntries(CI_FL.map(([k])=>[k,"req"]))),...(c.fields||{})};
+  fields.companions=fields.companions||"opt";fields.doc_photo=fields.doc_photo||"opt";
+  const retain=c.retain_months!=null?c.retain_months:12;
+  return `<div class="card"><p class="small" style="margin-top:0">Oaspetele deschide linkul din rezervare și completează datele. La fiecare câmp: obligatoriu, opțional sau ascuns. Datele personale se șterg după numărul de luni ales.</p>
+    ${CI_FL.map(([k,l])=>`<div class="grid2" style="align-items:center;margin:6px 0"><b style="font-size:14px">${esc(l)}</b><select data-cif="${k}" style="height:40px" ${RO?"disabled":""}>${["req","opt","hide"].map(m=>`<option value="${m}"${fields[k]===m?" selected":""}>${CI_MODE[m]}</option>`).join("")}</select></div>`).join("")}
+    <label class="l" for="ci-retain">Păstrează datele după sosire, luni</label><input id="ci-retain" inputmode="numeric" value="${esc(String(retain))}" ${RO?"disabled":""}>
+    ${RO?"":`<div class="actions"><button class="btn primary" id="ci-save">Salvează</button></div>`}</div>`}
+document.addEventListener("click",e=>{if(e.target.id!=="ci-save")return;
+  const fields={};document.querySelectorAll("[data-cif]").forEach(s=>{fields[s.dataset.cif]=s.value});
+  const retain=Math.max(0,Math.min(60,parseInt(($("ci-retain")||{}).value,10)||12));
+  saveCfg({...cfg,checkin:{fields,retain_months:retain}},"Check-in salvat")});
+
 async function kMake(bid,send){try{return await api("kv_contract",{booking_id:bid,send})}catch(e){toast(e.code==="no_email"?"Rezervarea nu are email oaspetelui":"Nu a reușit");return null}}
 document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("[data-ksend],[data-kcopy],[data-kwa]");if(!t)return;const d=t.dataset,bid=d.ksend||d.kcopy||d.kwa;
   if(d.kwa){const w=window.open("about:blank","_blank");const r=await kMake(bid,false);const b=bookings.find(x=>x.id===bid)||{};if(!r){if(w)w.close();return}
@@ -2529,7 +2560,7 @@ function bookView(id){const b=bookings.find(x=>x.id===id);if(!b)return;const tg=
    <div class="bv-rows">${rows.map(([k,v])=>`<div><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join("")}</div>
    ${b.tag==="req"&&!RO?`<div class="bv-req"><p class="small">Cerere de pe pagina de rezervare${b.email?" · "+esc(b.email):""}${b.pax?" · oaspeți: "+b.pax:""}. Datele sunt ținute pentru ea deocamdată.</p><div class="actions"><button type="button" class="btn primary" data-reqok="${esc(b.id)}">✓ Confirmă</button><button type="button" class="btn danger" data-reqno="${esc(b.id)}">Respinge</button></div></div>`:""}
    ${RO?"":`<button type="button" class="btn${b.tag==="req"?"":" primary"} bv-edit" data-bedit="${esc(b.id)}">Modifică rezervarea</button>`}
-   ${b.nights>0&&b.tag!=="closed"?`<div class="bv-ct2" id="bv-k" data-bid="${esc(b.id)}">${(setTimeout(()=>kLoad(b.id),0),"")}</div>`:""}
+   ${b.nights>0&&b.tag!=="closed"?`<div class="bv-ct2" id="bv-ci" data-bid="${esc(b.id)}">${(setTimeout(()=>ciLoad(b.id),0),"")}</div><div class="bv-ct2" id="bv-k" data-bid="${esc(b.id)}">${(setTimeout(()=>kLoad(b.id),0),"")}</div>`:""}
    <button type="button" class="linkbtn" data-audref="${esc(b.id)}" style="margin-top:10px">🕘 Istoricul modificărilor</button></div>`)}
 document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("[data-reqok],[data-reqno]");if(!t)return;const ok=!!t.dataset.reqok,id=t.dataset.reqok||t.dataset.reqno;
   if(!ok&&!t.classList.contains("armed")){t.classList.add("armed");t.textContent="Sigur respingi?";return}
@@ -3267,6 +3298,7 @@ function renderSettings(){
     `],
     apts:["home","Unități",`${cfg.apts.length} ${plural(cfg.apts.length,"unitate","unități","unități")} · detalii, adrese, poze, ordine`,()=>aptsSection()],
     pricing:["rate","Sezoane și weekend",(()=>{const P=cfg.pricing||{},n=(P.seasons||[]).length;return [P.weekend?"weekend +"+P.weekend+"%":"",n?n+" "+plural(n,"sezon","sezoane","sezoane"):""].filter(Boolean).join(" · ")||"prețuri mai mari în sezon și la sfârșit de săptămână"})(),()=>pricingSection()],
+    checkin:["web","Check-in online",(cfg.checkin||{}).retain_months!=null?`păstrare ${(cfg.checkin||{}).retain_months} luni`:"câmpuri oaspete înainte de sosire",()=>checkinSection()],
     contract:["chk","Contractul cu oaspetele",(cfg.contract||{}).landlord?"locator: "+(cfg.contract||{}).landlord:"semnătura oaspetelui pe telefon",()=>contractSection()],
     owners:["mgr","Proprietari",(cfg.owners||[]).length?(cfg.owners||[]).map(o=>o.name).join(", "):"comision, plăți și raport lunar",()=>ownersSection()],
     import:["chk","Import din Excel",`rezervări și obiecte dintr-un fișier · Excel, CSV, RealtyCalendar`,()=>importSection()],

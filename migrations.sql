@@ -21,3 +21,6 @@ ALTER TABLE bookings ADD COLUMN email TEXT NOT NULL DEFAULT '';
 ALTER TABLE orgs ADD COLUMN apt_rate REAL NOT NULL DEFAULT 0;
 ALTER TABLE users ADD COLUMN disabled INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE bookings ADD COLUMN extra TEXT NOT NULL DEFAULT '{}';
+CREATE TABLE IF NOT EXISTS checkins (id TEXT PRIMARY KEY, org_id TEXT NOT NULL, booking_id TEXT NOT NULL, token TEXT NOT NULL UNIQUE, status TEXT NOT NULL DEFAULT 'open', data TEXT NOT NULL DEFAULT '{}', completed_at TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')));
+CREATE INDEX IF NOT EXISTS checkins_org_idx ON checkins(org_id, booking_id);
+CREATE INDEX IF NOT EXISTS checkins_token_idx ON checkins(token);
