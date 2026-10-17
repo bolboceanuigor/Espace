@@ -460,3 +460,14 @@ CREATE TABLE IF NOT EXISTS day_rates (
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY (org_id, apt, day)
 );
+
+-- server 5xx log for the admin health page (platform-wide, not per-company export)
+CREATE TABLE IF NOT EXISTS errors (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL DEFAULT '',
+  fn TEXT NOT NULL DEFAULT '',
+  status INTEGER NOT NULL DEFAULT 500,
+  message TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS errors_created_idx ON errors(created_at);
