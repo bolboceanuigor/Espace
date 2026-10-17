@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Check-in</title>
+<meta name="theme-color" content="#1b2a2f">
+<link rel="icon" href="/icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{--stone:#eef0ec;--paper:#ffffff;--ink:#1b2a2f;--muted:#66727a;--line:#dde1dc;--wine:#0d8a7f;--wine-soft:#e7f5f3;--plus:#2f7a4d;--err:#a33a2c;--r:14px}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--stone);color:var(--ink);font:15.5px/1.55 "Golos Text",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+.wrap{max-width:560px;margin:0 auto;padding:0 16px 56px}
+.top{display:flex;align-items:center;gap:10px;padding:18px 0 0}
+.brand{font-family:Unbounded,"Golos Text",sans-serif;font-weight:700;font-size:15px}
+.lang{margin-left:auto;display:flex;gap:2px;background:var(--paper);border:1px solid var(--line);border-radius:999px;padding:3px}
+.lang button{border:0;background:none;border-radius:999px;padding:5px 11px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer}
+.lang button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);padding:18px;margin-top:16px}
+h1{font-family:Unbounded,"Golos Text",sans-serif;font-size:20px;margin:16px 0 6px;letter-spacing:-.02em}
+.sub{color:var(--muted);font-size:14px;margin:0 0 8px}
+label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:12px 0 5px}
+label:first-child{margin-top:0}
+input,select,textarea{width:100%;border:1px solid var(--line);border-radius:12px;padding:0 13px;background:var(--paper);font-size:16px}
+input,select{height:46px}textarea{padding:10px 13px;min-height:72px;resize:vertical}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pad{position:relative;border:1.5px dashed var(--muted);border-radius:12px;background:var(--paper);touch-action:none;height:160px}
+.pad canvas{width:100%;height:100%;display:block;border-radius:12px;cursor:crosshair}
+.clr{border:0;background:none;color:var(--wine);font-weight:600;padding:6px 0;cursor:pointer;font-size:13.5px}
+.go{width:100%;height:52px;border:0;border-radius:999px;background:var(--wine);color:#fff;font-weight:700;font-size:16px;margin-top:16px;cursor:pointer}
+.go:disabled{opacity:.6}
+.err{color:var(--err);font-weight:600;font-size:14px;margin-top:10px;min-height:1em}
+.ok{padding:18px;border-radius:var(--r);background:color-mix(in srgb,var(--plus) 14%,var(--paper));color:var(--plus);font-weight:600}
+.msg{padding:60px 0;text-align:center;color:var(--muted)}
+@media (max-width:520px){.g2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><span class="brand" id="co">espace.md</span>
+    <div class="lang" role="group"><button type="button" data-l="ro">RO</button><button type="button" data-l="ru">RU</button><button type="button" data-l="en">EN</button></div></div>
+  <main id="main"><div class="msg">…</div></main>
+</div>
+<script>
+(function(){
+const T={
+ ro:{title:"Check-in online",sub:(a,d)=>`${a} · sosire ${d}`,done:"✓ Check-in trimis. Mulțumim!",gone:"Linkul nu mai e valabil.",
+  name:"Numele și prenumele",birth:"Data nașterii",citizenship:"Cetățenia",doc_type:"Tip act",doc_num:"Seria și numărul",doc_issued:"Emis la",doc_expires:"Expiră",
+  address:"Adresa de domiciliu",companions:"Însoțitori (câte un nume pe linie)",doc_photo:"Poza actului",signature:"Semnătura",clear:"Șterge",go:"Trimite check-in",sending:"Se trimite…",
+  eNeed:"Completați câmpurile obligatorii.",eSig:"Semnați în chenar.",eNet:"Nu s-a trimis. Încercați din nou.",
+  types:{"id":"Buletin","passport":"Pașaport","other":"Alt act"}},
+ ru:{title:"Онлайн check-in",sub:(a,d)=>`${a} · заезд ${d}`,done:"✓ Check-in отправлен. Спасибо!",gone:"Ссылка больше не действует.",
+  name:"Имя и фамилия",birth:"Дата рождения",citizenship:"Гражданство",doc_type:"Тип документа",doc_num:"Серия и номер",doc_issued:"Выдан",doc_expires:"Действует до",
+  address:"Адрес проживания",companions:"Спутники (по одному имени в строке)",doc_photo:"Фото документа",signature:"Подпись",clear:"Стереть",go:"Отправить check-in",sending:"Отправляю…",
+  eNeed:"Заполните обязательные поля.",eSig:"Подпишите в рамке.",eNet:"Не отправилось. Попробуйте ещё раз.",
+  types:{"id":"Удостоверение","passport":"Паспорт","other":"Другой"}},
+ en:{title:"Online check-in",sub:(a,d)=>`${a} · arrival ${d}`,done:"✓ Check-in sent. Thank you!",gone:"This link is no longer valid.",
+  name:"Full name",birth:"Date of birth",citizenship:"Citizenship",doc_type:"ID type",doc_num:"Series and number",doc_issued:"Issued on",doc_expires:"Expires",
+  address:"Home address",companions:"Companions (one name per line)",doc_photo:"Photo of ID",signature:"Signature",clear:"Clear",go:"Submit check-in",sending:"Sending…",
+  eNeed:"Fill in the required fields.",eSig:"Sign inside the box.",eNet:"Not sent. Try again.",
+  types:{"id":"ID card","passport":"Passport","other":"Other"}}};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const tok=(location.pathname.match(/\/checkin\/([a-f0-9]{32})/)||[])[1]||new URLSearchParams(location.search).get("t")||"";
+let L=(document.cookie.match(/(?:^|;\s*)es_lang=(ro|ru|en)/)||[])[1]||(navigator.languages||[navigator.language||""]).map(x=>String(x).slice(0,2).toLowerCase()).map(x=>x==="mo"?"ro":x).find(x=>T[x])||"ro";
+let K=null,busy=false,emsg="",photo="",sigURL="",ink=0;
+const dmy=d=>d&&d.length>=10?d.slice(8,10)+"."+d.slice(5,7)+"."+d.slice(0,4):"";
+async function api(fn,body={}){const r=await fetch("/api/"+fn,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:tok,...body})});
+  const j=await r.json().catch(()=>({}));if(!r.ok)throw Object.assign(new Error(j.message||"http"),{code:j.message});return j}
+function mode(f){return (K&&K.fields&&K.fields[f])||"hide"}
+function field(f,html){const m=mode(f);if(m==="hide")return "";return `<label for="f-${f}">${esc(T[L][f]||f)}${m==="req"?" *":""}</label>${html}`}
+function render(){document.querySelectorAll(".lang button").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.l===L)));
+  if(!K){$("main").innerHTML=`<div class="msg">${esc(emsg||"…")}</div>`;return}
+  if(K.gone||K.status==="purged"){$("main").innerHTML=`<div class="msg">${esc(T[L].gone)}</div>`;return}
+  if(K.status==="done"){$("main").innerHTML=`<h1>${esc(T[L].title)}</h1><div class="ok">${esc(T[L].done)}</div><p class="sub">${esc(T[L].sub(K.apt,dmy(K.date)))}</p>`;return}
+  const t=T[L];
+  $("main").innerHTML=`<h1>${esc(t.title)}</h1><p class="sub">${esc(t.sub(K.apt,dmy(K.date)))}</p><div class="card">
+    ${field("name",`<input id="f-name" type="text" maxlength="120" value="${esc(K.guest||"")}">`)}
+    <div class="g2">${field("birth",`<input id="f-birth" type="date">`)}${field("citizenship",`<input id="f-citizenship" type="text" maxlength="80">`)}</div>
+    <div class="g2">${field("doc_type",`<select id="f-doc_type"><option value="id">${esc(t.types.id)}</option><option value="passport">${esc(t.types.passport)}</option><option value="other">${esc(t.types.other)}</option></select>`)}
+      ${field("doc_num",`<input id="f-doc_num" type="text" maxlength="60">`)}</div>
+    <div class="g2">${field("doc_issued",`<input id="f-doc_issued" type="date">`)}${field("doc_expires",`<input id="f-doc_expires" type="date">`)}</div>
+    ${field("address",`<input id="f-address" type="text" maxlength="300">`)}
+    ${field("companions",`<textarea id="f-companions"></textarea>`)}
+    ${field("doc_photo",`<input id="f-doc_photo" type="file" accept="image/*">`)}
+    ${mode("signature")!=="hide"?`<label>${esc(t.signature)}${mode("signature")==="req"?" *":""}</label><div class="pad"><canvas id="sig"></canvas></div><button type="button" class="clr" id="clr">${esc(t.clear)}</button>`:""}
+    <div class="err" id="err">${esc(emsg)}</div>
+    <button type="button" class="go" id="go"${busy?" disabled":""}>${esc(busy?t.sending:t.go)}</button>
+  </div>`;
+  wire()}
+function wire(){const c=$("sig");if(c){const ctx=c.getContext("2d");const fit=()=>{const r=c.getBoundingClientRect(),d=window.devicePixelRatio||1;c.width=r.width*d;c.height=r.height*d;ctx.setTransform(d,0,0,d,0,0);ctx.lineWidth=2.2;ctx.lineCap="round";ctx.strokeStyle="#1b2a2f"};fit();
+  let draw=false,lx=0,ly=0;const pos=e=>{const r=c.getBoundingClientRect(),p=e.touches?e.touches[0]:e;return{x:p.clientX-r.left,y:p.clientY-r.top}};
+  const start=e=>{e.preventDefault();draw=true;const p=pos(e);lx=p.x;ly=p.y};const move=e=>{if(!draw)return;e.preventDefault();const p=pos(e);ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(p.x,p.y);ctx.stroke();lx=p.x;ly=p.y;ink++};
+  const end=()=>{draw=false;if(ink)sigURL=c.toDataURL("image/png")};
+  c.addEventListener("mousedown",start);c.addEventListener("mousemove",move);window.addEventListener("mouseup",end);
+  c.addEventListener("touchstart",start,{passive:false});c.addEventListener("touchmove",move,{passive:false});c.addEventListener("touchend",end);
+  $("clr").onclick=()=>{fit();ink=0;sigURL=""}}
+  const ph=$("f-doc_photo");if(ph)ph.onchange=async()=>{const f=ph.files&&ph.files[0];if(!f){photo="";return};if(f.size>900000){emsg="max 900 KB";render();return}
+    const rd=new FileReader();rd.onload=()=>{photo=String(rd.result||"");};rd.readAsDataURL(f)};
+  $("go").onclick=submit}
+async function submit(){if(busy)return;const t=T[L],body={};emsg="";
+  for(const f of ["name","birth","citizenship","doc_type","doc_num","doc_issued","doc_expires","address","companions"]){if(mode(f)==="hide")continue;body[f]=($( "f-"+f)||{}).value||""}
+  if(mode("doc_photo")!=="hide")body.doc_photo=photo;
+  if(mode("signature")!=="hide"){if(mode("signature")==="req"&&!sigURL){emsg=t.eSig;render();return}body.signature=sigURL}
+  busy=true;render();
+  try{await api("pub_checkin_submit",body);K={...K,status:"done"};emsg="";busy=false;render()}
+  catch(e){busy=false;emsg=e.code==="need_signature"?t.eSig:/^need_/.test(e.code||"")?t.eNeed:t.eNet;render()}}
+document.querySelector(".lang").onclick=e=>{const b=e.target.closest("[data-l]");if(!b)return;L=b.dataset.l;document.cookie="es_lang="+L+";path=/;max-age=31536000";render()};
+(async()=>{if(!tok){emsg=T[L].gone;render();return}
+  try{K=await api("pub_checkin");$("co").textContent=K.company||"espace.md";document.title=T[L].title+" · "+(K.company||"");render()}
+  catch(e){emsg=T[L].gone;render()}})();
+})();
+</script>
+</body>
+</html>
