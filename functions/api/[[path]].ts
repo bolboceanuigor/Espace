@@ -554,6 +554,8 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     // Airbnb / Booking.com calendars: new reservations become bookings, managers get a notification
     const feeds = await syncDue(db, (O, msg) => notify(db, O, ["manager"], msg)).catch(() => 0);
     await run(db, "DELETE FROM audit WHERE at < ?", new Date(Date.now() - 400 * 86400000).toISOString()).catch(() => {}); // the change log keeps ~13 months
+    // the admin panel's health page shows when this last ran
+    await run(db, "INSERT INTO sys_state(k, v) VALUES ('cron_last', ?) ON CONFLICT (k) DO UPDATE SET v = excluded.v", JSON.stringify({ at: nowIso(), orgs: n, mailed, feeds })).catch(() => {});
     return json({ orgs: n, mailed, feeds });
   }
 
@@ -602,6 +604,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     if (u && !u.pw_hash) { await failHit(db, k); await sleep(600); return json({ message: "not_confirmed" }, 401); }
     if (!u || !(await passwordMatches(pw, u.pw_hash))) { await failHit(db, k); await sleep(1000); return json({ message: "bad_login" }, 401); }
     await failClear(db, k);
+    if (u.disabled) { await sleep(600); return json({ message: "disabled" }, 403); }
     await run(db, "UPDATE users SET last_login = ? WHERE id = ?", nowIso(), u.id).catch(() => {});
     const orgs = await myOrgs(db, u.id);
     const want = reqSlug ? orgs.find((o: any) => o.code === reqSlug) : (orgs.find((o: any) => o.id === body.org_id) || orgs[0]);

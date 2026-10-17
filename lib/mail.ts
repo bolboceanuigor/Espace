@@ -50,6 +50,20 @@ export async function orgEmail(db: D1Database, orgId: string) {
   return (u?.email as string) || "";
 }
 
+// a message from the platform owner to the companies (admin → "Mesaj către clienți"); plain text, one or two languages
+function textHtml(t: string) {
+  return t.trim().split(/\n{2,}/).map((p) => `<p>${esc(p).replace(/\n/g, "<br>")}</p>`).join("");
+}
+export function broadcastMail(subject: string, ro: string, ru: string) {
+  if (ru.trim()) return { subject, html: layout({ title: subject, body: textHtml(ro) }, { title: subject, body: textHtml(ru) }) };
+  return { subject, html: `<!doctype html><html><body style="margin:0;background:#f5f6f9;font-family:Arial,Helvetica,sans-serif;color:#14162e">
+<div style="max-width:560px;margin:0 auto;padding:28px 16px">
+<div style="font-weight:800;font-size:18px;margin-bottom:18px">espace.md</div>
+<div style="background:#fff;border-radius:14px;padding:26px 24px;line-height:1.55;font-size:15px"><h1 style="font-size:20px;margin:0 0 12px">${esc(subject)}</h1>${textHtml(ro)}</div>
+<p style="font-size:12.5px;color:#868aa1;margin-top:16px">espace.md · Chișinău · Ai primit acest email pentru că ai un cont pe espace.md.</p>
+</div></body></html>` };
+}
+
 export const mails = {
   welcome: (name: string, org: string, slug: string, url: string) => ({
     subject: `Confirmă emailul și alege parola — ${org}`,

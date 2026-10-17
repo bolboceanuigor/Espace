@@ -1,10 +1,10 @@
 // espace.md — the platform owner's panel (admin.espace.md): metrics, companies, invoices, leads, activity, announcements, settings.
 import {
   type Ctx, json, uuid, num, str, isDate, isEmail, all, one, run, randCode, newSession,
-  today, addDays, addMonths, activeUntil, coveredUntil, globalRate, RATE_DEFAULT, topUp, billingOf, sha256hex, hashPassword, starterConfig, randHex, failClear,
+  today, addDays, addMonths, activeUntil, coveredUntil, globalRate, RATE_DEFAULT, topUp, billingOf, sha256hex, hashPassword, starterConfig, randHex, failClear, nowIso, chargeOrg,
 } from "./core";
 import { slugOk } from "./host";
-import { sendMail, mails, orgEmail, orgUrl } from "./mail";
+import { sendMail, mails, orgEmail, orgUrl, broadcastMail } from "./mail";
 import type { Env } from "./core";
 
 export async function logEvent(db: D1Database, kind: string, orgId: string, actor: string, text: string) {
@@ -26,6 +26,15 @@ export async function activeAnnouncement(db: D1Database) {
 }
 
 const monthKey = (d: string) => d.slice(0, 7);
+// credits the platform owner adds or takes by hand: on the balance, but not money received
+const ADJ = ["bonus", "corectie"], ADJ_SQL = "('bonus','corectie')";
+// every table that holds a company's data (export and delete)
+const ORG_TABLES = ["bookings", "expenses", "handovers", "apt_photos", "app_config", "staff", "tasks", "checks", "app_state", "push_subs", "reminders", "todos", "notifs",
+  "guides", "guide_media", "verify_info", "verify_log", "month_close", "invoices", "events", "emails", "charges", "ical_feeds", "tg_links", "tg_codes", "owner_reports",
+  "owner_payouts", "audit", "contracts", "maib_payments", "day_rates", "payments", "members", "sessions"];
+const NO_EXPORT = ["push_subs", "tg_codes", "tg_links", "sessions", "members"];
+const ROLES_SA = ["owner", "manager", "checker", "viewer"];
+const isSuperEmail = (env: Env, e: string) => !!env.SUPERADMIN_EMAIL && e === env.SUPERADMIN_EMAIL.trim().toLowerCase();
 function lastMonths(n: number) {
   const out: string[] = []; const t = today();
   for (let i = n - 1; i >= 0; i--) out.push(addMonths(t.slice(0, 7) + "-01", -i).slice(0, 7));
@@ -46,7 +55,7 @@ async function orgRows(db: D1Database) {
     all(db, "SELECT org_id, MAX(updated_at) AS t FROM tasks GROUP BY org_id"),
     all(db, "SELECT org_id, COUNT(*) AS n FROM bookings WHERE created_at >= ? GROUP BY org_id", addDays(today(), -30)),
     all(db, "SELECT m.org_id, MAX(u.last_login) AS t FROM members m JOIN users u ON u.id = m.user_id GROUP BY m.org_id"),
-    all(db, "SELECT org_id, SUM(amount) AS total, COUNT(*) AS n, MIN(created_at) AS first FROM payments GROUP BY org_id"),
+    all(db, `SELECT org_id, SUM(amount) AS total, COUNT(*) AS n, MIN(created_at) AS first FROM payments WHERE method NOT IN ${ADJ_SQL} GROUP BY org_id`),
     all(db, "SELECT org_id, COUNT(*) AS n FROM staff WHERE active = 1 GROUP BY org_id"),
   ]);
   const by = (rows: any[], f = "n") => Object.fromEntries(rows.map((r) => [r.org_id, r[f]]));
@@ -60,7 +69,7 @@ async function orgRows(db: D1Database) {
   const t = today();
   const gRate = await globalRate(db);
   return orgs.map((o) => {
-    const n = apts[o.id] || 0, own = Number(o.apt_rate) > 0 ? Number(o.apt_rate) : 0, rate = own || gRate;
+    const n = apts[o.id] || 0, ownRate = Number(o.apt_rate) > 0 ? Number(o.apt_rate) : 0, rate = ownRate || gRate;
     const daily = Math.round(n * rate * 100) / 100, price = Math.round(daily * 30 * 100) / 100, balance = Math.round((Number(o.balance) || 0) * 100) / 100;
     const covered = coveredUntil(o), funded = covered >= t && o.status !== "blocked";
     // how far the balance reaches after the days already covered (trial, old paid time, days taken)
@@ -70,7 +79,7 @@ async function orgRows(db: D1Database) {
     return {
       id: o.id, name: o.name, code: o.code, status: o.status, state, note: o.note, created_at: o.created_at,
       trial_ends: o.trial_ends, paid_until: o.paid_until, active_until: until, days_left: daysBetween(t, until || t),
-      apts: n, price, daily, balance, rate, apt_rate: own, charged_through: o.charged_through || "",
+      apts: n, price, daily, balance, rate, apt_rate: ownRate, charged_through: o.charged_through || "",
       members: mem[o.id] || 0, staff: st[o.id] || 0, bookings_30d: bb[o.id] || 0,
       last_activity: last[o.id] || "", last_login: lg[o.id] || "",
       owner_name: own[o.id]?.name || "", owner_email: own[o.id]?.email || "",
@@ -97,7 +106,7 @@ async function overview(db: D1Database) {
   const used = await all(db, "SELECT substr(day, 1, 7) AS m, SUM(amount) AS s FROM charges WHERE day >= ? GROUP BY m", months[0] + "-01");
   const usedBy = Object.fromEntries(used.map((r) => [r.m, r.s]));
   const mrrSeries = months.map((m) => Math.round(usedBy[m] || 0));
-  const revenue = months.map((m) => Math.round(payments.filter((p) => monthKey(p.created_at) === m).reduce((s, p) => s + (p.amount || 0), 0)));
+  const revenue = months.map((m) => Math.round(payments.filter((p) => monthKey(p.created_at) === m && !ADJ.includes(p.method)).reduce((s, p) => s + (p.amount || 0), 0)));
   // sign-ups per week, last 12 weeks
   const weeks: string[] = []; for (let i = 11; i >= 0; i--) weeks.push(addDays(t, -7 * i - 6));
   const signups = weeks.map((w) => orgs.filter((o) => o.created_at.slice(0, 10) >= w && o.created_at.slice(0, 10) <= addDays(w, 6)).length);
@@ -249,6 +258,99 @@ export async function handleAdmin(fn: string, body: any, c: Ctx, db: D1Database,
       return json(id);
     }
     case "sa_ann_delete": await run(db, "DELETE FROM announcements WHERE id = ?", str(body.id, 40)); return json(true);
+
+    // ---------- people: every account, across companies ----------
+    case "sa_users": {
+      const now = nowIso();
+      const users = await all(db, "SELECT u.id, u.email, u.name, u.created_at, u.last_login, u.disabled, CASE WHEN u.pw_hash = '' THEN 0 ELSE 1 END AS has_pw FROM users u ORDER BY u.created_at DESC LIMIT 3000")
+        .catch(() => all(db, "SELECT u.id, u.email, u.name, u.created_at, u.last_login, 0 AS disabled, CASE WHEN u.pw_hash = '' THEN 0 ELSE 1 END AS has_pw FROM users u ORDER BY u.created_at DESC LIMIT 3000"));
+      const [mem, ses] = await Promise.all([
+        all(db, "SELECT m.user_id, m.role, o.id AS org_id, o.name, o.code FROM members m JOIN orgs o ON o.id = m.org_id ORDER BY m.created_at"),
+        all(db, "SELECT user_id, COUNT(*) AS n FROM sessions WHERE expires_at > ? AND support = 0 GROUP BY user_id", now),
+      ]);
+      const by: Record<string, any[]> = {}; for (const m of mem) (by[m.user_id] ||= []).push({ org_id: m.org_id, name: m.name, code: m.code, role: m.role });
+      const sn = Object.fromEntries(ses.map((r) => [r.user_id, r.n]));
+      return json(users.map((u) => ({ ...u, orgs: by[u.id] || [], sessions: sn[u.id] || 0, super: isSuperEmail(env, u.email) })));
+    }
+    case "sa_user_link": { // a fresh link to set a password, by email (for someone who lost access)
+      const u = await one(db, "SELECT id, email, pw_hash FROM users WHERE id = ?", str(body.user_id, 40));
+      if (!u) return json({ message: "not_found" }, 404);
+      const tok = randHex(32), hours = u.pw_hash ? 1 : 72;
+      await run(db, "INSERT INTO pw_resets(token_hash, user_id, expires_at) VALUES (?,?,?)", await sha256hex(tok), u.id, new Date(Date.now() + hours * 3600000).toISOString());
+      const o = await one(db, "SELECT o.code FROM members m JOIN orgs o ON o.id = m.org_id WHERE m.user_id = ? ORDER BY m.created_at LIMIT 1", u.id);
+      const url = (isSuperEmail(env, u.email) ? "https://admin.espace.md/" : o ? orgUrl(o.code) : "https://espace.md/") + "#reset=" + tok;
+      await failClear(db, "em:" + u.email);
+      const mailed = await sendMail(env, db, { to: u.email, ...(u.pw_hash ? mails.reset(url) : mails.setPassword(u.email, url)), kind: "reset" });
+      await logEvent(db, "member", "", actor, `Link de parolă trimis la ${u.email}`);
+      return json({ mailed });
+    }
+    case "sa_user_signout": { // sign the person out on every device
+      const u = await one(db, "SELECT id, email FROM users WHERE id = ?", str(body.user_id, 40));
+      if (!u) return json({ message: "not_found" }, 404);
+      if (isSuperEmail(env, u.email)) return json({ message: "is_super" }, 409);
+      const r = await run(db, "DELETE FROM sessions WHERE user_id = ?", u.id);
+      await logEvent(db, "member", "", actor, `${u.email}: deconectat de pe toate dispozitivele`);
+      return json({ ended: r.meta.changes || 0 });
+    }
+    case "sa_user_disable": { // switch an account off (or back on): no sign-in, every session ends
+      const u = await one(db, "SELECT id, email FROM users WHERE id = ?", str(body.user_id, 40));
+      if (!u) return json({ message: "not_found" }, 404);
+      if (isSuperEmail(env, u.email)) return json({ message: "is_super" }, 409);
+      const off = body.disabled !== false;
+      await db.batch([
+        db.prepare("UPDATE users SET disabled = ? WHERE id = ?").bind(off ? 1 : 0, u.id),
+        ...(off ? [db.prepare("DELETE FROM sessions WHERE user_id = ?").bind(u.id)] : []),
+      ]);
+      await logEvent(db, "member", "", actor, off ? `Cont suspendat: ${u.email}` : `Cont reactivat: ${u.email}`);
+      return json(off);
+    }
+
+    // ---------- card top-ups (maib), every attempt ----------
+    case "sa_maib": return json(await all(db, `SELECT p.id, p.org_id, p.amount, p.status, p.payment_id, p.method, p.card, p.created_at, p.paid_at, o.name AS org_name, o.code AS org_code, u.email AS user_email
+      FROM maib_payments p LEFT JOIN orgs o ON o.id = p.org_id LEFT JOIN users u ON u.id = p.user_id ORDER BY p.created_at DESC LIMIT 1000`));
+
+    // ---------- health: what is broken right now ----------
+    case "sa_health": {
+      const now = Date.now(), d7 = new Date(now - 7 * 86400000).toISOString(), h1 = new Date(now - 3600000).toISOString(), d3 = new Date(now - 3 * 86400000).toISOString();
+      const [feeds, feedsN, mailsBad, mailsN, maibBad, cron] = await Promise.all([
+        all(db, `SELECT f.id, f.org_id, f.apt, f.source, f.last_sync, f.last_msg, o.name AS org_name FROM ical_feeds f JOIN orgs o ON o.id = f.org_id
+          WHERE f.last_ok = 0 AND f.last_sync != '' AND o.status = 'active' ORDER BY f.last_sync DESC LIMIT 200`),
+        one(db, "SELECT COUNT(*) AS n FROM ical_feeds f JOIN orgs o ON o.id = f.org_id WHERE o.status = 'active'"),
+        all(db, "SELECT e.id, e.org_id, e.to_addr, e.subject, e.kind, e.detail, e.created_at, o.name AS org_name FROM emails e LEFT JOIN orgs o ON o.id = e.org_id WHERE e.status = 'failed' AND e.created_at >= ? ORDER BY e.created_at DESC LIMIT 200", d7),
+        one(db, "SELECT COUNT(*) AS n FROM emails WHERE created_at >= ?", d7),
+        all(db, `SELECT p.id, p.org_id, p.amount, p.status, p.created_at, o.name AS org_name FROM maib_payments p LEFT JOIN orgs o ON o.id = p.org_id
+          WHERE (p.status = 'failed' AND p.created_at >= ?) OR (p.status = 'new' AND p.created_at < ? AND p.created_at >= ?) ORDER BY p.created_at DESC LIMIT 200`, d7, h1, d3),
+        one(db, "SELECT v FROM sys_state WHERE k = 'cron_last'"),
+      ]);
+      let cronLast: any = null; try { cronLast = cron ? JSON.parse(cron.v) : null; } catch {}
+      return json({
+        cron: cronLast, feeds, feeds_total: feedsN?.n || 0, mails_failed: mailsBad, mails_total: mailsN?.n || 0, maib: maibBad,
+        config: { mail: !!env.RESEND_API_KEY, maib: !!((env as any).MAIB_CLIENT_ID && (env as any).MAIB_CLIENT_SECRET), maib_sandbox: !!(env as any).MAIB_SANDBOX, cron: !!env.CRON_KEY, telegram: !!(env as any).TELEGRAM_BOT_TOKEN },
+      });
+    }
+
+    // ---------- one email to many companies (the owners) ----------
+    case "sa_broadcast": {
+      const seg = ["all", "trial", "paid", "expired"].includes(body.segment) ? body.segment : "all";
+      const subject = str(body.subject, 150).trim(), ro = str(body.text, 6000), ru = str(body.text_ru, 6000);
+      const rows = (await orgRows(db)).filter((o) => o.status !== "blocked" && (seg === "all" || o.state === seg));
+      const seen = new Set<string>(), to: { email: string; org: string; org_id: string }[] = [];
+      for (const o of rows) { const e = (o.owner_email || "").toLowerCase(); if (e && !seen.has(e)) { seen.add(e); to.push({ email: e, org: o.name, org_id: o.id }); } }
+      if (body.dry) return json({ count: to.length, sample: to.slice(0, 50) });
+      if (!subject || !ro.trim()) return json({ message: "need_text" }, 400);
+      const id = str(body.id, 40); if (!/^[a-zA-Z0-9-]{8,40}$/.test(id)) return json({ message: "bad_id" }, 400);
+      // sent in rounds of 25 (a request may only call out so many times); the page calls again until nothing is left, and the same id never mails anyone twice
+      const done = new Set((await all(db, "SELECT dedupe FROM emails WHERE dedupe LIKE ?", `bc:${id}:%`)).map((r) => String(r.dedupe).slice(id.length + 4)));
+      const left = to.filter((r) => !done.has(r.email)), m = broadcastMail(subject, ro, ru);
+      let sent = 0, failed = 0;
+      for (const r of left.slice(0, 25)) {
+        const st = await sendMail(env, db, { to: r.email, ...m, kind: "broadcast", orgId: r.org_id, key: `bc:${id}:${r.email}` });
+        if (st === "failed") failed++; else sent++;
+      }
+      const remaining = Math.max(0, left.length - 25);
+      if (!remaining) await logEvent(db, "broadcast", "", actor, `Mesaj „${subject}” către ${to.length} companii (${seg})`);
+      return json({ total: to.length, sent, failed, remaining });
+    }
   }
 
   // ---------- one company ----------
@@ -317,6 +419,69 @@ export async function handleAdmin(fn: string, body: any, c: Ctx, db: D1Database,
       return json({ email, mailed });
     }
     case "sa_note": await run(db, "UPDATE orgs SET note = ? WHERE id = ?", str(body.note, 2000), O); return json(true);
+    case "sa_adjust": { // credits added (bonus) or taken (correction) by hand, with a reason; not counted as money received
+      const amount = Number.isFinite(Number(body.amount)) ? Math.round(Number(body.amount) * 100) / 100 : 0, reason = str(body.reason, 300).trim();
+      if (!amount || Math.abs(amount) > 100000) return json({ message: "bad_amount" }, 400);
+      if (!reason) return json({ message: "need_reason" }, 400);
+      const method = amount > 0 ? "bonus" : "corectie";
+      let r: any;
+      if (amount > 0) r = await topUp(db, org, amount, { note: reason, method });
+      else {
+        const b = await one(db, "UPDATE orgs SET balance = ROUND(balance + ?, 2) WHERE id = ? RETURNING balance", amount, O);
+        await run(db, "INSERT INTO payments(id, org_id, amount, months, paid_until, note, method, invoice_id, balance_after) VALUES (?,?,?,0,'',?,?,'',?)", uuid(), O, amount, reason, method, b.balance);
+        const now = await chargeOrg(db, await one(db, "SELECT * FROM orgs WHERE id = ?", O)), bb = await billingOf(db, now);
+        r = { balance: bb.balance, active_until: bb.active_until, days_left: bb.days_left };
+      }
+      await logEvent(db, "payment", O, actor, `${amount > 0 ? "Bonus" : "Corecție"} ${amount} credite (${reason}) → sold ${r.balance}`);
+      return json(r);
+    }
+    case "sa_member_role": {
+      const uid = str(body.user_id, 40), role = str(body.role, 20);
+      if (!ROLES_SA.includes(role)) return json({ message: "bad_role" }, 400);
+      const m = await one(db, "SELECT m.role, u.email FROM members m JOIN users u ON u.id = m.user_id WHERE m.org_id = ? AND m.user_id = ?", O, uid);
+      if (!m) return json({ message: "not_found" }, 404);
+      if (m.role === "prop") return json({ message: "is_prop" }, 409); // owners of apartments are managed from the company's app
+      if (m.role === role) return json(role);
+      if (m.role === "owner" && (await one(db, "SELECT COUNT(*) AS n FROM members WHERE org_id = ? AND role = 'owner'", O)).n < 2) return json({ message: "last_owner" }, 409);
+      await run(db, "UPDATE members SET role = ? WHERE org_id = ? AND user_id = ?", role, O, uid);
+      await logEvent(db, "member", O, actor, `Rol schimbat: ${m.email} ${m.role} → ${role}`);
+      return json(role);
+    }
+    case "sa_member_remove": {
+      const uid = str(body.user_id, 40);
+      const m = await one(db, "SELECT m.role, u.email FROM members m JOIN users u ON u.id = m.user_id WHERE m.org_id = ? AND m.user_id = ?", O, uid);
+      if (!m) return json({ message: "not_found" }, 404);
+      if (m.role === "owner" && (await one(db, "SELECT COUNT(*) AS n FROM members WHERE org_id = ? AND role = 'owner'", O)).n < 2) return json({ message: "last_owner" }, 409);
+      await db.batch([
+        db.prepare("DELETE FROM members WHERE org_id = ? AND user_id = ?").bind(O, uid),
+        db.prepare("DELETE FROM sessions WHERE org_id = ? AND user_id = ?").bind(O, uid),
+      ]);
+      await logEvent(db, "member", O, actor, `Scos din companie: ${m.email} (${m.role})`);
+      return json(true);
+    }
+    case "sa_org_export": { // everything the company has, as one JSON file (no PIN hashes, no sessions)
+      const out: any = { exported_at: nowIso(), org, members: await all(db, "SELECT u.name, u.email, m.role, m.created_at FROM members m JOIN users u ON u.id = m.user_id WHERE m.org_id = ?", O) };
+      for (const t of ORG_TABLES) if (!NO_EXPORT.includes(t)) {
+        const rows = await all(db, `SELECT * FROM ${t} WHERE org_id = ?`, O).catch(() => []);
+        out[t] = t === "staff" ? rows.map(({ pin_hash, ...r }: any) => r) : rows;
+      }
+      await logEvent(db, "export", O, actor, "Datele companiei exportate (JSON)");
+      return json(out);
+    }
+    case "sa_org_delete": { // for good: every row of the company; people left without any company are removed too
+      if (str(body.confirm, 60) !== org.code) return json({ message: "bad_confirm" }, 400);
+      const users = await all(db, "SELECT user_id FROM members WHERE org_id = ?", O);
+      await db.batch([...ORG_TABLES.map((t) => db.prepare(`DELETE FROM ${t} WHERE org_id = ?`).bind(O)), db.prepare("UPDATE leads SET org_id = '' WHERE org_id = ?").bind(O), db.prepare("DELETE FROM orgs WHERE id = ?").bind(O)]);
+      let gone = 0;
+      for (const { user_id } of users) {
+        const u = await one(db, "SELECT email FROM users WHERE id = ?", user_id);
+        if (!u || isSuperEmail(env, u.email) || await one(db, "SELECT 1 AS x FROM members WHERE user_id = ?", user_id)) continue;
+        await db.batch([db.prepare("DELETE FROM sessions WHERE user_id = ?").bind(user_id), db.prepare("DELETE FROM pw_resets WHERE user_id = ?").bind(user_id), db.prepare("DELETE FROM users WHERE id = ?").bind(user_id)]);
+        gone++;
+      }
+      await logEvent(db, "delete", "", actor, `Companie ștearsă definitiv: ${org.name} (${org.code}.espace.md), ${users.length} membri, ${gone} conturi fără altă companie șterse`);
+      return json({ deleted: true, users_removed: gone });
+    }
     case "sa_price": { // the company's own rate: credits per unit per day (0 = the general rate)
       const r = Math.max(0, Math.min(1000, Math.round(num(body.rate ?? body.price) * 100) / 100));
       await run(db, "UPDATE orgs SET apt_rate = ? WHERE id = ?", r, O);

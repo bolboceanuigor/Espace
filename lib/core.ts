@@ -85,8 +85,10 @@ export async function loadSession(db: D1Database, env: Env, token: string): Prom
   const th = await sha256hex(token);
   const s = await one(db, "SELECT * FROM sessions WHERE token_hash = ?", th);
   if (!s || s.expires_at < nowIso()) return null;
-  const user = await one(db, "SELECT id, email, name FROM users WHERE id = ?", s.user_id);
-  if (!user) return null;
+  // a user the platform owner switched off loses every session at once (the column may not exist yet on an old database)
+  const user = await one(db, "SELECT id, email, name, disabled FROM users WHERE id = ?", s.user_id).catch(() => one(db, "SELECT id, email, name FROM users WHERE id = ?", s.user_id));
+  if (!user || user.disabled) return null;
+  delete user.disabled;
   let org = null, role = "";
   const isSuper = !!env.SUPERADMIN_EMAIL && user.email === env.SUPERADMIN_EMAIL.trim().toLowerCase();
   const support = !!s.support;
