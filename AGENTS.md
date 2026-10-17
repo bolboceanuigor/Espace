@@ -65,7 +65,7 @@ Lucrezi la **espace.md**, un SaaS pentru administrarea apartamentelor în chirie
 ### Etapa 1: Rezervarea completă — FĂCUTĂ (17.10.2026)
 Deja există: plăți în mai multe valute și rest de plată (payState, suplimente ca rânduri cu 0 nopți), preț propus după tarif (uQuote).
 Adăugat: coloana `bookings.extra` (JSON: kids, lang, tin, tout, team, dep, dep_cur, dep_st, dep_kept, dep_note, com_pct, com), secțiunea „Подробнее” din formular, `cfg.com[sursă]` = % comision memorat pe canal.
-Rămas din etapă: fișiere pe rezervare (cere R2), nota pentru echipă vizibilă și menajerelor în ecranul lor.
+Completat: fișiere pe rezervare (`booking_files` + `bk_file_*`, binding R2 opțional `FILES`), nota pentru echipă (`extra.team`) vizibilă menajerelor în `cl_load` / ecranul PIN.
 
 ### (plan inițial al Etapei 1)
 - Pe rezervare:
