@@ -34,7 +34,7 @@ Ce trebuie să aibă fiecare modul ca aplicația să fie completă și funcțion
 | Temă deschisă și închisă, PWA, notificări push | ✅ | `app.html` |
 | Backup zilnic al bazei de date | ✅ | `.github/workflows/backup.yml` |
 | Job la fiecare 5 minute (`/api/cron`) | 🟡 | Worker-ul `workers/cron` e scris, dar trebuie dat dreptul **Workers Scripts: Edit** cheii Cloudflare. Gata când: pagina admin → Sănătate arată „ultima rulare” sub 10 minute. |
-| Jurnal de erori pe server | ❌ | Erorile 5xx se salvează într-un tabel `errors` (fn, mesaj, org, timp) și se văd în admin → Sănătate. Gata când: o eroare provocată apare acolo în mai puțin de un minut. |
+| Jurnal de erori pe server | ✅ | Tabel `errors` + `logApiError` pe ≥500; admin → Sănătate arată ultimele 50 / 24 h; buton „Provoacă eroare de test” (`sa_error_probe`). Cron șterge după ~30 zile. |
 
 ## 1. Cont, intrare și securitate
 
@@ -214,7 +214,7 @@ Ce trebuie să aibă fiecare modul ca aplicația să fie completă și funcțion
 | Prezentare (MRR, conversie, churn), companii, utilizatori, cereri, facturi, plăți, plăți card | ✅ |
 | Activitate, emailuri, mesaj către clienți, anunțuri, sănătate, setări | ✅ |
 | Pe companie: suport doar pentru citire, corecție de credite, roluri, export JSON, ștergere | ✅ |
-| Jurnal de erori (vezi modulul 0) | ❌ |
+| Jurnal de erori (vezi modulul 0) | ✅ |
 
 ## 19. Legal și conformitate
 

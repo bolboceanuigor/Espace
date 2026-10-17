@@ -311,8 +311,8 @@ export async function handleAdmin(fn: string, body: any, c: Ctx, db: D1Database,
 
     // ---------- health: what is broken right now ----------
     case "sa_health": {
-      const now = Date.now(), d7 = new Date(now - 7 * 86400000).toISOString(), h1 = new Date(now - 3600000).toISOString(), d3 = new Date(now - 3 * 86400000).toISOString();
-      const [feeds, feedsN, mailsBad, mailsN, maibBad, cron] = await Promise.all([
+      const now = Date.now(), d7 = new Date(now - 7 * 86400000).toISOString(), h1 = new Date(now - 3600000).toISOString(), d3 = new Date(now - 3 * 86400000).toISOString(), d1 = new Date(now - 86400000).toISOString();
+      const [feeds, feedsN, mailsBad, mailsN, maibBad, cron, errors, errorsN] = await Promise.all([
         all(db, `SELECT f.id, f.org_id, f.apt, f.source, f.last_sync, f.last_msg, o.name AS org_name FROM ical_feeds f JOIN orgs o ON o.id = f.org_id
           WHERE f.last_ok = 0 AND f.last_sync != '' AND o.status = 'active' ORDER BY f.last_sync DESC LIMIT 200`),
         one(db, "SELECT COUNT(*) AS n FROM ical_feeds f JOIN orgs o ON o.id = f.org_id WHERE o.status = 'active'"),
@@ -321,13 +321,20 @@ export async function handleAdmin(fn: string, body: any, c: Ctx, db: D1Database,
         all(db, `SELECT p.id, p.org_id, p.amount, p.status, p.created_at, o.name AS org_name FROM maib_payments p LEFT JOIN orgs o ON o.id = p.org_id
           WHERE (p.status = 'failed' AND p.created_at >= ?) OR (p.status = 'new' AND p.created_at < ? AND p.created_at >= ?) ORDER BY p.created_at DESC LIMIT 200`, d7, h1, d3),
         one(db, "SELECT v FROM sys_state WHERE k = 'cron_last'"),
+        all(db, `SELECT e.id, e.org_id, e.fn, e.status, e.message, e.created_at, o.name AS org_name FROM errors e LEFT JOIN orgs o ON o.id = e.org_id
+          ORDER BY e.created_at DESC LIMIT 50`).catch(() => []),
+        one(db, "SELECT COUNT(*) AS n FROM errors WHERE created_at >= ?", d1).catch(() => ({ n: 0 })),
       ]);
       let cronLast: any = null; try { cronLast = cron ? JSON.parse(cron.v) : null; } catch {}
       return json({
         cron: cronLast, feeds, feeds_total: feedsN?.n || 0, mails_failed: mailsBad, mails_total: mailsN?.n || 0, maib: maibBad,
+        errors, errors_24h: errorsN?.n || 0,
         config: { mail: !!env.RESEND_API_KEY, maib: !!((env as any).MAIB_CLIENT_ID && (env as any).MAIB_CLIENT_SECRET), maib_sandbox: !!(env as any).MAIB_SANDBOX, cron: !!env.CRON_KEY, telegram: !!(env as any).TELEGRAM_BOT_TOKEN },
       });
     }
+    // deliberate 5xx so you can check that Sănătate shows it within a minute
+    case "sa_error_probe":
+      return json({ message: "probe_error_test" }, 500);
 
     // ---------- one email to many companies (the owners) ----------
     case "sa_broadcast": {

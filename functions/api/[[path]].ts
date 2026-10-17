@@ -6,7 +6,7 @@ import { newVapid, sendPush, type Vapid } from "../../lib/push";
 import {
   type Env, type Ctx, json, sleep, nowIso, uuid, num, str, isDate, isUuid, snum, isEmail, all, one, run,
   starterConfig, hashPin, pinMatches, hashPassword, passwordMatches, throttled, failHit, failClear, newSession, bearer, loadSession,
-  ROLES, roleAllows, READ_FNS, TRIAL_DAYS, today, addMonths, isExpired, billingOf, chargeOrg, topUp, stayPrice, minNights, EsPrice, dayRules, randCode, randHex, sameStr, sha256hex,
+  ROLES, roleAllows, READ_FNS, TRIAL_DAYS, today, addMonths, isExpired, billingOf, chargeOrg, topUp, stayPrice, minNights, EsPrice, dayRules, randCode, randHex, sameStr, sha256hex, logApiError,
 } from "../../lib/core";
 import { hostOf, siteOf, slugOk, isSlug } from "../../lib/host";
 import { handleAdmin, logEvent, activeAnnouncement, getSettings, createInvoice } from "../../lib/admin";
@@ -387,7 +387,23 @@ async function audit(db: D1Database, O: string, c: { user?: any } | null, kind: 
     O, c?.user?.id || "", str(who || c?.user?.name || c?.user?.email || "", 80), kind, action, ref || "", str(label, 200), JSON.stringify(data || {}).slice(0, 20000)).catch(() => {});
 }
 
-export const onRequest: PagesFunction<Env> = async ({ request, env, params, waitUntil }) => {
+export const onRequest: PagesFunction<Env> = async (ctx) => {
+  const fn = String(([] as string[]).concat((ctx.params as any).path || []).pop() || "");
+  try {
+    const res = await handleApi(ctx);
+    if (res.status >= 500) {
+      let message = "http_" + res.status;
+      try { const j: any = await res.clone().json(); if (j && j.message) message = String(j.message); } catch { /* body not json */ }
+      ctx.waitUntil(logApiError(ctx.env.DB, fn, res.status, message).catch(() => {}));
+    }
+    return res;
+  } catch (e: any) {
+    ctx.waitUntil(logApiError(ctx.env.DB, fn, 500, e?.message || "exception").catch(() => {}));
+    return json({ message: "server_error" }, 500);
+  }
+};
+
+const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }) => {
   if (request.method !== "POST") return json({ message: "method_not_allowed" }, 405);
   const fn = String(([] as string[]).concat((params as any).path || []).pop() || "");
   // maib calls this after every card / MIA payment: the signature covers the exact raw body, so read it as text first
@@ -570,6 +586,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     await run(db, "DELETE FROM audit WHERE at < ?", new Date(Date.now() - 400 * 86400000).toISOString()).catch(() => {}); // the change log keeps ~13 months
     // the admin panel's health page shows when this last ran
     await run(db, "INSERT INTO sys_state(k, v) VALUES ('cron_last', ?) ON CONFLICT (k) DO UPDATE SET v = excluded.v", JSON.stringify({ at: nowIso(), orgs: n, mailed, feeds })).catch(() => {});
+    await run(db, "DELETE FROM errors WHERE created_at < ?", new Date(Date.now() - 30 * 86400000).toISOString()).catch(() => {});
     return json({ orgs: n, mailed, feeds });
   }
 
