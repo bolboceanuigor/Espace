@@ -2335,7 +2335,7 @@ async function icalLoad(a){const box=$("uf-ical-body");if(!box)return;
   }catch(e){if($("uf-ical-body"))$("uf-ical-body").textContent="Nu s-a încărcat"}}
 const icalErr=m=>/HTTP 404|HTTP 410/.test(m)?"linkul nu mai funcționează — ia unul nou de pe site":/not_ical/.test(m)?"la link nu e un calendar — verifică dacă e linkul de export .ics":/abort|timeout/i.test(m)?"site-ul n-a răspuns la timp, reîncercăm":/unit_gone/.test(m)?"obiectul a fost șters":m;
 const gCalUrl=u=>"https://calendar.google.com/calendar/r?cid="+encodeURIComponent(String(u||"").replace(/^https:/i,"webcal:"));
-const mapsUrl=addr=>"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(String(addr||"").trim()+", Chișinău");
+const mapsUrl=addr=>{const a=String(addr||"").trim();const q=/chi[sșş]in[aăá]u/i.test(a)?a:a+(a?", ":"")+"Chișinău";return "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(q)};
 let GCAL_URL="";
 async function gcalLoad(){try{const r=await api("kv_ical_org");GCAL_URL=r.export||"";if(r.key)cfg={...cfg,ical:r.key};if(setSec==="gcal")renderSettings()}catch(e){GCAL_URL=""}}
 function gcalSection(){setTimeout(()=>{if(!GCAL_URL&&!cfg.ical)gcalLoad();else if(cfg.ical&&!GCAL_URL)GCAL_URL=`https://espace.md/ical/${ME.org.code}/${cfg.ical}.ics`},0);

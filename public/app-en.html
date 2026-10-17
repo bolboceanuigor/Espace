@@ -2335,7 +2335,7 @@ async function icalLoad(a){const box=$("uf-ical-body");if(!box)return;
   }catch(e){if($("uf-ical-body"))$("uf-ical-body").textContent="Didn’t load"}}
 const icalErr=m=>/HTTP 404|HTTP 410/.test(m)?"the link no longer works — get a new one on the site":/not_ical/.test(m)?"there’s no calendar at the link — check that it’s the export link .ics":/abort|timeout/i.test(m)?"the site didn’t answer in time, we’ll retry":/unit_gone/.test(m)?"the unit was deleted":m;
 const gCalUrl=u=>"https://calendar.google.com/calendar/r?cid="+encodeURIComponent(String(u||"").replace(/^https:/i,"webcal:"));
-const mapsUrl=addr=>"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(String(addr||"").trim()+", Chișinău");
+const mapsUrl=addr=>{const a=String(addr||"").trim();const q=/chi[sșş]in[aăá]u/i.test(a)?a:a+(a?", ":"")+"Chișinău";return "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(q)};
 let GCAL_URL="";
 async function gcalLoad(){try{const r=await api("kv_ical_org");GCAL_URL=r.export||"";if(r.key)cfg={...cfg,ical:r.key};if(setSec==="gcal")renderSettings()}catch(e){GCAL_URL=""}}
 function gcalSection(){setTimeout(()=>{if(!GCAL_URL&&!cfg.ical)gcalLoad();else if(cfg.ical&&!GCAL_URL)GCAL_URL=`https://espace.md/ical/${ME.org.code}/${cfg.ical}.ics`},0);
