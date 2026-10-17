@@ -1162,6 +1162,29 @@ body.wizon{overflow:hidden}
 .wr select{flex:1;min-width:140px}.wu1 select{flex:none;width:auto;max-width:46%}
 .wsum{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0}.wsum div{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;text-align:center}.wsum b{display:block;font-size:30px;letter-spacing:-.02em}.wsum span{color:var(--muted);font-size:13px}
 .wizf{position:sticky;bottom:0;display:flex;justify-content:space-between;gap:10px;padding:14px 0 max(6px,env(safe-area-inset-bottom));background:linear-gradient(transparent,var(--bg) 30%)}.wizf .btn{min-width:120px}
+/* AI coach — step playbook */
+.coach-fab{position:fixed;right:16px;bottom:calc(72px + env(safe-area-inset-bottom,0px));z-index:55;width:52px;height:52px;border-radius:50%;border:0;background:var(--accent,#0d8a7f);color:#fff;font:700 20px/1 var(--font,inherit);box-shadow:0 10px 28px rgba(13,138,127,.35);cursor:pointer;display:grid;place-items:center}
+.coach-fab:hover{filter:brightness(1.05)}
+.coach-fab[hidden],.coach-panel[hidden]{display:none!important}
+@media (min-width:860px){.coach-fab{bottom:28px;right:28px}}
+.coach-panel{position:fixed;right:12px;bottom:calc(136px + env(safe-area-inset-bottom,0px));z-index:56;width:min(360px,calc(100vw - 24px));max-height:min(70vh,560px);background:var(--surface,#fff);border:1px solid var(--line);border-radius:18px;box-shadow:0 18px 48px rgba(26,35,50,.18);display:flex;flex-direction:column;overflow:hidden}
+@media (min-width:860px){.coach-panel{bottom:92px;right:28px}}
+.coach-hd{display:flex;align-items:center;gap:10px;padding:14px 14px 10px;border-bottom:1px solid var(--line)}
+.coach-hd b{flex:1;font-size:15px}
+.coach-hd .coach-x{border:0;background:var(--raised,#f4f7fc);width:32px;height:32px;border-radius:8px;cursor:pointer;color:var(--ink);font-size:18px;line-height:1}
+.coach-body{padding:12px 14px;overflow:auto;display:flex;flex-direction:column;gap:10px}
+.coach-msg{background:var(--raised,#f4f7fc);border-radius:12px;padding:12px 14px;font-size:14px;line-height:1.45;color:var(--ink)}
+.coach-msg strong{display:block;margin-bottom:4px;font-size:13px}
+.coach-steps{display:flex;flex-direction:column;gap:6px}
+.coach-step{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--surface,#fff);text-align:left;cursor:pointer;font:inherit;color:var(--ink)}
+.coach-step[aria-current="true"]{border-color:var(--accent);background:var(--accent-soft,#e6f5f3)}
+.coach-step.done{opacity:.65}
+.coach-step .n{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:800;background:var(--accent-soft);color:var(--accent)}
+.coach-step.done .n{background:var(--ok-soft,#e6f6ec);color:var(--ok,#1f8a4c)}
+.coach-step span{flex:1;min-width:0}
+.coach-step small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.coach-act{padding:12px 14px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
+.coach-act .btn{width:100%}
 .cl-beds{margin-top:6px;font-size:14px}
 .hint.bad{color:#b42318;font-weight:600}
 .pcur{display:flex;gap:6px}.pcur input{flex:1;min-width:0}.pcur select{width:auto;flex:none}
@@ -1222,6 +1245,13 @@ body.wizon{overflow:hidden}
   </nav>
 </div></header>
 <div id="hdr-space"></div>
+
+<button type="button" class="coach-fab" id="coach-fab" hidden title="Assistant" aria-label="Assistant">✦</button>
+<aside class="coach-panel" id="coach-panel" hidden aria-label="Assistant">
+  <div class="coach-hd"><b id="coach-title">Assistant</b><button type="button" class="coach-x" id="coach-close" aria-label="Close">×</button></div>
+  <div class="coach-body" id="coach-body"></div>
+  <div class="coach-act" id="coach-act"></div>
+</aside>
 
 <main class="wrap">
   <div id="banner" class="banner" hidden></div>
@@ -4338,8 +4368,100 @@ async function boot(){
 setInterval(()=>{const a=document.activeElement;if(PIN&&document.visibilityState==="visible"&&!(a&&a.matches&&a.matches("input,textarea,select")))reload().catch(e=>{if(e.code==="bad_pin")lock("Session ended — sign in again")})},60000);
 document.addEventListener("visibilitychange",()=>{if(PIN&&document.visibilityState==="visible")reload().catch(()=>{})});
 
+/* ── AI coach playbook: walks the owner through the app end-to-end ── */
+const COACH_T={
+  ru:{title:"Assistant",close:"Close",hi:"Ill walk you through the app step by step — from units to your first working day.",
+    do:"Do this step",next:"Next",skip:"Skip",done:"Done — youre ready",
+    s1:"Units and team",s1d:"The wizard adds units and invites managers / cleaners",
+    s2:"Calendar Airbnb / Booking",s2d:"Open a unit and paste the link iCal",
+    s3:"First booking",s3d:"Add a guest to the calendar — 2 minutes",
+    s4:"Cleaner",s4d:"PIN and the days cleaning list on their phone",
+    s5:"Today screen",s5d:"Check-ins, check-outs and cleanings for one day",
+    ok1:"You already have units — great start",ok2:"Sync is set in the unit card",ok3:"You already have bookings",ok4:"Cleaners are already added",ok5:"Done",
+    m1:"Tap the button — the set-up wizard opens.",m2:"Ill open the first unit: scroll to the sync block with Airbnb and Booking».",m3:"Ill open the booking form: dates, nights, amount, source.",m4:"Ill open team settings — add a cleaner with PIN.",m5:"This is your daily screen. Come back here every morning."},
+  ro:{title:"Asistent",close:"Închide",hi:"Te duc prin aplicație pas cu pas — de la apartamente până la prima zi de lucru.",
+    do:"Fă acest pas",next:"Mai departe",skip:"Sari",done:"Gata — poți lucra",
+    s1:"Apartamente și echipă",s1d:"Wizard-ul adaugă obiecte și invită manageri / menajere",
+    s2:"Calendar Airbnb / Booking",s2d:"Deschidem obiectul și lipim linkul iCal",
+    s3:"Prima rezervare",s3d:"Adăugăm un oaspete în calendar — 2 minute",
+    s4:"Menajeră",s4d:"PIN și lista de curățenii pe telefon",
+    s5:"Ecranul Astăzi",s5d:"Check-in, check-out și curățenii pe o zi",
+    ok1:"Ai deja obiecte — start bun",ok2:"Sincronizarea se face în fișa apartamentului",ok3:"Ai deja rezervări",ok4:"Menajerele sunt deja adăugate",ok5:"Gata",
+    m1:"Apasă butonul — se deschide masterul de configurare.",m2:"Deschid primul apartament: jos e blocul de sincronizare Airbnb/Booking.",m3:"Deschid formularul de rezervare: dată, nopți, sumă, sursă.",m4:"Deschid setările echipei — adaugă menajera cu PIN.",m5:"Acesta e ecranul zilnic. Revino aici în fiecare dimineață."},
+  en:{title:"Assistant",close:"Close",hi:"I'll walk you through the app step by step — from units to your first working day.",
+    do:"Do this step",next:"Next",skip:"Skip",done:"Done — you're ready",
+    s1:"Units and team",s1d:"The wizard adds units and invites managers / cleaners",
+    s2:"Airbnb / Booking calendar",s2d:"Open a unit and paste the iCal link",
+    s3:"First booking",s3d:"Add a guest to the calendar — 2 minutes",
+    s4:"Cleaner",s4d:"PIN and the day's cleaning list on their phone",
+    s5:"Today screen",s5d:"Check-ins, check-outs and cleanings for one day",
+    ok1:"You already have units — great start",ok2:"Sync is set in the unit card",ok3:"You already have bookings",ok4:"Cleaners are already added",ok5:"Done",
+    m1:"Tap the button — the set-up wizard opens.",m2:"I'll open the first unit: scroll to Airbnb/Booking sync.",m3:"I'll open the booking form: dates, nights, amount, source.",m4:"I'll open team settings — add a cleaner with a PIN.",m5:"This is your daily screen. Come back here every morning."}
+};
+function ct(k){const L=(typeof LANG!=="undefined"&&COACH_T[LANG])?LANG:"ru";return COACH_T[L][k]||COACH_T.ru[k]||k}
+let coachOpen=false,coachStep=0;
+function coachProg(){
+  const realApts=cfg.apts.filter(a=>!(a===DEF_APT&&!bookings.some(b=>b.apt===a)&&!Object.keys(unitOf(a)).length));
+  const hasApts=realApts.length>0||(cfg.onboarded&&cfg.apts.length>0);
+  const hasBook=bookings.some(b=>b.tag!=="closed"&&b.nights>0);
+  const hasStaff=(staffAll||staff||[]).some(x=>x.active!==false);
+  return [
+    {id:"apts",ok:hasApts,title:ct("s1"),desc:ct("s1d"),msg:ct("m1"),act:"wiz"},
+    {id:"ical",ok:hasApts,title:ct("s2"),desc:ct("s2d"),msg:ct("m2"),act:"ical"},
+    {id:"book",ok:hasBook,title:ct("s3"),desc:ct("s3d"),msg:ct("m3"),act:"book"},
+    {id:"staff",ok:hasStaff,title:ct("s4"),desc:ct("s4d"),msg:ct("m4"),act:"staff"},
+    {id:"azi",ok:hasApts&&hasBook,title:ct("s5"),desc:ct("s5d"),msg:ct("m5"),act:"azi"}
+  ];
+}
+function coachRender(){
+  const fab=$("coach-fab"),panel=$("coach-panel");if(!fab||!panel)return;
+  const showCoach=!!PIN&&!RO&&ROLE==="owner"&&!(ME&&ME.support);
+  fab.hidden=!showCoach;if(!showCoach){panel.hidden=true;coachOpen=false;return}
+  if(!coachOpen){panel.hidden=true;return}
+  panel.hidden=false;$("coach-title").textContent=ct("title");$("coach-close").setAttribute("aria-label",ct("close"));
+  const steps=coachProg();
+  if(coachStep>=steps.length)coachStep=steps.length-1;
+  // jump to first incomplete
+  if(!steps[coachStep]||(steps[coachStep].ok&&steps.some((s,i)=>!s.ok&&i>coachStep))){
+    const n=steps.findIndex(s=>!s.ok);if(n>=0)coachStep=n;
+  }
+  const cur=steps[coachStep];
+  $("coach-body").innerHTML=`<div class="coach-msg">${esc(ct("hi"))}</div>
+    <div class="coach-steps">${steps.map((s,i)=>`<button type="button" class="coach-step${s.ok?" done":""}" data-cstep="${i}" aria-current="${i===coachStep?"true":"false"}"><i class="n">${s.ok?"✓":i+1}</i><span><b>${esc(s.title)}</b><small>${esc(s.ok?(i===0?ct("ok1"):i===1?ct("ok2"):i===2?ct("ok3"):i===3?ct("ok4"):ct("ok5")):s.desc)}</small></span></button>`).join("")}</div>
+    <div class="coach-msg"><strong>${esc(cur.title)}</strong>${esc(cur.msg)}</div>`;
+  $("coach-act").innerHTML=cur.ok&&steps.every(s=>s.ok)
+    ?`<button type="button" class="btn primary" id="coach-done">${esc(ct("done"))}</button>`
+    :`<button type="button" class="btn primary" id="coach-go">${esc(ct("do"))}</button>
+       <button type="button" class="btn" id="coach-next">${esc(ct("next"))}</button>`;
+}
+async function coachDo(act){
+  if(act==="wiz"){if(typeof wizStart==="function"){wizStart();if(W)W.again=true;wizRender()}return}
+  if(act==="ical"){
+    const a=cfg.apts[0];if(!a){toast(ct("s1"));return}
+    uOpen=a;settingsPage("apts");show("settings");
+    setTimeout(()=>{icalLoad(a);const el=$("uf-ical");if(el)el.scrollIntoView({behavior:"smooth",block:"center"})},80);
+    return}
+  if(act==="book"){form=blankB();addMode="b";fillB();show("add");return}
+  if(act==="staff"){stOpen="new";settingsPage("staff");show("settings");return}
+  if(act==="azi"){show(LIGHT()?"azi":"today");return}
+}
+document.addEventListener("click",e=>{
+  if(e.target.id==="coach-fab"){coachOpen=!coachOpen;coachRender();return}
+  if(e.target.id==="coach-close"||e.target.id==="coach-done"){coachOpen=false;coachRender();return}
+  const st=e.target.closest&&e.target.closest("[data-cstep]");
+  if(st){coachStep=+st.dataset.cstep;coachRender();return}
+  if(e.target.id==="coach-next"){const steps=coachProg();coachStep=Math.min(steps.length-1,coachStep+1);coachRender();return}
+  if(e.target.id==="coach-go"){const steps=coachProg();const cur=steps[coachStep];if(cur)coachDo(cur.act);return}
+});
+const _enterApp=typeof enterApp==="function"?enterApp:null;
+// refresh coach when app data is ready
+const coachBootWatch=()=>{const fab=$("coach-fab");if(!fab)return;if(PIN&&ROLE==="owner"){fab.hidden=false;if(coachOpen)coachRender()}
+  else fab.hidden=true};
+const _reload=reload;
+reload=async function(){const r=await _reload.apply(this,arguments);try{coachBootWatch();if(coachOpen)coachRender()}catch(e){}return r};
+
 fillB(); fillE(); setMode("b"); show(LIGHT()?"azi":"today");
-boot();
+boot().then(()=>{coachBootWatch();try{if(PIN&&ROLE==="owner"&&!cfg.onboarded){coachOpen=true;coachRender()}}catch(e){}});
 })();
 </script>
 <script>
@@ -4360,3 +4482,4 @@ new MutationObserver(ms=>{for(const m of ms){if(m.type==="characterData")fix(m.t
 </script>
 </body>
 </html>
+
