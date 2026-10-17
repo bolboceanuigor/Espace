@@ -129,16 +129,18 @@ export async function syncDue(db: D1Database, notify?: Notify, limit = 12) {
   return n;
 }
 
-// export: what is taken in this unit, as an iCal calendar (no guest names — the link is not secret enough for that)
-export function buildIcs(company: string, apt: string, bookings: any[]) {
+// export: what is taken in this unit (or all units), as an iCal calendar (no guest names — the link is not secret enough for that)
+export function buildIcs(company: string, apt: string, bookings: any[], opts: { all?: boolean } = {}) {
   const d = (s: string) => s.replace(/-/g, "");
   const stamp = nowIso().replace(/[-:]/g, "").slice(0, 15) + "Z";
   const esc = (s: string) => s.replace(/([,;\\])/g, "\\$1");
-  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//espace.md//calendar//RO", "CALSCALE:GREGORIAN", "METHOD:PUBLISH", `X-WR-CALNAME:${esc(company + " · " + apt)}`];
+  const name = opts.all ? company : company + " · " + apt;
+  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//espace.md//calendar//RO", "CALSCALE:GREGORIAN", "METHOD:PUBLISH", `X-WR-CALNAME:${esc(name)}`];
   for (const b of bookings) {
     if (!(b.nights > 0)) continue;
+    const sum = (b.tag === "closed" ? "Blocked" : "Reserved") + (opts.all && b.apt ? " · " + b.apt : "");
     lines.push("BEGIN:VEVENT", `UID:${b.id}@espace.md`, `DTSTAMP:${stamp}`, `DTSTART;VALUE=DATE:${d(b.date)}`, `DTEND;VALUE=DATE:${d(addDays(b.date, b.nights))}`,
-      `SUMMARY:${b.tag === "closed" ? "Blocked" : "Reserved"}`, "END:VEVENT");
+      `SUMMARY:${esc(sum)}`, "END:VEVENT");
   }
   lines.push("END:VCALENDAR");
   return lines.join("\r\n") + "\r\n";

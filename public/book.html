@@ -148,7 +148,7 @@ const T={
    kind:{apt:"Apartament",studio:"Garsonieră",house:"Casă",villa:"Vilă",room:"Cameră",bed:"Loc în hostel"},
    beds:{dbl:"pat dublu",sgl:"pat single",sofa:"canapea",bunk:"pat supraetajat"},
    am:{wifi:"Wi-Fi",ac:"Aer condiționat",heat:"Încălzire",kitchen:"Bucătărie",washer:"Mașină de spălat",dryer:"Uscător",dish:"Mașină de vase",tv:"TV",parking:"Parcare",balcony:"Balcon",elevator:"Lift",iron:"Fier de călcat",hair:"Uscător de păr",crib:"Pătuț",work:"Loc de muncă",pets:"Animale permise",selfin:"Self check-in",view:"Priveliște"},
-   cin:"Check-in de la",cout:"check-out până la"},
+   cin:"Check-in de la",cout:"check-out până la",onMap:"Pe hartă →"},
  ru:{adults:"Взрослые",kidsL:"Дети",kidsS:"дети",xg:"гости сверх",xc:"дети",los:"скидка за длительность",why:{"closed": "В эти дни закрыто.", "no_arrival": "В этот день нельзя заехать.", "no_departure": "В этот день нельзя выехать.", "arrival_day": "Заезд только: ", "lead": "Бронируйте минимум за {n} дн.", "max": "Максимум {n} ночей."},wd:["вс", "пн", "вт", "ср", "чт", "пт", "сб"],cfee:"уборка",dep:"залог, возвращается",in:"Заезд",out:"Выезд",guests:"Гостей",terms:"Условия",foot:"Прямое бронирование без комиссии",night:["ночь","ночи","ночей"],from:"от",perNight:"/ ночь",total:"итого",book:"Забронировать",
    pick:"Выберите даты, чтобы увидеть свободные варианты и цену.",found:n=>"Свободно: "+n,none:"На эти даты свободных нет. Попробуйте другие дни.",
    busy:"На эти даты занято.",freeFrom:"Свободно с",tryIt:"Выбрать эти даты",tooMany:c=>`Вмещает максимум ${c} чел.`,minN:n=>`Минимум ${n} ноч.`,
@@ -161,7 +161,7 @@ const T={
    kind:{apt:"Квартира",studio:"Студия",house:"Дом",villa:"Вилла",room:"Номер",bed:"Место в хостеле"},
    beds:{dbl:"двуспальная кровать",sgl:"односпальная",sofa:"диван",bunk:"двухъярусная"},
    am:{wifi:"Wi-Fi",ac:"Кондиционер",heat:"Отопление",kitchen:"Кухня",washer:"Стиральная машина",dryer:"Сушилка",dish:"Посудомойка",tv:"Телевизор",parking:"Парковка",balcony:"Балкон",elevator:"Лифт",iron:"Утюг",hair:"Фен",crib:"Детская кроватка",work:"Рабочее место",pets:"Можно с животными",selfin:"Самостоятельное заселение",view:"Красивый вид"},
-   cin:"Заезд с",cout:"выезд до"},
+   cin:"Заезд с",cout:"выезд до",onMap:"На карте →"},
  en:{adults:"Adults",kidsL:"Children",kidsS:"children",xg:"extra guests",xc:"children",los:"long-stay discount",why:{"closed": "Closed on these dates.", "no_arrival": "No check-in on this day.", "no_departure": "No check-out on this day.", "arrival_day": "Check-in only on: ", "lead": "Book at least {n} days ahead.", "max": "Maximum {n} nights."},wd:["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],cfee:"cleaning",dep:"deposit, refundable",in:"Check-in",out:"Check-out",guests:"Guests",terms:"Terms",foot:"Direct booking, no commission",night:["night","nights","nights"],from:"from",perNight:"/ night",total:"total",book:"Book",
    pick:"Choose your dates to see what’s free and the price.",found:n=>n===1?"1 option free":n+" options free",none:"Nothing free for these dates. Try other days.",
    busy:"Taken on these dates.",freeFrom:"Free from",tryIt:"Pick these dates",tooMany:c=>`Sleeps up to ${c}.`,minN:n=>`Minimum ${n} ${n===1?"night":"nights"}.`,
@@ -174,7 +174,7 @@ const T={
    kind:{apt:"Apartment",studio:"Studio",house:"House",villa:"Villa",room:"Room",bed:"Hostel bed"},
    beds:{dbl:"double bed",sgl:"single bed",sofa:"sofa bed",bunk:"bunk bed"},
    am:{wifi:"Wi-Fi",ac:"Air conditioning",heat:"Heating",kitchen:"Kitchen",washer:"Washer",dryer:"Dryer",dish:"Dishwasher",tv:"TV",parking:"Parking",balcony:"Balcony",elevator:"Lift",iron:"Iron",hair:"Hair dryer",crib:"Crib",work:"Workspace",pets:"Pets allowed",selfin:"Self check-in",view:"Nice view"},
-   cin:"Check-in from",cout:"check-out by"}};
+   cin:"Check-in from",cout:"check-out by",onMap:"On the map →"}};
 let L=(()=>{try{const s=localStorage.getItem("es_book_lang");if(T[s])return s}catch(e){}const n=(navigator.language||"").slice(0,2);return n==="ru"?"ru":n==="en"?"en":"ro"})();
 const t=k=>T[L][k];
 const plural=(n,[a,b,c])=>L==="ru"?(n%10===1&&n%100!==11?a:[2,3,4].includes(n%10)&&![12,13,14].includes(n%100)?b:c):L==="ro"?(n===1?a:n%100>=20||n%100===0&&n>0?c:b):(n===1?a:b);
@@ -223,7 +223,7 @@ function render(){const nights=din&&dout?Math.round((toT(dout)-toT(din))/DAY):0,
     return `<article class="unit${has&&!ok?" off":""}">
       <div class="ph" data-ph="${esc(u.name)}">${esc(u.name)}</div>
       <div class="ub"><div class="uh"><h2>${esc(u.name)}</h2>${kind?`<span class="kind">${esc(kind)}</span>`:""}</div>
-        ${facts(u)?`<p class="facts">${esc(facts(u))}</p>`:""}${(u.layout||[]).length?`<ul class="lay">${u.layout.map(r=>`<li><b>${esc(r.n||"")}</b> ${esc(Object.entries(r.b||{}).filter(([,v])=>v>0).map(([k,v])=>v+" × "+(t("beds")[k]||k)).join(", "))}</li>`).join("")}</ul>`:""}${am?`<div class="am">${am}</div>`:""}
+        ${facts(u)?`<p class="facts">${esc(facts(u))}</p>`:""}${u.addr?`<p class="facts">📍 ${esc(u.addr)} · <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(/chi[sșş]in[aăá]u/i.test(u.addr)?u.addr:u.addr+", Chișinău")}" target="_blank" rel="noopener">${esc(t("onMap"))}</a></p>`:""}${(u.layout||[]).length?`<ul class="lay">${u.layout.map(r=>`<li><b>${esc(r.n||"")}</b> ${esc(Object.entries(r.b||{}).filter(([,v])=>v>0).map(([k,v])=>v+" × "+(t("beds")[k]||k)).join(", "))}</li>`).join("")}</ul>`:""}${am?`<div class="am">${am}</div>`:""}
         <div class="strip">${strip}</div>
         <div class="legend"><span><i style="background:var(--free-soft)"></i>${t("free")}</span><span><i style="background:var(--busy)"></i>${t("taken")}</span>${u.cin||u.cout?`<span>${t("cin")} ${esc(u.cin||"14:00")}, ${t("cout")} ${esc(u.cout||"12:00")}</span>`:""}</div>
         <div class="uf"><div class="price">${has&&ok?`<b>${money(total,u.pcur)}</b> <span>${t("total")}</span><small>${(()=>{const q=quoteU(u,din,nights);return (q.flat?`${money(q.nights[0].p,u.pcur)} ${t("perNight")} × ${nights}`:`≈ ${money(q.avg,u.pcur)} ${t("perNight")} × ${nights}`)+(q.xg?` + ${money(q.xg,u.pcur)} ${t("xg")}`:"")+(q.xc?` + ${money(q.xc,u.pcur)} ${t("xc")}`:"")+(q.los?` − ${q.losPct}% ${t("los")}`:"")})()}${extras(u)?" "+extras(u):""}</small>`:`<span>${t("from")}</span> <b>${money(fromP(u),u.pcur)}</b> <span>${t("perNight")}</span>${extras(u)?`<small>${extras(u)}</small>`:""}`}</div>
