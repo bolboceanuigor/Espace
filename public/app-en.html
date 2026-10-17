@@ -1797,24 +1797,37 @@ document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest
   if(t.dataset.azitab){aziTab=t.dataset.azitab;renderAzi();return}
   if(t.dataset.azigo){show(t.dataset.azigo);return}
   if(t.id==="azi-new"){openBForm()}});
-/* FIRST STEPS: shown to the owner/manager until the company is set up */
+/* FIRST STEPS (Harta mod. 2): 5 auto-ticks on Today; dismissible; gone when all done. Does not change wizNeeded. */
+let STEPS_X={team:null,ical:null},STEPS_LOAD=0;
+async function stepsProbe(){if(STEPS_LOAD)return;STEPS_LOAD=1;
+  try{if(STEPS_X.team==null){const l=await api("team_list");STEPS_X.team=l.filter(u=>u.role!=="prop").length>1}
+    if(STEPS_X.ical==null){let n=0;for(const a of cfg.apts){try{const r=await api("kv_ical_list",{apt:a});n+=(r.feeds||[]).length;if(n)break}catch(e){}}STEPS_X.ical=n>0}
+  }catch(e){STEPS_X.team=STEPS_X.team||false;STEPS_X.ical=STEPS_X.ical||false}
+  STEPS_LOAD=0;renderSetup()}
 function renderSetup(){if(!W&&wizNeeded())wizStart();const el=$("setup-card");if(!el)return;
   const key="setup_hide_"+(ME&&ME.org?ME.org.id:"");
-  if(RO||!ME||!ME.org||!["owner","manager"].includes(ROLE)||ls.get(key)==="1"){el.innerHTML="";return}
+  if(RO||!ME||!ME.org||!["owner","manager"].includes(ROLE)||ls.get(key)==="1"||wizNeeded()){el.innerHTML="";return}
+  const hasApts=cfg.apts.length>1||cfg.apts[0]!==DEF_APT;
+  const hasPrice=cfg.apts.some(a=>+(unitOf(a).price||0)>0);
+  const hasIcal=!!STEPS_X.ical,hasTeam=!!STEPS_X.team,hasCredits=!!(ME.billing&&ME.billing.balance>0);
+  if(STEPS_X.team==null||STEPS_X.ical==null)stepsProbe();
   const steps=[
-    ["apts",cfg.apts.length>1||cfg.apts[0]!==DEF_APT,"Add your apartments","Name, address, floor and photo — cleaners see them.","Apartments"],
-    ["book",bookings.length>0,"Add the first booking","Check-in date, nights, amount and source — it shows up in the calendar right away.","Add a booking"],
-    ["staff",staffAll.length>0,"Add a cleaner with a PIN","She signs in at "+(ME.org.code)+".espace.md → «I’m a cleaner» and sees her cleanings.","Cleaners"]];
+    ["apts",hasApts,"Add your units","Your own names and addresses instead of the default unit.","Apartments"],
+    ["price",hasPrice,"Set the nightly price","Base nightly price on the unit: days and the booking page use it.","Prices"],
+    ["ical",hasIcal,"Connect an external calendar","Export link on the unit card: bookings sync in by themselves.","Calendars"],
+    ["team",hasTeam,"Invite a teammate","Manager or helper: access in Settings, Team section.","Team"],
+    ["credits",hasCredits,"Top up credits","One credit equals one leu per unit per day. Top up under Billing.","Счёт"]];
   const done=steps.filter(x=>x[1]).length;
-  if(done===steps.length){el.innerHTML=`<div class="card setup ok"><b>The company is ready to go</b><p class="small" style="margin:4px 0 0">Apartments, bookings and cleaners are in place. Next — invite managers in «Menu → Settings → Staff access».</p><div class="actions"><button class="btn sm" data-setup="hide">Hide</button></div></div>`;return}
+  if(done===steps.length){el.innerHTML="";return} // Harta: disappears when all checked
   el.innerHTML=`<div class="card setup"><div class="setup-h"><b>First steps</b><span class="small">${done} of ${steps.length}</span><button class="iconbtn" data-setup="hide" aria-label="Hide">✕</button></div>
     <div class="setup-bar"><i style="width:${done/steps.length*100}%"></i></div>
     ${steps.map(([k,ok,t,sub,btn],i)=>`<div class="setup-s${ok?" done":""}"><span class="n">${ok?"✓":i+1}</span><span class="m"><b>${t}</b><small>${esc(sub)}</small></span>${ok?"":`<button class="btn sm${steps.findIndex(x=>!x[1])===i?" primary":""}" data-setup="${k}">${btn}</button>`}</div>`).join("")}</div>`}
 document.addEventListener("click",e=>{const b=e.target.closest("[data-setup]");if(!b)return;const k=b.dataset.setup;
   if(k==="hide"){ls.set("setup_hide_"+(ME&&ME.org?ME.org.id:""),"1");renderSetup();return}
-  if(k==="apts"){stOpen=null;settingsPage("apts");scrollTo(0,0);return}
-  if(k==="staff"){stOpen="new";settingsPage("staff");scrollTo(0,0);return}
-  if(k==="book"){show("add");setMode("b");scrollTo(0,0);return}});
+  if(k==="apts"||k==="price"){stOpen=null;settingsPage("apts");scrollTo(0,0);return}
+  if(k==="ical"){stOpen=null;settingsPage("apts");scrollTo(0,0);toast("Open the unit: calendars section");return}
+  if(k==="team"){stOpen=null;settingsPage(ROLE==="owner"?"team":"");scrollTo(0,0);return}
+  if(k==="credits"){stOpen=null;settingsPage("bill");scrollTo(0,0);return}});
 /* UNITS — details of every apartment / house / hotel room live in cfg.units[name]:
    kind, group (building or hotel), area, bedrooms, baths, floor, beds {dbl,sgl,sofa,bunk}, guests, price, cin, cout, amen[], note.
    cfg.apts stays the list of names used everywhere (calendar, bookings, cleanings); a deleted unit moves to cfg.archived. */

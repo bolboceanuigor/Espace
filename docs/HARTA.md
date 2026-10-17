@@ -52,7 +52,7 @@ Ce trebuie să aibă fiecare modul ca aplicația să fie completă și funcțion
 | Ce | Stare | Gata când |
 |---|---|---|
 | Asistentul de primă configurare (`wizNeeded`): unități | ✅ | |
-| Lista „Primii pași” după asistent | ❌ | Card pe „Azi” cu 5 bife care se completează singure: 1) unitățile, 2) prețul, 3) calendarul Airbnb/Booking, 4) un membru în echipă, 5) suplinirea creditelor. Se poate închide. Dispare când toate sunt bifate. |
+| Lista „Primii pași” după asistent | ✅ | Card pe «Сегодня»: 5 bife auto (unități, preț, iCal, echipă, credite); se ascunde cu ✕; dispare când toate sunt bifate. `wizNeeded` neatins. |
 | Date demo | ❌ | Butonul „Încarcă exemplu” creează 3 unități și 5 rezervări marcate TEST. Butonul „Șterge exemplul” le scoate pe toate. |
 
 ## 3. Unități (apartamente)
