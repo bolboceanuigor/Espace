@@ -15,6 +15,7 @@ import { botName, linkCode, webhookSecret, handleUpdate, tgNotify } from "../../
 import { syncFeed, syncDue, feedUrlOk, sourceOf, newIcalKey } from "../../lib/ical";
 import { contractTexts, fill, DEFAULT_TPL } from "../../lib/contract";
 import { maibConfig, maibCheckout, maibVerify } from "../../lib/maib";
+import { googleOk } from "../../lib/google";
 
 
 // A one-time link to set a password. Opening it proves the email belongs to the person, so it is the only way
@@ -351,8 +352,9 @@ async function myOrgs(db: D1Database, userId: string) {
 }
 async function meOf(db: D1Database, c: Ctx) {
   const orgs = await myOrgs(db, c.user.id);
+  const g = await one(db, "SELECT google_sub FROM users WHERE id = ?", c.user.id).catch(() => null);
   return {
-    user: { id: c.user.id, email: c.user.email, name: c.user.name }, super: c.isSuper,
+    user: { id: c.user.id, email: c.user.email, name: c.user.name, google: !!(g && g.google_sub) }, super: c.isSuper,
     org: c.org ? { id: c.org.id, name: c.org.name, code: c.org.code } : null, role: c.role, orgs,
     billing: c.org ? await billingOf(db, c.org) : null,
     support: c.support, announcement: c.org ? await activeAnnouncement(db) : null,
@@ -573,6 +575,9 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     return json({ orgs: n, mailed, feeds });
   }
 
+  // ---------- Google OAuth status (public; secrets stay on the server) ----------
+  if (fn === "google_status") return json({ ok: googleOk(env) });
+
   // ---------- sign up / sign in ----------
   if (fn === "auth_register") {
     // no password here: the owner gets an email with a link to set it, which also proves the address is theirs
@@ -712,6 +717,24 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     await run(db, "UPDATE users SET pw_hash = ? WHERE id = ?", await hashPassword(np), c.user.id);
     await run(db, "DELETE FROM sessions WHERE user_id = ? AND token_hash != ?", c.user.id, c.tokenHash); // sign out everywhere else
     return json(true);
+  }
+  // link / unlink Google from Setări → Аккаунт (returns a start URL; browser navigates there)
+  if (fn === "google_link") {
+    if (!googleOk(env)) return json({ message: "google_off" }, 503);
+    const tok = bearer(request);
+    if (!tok) return json({ message: "bad_session" }, 401);
+    const site = siteOf(hostOf(request));
+    const q = new URLSearchParams({ mode: "link", s: tok });
+    if (site.kind === "admin") q.set("next", "admin");
+    const origin = new URL(request.url).origin;
+    return json({ url: origin + "/api/google/start?" + q.toString() });
+  }
+  if (fn === "google_unlink") {
+    const u = await one(db, "SELECT pw_hash, google_sub FROM users WHERE id = ?", c.user.id);
+    if (!u?.google_sub) return json(true);
+    if (!u.pw_hash) return json({ message: "need_password" }, 409); // keep at least one way in
+    await run(db, "UPDATE users SET google_sub = NULL WHERE id = ?", c.user.id);
+    return json(await meOf(db, (await loadSession(db, env, bearer(request)))!));
   }
   // a signed-in person (e.g. the platform owner) can open one more company of their own
   if (fn === "auth_new_org") {

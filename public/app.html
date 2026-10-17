@@ -1202,6 +1202,13 @@ body.wizon{overflow:hidden}
     <p class="small" data-gf="forgot reset" style="margin:10px 0 0;text-align:center"><a href="#" id="g-back">Вернуться ко входу</a></p>
     <p class="small" style="margin:12px 0 0;text-align:center">Нет аккаунта? <a href="https://espace.md/#start">Создать компанию на espace.md</a></p>
   </form>
+  <div id="g-google-wrap" hidden>
+    <p class="small" style="margin:14px 0 10px;text-align:center">или</p>
+    <a class="btn" id="g-google" href="/api/google/start?mode=login" style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;text-decoration:none;box-sizing:border-box">
+      <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 8 3.1l5.7-5.7C34.2 6.1 29.4 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.9z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 12 24 12c3.1 0 5.8 1.2 8 3.1l5.7-5.7C34.2 6.1 29.4 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 10-2 13.6-5.2l-6.3-5.3C29.3 35.3 26.8 36 24 36c-5.3 0-9.7-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4.1 5.5l.1.1 6.3 5.3C39.3 37.3 44 33 44 24c0-1.3-.1-2.7-.4-3.9z"/></svg>
+      Войти через&#160;<span>Google</span>
+    </a>
+  </div>
   <div id="g-lang" style="margin-top:12px;text-align:center"></div>
 </div></section>
 
@@ -1493,7 +1500,7 @@ const catIcon=c=>CAT_ICON[c]||"📌";
 const catCol=c=>CAT_COL[Math.max(0,cfg.categories.indexOf(c))%CAT_COL.length];
 const telDigits=p=>(p||"").replace(/[^\d+]/g,"");
 
-const RO_OK=["kv_load","kv_photos","kv_guides","kv_task_photo","kv_push_key","kv_push_sub","billing","bill_invoice","bill_pay","bill_pay_status","auth_me","auth_logout","auth_switch","auth_password","auth_new_org"];
+const RO_OK=["kv_load","kv_photos","kv_guides","kv_task_photo","kv_push_key","kv_push_sub","billing","bill_invoice","bill_pay","bill_pay_status","auth_me","auth_logout","auth_switch","auth_password","auth_new_org","google_link","google_unlink"];
 const CHECK_OK=["kv_verify","kv_month_close","kv_month_open"];
 let ME=null, ROLE="", EXPIRED=false;
 const SLUG=(()=>{const h=location.hostname;if(h.endsWith(".espace.md"))return h.slice(0,-".espace.md".length);let c="";try{c=new URLSearchParams(location.search).get("c")||sessionStorage.getItem("es_c")||""}catch(e){}c=c.toLowerCase().replace(/[^a-z0-9-]/g,"");try{if(c)sessionStorage.setItem("es_c",c)}catch(e){}return c})();
@@ -3279,6 +3286,8 @@ function renderSettings(){
       <div class="codebox"><span class="small">Язык</span>${langSw()}</div>
       <p class="small" style="margin-bottom:0">Горничная открывает этот адрес → «Я горничная» → вводит свой PIN (PIN задаётся в «Команде уборки»). Менеджеры входят здесь же со своим email.</p></div>
       ${ME&&ME.orgs&&ME.orgs.length>1?`<div class="card"><b>Другие компании</b>${ME.orgs.filter(o=>!ME.org||o.id!==ME.org.id).map(o=>`<div class="actions"><a class="btn" href="${esc(ORG_URL(o.code))}">${esc(o.name)} · ${esc(o.code)}.espace.md</a></div>`).join("")}</div>`:""}
+      <div class="card"><b>Google</b><p class="small" style="margin:4px 0 10px" id="gacc-st">${ME&&ME.user&&ME.user.google?"Вход без пароля уже подключён.":"Можно входить без пароля — с тем же адресом почты."}</p>
+      <div class="actions">${ME&&ME.user&&ME.user.google?`<button class="btn" id="gacc-unlink">Отключить вход без пароля</button>`:`<button class="btn" id="gacc-link">Подключить вход без пароля</button>`}</div></div>
       <div class="card"><label class="l" for="pw-old">Текущий пароль</label><input id="pw-old" type="password" autocomplete="current-password">
       <label class="l" for="pw-new">Новый пароль <em>— минимум 8 символов</em></label><input id="pw-new" type="password" autocomplete="new-password">
       <div class="actions"><button class="btn" id="pw-save">Сменить пароль</button><button class="btn danger" id="p-out">Выйти на этом устройстве</button></div>
@@ -4160,6 +4169,8 @@ document.addEventListener("click",e=>{
   if(ds.orgsw){api("auth_switch",{org_id:ds.orgsw}).then(async me=>{setMe(me);closeSheet();await reload();loadPhotos();toast("Открыта: "+orgName())}).catch(()=>toast("Не получилось"));return}
   if(t.id==="pw-save"){const o=$("pw-old").value,n=$("pw-new").value;if(n.length<8){toast("Новый пароль — минимум 8 символов");return}
     api("auth_password",{old_password:o,new_password:n}).then(()=>{$("pw-old").value="";$("pw-new").value="";toast("Пароль изменён")}).catch(e=>toast(e.code==="bad_password"?"Текущий пароль неверный":"Не изменён"));return}
+  if(t.id==="gacc-link"){api("google_link").then(r=>{if(r&&r.url)location.href=r.url}).catch(e=>toast(e.code==="google_off"?"Вход без пароля ещё не включён на сервере":"Не получилось"));return}
+  if(t.id==="gacc-unlink"){api("google_unlink").then(me=>{setMe(me);toast("Вход без пароля отключён");settingsPage("acct")}).catch(e=>toast(e.code==="need_password"?"Сначала задайте пароль — иначе нечем будет войти":"Не отключилось"));return}
   if(t.id==="tm-add"){const v={name:$("tm-name").value.trim(),email:$("tm-email").value.trim(),role:$("tm-role").value};
     t.disabled=true;api("team_add",v).then(r=>{["tm-name","tm-email"].forEach(i=>$(i).value="");toast(r.invited?"Приглашение отправлено на "+v.email:"Доступ выдан");teamLoad()}).catch(e=>toast(e.code==="bad_email"?"Проверь email":e.code==="pw_too_short"?"Пароль — минимум 8 символов":e.code==="need_names"?"Напиши имя":"Не получилось")).finally(()=>t.disabled=false);return}
   if(ds.tmdel){askDel("Убрать доступ?","Человек больше не сможет открыть эту компанию.",()=>api("team_remove",{user_id:ds.tmdel}).then(()=>{toast("Доступ убран");teamLoad()}).catch(()=>toast("Не получилось")),"Убрать");return}
@@ -4334,11 +4345,13 @@ async function payReturn(){const h=location.hash;if(!/[#&]plata=/.test(h))return
 async function teamLoad(){const el=$("team-list");if(!el)return;try{const list=await api("team_list");
   el.innerHTML=list.map(u=>`<div class="tmrow"><span class="m"><b>${esc(u.name||u.email)}</b><small>${esc(u.email)}</small></span>${u.role==="prop"?`<span class="small">${ROLE_T.prop}</span><button class="btn sm danger" data-tmdel="${esc(u.id)}">Убрать</button>`:u.role==="owner"||u.id===(ME&&ME.user.id)?`<span class="small">${ROLE_T[u.role]}</span>`:`<select data-tmrole="${esc(u.id)}" aria-label="Роль">${["manager","checker","viewer","owner"].map(r=>`<option value="${r}"${u.role===r?" selected":""}>${ROLE_T[r]}</option>`).join("")}</select><button class="btn sm danger" data-tmdel="${esc(u.id)}">Убрать</button>`}</div>`).join("")}catch(e){el.textContent="Не загрузилось"}}
 async function logout(){try{await api("auth_logout")}catch(e){}ls.set("tok","");PIN=null;ME=null;RO=false;document.body.classList.remove("ro");closeSheet();lock("")}
-let GMODE="login";
+let GMODE="login",GOOGLE_OK=false;
+function syncGoogleBtn(){const w=$("g-google-wrap"),a=$("g-google");if(w)w.hidden=!(GOOGLE_OK&&GMODE==="login");
+  if(a){const q=new URLSearchParams({mode:"login"});if(SLUG)q.set("slug",SLUG);a.href="/api/google/start?"+q.toString()}}
 function gMode(m){GMODE=m;document.querySelectorAll("[data-gmode]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.gmode===m)));
   document.querySelectorAll("[data-gf]").forEach(el=>el.hidden=!el.dataset.gf.split(" ").includes(m));
   $("g-go").textContent=m==="forgot"?"Отправить ссылку":m==="reset"?"Сохранить пароль":"Войти";$("g-msg").innerHTML="";
-  $("g-tabs").hidden=m==="forgot"||m==="reset";
+  $("g-tabs").hidden=m==="forgot"||m==="reset";syncGoogleBtn();
   setTimeout(()=>{const e=$(m==="maid"?"g-pin":m==="reset"?"g-npw":"g-email");if(e)e.focus()},50)}
 let RESET_TOK="";
 document.addEventListener("click",e=>{const a=e.target.closest("#g-forgot,#g-back");if(!a)return;e.preventDefault();gMode(a.id==="g-forgot"?"forgot":"login")});
@@ -4372,10 +4385,13 @@ async function gSubmit(){
   finally{go.disabled=false}
 }
 $("g-form").addEventListener("submit",e=>{e.preventDefault();gSubmit()});
+const G_GOOGLE_ERR={denied:"Вход отменён",verify:"Не удалось подтвердить вход — попробуйте ещё раз",no_account:"Нет аккаунта с этим адресом — создайте компанию на сайте",not_member:"У этого аккаунта нет доступа к этой компании",disabled:"Доступ к аккаунту приостановлен — напишите в поддержку",google_taken:"Этот вход уже привязан к другому аккаунту",email_mismatch:"Адрес почты должен совпадать с адресом аккаунта",google_off:"Вход без пароля ещё не включён",bad_state:"Сессия входа устарела — нажмите кнопку ещё раз"};
+function showGoogleBtn(){fetch("/api/google_status",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"}).then(r=>r.ok?r.json():null).then(j=>{GOOGLE_OK=!!(j&&j.ok);syncGoogleBtn()}).catch(()=>{})}
 async function boot(){
   $("g-lang").innerHTML=langSw();
   // the espace.md sign-up hands the new session over in the address: #t=<token>
   {const m=/[#&]t=([0-9a-f]{64})/.exec(location.hash);if(m){ls.set("tok",m[1]);ls.set("cl","");history.replaceState(null,"",location.pathname+location.search)}}
+  {const m=/[#&]google_err=([^&]+)/.exec(location.hash);if(m){const code=decodeURIComponent(m[1]);history.replaceState(null,"",location.pathname+location.search);lock(G_GOOGLE_ERR[code]||"Не удалось войти");showGoogleBtn();return}}
   {const m=/[#&]reset=([0-9a-f]{64})/.exec(location.hash);if(m){RESET_TOK=m[1];history.replaceState(null,"",location.pathname+location.search);GMODE="reset";lock("");return}}
   if(!SLUG){$("gate").hidden=false;$("g-form").hidden=true;$("g-tabs").hidden=true;$("g-sub").innerHTML='Откройте адрес своей компании, например <b>rentwill.espace.md</b>, или <a href="https://espace.md/#start">создайте компанию</a>.';return}
   fetch("/api/org_public",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({slug:SLUG})}).then(r=>r.ok?r.json():null).then(o=>{if(o){$("g-sub").textContent=o.name;document.title=o.name+" · espace.md"}}).catch(()=>{});
@@ -4383,7 +4399,7 @@ async function boot(){
   if(cls&&cls.code===SLUG&&cls.pin){try{CORG=cls.code;CPIN=cls.pin;const me=await clApi("cl_login");await startCleaner(cls.code,cls.pin,me);return}catch(e){CPIN=null;CORG="";if(e.code==="bad_pin")ls.set("cl","");GMODE="maid";lock(e.code==="bad_pin"?"PIN поменяли — введи новый":"");return}}
   const tok=ls.get("tok");
   if(tok){PIN=tok;try{const me=await api("auth_me");await enterApp(tok,me);payReturn();return}catch(e){if(e.code==="bad_pin"){ls.set("tok","");lock("")}else lock(navigator.onLine?"Сервер не отвечает — попробуй через минуту":"Нет интернета");return}}
-  lock("")}
+  lock("");showGoogleBtn()}
 setInterval(()=>{const a=document.activeElement;if(PIN&&document.visibilityState==="visible"&&!(a&&a.matches&&a.matches("input,textarea,select")))reload().catch(e=>{if(e.code==="bad_pin")lock("Сессия закончилась — войди снова")})},60000);
 document.addEventListener("visibilitychange",()=>{if(PIN&&document.visibilityState==="visible")reload().catch(()=>{})});
 
