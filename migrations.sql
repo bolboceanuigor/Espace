@@ -21,3 +21,7 @@ ALTER TABLE bookings ADD COLUMN email TEXT NOT NULL DEFAULT '';
 ALTER TABLE orgs ADD COLUMN apt_rate REAL NOT NULL DEFAULT 0;
 ALTER TABLE users ADD COLUMN disabled INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE bookings ADD COLUMN extra TEXT NOT NULL DEFAULT '{}';
+CREATE TABLE IF NOT EXISTS contacts (id TEXT PRIMARY KEY, org_id TEXT NOT NULL, name TEXT NOT NULL DEFAULT '', phone TEXT NOT NULL DEFAULT '', phone_norm TEXT NOT NULL DEFAULT '', email TEXT NOT NULL DEFAULT '', email_norm TEXT NOT NULL DEFAULT '', note TEXT NOT NULL DEFAULT '', flag TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')));
+CREATE INDEX IF NOT EXISTS contacts_org_idx ON contacts(org_id, updated_at);
+CREATE INDEX IF NOT EXISTS contacts_phone_idx ON contacts(org_id, phone_norm);
+CREATE INDEX IF NOT EXISTS contacts_email_idx ON contacts(org_id, email_norm);
