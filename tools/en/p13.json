@@ -1,0 +1,23 @@
+{
+"Контакты": "Contacts",
+"Контакт": "Contact",
+"база гостей из броней": "guest base from bookings",
+"Собираются сами из броней по телефону или почте. Можно отметить важного гостя или отказ. Заметка, объединение и выгрузка.": "Built automatically from bookings by phone or email. Mark an important guest or a block. Note, merge and export.",
+"Поиск по имени или телефону": "Search by name or phone",
+"Обновить из броней": "Refresh from bookings",
+"Пока пусто — сохрани бронь с телефоном или нажми «Обновить из броней»": "Empty for now — save a booking with a phone or tap Refresh from bookings",
+"Никого не найдено": "No one found",
+"не принимаем": "do not host",
+"Не принимаем": "Do not host",
+"Обычный": "Normal",
+"Возможные дубликаты": "Possible duplicates",
+"Объединить сюда": "Merge here",
+"Новый контакт": "New contact",
+"Все контакты": "All contacts",
+"Объединить контакты? Брони останутся. Дубликат исчезнет.": "Merge contacts? Bookings stay. The duplicate is removed.",
+"Такой контакт уже есть. Объедини дубликаты.": "That contact already exists. Merge the duplicates.",
+"без телефона и почты": "no phone and email",
+"оплачено около": "paid about",
+"Обновлено": "Updated",
+"Объединено": "Merged"
+}

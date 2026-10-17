@@ -87,6 +87,24 @@ CREATE TABLE IF NOT EXISTS bookings (
 );
 CREATE INDEX IF NOT EXISTS bookings_org_date_idx ON bookings(org_id, date);
 CREATE INDEX IF NOT EXISTS bookings_shift_idx ON bookings(shift_id);
+
+-- guest contacts (CRM): gathered from bookings by phone / email
+CREATE TABLE IF NOT EXISTS contacts (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL,
+  name TEXT NOT NULL DEFAULT '',
+  phone TEXT NOT NULL DEFAULT '',
+  phone_norm TEXT NOT NULL DEFAULT '',   -- digits only, for matching
+  email TEXT NOT NULL DEFAULT '',
+  email_norm TEXT NOT NULL DEFAULT '',   -- lowercased
+  note TEXT NOT NULL DEFAULT '',
+  flag TEXT NOT NULL DEFAULT '',         -- '' | vip | block
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS contacts_org_idx ON contacts(org_id, updated_at);
+CREATE INDEX IF NOT EXISTS contacts_phone_idx ON contacts(org_id, phone_norm);
+CREATE INDEX IF NOT EXISTS contacts_email_idx ON contacts(org_id, email_norm);
 CREATE TABLE IF NOT EXISTS expenses (
   id TEXT PRIMARY KEY,
   org_id TEXT NOT NULL,

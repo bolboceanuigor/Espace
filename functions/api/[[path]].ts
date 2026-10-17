@@ -15,6 +15,7 @@ import { botName, linkCode, webhookSecret, handleUpdate, tgNotify } from "../../
 import { syncFeed, syncDue, feedUrlOk, sourceOf, newIcalKey } from "../../lib/ical";
 import { contractTexts, fill, DEFAULT_TPL } from "../../lib/contract";
 import { maibConfig, maibCheckout, maibVerify } from "../../lib/maib";
+import { upsertFromBooking, syncAll as syncContacts, listContacts, getContact, saveContact, mergeContacts, toCsv as contactsCsv } from "../../lib/contacts";
 
 
 // A one-time link to set a password. Opening it proves the email belongs to the person, so it is the only way
@@ -496,6 +497,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
       id, org.id, date, apt, name, nights, phone, email, pax + kids, ("Cerere online" + (kids ? ` (${pax} adulți, ${kids} copii)` : "") + (msg ? ": " + msg : "")).slice(0, 1000), price, cur, now, now);
     { const ex = extraOf({ kids, lang: ["ro", "ru", "en"].includes(body.lang) ? body.lang : "" }); if (ex && ex !== "{}") await run(db, "UPDATE bookings SET extra = ? WHERE org_id = ? AND id = ?", ex, org.id, id).catch(() => {}); }
     await audit(db, org.id, null, "booking", "request", id, bLabel({ apt, date, guest: name }), { nights, pax, price, price_cur: cur }, "web");
+    await upsertFromBooking(db, org.id, { guest: name, phone, email }).catch(() => {});
     await notify(db, org.id, ["manager"], { title: `Cerere de rezervare: ${apt}`, body: `${name} · ${date} · ${nights} n. · ${pax} pers.${phone ? " · " + phone : ""}` });
     const owner = await orgEmail(db, org.id);
     if (owner) await sendMail(env, db, { to: owner, ...mails.requestNew(org.name, org.code, { apt, date, nights, pax, name, phone, email, msg, price, cur }), kind: "request", orgId: org.id });
@@ -902,6 +904,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
           v.date, v.apt, v.guest, v.nights, v.mdl, v.eur, v.usd, v.pay, v.who, v.note, v.source, v.phone, v.pax, v.oth, v.oth_cur, v.util, v.util_cur, v.price, v.price_cur, v.pay_status, v.tag, nowIso(), O, b.id);
         if (r?.id && extra !== null) await run(db, "UPDATE bookings SET extra = ? WHERE org_id = ? AND id = ?", extra, O, r.id).catch(() => {});
         if (r?.id && prev) { const d = diffOf(prev, v, B_F); if (Object.keys(d).length) await audit(db, O, c, "booking", "update", b.id, bLabel(v), d); }
+        if (r?.id) await upsertFromBooking(db, O, v).catch(() => {});
         return json(r?.id ?? null);
       }
       const id = uuid(), t = nowIso();
@@ -909,6 +912,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
         id, O, v.date, v.apt, v.guest, v.nights, v.mdl, v.eur, v.usd, v.pay, v.who, v.note, v.source, v.phone, v.pax, v.oth, v.oth_cur, v.util, v.util_cur, v.price, v.price_cur, v.pay_status, v.tag, t, t);
       if (extra !== null && extra !== "{}") await run(db, "UPDATE bookings SET extra = ? WHERE org_id = ? AND id = ?", extra, O, id).catch(() => {});
       await audit(db, O, c, "booking", "create", id, bLabel(v), snapOf(v, B_F));
+      await upsertFromBooking(db, O, v).catch(() => {});
       return json(id);
     }
     case "kv_verify": {
@@ -1283,6 +1287,34 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     case "kv_tg_unlink": {
       await run(db, "DELETE FROM tg_links WHERE org_id = ? AND user_id = ?", O, c.user.id);
       return json(true);
+    }
+    // ---------- guest contacts (CRM) ----------
+    case "kv_contacts": {
+      const cfg = await getConfig(db, O);
+      if (body.sync === true) await syncContacts(db, O).catch(() => {});
+      return json({ contacts: await listContacts(db, O, str(body.q, 80), cfg || {}) });
+    }
+    case "kv_contact_get": {
+      const cfg = await getConfig(db, O);
+      const row = await getContact(db, O, str(body.id, 40), cfg || {});
+      return row ? json(row) : json({ message: "not_found" }, 404);
+    }
+    case "kv_contact_save": {
+      const r = await saveContact(db, O, body);
+      if ((r as any).error) return json({ message: (r as any).error, other: (r as any).other }, (r as any).status || 400);
+      return json({ id: (r as any).id });
+    }
+    case "kv_contact_merge": {
+      const r = await mergeContacts(db, O, str(body.keep, 40), str(body.other, 40));
+      if ((r as any).error) return json({ message: (r as any).error }, (r as any).status || 400);
+      return json({ id: (r as any).id });
+    }
+    case "kv_contacts_export": {
+      const cfg = await getConfig(db, O);
+      const rows = await listContacts(db, O, "", cfg || {});
+      return new Response(contactsCsv(rows), {
+        headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": 'attachment; filename="contacts.csv"', "cache-control": "no-store" },
+      });
     }
     // ---------- calendar sync (iCal) for one unit ----------
     case "kv_ical_list": {
