@@ -139,8 +139,11 @@ td .sub{display:block;font-size:12.5px;color:var(--mute)}
 .tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:16px;overflow-x:auto}
 .tabs button{border:0;background:none;padding:9px 12px;font-weight:600;color:var(--mute);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap}
 .tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ink)}
-.facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0;background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
 .facts div{padding:12px 16px;border-right:1px solid var(--line2)}.facts div:last-child{border-right:0}
+.ready{display:flex;flex-direction:column;gap:8px;margin:0}
+.banner{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;padding:12px 14px;border-radius:12px;border:1px solid #f0d48a;background:#fff8e8;margin-bottom:16px}
+.banner b{display:block}.banner .mute,.banner small{color:#6a5a30}.banner .btn{margin-left:auto}
 .facts span{display:block;font-size:12px;color:var(--mute);font-weight:600}.facts b{font-size:17px;font-variant-numeric:tabular-nums}
 .form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 14px}
 .form .full{grid-column:1/-1}
@@ -274,9 +277,9 @@ function toast(t){const e=$("toast");e.textContent=t;e.classList.add("on");clear
 async function api(fn,args={}){
   const r=await fetch("/api/"+fn,{method:"POST",headers:{"Content-Type":"application/json",...(TOK?{"Authorization":"Bearer "+TOK}:{})},body:JSON.stringify(args)});
   const j=await r.json().catch(()=>null);if(!r.ok){const e=new Error((j&&j.message)||"HTTP "+r.status);e.code=j&&j.message;if(e.code==="bad_session")showLogin("");throw e}return j}
-const ERR={email_taken:"Acest email e deja folosit de alt cont.",bad_amount:"Suma e greșită.",bad_slug:"Adresă nevalidă: 3–30 caractere, litere latine, cifre, cratimă.",slug_taken:"Adresa e ocupată.",bad_email:"Email greșit.",pw_too_short:"Parola: minimum 8 caractere.",need_names:"Completează numele.",need_text:"Scrie textul.",bad_date:"Data e greșită.",forbidden:"Nu ai acces.",not_found:"Nu există.",
+const ERR={email_taken:"Acest email e deja folosit de alt cont.",bad_amount:"Suma e greșită.",bad_slug:"Adresă nevalidă: 3–30 caractere, litere latine, cifre, cratimă.",slug_taken:"Adresa e ocupată.",bad_email:"Email greșit.",pw_too_short:"Parola: minimum 8 caractere.",need_names:"Completează numele.",need_name:"Completează numele.",need_text:"Scrie textul.",bad_date:"Data e greșită.",forbidden:"Nu ai acces.",not_found:"Nu există.",
   is_super:"Contul tău de administrator nu poate fi oprit de aici.",last_owner:"Compania trebuie să rămână cu cel puțin un proprietar.",is_prop:"Proprietarii de apartamente se gestionează din aplicația companiei.",
-  bad_confirm:"Adresa scrisă nu se potrivește.",need_reason:"Scrie motivul.",bad_role:"Rol greșit."};
+  bad_confirm:"Adresa scrisă nu se potrivește.",need_reason:"Scrie motivul.",bad_role:"Rol greșit.",bad_status:"Starea nu permite această acțiune.",bad_id:"Identificator greșit."};
 const ADJ=["bonus","corectie"];
 const errText=e=>ERR[e.code]||("Eroare: "+(e.message||"rețea"));
 
@@ -345,7 +348,9 @@ V.overview=async()=>{await refresh("ov","orgs");const k=OV.kpi,s=OV.series;rende
     lead_new:o=>[pill("warn","Cerere nouă"),`${esc(o.phone||"")} · ${ago(o.at)}`,"Cereri","#leads"],
     lead_follow:o=>[pill("info","De revenit"),`${esc(o.phone||"")} · trebuia contactat ${fd(o.date)}`,"Cereri","#leads"],
     invoice_overdue:o=>[pill("bad","Neachitată"),`Factura ${esc(o.number)} · ${lei(o.amount)} · întârziere ${o.days} ${plural(o.days,"zi","zile")}`,"Facturi","#invoices"]};
+  const sellerGap=await api("sa_settings").then(s=>!["name","idno","iban","address"].every(k=>String(s[k]||"").trim())).catch(()=>false);
   $("view").innerHTML=`<div class="ph"><div><h1>Prezentare</h1><div class="mute">${new Date().toLocaleDateString("ro-MD",{weekday:"long",day:"numeric",month:"long"})}</div></div></div>
+  ${sellerGap?`<div class="banner"><div><b>Completează datele de furnizor</b><small class="mute">Numele, IDNO, IBAN și adresa apar pe facturile către clienți.</small></div><a class="btn p" href="#settings">Deschide Setări</a></div>`:""}
   <div class="kpis">
     <div class="kpi"><div class="l">MRR</div><div class="v">${nf(k.mrr)}<small>lei</small></div><div class="s">venit lunar recurent · ${lei(k.balances||0)} pe soldurile clienților</div></div>
     <div class="kpi"><div class="l">ARR</div><div class="v">${nf(k.arr)}<small>lei</small></div><div class="s">MRR × 12</div></div>
@@ -404,7 +409,7 @@ V.company=async(id)=>{const d=await api("sa_org",{org_id:id});const o=d.org;rend
   const B=$("tabbody");
   const tabSum=()=>`<div class="grid2" style="margin-top:0">
     <div class="panel"><div class="hd"><h2>Utilizare</h2></div><div class="bd"><div class="facts" style="border:0">
-      <div><span>Rezervări total</span><b>${d.usage.bookings}</b></div><div><span>Rezervări 30 zile</span><b>${o.bookings_30d}</b></div><div><span>Curățenii făcute</span><b>${d.usage.cleanings}</b></div><div><span>Ture (пересменки)</span><b>${d.usage.shifts}</b></div></div>
+      <div><span>Rezervări total</span><b>${d.usage.bookings}</b></div><div><span>Rezervări 30 zile</span><b>${o.bookings_30d}</b></div><div><span>Curățenii făcute</span><b>${d.usage.cleanings}</b></div><div><span>Ture (casa pe ture)</span><b>${d.usage.shifts}</b></div></div>
       <p class="ink2" style="margin:12px 0 0">Ultima activitate: <b>${ago(o.last_activity)}</b> · ultimul login: <b>${ago(o.last_login)}</b> · menajere active: <b>${o.staff}</b> · ghiduri: <b>${d.usage.guides}</b></p></div></div>
     <div class="panel"><div class="hd"><h2>Abonament</h2></div><div class="bd">
       <div class="form"><div><label class="f">Probă până la</label><input type="date" id="o-trial" value="${esc(o.trial_ends)}"></div><div><label class="f">Scăzut până la</label><input value="${fd(o.charged_through||o.paid_until)}" disabled></div>
@@ -415,7 +420,7 @@ V.company=async(id)=>{const d=await api("sa_org",{org_id:id});const o=d.org;rend
     <div class="panel" style="margin-top:16px"><div class="hd"><h2>Datele companiei</h2></div><div class="bd"><div class="actions" style="margin-top:0"><button class="btn" data-act="org-export" data-id="${esc(o.id)}" data-code="${esc(o.code)}">Exportă toate datele (JSON)</button><span class="mute">rezervări, cheltuieli, curățenii, plăți, setări — fără PIN-uri și sesiuni</span></div></div></div>
     <div class="panel" style="margin-top:16px;border-color:var(--bad)"><div class="hd"><h2 class="down">Zona periculoasă</h2></div><div class="bd"><p class="ink2" style="margin-top:0">Ștergerea scoate definitiv compania și toate datele ei. Conturile care nu mai au altă companie se șterg și ele. Exportă datele înainte.</p><button class="btn d" data-act="org-delete" data-id="${esc(o.id)}" data-code="${esc(o.code)}" data-name="${esc(o.name)}">Șterge compania</button></div></div>`;
   const tabBill=()=>{const b=o.billing||{};return `<div class="grid2" style="margin-top:0">
-    <div class="panel"><div class="hd"><h2>Facturi</h2><span class="sp"></span><button class="btn sm" data-act="invoice" data-id="${esc(o.id)}">Factură nouă</button></div><div class="bd" style="padding:0">${invTable(d.invoices,false)}</div></div>
+    <div class="panel"><div class="hd"><h2>Facturi</h2><span class="sp"></span><button class="btn sm" data-act="invoice" data-id="${esc(o.id)}">Factură nouă</button></div><div class="bd" style="padding:0">${invTable(d.invoices,false,o.id)}</div></div>
     <div class="panel"><div class="hd"><h2>Date pentru factură</h2></div><div class="bd"><div class="form">
       ${[["legal_name","Denumirea juridică","full"],["idno","IDNO"],["vat_code","Cod TVA"],["address","Adresa juridică","full"],["email","Email pentru facturi"],["phone","Telefon"],["contact","Persoana de contact","full"]].map(([k,l,c])=>`<div class="${c||""}"><label class="f">${l}</label><input id="b-${k}" value="${esc(b[k]||"")}"></div>`).join("")}</div>
       <div class="actions"><button class="btn" data-act="save-bill" data-id="${esc(o.id)}">Salvează</button><span class="msg" id="bill-msg"></span></div></div></div></div>
@@ -426,10 +431,10 @@ V.company=async(id)=>{const d=await api("sa_org",{org_id:id});const o=d.org;rend
   const show=()=>{B.innerHTML=TAB==="bill"?tabBill():TAB==="team"?tabTeam():TAB==="act"?tabAct():tabSum();document.querySelectorAll("[data-tab]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.tab===TAB)))};
   show();V.company.show=show};
 
-function invTable(list,withOrg){if(!list.length)return '<div class="empty">Încă nu sunt facturi.</div>';const t=today();
-  return `<div class="tw" style="border:0;border-radius:0"><table><thead><tr><th>Număr</th>${withOrg?"<th>Companie</th>":""}<th>Emisă</th><th>Scadența</th><th>Perioada</th><th class="r">Suma</th><th>Stare</th><th></th></tr></thead><tbody>${list.map(i=>{const st=i.status==="paid"?pill("ok","Achitată"):i.status==="void"?pill("gray","Anulată"):i.due_at<t?pill("bad","Întârziată"):pill("warn","Trimisă");
+function invTable(list,withOrg,fallbackOrgId){if(!list.length)return '<div class="empty">Încă nu sunt facturi.</div>';const t=today();
+  return `<div class="tw" style="border:0;border-radius:0"><table><thead><tr><th>Număr</th>${withOrg?"<th>Companie</th>":""}<th>Emisă</th><th>Scadența</th><th>Perioada</th><th class="r">Suma</th><th>Stare</th><th></th></tr></thead><tbody>${list.map(i=>{const st=i.status==="paid"?pill("ok","Achitată"):i.status==="void"?pill("gray","Anulată"):i.due_at<t?pill("bad","Întârziată"):pill("warn","Trimisă");const oid=i.org_id||fallbackOrgId||"";
     return `<tr><td><a href="/f/${esc(i.token)}" target="_blank" rel="noopener"><b>${esc(i.number)}</b></a></td>${withOrg?`<td><a href="#company/${esc(i.org_id)}">${esc(i.org_name||"")}</a></td>`:""}<td class="num">${fd(i.issued_at)}</td><td class="num">${fd(i.due_at)}</td><td class="num">${fd(i.period_from)} – ${fd(i.period_to)}</td><td class="r num">${lei(i.amount)}</td><td>${st}</td>
-      <td class="r">${i.status==="sent"?`<button class="btn sm" data-act="inv-paid" data-id="${esc(i.id)}" data-org="${esc(i.org_id||"")}">Achitată</button> <button class="btn sm" data-act="inv-copy" data-token="${esc(i.token)}">Link</button> <button class="btn sm d" data-act="inv-void" data-id="${esc(i.id)}" data-org="${esc(i.org_id||"")}">Anulează</button>`:`<button class="btn sm" data-act="inv-copy" data-token="${esc(i.token)}">Link</button>`}</td></tr>`}).join("")}</tbody></table></div>`}
+      <td class="r">${i.status==="sent"?`<button class="btn sm" data-act="inv-paid" data-id="${esc(i.id)}" data-org="${esc(oid)}">Achitată</button> <button class="btn sm" data-act="inv-copy" data-token="${esc(i.token)}">Link</button> <button class="btn sm d" data-act="inv-void" data-id="${esc(i.id)}" data-org="${esc(oid)}">Anulează</button>`:`<button class="btn sm" data-act="inv-copy" data-token="${esc(i.token)}">Link</button>`}</td></tr>`}).join("")}</tbody></table></div>`}
 function payTable(list,withOrg){if(!list.length)return '<div class="empty">Încă nu sunt plăți.</div>';
   return `<div class="tw" style="border:0;border-radius:0"><table><thead><tr><th>Data</th>${withOrg?"<th>Companie</th>":""}<th class="r">Suma</th><th class="r">Sold după</th><th>Metodă</th><th>Notă</th></tr></thead><tbody>${list.map(p=>`<tr><td class="num">${fd(p.created_at.slice(0,10))}</td>${withOrg?`<td><a href="#company/${esc(p.org_id)}">${esc(p.org_name||"")}</a></td>`:""}<td class="r num"><b>${lei(p.amount)}</b></td><td class="r num">${p.balance_after!=null?lei2(p.balance_after):p.paid_until?"până "+fd(p.paid_until):""}</td><td>${p.method==="bonus"?pill("info","Bonus"):p.method==="corectie"?pill("warn","Corecție"):esc(p.method||"")}</td><td class="ink2" style="white-space:normal">${esc(p.note||"")}</td></tr>`).join("")}</tbody></table></div>`}
 
@@ -481,7 +486,7 @@ V.settings=async()=>{const s=await api("sa_settings");renderNav();
   <div class="panel"><div class="hd"><h2>Prețuri · credite</h2></div><div class="bd"><p class="ink2" style="margin-top:0">1 credit = 1 leu. Fiecare companie plătește în avans; în fiecare zi se scad <b>unități × tarif</b> credite. Tariful general e pentru toate companiile fără tarif propriu (pe care îl pui în fișa companiei).</p>
     <div class="form"><div><label class="f" for="s-apt_rate">Tarif general, credite / unitate / zi</label><input id="s-apt_rate" type="number" min="0.01" max="1000" step="0.01" value="${esc(s.apt_rate??1)}"></div></div>
     <p class="mute">Ex.: 5 apartamente × 1 = 5 credite pe zi ≈ 150 lei pe lună. Se salvează cu butonul din stânga.</p></div></div></div>`;
-  if(!OV){await refresh("ov");V.settings()}};
+};
 
 /* users: every account, across companies */
 let UF={f:"all",q:""},USERS=null;
@@ -518,11 +523,14 @@ V.maib=async()=>{const L=await api("sa_maib");renderNav();
 /* health: what is broken right now */
 V.health=async()=>{const h=await api("sa_health");renderNav();
   const c=h.cron,late=!c||Date.now()-Date.parse(c.at)>26*3600e3;
-  const cfg=[["mail","Emailuri (Resend)"],["maib","Plăți card (maib)"],["cron","Job zilnic (CRON_KEY)"],["telegram","Bot Telegram"]];
+  const cfg=[["mail","Emailuri (Resend) — parole, facturi, mesaje"],["cron","Job zilnic (CRON_KEY) — credite și remindere"],["seller","Date furnizor pe facturi (Setări)"],["maib","Plăți card (maib) — opțional"],["telegram","Bot Telegram — opțional"]];
+  const mustOk=!!(h.config.mail&&h.config.cron&&h.config.seller);
+  const missLabel={mail:"RESEND_API_KEY în GitHub Secrets / Pages",cron:"CRON_KEY în GitHub Secrets / Pages",seller:"completează nume, IDNO, IBAN, adresă în Setări",maib:"cheile MAIB_*",telegram:"TELEGRAM_BOT_TOKEN"};
   const sec=(t,n,body)=>`<div class="panel" style="margin-top:16px"><div class="hd"><h2>${t}</h2><span class="sp"></span>${n?pill("bad",n):pill("ok","în regulă")}</div><div class="bd" style="padding-top:4px">${body}</div></div>`;
-  $("view").innerHTML=`<div class="ph"><div><h1>Sănătate</h1><div class="mute">ce nu merge acum pe platformă</div></div></div>
-  <div class="grid2" style="margin-top:0"><div class="panel"><div class="hd"><h2>Job-ul zilnic</h2><span class="sp"></span>${late?pill("bad",c?"întârziat":"nu a rulat"):pill("ok","merge")}</div><div class="bd">${c?`<p style="margin:0">Ultima rulare: <b>${ago(c.at)}</b> <span class="mute">(${esc(c.at.slice(0,16).replace("T"," "))} UTC)</span></p><p class="ink2" style="margin:6px 0 0">${c.orgs} companii active procesate · ${c.mailed||0} emailuri · ${c.feeds||0} calendare sincronizate</p>`:'<p class="ink2" style="margin:0">Nu are încă nicio rulare înregistrată. Scade creditele zilnic, trimite amintirile și sincronizează calendarele Airbnb / Booking.</p>'}</div></div>
-    <div class="panel"><div class="hd"><h2>Configurare</h2></div><div class="bd">${cfg.map(([k,l])=>`<div class="att">${h.config[k]?pill("ok","Da"):pill("warn","Lipsește")}<div class="m"><b>${l}</b>${k==="maib"&&h.config.maib_sandbox?"<small>mod de test (sandbox)</small>":""}</div></div>`).join("")}</div></div></div>
+  $("view").innerHTML=`<div class="ph"><div><h1>Sănătate</h1><div class="mute">ce trebuie ca admin.espace.md să fie gata de lucru zilnic</div></div><span class="sp"></span>${mustOk?pill("ok","Gata de lucru"):pill("warn","Mai e de configurat")}</div>
+  <div class="panel" style="margin-top:0"><div class="hd"><h2>Checklist platformă</h2><span class="sp"></span>${mustOk?pill("ok","tot esențialul e ok"):pill("warn","completează cele cu „Lipsește”")}</div><div class="bd"><div class="ready">${cfg.map(([k,l])=>{const ok=!!h.config[k];return `<div class="att">${ok?pill("ok","Da"):pill(k==="maib"||k==="telegram"?"gray":"warn",ok?"Da":"Lipsește")}<div class="m"><b>${l}</b>${!ok?`<small>${esc(missLabel[k]||"")}${k==="seller"&&h.config.seller_missing&&h.config.seller_missing.length?" · lipsă: "+h.config.seller_missing.join(", "):""}</small>`:k==="maib"&&h.config.maib_sandbox?"<small>mod de test (sandbox)</small>":""}</div>${k==="seller"&&!ok?`<a class="btn sm" href="#settings">Setări</a>`:""}</div>`}).join("")}</div></div></div>
+  <div class="grid2" style="margin-top:16px"><div class="panel"><div class="hd"><h2>Job-ul zilnic</h2><span class="sp"></span>${late?pill("bad",c?"întârziat":"nu a rulat"):pill("ok","merge")}</div><div class="bd">${c?`<p style="margin:0">Ultima rulare: <b>${ago(c.at)}</b> <span class="mute">(${esc(c.at.slice(0,16).replace("T"," "))} UTC)</span></p><p class="ink2" style="margin:6px 0 0">${c.orgs} companii active procesate · ${c.mailed||0} emailuri · ${c.feeds||0} calendare sincronizate</p>`:'<p class="ink2" style="margin:0">Nu are încă nicio rulare înregistrată. Scade creditele zilnic, trimite amintirile și sincronizează calendarele Airbnb / Booking.</p>'}</div></div>
+    <div class="panel"><div class="hd"><h2>Cum intri aici</h2></div><div class="bd"><p class="ink2" style="margin:0 0 8px">1. În GitHub Secrets: <b>SUPERADMIN_EMAIL</b> = emailul tău.<br>2. Cont creat pe espace.md cu același email + parolă setată.<br>3. Login pe <b>admin.espace.md</b> — doar acel email vede panoul.</p><p class="mute" style="margin:0">Fără Resend, emailurile apar la Emailuri ca „skipped” — clienții nu primesc link de parolă.</p></div></div></div>
   ${sec("Calendare externe care nu se sincronizează",h.feeds.length,h.feeds.length?h.feeds.map(f=>`<div class="att">${pill("bad",esc(f.source))}<div class="m"><b><a href="#company/${esc(f.org_id)}">${esc(f.org_name)}</a> · ${esc(f.apt)}</b><small>${esc(f.last_msg||"eroare")} · ultima încercare ${ago(f.last_sync)}</small></div></div>`).join(""):`<div class="empty">Toate cele ${h.feeds_total} calendare merg.</div>`)}
   ${sec("Emailuri eșuate · 7 zile",h.mails_failed.length,h.mails_failed.length?h.mails_failed.map(e=>`<div class="att">${pill("bad","Eroare")}<div class="m"><b>${esc(e.subject)}</b><small>${esc(e.to_addr)}${e.org_name?" · "+esc(e.org_name):""} · ${ago(e.created_at)} · ${esc((e.detail||"").slice(0,90))}</small></div></div>`).join(""):`<div class="empty">Din ${h.mails_total} emailuri trimise în 7 zile, niciunul nu a eșuat.</div>`)}
   ${sec("Plăți card cu probleme",h.maib.length,h.maib.length?h.maib.map(p=>`<div class="att">${p.status==="failed"?pill("bad","Eșuată"):pill("warn","Blocată")}<div class="m"><b>${p.org_id?`<a href="#company/${esc(p.org_id)}">${esc(p.org_name||"")}</a>`:""} · ${lei2(p.amount)}</b><small>${ago(p.created_at)}${p.status==="new"?" · începută, dar neconfirmată de peste o oră":""}</small></div></div>`).join(""):'<div class="empty">Nicio plată eșuată sau blocată.</div>')}`};
@@ -633,11 +641,13 @@ document.addEventListener("click",async e=>{
 });
 $("new-org").onclick=()=>act("new-org",{});
 
-/* global search: companies, emails, invoices, leads */
+/* global search: companies, invoices, leads, users */
 let SEL=-1,RES=[];
 $("q").addEventListener("input",async()=>{const q=$("q").value.toLowerCase().trim();if(!q){$("results").classList.remove("on");return}
   if(!ORGS)await refresh("orgs");if(!LEADS)LEADS=await api("sa_leads").catch(()=>[]);if(!INV)INV=await api("sa_invoices").catch(()=>[]);
-  RES=[...ORGS.filter(o=>[o.name,o.code,o.owner_email,o.owner_name].join(" ").toLowerCase().includes(q)).slice(0,6).map(o=>({h:"#company/"+o.id,t:o.name,s:o.code+".espace.md · "+o.owner_email,p:statePill(o)})),
+  if(!USERS)USERS=await api("sa_users").catch(()=>[]);
+  RES=[...ORGS.filter(o=>[o.name,o.code,o.owner_email,o.owner_name].join(" ").toLowerCase().includes(q)).slice(0,5).map(o=>({h:"#company/"+o.id,t:o.name,s:o.code+".espace.md · "+o.owner_email,p:statePill(o)})),
+    ...(USERS||[]).filter(u=>[u.name,u.email,...u.orgs.map(o=>o.name+" "+o.code)].join(" ").toLowerCase().includes(q)).slice(0,3).map(u=>({h:"#users",t:u.name||u.email,s:u.email+(u.orgs[0]?" · "+u.orgs[0].name:""),p:u.disabled?pill("bad","Suspendat"):""})),
     ...INV.filter(i=>i.number.toLowerCase().includes(q)).slice(0,3).map(i=>({h:"#company/"+i.org_id,t:"Factura "+i.number,s:(i.org_name||"")+" · "+lei(i.amount),p:""})),
     ...LEADS.filter(l=>[l.name,l.phone,l.email].join(" ").toLowerCase().includes(q)).slice(0,3).map(l=>({h:"#leads",t:l.name,s:"Cerere · "+(l.phone||l.email||""),p:""}))];
   SEL=RES.length?0:-1;$("results").innerHTML=RES.length?RES.map((r,i)=>`<a href="${r.h}" class="${i===SEL?"sel":""}"><span style="flex:1;min-width:0"><b>${esc(r.t)}</b><span class="sub mute" style="display:block;font-size:12.5px">${esc(r.s)}</span></span>${r.p}</a>`).join(""):'<div class="empty">Nimic găsit</div>';$("results").classList.add("on")});
@@ -654,7 +664,7 @@ function showLogin(msg){$("app").hidden=true;$("login").hidden=false;$("lmsg").t
 $("lf").addEventListener("submit",async e=>{e.preventDefault();$("lmsg").textContent="";
   try{const r=await fetch("/api/auth_login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:$("em").value.trim(),password:$("pw").value})});const j=await r.json();
     if(!r.ok){$("lmsg").textContent=j.message==="locked"?"Prea multe încercări — așteaptă 15 minute":"Email sau parolă greșită";return}
-    TOK=j.token;try{localStorage.setItem("es_admin_tok",TOK)}catch(e){}if(!j.me.super){showLogin("Acest cont nu este administrator al platformei.");return}start(j.me)}catch(err){$("lmsg").textContent="Nu e legătură cu serverul"}});
+    TOK=j.token;try{localStorage.setItem("es_admin_tok",TOK)}catch(e){}if(!j.me.super){showLogin("Acest cont nu este administrator. În GitHub Secrets, SUPERADMIN_EMAIL trebuie să fie exact acest email.");return}start(j.me)}catch(err){$("lmsg").textContent="Nu e legătură cu serverul"}});
 $("forgot").onclick=async e=>{e.preventDefault();const em=$("em").value.trim();if(!em){$("lmsg").textContent="Scrie emailul mai sus, apoi apasă din nou.";return}
   const r=await fetch("/api/auth_reset_request",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:em,from:"admin"})});
   $("lmsg").className="msg "+(r.ok?"ok":"bad");$("lmsg").textContent=r.ok?"Dacă există contul, ți-am trimis un link pe email.":"Prea multe încercări — așteaptă 15 minute."};
