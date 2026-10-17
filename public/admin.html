@@ -9,7 +9,7 @@
 <link rel="icon" href="/icon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#f5f6f9;--surface:#fff;--sunk:#f0f1f5;--ink:#14162e;--ink2:#4c5068;--mute:#868aa1;--line:#e4e6ee;--line2:#eef0f5;
@@ -24,7 +24,7 @@
 }}
 *{box-sizing:border-box}
 html,body{height:100%}
-body{margin:0;background:var(--bg);color:var(--ink);font:400 14.5px/1.5 "Onest",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 14px/1.5 "Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
 a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
 button,input,select,textarea{font:inherit;color:inherit}
@@ -181,6 +181,41 @@ dialog h2{font-size:18px;margin-bottom:4px}
   .search kbd{display:none}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* look: Mosaic-style (white cards with soft shadows, violet accent, Inter) */
+:root{--bg:#f3f4f6;--surface:#fff;--sunk:#f9fafb;--ink:#1f2937;--ink2:#4b5563;--mute:#6b7280;--line:#e5e7eb;--line2:#f3f4f6;
+  --navy:#111827;--accent:#7c3aed;--key:#8b5cf6;--chart:#8b5cf6;--chart-soft:#ddd6fe;--info:#7c3aed;--info-bg:#ede9fe;--ok:#047857;--ok-bg:#d1fae5;--bad:#dc2626;--bad-bg:#fee2e2;--warn:#b45309;--warn-bg:#fef3c7;--r:12px;--sh:0 1px 2px rgba(17,24,39,.05),0 1px 3px rgba(17,24,39,.04)}
+@media (prefers-color-scheme:dark){:root{--bg:#111827;--surface:#1f2937;--sunk:#263244;--ink:#f3f4f6;--ink2:#d1d5db;--mute:#9ca3af;--line:#374151;--line2:#2b3646;
+  --navy:#f3f4f6;--accent:#a78bfa;--key:#8b5cf6;--chart:#a78bfa;--chart-soft:#4c3d7a;--info:#c4b5fd;--info-bg:#2e2653;--sh:0 1px 2px rgba(0,0,0,.3)}}
+.panel,.tw,.kpi,.facts,dialog,#login{border:0!important;box-shadow:var(--sh)}
+.panel,.tw,.facts{border-radius:12px}
+.panel>.hd{border-bottom:1px solid var(--line2)}
+.panel>.hd h2{font-size:15px;font-weight:600;color:var(--ink)}
+.kpis{background:none;border:0;gap:16px;overflow:visible}
+.kpi{background:var(--surface);border-radius:12px;border:0!important;padding:18px 20px}
+.kpi .l{text-transform:uppercase;letter-spacing:.04em;font-size:11.5px;color:var(--mute)}
+.kpi .v{font-size:28px;font-weight:700;color:var(--ink)}
+.side{border-right:0;box-shadow:1px 0 0 var(--line);padding:18px 12px}
+.logo{font-weight:700}
+.nav a{font-weight:500;color:var(--ink2);border-radius:10px;padding:9px 12px}
+.nav a svg{color:var(--mute)}
+.nav a[aria-current="page"]{background:linear-gradient(90deg,rgba(139,92,246,.14),rgba(139,92,246,.04));color:var(--ink)}
+.nav a[aria-current="page"] svg{color:#8b5cf6}
+.nav a .c{background:#8b5cf6;color:#fff}
+.top{background:color-mix(in srgb,var(--surface) 85%,transparent);border-bottom:1px solid var(--line)}
+.btn{border-radius:8px;border-color:var(--line);box-shadow:0 1px 1px rgba(17,24,39,.04);font-weight:500}
+.btn.p{background:var(--navy);border-color:var(--navy);color:#fff}
+@media (prefers-color-scheme:dark){.btn.p{color:#111827}}
+th{text-transform:uppercase;letter-spacing:.04em;font-size:11px;background:var(--sunk);color:var(--mute)}
+.tw th:first-child{border-top-left-radius:12px}.tw th:last-child{border-top-right-radius:12px}
+.chip{font-weight:500}.chip[aria-pressed="true"]{background:#8b5cf6;border-color:#8b5cf6;color:#fff}
+.tabs button[aria-selected="true"]{color:#7c3aed;border-bottom-color:#8b5cf6}
+.col{background:color-mix(in srgb,var(--line) 55%,var(--bg))}
+.lc{border:0;box-shadow:var(--sh)}
+.chead .ava{background:linear-gradient(135deg,#8b5cf6,#6366f1);color:#fff}
+h1{font-weight:700}
+.grid3 .facts{grid-template-columns:repeat(2,minmax(0,1fr))}.grid3 .facts div:nth-child(2n){border-right:0}
+@media (max-width:900px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}}
 </style>
 </head>
 <body>
