@@ -1493,7 +1493,7 @@ const catIcon=c=>CAT_ICON[c]||"📌";
 const catCol=c=>CAT_COL[Math.max(0,cfg.categories.indexOf(c))%CAT_COL.length];
 const telDigits=p=>(p||"").replace(/[^\d+]/g,"");
 
-const RO_OK=["kv_load","kv_photos","kv_guides","kv_task_photo","kv_push_key","kv_push_sub","billing","bill_invoice","bill_pay","bill_pay_status","auth_me","auth_logout","auth_switch","auth_password","auth_new_org"];
+const RO_OK=["kv_load","kv_photos","kv_guides","kv_task_photo","kv_push_key","kv_push_sub","billing","bill_invoice","bill_pay","bill_pay_status","auth_me","auth_logout","auth_switch","auth_password","auth_new_org","kv_ical_list","kv_ical_org"];
 const CHECK_OK=["kv_verify","kv_month_close","kv_month_open"];
 let ME=null, ROLE="", EXPIRED=false;
 const SLUG=(()=>{const h=location.hostname;if(h.endsWith(".espace.md"))return h.slice(0,-".espace.md".length);let c="";try{c=new URLSearchParams(location.search).get("c")||sessionStorage.getItem("es_c")||""}catch(e){}c=c.toLowerCase().replace(/[^a-z0-9-]/g,"");try{if(c)sessionStorage.setItem("es_c",c)}catch(e){}return c})();
@@ -1898,7 +1898,8 @@ function unitCard(a,i){const line=unitLine(a);
       <button type="button" class="ibtn" data-ren="${esc(a)}" aria-label="Переименовать ${esc(a)}">${setIc("pen")}</button>
       <button type="button" class="ibtn" data-up="${i}" ${i?"":"disabled"} aria-label="Выше">${setIc("up")}</button>
       <button type="button" class="ibtn del${uDelArm===a?" armed":""}" data-udel="${esc(a)}" aria-label="Удалить ${esc(a)}">${uDelArm===a?"Точно?":setIc("del")}</button></div>
-    <input type="text" data-addr="${esc(a)}" value="${esc((cfg.addr||{})[a]||"")}" placeholder="Адрес: Decebal 6/2, кв. 61, этаж 7" aria-label="Адрес ${esc(a)}">
+    <div class="grid2" style="align-items:end;gap:8px;margin-top:6px"><div style="min-width:0"><input type="text" data-addr="${esc(a)}" value="${esc((cfg.addr||{})[a]||"")}" placeholder="Адрес: Decebal 6/2, кв. 61, этаж 7" aria-label="Адрес ${esc(a)}"></div>
+      ${(cfg.addr||{})[a]?`<a class="btn sm" href="${esc(mapsUrl((cfg.addr||{})[a]))}" target="_blank" rel="noopener">На карте</a>`:`<span></span>`}</div>
     ${uOpen===a?unitForm(a):""}</div>`}
 function hotelForm(){return `<div class="card uform"><b>Номера отеля или гостевого дома</b>
     <div class="grid2"><div><label class="l" for="uh-name">Название отеля</label><input type="text" id="uh-name" list="uf-groups" placeholder="Hotel Central"></div>
@@ -2330,9 +2331,24 @@ async function icalLoad(a){const box=$("uf-ical-body");if(!box)return;
       ${RO?"":`<div class="iadd"><select id="ical-src" aria-label="Сайт">${ICAL_SRC.map(([k,t])=>`<option value="${k}">${t}</option>`).join("")}</select><input type="url" id="ical-url" placeholder="https://www.airbnb.com/calendar/ical/…" autocomplete="off"><button type="button" class="btn" id="ical-add">Добавить</button></div>
       <details class="ihelp"><summary>Где взять ссылку?</summary><p><b>Airbnb:</b> Календарь → Доступность → Подключить календари → Экспортировать календарь → скопируйте ссылку.<br><b>Booking.com:</b> Цены и доступность → Синхронизация календарей → Экспорт календаря → скопируйте ссылку.</p></details>`}
       <div class="iexp"><b>Ссылка для Airbnb и Booking</b><p class="small" style="margin:2px 0 6px">Вставьте её там в «Импорт календаря» — даты, занятые здесь, закроются на тех сайтах.</p>
-      ${r.export?`<div class="iexpr"><input type="text" readonly value="${esc(r.export)}" id="ical-exp"><button type="button" class="btn sm" data-icopy="1">Скопировать</button></div>`:RO?"":`<button type="button" class="btn" data-ikey="1">Создать ссылку</button>`}</div>`;
+      ${r.export?`<div class="iexpr"><input type="text" readonly value="${esc(r.export)}" id="ical-exp"><button type="button" class="btn sm" data-icopy="1">Скопировать</button><a class="btn sm" href="${esc(gCalUrl(r.export))}" target="_blank" rel="noopener">В календарь Google</a></div>`:RO?"":`<button type="button" class="btn" data-ikey="1">Создать ссылку</button>`}</div>`;
   }catch(e){if($("uf-ical-body"))$("uf-ical-body").textContent="Не загрузилось"}}
 const icalErr=m=>/HTTP 404|HTTP 410/.test(m)?"ссылка больше не работает — возьмите новую на сайте":/not_ical/.test(m)?"по ссылке нет календаря — проверьте, что это ссылка экспорта .ics":/abort|timeout/i.test(m)?"сайт не ответил вовремя, повторим":/unit_gone/.test(m)?"объект удалён":m;
+const gCalUrl=u=>"https://calendar.google.com/calendar/r?cid="+encodeURIComponent(String(u||"").replace(/^https:/i,"webcal:"));
+const mapsUrl=addr=>"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(String(addr||"").trim()+", Chișinău");
+let GCAL_URL="";
+async function gcalLoad(){try{const r=await api("kv_ical_org");GCAL_URL=r.export||"";if(r.key)cfg={...cfg,ical:r.key};if(setSec==="gcal")renderSettings()}catch(e){GCAL_URL=""}}
+function gcalSection(){setTimeout(()=>{if(!GCAL_URL&&!cfg.ical)gcalLoad();else if(cfg.ical&&!GCAL_URL)GCAL_URL=`https://espace.md/ical/${ME.org.code}/${cfg.ical}.ics`},0);
+  const url=GCAL_URL||(cfg.ical?`https://espace.md/ical/${ME.org.code}/${cfg.ical}.ics`:"");
+  return `<div class="card"><p class="small" style="margin-top:0">Один календар со всеми объектами — в личном календаре Google или Apple. Имена гостей в нём не видны, только занятые даты.</p>
+    ${url?`<div class="iexpr"><input type="text" readonly value="${esc(url)}" id="gcal-url"><button type="button" class="btn sm" id="gcal-copy">Скопировать</button></div>
+      <div class="actions" style="margin-top:10px"><a class="btn primary" href="${esc(gCalUrl(url))}" target="_blank" rel="noopener">Добавить в календарь Google</a></div>
+      <p class="small">Нажми кнопку — откроется подтверждение подписки. Обновления приходят сами. Для одного объекта ссылка есть в Настройках, в карточке объекта, блок синхронизации.</p>`
+      :`<p class="small">Сначала создай ссылку — потом откроешь её в календаре.</p>
+      ${RO?"":`<div class="actions"><button type="button" class="btn primary" id="gcal-make">Создать ссылку</button></div>`}`}</div>`}
+document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("#gcal-make,#gcal-copy");if(!t)return;
+  if(t.id==="gcal-copy"){const v=($("gcal-url")||{}).value||"";try{await navigator.clipboard.writeText(v);toast("Ссылка скопирована")}catch(x){($("gcal-url")||{}).select?.()}return}
+  t.disabled=true;try{const r=await api("kv_ical_key",{org:true});cfg={...cfg,ical:r.key};GCAL_URL=r.export;toast("Ссылка готова");renderSettings()}catch(x){t.disabled=false;toast("Не получилось")}});
 document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("#ical-add,[data-isync],[data-idel],[data-ikey],[data-icopy]");if(!t)return;const a=uOpen;if(!a)return;
   try{
     if(t.id==="ical-add"){const url=$("ical-url").value.trim();if(!/^(https?|webcal):\/\//i.test(url)){toast("Вставьте ссылку, она начинается с https://");return}
@@ -2886,9 +2902,10 @@ function aptPage(a){
   const upcoming=bookings.filter(b=>b.apt===a&&b.nights>0&&endOf(b)>td).sort((x,y)=>x.date.localeCompare(y.date));
   const hist=bookings.filter(b=>b.apt===a&&inMonth(b)&&!upcoming.includes(b)).sort((x,y)=>y.date.localeCompare(x.date));
   const ex=expenses.filter(e=>e.apt===a&&inMonth(e)).sort((x,y)=>y.date.localeCompare(x.date));
-  const now=stayOn(a,toT(td));
+  const now=stayOn(a,toT(td)), ad=(cfg.addr||{})[a]||"";
   const html=`<div class="hero" style="${photos[a]?`background-image:url('${photos[a]}')`:""}"><span>${esc(a)}</span></div>
     <p class="small" style="margin:10px 0 0">${now?`Сейчас живёт: <b>${esc(now.guest||"без имени")}</b> до ${dm(endOf(now))}`:"Сейчас свободна"}</p>
+    ${ad?`<p class="small" style="margin:6px 0 0">📍 ${esc(ad)} · <a href="${esc(mapsUrl(ad))}" target="_blank" rel="noopener">На карте</a></p>`:""}
     <div class="tiles" style="margin-top:12px">
       <div class="tile"><span>Загрузка · ${MONTHS[mon.m].toLowerCase()}</span><b class="num">${Math.round(st.nights/n*100)}%</b><small>${st.nights} из ${n} ночей</small></div>
       <div class="tile inc"><span>Доход</span><b class="num">${fmt0(st.inc)} €</b><small>${st.nights?fmt0(st.inc/st.nights)+" €/ночь":"&nbsp;"}</small></div>
@@ -3270,6 +3287,7 @@ function renderSettings(){
     contract:["chk","Договор с гостем",(cfg.contract||{}).landlord?"наймодатель: "+(cfg.contract||{}).landlord:"подпись гостя на телефоне",()=>contractSection()],
     owners:["mgr","Собственники",(cfg.owners||[]).length?(cfg.owners||[]).map(o=>o.name).join(", "):"комиссия, выплаты и отчёт за месяц",()=>ownersSection()],
     import:["chk","Импорт из Excel",`брони и объекты из файла · Excel, CSV, RealtyCalendar`,()=>importSection()],
+    gcal:["web","Календарь Google",cfg.ical?"все объекты · ссылка готова":"все брони в личном календаре",()=>gcalSection()],
     direct:["web","Страница бронирования",cfg.direct&&cfg.direct.on?"включена · "+ME.org.code+".espace.md/rezerva":"гости бронируют напрямую, без комиссии",()=>directSection()],
     people:["mgr","Менеджеры",cfg.people.join(", ")||"не указаны",()=>`<div class="card"><label class="l" for="set-people">Менеджеры — кто принимает деньги и работает сменами <em>— через запятую</em></label><input type="text" id="set-people" value="${esc(cfg.people.join(", "))}">
       <div class="actions"><button class="btn primary" id="save-people">Сохранить</button></div></div>
