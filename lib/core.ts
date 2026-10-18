@@ -29,6 +29,16 @@ export const all = async (db: D1Database, sql: string, ...p: unknown[]) => ((awa
 export const one = async (db: D1Database, sql: string, ...p: unknown[]) => (await db.prepare(sql).bind(...p).first()) as any;
 export const run = (db: D1Database, sql: string, ...p: unknown[]) => db.prepare(sql).bind(...p).run();
 
+/** Persist a 5xx for admin → Sănătate. Never store secrets; message is truncated and scrubbed. */
+export async function logApiError(db: D1Database, fn: string, status: number, message: string, orgId = "") {
+  let msg = str(message, 500);
+  msg = msg.replace(/Bearer\s+[A-Za-z0-9._-]+/gi, "Bearer ***")
+    .replace(/password["']?\s*[:=]\s*["'][^"']*/gi, "password:***")
+    .replace(/s_pin["']?\s*[:=]\s*["'][^"']*/gi, "s_pin:***")
+    .replace(/CRON_KEY|RESEND_API_KEY|MAIB_[A-Z_]+|TELEGRAM_BOT_TOKEN/gi, "***");
+  await run(db, "INSERT INTO errors(id, org_id, fn, status, message) VALUES (?,?,?,?,?)",
+    uuid(), str(orgId, 40), str(fn, 80) || "?", Math.max(500, Math.min(599, Math.floor(status) || 500)), msg || "error");
+}
 const hex = (b: ArrayBuffer | Uint8Array) => [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, "0")).join("");
 export async function sha256hex(s: string) { return hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s))); }
 export function sameStr(a: string, b: string) { // constant-time compare
