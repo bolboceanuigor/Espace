@@ -18,6 +18,9 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL DEFAULT '',
   pw_hash TEXT NOT NULL,
+  totp_secret TEXT NOT NULL DEFAULT '',    -- base32; empty = 2FA off
+  totp_pending TEXT NOT NULL DEFAULT '',   -- secret while setting up, before confirm
+  totp_backup TEXT NOT NULL DEFAULT '[]',  -- JSON sha256 hashes of unused backup codes
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 CREATE TABLE IF NOT EXISTS members (
@@ -48,6 +51,14 @@ CREATE TABLE IF NOT EXISTS payments (
 CREATE INDEX IF NOT EXISTS payments_org_idx ON payments(org_id);
 CREATE TABLE IF NOT EXISTS auth_fail (k TEXT PRIMARY KEY, n INTEGER NOT NULL DEFAULT 0, until TEXT NOT NULL DEFAULT '');
 CREATE TABLE IF NOT EXISTS sys_state (k TEXT PRIMARY KEY, v TEXT NOT NULL);
+-- short-lived token after password OK when 2FA is on (before a real session exists)
+CREATE TABLE IF NOT EXISTS totp_chal (
+  token_hash TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  org_id TEXT NOT NULL DEFAULT '',
+  expires_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS totp_chal_user_idx ON totp_chal(user_id);
 
 -- ---------- per company (ported from Rentwill, + org_id) ----------
 CREATE TABLE IF NOT EXISTS bookings (

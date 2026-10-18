@@ -1087,6 +1087,7 @@ body.calmode .wrap{padding-bottom:0;max-width:none}
 .seg3 button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
 .codebox{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-top:10px}.codebox b{font-family:ui-monospace,Menlo,monospace;font-size:20px;letter-spacing:.12em}.codebox .btn{margin-left:auto}
 .tmrow{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}.tmrow .m{display:flex;flex-direction:column;flex:1;min-width:0}.tmrow .m small{color:var(--muted)}.tmrow select{width:auto}
+.tfa-qr{display:flex;justify-content:center;margin:12px 0;padding:12px;background:#fff;border-radius:12px;border:1px solid var(--line)}.tfa-qr svg{display:block}.tfa-codes{margin:8px 0;padding:10px 12px;background:var(--d2,#f4f6f8);border-radius:10px;font-size:13px;line-height:1.6;letter-spacing:.04em}
 .billtop{display:flex;flex-direction:column;gap:2px}.billt{width:100%;border-collapse:collapse;margin:8px 0}.billt td,.billt th{padding:6px 4px;border-bottom:1px solid var(--line);font-size:14px}.billt tr.cur td{background:var(--surface);font-weight:700}
 .setup{margin-bottom:14px}.setup-h{display:flex;align-items:center;gap:8px}.setup-h .small{margin-left:auto}
 .setup-bar{height:6px;border-radius:3px;background:var(--line);margin:10px 0 6px;overflow:hidden}.setup-bar i{display:block;height:100%;background:var(--accent);border-radius:3px}
@@ -1196,10 +1197,11 @@ body.wizon{overflow:hidden}
     <div data-gf="login"><label class="l" for="g-pw">Password</label><div class="fld"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg><input id="g-pw" type="password" autocomplete="current-password" maxlength="128"><button type="button" class="eye" data-eye="g-pw" aria-label="Show password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
     <div data-gf="reset"><label class="l" for="g-npw">New password <em>— at least 8 characters</em></label><div class="fld"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg><input id="g-npw" type="password" autocomplete="new-password" maxlength="128"><button type="button" class="eye" data-eye="g-npw" aria-label="Show password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
     <div data-gf="maid"><label class="l" for="g-pin">Your PIN <em>— the manager gives it to you</em></label><div class="fld"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="16" cy="12" r="1.2"/><rect x="3" y="7" width="18" height="10" rx="2.5"/></svg><input id="g-pin" type="password" inputmode="numeric" autocomplete="off" maxlength="32"><button type="button" class="eye" data-eye="g-pin" aria-label="Show password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+    <div data-gf="2fa"><label class="l" for="g-2fa">Code from the app <em>— six digits or a backup code</em></label><div class="fld"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h5M8 16h3"/></svg><input id="g-2fa" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="12" placeholder="000000"></div></div>
     <div class="msgs" id="g-msg"></div>
     <button class="btn primary" id="g-go" type="submit">Sign in</button>
     <p class="small" data-gf="login" style="margin:10px 0 0;text-align:center"><a href="#" id="g-forgot">Forgot password?</a></p>
-    <p class="small" data-gf="forgot reset" style="margin:10px 0 0;text-align:center"><a href="#" id="g-back">Back to sign in</a></p>
+    <p class="small" data-gf="forgot reset 2fa" style="margin:10px 0 0;text-align:center"><a href="#" id="g-back">Back to sign in</a></p>
     <p class="small" style="margin:12px 0 0;text-align:center">No account? <a href="https://espace.md/#start">Create a company on espace.md</a></p>
   </form>
   <div id="g-lang" style="margin-top:12px;text-align:center"></div>
@@ -3282,7 +3284,10 @@ function renderSettings(){
       <div class="card"><label class="l" for="pw-old">Current password</label><input id="pw-old" type="password" autocomplete="current-password">
       <label class="l" for="pw-new">New password <em>— at least 8 characters</em></label><input id="pw-new" type="password" autocomplete="new-password">
       <div class="actions"><button class="btn" id="pw-save">Change password</button><button class="btn danger" id="p-out">Sign out on this device</button></div>
-      <p class="small" style="margin-bottom:0">After changing the password, other devices will be signed out.</p></div>`],
+      <p class="small" style="margin-bottom:0">After changing the password, other devices will be signed out.</p></div>
+      ${["owner","manager"].includes(ROLE)&&!(ME&&ME.support)?`<div class="card" id="tfa-box"><b>Two-step sign-in</b><p class="small" style="margin:4px 0 10px">${ME&&ME.totp?"On: sign-in needs a code from the app on your phone.":"Extra protection for owners and managers: a code from an app on your phone."}</p>
+        ${ME&&ME.totp?`<label class="l" for="tfa-off-pw">Password</label><input id="tfa-off-pw" type="password" autocomplete="current-password"><label class="l" for="tfa-off-code">Code from the app</label><input id="tfa-off-code" type="text" inputmode="numeric" maxlength="12" autocomplete="one-time-code"><div class="actions"><button type="button" class="btn danger" id="tfa-off">Turn off</button></div>`
+        :`<label class="l" for="tfa-pw">Password to turn on</label><input id="tfa-pw" type="password" autocomplete="current-password"><div class="actions"><button type="button" class="btn primary" id="tfa-on">Turn on</button></div><div id="tfa-setup" hidden></div>`}</div>`:""}`],
     ...(ROLE==="owner"?{team:["mgr","Staff access","managers, payment checks, view-only",()=>{setTimeout(teamLoad,0);return `<div class="card"><div id="team-list" class="small">Uploading…</div></div>
       <div class="card"><b>Add a person</b><p class="small" style="margin:4px 0 10px">They get an email with a link — they set their own password and will sign in only with their email. If they already have an espace.md, account, they just get access.</p>
       <label class="l" for="tm-name">Name</label><input id="tm-name" type="text" maxlength="60">
@@ -4160,6 +4165,17 @@ document.addEventListener("click",e=>{
   if(ds.orgsw){api("auth_switch",{org_id:ds.orgsw}).then(async me=>{setMe(me);closeSheet();await reload();loadPhotos();toast("Open: "+orgName())}).catch(()=>toast("Didn’t work"));return}
   if(t.id==="pw-save"){const o=$("pw-old").value,n=$("pw-new").value;if(n.length<8){toast("New password — at least 8 characters");return}
     api("auth_password",{old_password:o,new_password:n}).then(()=>{$("pw-old").value="";$("pw-new").value="";toast("Password changed")}).catch(e=>toast(e.code==="bad_password"?"The current password is wrong":"Not changed"));return}
+  if(t.id==="tfa-on"){const pw=$("tfa-pw")?.value||"";if(!pw){toast("Enter the password");return}
+    t.disabled=true;api("auth_2fa_begin",{password:pw}).then(r=>{const box=$("tfa-setup");if(!box)return;box.hidden=false;
+      box.innerHTML=`<p class="small">Scan the square in your authenticator app or enter the key by hand.</p>
+        <div class="tfa-qr">${r.qr}</div><div class="codebox"><span class="small">Key</span><b style="font-size:13px;word-break:break-all">${esc(r.secret)}</b></div>
+        <p class="small"><b>Backup codes</b> — save them now, we will not show them again:</p><pre class="tfa-codes">${esc((r.backup_codes||[]).join("\n"))}</pre>
+        <label class="l" for="tfa-code">App code to confirm</label><input id="tfa-code" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
+        <div class="actions"><button type="button" class="btn primary" id="tfa-confirm">Confirm and turn on</button></div>`;
+      toast("Save the backup codes")}).catch(e=>toast(e.code==="bad_password"?"Wrong password":e.code==="already_on"?"Already on":e.code==="forbidden"?"Only for owners and managers":"Didn’t work")).finally(()=>t.disabled=false);return}
+  if(t.id==="tfa-confirm"){const code=$("tfa-code")?.value||"";t.disabled=true;api("auth_2fa_confirm",{code}).then(async()=>{toast("Two-step sign-in is on");try{setMe(await api("auth_me"))}catch(x){}renderSettings()}).catch(e=>toast(e.code==="bad_2fa"?"Wrong code":"Didn’t work")).finally(()=>t.disabled=false);return}
+  if(t.id==="tfa-off"){const password=$("tfa-off-pw")?.value||"",code=$("tfa-off-code")?.value||"";if(!password||!code){toast("Password and code are required");return}
+    t.disabled=true;api("auth_2fa_disable",{password,code}).then(async()=>{toast("Two-step sign-in is off");try{setMe(await api("auth_me"))}catch(x){}renderSettings()}).catch(e=>toast(e.code==="bad_password"?"Wrong password":e.code==="bad_2fa"?"Wrong code":"Didn’t work")).finally(()=>t.disabled=false);return}
   if(t.id==="tm-add"){const v={name:$("tm-name").value.trim(),email:$("tm-email").value.trim(),role:$("tm-role").value};
     t.disabled=true;api("team_add",v).then(r=>{["tm-name","tm-email"].forEach(i=>$(i).value="");toast(r.invited?"Invitation sent to "+v.email:"Access granted");teamLoad()}).catch(e=>toast(e.code==="bad_email"?"Check email":e.code==="pw_too_short"?"Password — at least 8 characters":e.code==="need_names"?"Enter the name":"Didn’t work")).finally(()=>t.disabled=false);return}
   if(ds.tmdel){askDel("Remove access?","The person will no longer be able to open this company.",()=>api("team_remove",{user_id:ds.tmdel}).then(()=>{toast("Access removed");teamLoad()}).catch(()=>toast("Didn’t work")),"Remove");return}
@@ -4337,13 +4353,13 @@ async function logout(){try{await api("auth_logout")}catch(e){}ls.set("tok","");
 let GMODE="login";
 function gMode(m){GMODE=m;document.querySelectorAll("[data-gmode]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.gmode===m)));
   document.querySelectorAll("[data-gf]").forEach(el=>el.hidden=!el.dataset.gf.split(" ").includes(m));
-  $("g-go").textContent=m==="forgot"?"Send the link":m==="reset"?"Save password":"Sign in";$("g-msg").innerHTML="";
-  $("g-tabs").hidden=m==="forgot"||m==="reset";
-  setTimeout(()=>{const e=$(m==="maid"?"g-pin":m==="reset"?"g-npw":"g-email");if(e)e.focus()},50)}
-let RESET_TOK="";
-document.addEventListener("click",e=>{const a=e.target.closest("#g-forgot,#g-back");if(!a)return;e.preventDefault();gMode(a.id==="g-forgot"?"forgot":"login")});
+  $("g-go").textContent=m==="forgot"?"Send the link":m==="reset"?"Save password":m==="2fa"?"Confirm":"Sign in";$("g-msg").innerHTML="";
+  $("g-tabs").hidden=m==="forgot"||m==="reset"||m==="2fa";
+  setTimeout(()=>{const e=$(m==="maid"?"g-pin":m==="reset"?"g-npw":m==="2fa"?"g-2fa":"g-email");if(e)e.focus()},50)}
+let RESET_TOK="",TFA_CHAL="";
+document.addEventListener("click",e=>{const a=e.target.closest("#g-forgot,#g-back");if(!a)return;e.preventDefault();if(a.id==="g-back")TFA_CHAL="";gMode(a.id==="g-forgot"?"forgot":"login")});
 function lock(msg){PIN=null;$("app").hidden=true;$("cl-app").hidden=true;$("gate").hidden=false;gMode(GMODE);$("g-msg").innerHTML=msg?`<div class="msg bad">${esc(msg)}</div>`:"";$("g-pw").value="";$("g-pin").value=""}
-const G_ERR={not_confirmed:"This account isn’t confirmed yet — open the email with the link, or tap «Forgot password?» to get it again",bad_login:"Wrong email or password",disabled:"Access to this account is suspended — contact support",locked:"Too many attempts — wait 15 minutes",email_taken:"This email is already registered — sign in",bad_email:"Check email",pw_too_short:"Password — at least 8 characters",need_names:"Fill in the company name and your name",bad_pin:"Wrong PIN",not_member:"This account has no access to this company",bad_token:"The link has expired or was already used — request a new one",pw_too_short:"Password — at least 8 characters",bad_email:"Enter email",locked:"Too many attempts — wait 15 minutes"};
+const G_ERR={not_confirmed:"This account isn’t confirmed yet — open the email with the link, or tap «Forgot password?» to get it again",bad_login:"Wrong email or password",disabled:"Access to this account is suspended — contact support",locked:"Too many attempts — wait 15 minutes",email_taken:"This email is already registered — sign in",bad_email:"Check email",pw_too_short:"Password — at least 8 characters",need_names:"Fill in the company name and your name",bad_pin:"Wrong PIN",not_member:"This account has no access to this company",bad_token:"The link has expired or was already used — request a new one",bad_2fa:"Wrong code — try again"};
 async function enterApp(token,me){PIN=token;ls.set("tok",token);ls.set("cl","");setMe(me);
   if(me.role==="prop"){location.replace("/proprietar"+location.search);return}
   if(!me.org){$("gate").hidden=false;$("g-msg").innerHTML=`<div class="msg bad">This account has no access to any company.</div>`;return}
@@ -4362,11 +4378,16 @@ async function gSubmit(){
       // the server signs in right away after the password is set from the email link
       if(j.token){ls.set("tok",j.token);ls.set("cl","");$("g-npw").value="";toast("Password saved");boot();return}
       gMode("login");$("g-email").value=j.email||"";$("g-msg").innerHTML=`<div class="msg">Password changed. Sign in with the new password.</div>`;setTimeout(()=>$("g-pw").focus(),60);return}
+    if(GMODE==="2fa"){const code=$("g-2fa").value.trim();if(!code||!TFA_CHAL)throw Object.assign(new Error(),{code:"bad_2fa"});
+      const r=await fetch("/api/auth_2fa_login",{method:"POST",headers:{"Content-Type":"application/json","X-Espace-Org":SLUG},body:JSON.stringify({challenge:TFA_CHAL,code})});
+      const j=await r.json().catch(()=>null);if(!r.ok)throw Object.assign(new Error(),{code:j&&j.message});
+      TFA_CHAL="";$("g-2fa").value="";await enterApp(j.token,j.me);return}
     if(GMODE==="maid"){const code=SLUG,pin=$("g-pin").value.trim();if(!pin)throw Object.assign(new Error(),{code:"bad_pin"});
       CORG=code;CPIN=pin;const me=await clApi("cl_login");await startCleaner(code,pin,me);return}
     const body={email:$("g-email").value.trim(),password:$("g-pw").value};
     const r=await fetch("/api/auth_login",{method:"POST",headers:{"Content-Type":"application/json","X-Espace-Org":SLUG},body:JSON.stringify(body)});
     const j=await r.json().catch(()=>null);if(!r.ok)throw Object.assign(new Error(),{code:j&&j.message});
+    if(j.need_2fa&&j.challenge){TFA_CHAL=j.challenge;$("g-pw").value="";gMode("2fa");$("g-msg").innerHTML=`<div class="msg">Enter the code from your app for two-step protection.</div>`;return}
     await enterApp(j.token,j.me);
   }catch(e){if(GMODE==="maid"){CPIN=null;CORG=""}$("g-msg").innerHTML=`<div class="msg bad">${esc(G_ERR[e.code]||(navigator.onLine?"The server isn’t responding — try again in a minute":"No internet"))}</div>`}
   finally{go.disabled=false}

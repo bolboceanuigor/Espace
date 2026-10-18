@@ -262,8 +262,9 @@ export async function handleAdmin(fn: string, body: any, c: Ctx, db: D1Database,
     // ---------- people: every account, across companies ----------
     case "sa_users": {
       const now = nowIso();
-      const users = await all(db, "SELECT u.id, u.email, u.name, u.created_at, u.last_login, u.disabled, CASE WHEN u.pw_hash = '' THEN 0 ELSE 1 END AS has_pw FROM users u ORDER BY u.created_at DESC LIMIT 3000")
-        .catch(() => all(db, "SELECT u.id, u.email, u.name, u.created_at, u.last_login, 0 AS disabled, CASE WHEN u.pw_hash = '' THEN 0 ELSE 1 END AS has_pw FROM users u ORDER BY u.created_at DESC LIMIT 3000"));
+      const users = await all(db, "SELECT u.id, u.email, u.name, u.created_at, u.last_login, u.disabled, CASE WHEN u.pw_hash = '' THEN 0 ELSE 1 END AS has_pw, CASE WHEN IFNULL(u.totp_secret,'') = '' THEN 0 ELSE 1 END AS totp FROM users u ORDER BY u.created_at DESC LIMIT 3000")
+        .catch(() => all(db, "SELECT u.id, u.email, u.name, u.created_at, u.last_login, u.disabled, CASE WHEN u.pw_hash = '' THEN 0 ELSE 1 END AS has_pw, 0 AS totp FROM users u ORDER BY u.created_at DESC LIMIT 3000"))
+        .catch(() => all(db, "SELECT u.id, u.email, u.name, u.created_at, u.last_login, 0 AS disabled, CASE WHEN u.pw_hash = '' THEN 0 ELSE 1 END AS has_pw, 0 AS totp FROM users u ORDER BY u.created_at DESC LIMIT 3000"));
       const [mem, ses] = await Promise.all([
         all(db, "SELECT m.user_id, m.role, o.id AS org_id, o.name, o.code FROM members m JOIN orgs o ON o.id = m.org_id ORDER BY m.created_at"),
         all(db, "SELECT user_id, COUNT(*) AS n FROM sessions WHERE expires_at > ? AND support = 0 GROUP BY user_id", now),
@@ -303,6 +304,15 @@ export async function handleAdmin(fn: string, body: any, c: Ctx, db: D1Database,
       ]);
       await logEvent(db, "member", "", actor, off ? `Cont suspendat: ${u.email}` : `Cont reactivat: ${u.email}`);
       return json(off);
+    }
+    case "sa_user_2fa_reset": { // clear TOTP so the person can sign in with password only and set 2FA up again
+      const u = await one(db, "SELECT id, email, totp_secret FROM users WHERE id = ?", str(body.user_id, 40)).catch(() => one(db, "SELECT id, email FROM users WHERE id = ?", str(body.user_id, 40)));
+      if (!u) return json({ message: "not_found" }, 404);
+      if (isSuperEmail(env, u.email)) return json({ message: "is_super" }, 409);
+      await run(db, "UPDATE users SET totp_secret = '', totp_pending = '', totp_backup = '[]' WHERE id = ?", u.id).catch(() => {});
+      await run(db, "DELETE FROM totp_chal WHERE user_id = ?", u.id).catch(() => {});
+      await logEvent(db, "member", "", actor, `2FA resetat: ${u.email}`);
+      return json(true);
     }
 
     // ---------- card top-ups (maib), every attempt ----------
