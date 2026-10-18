@@ -1493,7 +1493,7 @@ const catIcon=c=>CAT_ICON[c]||"📌";
 const catCol=c=>CAT_COL[Math.max(0,cfg.categories.indexOf(c))%CAT_COL.length];
 const telDigits=p=>(p||"").replace(/[^\d+]/g,"");
 
-const RO_OK=["kv_load","kv_photos","kv_guides","kv_task_photo","kv_push_key","kv_push_sub","billing","bill_invoice","bill_pay","bill_pay_status","auth_me","auth_logout","auth_switch","auth_password","auth_new_org"];
+const RO_OK=["kv_load","kv_photos","kv_guides","kv_task_photo","kv_push_key","kv_push_sub","billing","bill_invoice","bill_pay","bill_pay_status","auth_me","auth_logout","auth_switch","auth_password","auth_new_org","kv_guest_invoice_list","kv_discount_list"];
 const CHECK_OK=["kv_verify","kv_month_close","kv_month_open"];
 let ME=null, ROLE="", EXPIRED=false;
 const SLUG=(()=>{const h=location.hostname;if(h.endsWith(".espace.md"))return h.slice(0,-".espace.md".length);let c="";try{c=new URLSearchParams(location.search).get("c")||sessionStorage.getItem("es_c")||""}catch(e){}c=c.toLowerCase().replace(/[^a-z0-9-]/g,"");try{if(c)sessionStorage.setItem("es_c",c)}catch(e){}return c})();
@@ -2057,9 +2057,9 @@ document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest
   OWN=null;saveCfg({...cfg,owners:out},"Proprietarii au fost salvați")});
 /* CHANGE LOG: who changed what (bookings, expenses, payouts, settings, team) */
 const AF={date:"Data",apt:"Obiect",guest:"Oaspete",nights:"Nopți",mdl:"Lei",eur:"€",usd:"$",oth:"Altă valută",oth_cur:"Codul valutei",util:"Utilități",util_cur:"Valuta utilităților",pay:"Plată",who:"A primit",note:"Notă",source:"De unde",phone:"Telefon",pax:"Oaspeți",price:"Preț",price_cur:"Valuta prețului",pay_status:"Starea plății",tag:"Etichetă",category:"Categorie",yearly:"Anual",amount:"Suma",method:"Cum",paid_on:"Data plății",role:"Rol",created:"Adăugate",dup:"Existau deja",bad:"Omise",aptsAdded:"Obiecte noi",aptsRemoved:"Obiecte șterse",from:"Înainte",to:"Acum"};
-const AA={contract:"a creat contractul",signed:"oaspetele a semnat contractul",create:"a adăugat",update:"a modificat",delete:"a șters",request:"cerere de pe pagina de rezervare",confirm:"a confirmat cererea",decline:"a respins cererea",import:"import din fișier",rename:"a redenumit obiectul",pay:"a marcat plata",unpay:"a anulat marcarea plății",close:"a închis luna",open:"a redeschis luna",add:"a dat acces",remove:"a scos accesul",role:"a schimbat rolul"};
+const AA={contract:"a creat contractul",signed:"oaspetele a semnat contractul",invoice:"a emis factura oaspetelui",invoice_void:"a anulat factura oaspetelui",create:"a adăugat",update:"a modificat",delete:"a șters",request:"cerere de pe pagina de rezervare",confirm:"a confirmat cererea",decline:"a respins cererea",import:"import din fișier",rename:"a redenumit obiectul",pay:"a marcat plata",unpay:"a anulat marcarea plății",close:"a închis luna",open:"a redeschis luna",add:"a dat acces",remove:"a scos accesul",role:"a schimbat rolul"};
 const AK={booking:"Rezervare",expense:"Cheltuială",settings:"Setări",owner:"Proprietar",team:"Echipa",month:"Luna",import:"Import"};
-const AS={contract:"contract",tax:"impozite",taxPaid:"plata impozitelor",apts:"obiecte",units:"detaliile obiectelor",addr:"adrese",owners:"proprietari",pricing:"sezoane și prețuri",direct:"pagina de rezervare",rates:"cursul valutar",other:"alte valute",people:"manageri",checklist:"lista de verificare",onboarded:"configurarea inițială",archived:"arhiva obiectelor",payouts:"plăți menajere",duty:"graficul turelor",groups:"grupuri"};
+const AS={contract:"contract",tax:"impozite",taxPaid:"plata impozitelor",apts:"obiecte",units:"detaliile obiectelor",addr:"adrese",owners:"proprietari",pricing:"sezoane și prețuri",direct:"pagina de rezervare",invoice:"facturi oaspeți",rates:"cursul valutar",other:"alte valute",people:"manageri",checklist:"lista de verificare",onboarded:"configurarea inițială",archived:"arhiva obiectelor",payouts:"plăți menajere",duty:"graficul turelor",groups:"grupuri"};
 const PST={unpaid:"neachitat",part:"parțial",paid:"achitat"};
 function audVal(f,v){if(v==null||v===""||v===0&&!["nights","pax"].includes(f))return "—";if(Array.isArray(v))return v.map(esc).join(", ")||"—";
   if(f==="date"||f==="paid_on")return dm(String(v));if(f==="tag")return ((TAGS.find(t=>t[0]===v)||[])[1])||String(v);if(f==="pay_status")return PST[v]||String(v);
@@ -2164,6 +2164,23 @@ document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.c
     const msg=`Bună ziua! Contractul de închiriere nr. ${r.number} pentru ${b.apt}: ${r.url}`;if(w)w.location.href="https://wa.me/"+digits(b.phone)+"?text="+encodeURIComponent(msg);kLoad(bid);return}
   t.disabled=true;const r=await kMake(bid,!!d.ksend);t.disabled=false;if(!r)return;
   if(d.ksend)toast(r.mailed==="failed"?"Emailul nu a plecat — copiază linkul":"Contractul a fost trimis oaspetelui");else gCopy(r.url,"Linkul contractului a fost copiat — trimite-l oaspetelui");kLoad(bid)});
+/* GUEST INVOICES: company → guest, public PDF link /factura/<token> */
+async function invLoad(bid){const box=$("bv-inv");if(!box||box.dataset.bid!==bid)return;let list=[];try{list=await api("kv_guest_invoice_list",{booking_id:bid})||[]}catch(e){box.innerHTML="";return}
+  if(!$("bv-inv")||$("bv-inv").dataset.bid!==bid)return;const b=bookings.find(x=>x.id===bid)||{},ready=!!((cfg.invoice||{}).name);
+  const st=s=>({sent:"așteaptă plata",paid:"achitat",void:"anulată"}[s]||s);
+  const rows=(list||[]).map(x=>`<div class="small" style="margin:4px 0"><a href="${esc(x.url)}" target="_blank" rel="noopener">№ ${esc(x.number)}</a> · ${dm(x.issued_at)} · ${fmt0(x.amount)} ${esc(CUR_L[x.currency]||x.currency)} · ${st(x.status)}
+    ${RO||x.status==="void"?"":` · <button type="button" class="linkbtn" data-invcopy="${esc(x.url)}">link</button>${x.status==="sent"?` · <button type="button" class="linkbtn" data-invpaid="${esc(x.id)}" data-invbid="${esc(bid)}">achitat</button> · <button type="button" class="linkbtn" data-invvoid="${esc(x.id)}" data-invbid="${esc(bid)}">anulează</button>`:""}`}</div>`).join("");
+  box.innerHTML=`<div class="kst"><b>Factură oaspete</b><span class="small">${ready?(list.length?"facturi emise pe această rezervare":"din prețul rezervării — link și tipărire pentru oaspete"):"completează mai întâi furnizorul în Setări — Facturi oaspeți"}</span>
+    ${rows}${RO||!ready?"":`<div class="actions"><button type="button" class="btn sm primary" data-invmake="${esc(bid)}">Emite factura</button>${b.email?`<button type="button" class="btn sm" data-invsend="${esc(bid)}">Emite și trimite</button>`:""}</div>`}</div>`}
+document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("[data-invmake],[data-invsend],[data-invcopy],[data-invpaid],[data-invvoid]");if(!t)return;
+  if(t.dataset.invcopy){gCopy(t.dataset.invcopy,"Linkul facturii a fost copiat — trimite-l oaspetelui în mesaj");return}
+  const bid=t.dataset.invmake||t.dataset.invsend||t.dataset.invbid;
+  if(t.dataset.invpaid){try{await api("kv_guest_invoice_paid",{id:t.dataset.invpaid});invLoad(bid);toast("Factura a fost marcată ca plătită")}catch(x){toast("Nu a reușit")}return}
+  if(t.dataset.invvoid){if(!t.classList.contains("armed")){t.classList.add("armed");t.textContent="sigur?";return}try{await api("kv_guest_invoice_void",{id:t.dataset.invvoid});invLoad(bid);toast("Factura a fost anulată")}catch(x){toast("Nu a reușit")}return}
+  t.disabled=true;try{const r=await api("kv_guest_invoice_create",{booking_id:bid,send:!!t.dataset.invsend});
+    toast(t.dataset.invsend?(r.mailed==="failed"?"Factura e creată, emailul nu a plecat — copiază linkul":"Factura a fost trimisă oaspetelui"):("Счёт "+r.number));if(r.url)window.open(r.url,"_blank");invLoad(bid)}
+  catch(x){toast(x.code==="need_seller"?"Completează furnizorul în Setări — Facturi oaspeți":x.code==="bad_amount"?"Rezervarea nu are preț":x.code==="too_many_open"?"Deja sunt 5 facturi deschise":x.code==="no_email"?"Rezervarea nu are email":"Nu a reușit")}
+  finally{t.disabled=false}});
 let KT=null,KL="ro"; // contract template being edited
 function contractSection(){const c=cfg.contract||{};if(!KT)KT={...(c.tpl||{})};
   const f=(k,l,ph)=>`<div><label class="l" for="ks-${k}">${l}</label><input type="text" id="ks-${k}" value="${esc(c[k]||"")}" placeholder="${esc(ph||"")}" ${RO?"disabled":""}></div>`;
@@ -2258,6 +2275,57 @@ document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.c
   const direct={on:$("dr-on").checked,intro:$("dr-intro").value.trim().slice(0,400),phone:$("dr-phone").value.trim().slice(0,40),email:em,min:Math.max(1,Math.min(30,parseInt($("dr-min").value,10)||1)),terms:$("dr-terms").value.trim().slice(0,1500),arrival:$("dr-arr").checked,
     hidden:[...document.querySelectorAll("[data-drunit][aria-pressed=false]")].map(x=>x.dataset.drunit)};
   saveCfg({...cfg,direct},direct.on?"Pagina de rezervare e pornită":"Salvat")});
+function invoiceSection(){const i=cfg.invoice||{},f=(k,l,ph,mx)=>`<div><label class="l" for="inv-${k}">${l}</label><input type="text" id="inv-${k}" value="${esc(i[k]||"")}" placeholder="${esc(ph||"")}" maxlength="${mx||120}" ${RO?"disabled":""}></div>`;
+  return `<div class="card"><p class="small" style="margin-top:0">Aceste date apar pe factura către oaspete. Din rezervare — «Emite factura»: link și tipărire, numerotare separată pe companie. Poți trimite pe poșta oaspetelui sau copia în mesaj.</p>
+    <div class="grid2">${f("name","Furnizor — firmă sau nume","",120)}${f("idno","Cod de identificare","",30)}</div>
+    <div class="grid2">${f("vat_code","Cod TVA","",40)}${f("iban","Cont bancar","",40)}</div>
+    <div class="grid2">${f("bank","Bancă","",80)}${f("bic","Codul băncii","",20)}</div>
+    <label class="l" for="inv-address">Adresa</label><input type="text" id="inv-address" value="${esc(i.address||"")}" maxlength="300" ${RO?"disabled":""}>
+    <div class="grid2">${f("email","Email pe factură","",120)}${f("phone","Telefon","",40)}</div>
+    <div class="grid2"><div><label class="l" for="inv-prefix">Prefix număr</label><input type="text" id="inv-prefix" value="${esc(i.prefix||"F")}" maxlength="12" ${RO?"disabled":""}></div>
+      <div><label class="l" for="inv-due">Termen de plată, zile</label><input type="text" inputmode="numeric" id="inv-due" value="${esc(i.due_days??5)}" ${RO?"disabled":""}></div></div>
+    <div class="grid2"><div><label class="l" for="inv-lang">Limba facturii</label><select id="inv-lang" class="fsel" ${RO?"disabled":""}>${[["ro","Română"],["ru","Rusă"],["en","English"]].map(([v,l])=>`<option value="${v}"${(i.lang||"ro")===v?" selected":""}>${l}</option>`).join("")}</select></div>
+      <div><label class="l" for="inv-vatr">Cota TVA în procente</label><input type="text" inputmode="decimal" id="inv-vatr" value="${esc(i.vat_rate??20)}" ${RO?"disabled":""}></div></div>
+    <label class="dtog" style="margin-top:10px"><input type="checkbox" id="inv-vat" ${i.vat?"checked":""} ${RO?"disabled":""}><span><b>Plătitor de TVA</b><small>Pe factură apar suma fără TVA și TVA.</small></span></label>
+    <label class="l" for="inv-footer">Text jos pe factură</label><textarea id="inv-footer" rows="2" maxlength="500" ${RO?"disabled":""}>${esc(i.footer||"")}</textarea>
+    ${RO?"":`<div class="actions"><button type="button" class="btn primary" id="inv-save">Salvează</button></div>`}</div>`}
+document.addEventListener("click",e=>{if(e.target.id!=="inv-save")return;
+  const g=k=>(($("inv-"+k)||{}).value||"").trim();
+  const invoice={name:g("name").slice(0,120),idno:g("idno").slice(0,30),vat_code:g("vat_code").slice(0,40),iban:g("iban").slice(0,40),bank:g("bank").slice(0,80),bic:g("bic").slice(0,20),
+    address:g("address").slice(0,300),email:g("email").slice(0,120),phone:g("phone").slice(0,40),prefix:(g("prefix")||"F").slice(0,12),
+    due_days:Math.max(0,Math.min(90,parseInt(g("due"),10)||5)),lang:["ro","ru","en"].includes(g("lang"))?g("lang"):"ro",
+    vat:$("inv-vat").checked,vat_rate:Math.max(0,Math.min(40,parseFloat(String(g("vatr")).replace(",","."))||20)),footer:g("footer").slice(0,500)};
+  if(!invoice.name){toast("Completează furnizorul");return}
+  saveCfg({...cfg,invoice},"Datele pentru facturi au fost salvate")});
+let DISC=[];
+async function discLoad(){try{DISC=await api("kv_discount_list")||[]}catch(e){DISC=[]}if(setSec==="promo")renderSettings()}
+function discSection(){const rows=DISC.map(d=>`<div class="ckrow" style="flex-wrap:wrap;gap:6px;align-items:center"><b>${esc(d.code)}</b><span class="small">${d.kind==="pct"?d.value+"%":"−"+fmt0(d.value)+(d.currency?" "+d.currency:"")}${d.from_date||d.to_date?" · "+[d.from_date,d.to_date].filter(Boolean).map(dm).join("–"):""}${d.max_uses?" · "+d.used_count+"/"+d.max_uses:""}${d.apts&&d.apts.length?" · "+d.apts.length+" unități":""}${d.active?"":" · oprit"}</span>
+  ${RO?"":`<button type="button" class="btn sm" data-discedit="${esc(d.id)}">Modifică</button><button type="button" class="btn sm danger" data-discdel="${esc(d.id)}">Șterge</button>`}</div>`).join("")||`<p class="small">Încă nu sunt coduri. Oaspetele introduce codul pe pagina de rezervare — prețul scade.</p>`;
+  const e=DISC_EDIT||{id:"",code:"",kind:"pct",value:"",from_date:"",to_date:"",max_uses:"",apts:[],active:true,note:""};
+  return `<div class="card" style="padding-top:6px">${rows}</div>
+    ${RO?"":`<div class="card"><b>${e.id?"Modifică codul":"Cod nou de reducere"}</b>
+      <div class="grid2"><div><label class="l" for="dc-code">Cod</label><input id="dc-code" value="${esc(e.code)}" maxlength="40" placeholder="SUMMER10" style="text-transform:uppercase"></div>
+        <div><label class="l" for="dc-kind">Tip</label><select id="dc-kind" class="fsel"><option value="pct"${e.kind!=="sum"?" selected":""}>Procent</option><option value="sum"${e.kind==="sum"?" selected":""}>Suma</option></select></div></div>
+      <div class="grid2"><div><label class="l" for="dc-val">Valoare</label><input id="dc-val" inputmode="decimal" value="${esc(e.value)}" placeholder="10"></div>
+        <div><label class="l" for="dc-max">Max. folosiri <em>— zero fără limită</em></label><input id="dc-max" inputmode="numeric" value="${esc(e.max_uses||"0")}"></div></div>
+      <div class="grid2"><div><label class="l" for="dc-from">Valabil de la</label><input type="date" id="dc-from" value="${esc(e.from_date||"")}"></div>
+        <div><label class="l" for="dc-to">pe</label><input type="date" id="dc-to" value="${esc(e.to_date||"")}"></div></div>
+      <label class="l">Unități <em>— gol — toate pe pagină</em></label>
+      <div class="uamen">${(cfg.apts||[]).map(a=>`<button type="button" data-dcap="${esc(a)}" aria-pressed="${(e.apts||[]).includes(a)}">${esc(a)}</button>`).join("")||`<span class="small">Nu sunt unități</span>`}</div>
+      <label class="dtog" style="margin-top:10px"><input type="checkbox" id="dc-on" ${e.active!==false?"checked":""}><span><b>Activ</b></span></label>
+      <div class="actions"><button type="button" class="btn primary" id="dc-save">Salvează codul</button>${e.id?`<button type="button" class="btn" id="dc-cancel">Anulare</button>`:""}</div></div>`}`}
+let DISC_EDIT=null;
+document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("#dc-save,#dc-cancel,[data-discedit],[data-discdel],[data-dcap]");if(!t)return;
+  if(t.dataset.dcap!=null){t.setAttribute("aria-pressed",String(t.getAttribute("aria-pressed")!=="true"));return}
+  if(t.id==="dc-cancel"){DISC_EDIT=null;renderSettings();return}
+  if(t.dataset.discedit){DISC_EDIT=DISC.find(x=>x.id===t.dataset.discedit)||null;renderSettings();return}
+  if(t.dataset.discdel){if(!t.classList.contains("armed")){t.classList.add("armed");t.textContent="Sigur?";return}
+    try{await api("kv_discount_del",{id:t.dataset.discdel});DISC_EDIT=null;await discLoad();toast("Codul a fost șters")}catch(x){toast("Nu a reușit")}return}
+  if(t.id!=="dc-save")return;
+  const d={id:(DISC_EDIT&&DISC_EDIT.id)||"",code:$("dc-code").value.trim(),kind:$("dc-kind").value,value:$("dc-val").value,max_uses:$("dc-max").value,
+    from_date:$("dc-from").value,to_date:$("dc-to").value,active:$("dc-on").checked,
+    apts:[...document.querySelectorAll("[data-dcap][aria-pressed=true]")].map(x=>x.dataset.dcap)};
+  t.disabled=true;try{await api("kv_discount_save",{d});DISC_EDIT=null;await discLoad();toast("Codul a fost salvat")}catch(x){toast(x.code==="dup_code"?"Codul există deja":x.code==="bad_value"?"Verifică valoarea":"Nu a reușit")}finally{t.disabled=false}});
 function aptsSection(){
   const groups=[];cfg.apts.forEach((a,i)=>{const g=unitOf(a).group||"";let G=groups.find(x=>x.g===g);if(!G)groups.push(G={g,items:[]});G.items.push([a,i])});
   const multi=groups.length>1||groups[0]&&groups[0].g;
@@ -2515,7 +2583,8 @@ const LANG_T={ro:"Română",ru:"Rusă",en:"English",uk:"Ucraineană",other:"alta
 function xRows(b){const x=b.x||{},u=unitOf(b.apt),cs=(v,c)=>fmt0(v)+" "+(CUR_L[c]||c||"");
   return [["Copii",x.kids?String(x.kids):""],["Limba",LANG_T[x.lang]||""],["Ora",x.tin||x.tout?"sosire "+(x.tin||u.cin||"14:00")+" · plecare "+(x.tout||u.cout||"12:00"):""],
     ["Pentru echipă",x.team||""],["Garanție",x.dep||x.dep_st?[x.dep?cs(x.dep,x.dep_cur||"MDL"):"",DEP_T[x.dep_st]||"",x.dep_st==="kept"&&x.dep_kept?"reținut "+cs(x.dep_kept,x.dep_cur||"MDL")+(x.dep_note?" ("+x.dep_note+")":""):""].filter(Boolean).join(" · "):""],
-    ["Comision",x.com?cs(x.com,b.price_cur||"EUR")+(x.com_pct?" ("+x.com_pct+"%)":""):""]]}
+    ["Comision",x.com?cs(x.com,b.price_cur||"EUR")+(x.com_pct?" ("+x.com_pct+"%)":""):""],
+    ["Reducere",x.disc_code?`${x.disc_code} · −${cs(x.disc_off,b.price_cur||"EUR")}${x.disc_kind==="pct"?" ("+x.disc_value+"%)":""}`:""]]}
 function bookView(id){const b=bookings.find(x=>x.id===id);if(!b)return;const tg=TAGS.find(x=>x[0]===tagOf(b));
   const nn=+b.nights||0,nw=nn%10===1&&nn%100!==11?"noapte":[2,3,4].includes(nn%10)&&![12,13,14].includes(nn%100)?"nopți":"nopți";
   const cs=v=>fmt0(v)+" "+(CUR_L[b.price_cur||"EUR"]||b.price_cur||"");
@@ -2530,6 +2599,7 @@ function bookView(id){const b=bookings.find(x=>x.id===id);if(!b)return;const tg=
    ${b.tag==="req"&&!RO?`<div class="bv-req"><p class="small">Cerere de pe pagina de rezervare${b.email?" · "+esc(b.email):""}${b.pax?" · oaspeți: "+b.pax:""}. Datele sunt ținute pentru ea deocamdată.</p><div class="actions"><button type="button" class="btn primary" data-reqok="${esc(b.id)}">✓ Confirmă</button><button type="button" class="btn danger" data-reqno="${esc(b.id)}">Respinge</button></div></div>`:""}
    ${RO?"":`<button type="button" class="btn${b.tag==="req"?"":" primary"} bv-edit" data-bedit="${esc(b.id)}">Modifică rezervarea</button>`}
    ${b.nights>0&&b.tag!=="closed"?`<div class="bv-ct2" id="bv-k" data-bid="${esc(b.id)}">${(setTimeout(()=>kLoad(b.id),0),"")}</div>`:""}
+   ${b.nights>0&&b.tag!=="closed"?`<div class="bv-ct2" id="bv-inv" data-bid="${esc(b.id)}">${(setTimeout(()=>invLoad(b.id),0),"")}</div>`:""}
    <button type="button" class="linkbtn" data-audref="${esc(b.id)}" style="margin-top:10px">🕘 Istoricul modificărilor</button></div>`)}
 document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("[data-reqok],[data-reqno]");if(!t)return;const ok=!!t.dataset.reqok,id=t.dataset.reqok||t.dataset.reqno;
   if(!ok&&!t.classList.contains("armed")){t.classList.add("armed");t.textContent="Sigur respingi?";return}
@@ -3271,6 +3341,8 @@ function renderSettings(){
     owners:["mgr","Proprietari",(cfg.owners||[]).length?(cfg.owners||[]).map(o=>o.name).join(", "):"comision, plăți și raport lunar",()=>ownersSection()],
     import:["chk","Import din Excel",`rezervări și obiecte dintr-un fișier · Excel, CSV, RealtyCalendar`,()=>importSection()],
     direct:["web","Pagina de rezervare",cfg.direct&&cfg.direct.on?"pornită · "+ME.org.code+".espace.md/rezerva":"oaspeții rezervă direct, fără comision",()=>directSection()],
+    invoice:["chk","Facturi oaspeți",(cfg.invoice||{}).name?"furnizor — "+(cfg.invoice||{}).name:"date furnizor, TVA, numerotare",()=>invoiceSection()],
+    promo:["rate","Coduri de reducere",DISC.length?DISC.filter(x=>x.active).length+" "+plural(DISC.filter(x=>x.active).length,"activ","active","active"):"procent sau sumă pe pagina de rezervare",()=>{setTimeout(discLoad,0);return discSection()}],
     people:["mgr","Manageri",cfg.people.join(", ")||"neindicate",()=>`<div class="card"><label class="l" for="set-people">Managerii — cine primește bani și lucrează în ture <em>— separate prin virgulă</em></label><input type="text" id="set-people" value="${esc(cfg.people.join(", "))}">
       <div class="actions"><button class="btn primary" id="save-people">Salvează</button></div></div>
     `],

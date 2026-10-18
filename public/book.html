@@ -140,7 +140,7 @@ const T={
    pick:"Alege datele ca să vezi ce e liber și cât costă.",found:n=>n===1?"1 variantă liberă":n+" variante libere",none:"Nimic liber pentru aceste date. Încearcă alte zile.",
    busy:"Ocupat în aceste zile.",freeFrom:"Liber din",tryIt:"Alege aceste date",tooMany:c=>`Încap maximum ${c} persoane.`,minN:n=>`Minimum ${n} ${n===1?"noapte":"nopți"}.`,
    free:"liber",taken:"ocupat",guestsL:"pers.",bedrooms:["dormitor","dormitoare","de dormitoare"],m2:"m²",
-   reqH:"Cerere de rezervare",yourName:"Numele",phone:"Telefon / WhatsApp",email:"Email",msg:"Mesaj (opțional)",send:"Trimite cererea",back:"Înapoi",
+   reqH:"Cerere de rezervare",yourName:"Numele",phone:"Telefon / WhatsApp",email:"Email",msg:"Mesaj (opțional)",promo:"Cod de reducere",promoGo:"Aplică",promoOk:"Reducere aplicată",promoBad:"Cod invalid sau expirat",disc:"reducere",send:"Trimite cererea",back:"Înapoi",
    need:"Scrie numele și un telefon sau un email.",badEmail:"Verifică emailul.",net:"Nu e legătură. Încearcă din nou.",takenErr:"Între timp, aceste date au fost rezervate. Alege altele.",lock:"Prea multe cereri. Încearcă peste 15 minute.",
    after:"Cererea nu e încă o rezervare: gazda o confirmă și primești răspunsul pe email sau la telefon.",
    doneH:"Cererea a fost trimisă",doneP:(o)=>`${o} a primit cererea. Te contactează în curând pentru confirmare.`,close:"Închide",
@@ -153,7 +153,7 @@ const T={
    pick:"Выберите даты, чтобы увидеть свободные варианты и цену.",found:n=>"Свободно: "+n,none:"На эти даты свободных нет. Попробуйте другие дни.",
    busy:"На эти даты занято.",freeFrom:"Свободно с",tryIt:"Выбрать эти даты",tooMany:c=>`Вмещает максимум ${c} чел.`,minN:n=>`Минимум ${n} ноч.`,
    free:"свободно",taken:"занято",guestsL:"чел.",bedrooms:["спальня","спальни","спален"],m2:"м²",
-   reqH:"Заявка на бронирование",yourName:"Имя",phone:"Телефон / WhatsApp",email:"Email",msg:"Сообщение (необязательно)",send:"Отправить заявку",back:"Назад",
+   reqH:"Заявка на бронирование",yourName:"Имя",phone:"Телефон / WhatsApp",email:"Email",msg:"Сообщение (необязательно)",promo:"Промокод",promoGo:"Применить",promoOk:"Скидка применена",promoBad:"Код недействителен или истёк",disc:"скидка",send:"Отправить заявку",back:"Назад",
    need:"Напишите имя и телефон или email.",badEmail:"Проверьте email.",net:"Нет связи. Попробуйте ещё раз.",takenErr:"Пока вы выбирали, эти даты заняли. Выберите другие.",lock:"Слишком много заявок. Попробуйте через 15 минут.",
    after:"Заявка — ещё не бронь: хозяин подтвердит её, ответ придёт на email или по телефону.",
    doneH:"Заявка отправлена",doneP:(o)=>`${o} получил заявку и скоро свяжется с вами для подтверждения.`,close:"Закрыть",
@@ -166,7 +166,7 @@ const T={
    pick:"Choose your dates to see what’s free and the price.",found:n=>n===1?"1 option free":n+" options free",none:"Nothing free for these dates. Try other days.",
    busy:"Taken on these dates.",freeFrom:"Free from",tryIt:"Pick these dates",tooMany:c=>`Sleeps up to ${c}.`,minN:n=>`Minimum ${n} ${n===1?"night":"nights"}.`,
    free:"free",taken:"taken",guestsL:"guests",bedrooms:["bedroom","bedrooms","bedrooms"],m2:"m²",
-   reqH:"Booking request",yourName:"Name",phone:"Phone / WhatsApp",email:"Email",msg:"Message (optional)",send:"Send request",back:"Back",
+   reqH:"Booking request",yourName:"Name",phone:"Phone / WhatsApp",email:"Email",msg:"Message (optional)",promo:"Promo code",promoGo:"Apply",promoOk:"Discount applied",promoBad:"Code invalid or expired",disc:"discount",send:"Send request",back:"Back",
    need:"Add your name and a phone or email.",badEmail:"Check the email.",net:"No connection. Try again.",takenErr:"These dates were just booked. Choose others.",lock:"Too many requests. Try again in 15 minutes.",
    after:"A request isn’t a booking yet: the host confirms it and you get the answer by email or phone.",
    doneH:"Request sent",doneP:(o)=>`${o} got your request and will contact you soon to confirm.`,close:"Close",
@@ -237,19 +237,27 @@ function loadPhotos(){const els=[...document.querySelectorAll("[data-ph]")];
   if(!("IntersectionObserver" in window)){els.forEach(put);return}
   io&&io.disconnect();io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){io.unobserve(e.target);put(e.target)}}),{rootMargin:"300px"});els.forEach(el=>PH[el.dataset.ph]?put(el):io.observe(el))}
 function openReq(name){const u=D.units.find(x=>x.name===name);if(!u)return;const nights=Math.round((toT(dout)-toT(din))/DAY);
-  const sh=$("sh");sh.innerHTML=`<h3 id="sh-h">${t("reqH")}</h3><div class="sum"><div><span>${esc(u.name)}</span><span>${fdm(din)} — ${fdm(dout)}</span></div><div><span>${t("guestsS")}: ${G}${K?` + ${K} ${t("kidsS")}`:""}</span><span>${nights} ${plural(nights,t("night"))}</span></div>${(()=>{const q=quoteU(u,din,nights),row=(k,v)=>`<div><span>${k}</span><span>${v}</span></div>`;return row(`${nights} ${plural(nights,t("night"))}`,money(q.base,u.pcur))+(q.xg?row(t("xg"),money(q.xg,u.pcur)):"")+(q.xc?row(t("xc"),money(q.xc,u.pcur)):"")+(q.los?row(`${t("los")} −${q.losPct}%`,"− "+money(q.los,u.pcur)):"")})()}${+u.cfee>0?`<div><span>${t("cfee")}</span><span>${money(+u.cfee,u.pcur)}</span></div>`:""}<div class="t"><span>${t("total")}</span><span>${money(totalU(u,din,nights),u.pcur)}</span></div>${+u.dep>0?`<div><span>${t("dep")}</span><span>${money(+u.dep,u.pcur)}</span></div>`:""}</div>
+  let disc=null;const baseTot=totalU(u,din,nights);
+  const paintSum=()=>{const box=$("r-sum");if(!box)return;const q=quoteU(u,din,nights),row=(k,v)=>`<div><span>${k}</span><span>${v}</span></div>`;
+    const tot=disc?disc.total:baseTot;
+    box.innerHTML=`<div><span>${esc(u.name)}</span><span>${fdm(din)} — ${fdm(dout)}</span></div><div><span>${t("guestsS")}: ${G}${K?` + ${K} ${t("kidsS")}`:""}</span><span>${nights} ${plural(nights,t("night"))}</span></div>${row(`${nights} ${plural(nights,t("night"))}`,money(q.base,u.pcur))+(q.xg?row(t("xg"),money(q.xg,u.pcur)):"")+(q.xc?row(t("xc"),money(q.xc,u.pcur)):"")+(q.los?row(`${t("los")} −${q.losPct}%`,"− "+money(q.los,u.pcur)):"")}${+u.cfee>0?`<div><span>${t("cfee")}</span><span>${money(+u.cfee,u.pcur)}</span></div>`:""}${disc?`<div><span>${t("disc")} ${esc(disc.code)}</span><span>− ${money(disc.off,u.pcur)}</span></div>`:""}<div class="t"><span>${t("total")}</span><span>${money(tot,u.pcur)}</span></div>${+u.dep>0?`<div><span>${t("dep")}</span><span>${money(+u.dep,u.pcur)}</span></div>`:""}`};
+  const sh=$("sh");sh.innerHTML=`<h3 id="sh-h">${t("reqH")}</h3><div class="sum" id="r-sum"></div>
     <form id="rf" novalidate><div class="f"><label for="r-name">${t("yourName")}</label><input id="r-name" autocomplete="name" maxlength="80" required></div>
     <div class="two"><div class="f"><label for="r-phone">${t("phone")}</label><input id="r-phone" type="tel" autocomplete="tel" maxlength="40"></div><div class="f"><label for="r-email">${t("email")}</label><input id="r-email" type="email" autocomplete="email" maxlength="120"></div></div>
+    ${D.discounts?`<div class="f"><label for="r-promo">${t("promo")}</label><div class="two" style="gap:8px;align-items:end"><input id="r-promo" maxlength="40" style="text-transform:uppercase" autocomplete="off"><button type="button" class="ghost" id="r-promo-go" style="height:46px">${t("promoGo")}</button></div><p class="note" id="r-promo-msg" style="margin:6px 0 0"></p></div>`:""}
     <div class="f"><label for="r-msg">${t("msg")}</label><textarea id="r-msg" rows="2" maxlength="600"></textarea></div>
     <p class="note">${t("after")}</p><p class="msg" id="r-err" role="alert"></p>
     <div class="acts"><button type="button" class="ghost" data-close="1">${t("back")}</button><button class="go" id="r-go">${t("send")}</button></div></form>`;
-  $("sheet").hidden=false;setTimeout(()=>$("r-name").focus(),50);
+  paintSum();$("sheet").hidden=false;setTimeout(()=>$("r-name").focus(),50);
+  const pgo=$("r-promo-go");if(pgo)pgo.onclick=async()=>{const code=($("r-promo").value||"").trim(),msg=$("r-promo-msg");if(!code){disc=null;msg.textContent="";paintSum();return}
+    pgo.disabled=true;try{const r=await api("pub_discount",{code,apt:u.name,date:din,nights,guests:G,kids:K});disc={code:r.code,off:r.off,total:r.total};msg.textContent=t("promoOk");paintSum()}
+    catch(x){disc=null;msg.textContent=t("promoBad");paintSum()}finally{pgo.disabled=false}};
   $("rf").onsubmit=async e=>{e.preventDefault();const v={name:$("r-name").value.trim(),phone:$("r-phone").value.trim(),email:$("r-email").value.trim(),message:$("r-msg").value.trim()},err=$("r-err");
     if(!v.name||(!v.phone&&!v.email)){err.textContent=t("need");return}if(v.email&&!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.email)){err.textContent=t("badEmail");return}
-    const b=$("r-go");b.disabled=true;try{await api("pub_request",{...v,apt:u.name,date:din,nights,guests:G,kids:K,lang:L});
+    const b=$("r-go");b.disabled=true;try{await api("pub_request",{...v,apt:u.name,date:din,nights,guests:G,kids:K,lang:L,discount:disc?disc.code:(($("r-promo")||{}).value||"").trim()});
       sh.innerHTML=`<div class="done"><div class="ok">✓</div><h3 id="sh-h">${t("doneH")}</h3><p>${esc(t("doneP")(D.name))}</p><div class="sum"><div><span>${esc(u.name)}</span><span>${fdm(din)} — ${fdm(dout)}</span></div></div><div class="acts"><button type="button" class="go" data-close="1">${t("close")}</button></div></div>`;
       u.busy=[...(u.busy||[]),[din,nights]];render()}
-    catch(x){b.disabled=false;err.textContent=x.code==="bad_dates"&&x.data&&x.data.why?whyText(x.data):x.code==="taken"?t("takenErr"):x.code==="locked"?t("lock"):x.code==="too_many_guests"?t("tooMany")(x.data.cap):x.code==="need_contact"?t("need"):t("net");if(x.code==="taken")load()}}}
+    catch(x){b.disabled=false;err.textContent=x.code==="bad_dates"&&x.data&&x.data.why?whyText(x.data):x.code==="taken"?t("takenErr"):x.code==="locked"?t("lock"):x.code==="too_many_guests"?t("tooMany")(x.data.cap):x.code==="need_contact"?t("need"):["bad_code","expired","exhausted","not_started","wrong_unit"].includes(x.code)?t("promoBad"):t("net");if(x.code==="taken")load()}}}
 function closeSheet(){$("sheet").hidden=true}
 document.addEventListener("click",e=>{const b=e.target.closest("[data-book],[data-try],[data-close],[data-l]");if(!b){if(e.target===$("sheet"))closeSheet();return}
   if(b.dataset.l){L=b.dataset.l;try{localStorage.setItem("es_book_lang",L)}catch(x){}renderStatic();if(D)render();return}

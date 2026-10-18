@@ -447,6 +447,51 @@ CREATE TABLE IF NOT EXISTS maib_payments (
 );
 CREATE INDEX IF NOT EXISTS maib_payments_org_idx ON maib_payments(org_id, created_at);
 
+-- invoices issued by a company to its guests (printable at /factura/<token>); separate from platform invoices at /f/
+CREATE TABLE IF NOT EXISTS guest_invoices (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL,
+  booking_id TEXT NOT NULL DEFAULT '',
+  number TEXT NOT NULL,
+  token TEXT NOT NULL UNIQUE,
+  issued_at TEXT NOT NULL,
+  due_at TEXT NOT NULL,
+  amount REAL NOT NULL DEFAULT 0,
+  currency TEXT NOT NULL DEFAULT 'MDL',
+  lang TEXT NOT NULL DEFAULT 'ro',
+  status TEXT NOT NULL DEFAULT 'sent',     -- sent | paid | void
+  paid_at TEXT NOT NULL DEFAULT '',
+  buyer TEXT NOT NULL DEFAULT '{}',
+  seller TEXT NOT NULL DEFAULT '{}',
+  lines TEXT NOT NULL DEFAULT '[]',
+  note TEXT NOT NULL DEFAULT '',
+  vat INTEGER NOT NULL DEFAULT 0,
+  vat_rate REAL NOT NULL DEFAULT 20,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS guest_invoices_org_number ON guest_invoices(org_id, number);
+CREATE INDEX IF NOT EXISTS guest_invoices_org_bk ON guest_invoices(org_id, booking_id);
+CREATE INDEX IF NOT EXISTS guest_invoices_token_idx ON guest_invoices(token);
+
+-- promo / discount codes for the public booking page (percent or fixed sum)
+CREATE TABLE IF NOT EXISTS discount_codes (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL,
+  code TEXT NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'pct',       -- pct | sum
+  value REAL NOT NULL DEFAULT 0,
+  currency TEXT NOT NULL DEFAULT '',
+  from_date TEXT NOT NULL DEFAULT '',
+  to_date TEXT NOT NULL DEFAULT '',
+  max_uses INTEGER NOT NULL DEFAULT 0,    -- 0 = unlimited
+  used_count INTEGER NOT NULL DEFAULT 0,
+  apts TEXT NOT NULL DEFAULT '[]',        -- JSON list of unit names; empty = all
+  active INTEGER NOT NULL DEFAULT 1,
+  note TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS discount_codes_org_code ON discount_codes(org_id, code);
+
 -- prices and rules per unit per day, set from the calendar (price mode) or in bulk: overrides the unit's price, seasons and weekend %
 CREATE TABLE IF NOT EXISTS day_rates (
   org_id TEXT NOT NULL,

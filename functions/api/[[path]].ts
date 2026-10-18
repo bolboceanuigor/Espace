@@ -15,6 +15,10 @@ import { botName, linkCode, webhookSecret, handleUpdate, tgNotify } from "../../
 import { syncFeed, syncDue, feedUrlOk, sourceOf, newIcalKey } from "../../lib/ical";
 import { contractTexts, fill, DEFAULT_TPL } from "../../lib/contract";
 import { maibConfig, maibCheckout, maibVerify } from "../../lib/maib";
+import {
+  createGuestInvoice, findDiscount, applyDiscount, bumpDiscountUse,
+  listDiscounts, normalizeCode, rowToDiscount,
+} from "../../lib/guest_invoice";
 
 
 // A one-time link to set a password. Opening it proves the email belongs to the person, so it is the only way
@@ -370,6 +374,7 @@ function extraOf(x: any) {
     kids: Math.max(0, Math.min(50, Math.floor(num(x.kids)))), lang: str(x.lang, 12), tin: t(x.tin), tout: t(x.tout), team: str(x.team, 600),
     dep: num(x.dep), dep_cur: cur(x.dep_cur), dep_st: ["held", "back", "kept"].includes(x.dep_st) ? x.dep_st : "", dep_kept: num(x.dep_kept), dep_note: str(x.dep_note, 200),
     com_pct: Math.min(100, num(x.com_pct)), com: num(x.com),
+    disc_code: str(x.disc_code, 40), disc_off: num(x.disc_off), disc_kind: ["pct", "sum"].includes(x.disc_kind) ? x.disc_kind : "", disc_value: num(x.disc_value),
   };
   for (const k of Object.keys(o)) if (o[k] === "" || o[k] === 0) delete o[k];
   return JSON.stringify(o);
@@ -452,7 +457,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     return json({ company: r.org_name, slug: r.code, ym: r.ym, at: r.updated_at || r.created_at, data: JSON.parse(r.data), paid: paid || null });
   }
   // ---------- direct booking page (<slug>.espace.md/rezerva), public ----------
-  if (fn === "pub_listing" || fn === "pub_request" || fn === "pub_photo") {
+  if (fn === "pub_listing" || fn === "pub_request" || fn === "pub_photo" || fn === "pub_discount") {
     const code = (reqSlug || str(body.slug, 40)).toLowerCase();
     const org = isSlug(code) ? await one(db, "SELECT * FROM orgs WHERE code = ?", code) : null;
     if (!org) return json({ message: "not_found" }, 404);
@@ -470,12 +475,24 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     const busy = (apt: string, from: string, nights: number) => taken.some((b: any) => b.apt === apt && b.date < addDays(from, nights) && addDays(b.date, b.nights) > from);
     if (fn === "pub_listing") {
       const PUB = ["kind", "group", "area", "bedrooms", "baths", "floor", "beds", "guests", "price", "pcur", "cin", "cout", "amen", "rtype", "minn", "cfee", "dep", "layout", "dow", "xg", "xgFrom", "xc", "los", "bufB", "bufA", "arr", "lead", "maxn"];
+      const discN = await one(db, "SELECT COUNT(*) AS n FROM discount_codes WHERE org_id = ? AND active = 1", org.id).catch(() => ({ n: 0 }));
       return json({
         name: org.name, slug: org.code, min: Math.max(1, +dir.min || 1), pricing: { weekend: +(cfg.pricing?.weekend) || 0, seasons: (cfg.pricing?.seasons || []).map((x: any) => ({ from: x.from, to: x.to, pct: +x.pct || 0, min: +x.min || 0 })) }, phone: dir.phone || "", email: dir.email || "", terms: dir.terms || "", intro: dir.intro || "",
         units: units.map((a: string) => { const u = (cfg.units || {})[a] || {}, o: any = { name: a, addr: dir.addr === false ? "" : ((cfg.addr || {})[a] || "").split(",")[0] }; for (const k of PUB) if (u[k] != null && u[k] !== "") o[k] = u[k];
           o.busy = taken.filter((b: any) => b.apt === a && addDays(b.date, b.nights) > t).map((b: any) => [b.date, b.nights]); o.rules = rules[a] || {}; return o; }),
-        today: t,
+        today: t, discounts: !!(discN && discN.n > 0),
       });
+    }
+    if (fn === "pub_discount") {
+      const apt = str(body.apt, 100), date = isDate(body.date) ? body.date : "", nights = Math.floor(num(body.nights));
+      const pax = Math.max(1, Math.min(50, Math.floor(num(body.guests)) || 1)), kids = Math.max(0, Math.min(20, Math.floor(num(body.kids)) || 0));
+      if (!units.includes(apt) || !date || !(nights > 0)) return json({ message: "bad_dates" }, 400);
+      const u = (cfg.units || {})[apt] || {};
+      const q = EsPrice.quote(u, date, nights, { P: cfg.pricing, R: rules[apt] || {}, pax, kids });
+      const row = await findDiscount(db, org.id, str(body.code, 40));
+      const ap = applyDiscount(row, q.total, apt, date);
+      if (!ap.ok) return json({ message: ap.message }, 400);
+      return json({ ok: true, code: row.code, kind: ap.kind, value: ap.value, off: ap.off, total: Math.max(0, Math.round((q.total - ap.off) * 100) / 100), base: q.total, cur: ["EUR", "MDL", "USD"].includes(u.pcur) ? u.pcur : "EUR" });
     }
     // pub_request: a guest asks for dates; it lands in the calendar as a request the manager confirms or declines
     const ip = request.headers.get("cf-connecting-ip") || "x", local = ["localhost", "127.0.0.1"].includes(new URL(request.url).hostname);
@@ -490,17 +507,27 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     const ck = EsPrice.check(u, date, nights, { P: cfg.pricing, R: rules[apt] || {}, dirMin: +dir.min || 1, today: t, busy: busyList, pax, kids });
     if (!ck.ok) return ck.why === "taken" ? json({ message: "taken" }, 409) : ck.why === "guests" ? json({ message: "too_many_guests", cap }, 400) : json({ message: "bad_dates", why: ck.why, min: ck.min }, 400);
     const q = EsPrice.quote(u, date, nights, { P: cfg.pricing, R: rules[apt] || {}, pax, kids });
-    const price = q.total, cur = ["EUR", "MDL", "USD"].includes(u.pcur) ? u.pcur : "EUR";
+    let price = q.total, discExtra: any = null;
+    const wantCode = normalizeCode(str(body.discount, 40));
+    if (wantCode) {
+      const row = await findDiscount(db, org.id, wantCode);
+      const ap = applyDiscount(row, q.total, apt, date);
+      if (!ap.ok) return json({ message: ap.message }, 400);
+      price = Math.max(0, Math.round((q.total - ap.off) * 100) / 100);
+      discExtra = { disc_code: row.code, disc_off: ap.off, disc_kind: ap.kind, disc_value: ap.value };
+      await bumpDiscountUse(db, org.id, row.id);
+    }
+    const cur = ["EUR", "MDL", "USD"].includes(u.pcur) ? u.pcur : "EUR";
     const id = uuid(), now = nowIso(), msg = str(body.message, 600).trim();
     await run(db, `INSERT INTO bookings(id, org_id, date, apt, guest, nights, phone, email, pax, source, tag, note, price, price_cur, pay_status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,'Прямой','req',?,?,?, 'unpaid', ?, ?)`,
-      id, org.id, date, apt, name, nights, phone, email, pax + kids, ("Cerere online" + (kids ? ` (${pax} adulți, ${kids} copii)` : "") + (msg ? ": " + msg : "")).slice(0, 1000), price, cur, now, now);
-    { const ex = extraOf({ kids, lang: ["ro", "ru", "en"].includes(body.lang) ? body.lang : "" }); if (ex && ex !== "{}") await run(db, "UPDATE bookings SET extra = ? WHERE org_id = ? AND id = ?", ex, org.id, id).catch(() => {}); }
-    await audit(db, org.id, null, "booking", "request", id, bLabel({ apt, date, guest: name }), { nights, pax, price, price_cur: cur }, "web");
-    await notify(db, org.id, ["manager"], { title: `Cerere de rezervare: ${apt}`, body: `${name} · ${date} · ${nights} n. · ${pax} pers.${phone ? " · " + phone : ""}` });
+      id, org.id, date, apt, name, nights, phone, email, pax + kids, ("Cerere online" + (kids ? ` (${pax} adulți, ${kids} copii)` : "") + (wantCode ? ` · cod ${wantCode}` : "") + (msg ? ": " + msg : "")).slice(0, 1000), price, cur, now, now);
+    { const ex = extraOf({ kids, lang: ["ro", "ru", "en"].includes(body.lang) ? body.lang : "", ...(discExtra || {}) }); if (ex && ex !== "{}") await run(db, "UPDATE bookings SET extra = ? WHERE org_id = ? AND id = ?", ex, org.id, id).catch(() => {}); }
+    await audit(db, org.id, null, "booking", "request", id, bLabel({ apt, date, guest: name }), { nights, pax, price, price_cur: cur, discount: wantCode || undefined }, "web");
+    await notify(db, org.id, ["manager"], { title: `Cerere de rezervare: ${apt}`, body: `${name} · ${date} · ${nights} n. · ${pax} pers.${phone ? " · " + phone : ""}${wantCode ? " · " + wantCode : ""}` });
     const owner = await orgEmail(db, org.id);
     if (owner) await sendMail(env, db, { to: owner, ...mails.requestNew(org.name, org.code, { apt, date, nights, pax, name, phone, email, msg, price, cur }), kind: "request", orgId: org.id });
     if (email) await sendMail(env, db, { to: email, ...mails.requestGot(org.name, { apt, date, nights, pax, price, cur, phone: dir.phone || "", email: dir.email || "" }), kind: "request", orgId: org.id });
-    return json({ ok: true, id, price, cur });
+    return json({ ok: true, id, price, cur, discount: discExtra });
   }
   if (fn === "site_info") { // the operator's public details for the legal pages
     const st = await getSettings(db);
@@ -1180,6 +1207,84 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
         mailed = await sendMail(env, db, { to, ...mails.contractLink(org.name, { number: k.number, apt: b.apt, date: b.date, nights: b.nights, url }), kind: "contract", orgId: O });
       }
       return json({ token: k.token, number: k.number, status: k.status, url, mailed });
+    }
+    // ---------- guest invoices (company → guest; public PDF at /factura/<token>) ----------
+    case "kv_guest_invoice_list": {
+      const bid = str(body.booking_id, 40);
+      const rows = bid
+        ? await all(db, "SELECT id, booking_id, number, token, issued_at, due_at, amount, currency, lang, status, paid_at, note FROM guest_invoices WHERE org_id = ? AND booking_id = ? ORDER BY created_at DESC", O, bid)
+        : await all(db, "SELECT id, booking_id, number, token, issued_at, due_at, amount, currency, lang, status, paid_at, note FROM guest_invoices WHERE org_id = ? ORDER BY created_at DESC LIMIT 100", O);
+      return json(rows.map((r: any) => ({ ...r, url: `https://${org.code}.espace.md/factura/${r.token}` })));
+    }
+    case "kv_guest_invoice_create": {
+      const b = await one(db, "SELECT * FROM bookings WHERE org_id = ? AND id = ?", O, str(body.booking_id, 40));
+      if (!b) return json({ message: "not_found" }, 404);
+      const cfg = (await getConfig(db, O)) || {};
+      const r = await createGuestInvoice(db, org, cfg, b, { amount: body.amount, note: str(body.note, 500), actor: c.user.email });
+      if ("error" in r) return json({ message: r.error }, r.error === "need_seller" ? 409 : 400);
+      await audit(db, O, c, "booking", "invoice", b.id, bLabel(b), { number: r.number, amount: r.amount });
+      let mailed = "";
+      const to = str(body.email, 200).trim() || b.email;
+      if (body.send === true) {
+        if (!isEmail(to)) return json({ message: "no_email", ...r }, 400);
+        mailed = await sendMail(env, db, { to, ...mails.guestInvoice(org.name, { number: r.number, amount: r.amount, cur: r.currency, due: r.due_at, url: r.url, apt: b.apt, date: b.date }), kind: "guest_invoice", orgId: O, key: "ginv:" + r.id });
+      }
+      return json({ ...r, mailed });
+    }
+    case "kv_guest_invoice_void": {
+      const id = str(body.id, 40);
+      const row = await one(db, "SELECT * FROM guest_invoices WHERE org_id = ? AND id = ?", O, id);
+      if (!row) return json({ message: "not_found" }, 404);
+      if (row.status === "void") return json({ ok: true });
+      await run(db, "UPDATE guest_invoices SET status = 'void' WHERE org_id = ? AND id = ?", O, id);
+      await audit(db, O, c, "booking", "invoice_void", row.booking_id, row.number, { id });
+      return json({ ok: true });
+    }
+    case "kv_guest_invoice_paid": {
+      const id = str(body.id, 40);
+      const row = await one(db, "SELECT * FROM guest_invoices WHERE org_id = ? AND id = ?", O, id);
+      if (!row) return json({ message: "not_found" }, 404);
+      if (row.status === "void") return json({ message: "void" }, 409);
+      await run(db, "UPDATE guest_invoices SET status = 'paid', paid_at = ? WHERE org_id = ? AND id = ?", today(), O, id);
+      return json({ ok: true });
+    }
+    // ---------- discount codes for the public booking page ----------
+    case "kv_discount_list":
+      return json(await listDiscounts(db, O));
+    case "kv_discount_save": {
+      const d = body.d || body;
+      const code = normalizeCode(str(d.code, 40));
+      if (code.length < 2) return json({ message: "bad_code" }, 400);
+      const kind = d.kind === "sum" ? "sum" : "pct";
+      const value = num(d.value);
+      if (!(value > 0) || (kind === "pct" && value > 90)) return json({ message: "bad_value" }, 400);
+      const from_date = isDate(d.from_date) ? d.from_date : "", to_date = isDate(d.to_date) ? d.to_date : "";
+      const max_uses = Math.max(0, Math.min(100000, Math.floor(num(d.max_uses))));
+      const apts = Array.isArray(d.apts) ? d.apts.map((a: any) => str(a, 100)).filter(Boolean).slice(0, 80) : [];
+      const note = str(d.note, 200), active = d.active === false || d.active === 0 ? 0 : 1;
+      const currency = kind === "sum" && ["EUR", "MDL", "USD"].includes(String(d.currency || "").toUpperCase()) ? String(d.currency).toUpperCase() : "";
+      let id = isUuid(d.id) ? d.id : "";
+      if (id) {
+        const old = await one(db, "SELECT id FROM discount_codes WHERE org_id = ? AND id = ?", O, id);
+        if (!old) return json({ message: "not_found" }, 404);
+        const clash = await one(db, "SELECT id FROM discount_codes WHERE org_id = ? AND code = ? AND id != ?", O, code, id);
+        if (clash) return json({ message: "dup_code" }, 409);
+        await run(db, `UPDATE discount_codes SET code=?, kind=?, value=?, currency=?, from_date=?, to_date=?, max_uses=?, apts=?, active=?, note=? WHERE org_id=? AND id=?`,
+          code, kind, value, currency, from_date, to_date, max_uses, JSON.stringify(apts), active, note, O, id);
+      } else {
+        const clash = await one(db, "SELECT id FROM discount_codes WHERE org_id = ? AND code = ?", O, code);
+        if (clash) return json({ message: "dup_code" }, 409);
+        id = uuid();
+        await run(db, `INSERT INTO discount_codes(id, org_id, code, kind, value, currency, from_date, to_date, max_uses, apts, active, note) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+          id, O, code, kind, value, currency, from_date, to_date, max_uses, JSON.stringify(apts), active, note);
+      }
+      const row = await one(db, "SELECT * FROM discount_codes WHERE org_id = ? AND id = ?", O, id);
+      return json(rowToDiscount(row));
+    }
+    case "kv_discount_del": {
+      if (!isUuid(body.id)) return json({ message: "bad_id" }, 400);
+      await run(db, "DELETE FROM discount_codes WHERE org_id = ? AND id = ?", O, body.id);
+      return json(null);
     }
     // ---------- change log ----------
     case "kv_audit": { // newest first, 100 at a time; filter by kind, by one record, or by text
