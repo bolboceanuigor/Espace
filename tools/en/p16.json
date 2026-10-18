@@ -329,5 +329,22 @@
   "Файл": "File",
   "выкл": "off",
   "все": "all",
-  "КБ": "KB"
+  "КБ": "KB",
+  "Ещё": "More",
+  "Разделы": "Sections",
+  "Поломка": "Repair",
+  "Деньги в кассу": "Cash in till",
+  "Всё меню": "Full menu",
+  "касса и пересменка": "till and handover",
+  "заезды и выезды": "check-ins and check-outs",
+  "список на день": "day list",
+  "задачи и напоминания": "tasks and reminders",
+  "доход и итоги": "income and totals",
+  "сверка оплат": "payment review",
+  "модули и вид": "modules and look",
+  "гость, даты, оплата": "guest, dates, payment",
+  "добавить в список на день": "add to the day list",
+  "запись в текущую смену": "log in the open shift",
+  "трата из кассы": "expense from the till",
+  "что починить": "what to fix"
 }
