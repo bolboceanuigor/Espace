@@ -447,6 +447,21 @@ CREATE TABLE IF NOT EXISTS maib_payments (
 );
 CREATE INDEX IF NOT EXISTS maib_payments_org_idx ON maib_payments(org_id, created_at);
 
+-- public offer links: manager picks free units + dates; guest opens <slug>.espace.md/oferta/<token>
+CREATE TABLE IF NOT EXISTS offers (
+  token TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL,
+  date TEXT NOT NULL,                      -- check-in YYYY-MM-DD
+  nights INTEGER NOT NULL,
+  apts TEXT NOT NULL DEFAULT '[]',          -- JSON string array of unit names
+  note TEXT NOT NULL DEFAULT '',
+  created_by TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  expires_at TEXT NOT NULL DEFAULT '',
+  views INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS offers_org_idx ON offers(org_id, created_at);
+
 -- prices and rules per unit per day, set from the calendar (price mode) or in bulk: overrides the unit's price, seasons and weekend %
 CREATE TABLE IF NOT EXISTS day_rates (
   org_id TEXT NOT NULL,

@@ -2238,9 +2238,16 @@ document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest
   PRS=null;PRW=null;saveCfg({...cfg,pricing:{weekend:wk||0,seasons}},"Prețurile au fost salvate")});
 function directSection(){const d=cfg.direct||{},url="https://"+ME.org.code+".espace.md/rezerva",hid=new Set(d.hidden||[]);
   const withPrice=cfg.apts.filter(a=>+unitOf(a).price>0),noPrice=cfg.apts.filter(a=>!(+unitOf(a).price>0));
+  const wUrl="https://"+ME.org.code+".espace.md/widget",wCode=`<iframe src="${wUrl}" style="width:100%;max-width:720px;height:480px;border:0;border-radius:12px" loading="lazy" title="Disponibilitate"></iframe>`;
   return `<div class="card"><label class="dtog"><input type="checkbox" id="dr-on" ${d.on?"checked":""} ${RO?"disabled":""}><span><b>Primește rezervări pe pagina ta</b><small>Oaspetele alege datele, vede obiectele libere și prețul, trimite o cerere. Fără comision.</small></span></label>
     <div class="iexp" style="margin-top:12px"><b>Link pentru oaspeți</b><div class="iexpr" style="margin-top:6px"><input type="text" readonly value="${esc(url)}" id="dr-url"><button type="button" class="btn sm" id="dr-copy">Copiază</button><a class="btn sm" href="${esc(url)}" target="_blank" rel="noopener">Deschide</a></div>
       <p class="small" style="margin:6px 0 0">Pune-l în Instagram, pe site, în Google Maps și în răspunsurile pentru oaspeți.</p></div></div>
+  <div class="card"><b>Widget pentru site-ul vostru</b>
+    <p class="small" style="margin:4px 0 10px">Calendarul de ocupare și butonul «Rezervă». Inserați codul pe site-ul vostru.</p>
+    <div class="iexp"><b>Cod pentru toate obiectele</b><div class="iexpr" style="margin-top:6px"><input type="text" readonly value="${esc(wCode)}" id="dr-wcode"><button type="button" class="btn sm" id="dr-wcopy">Copiază</button><a class="btn sm" href="${esc(wUrl)}" target="_blank" rel="noopener">Deschide</a></div></div>
+    ${withPrice.length?`<label class="l" style="margin-top:12px">Un singur obiect</label><div class="uamen">${withPrice.map(a=>`<button type="button" data-wapt="${esc(a)}">${esc(a)}</button>`).join("")}</div>
+      <div class="iexp" style="margin-top:8px" id="dr-wone" hidden><b id="dr-wone-t"></b><div class="iexpr" style="margin-top:6px"><input type="text" readonly id="dr-wone-c"><button type="button" class="btn sm" id="dr-wone-copy">Copiază</button></div></div>`:""}
+    <p class="small" style="margin:8px 0 0">Butonul «Rezervă» funcționează doar dacă pagina de rezervare e activată mai sus.</p></div>
   <div class="card"><b>Ce văd oaspeții</b>
     <label class="l" for="dr-intro">Mesaj de întâmpinare</label><textarea id="dr-intro" rows="2" maxlength="400" placeholder="Apartamente în centrul Chișinăului, cazare 24/7">${esc(d.intro||"")}</textarea>
     <div class="grid2"><div><label class="l" for="dr-phone">Telefon / WhatsApp</label><input type="tel" id="dr-phone" value="${esc(d.phone||"")}" placeholder="+373…"></div><div><label class="l" for="dr-email">Email</label><input type="email" id="dr-email" value="${esc(d.email||"")}"></div></div>
@@ -2251,9 +2258,13 @@ function directSection(){const d=cfg.direct||{},url="https://"+ME.org.code+".esp
     <div class="uamen">${withPrice.map(a=>`<button type="button" data-drunit="${esc(a)}" aria-pressed="${!hid.has(a)}">${esc(a)}</button>`).join("")||`<span class="small">Deocamdată niciun obiect nu are preț.</span>`}</div>
     ${noPrice.length?`<p class="small" style="margin:8px 0 0">Fără preț, nu le văd oaspeții: ${esc(noPrice.slice(0,8).join(", "))}${noPrice.length>8?" …":""}. Prețul se pune în «Obiecte» → ⚙.</p>`:""}
     ${RO?"":`<div class="actions"><button type="button" class="btn primary" id="dr-save">Salvează</button></div>`}</div>`}
-document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("#dr-save,#dr-copy,[data-drunit]");if(!t)return;
+document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("#dr-save,#dr-copy,#dr-wcopy,#dr-wone-copy,[data-drunit],[data-wapt]");if(!t)return;
   if(t.dataset.drunit!=null){t.setAttribute("aria-pressed",String(t.getAttribute("aria-pressed")!=="true"));return}
   if(t.id==="dr-copy"){try{await navigator.clipboard.writeText($("dr-url").value);toast("Linkul a fost copiat")}catch(x){$("dr-url").select()}return}
+  if(t.id==="dr-wcopy"){try{await navigator.clipboard.writeText($("dr-wcode").value);toast("Codul widgetului e copiat")}catch(x){$("dr-wcode").select()}return}
+  if(t.dataset.wapt!=null){const a=t.dataset.wapt,u="https://"+ME.org.code+".espace.md/widget?u="+encodeURIComponent(a),code=`<iframe src="${u}" style="width:100%;max-width:720px;height:360px;border:0;border-radius:12px" loading="lazy" title="${a}"></iframe>`;
+    const box=$("dr-wone");if(box){box.hidden=false;$("dr-wone-t").textContent=a;$("dr-wone-c").value=code}return}
+  if(t.id==="dr-wone-copy"){try{await navigator.clipboard.writeText($("dr-wone-c").value);toast("Codul widgetului e copiat")}catch(x){$("dr-wone-c").select()}return}
   const em=$("dr-email").value.trim();if(em&&!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em)){toast("Verifică email");return}
   const direct={on:$("dr-on").checked,intro:$("dr-intro").value.trim().slice(0,400),phone:$("dr-phone").value.trim().slice(0,40),email:em,min:Math.max(1,Math.min(30,parseInt($("dr-min").value,10)||1)),terms:$("dr-terms").value.trim().slice(0,1500),arrival:$("dr-arr").checked,
     hidden:[...document.querySelectorAll("[data-drunit][aria-pressed=false]")].map(x=>x.dataset.drunit)};
@@ -2562,7 +2573,7 @@ function renderCal(){
   const Lw=LT?(innerWidth<600?110:168):Math.max(88,Math.min(innerWidth<600?110:150,Math.round(CW-P*H))), W=calW=(CW-Lw)/P;
   calBar(LT); // exactly P days per page, near-square
   $("c-legend").innerHTML=TAGS.map(([k,l,c])=>`<span><i style="background:${c}"></i>${esc(l)}</span>`).join("")+`<span><i class="lg-unp"></i>neachitat</span>`;
-  let head=`<div class="sh-head"><div class="sh-corner"><button type="button" id="c-today" class="ctoday"><b id="c-arr">←</b> Azi</button>${RO||LT?"":`<button type="button" id="c-pm" class="cpm" aria-pressed="${calPM}" title="Prețuri și reguli pe zile">Prețuri</button>`}</div><div class="sh-hcol">${LT?"":`<div class="sh-mons"><div class="cmonc" style="width:${P*W}px">${CAL_I}<span id="c-mon"></span></div></div>`}`;
+  let head=`<div class="sh-head"><div class="sh-corner"><button type="button" id="c-today" class="ctoday"><b id="c-arr">←</b> Azi</button>${RO||LT?"":`<button type="button" id="c-pm" class="cpm" aria-pressed="${calPM}" title="Prețuri și reguli pe zile">Prețuri</button><button type="button" id="c-offer" class="cpm" title="Link-ofertă pentru oaspete">Ofertă</button>`}</div><div class="sh-hcol">${LT?"":`<div class="sh-mons"><div class="cmonc" style="width:${P*W}px">${CAL_I}<span id="c-mon"></span></div></div>`}`;
   {const segs=[];for(let i=0;i<n;i++){const d=new Date(s0+i*DAY),k=d.getUTCFullYear()*12+d.getUTCMonth();if(!segs.length||segs[segs.length-1].k!==k)segs.push({k,m:d.getUTCMonth(),y:d.getUTCFullYear(),len:0,at:i});segs[segs.length-1].len++}
    head+=`<div class="sh-days">`;
    var mLine=segs.slice(1).map(g=>`<i class="mline" style="left:${g.at*W}px"></i>`).join(""),mStarts=new Set(segs.slice(1).map(g=>g.at))}
@@ -2610,12 +2621,14 @@ function calBar(on){const el=$("c-bar");if(!el)return;el.hidden=!on;if(!on)retur
   const hid=calHidden(),nh=cfg.apts.filter(a=>hid.has(a)).length;
   el.innerHTML=`<label class="cbmon"><span id="c-mon"></span><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg><input type="date" id="c-jump" aria-label="Mergi la dată"></label>
     ${RO?"":`<button type="button" id="c-pm" class="cbchip" aria-pressed="${calPM}">Prețuri</button>`}
+    ${RO?"":`<button type="button" id="c-offer" class="cbchip" title="Link-ofertă pentru oaspete">Ofertă</button>`}
     <button type="button" class="cbbtn${nh?" on":""}" id="c-flt" aria-label="Ce unități se văd" title="Ce unități se văd"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>${nh?`<i>${nh}</i>`:""}</button>
     ${RO?"":`<button type="button" class="cbbtn add" id="c-add" aria-label="Rezervare nouă" title="Rezervare nouă"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>`}`}
 function calHidden(){try{return new Set(JSON.parse(localStorage.getItem("kv_calhide")||"[]"))}catch(e){return new Set()}}
 document.addEventListener("change",e=>{if(e.target.id!=="c-jump"||!e.target.value)return;const el=$("c-body"),i=Math.round((toT(e.target.value)-calS0)/DAY);el.scrollTo({left:Math.max(0,i)*calW,behavior:"smooth"});e.target.value=""});
-document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("#c-flt,#c-add,[data-calhide],#c-showall");if(!t)return;
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("#c-flt,#c-add,#c-offer,[data-calhide],#c-showall");if(!t)return;
   if(t.id==="c-add"){newB("",todayStr());return}
+  if(t.id==="c-offer"){offerSheet();return}
   const hid=calHidden();
   if(t.dataset.calhide!=null){const a=t.dataset.calhide;hid.has(a)?hid.delete(a):hid.add(a);if(hid.size>=cfg.apts.length){toast("Trebuie să rămână cel puțin o unitate");return}}
   if(t.id==="c-showall")hid.clear();
@@ -2677,6 +2690,50 @@ document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.c
     if(!Object.keys(set).length)return fail("Nu ai ales nimic de schimbat");body.set=set}
   t.disabled=true;try{const res=await api("rates_set",body);DR=await api("rates_get",{});pmSel=null;closeSheet();if(view==="cal")renderCal();toast(body.clear?"Readus ca de obicei":"Salvat: "+res.days+" "+plural(res.days,"zi","zile","zile")+(res.apts>1?" × "+res.apts:""))}
   catch(x){t.disabled=false;fail(x.code==="range_too_long"?"Cel mult doi ani deodată":x.code==="too_many"?"Prea mult deodată — împarte în bucăți":"Nu s-a salvat")}});
+/* offer link: pick free units + dates → public page with photos, price and Book */
+function offerFree(apts,from,nights){const out=[];for(const a of apts){const list=bookings.filter(b=>b.apt===a&&b.nights>0);let ok=true;
+  for(let i=0;i<nights;i++){const d=fromT(toT(from)+i*DAY);if(list.some(b=>b.date<=d&&endOf(b)>d)){ok=false;break}const r=(DR[a]||{})[d];if(r&&r.x){ok=false;break}}
+  if(ok)out.push(a)}return out}
+let ofSel=new Set();
+function offerSheet(pre){const td=todayStr(),from=pre&&pre.from||td,nights=pre&&pre.nights||2;
+  ofSel=new Set(pre&&pre.apts||[]);
+  openSheet("Ofertă pentru oaspete",`<p class="small" style="margin-top:0">Alegeți obiectele libere și datele — primiți un link cu poze, prețul și butonul «Rezervă». Linkul e valabil 14 zile.</p>
+    <div class="grid2"><div><label class="l" for="of-from">Sosire</label><input type="date" id="of-from" value="${esc(from)}" min="${td}"></div>
+      <div><label class="l" for="of-nights">Nopți</label><input type="text" inputmode="numeric" id="of-nights" value="${nights}" style="max-width:120px"></div></div>
+    <p class="small" id="of-range" style="margin:6px 0 0"></p>
+    <label class="l" style="margin-top:12px">Obiecte libere</label><div class="uamen" id="of-apts"></div>
+    <label class="l" for="of-note" style="margin-top:10px">Mesaj pentru oaspete <em>— opțional</em></label><textarea id="of-note" rows="2" maxlength="400" placeholder="Reducere dacă rezervi azi"></textarea>
+    <p class="msg bad" id="of-err" hidden></p>
+    <div class="actions"><button type="button" class="btn primary" id="of-go">Creează linkul</button></div>
+    <div id="of-done" hidden style="margin-top:14px"><div class="iexp"><b>Link pentru oaspete</b><div class="iexpr" style="margin-top:6px"><input type="text" readonly id="of-url"><button type="button" class="btn sm" id="of-copy">Copiază</button><a class="btn sm" id="of-open" href="#" target="_blank" rel="noopener">Deschide</a></div>
+      <p class="small" style="margin:6px 0 0">Trimiteți oaspetelui în messenger sau pe email. Oaspetele vede doar obiectele alese.</p></div></div>
+    <div id="of-list" style="margin-top:18px"></div>`,{type:"offer"});
+  offerPaint();offerList()}
+function offerPaint(){const td=todayStr(),f=$("of-from")?$("of-from").value||td:td,n=Math.max(1,Math.min(90,parseInt(($("of-nights")||{}).value,10)||1)),t0=fromT(toT(f)+n*DAY);
+  if($("of-range"))$("of-range").textContent=dm(f)+" → "+dm(t0)+" · "+n+" "+plural(n,"noapte","nopți","nopți");
+  const fr=offerFree(cfg.apts,f,n);[...ofSel].forEach(a=>{if(!fr.includes(a))ofSel.delete(a)});if(!ofSel.size)fr.forEach(a=>ofSel.add(a));
+  if($("of-apts"))$("of-apts").innerHTML=fr.map(a=>`<button type="button" data-ofapt="${esc(a)}" aria-pressed="${ofSel.has(a)}">${esc(a)}</button>`).join("")||`<span class="small">Nu e nimic liber pe aceste date.</span>`}
+async function offerList(){const box=$("of-list");if(!box)return;
+  try{const rows=await api("kv_offer_list");if(!$("of-list"))return;
+    if(!rows.length){box.innerHTML="";return}
+    box.innerHTML=`<h3 style="margin:0 0 8px;font-size:15px">Oferte recente</h3>${rows.slice(0,12).map(r=>`<div class="ifeed" style="margin-top:6px"><span class="iu"><b>${esc(dm(r.date))} · ${r.nights} n.</b>
+      <small>${esc((r.apts||[]).slice(0,4).join(", "))}${(r.apts||[]).length>4?" …":""} · ${r.views||0} ${plural(r.views||0,"vizualizare","vizualizări","vizualizări")}${r.expires_at&&r.expires_at<new Date().toISOString()?" · expirată":""}</small></span>
+      <button type="button" class="btn sm" data-ofcopy="${esc(r.token)}">Link</button>${RO?"":`<button type="button" class="ibtn del" data-ofdel="${esc(r.token)}" aria-label="Șterge">${setIc("del")}</button>`}</div>`).join("")}`}
+  catch(e){box.innerHTML=""}}
+document.addEventListener("input",e=>{if(e.target&&(e.target.id==="of-from"||e.target.id==="of-nights")&&$("of-apts")){ofSel=new Set();offerPaint()}});
+document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("#of-go,#of-copy,[data-ofapt],[data-ofcopy],[data-ofdel]");if(!t)return;
+  if(t.dataset.ofapt!=null){const a=t.dataset.ofapt;ofSel.has(a)?ofSel.delete(a):ofSel.add(a);t.setAttribute("aria-pressed",String(ofSel.has(a)));return}
+  if(t.id==="of-copy"||t.dataset.ofcopy!=null){const url=t.id==="of-copy"?$("of-url").value:("https://"+ME.org.code+".espace.md/oferta/"+t.dataset.ofcopy);
+    try{await navigator.clipboard.writeText(url);toast("Linkul a fost copiat")}catch(x){if(t.id==="of-copy")$("of-url").select();else toast(url)}return}
+  if(t.dataset.ofdel!=null){try{await api("kv_offer_del",{token:t.dataset.ofdel});toast("Oferta a fost ștearsă");offerList()}catch(x){toast("Nu s-a șters")}return}
+  if(t.id!=="of-go")return;
+  const err=$("of-err"),fail=m=>{err.textContent=m;err.hidden=false};err.hidden=true;
+  const date=$("of-from").value,nights=Math.max(1,Math.min(90,parseInt($("of-nights").value,10)||0));
+  const apts=[...document.querySelectorAll("[data-ofapt][aria-pressed=true]")].map(x=>x.dataset.ofapt);
+  if(!date||date<todayStr())return fail("Verifică data sosirii");if(!nights)return fail("Indică numărul de nopți");if(!apts.length)return fail("Alege cel puțin un obiect liber");
+  t.disabled=true;try{const r=await api("kv_offer_create",{date,nights,apts,note:($("of-note").value||"").trim().slice(0,400)});
+    $("of-done").hidden=false;$("of-url").value=r.url;$("of-open").href=r.url;toast("Linkul e gata · "+r.apts.length+" "+plural(r.apts.length,"unitate","unități","unități"));offerList();t.disabled=false}
+  catch(x){t.disabled=false;fail(x.code==="none_free"?"Nu e nimic liber pe aceste date":x.code==="bad_dates"?"Verifică datele":x.code==="need_units"?"Alege obiectele":"Nu s-a creat")}});
 /* charts */
 function lastMonths(k){const out=[];for(let i=k-1;i>=0;i--){let y=mon.y,m=mon.m-i;while(m<0){m+=12;y--}out.push([y,m])}return out}
 function niceTop(max){if(max<=0)return 100;const p=Math.pow(10,Math.floor(Math.log10(max)));for(const f of [1,1.5,2,2.5,3,4,5,6,8,10]){if(f*p>=max)return f*p}return 10*p}

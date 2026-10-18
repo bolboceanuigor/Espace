@@ -3,7 +3,7 @@ import { hostOf, siteOf } from "../lib/host";
 
 interface Env { DB: D1Database; ASSETS: Fetcher }
 const PAGES: Record<string, string> = { site: "/site", admin: "/admin", tenant: "/app" };
-const SPLIT = ["/site", "/site.html", "/admin", "/admin.html", "/app", "/app.html", "/app-ro", "/app-ro.html", "/app-en", "/app-en.html", "/book", "/book.html", "/raport", "/raport.html", "/contract", "/contract.html"];
+const SPLIT = ["/site", "/site.html", "/admin", "/admin.html", "/app", "/app.html", "/app-ro", "/app-ro.html", "/app-en", "/app-en.html", "/book", "/book.html", "/raport", "/raport.html", "/contract", "/contract.html", "/widget", "/widget.html", "/offer", "/offer.html"];
 
 // company app language: the es_lang cookie (set by the RO/RU/EN switch) wins, else the browser's first known language, else Romanian
 export type Lang = "ro" | "ru" | "en";
@@ -56,6 +56,21 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
   // an apartment owner's monthly statement: <slug>.espace.md/raport/<token>
   if (s.kind === "tenant" && /^\/raport\/[a-f0-9]{32}\/?$/.test(p)) {
     const r = await env.ASSETS.fetch(new URL("/raport", url));
+    const h = new Headers(r.headers); h.set("cache-control", "no-cache"); h.set("x-robots-tag", "noindex");
+    return new Response(r.body, { status: r.status, headers: h });
+  }
+  // occupancy widget for the owner's own site: <slug>.espace.md/widget[?u=unit]
+  if (s.kind === "tenant" && (p === "/widget" || p === "/widget/")) {
+    const r = await env.ASSETS.fetch(new URL("/widget", url));
+    const h = new Headers(r.headers);
+    h.set("cache-control", "no-cache");
+    h.set("content-security-policy", "frame-ancestors *");
+    h.delete("x-frame-options");
+    return new Response(r.body, { status: r.status, headers: h });
+  }
+  // guest offer link: <slug>.espace.md/oferta/<token>
+  if (s.kind === "tenant" && /^\/oferta\/[a-f0-9]{32}\/?$/.test(p)) {
+    const r = await env.ASSETS.fetch(new URL("/offer", url));
     const h = new Headers(r.headers); h.set("cache-control", "no-cache"); h.set("x-robots-tag", "noindex");
     return new Response(r.body, { status: r.status, headers: h });
   }

@@ -74,7 +74,7 @@ Ce trebuie să aibă fiecare modul ca aplicația să fie completă și funcțion
 | Filtrul unităților vizibile | ✅ | |
 | Filtrul pe stare: rezervare, cerere, anulată | 🟡 | Butoane rapide deasupra grilei. Anulatele se văd tăiate. |
 | Mutarea unei rezervări prin tragere (drag & drop), pe desktop | ❌ | Tragi bara pe altă unitate sau dată, confirmi și se verifică suprapunerea. |
-| Ofertă cu link pentru oaspete | ❌ | Selectezi unitățile libere pe niște date și primești un link public cu pozele, prețul calculat și butonul „Rezervă”. |
+| Ofertă cu link pentru oaspete | ✅ | Selectezi unitățile libere pe niște date și primești un link public cu pozele, prețul calculat și butonul „Rezervă”. |
 
 ## 5. Rezervarea
 
@@ -164,7 +164,7 @@ Ce trebuie să aibă fiecare modul ca aplicația să fie completă și funcțion
 |---|---|---|
 | Pagina de rezervare: căutare, toate regulile de preț, adulți și copii, cerere către companie | ✅ | `book.html` |
 | Acceptarea sau refuzul cererii cu email către oaspete | ✅ | |
-| Widget pentru site-ul proprietarului (iframe) | ❌ | Calendar de ocupare și buton „Rezervă” pentru o unitate sau pentru toate. Codul se copiază din Setări. |
+| Widget pentru site-ul proprietarului (iframe) | ✅ | Calendar de ocupare și buton „Rezervă” pentru o unitate sau pentru toate. Codul se copiază din Setări. |
 | Domeniu propriu (`rezervari.firma.md`) | ❌ | **Doar propunere.** Nu se modifică DNS-ul. |
 
 ## 14. Canale (Airbnb, Booking)
