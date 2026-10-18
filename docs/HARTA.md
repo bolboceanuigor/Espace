@@ -123,7 +123,7 @@ Ce trebuie să aibă fiecare modul ca aplicația să fie completă și funcțion
 | Ce | Stare | Gata când |
 |---|---|---|
 | Ghid pe unitate (text, poze, video) cu link public | ✅ | |
-| Servicii suplimentare plătite (transfer, check-in devreme, pătuț) | ❌ | Lista e definită în Setări și apare în ghid. Comanda ajunge ca notificare la manager. |
+| Servicii suplimentare plătite (transfer, check-in devreme, pătuț) | ✅ | Lista e definită în Setări și apare în ghid. Comanda ajunge ca notificare la manager. |
 | Wi-Fi, cod ușă, reguli, hartă | 🟡 | Secțiuni standard pentru care completezi doar textul. Codul ușii se vede doar în zilele șederii. |
 
 ## 10. Curățenii și echipa de teren
@@ -134,7 +134,7 @@ Ce trebuie să aibă fiecare modul ca aplicația să fie completă și funcțion
 | Ture (пересменки), salarii, plăți către menajere | ✅ | |
 | Meșteri: lista de reparații, cheltuiala intră automat | ✅ | |
 | Lista de verificare (checklist) a curățeniei pe unitate | 🟡 | Bife obligatorii înainte de „Gata”, plus poza finală. |
-| Consumabile (stocuri pe unitate) | ❌ | Menajera marchează „se termină”, iar managerul primește lista de cumpărat. |
+| Consumabile (stocuri pe unitate) | ✅ | Menajera marchează „se termină”, iar managerul primește lista de cumpărat. |
 
 ## 11. Bani: cheltuieli, rapoarte, proprietari
 

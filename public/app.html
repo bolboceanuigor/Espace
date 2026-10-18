@@ -2258,6 +2258,79 @@ document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.c
   const direct={on:$("dr-on").checked,intro:$("dr-intro").value.trim().slice(0,400),phone:$("dr-phone").value.trim().slice(0,40),email:em,min:Math.max(1,Math.min(30,parseInt($("dr-min").value,10)||1)),terms:$("dr-terms").value.trim().slice(0,1500),arrival:$("dr-arr").checked,
     hidden:[...document.querySelectorAll("[data-drunit][aria-pressed=false]")].map(x=>x.dataset.drunit)};
   saveCfg({...cfg,direct},direct.on?"Страница бронирования включена":"Сохранено")});
+/* EXTRA SERVICES — catalog in settings; guests order from the public guide; manager gets a notification */
+const SVC_DEF=[["transfer","Трансфер из аэропорта"],["early","Ранний заезд"],["late","Поздний выезд"],["crib","Детская кроватка"],["chair","Детское кресло"]];
+function servicesSection(){const list=Array.isArray(cfg.services)&&cfg.services.length?cfg.services:SVC_DEF.map(([id,name],i)=>({id,name,price:"",cur:"EUR",on:false}));
+  return `<div class="card"><p class="small" style="margin-top:0">Услуги появятся в гиде для гостя. Гость нажимает «Заказать» — вам придёт уведомление.</p>
+    ${list.map((x,i)=>`<div class="srow" style="align-items:center"><label class="dtog" style="margin:0"><input type="checkbox" data-svcon="${i}" ${x.on!==false&&x.on!==0?"checked":""} ${RO?"disabled":""}><span></span></label>
+      <input type="text" data-svcn="${i}" value="${esc(x.name||"")}" placeholder="Название" maxlength="80" style="flex:1;min-width:0">
+      <input type="text" inputmode="decimal" data-svcp="${i}" value="${esc(x.price??"")}" placeholder="цена" style="width:72px">
+      <select data-svcc="${i}" style="width:72px">${["EUR","MDL","USD"].map(c=>`<option ${ (x.cur||"EUR")===c?"selected":""}>${c}</option>`).join("")}</select>
+      ${RO?"":`<button type="button" class="ibtn del" data-svcdel="${i}" aria-label="Удалить">${setIc("del")}</button>`}</div>`).join("")}
+    ${RO?"":`<div class="actions"><button type="button" class="btn" id="svc-add">＋ Услуга</button><button type="button" class="btn primary" id="svc-save">Сохранить</button></div>`}</div>`}
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("#svc-add,#svc-save,[data-svcdel]");if(!t||RO)return;
+  if(t.id==="svc-add"){const list=[...(cfg.services||SVC_DEF.map(([id,name])=>({id,name,price:"",cur:"EUR",on:true})))];list.push({id:"s"+Date.now().toString(36),name:"",price:"",cur:"EUR",on:true});cfg={...cfg,services:list};settingsPage("services");return}
+  if(t.dataset.svcdel!=null){const list=[...(cfg.services||[])];list.splice(+t.dataset.svcdel,1);cfg={...cfg,services:list};settingsPage("services");return}
+  if(t.id!=="svc-save")return;
+  const n=document.querySelectorAll("[data-svcn]").length,out=[];
+  for(let i=0;i<n;i++){const name=String((document.querySelector(`[data-svcn="${i}"]`)||{}).value||"").trim().slice(0,80);if(!name)continue;
+    const price=String((document.querySelector(`[data-svcp="${i}"]`)||{}).value||"").replace(",",".").trim();
+    const cur=(document.querySelector(`[data-svcc="${i}"]`)||{}).value||"EUR";
+    const on=!!(document.querySelector(`[data-svcon="${i}"]`)||{}).checked;
+    const old=(cfg.services||[])[i];out.push({id:(old&&old.id)||("s"+i+Date.now().toString(36).slice(-4)),name,price:price===""?"":Math.max(0,+price||0),cur,on})}
+  saveCfg({...cfg,services:out},"Услуги сохранены")});
+/* CONSUMABLES — catalog; cleaner marks «кончается»; manager sees shopping list in Menu */
+const SUP_DEF=["Туалетная бумага","Мыло / гель","Шампунь","Мешки для мусора","Кофе / чай","Средство для посуды","Губки","Бумага для кухни"];
+function suppliesSection(){const list=Array.isArray(cfg.supplies)&&cfg.supplies.length?cfg.supplies:SUP_DEF.map((name,i)=>({id:"p"+i,name}));
+  return `<div class="card"><p class="small" style="margin-top:0">Горничная в своей квартире отмечает, что кончается — у вас появляется список покупок в меню.</p>
+    ${list.map((x,i)=>`<div class="srow"><input type="text" data-supn="${i}" value="${esc(x.name||"")}" placeholder="Что купить" maxlength="80" style="flex:1">
+      ${RO?"":`<button type="button" class="ibtn del" data-supdel="${i}" aria-label="Удалить">${setIc("del")}</button>`}</div>`).join("")}
+    ${RO?"":`<div class="actions"><button type="button" class="btn" id="sup-add">＋ Позиция</button><button type="button" class="btn primary" id="sup-save">Сохранить</button></div>`}</div>`}
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("#sup-add,#sup-save,[data-supdel]");if(!t||RO)return;
+  if(t.id==="sup-add"){const list=[...(cfg.supplies||SUP_DEF.map((name,i)=>({id:"p"+i,name})))];list.push({id:"p"+Date.now().toString(36),name:""});cfg={...cfg,supplies:list};settingsPage("supplies");return}
+  if(t.dataset.supdel!=null){const list=[...(cfg.supplies||[])];list.splice(+t.dataset.supdel,1);cfg={...cfg,supplies:list};settingsPage("supplies");return}
+  if(t.id!=="sup-save")return;
+  const n=document.querySelectorAll("[data-supn]").length,out=[];
+  for(let i=0;i<n;i++){const name=String((document.querySelector(`[data-supn="${i}"]`)||{}).value||"").trim().slice(0,80);if(!name)continue;
+    const old=(cfg.supplies||[])[i];out.push({id:(old&&old.id)||("p"+i),name})}
+  saveCfg({...cfg,supplies:out},"Расходники сохранены")});
+/* EXTRA SERVICE ORDERS — guest ordered from /g/<token>; manager closes here */
+let SVC={status:"new",rows:[]};
+const SVC_CUR={EUR:"€",USD:"$",MDL:"лей"};
+async function svcLoad(){const box=$("svc-list");if(!box)return;
+  try{SVC.rows=await api("kv_svc_orders",{status:SVC.status})||[]}catch(e){box.innerHTML=`<div class="empty">Не загрузилось</div>`;return}
+  if(!SVC.rows.length){box.innerHTML=`<div class="empty">${SVC.status==="new"?"Новых заказов нет":"Пока заказов нет"}</div>`;return}
+  box.innerHTML=`<div class="list">${SVC.rows.map(r=>{const st=r.status==="done"?"готово":r.status==="cancel"?"отменён":"новый";
+    const price=+r.price>0?`${fmt(+r.price)}\u00a0${SVC_CUR[r.price_cur]||r.price_cur}`:"по запросу";
+    return `<div class="card clc" style="margin-top:8px"><div class="clh"><b>${esc(r.service_name)}</b><span class="pill${r.status==="new"?" warn":r.status==="done"?" ok":""}">${st}</span><span class="small" style="margin-left:auto;white-space:nowrap">${fdt(r.created_at)}</span></div>
+      <div class="small" style="margin-top:4px">${esc(r.apt)} · ${esc(price)} · ${esc(r.guest)}${r.phone?` · <a href="tel:${esc(r.phone)}">${esc(r.phone)}</a>`:""}${r.note?" · "+esc(r.note):""}</div>
+      ${r.status==="new"&&!RO?`<div class="actions" style="margin-top:8px"><button type="button" class="btn primary sm" data-svcdone="${esc(r.id)}">Готово</button><button type="button" class="btn sm" data-svccancel="${esc(r.id)}">Отменить</button></div>`:""}</div>`}).join("")}</div>`}
+function svcPage(){SVC={status:"new",rows:[]};
+  openSheet("Заказы услуг",`<div class="seg" style="margin-bottom:10px">${[["new","Новые"],["all","Все"]].map(([k,l])=>`<button type="button" data-svcst="${k}" aria-pressed="${k==="new"}">${l}</button>`).join("")}</div>
+    <div id="svc-list"><div class="empty">Загружаю…</div></div>
+    <p class="small">Гость заказывает из гида. Список услуг — в Настройки → Доп. услуги.</p>`,{type:"svc",apt:""});svcLoad()}
+document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("[data-svcst],[data-svcdone],[data-svccancel]");if(!t)return;
+  if(t.dataset.svcst!=null){SVC.status=t.dataset.svcst;document.querySelectorAll("[data-svcst]").forEach(b=>b.setAttribute("aria-pressed",String(b===t)));svcLoad();return}
+  if(RO)return;t.disabled=true;
+  try{await api("kv_svc_done",{id:t.dataset.svcdone||t.dataset.svccancel,cancel:!!t.dataset.svccancel});toast(t.dataset.svccancel?"Заказ отменён":"Готово");svcLoad()}catch(x){t.disabled=false;toast("Не сохранилось")}});
+/* SHOPPING LIST — cleaner marked «кончается»; manager ticks bought */
+let SHOP={status:"need",rows:[]};
+async function shopLoad(){const box=$("shop-list");if(!box)return;
+  try{SHOP.rows=await api("kv_supply_list",{status:SHOP.status==="need"?"":"all"})||[]}catch(e){box.innerHTML=`<div class="empty">Не загрузилось</div>`;return}
+  const rows=SHOP.status==="need"?SHOP.rows.filter(r=>r.status==="need"):SHOP.rows;
+  if(!rows.length){box.innerHTML=`<div class="empty">${SHOP.status==="need"?"Пока ничего не кончается":"Пока записей нет"}</div>`;return}
+  box.innerHTML=`<div class="list">${rows.map(r=>`<div class="card clc" style="margin-top:8px"><div class="clh"><b>${esc(r.item)}</b>${r.status==="bought"?`<span class="pill ok">куплено</span>`:`<span class="pill warn">нужно</span>`}<span class="small" style="margin-left:auto;white-space:nowrap">${fdt(r.created_at)}</span></div>
+      <div class="small" style="margin-top:4px">${esc(r.apt)}${r.by_name?" · "+esc(r.by_name):""}${r.note?" · "+esc(r.note):""}</div>
+      ${!RO?(r.status==="need"?`<div class="actions" style="margin-top:8px"><button type="button" class="btn primary sm" data-shopdone="${esc(r.id)}">Куплено</button></div>`
+        :`<div class="actions" style="margin-top:8px"><button type="button" class="btn sm" data-shopundo="${esc(r.id)}">Вернуть в список</button></div>`):""}</div>`).join("")}</div>`}
+function shopPage(){SHOP={status:"need",rows:[]};
+  openSheet("Список покупок",`<div class="seg" style="margin-bottom:10px">${[["need","Нужно купить"],["all","Все"]].map(([k,l])=>`<button type="button" data-shopst="${k}" aria-pressed="${k==="need"}">${l}</button>`).join("")}</div>
+    <div id="shop-list"><div class="empty">Загружаю…</div></div>
+    <p class="small">Горничная отмечает в своей квартире, что кончается. Каталог — в Настройки → Расходники.</p>`,{type:"shop",apt:""});shopLoad()}
+document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("[data-shopst],[data-shopdone],[data-shopundo]");if(!t)return;
+  if(t.dataset.shopst!=null){SHOP.status=t.dataset.shopst;document.querySelectorAll("[data-shopst]").forEach(b=>b.setAttribute("aria-pressed",String(b===t)));shopLoad();return}
+  if(RO)return;t.disabled=true;
+  try{await api("kv_supply_done",{id:t.dataset.shopdone||t.dataset.shopundo,undo:!!t.dataset.shopundo});toast(t.dataset.shopundo?"Вернули в список":"Куплено");shopLoad()}catch(x){t.disabled=false;toast("Не сохранилось")}});
 function aptsSection(){
   const groups=[];cfg.apts.forEach((a,i)=>{const g=unitOf(a).group||"";let G=groups.find(x=>x.g===g);if(!G)groups.push(G={g,items:[]});G.items.push([a,i])});
   const multi=groups.length>1||groups[0]&&groups[0].g;
@@ -3052,7 +3125,7 @@ function clnMonth(y=mon.y,m=mon.m){
     return {st,P,n:done.length,days,byDay,extraN,extra,hrs,pay:Math.round(pay),how};
   });
 }
-const MI={tax:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 11h2M12 11h2M8 15h2M12 15h4"/>',log:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/><path d="M3 4v4h4"/>',guide:'<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5M9 7h6M9 11h6"/>',shifts:'<path d="M4 4h16v16H4z"/><path d="M4 9h16M9 9v11"/>',bell:'<path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',today:'<rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18M7 15h4"/>',cal:'<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/>',todo:'<path d="M9 6h11M9 12h11M9 18h11"/><path d="m3.5 6 1.2 1.2L7 5M3.5 12l1.2 1.2L7 11M3.5 18l1.2 1.2L7 17"/>',clean:'<path d="M14 3 9 13"/><path d="M5 14h10l2 7H3z"/><path d="M8 17v4M12 17v4"/>',rep:'<path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3 17.8V21h3.2l6.3-6.3a4 4 0 0 0 5.2-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/>',rem:'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M5 3 2 6M19 3l3 3"/>',exp:'<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><path d="M9 8h6M9 12h6"/>',fin:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',verify:'<circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.7 2.7L16.5 9"/>',settings:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>'};
+const MI={tax:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 11h2M12 11h2M8 15h2M12 15h4"/>',log:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/><path d="M3 4v4h4"/>',guide:'<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5M9 7h6M9 11h6"/>',shifts:'<path d="M4 4h16v16H4z"/><path d="M4 9h16M9 9v11"/>',bell:'<path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',today:'<rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18M7 15h4"/>',cal:'<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/>',todo:'<path d="M9 6h11M9 12h11M9 18h11"/><path d="m3.5 6 1.2 1.2L7 5M3.5 12l1.2 1.2L7 11M3.5 18l1.2 1.2L7 17"/>',clean:'<path d="M14 3 9 13"/><path d="M5 14h10l2 7H3z"/><path d="M8 17v4M12 17v4"/>',rep:'<path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3 17.8V21h3.2l6.3-6.3a4 4 0 0 0 5.2-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/>',rem:'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M5 3 2 6M19 3l3 3"/>',exp:'<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><path d="M9 8h6M9 12h6"/>',fin:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',verify:'<circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.7 2.7L16.5 9"/>',settings:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',svc:'<path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/><circle cx="12" cy="12" r="4"/>',shop:'<path d="M6 7h12l-1 12H7z"/><path d="M9 7V5a3 3 0 0 1 6 0v2"/><path d="M10 11v4M14 11v4"/>'};
 const svgI=k=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${MI[k]}</svg>`;
 function setAccent(k){try{localStorage.setItem("kv_accent",k)}catch(e){}if(k)document.documentElement.setAttribute("data-accent",k);else document.documentElement.removeAttribute("data-accent");renderView()}
 function renderMenu(){
@@ -3061,7 +3134,7 @@ function renderMenu(){
   $("menu-body").innerHTML=`${LIGHT()?`<div class="mgroup">Работа</div><div class="mtiles">${T("todo","","Задачи и ремонт","дела, ремонт, напоминания",(c.todo||0)+(c.rep||0))}${T("shifts","","Все смены","закрытые пересменки")}</div>`:""}<div class="mgroup">Деньги</div><div class="mtiles">
     ${T("exp","🧾","Расходы","траты по месяцам")}${T("fin","📊","Финансы","доход, итоги, год")}
     ${T("verify","✅","Проверка оплат","сверка денег за месяц",vb)}${T("shifts","🗂️","Все смены","закрытые пересменки")}${T("log","🕘","Журнал изменений","кто что поменял")}${T("tax","🧮","Налоги",(()=>{const n=taxNext();return n?`к оплате ${fmt0(n.tax)} лей до ${dm(n.due)}`:"доход и налог по месяцам"})())}</div>
-    <div class="mgroup">Гости и настройки</div><div class="mtiles">${T("guide","📖","Гид для гостей","Wi‑Fi, вход, правила")}${T("settings","⚙️","Настройки","квартиры, горничные, PIN")}</div>
+    <div class="mgroup">Гости и настройки</div><div class="mtiles">${T("guide","📖","Гид для гостей","Wi‑Fi, вход, правила")}${T("svc","","Заказы услуг","из гида: трансфер, ранний заезд…")}${T("shop","","Список покупок","что кончается у горничных")}${T("settings","⚙️","Настройки","квартиры, горничные, PIN")}</div>
     <div class="mgroup">Вид · на этом телефоне</div><div class="skinsw">${[["wow","Тёмный","#14171d","#2a303b"],["host","Светлый","#e8f2fa","#0d8a7f"]].map(([k,l,c1,c2])=>`<button type="button" data-skinpick="${k}" aria-pressed="${(document.documentElement.getAttribute("data-skin")||"host")===k}"><i style="background:linear-gradient(135deg,${c1} 50%,${c2} 50%);box-shadow:inset 0 0 0 1px rgba(127,127,127,.35)"></i>${l}</button>`).join("")}</div>
     ${document.documentElement.getAttribute("data-skin")==="host"?"":`<div class="mgroup">Цвет приложения · на этом телефоне</div><div class="skinsw">${[["","Жёлтый","#fed36a","#ef8159"],["violet","Фиолетовый","#c4b0ff","#e48bd6"],["sky","Голубой","#8fcbff","#8f8cff"]].map(([k,l,c1,c2])=>`<button type="button" data-accent="${k}" aria-pressed="${ac===k}"><i style="background:linear-gradient(135deg,${c1},${c2})"></i>${l}</button>`).join("")}</div>`}`;
 }
@@ -3271,6 +3344,8 @@ function renderSettings(){
     owners:["mgr","Собственники",(cfg.owners||[]).length?(cfg.owners||[]).map(o=>o.name).join(", "):"комиссия, выплаты и отчёт за месяц",()=>ownersSection()],
     import:["chk","Импорт из Excel",`брони и объекты из файла · Excel, CSV, RealtyCalendar`,()=>importSection()],
     direct:["web","Страница бронирования",cfg.direct&&cfg.direct.on?"включена · "+ME.org.code+".espace.md/rezerva":"гости бронируют напрямую, без комиссии",()=>directSection()],
+    services:["guide","Доп. услуги",(cfg.services||[]).filter(x=>x&&x.on!==false).length? (cfg.services||[]).filter(x=>x&&x.on!==false).map(x=>x.name).slice(0,3).join(", "):"трансфер, ранний заезд, детская кроватка — в гиде для гостя",()=>servicesSection()],
+    supplies:["clean","Расходники",(cfg.supplies||[]).length? (cfg.supplies||[]).map(x=>x.name).slice(0,4).join(", "):"туалетная бумага, мыло — горничная отмечает «кончается»",()=>suppliesSection()],
     people:["mgr","Менеджеры",cfg.people.join(", ")||"не указаны",()=>`<div class="card"><label class="l" for="set-people">Менеджеры — кто принимает деньги и работает сменами <em>— через запятую</em></label><input type="text" id="set-people" value="${esc(cfg.people.join(", "))}">
       <div class="actions"><button class="btn primary" id="save-people">Сохранить</button></div></div>
     `],
@@ -3921,7 +3996,7 @@ document.addEventListener("click",e=>{
   const ds=t.dataset;
   if(ds.accent!=null&&t.closest(".skinsw")){setAccent(ds.accent);return}
   if(ds.skinpick){const k=ds.skinpick==="host"?"host":"wow";try{localStorage.setItem("kv_skin_pick",k);localStorage.setItem("kv_skin",k)}catch(e){}document.documentElement.setAttribute("data-skin",k);const m=document.querySelector('meta[name="theme-color"]');if(m)m.content=k==="host"?"#e8f2fa":"#14171d";renderView();if(view==="cal")renderCal();return}
-  if(ds.go){const g=ds.go;if(g==="tax"){TAXY=null;taxPage();return}if(g==="log"){auditPage();return}if(g==="shifts"){handoverPage();return}if(g==="guide"){guidePage();return}if(g==="bell"){bellSheet(notifs,"bellseen","bell-badge");return}if(["todo","rep","rem"].includes(g)){clnTab=g;ls.set("hubtab2",g);show("tasks")}else if(g==="clean")show("cln");else if(g==="verify"){vFilter="todo";verifyPage()}else if(g==="settings")settingsPage("");else show(g);scrollTo(0,0);return}
+  if(ds.go){const g=ds.go;if(g==="tax"){TAXY=null;taxPage();return}if(g==="log"){auditPage();return}if(g==="shifts"){handoverPage();return}if(g==="guide"){guidePage();return}if(g==="svc"){svcPage();return}if(g==="shop"){shopPage();return}if(g==="bell"){bellSheet(notifs,"bellseen","bell-badge");return}if(["todo","rep","rem"].includes(g)){clnTab=g;ls.set("hubtab2",g);show("tasks")}else if(g==="clean")show("cln");else if(g==="verify"){vFilter="todo";verifyPage()}else if(g==="settings")settingsPage("");else show(g);scrollTo(0,0);return}
   if(ds.view){if(t.closest("#tabs")&&ds.view==="today"){hvHome();return}if(t.closest("#tabs")&&ds.view===view&&view==="menu")return;if(ds.view==="add"&&view!=="add"){form=blankB();eform=blankE();fillB();fillE()}show(ds.view);return}
   if(ds.mode){setMode(ds.mode);renderView();return}
   if(ds.apt!=null){readB();form.apt=ds.apt;fAptOpen=false;renderChipsB();infoB();capHint();return}
@@ -4250,7 +4325,16 @@ function renderCl(){
   h+=`<h3>Что-то сломалось?</h3><div class="card"><div class="grid2"><div><label class="l">Квартира</label><select id="clr-apt" style="width:100%;height:40px">${cl.apts.map(a=>`<option>${esc(a)}</option>`).join("")}</select></div><div><label class="l">Фото (по желанию)</label><input type="file" id="clr-photo" accept="image/*"></div></div>
     <label class="l">Что не так</label><input type="text" id="clr-note" placeholder="например: течёт кран, перегорела лампа"><div class="actions"><button class="btn primary" id="clr-send">Отправить менеджеру</button></div></div>`;
   if(cl.repairs.length) h+=`<h3>Уже ждёт ремонта <span class="count">${cl.repairs.length}</span></h3><div class="list">${cl.repairs.map(r=>`<div class="card clc"><b>${esc(r.apt)}</b> <span class="small">${dm(r.date)}${r.reported_by?" · "+esc(r.reported_by):""}</span><div>${esc(r.note)}</div></div>`).join("")}</div>`;
+  const sups=cl.supplies||[], need=cl.supplyNeed||[];
+  if(sups.length){
+    h+=`<h3>Расходники</h3><div class="card"><p class="small" style="margin-top:0">Отметь, что кончается — менеджер увидит в списке покупок.</p>
+      <label class="l">Квартира</label><select id="cls-apt" style="width:100%;height:40px">${cl.apts.map(a=>`<option>${esc(a)}</option>`).join("")}</select>
+      <div class="uamen" style="margin-top:10px">${sups.map(s=>`<button type="button" data-clsup="${esc(s.name)}" aria-pressed="false">${esc(s.name)}</button>`).join("")}</div>
+      <p class="small" id="cls-hint" style="margin:8px 0 0"></p></div>`;
+    if(need.length)h+=`<div class="list" style="margin-top:8px">${need.slice(0,20).map(r=>`<div class="card clc"><b>${esc(r.item)}</b> <span class="small">${esc(r.apt)}</span></div>`).join("")}</div>`}
   $("cl-body").innerHTML=h;
+  if(sups.length){const open=new Set(need.map(x=>x.apt+"|"+x.item)),sel=$("cls-apt");
+    if(sel){const sync=()=>{const a=sel.value;document.querySelectorAll("[data-clsup]").forEach(b=>{const on=open.has(a+"|"+b.dataset.clsup);b.setAttribute("aria-pressed",String(on));b.disabled=on});const h2=$("cls-hint");if(h2)h2.textContent=need.some(x=>x.apt===a)?"Уже отмечено для этой квартиры — ждёт покупки.":""};sel.onchange=sync;sync()}}
   pushState().then(st=>{const c=$("cl-push");if(!c)return;c.hidden=st==="on";$("cl-push-st").textContent=st==="off"?"":pushHint(st);$("cl-push-on").hidden=st!=="off"});
 }
 
@@ -4279,6 +4363,7 @@ document.addEventListener("click",async e=>{
     if(done){const need=it.checklist.filter(c=>c.last===undefined).map(c=>c.id).filter(id=>!(clChecked[key]||new Set()).has(id));if(need.length&&t.dataset.arm!=="1"){t.dataset.arm="1";t.textContent="Не все пункты отмечены — всё равно ✓?";return}}
     t.disabled=true;try{await clApi("cl_done",{booking_id:it.booking_id,task_id:it.task_id,date:day.date,apt:it.apt,done,checks:[...(clChecked[key]||[])]});toast(done?"Отлично, отмечено ✓":"Отметка снята");await clReload()}catch(err){toast("Не сохранилось — проверь интернет");t.disabled=false}return}
   if(t.id==="clr-send"){const note=$("clr-note").value.trim();if(!note){toast("Напиши, что не так");return}t.disabled=true;try{const f=$("clr-photo").files[0];const photo=f?await resizeImg(f):"";await clApi("cl_report",{apt:$("clr-apt").value,note,photo});toast("Отправлено менеджеру");await clReload()}catch(err){toast("Не отправилось — проверь интернет");t.disabled=false}return}
+  if(ds.clsup){const apt=(($("cls-apt")||{}).value||"").trim();if(!apt){toast("Выбери квартиру");return}if(t.getAttribute("aria-pressed")==="true"){toast("Уже в списке покупок");return}t.disabled=true;try{const r=await clApi("cl_supply",{apt,item:ds.clsup});toast(r&&r.again?"Уже в списке покупок":"Отмечено — менеджер купит");await clReload()}catch(err){toast("Не отправилось — проверь интернет");t.disabled=false}return}
 });
 setInterval(()=>{const a=document.activeElement;if(CPIN&&document.visibilityState==="visible"&&!(a&&a.matches&&a.matches("input,select")))clReload()},60000);
 /* ---------- espace.md: accounts, companies, subscription ---------- */

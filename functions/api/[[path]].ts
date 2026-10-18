@@ -233,7 +233,11 @@ async function cleanerView(db: D1Database, O: string, me: any, td: string) {
   const mine = new Set<string>(role === "fix" ? repairs.map((r: any) => r.apt) : days.flatMap((d: any) => d.items.map((i: any) => i.apt)));
   const access: Record<string, any> = {};
   for (const a of mine) { const u = (cfg.units || {})[a] || {}, o: any = {}; for (const k of ["wifi", "wpass", "door", "park", "cmin"]) if (u[k]) o[k] = u[k]; if (Object.keys(o).length) access[a] = o; }
-  return { me: { id: me.id, name: me.name, role }, apts: cfg.apts || [], addr, beds, access, days: role === "fix" ? days.map((d: any) => ({ ...d, items: [] })) : days, repairs, notifs };
+  const SUP_DEF = ["Туалетная бумага", "Мыло / гель", "Шампунь", "Мешки для мусора", "Кофе / чай", "Средство для посуды", "Губки", "Бумага для кухни"];
+  const supplySrc = Array.isArray(cfg.supplies) && cfg.supplies.length ? cfg.supplies : SUP_DEF.map((name, i) => ({ id: "p" + i, name }));
+  const supplies = supplySrc.filter((x: any) => x && x.name).map((x: any) => ({ id: str(x.id, 40), name: str(x.name, 80) }));
+  const supplyNeed = role === "fix" ? [] : await all(db, "SELECT id, apt, item, status FROM supply_need WHERE org_id = ? AND status = 'need' ORDER BY created_at DESC LIMIT 80", O);
+  return { me: { id: me.id, name: me.name, role }, apts: cfg.apts || [], addr, beds, access, days: role === "fix" ? days.map((d: any) => ({ ...d, items: [] })) : days, repairs, notifs, supplies, supplyNeed };
 }
 
 // a paid repair leaves money traces: an expense (id = task id) and, if paid from the till,
@@ -502,6 +506,29 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     if (email) await sendMail(env, db, { to: email, ...mails.requestGot(org.name, { apt, date, nights, pax, price, cur, phone: dir.phone || "", email: dir.email || "" }), kind: "request", orgId: org.id });
     return json({ ok: true, id, price, cur });
   }
+  // ---------- paid extras ordered from the public guest guide (/g/<token>) ----------
+  if (fn === "pub_svc_order") {
+    const gtok = str(body.gtoken, 40);
+    if (!/^[a-z0-9]{6,20}$/.test(gtok)) return json({ message: "not_found" }, 404);
+    const g = await one(db, "SELECT org_id, apt FROM guides WHERE token = ? AND apt != '*'", gtok);
+    if (!g) return json({ message: "not_found" }, 404);
+    const org = await one(db, "SELECT * FROM orgs WHERE id = ?", g.org_id);
+    if (!org || isExpired(await chargeOrg(db, org))) return json({ message: "closed" }, 403);
+    const cfg = (await getConfig(db, org.id)) || {};
+    const list = (Array.isArray(cfg.services) ? cfg.services : []).filter((x: any) => x && x.on !== false && x.name);
+    const sid = str(body.service_id, 40);
+    const svc = list.find((x: any) => String(x.id) === sid) || null;
+    if (!svc) return json({ message: "bad_service" }, 400);
+    const ip = request.headers.get("cf-connecting-ip") || "x", local = ["localhost", "127.0.0.1"].includes(new URL(request.url).hostname);
+    if (!local) { if (await throttled(db, "svc:" + ip)) return json({ message: "locked" }, 429); await failHit(db, "svc:" + ip); }
+    const guest = str(body.name, 80).trim(), phone = str(body.phone, 40).trim(), note = str(body.note, 300).trim();
+    if (!guest || !phone) return json({ message: "need_contact" }, 400);
+    const id = uuid(), price = Math.max(0, +svc.price || 0), cur = ["EUR", "MDL", "USD"].includes(svc.cur) ? svc.cur : "EUR";
+    await run(db, "INSERT INTO svc_orders(id, org_id, apt, service_id, service_name, price, price_cur, guest, phone, note, status, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,'new',?)",
+      id, org.id, g.apt, String(svc.id), str(svc.name, 80), price, cur, guest, phone, note, nowIso());
+    await notify(db, org.id, ["manager"], { title: "🛎️ Услуга: " + str(svc.name, 80), body: g.apt + " · " + guest + " · " + phone + (price ? ` · ${price} ${cur}` : "") + (note ? " · " + note : "") });
+    return json({ ok: true, id });
+  }
   if (fn === "site_info") { // the operator's public details for the legal pages
     const st = await getSettings(db);
     return json({ name: st.name, idno: st.idno, address: st.address, email: st.email, phone: st.phone });
@@ -687,6 +714,20 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
       await run(db, "INSERT INTO tasks(id,org_id,kind,date,apt,status,note,photo,reported_by,shift_person,sent,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,1,?,?)", uuid(), O, "repair", td, apt, "todo", note, photo, me.name, await shiftPerson(db, O), t, t);
       waitUntil(notify(db, O, ["manager"], { title: "🔧 " + apt + ": нужно починить", body: note + " — " + me.name + (photo ? " (есть фото)" : "") }).catch(() => {}));
       return json(true);
+    }
+    if (fn === "cl_supply") {
+      // cleaner marks a consumable running low on a unit → shopping list for the manager
+      const cfg = (await getConfig(db, O)) || {};
+      if (staffRole(cfg, me.id) === "fix") return json({ message: "forbidden" }, 403);
+      const apt = str(body.apt, 100), item = str(body.item, 80).trim(), note = str(body.note, 200).trim();
+      if (!apt || !(cfg.apts || []).includes(apt) || !item) return json({ message: "bad_item" }, 400);
+      const open = await one(db, "SELECT id FROM supply_need WHERE org_id = ? AND apt = ? AND item = ? AND status = 'need'", O, apt, item);
+      if (open) return json({ id: open.id, again: true });
+      const id = uuid(), t = nowIso();
+      await run(db, "INSERT INTO supply_need(id, org_id, apt, item, note, by_name, staff_id, status, created_at) VALUES (?,?,?,?,?,?,?,'need',?)",
+        id, O, apt, item, note, me.name, me.id, t);
+      waitUntil(notify(db, O, ["manager"], { title: "🧴 Кончается: " + item, body: apt + " — " + me.name + (note ? " · " + note : "") }).catch(() => {}));
+      return json({ id });
     }
     return json({ message: "not_found" }, 404);
   }
@@ -1494,6 +1535,43 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
       const r = await one(db, "SELECT photo FROM tasks WHERE org_id = ? AND id = ?", O, body.p_id);
       return json(r?.photo || "");
     }
+
+    // ---------- paid extras ordered from the guest guide ----------
+    case "kv_svc_orders": {
+      const st = str(body.status, 10);
+      const rows = st === "all"
+        ? await all(db, "SELECT * FROM svc_orders WHERE org_id = ? ORDER BY created_at DESC LIMIT 80", O)
+        : await all(db, "SELECT * FROM svc_orders WHERE org_id = ? AND status = 'new' ORDER BY created_at DESC LIMIT 80", O);
+      return json(rows);
+    }
+    case "kv_svc_done": {
+      const id = str(body.id, 40);
+      if (!isUuid(id)) return json({ message: "bad_id" }, 400);
+      const r = await one(db, "SELECT id, status FROM svc_orders WHERE org_id = ? AND id = ?", O, id);
+      if (!r) return json({ message: "not_found" }, 404);
+      const st = body.cancel === true ? "cancel" : "done";
+      await run(db, "UPDATE svc_orders SET status = ? WHERE org_id = ? AND id = ?", st, O, id);
+      return json(true);
+    }
+
+    // ---------- consumables shopping list ----------
+    case "kv_supply_list": {
+      const st = str(body.status, 10);
+      const rows = st === "all"
+        ? await all(db, "SELECT * FROM supply_need WHERE org_id = ? ORDER BY created_at DESC LIMIT 100", O)
+        : await all(db, "SELECT * FROM supply_need WHERE org_id = ? AND status = 'need' ORDER BY created_at DESC LIMIT 100", O);
+      return json(rows);
+    }
+    case "kv_supply_done": {
+      const id = str(body.id, 40);
+      if (!isUuid(id)) return json({ message: "bad_id" }, 400);
+      const r = await one(db, "SELECT id FROM supply_need WHERE org_id = ? AND id = ?", O, id);
+      if (!r) return json({ message: "not_found" }, 404);
+      if (body.undo === true) await run(db, "UPDATE supply_need SET status = 'need', done_at = '' WHERE org_id = ? AND id = ?", O, id);
+      else await run(db, "UPDATE supply_need SET status = 'bought', done_at = ? WHERE org_id = ? AND id = ?", nowIso(), O, id);
+      return json(true);
+    }
+
     default:
       return json({ message: "not_found" }, 404);
   }
