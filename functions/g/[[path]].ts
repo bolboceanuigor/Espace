@@ -15,9 +15,9 @@ const SECTIONS: [string, string, Record<string, string>][] = [
   ["checkout", "👋", { ru: "Выезд", ro: "Plecarea", en: "Check-out" }],
 ];
 const UI: Record<string, Record<string, string>> = {
-  ru: { where: "Где квартира", guide: "Гид для гостя", address: "Адрес", map: "Открыть в Google Maps", video: "Смотреть видео", hello: "Добро пожаловать!", empty: "Скоро здесь появится информация." },
-  ro: { where: "Unde e apartamentul", guide: "Ghidul oaspetelui", address: "Adresa", map: "Deschide în Google Maps", video: "Vezi video", hello: "Bine ați venit!", empty: "Informațiile vor apărea în curând." },
-  en: { where: "Where is the apartment", guide: "Guest guide", address: "Address", map: "Open in Google Maps", video: "Watch video", hello: "Welcome!", empty: "Information coming soon." },
+  ru: { where: "Где квартира", guide: "Гид для гостя", address: "Адрес", map: "Открыть в Google Maps", video: "Смотреть видео", hello: "Добро пожаловать!", empty: "Скоро здесь появится информация.", svc: "Дополнительные услуги", order: "Заказать", name: "Имя", phone: "Телефон", note: "Комментарий", send: "Отправить", sent: "Заявка отправлена — хозяин свяжется с вами.", need: "Укажите имя и телефон.", err: "Не отправилось. Попробуйте ещё раз.", free: "по запросу" },
+  ro: { where: "Unde e apartamentul", guide: "Ghidul oaspetelui", address: "Adresa", map: "Deschide în Google Maps", video: "Vezi video", hello: "Bine ați venit!", empty: "Informațiile vor apărea în curând.", svc: "Servicii suplimentare", order: "Comandă", name: "Numele", phone: "Telefon", note: "Comentariu", send: "Trimite", sent: "Cererea a fost trimisă — gazda vă contactează.", need: "Scrieți numele și telefonul.", err: "Nu s-a trimis. Încercați din nou.", free: "la cerere" },
+  en: { where: "Where is the apartment", guide: "Guest guide", address: "Address", map: "Open in Google Maps", video: "Watch video", hello: "Welcome!", empty: "Information coming soon.", svc: "Extra services", order: "Order", name: "Name", phone: "Phone", note: "Note", send: "Send", sent: "Request sent — the host will contact you.", need: "Add your name and phone.", err: "Could not send. Try again.", free: "on request" },
 };
 const LANGS = ["ru", "ro", "en"];
 
@@ -77,7 +77,24 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params }) =>
     return `<section id="${k}"><h2><span>${ic}</span>${esc(names[L])}</h2>${ad}${all ? `<p class="all">${linkify(all)}</p>` : ""}${txt ? `<p>${linkify(txt)}</p>` : ""}${media ? `<div class="ph">${media}</div>` : ""}${vids}</section>`;
   }).filter(Boolean);
   if (locHtml) secs.unshift(locHtml);
-  const chips = (locHtml ? `<a href="#where">📍 ${esc(T.where)}</a>` : "") + SECTIONS.filter(([k]) => secs.some((h) => h.startsWith(`<section id="${k}"`))).map(([k, ic, n]) => `<a href="#${k}">${ic} ${esc(n[L])}</a>`).join("");
+  const svcs = (Array.isArray(cfg.services) ? cfg.services : []).filter((x: any) => x && x.on !== false && x.name);
+  const CUR: Record<string, string> = { EUR: "€", USD: "$", MDL: "lei" };
+  const svcHtml = svcs.length ? `<section id="svc"><h2><span>🛎️</span>${esc(T.svc)}</h2>
+    ${svcs.map((s: any) => {
+      const price = +s.price > 0 ? `${Math.round(+s.price * 100) / 100}\u00a0${CUR[s.cur] || "€"}` : T.free;
+      return `<div class="svc" data-sid="${esc(s.id)}"><div class="svh"><b>${esc(s.name)}</b><span>${esc(price)}</span></div>
+        <button type="button" class="obtn" data-order="${esc(s.id)}" data-name="${esc(s.name)}">${esc(T.order)}</button></div>`;
+    }).join("")}
+    <div class="sheet" id="sh" hidden><div class="shbox"><h3 id="sh-t"></h3>
+      <label>${esc(T.name)}<input id="o-name" maxlength="80" autocomplete="name"></label>
+      <label>${esc(T.phone)}<input id="o-phone" type="tel" maxlength="40" autocomplete="tel"></label>
+      <label>${esc(T.note)}<input id="o-note" maxlength="300"></label>
+      <p class="msg" id="o-err" hidden></p>
+      <div class="ob"><button type="button" class="ghost" id="o-x">✕</button><button type="button" class="vbtn" id="o-go">${esc(T.send)}</button></div>
+    </div></div>
+    <p class="okmsg" id="o-ok" hidden>${esc(T.sent)}</p></section>` : "";
+  if (svcHtml) secs.push(svcHtml);
+  const chips = (locHtml ? `<a href="#where">📍 ${esc(T.where)}</a>` : "") + SECTIONS.filter(([k]) => secs.some((h) => h.startsWith(`<section id="${k}"`))).map(([k, ic, n]) => `<a href="#${k}">${ic} ${esc(n[L])}</a>`).join("") + (svcs.length ? `<a href="#svc">🛎️ ${esc(T.svc)}</a>` : "");
   const langs = LANGS.map((l) => `<a href="?l=${l}"${l === L ? ' aria-current="true"' : ""}>${l.toUpperCase()}</a>`).join("");
 
   const html = `<!doctype html><html lang="${L}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
@@ -97,12 +114,38 @@ p{margin:6px 0}p.all{font-weight:700;background:#fbf7ef;border-radius:12px;paddi
 a{color:#b4531f}.addr{background:#fbf7ef;border-radius:12px;padding:10px 12px;margin-bottom:6px}
 .ph{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:8px}.ph img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:12px;display:block}
 .vid{position:relative;padding-top:56.25%;margin-top:8px;border-radius:12px;overflow:hidden}.vid iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
-.vbtn{display:inline-block;margin-top:8px;background:var(--fg);color:var(--acc);text-decoration:none;font-weight:800;padding:10px 14px;border-radius:12px}
+.vbtn{display:inline-block;margin-top:8px;background:var(--fg);color:var(--acc);text-decoration:none;font-weight:800;padding:10px 14px;border-radius:12px;border:0;cursor:pointer;font:inherit}
 .map{width:100%;height:240px;border:0;border-radius:14px;display:block;margin-top:8px}
 .empty{color:var(--mut);text-align:center;padding:30px}footer{text-align:center;color:var(--mut);font-size:13px;margin-top:20px}
+.svc{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--line)}.svc:first-of-type{border-top:0;padding-top:0}
+.svh{display:flex;flex-direction:column;gap:2px;min-width:0}.svh b{font-size:15.5px}.svh span{color:var(--mut);font-size:13.5px;font-weight:700}
+.obtn{flex:none;border:0;background:#fff4d6;color:var(--fg);font-weight:800;padding:9px 12px;border-radius:12px;cursor:pointer;font:inherit;font-size:14px}
+.sheet{position:fixed;inset:0;background:rgba(23,20,10,.45);display:flex;align-items:flex-end;justify-content:center;z-index:20}.sheet[hidden]{display:none}
+.shbox{background:var(--card);width:100%;max-width:480px;border-radius:22px 22px 0 0;padding:18px 16px calc(16px + env(safe-area-inset-bottom))}
+.shbox h3{margin:0 0 10px;font-size:18px}.shbox label{display:block;font-size:13.5px;font-weight:700;margin-top:10px}.shbox input{width:100%;margin-top:4px;border:1.5px solid var(--line);border-radius:12px;padding:11px 12px;font:inherit}
+.ob{display:flex;gap:8px;margin-top:14px}.ob .vbtn{flex:1;margin:0;text-align:center}.ghost{border:1px solid var(--line);background:none;border-radius:12px;padding:10px 14px;font-weight:700;cursor:pointer}
+.msg{color:#b42318;font-weight:700;margin:8px 0 0}.okmsg{background:#e8f6ee;color:#1f6b3a;font-weight:700;border-radius:12px;padding:10px 12px;margin-top:10px}
 </style></head><body>
 <div class="hero"><div class="top"><img src="/logo-64.png" alt=""><b>${esc(brand)}</b><nav class="lang">${langs}</nav></div>
 <h1>${esc(g.apt)}</h1><small>${esc(T.hello)} · ${esc(T.guide)}</small>${chips ? `<div class="chips">${chips}</div>` : ""}</div>
-<main>${secs.join("") || `<div class="empty">${esc(T.empty)}</div>`}<footer>${esc(brand)} · espace.md</footer></main></body></html>`;
+<main>${secs.join("") || `<div class="empty">${esc(T.empty)}</div>`}<footer>${esc(brand)} · espace.md</footer></main>
+<script>
+const T=${JSON.stringify({ need: T.need, err: T.err, order: T.order })}, GTOK=${JSON.stringify(token)};
+let SID="";
+const $=id=>document.getElementById(id);
+document.addEventListener("click",e=>{
+  const b=e.target.closest("[data-order],#o-x,#o-go"); if(!b){if(e.target===$("sh"))$("sh").hidden=true;return}
+  if(b.id==="o-x"){$("sh").hidden=true;return}
+  if(b.dataset.order){SID=b.dataset.order;$("sh-t").textContent=b.dataset.name||T.order;$("o-err").hidden=true;$("sh").hidden=false;setTimeout(()=>$("o-name").focus(),40);return}
+  if(b.id==="o-go"){(async()=>{
+    const name=$("o-name").value.trim(),phone=$("o-phone").value.trim(),note=$("o-note").value.trim(),err=$("o-err");
+    if(!name||!phone){err.textContent=T.need;err.hidden=false;return}
+    b.disabled=true;try{
+      const r=await fetch("/api/pub_svc_order",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({gtoken:GTOK,service_id:SID,name,phone,note})});
+      if(!r.ok)throw 0;$("sh").hidden=true;$("o-ok").hidden=false;b.disabled=false;
+    }catch(x){b.disabled=false;err.textContent=T.err;err.hidden=false}
+  })()}
+});
+</script></body></html>`;
   return new Response(html, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-robots-tag": "noindex" } });
 };
