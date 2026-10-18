@@ -1557,7 +1557,7 @@ const SRC_COL={"Booking":"#2a5bd7","Airbnb":"#e8505b","Instagram":"#c13584","Vib
 const PAY_COL={"Кэш":"#2c7a4b","Счёт":"#2a5bd7","Airbnb":"#e8505b","Счёт+Кэш":"#c08a1e"};
 const MONTHS=["Ianuarie","Februarie","Martie","Aprilie","Mai","Iunie","Iulie","August","Septembrie","Octombrie","Noiembrie","Decembrie"];
 const MONTHS_G=["ianuarie","februarie","martie","aprilie","mai","iunie","iulie","august","septembrie","octombrie","noiembrie","decembrie"];
-const MON_S=["ian","feb","mar","apr","mai","iun","iul","aug","sep","oct","noi","dec"];
+const MON_S=["ian.","feb.","mar.","apr.","mai","iun.","iul.","aug.","sept.","oct.","nov.","dec."];
 const WD=["Du","Lu","Ma","Mi","Jo","Vi","Sâ"];
 const WD_L=["Duminică","Luni","Marți","Miercuri","Joi","Vineri","Sâmbătă"];
 const DAY=86400000;
@@ -3094,7 +3094,6 @@ function tinyAmt(b,k=1){const r=v=>String(Math.round(v*k));const parts=[b.mdl?r(
 function shortAmt(b,k=1){const r=v=>fmt0(v*k);const parts=[b.mdl?r(b.mdl)+" lei":"",b.eur?r(b.eur)+"€":"",b.usd?"$"+r(b.usd):"",b.oth&&b.oth_cur?r(b.oth)+" "+b.oth_cur:"",+b.util?"com. "+r(+b.util)+(b.util_cur==="EUR"?"€":b.util_cur==="USD"?"$":" lei"):""].filter(Boolean);return parts.join(" + ")}
 let calKey="",calOff=0,calS0=0,calRefit=false,calP=10,calMR=0,calB=60;
 const MON_C=["Ian","Feb","Mar","Apr","Mai","Iun","Iul","Aug","Sep","Oct","Noi","Dec"];
-const MON_S=["ian.","feb.","mar.","apr.","mai","iun.","iul.","aug.","sept.","oct.","nov.","dec."];
 function calMon(){const el=$("c-body"),m=$("c-mon");if(!el||!m)return;const i=Math.round(el.scrollLeft/calW),a=new Date(calS0+i*DAY),b=new Date(calS0+(i+calP-1)*DAY);const ya=a.getUTCFullYear(),cy=new Date().getFullYear();
   // Fresha-style range in the top bar: 12-18 oct.
   const t=a.getUTCMonth()===b.getUTCMonth()
