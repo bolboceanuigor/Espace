@@ -1806,15 +1806,21 @@ function renderSetup(){if(!W&&wizNeeded())wizStart();const el=$("setup-card");if
     ["book",bookings.length>0,"Introduceți prima rezervare","Data sosirii, nopțile, suma și sursa — apare imediat în calendar.","Adaugă o rezervare"],
     ["staff",staffAll.length>0,"Adăugați o menajeră cu PIN","Ea va intra pe "+(ME.org.code)+".espace.md → «Sunt menajeră» și își vede curățeniile.","Menajere"]];
   const done=steps.filter(x=>x[1]).length;
-  if(done===steps.length){el.innerHTML=`<div class="card setup ok"><b>Compania e gata de lucru</b><p class="small" style="margin:4px 0 0">Apartamentele, rezervările și menajerele sunt la locul lor. Mai departe — invită managerii în «Meniu → Setări → Acces pentru angajați».</p><div class="actions"><button class="btn sm" data-setup="hide">Ascunde</button></div></div>`;return}
+  if(done===steps.length){const demoOn=!!(cfg.demo&&cfg.demo.on);el.innerHTML=`<div class="card setup ok"><b>Compania e gata de lucru</b><p class="small" style="margin:4px 0 0">Apartamentele, rezervările și menajerele sunt la locul lor. Mai departe — invită managerii în «Meniu → Setări → Acces pentru angajați».</p>
+    <div class="actions"><button class="btn sm" data-setup="hide">Ascunde</button>${demoOn?`<button class="btn sm" data-setup="demo-clear">Șterge exemplul</button>`:`<button class="btn sm" data-setup="demo-load">Încarcă exemplul</button>`}</div></div>`;return}
+  const demoOn=!!(cfg.demo&&cfg.demo.on);
   el.innerHTML=`<div class="card setup"><div class="setup-h"><b>Primii pași</b><span class="small">${done} din ${steps.length}</span><button class="iconbtn" data-setup="hide" aria-label="Ascunde">✕</button></div>
     <div class="setup-bar"><i style="width:${done/steps.length*100}%"></i></div>
-    ${steps.map(([k,ok,t,sub,btn],i)=>`<div class="setup-s${ok?" done":""}"><span class="n">${ok?"✓":i+1}</span><span class="m"><b>${t}</b><small>${esc(sub)}</small></span>${ok?"":`<button class="btn sm${steps.findIndex(x=>!x[1])===i?" primary":""}" data-setup="${k}">${btn}</button>`}</div>`).join("")}</div>`}
+    ${steps.map(([k,ok,t,sub,btn],i)=>`<div class="setup-s${ok?" done":""}"><span class="n">${ok?"✓":i+1}</span><span class="m"><b>${t}</b><small>${esc(sub)}</small></span>${ok?"":`<button class="btn sm${steps.findIndex(x=>!x[1])===i?" primary":""}" data-setup="${k}">${btn}</button>`}</div>`).join("")}
+    <div class="setup-s" style="margin-top:8px;border-top:1px dashed var(--line);padding-top:10px"><span class="n">◈</span><span class="m"><b>Date demo</b><small>${demoOn?"3 obiecte și 5 rezervări marcate TEST sunt deja în calendar — le poți șterge.":"Încarcă 3 obiecte și 5 rezervări marcate TEST ca să vezi imediat cum arată aplicația."}</small></span>
+      ${demoOn?`<button class="btn sm" data-setup="demo-clear">Șterge exemplul</button>`:`<button class="btn sm primary" data-setup="demo-load">Încarcă exemplul</button>`}</div></div>`}
 document.addEventListener("click",e=>{const b=e.target.closest("[data-setup]");if(!b)return;const k=b.dataset.setup;
   if(k==="hide"){ls.set("setup_hide_"+(ME&&ME.org?ME.org.id:""),"1");renderSetup();return}
   if(k==="apts"){stOpen=null;settingsPage("apts");scrollTo(0,0);return}
   if(k==="staff"){stOpen="new";settingsPage("staff");scrollTo(0,0);return}
-  if(k==="book"){show("add");setMode("b");scrollTo(0,0);return}});
+  if(k==="book"){show("add");setMode("b");scrollTo(0,0);return}
+  if(k==="demo-load"){b.disabled=true;api("kv_demo_load").then(async()=>{toast("Exemplul a fost încărcat");await reload();renderSetup();renderView()}).catch(e=>toast(e.code==="demo_exists"?"Exemplul este deja încărcat":"Nu a reușit")).finally(()=>b.disabled=false);return}
+  if(k==="demo-clear"){askDel("Ștergi exemplul?","Dispar 3 obiecte marcate TEST și rezervările lor. Datele tale reale nu sunt atinse.",()=>api("kv_demo_clear").then(async()=>{toast("Exemplul a fost șters");await reload();renderSetup();renderView()}).catch(()=>toast("Nu a reușit")),"Șterge");return}});
 /* UNITS — details of every apartment / house / hotel room live in cfg.units[name]:
    kind, group (building or hotel), area, bedrooms, baths, floor, beds {dbl,sgl,sofa,bunk}, guests, price, cin, cout, amen[], note.
    cfg.apts stays the list of names used everywhere (calendar, bookings, cleanings); a deleted unit moves to cfg.archived. */
@@ -3270,6 +3276,8 @@ function renderSettings(){
     contract:["chk","Contractul cu oaspetele",(cfg.contract||{}).landlord?"locator: "+(cfg.contract||{}).landlord:"semnătura oaspetelui pe telefon",()=>contractSection()],
     owners:["mgr","Proprietari",(cfg.owners||[]).length?(cfg.owners||[]).map(o=>o.name).join(", "):"comision, plăți și raport lunar",()=>ownersSection()],
     import:["chk","Import din Excel",`rezervări și obiecte dintr-un fișier · Excel, CSV, RealtyCalendar`,()=>importSection()],
+    demo:["chk","Date demo",cfg.demo&&cfg.demo.on?"încărcat · 3 obiecte TEST":"3 obiecte și 5 rezervări TEST pentru acomodare",()=>`<div class="card"><b>Încarcă exemplul</b><p class="small" style="margin:4px 0 10px">Creează 3 obiecte și 5 rezervări marcate TEST — ca să vezi imediat calendarul, «Azi» și fișele. Le poți șterge apoi dintr-o apăsare.</p>
+      <div class="actions">${cfg.demo&&cfg.demo.on?`<button type="button" class="btn danger" id="demo-clear">Șterge exemplul</button>`:`<button type="button" class="btn primary" id="demo-load">Încarcă exemplul</button>`}</div></div>`],
     direct:["web","Pagina de rezervare",cfg.direct&&cfg.direct.on?"pornită · "+ME.org.code+".espace.md/rezerva":"oaspeții rezervă direct, fără comision",()=>directSection()],
     people:["mgr","Manageri",cfg.people.join(", ")||"neindicate",()=>`<div class="card"><label class="l" for="set-people">Managerii — cine primește bani și lucrează în ture <em>— separate prin virgulă</em></label><input type="text" id="set-people" value="${esc(cfg.people.join(", "))}">
       <div class="actions"><button class="btn primary" id="save-people">Salvează</button></div></div>
@@ -4155,6 +4163,8 @@ document.addEventListener("click",e=>{
   if(t.id==="sh-close"){closeSheet();return}
   if(ds.gmode){gMode(ds.gmode);return}
   if(t.id==="p-out"){logout();return}
+  if(t.id==="demo-load"){t.disabled=true;api("kv_demo_load").then(async()=>{toast("Exemplul a fost încărcat");await reload();settingsPage("demo")}).catch(e=>toast(e.code==="demo_exists"?"Exemplul este deja încărcat":"Nu a reușit")).finally(()=>t.disabled=false);return}
+  if(t.id==="demo-clear"){askDel("Ștergi exemplul?","Dispar 3 obiecte marcate TEST și rezervările lor. Datele tale reale nu sunt atinse.",()=>api("kv_demo_clear").then(async()=>{toast("Exemplul a fost șters");await reload();settingsPage("demo")}).catch(()=>toast("Nu a reușit")),"Șterge");return}
   if(ds.setopen){stOpen=null;settingsPage(ds.setopen);scrollTo(0,0);return}
   if(t.id==="code-copy"){const c=ME&&ME.org?"https://"+ME.org.code+".espace.md":"";try{navigator.clipboard.writeText(c);toast("Copiat: "+c)}catch(e){toast(c)}return}
   if(ds.orgsw){api("auth_switch",{org_id:ds.orgsw}).then(async me=>{setMe(me);closeSheet();await reload();loadPhotos();toast("Deschisă: "+orgName())}).catch(()=>toast("Nu a reușit"));return}

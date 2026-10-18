@@ -1806,15 +1806,21 @@ function renderSetup(){if(!W&&wizNeeded())wizStart();const el=$("setup-card");if
     ["book",bookings.length>0,"Внесите первую бронь","Дата заезда, ночи, сумма и источник — она сразу появится в календаре.","Добавить бронь"],
     ["staff",staffAll.length>0,"Добавьте горничную с PIN","Она войдёт на "+(ME.org.code)+".espace.md → «Я горничная» и увидит свои уборки.","Горничные"]];
   const done=steps.filter(x=>x[1]).length;
-  if(done===steps.length){el.innerHTML=`<div class="card setup ok"><b>Компания готова к работе</b><p class="small" style="margin:4px 0 0">Квартиры, брони и горничные на месте. Дальше — пригласите менеджеров в «Меню → Настройки → Доступ для сотрудников».</p><div class="actions"><button class="btn sm" data-setup="hide">Скрыть</button></div></div>`;return}
+  if(done===steps.length){const demoOn=!!(cfg.demo&&cfg.demo.on);el.innerHTML=`<div class="card setup ok"><b>Компания готова к работе</b><p class="small" style="margin:4px 0 0">Квартиры, брони и горничные на месте. Дальше — пригласите менеджеров в «Меню → Настройки → Доступ для сотрудников».</p>
+    <div class="actions"><button class="btn sm" data-setup="hide">Скрыть</button>${demoOn?`<button class="btn sm" data-setup="demo-clear">Удалить пример</button>`:`<button class="btn sm" data-setup="demo-load">Загрузить пример</button>`}</div></div>`;return}
+  const demoOn=!!(cfg.demo&&cfg.demo.on);
   el.innerHTML=`<div class="card setup"><div class="setup-h"><b>Первые шаги</b><span class="small">${done} из ${steps.length}</span><button class="iconbtn" data-setup="hide" aria-label="Скрыть">✕</button></div>
     <div class="setup-bar"><i style="width:${done/steps.length*100}%"></i></div>
-    ${steps.map(([k,ok,t,sub,btn],i)=>`<div class="setup-s${ok?" done":""}"><span class="n">${ok?"✓":i+1}</span><span class="m"><b>${t}</b><small>${esc(sub)}</small></span>${ok?"":`<button class="btn sm${steps.findIndex(x=>!x[1])===i?" primary":""}" data-setup="${k}">${btn}</button>`}</div>`).join("")}</div>`}
+    ${steps.map(([k,ok,t,sub,btn],i)=>`<div class="setup-s${ok?" done":""}"><span class="n">${ok?"✓":i+1}</span><span class="m"><b>${t}</b><small>${esc(sub)}</small></span>${ok?"":`<button class="btn sm${steps.findIndex(x=>!x[1])===i?" primary":""}" data-setup="${k}">${btn}</button>`}</div>`).join("")}
+    <div class="setup-s" style="margin-top:8px;border-top:1px dashed var(--line);padding-top:10px"><span class="n">◈</span><span class="m"><b>Пример данных</b><small>${demoOn?"3 объекта и 5 броней с пометкой ТЕСТ уже в календаре — можно удалить.":"Загрузите 3 объекта и 5 броней с пометкой ТЕСТ, чтобы сразу посмотреть, как выглядит приложение."}</small></span>
+      ${demoOn?`<button class="btn sm" data-setup="demo-clear">Удалить пример</button>`:`<button class="btn sm primary" data-setup="demo-load">Загрузить пример</button>`}</div></div>`}
 document.addEventListener("click",e=>{const b=e.target.closest("[data-setup]");if(!b)return;const k=b.dataset.setup;
   if(k==="hide"){ls.set("setup_hide_"+(ME&&ME.org?ME.org.id:""),"1");renderSetup();return}
   if(k==="apts"){stOpen=null;settingsPage("apts");scrollTo(0,0);return}
   if(k==="staff"){stOpen="new";settingsPage("staff");scrollTo(0,0);return}
-  if(k==="book"){show("add");setMode("b");scrollTo(0,0);return}});
+  if(k==="book"){show("add");setMode("b");scrollTo(0,0);return}
+  if(k==="demo-load"){b.disabled=true;api("kv_demo_load").then(async()=>{toast("Пример загружен");await reload();renderSetup();renderView()}).catch(e=>toast(e.code==="demo_exists"?"Пример уже загружен":"Не получилось")).finally(()=>b.disabled=false);return}
+  if(k==="demo-clear"){askDel("Удалить пример?","Исчезнут 3 объекта с пометкой ТЕСТ и их брони. Ваши реальные данные не трогаем.",()=>api("kv_demo_clear").then(async()=>{toast("Пример удалён");await reload();renderSetup();renderView()}).catch(()=>toast("Не получилось")),"Удалить");return}});
 /* UNITS — details of every apartment / house / hotel room live in cfg.units[name]:
    kind, group (building or hotel), area, bedrooms, baths, floor, beds {dbl,sgl,sofa,bunk}, guests, price, cin, cout, amen[], note.
    cfg.apts stays the list of names used everywhere (calendar, bookings, cleanings); a deleted unit moves to cfg.archived. */
@@ -3270,6 +3276,8 @@ function renderSettings(){
     contract:["chk","Договор с гостем",(cfg.contract||{}).landlord?"наймодатель: "+(cfg.contract||{}).landlord:"подпись гостя на телефоне",()=>contractSection()],
     owners:["mgr","Собственники",(cfg.owners||[]).length?(cfg.owners||[]).map(o=>o.name).join(", "):"комиссия, выплаты и отчёт за месяц",()=>ownersSection()],
     import:["chk","Импорт из Excel",`брони и объекты из файла · Excel, CSV, RealtyCalendar`,()=>importSection()],
+    demo:["chk","Пример данных",cfg.demo&&cfg.demo.on?"загружен · 3 объекта ТЕСТ":"3 объекта и 5 броней ТЕСТ для знакомства",()=>`<div class="card"><b>Загрузить пример</b><p class="small" style="margin:4px 0 10px">Создаёт 3 объекта и 5 броней с пометкой ТЕСТ — чтобы сразу увидеть календарь, «Сегодня» и карточки. Потом можно удалить одним нажатием.</p>
+      <div class="actions">${cfg.demo&&cfg.demo.on?`<button type="button" class="btn danger" id="demo-clear">Удалить пример</button>`:`<button type="button" class="btn primary" id="demo-load">Загрузить пример</button>`}</div></div>`],
     direct:["web","Страница бронирования",cfg.direct&&cfg.direct.on?"включена · "+ME.org.code+".espace.md/rezerva":"гости бронируют напрямую, без комиссии",()=>directSection()],
     people:["mgr","Менеджеры",cfg.people.join(", ")||"не указаны",()=>`<div class="card"><label class="l" for="set-people">Менеджеры — кто принимает деньги и работает сменами <em>— через запятую</em></label><input type="text" id="set-people" value="${esc(cfg.people.join(", "))}">
       <div class="actions"><button class="btn primary" id="save-people">Сохранить</button></div></div>
@@ -4155,6 +4163,8 @@ document.addEventListener("click",e=>{
   if(t.id==="sh-close"){closeSheet();return}
   if(ds.gmode){gMode(ds.gmode);return}
   if(t.id==="p-out"){logout();return}
+  if(t.id==="demo-load"){t.disabled=true;api("kv_demo_load").then(async()=>{toast("Пример загружен");await reload();settingsPage("demo")}).catch(e=>toast(e.code==="demo_exists"?"Пример уже загружен":"Не получилось")).finally(()=>t.disabled=false);return}
+  if(t.id==="demo-clear"){askDel("Удалить пример?","Исчезнут 3 объекта с пометкой ТЕСТ и их брони. Ваши реальные данные не трогаем.",()=>api("kv_demo_clear").then(async()=>{toast("Пример удалён");await reload();settingsPage("demo")}).catch(()=>toast("Не получилось")),"Удалить");return}
   if(ds.setopen){stOpen=null;settingsPage(ds.setopen);scrollTo(0,0);return}
   if(t.id==="code-copy"){const c=ME&&ME.org?"https://"+ME.org.code+".espace.md":"";try{navigator.clipboard.writeText(c);toast("Скопировано: "+c)}catch(e){toast(c)}return}
   if(ds.orgsw){api("auth_switch",{org_id:ds.orgsw}).then(async me=>{setMe(me);closeSheet();await reload();loadPhotos();toast("Открыта: "+orgName())}).catch(()=>toast("Не получилось"));return}

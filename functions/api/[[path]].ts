@@ -1151,6 +1151,73 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
       if (created || added.length) await audit(db, O, c, "import", "import", "", `${created}`, { created, dup, closed: inClosed, bad: bad.length, aptsAdded: added });
       return json({ created, dup, closed: inClosed, bad: bad.length, badRows: bad.slice(0, 20), aptsAdded: added });
     }
+    case "kv_demo_load": {
+      // sample units + bookings marked TEST so a new company can click around; cleared with kv_demo_clear
+      if (c.role !== "owner" && c.role !== "manager") return json({ message: "forbidden" }, 403);
+      const cfg = (await getConfig(db, O)) || { apts: [] };
+      if (cfg.demo?.on) return json({ message: "demo_exists", apts: (cfg.demo.apts || []).length }, 409);
+      const names = ["TEST · Studio", "TEST · 1 комн.", "TEST · 2 комн."];
+      const specs: any[] = [
+        { kind: "studio", guests: 2, price: 40, beds: { sgl: 1, sofa: 1 }, addr: "str. Test 1" },
+        { kind: "apt", guests: 3, price: 55, beds: { dbl: 1, sgl: 1 }, addr: "str. Test 2" },
+        { kind: "apt", guests: 4, price: 75, beds: { dbl: 1, sgl: 2 }, addr: "str. Test 3" },
+      ];
+      const apts = [...(cfg.apts || [])];
+      cfg.units = cfg.units || {}; cfg.addr = cfg.addr || {};
+      for (let i = 0; i < names.length; i++) {
+        const n = names[i], s = specs[i];
+        if (!apts.includes(n)) apts.push(n);
+        cfg.units[n] = { ...(cfg.units[n] || {}), kind: s.kind, guests: s.guests, price: s.price, pcur: "EUR", beds: s.beds, cin: "15:00", cout: "11:00", note: "пример TEST" };
+        cfg.addr[n] = s.addr;
+      }
+      cfg.apts = apts;
+      const t = today(), now = nowIso();
+      const plans = [
+        { apt: names[0], date: addDays(t, -2), nights: 3, guest: "TEST Ana", source: "Airbnb", price: 120, eur: 120, pay_status: "paid", pax: 2 },
+        { apt: names[1], date: addDays(t, -1), nights: 2, guest: "TEST Ion", source: "Booking", price: 110, eur: 55, pay_status: "part", pax: 2 },
+        { apt: names[2], date: t, nights: 2, guest: "TEST Maria", source: "Прямой", price: 150, eur: 0, pay_status: "unpaid", pax: 3 },
+        { apt: names[0], date: addDays(t, 3), nights: 2, guest: "TEST Alex", source: "Instagram", price: 90, eur: 0, pay_status: "unpaid", pax: 1 },
+        { apt: names[1], date: addDays(t, 5), nights: 3, guest: "TEST Elena", source: "Прямой", price: 165, eur: 0, pay_status: "unpaid", pax: 2 },
+      ];
+      const ids: string[] = [];
+      const stmts = plans.map((p) => {
+        const id = uuid(); ids.push(id);
+        return db.prepare(`INSERT INTO bookings(id, org_id, date, apt, guest, nights, mdl, eur, usd, pay, who, note, source, phone, pax, price, price_cur, pay_status, tag, created_at, updated_at)
+          VALUES (?,?,?,?,?,?,0,?,0,'','',?,?,?,?,?,?,?,'',?,?)`)
+          .bind(id, O, p.date, p.apt, p.guest, p.nights, p.eur, "demo TEST", p.source, "+37360000000", p.pax, p.price, "EUR", p.pay_status, now, now);
+      });
+      await db.batch(stmts);
+      cfg.demo = { on: true, apts: names, bookings: ids, at: now };
+      await run(db, "INSERT INTO app_config(org_id,data) VALUES (?,?) ON CONFLICT (org_id) DO UPDATE SET data = excluded.data", O, JSON.stringify(cfg));
+      await audit(db, O, c, "settings", "demo_load", "", "пример TEST", { apts: names.length, bookings: ids.length });
+      return json({ ok: true, apts: names.length, bookings: ids.length });
+    }
+    case "kv_demo_clear": {
+      if (c.role !== "owner" && c.role !== "manager") return json({ message: "forbidden" }, 403);
+      const cfg = (await getConfig(db, O)) || { apts: [] };
+      const names: string[] = Array.isArray(cfg.demo?.apts) && cfg.demo.apts.length
+        ? cfg.demo.apts.map((a: any) => str(a, 100)).filter(Boolean)
+        : (cfg.apts || []).filter((a: string) => String(a).startsWith("TEST ·"));
+      const ids: string[] = Array.isArray(cfg.demo?.bookings) ? cfg.demo.bookings.filter((x: any) => isUuid(x)) : [];
+      if (ids.length) {
+        for (let i = 0; i < ids.length; i += 40) {
+          const chunk = ids.slice(i, i + 40);
+          await run(db, `DELETE FROM bookings WHERE org_id = ? AND id IN (${chunk.map(() => "?").join(",")})`, O, ...chunk);
+        }
+      }
+      if (names.length) {
+        await run(db, `DELETE FROM bookings WHERE org_id = ? AND apt IN (${names.map(() => "?").join(",")}) AND note = 'demo TEST'`, O, ...names);
+        cfg.apts = (cfg.apts || []).filter((a: string) => !names.includes(a));
+        if (!cfg.apts.length) cfg.apts = ["Квартира 1"];
+        for (const n of names) { if (cfg.units) delete cfg.units[n]; if (cfg.addr) delete cfg.addr[n]; }
+      } else {
+        await run(db, "DELETE FROM bookings WHERE org_id = ? AND note = 'demo TEST'", O);
+      }
+      delete cfg.demo;
+      await run(db, "INSERT INTO app_config(org_id,data) VALUES (?,?) ON CONFLICT (org_id) DO UPDATE SET data = excluded.data", O, JSON.stringify(cfg));
+      await audit(db, O, c, "settings", "demo_clear", "", "пример TEST удалён", { apts: names.length });
+      return json({ ok: true, apts: names.length });
+    }
     // ---------- Telegram for this person in this company ----------
     // ---------- rental contracts with guests ----------
     case "kv_contract_get": { // the booking's contract, if any
