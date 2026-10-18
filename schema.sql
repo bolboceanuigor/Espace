@@ -94,19 +94,24 @@ CREATE TABLE IF NOT EXISTS bookings (
 );
 CREATE INDEX IF NOT EXISTS bookings_org_date_idx ON bookings(org_id, date);
 CREATE INDEX IF NOT EXISTS bookings_shift_idx ON bookings(shift_id);
--- files on a stay: R2 key when FILES binding exists, else data (base64 data-URL) in D1 like apt_photos
-CREATE TABLE IF NOT EXISTS booking_files (
+
+-- guest contacts (CRM): gathered from bookings by phone / email
+CREATE TABLE IF NOT EXISTS contacts (
   id TEXT PRIMARY KEY,
   org_id TEXT NOT NULL,
-  booking_id TEXT NOT NULL,
   name TEXT NOT NULL DEFAULT '',
-  mime TEXT NOT NULL DEFAULT '',
-  size INTEGER NOT NULL DEFAULT 0,
-  r2_key TEXT NOT NULL DEFAULT '',
-  data TEXT NOT NULL DEFAULT '',
-  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+  phone TEXT NOT NULL DEFAULT '',
+  phone_norm TEXT NOT NULL DEFAULT '',   -- digits only, for matching
+  email TEXT NOT NULL DEFAULT '',
+  email_norm TEXT NOT NULL DEFAULT '',   -- lowercased
+  note TEXT NOT NULL DEFAULT '',
+  flag TEXT NOT NULL DEFAULT '',         -- '' | vip | block
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
-CREATE INDEX IF NOT EXISTS booking_files_bk_idx ON booking_files(org_id, booking_id);
+CREATE INDEX IF NOT EXISTS contacts_org_idx ON contacts(org_id, updated_at);
+CREATE INDEX IF NOT EXISTS contacts_phone_idx ON contacts(org_id, phone_norm);
+CREATE INDEX IF NOT EXISTS contacts_email_idx ON contacts(org_id, email_norm);
 CREATE TABLE IF NOT EXISTS expenses (
   id TEXT PRIMARY KEY,
   org_id TEXT NOT NULL,

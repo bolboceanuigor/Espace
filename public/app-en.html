@@ -1507,7 +1507,7 @@ const catIcon=c=>CAT_ICON[c]||"📌";
 const catCol=c=>CAT_COL[Math.max(0,cfg.categories.indexOf(c))%CAT_COL.length];
 const telDigits=p=>(p||"").replace(/[^\d+]/g,"");
 
-const RO_OK=["kv_load","kv_photos","kv_guides","kv_task_photo","kv_push_key","kv_push_sub","billing","bill_invoice","bill_pay","bill_pay_status","auth_me","auth_logout","auth_switch","auth_password","auth_new_org","kv_ical_list","kv_ical_org"];
+const RO_OK=["kv_load","kv_photos","kv_guides","kv_task_photo","kv_push_key","kv_push_sub","billing","bill_invoice","bill_pay","bill_pay_status","auth_me","auth_logout","auth_switch","auth_password","auth_new_org","kv_contacts","kv_contact_get","kv_contacts_export"];
 const CHECK_OK=["kv_verify","kv_month_close","kv_month_open"];
 let ME=null, ROLE="", EXPIRED=false;
 const SLUG=(()=>{const h=location.hostname;if(h.endsWith(".espace.md"))return h.slice(0,-".espace.md".length);let c="";try{c=new URLSearchParams(location.search).get("c")||sessionStorage.getItem("es_c")||""}catch(e){}c=c.toLowerCase().replace(/[^a-z0-9-]/g,"");try{if(c)sessionStorage.setItem("es_c",c)}catch(e){}return c})();
@@ -2096,6 +2096,58 @@ document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest
     if(!(fee>=0&&fee<=100)){toast("Commission — from 0 to 100%");return}
     out.push({id:o.id,name:name.slice(0,80),email:email.slice(0,120),phone:String(o.phone||"").trim().slice(0,40),fee,exp:o.exp!==false,apts:(o.apts||[]).filter(a=>cfg.apts.includes(a))})}
   OWN=null;saveCfg({...cfg,owners:out},"Owners saved")});
+/* CONTACTS (CRM): guests gathered from bookings by phone/email */
+let CT={q:"",rows:[],cur:null};
+const CT_FLAG={vip:"VIP",block:"do not host","":""};
+async function contactsPage(){CT={q:"",rows:[],cur:null};
+  openSheet("Contacts",`<p class="small" style="margin-top:0">Built automatically from bookings by phone or email. Mark an important guest or a block. Note, merge and export.</p>
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap"><input type="search" id="ct-q" placeholder="Search by name or phone" style="flex:1;min-width:160px" autocomplete="off">
+      ${RO?"":`<button type="button" class="btn sm" id="ct-sync">Refresh from bookings</button><button type="button" class="btn sm" id="ct-add">＋</button><button type="button" class="btn sm" id="ct-csv">CSV</button>`}</div>
+    <div id="ct-list"><div class="empty">Uploading…</div></div>`,{type:"contacts"});
+  await ctLoad(true)}
+async function ctLoad(sync){const box=$("ct-list");if(!box)return;
+  try{const r=await api("kv_contacts",{q:CT.q,sync:!!sync});CT.rows=r.contacts||[];ctRender()}catch(e){box.innerHTML=`<div class="empty">Didn’t load</div>`}}
+function ctRender(){const box=$("ct-list");if(!box)return;
+  if(!CT.rows.length){box.innerHTML=`<div class="empty">${CT.q?"No one found":"Empty for now — save a booking with a phone or tap Refresh from bookings"}</div>`;return}
+  box.innerHTML=`<div class="list">${CT.rows.map(c=>`<button type="button" class="bk" data-ct="${esc(c.id)}"><div class="m"><b>${esc(c.name||"no name")}${c.flag?` <span class="small">${esc(CT_FLAG[c.flag]||c.flag)}</span>`:""}</b>
+    <div class="l2">${[c.phone,c.email].filter(Boolean).map(esc).join(" · ")||"no phone and email"} · ${c.n} ${plural(c.n,"booking","bookings","bookings")} · ${fmt0(c.paid)} €${c.last?" · last "+fdy(c.last):""}</div></div></button>`).join("")}</div>`}
+async function ctOpen(id){try{CT.cur=await api("kv_contact_get",{id})}catch(e){toast("Didn’t load");return}
+  const c=CT.cur,dups=c.dups||[],books=c.bookings||[];
+  openSheet(c.name||"Contact",`<button type="button" class="gback" data-ctback="1">‹ All contacts</button>
+    <div class="card">${RO?`<b>${esc(c.name||"no name")}</b><p class="small">${esc(c.phone||"")} ${esc(c.email||"")}</p><p class="small">${esc(c.note||"")}</p>`:`
+      <label class="l">Name</label><input type="text" id="ct-name" value="${esc(c.name||"")}" maxlength="200">
+      <div class="grid2"><div><label class="l">Phone</label><input type="tel" id="ct-phone" value="${esc(c.phone||"")}"></div>
+        <div><label class="l">Email</label><input type="email" id="ct-email" value="${esc(c.email||"")}"></div></div>
+      <label class="l">Note</label><textarea id="ct-note" rows="3" maxlength="2000">${esc(c.note||"")}</textarea>
+      <label class="l">Tag</label><div class="seg" id="ct-flag">${[["","Normal"],["vip","VIP"],["block","Do not host"]].map(([k,l])=>`<button type="button" data-ctflag="${k}" aria-pressed="${(c.flag||"")===k}">${l}</button>`).join("")}</div>
+      <div class="actions" style="margin-top:10px"><button type="button" class="btn primary" id="ct-save">Save</button>
+        <button type="button" class="btn" data-ctnew="${esc(c.id)}">New booking</button></div>`}
+      <p class="small" style="margin-bottom:0">${c.n} ${plural(c.n,"booking","bookings","bookings")} · ${c.nights} ${plural(c.nights,"night","nights","nights")} · paid about ${fmt0(c.paid)} €</p></div>
+    ${dups.length?`<div class="card"><b>Possible duplicates</b>${dups.map(d=>`<div class="actions" style="margin-top:8px;align-items:center"><span>${esc(d.name||"no name")} · ${esc(d.phone||d.email||"")}</span>
+      ${RO?"":`<button type="button" class="btn sm" data-ctmerge="${esc(d.id)}">Merge here</button>`}</div>`).join("")}</div>`:""}
+    <h3>Bookings <span class="count">${books.length}</span></h3>
+    <div class="list">${books.length?books.map(b=>`<button type="button" class="bk" data-sview="${esc(b.id)}">${thumb(b.apt)}<div class="m"><b>${esc(b.guest||"no name")} ${srcBadge(b.source)}</b><div class="l2">${esc(b.apt)} · ${fdy(b.date)}${b.nights>0?" · "+b.nights+" n.":""}</div></div><div class="a">${esc(amounts(mapB(b))||"—")}</div></button>`).join(""):`<div class="empty">No bookings</div>`}</div>`,{type:"contact",apt:id})}
+let ctT=0;
+document.addEventListener("input",e=>{if(e.target.id!=="ct-q")return;clearTimeout(ctT);ctT=setTimeout(()=>{CT.q=e.target.value.trim();ctLoad(false)},300)});
+document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("#ct-sync,#ct-add,#ct-csv,#ct-save,[data-ct],[data-ctback],[data-ctflag],[data-ctnew],[data-ctmerge]");if(!t)return;
+  if(t.id==="ct-sync"){t.disabled=true;await ctLoad(true);t.disabled=false;toast("Updated");return}
+  if(t.id==="ct-add"){CT.cur={id:"",name:"",phone:"",email:"",note:"",flag:"",n:0,nights:0,paid:0,bookings:[],dups:[]};ctOpenEditNew();return}
+  if(t.id==="ct-csv"){try{const r=await fetch("/api/kv_contacts_export",{method:"POST",headers:authH(),body:"{}"});if(!r.ok)throw 0;const blob=await r.blob(),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=orgName()+" — contacts.csv";document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},4000)}catch(x){toast("Didn’t work")};return}
+  if(t.dataset.ct){ctOpen(t.dataset.ct);return}
+  if(t.dataset.ctback){contactsPage();return}
+  if(t.dataset.ctflag!=null){if(CT.cur)CT.cur.flag=t.dataset.ctflag;document.querySelectorAll("[data-ctflag]").forEach(b=>b.setAttribute("aria-pressed",String(b===t)));return}
+  if(t.dataset.ctnew){const c=CT.cur||{};closeSheet();form=blankB();form.guest=c.name||"";form.phone=c.phone||"";openBForm(true);return}
+  if(t.dataset.ctmerge){if(!confirm("Merge contacts? Bookings stay. The duplicate is removed."))return;
+    t.disabled=true;try{const r=await api("kv_contact_merge",{keep:CT.cur.id,other:t.dataset.ctmerge});toast("Merged");ctOpen(r.id)}catch(x){t.disabled=false;toast("Didn’t work")}return}
+  if(t.id==="ct-save"){const body={id:CT.cur&&CT.cur.id||undefined,name:($("ct-name")||{}).value||"",phone:($("ct-phone")||{}).value||"",email:($("ct-email")||{}).value||"",note:($("ct-note")||{}).value||"",flag:(CT.cur&&CT.cur.flag)||""};
+    t.disabled=true;try{const r=await api("kv_contact_save",body);toast("Saved");ctOpen(r.id)}catch(x){t.disabled=false;toast(x.code==="dup_phone"||x.code==="dup_email"?"That contact already exists. Merge the duplicates.":x.code==="bad_email"?"Check email":"Didn’t work")}}});
+function ctOpenEditNew(){openSheet("New contact",`<button type="button" class="gback" data-ctback="1">‹ All contacts</button>
+  <div class="card"><label class="l">Name</label><input type="text" id="ct-name" maxlength="200">
+    <div class="grid2"><div><label class="l">Phone</label><input type="tel" id="ct-phone"></div><div><label class="l">Email</label><input type="email" id="ct-email"></div></div>
+    <label class="l">Note</label><textarea id="ct-note" rows="3" maxlength="2000"></textarea>
+    <label class="l">Tag</label><div class="seg" id="ct-flag">${[["","Normal"],["vip","VIP"],["block","Do not host"]].map(([k,l])=>`<button type="button" data-ctflag="${k}" aria-pressed="${k===""}">${l}</button>`).join("")}</div>
+    <div class="actions" style="margin-top:10px"><button type="button" class="btn primary" id="ct-save">Save</button></div></div>`,{type:"contact",apt:""})}
+
 /* CHANGE LOG: who changed what (bookings, expenses, payouts, settings, team) */
 const AF={date:"Date",apt:"Unit",guest:"Guest",nights:"Nights",mdl:"Lei",eur:"€",usd:"$",oth:"Other currency",oth_cur:"Currency code",util:"Utilities",util_cur:"Utilities currency",pay:"Payment",who:"Received by",note:"Note",source:"Source",phone:"Phone",pax:"Guests",price:"Price",price_cur:"Price currency",pay_status:"Payment status",tag:"Tag",category:"Category",yearly:"Yearly",amount:"Amount",method:"How",paid_on:"Payout date",role:"Role",created:"Added",dup:"Already there",bad:"Skipped",aptsAdded:"New units",aptsRemoved:"Units removed",from:"Before",to:"Now"};
 const AA={contract:"created the contract",signed:"guest signed the contract",create:"added",update:"changed",delete:"deleted",request:"request from the booking page",confirm:"confirmed the request",decline:"declined the request",import:"import from a file",rename:"renamed a unit",pay:"marked a payout",unpay:"removed the payout mark",close:"closed the month",open:"reopened the month",add:"gave access",remove:"removed access",role:"changed the role"};
@@ -3221,7 +3273,7 @@ function clnMonth(y=mon.y,m=mon.m){
     return {st,P,n:done.length,days,byDay,extraN,extra,hrs,pay:Math.round(pay),how};
   });
 }
-const MI={tax:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 11h2M12 11h2M8 15h2M12 15h4"/>',log:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/><path d="M3 4v4h4"/>',guide:'<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5M9 7h6M9 11h6"/>',shifts:'<path d="M4 4h16v16H4z"/><path d="M4 9h16M9 9v11"/>',bell:'<path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',today:'<rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18M7 15h4"/>',cal:'<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/>',todo:'<path d="M9 6h11M9 12h11M9 18h11"/><path d="m3.5 6 1.2 1.2L7 5M3.5 12l1.2 1.2L7 11M3.5 18l1.2 1.2L7 17"/>',clean:'<path d="M14 3 9 13"/><path d="M5 14h10l2 7H3z"/><path d="M8 17v4M12 17v4"/>',rep:'<path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3 17.8V21h3.2l6.3-6.3a4 4 0 0 0 5.2-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/>',rem:'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M5 3 2 6M19 3l3 3"/>',exp:'<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><path d="M9 8h6M9 12h6"/>',fin:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',verify:'<circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.7 2.7L16.5 9"/>',settings:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>'};
+const MI={tax:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 11h2M12 11h2M8 15h2M12 15h4"/>',log:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/><path d="M3 4v4h4"/>',guide:'<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5M9 7h6M9 11h6"/>',guests:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',shifts:'<path d="M4 4h16v16H4z"/><path d="M4 9h16M9 9v11"/>',bell:'<path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',today:'<rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18M7 15h4"/>',cal:'<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/>',todo:'<path d="M9 6h11M9 12h11M9 18h11"/><path d="m3.5 6 1.2 1.2L7 5M3.5 12l1.2 1.2L7 11M3.5 18l1.2 1.2L7 17"/>',clean:'<path d="M14 3 9 13"/><path d="M5 14h10l2 7H3z"/><path d="M8 17v4M12 17v4"/>',rep:'<path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3 17.8V21h3.2l6.3-6.3a4 4 0 0 0 5.2-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/>',rem:'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M5 3 2 6M19 3l3 3"/>',exp:'<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><path d="M9 8h6M9 12h6"/>',fin:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',verify:'<circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.7 2.7L16.5 9"/>',settings:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>'};
 const svgI=k=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${MI[k]}</svg>`;
 function setAccent(k){try{localStorage.setItem("kv_accent",k)}catch(e){}if(k)document.documentElement.setAttribute("data-accent",k);else document.documentElement.removeAttribute("data-accent");renderView()}
 function renderMenu(){
@@ -3230,7 +3282,7 @@ function renderMenu(){
   $("menu-body").innerHTML=`${LIGHT()?`<div class="mgroup">Work</div><div class="mtiles">${T("todo","","Tasks and repairs","to-dos, repairs, reminders",(c.todo||0)+(c.rep||0))}${T("shifts","","All shifts","closed handovers")}</div>`:""}<div class="mgroup">Money</div><div class="mtiles">
     ${T("exp","🧾","Expenses","spending by month")}${T("fin","📊","Finance","income, totals, year")}
     ${T("verify","✅","Payment check","checking the month’s money",vb)}${T("shifts","🗂️","All shifts","closed handovers")}${T("log","🕘","Change log","who changed what")}${T("tax","🧮","Налоги",(()=>{const n=taxNext();return n?`due ${fmt0(n.tax)} lei by ${dm(n.due)}`:"income and tax by month"})())}</div>
-    <div class="mgroup">Guests and settings</div><div class="mtiles">${T("guide","📖","Guest guide","Wi‑Fi, entry, rules")}${T("settings","⚙️","Settings","apartments, cleaners, PIN")}</div>
+    <div class="mgroup">Guests and settings</div><div class="mtiles">${T("guests","","Contacts","guest base from bookings")}${T("guide","📖","Guest guide","Wi‑Fi, entry, rules")}${T("settings","⚙️","Settings","apartments, cleaners, PIN")}</div>
     <div class="mgroup">Look · on this phone</div><div class="skinsw">${[["wow","Dark","#14171d","#2a303b"],["host","Light","#e8f2fa","#0d8a7f"]].map(([k,l,c1,c2])=>`<button type="button" data-skinpick="${k}" aria-pressed="${(document.documentElement.getAttribute("data-skin")||"host")===k}"><i style="background:linear-gradient(135deg,${c1} 50%,${c2} 50%);box-shadow:inset 0 0 0 1px rgba(127,127,127,.35)"></i>${l}</button>`).join("")}</div>
     ${document.documentElement.getAttribute("data-skin")==="host"?"":`<div class="mgroup">App colour · on this phone</div><div class="skinsw">${[["","Yellow","#fed36a","#ef8159"],["violet","Purple","#c4b0ff","#e48bd6"],["sky","Blue","#8fcbff","#8f8cff"]].map(([k,l,c1,c2])=>`<button type="button" data-accent="${k}" aria-pressed="${ac===k}"><i style="background:linear-gradient(135deg,${c1},${c2})"></i>${l}</button>`).join("")}</div>`}`;
 }
@@ -4094,7 +4146,7 @@ document.addEventListener("click",e=>{
   const ds=t.dataset;
   if(ds.accent!=null&&t.closest(".skinsw")){setAccent(ds.accent);return}
   if(ds.skinpick){const k=ds.skinpick==="host"?"host":"wow";try{localStorage.setItem("kv_skin_pick",k);localStorage.setItem("kv_skin",k)}catch(e){}document.documentElement.setAttribute("data-skin",k);const m=document.querySelector('meta[name="theme-color"]');if(m)m.content=k==="host"?"#e8f2fa":"#14171d";renderView();if(view==="cal")renderCal();return}
-  if(ds.go){const g=ds.go;if(g==="tax"){TAXY=null;taxPage();return}if(g==="log"){auditPage();return}if(g==="shifts"){handoverPage();return}if(g==="guide"){guidePage();return}if(g==="bell"){bellSheet(notifs,"bellseen","bell-badge");return}if(["todo","rep","rem"].includes(g)){clnTab=g;ls.set("hubtab2",g);show("tasks")}else if(g==="clean")show("cln");else if(g==="verify"){vFilter="todo";verifyPage()}else if(g==="settings")settingsPage("");else show(g);scrollTo(0,0);return}
+  if(ds.go){const g=ds.go;if(g==="tax"){TAXY=null;taxPage();return}if(g==="log"){auditPage();return}if(g==="shifts"){handoverPage();return}if(g==="guests"){contactsPage();return}if(g==="guide"){guidePage();return}if(g==="bell"){bellSheet(notifs,"bellseen","bell-badge");return}if(["todo","rep","rem"].includes(g)){clnTab=g;ls.set("hubtab2",g);show("tasks")}else if(g==="clean")show("cln");else if(g==="verify"){vFilter="todo";verifyPage()}else if(g==="settings")settingsPage("");else show(g);scrollTo(0,0);return}
   if(ds.view){if(t.closest("#tabs")&&ds.view==="today"){hvHome();return}if(t.closest("#tabs")&&ds.view===view&&view==="menu")return;if(ds.view==="add"&&view!=="add"){form=blankB();eform=blankE();fillB();fillE()}show(ds.view);return}
   if(ds.mode){setMode(ds.mode);renderView();return}
   if(ds.apt!=null){readB();form.apt=ds.apt;fAptOpen=false;renderChipsB();infoB();capHint();return}
