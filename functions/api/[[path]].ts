@@ -61,7 +61,7 @@ async function passwordLink(db: D1Database, request: Request, userId: string, ho
 }
 
 const MONEY_KEYS = ["schet", "eur", "usd", "mdl"];
-const TAGS = ["booking", "airbnb", "closed"];
+const TAGS = ["booking", "airbnb", "closed", "cancel"];
 
 const xlsx = (buf: ArrayBuffer | Uint8Array, name: string) => new Response(buf as any, { headers: {
   "content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -180,9 +180,7 @@ async function cleanerView(db: D1Database, O: string, me: any, td: string) {
   const staff = await all(db, "SELECT * FROM staff WHERE org_id = ? AND active = 1 ORDER BY created_at", O);
   const staffIdsAll = staff.map((x: any) => x.id);
   const from = addDays(td, -1), to = addDays(td, 6);
-  const bks = await all(db, "SELECT id, apt, date, nights, guest, extra FROM bookings WHERE org_id = ? AND nights > 0 AND tag NOT IN ('closed','req') AND date >= ? AND date <= ?", O, addDays(from, -400), to);
-  const bkOf = (x: any) => { let ex: any = {}; try { ex = typeof x.extra === "string" ? JSON.parse(x.extra || "{}") : (x.extra || {}); } catch { ex = {}; } return { id: x.id, apt: x.apt, date: x.date, nights: x.nights, guest: x.guest || "", team_note: (ex && ex.team) || "", cin_time: (ex && ex.tin) || "" }; };
-  const bkById: Record<string, any> = {}; for (const x of bks) bkById[x.id] = bkOf(x);
+  const bks = await all(db, "SELECT id, apt, date, nights FROM bookings WHERE org_id = ? AND nights > 0 AND tag NOT IN ('closed','req','cancel') AND date >= ? AND date <= ?", O, addDays(from, -400), to);
   const tasks = await all(db, "SELECT id, kind, date, apt, staff_id, status, note, booking_id, reported_by, time, sent FROM tasks WHERE org_id = ? AND ((date >= ? AND date <= ?) OR (kind = 'repair' AND status != 'done'))", O, from, to);
   const lastRows = await all(db, "SELECT apt, item, MAX(date) AS last FROM checks WHERE org_id = ? GROUP BY apt, item", O);
   const last: Record<string, string> = {}; for (const r of lastRows) last[r.apt + "|" + r.item] = r.last;
@@ -378,6 +376,7 @@ function extraOf(x: any) {
     kids: Math.max(0, Math.min(50, Math.floor(num(x.kids)))), lang: str(x.lang, 12), tin: t(x.tin), tout: t(x.tout), team: str(x.team, 600),
     dep: num(x.dep), dep_cur: cur(x.dep_cur), dep_st: ["held", "back", "kept"].includes(x.dep_st) ? x.dep_st : "", dep_kept: num(x.dep_kept), dep_note: str(x.dep_note, 200),
     com_pct: Math.min(100, num(x.com_pct)), com: num(x.com),
+    cx: str(x.cx, 400), cx_keep: Math.max(0, num(x.cx_keep)), cx_at: str(x.cx_at, 40),
   };
   for (const k of Object.keys(o)) if (o[k] === "" || o[k] === 0) delete o[k];
   return JSON.stringify(o);
@@ -388,7 +387,7 @@ const same = (a: any, b: any) => { const n = (v: any) => (v === null || v === un
 function diffOf(a: any, b: any, fields: string[]) { const d: Record<string, any[]> = {}; for (const f of fields) if (!same(a?.[f], b?.[f])) d[f] = [a?.[f] ?? null, b?.[f] ?? null]; return d; }
 function snapOf(a: any, fields: string[]) { const d: Record<string, any> = {}; for (const f of fields) if (!same(a?.[f], null)) d[f] = a[f]; return d; }
 const ddmm = (d: string) => (d ? d.slice(8, 10) + "." + d.slice(5, 7) : "");
-const bLabel = (b: any) => [b.apt, ddmm(b.date), b.tag === "closed" ? "closed" : b.guest].filter(Boolean).join(" · ");
+const bLabel = (b: any) => [b.apt, ddmm(b.date), b.tag === "closed" ? "closed" : b.tag === "cancel" ? "cancel" : b.guest].filter(Boolean).join(" · ");
 const eLabel = (e: any) => [e.category, e.apt || "", ddmm(e.date)].filter(Boolean).join(" · ");
 async function audit(db: D1Database, O: string, c: { user?: any } | null, kind: string, action: string, ref: string, label: string, data: any, who?: string) {
   await run(db, "INSERT INTO audit(org_id, user_id, who, kind, action, ref, label, data) VALUES (?,?,?,?,?,?,?,?)",
@@ -490,7 +489,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       return json({ data: ph?.data || "" });
     }
     const t = today(), till = addDays(t, 400), rules = await dayRules(db, org.id, addDays(t, -1), addDays(till, 60));
-    const taken = await all(db, "SELECT apt, date, nights FROM bookings WHERE org_id = ? AND nights > 0 AND date < ? AND date >= ?", org.id, till, addDays(t, -60));
+    const taken = await all(db, "SELECT apt, date, nights FROM bookings WHERE org_id = ? AND nights > 0 AND tag NOT IN ('closed','cancel') AND date < ? AND date >= ?", org.id, till, addDays(t, -60));
     const busy = (apt: string, from: string, nights: number) => taken.some((b: any) => b.apt === apt && b.date < addDays(from, nights) && addDays(b.date, b.nights) > from);
     if (fn === "pub_listing") {
       const PUB = ["kind", "group", "area", "bedrooms", "baths", "floor", "beds", "guests", "price", "pcur", "cin", "cout", "amen", "rtype", "minn", "cfee", "dep", "layout", "dow", "xg", "xgFrom", "xc", "los", "bufB", "bufA", "arr", "lead", "maxn"];
@@ -914,10 +913,19 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       if (!isDate(b.date) || !str(b.apt)) return json({ message: "bad_booking" }, 400);
       const prev = isUuid(b.id) ? await one(db, "SELECT * FROM bookings WHERE org_id = ? AND id = ?", O, b.id) : null;
       if (await monthClosed(db, O, b.date, prev?.date)) return CLOSED();
+      let tag = TAGS.includes(str(b.tag, 10)) ? str(b.tag, 10) : "";
+      // cancelled stays cancelled until a dedicated restore exists; keep reason fields from the previous extra
+      if (prev?.tag === "cancel") {
+        tag = "cancel";
+        try {
+          const px = JSON.parse(prev.extra || "{}") || {};
+          b.x = { ...(b.x && typeof b.x === "object" ? b.x : {}), cx: b.x?.cx || px.cx || "", cx_keep: b.x?.cx_keep ?? px.cx_keep ?? 0, cx_at: px.cx_at || "" };
+        } catch { /* keep b.x */ }
+      }
       const v = { date: b.date, apt: str(b.apt, 100), guest: str(b.guest, 200), nights: Math.min(366, Math.floor(num(b.nights))),
         mdl: num(b.mdl), eur: num(b.eur), usd: num(b.usd), pay: str(b.pay, 50), who: str(b.who, 50), note: str(b.note, 1000),
         source: str(b.source, 50), phone: str(b.phone, 40), pax: Math.max(0, Math.min(500, Math.floor(num(b.pax)))), oth: num(b.oth), oth_cur: str(b.oth_cur, 10).toUpperCase(), util: num(b.util),
-        price: Math.max(0, num(b.price)), price_cur: (["MDL", "EUR", "USD"].includes(str(b.price_cur, 5).toUpperCase()) ? str(b.price_cur, 5).toUpperCase() : "EUR"), pay_status: (["unpaid", "part", "paid"].includes(str(b.pay_status, 10)) ? str(b.pay_status, 10) : ""), tag: (TAGS.includes(str(b.tag, 10)) ? str(b.tag, 10) : ""),
+        price: Math.max(0, num(b.price)), price_cur: (["MDL", "EUR", "USD"].includes(str(b.price_cur, 5).toUpperCase()) ? str(b.price_cur, 5).toUpperCase() : "EUR"), pay_status: (["unpaid", "part", "paid"].includes(str(b.pay_status, 10)) ? str(b.pay_status, 10) : ""), tag,
         util_cur: (["MDL", "EUR", "USD"].includes(str(b.util_cur, 5).toUpperCase()) ? str(b.util_cur, 5).toUpperCase() : "MDL") };
       const extra = extraOf(b.x); // null = an older app that does not send it: keep what is stored
       if (isUuid(b.id)) {
@@ -1034,6 +1042,25 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       await run(db, "DELETE FROM bookings WHERE org_id = ? AND id = ?", O, body.p_id);
       if (old) await audit(db, O, c, "booking", "delete", body.p_id, bLabel(old), snapOf(old, B_F));
       return json(null);
+    }
+    // cancel (not delete): frees the days, keeps the row for history / cancellation reports
+    case "kv_cancel": {
+      if (!isUuid(body.id)) return json({ message: "bad_id" }, 400);
+      const reason = str(body.reason, 400).trim();
+      if (reason.length < 2) return json({ message: "need_reason" }, 400);
+      const b = await one(db, "SELECT * FROM bookings WHERE org_id = ? AND id = ?", O, body.id);
+      if (!b) return json({ message: "not_found" }, 404);
+      if (b.tag === "closed") return json({ message: "bad_booking" }, 400);
+      if (b.tag === "cancel") return json({ id: b.id, already: true });
+      if (await monthClosed(db, O, b.date)) return CLOSED();
+      const kept = Math.max(0, num(body.kept));
+      let x: any = {}; try { x = JSON.parse(b.extra || "{}") || {}; } catch { x = {}; }
+      x.cx = reason; if (kept > 0) x.cx_keep = kept; else delete x.cx_keep; x.cx_at = nowIso();
+      const extra = extraOf(x) || "{}";
+      await run(db, "UPDATE bookings SET tag = 'cancel', extra = ?, updated_at = ? WHERE org_id = ? AND id = ?", extra, nowIso(), O, b.id);
+      await audit(db, O, c, "booking", "cancel", b.id, bLabel({ ...b, tag: "cancel" }), { reason, kept: kept || null, nights: b.nights, guest: b.guest });
+      waitUntil(notify(db, O, ["manager"], { title: "✕ Отмена: " + (b.apt || ""), body: (b.guest || "без имени") + " · " + ddmm(b.date) + (b.nights ? " · " + b.nights + " н." : "") + " — " + reason }).catch(() => {}));
+      return json({ id: b.id });
     }
     case "kv_save_expense": {
       const e = body.e || {};
@@ -1488,7 +1515,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       const t = nowIso();
       // checkouts of that day with no task row yet go to the cleaner on duty
       if (duty === sid) {
-        const bks = await all(db, "SELECT id, apt, date, nights, created_at FROM bookings WHERE org_id = ? AND nights > 0 AND tag NOT IN ('closed','req') AND date >= ? AND date <= ? ORDER BY created_at", O, addDays(date, -400), date);
+        const bks = await all(db, "SELECT id, apt, date, nights, created_at FROM bookings WHERE org_id = ? AND nights > 0 AND tag NOT IN ('closed','req','cancel') AND date >= ? AND date <= ? ORDER BY created_at", O, addDays(date, -400), date);
         const need = bks.filter((b: any) => addDays(b.date, b.nights) === date);
         // a second check-in in the same apartment on the same day needs a cleaning in between
         for (const a of new Set(bks.filter((b: any) => b.date === date).map((b: any) => b.apt))) { const same = bks.filter((b: any) => b.date === date && b.apt === a); need.push(...same.slice(0, -1)); }

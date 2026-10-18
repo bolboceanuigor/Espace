@@ -85,7 +85,7 @@ Ce trebuie să aibă fiecare modul ca aplicația să fie completă și funcțion
 | Copii, limbă, ore proprii, notă pentru echipă, garanție, comision pe canal (`bookings.extra`) | ✅ | |
 | Verificarea plăților (checker) și închiderea lunii | ✅ | |
 | Contract online cu semnătură | ✅ | |
-| **Anulare** (nu ștergere): starea „anulată”, motivul, suma reținută | ❌ | Rezervarea anulată eliberează zilele, rămâne în istoric și intră în raportul de anulări. |
+| **Anulare** (nu ștergere): starea „anulată”, motivul, suma reținută | ✅ | `tag=cancel` + `extra.cx` / `cx_keep`; `kv_cancel`; calendar tăiat; ocupare / iCal / curățenii ignoră anulările. |
 | Fișiere pe rezervare (poza actului, chitanțe) | ❌ | Se încarcă prin R2. Dacă R2 nu e configurat, Igor primește instrucțiuni exacte. Maxim 10 fișiere, câte 10 MB. |
 | Nota pentru echipă vizibilă menajerei | ❌ | Apare în ecranul menajerei, la curățenia dinainte de sosire. |
 | Istoricul modificărilor pe rezervare | 🟡 | `audit` există. Lipsește tabul „Istoric” în fișa rezervării. |
