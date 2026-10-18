@@ -321,11 +321,13 @@ body.calmode .ctopbar{padding-top:calc(8px + env(safe-area-inset-top,0px))}
 :root[data-skin="host"] .sh.sq .sh-name em,:root[data-skin="host"] .sh.sq .sh-name .cap{display:none}
 :root[data-skin="host"] .sh-name .tn{display:grid!important;width:40px;height:40px;flex:none;border-radius:50%;box-shadow:0 0 0 2px #fff,0 4px 14px rgba(26,35,50,.16);background-color:var(--accent-soft)}
 :root[data-skin="host"] .sh-name .tn.mono{background:linear-gradient(145deg,var(--tn-a,var(--accent-soft)),var(--tn-b,var(--accent-soft)));color:#fff;font-size:11px;font-weight:700;place-items:center;text-shadow:0 1px 1px rgba(0,0,0,.12)}
-/* pics: doar cerculețe (Hostfully); names: doar text, denumirea se întinde */
-:root[data-skin="host"] .sh.pics .sh-name{justify-content:center;gap:0;padding-left:8px;padding-right:8px}
+/* pics: rail = 1 pătrățel; names: rail se alungește la text */
+:root[data-skin="host"] .sh.pics .sh-name{justify-content:center;gap:0;padding:0!important}
 :root[data-skin="host"] .sh.pics .sh-name span{max-width:0;opacity:0;transform:translateX(-10px);margin:0;pointer-events:none}
-:root[data-skin="host"] .sh.names .sh-name{padding-left:14px;gap:0;justify-content:flex-start}
-:root[data-skin="host"] .sh.names .sh-name span{max-width:100%;opacity:1;transform:none;font-size:13.5px;font-weight:700;letter-spacing:-.015em;color:var(--ink)}
+:root[data-skin="host"] .sh.pics .sh-name .tn{width:calc(var(--H) - 10px)!important;height:calc(var(--H) - 10px)!important}
+:root[data-skin="host"] .sh.pics .sh-corner{padding:0!important}
+:root[data-skin="host"] .sh.pics .sh-corner .ctoday{width:100%;height:100%;min-height:0;padding:0!important;border:0;background:transparent;font-size:0!important;display:grid;place-items:center}
+:root[data-skin="host"] .sh.pics .sh-corner .ctoday::after{content:"";width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);opacity:.9}
 :root[data-skin="host"] .sh.sq .bar{top:max(3px,calc((var(--H) - 28px) / 2));bottom:auto;height:min(28px,calc(var(--H) - 8px));padding:0 8px 0 6px;display:flex;align-items:center;gap:6px;font-size:12px;line-height:1.4;border-radius:14px;box-shadow:none}
 :root[data-skin="host"] .sh.sq .bar .nm{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 :root[data-skin="host"] .sh.sq .bar .amt{position:static;margin-left:auto;padding-left:6px;background:none;color:rgba(255,255,255,.92);font-size:11px;flex:none}
@@ -334,18 +336,26 @@ body.calmode .ctopbar{padding-top:calc(8px + env(safe-area-inset-top,0px))}
 :root[data-skin="host"] .sh.sq .bar .amt{font-weight:500!important;opacity:.9}
 :root[data-skin="host"] .sh.sq .sh-name{box-shadow:none!important;padding:0 8px;gap:10px}
 :root[data-skin="host"] .sh.sq .bar.short .amt{display:none}
-/* Hostfully-style apt thumbs: tap circle → retract photo, expand name */
+:root[data-skin="host"] .sh.sq.names .sh-name{padding:0 12px 0 14px!important;gap:0;justify-content:flex-start}
+:root[data-skin="host"] .sh.sq.names .sh-name span{max-width:100%;opacity:1;transform:none;font-size:13.5px;font-weight:700;letter-spacing:-.015em;color:var(--ink)}
+:root[data-skin="host"] .sh.sq.pics .sh-name{padding:0!important;gap:0;justify-content:center}
+/* Hostfully-style: rail stretches from 1 cell → name width */
+@property --L{syntax:"<length>";inherits:true;initial-value:48px}
+.sh.sq{width:calc(var(--L) + var(--days-w,0px));transition:width .55s cubic-bezier(.32,.72,0,1)}
+.sh.sq .sh-name,.sh.sq .sh-corner{transition:width .55s cubic-bezier(.32,.72,0,1)}
 .sh.sq .sh-name .tn{display:grid;place-items:center;flex:none;width:36px;height:36px;border-radius:50%;background:var(--accent-soft) center/cover no-repeat;color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;overflow:hidden;box-shadow:0 0 0 2px rgba(255,255,255,.9),0 3px 10px rgba(0,0,0,.12);
   transition:width .45s cubic-bezier(.32,.72,0,1),height .45s cubic-bezier(.32,.72,0,1),opacity .3s ease,transform .45s cubic-bezier(.32,.72,0,1),margin .45s cubic-bezier(.32,.72,0,1),filter .35s ease,box-shadow .35s ease;will-change:width,transform,opacity}
 .sh.sq .sh-name .tn:active{transform:scale(.9)}
 .sh.sq .sh-name .tn.mono{background-image:linear-gradient(145deg,var(--tn-a,#5b8def),var(--tn-b,#2f6fed));color:#fff}
 .sh.sq .sh-name span{transition:opacity .35s cubic-bezier(.32,.72,0,1),transform .45s cubic-bezier(.32,.72,0,1),max-width .45s cubic-bezier(.32,.72,0,1),font-size .35s ease}
+.sh.pics .sh-name{justify-content:center;padding:0;gap:0}
+.sh.pics .sh-name .tn{width:calc(var(--H) - 10px);height:calc(var(--H) - 10px)}
 .sh.names .sh-name .tn{width:0!important;height:0!important;opacity:0;margin:0!important;transform:scale(.45);filter:blur(6px);pointer-events:none;box-shadow:none!important}
 .sh.names .sh-name span{transform:translateX(0);opacity:1}
 .sh.tn-anim.pics .sh-name .tn{animation:tn-pop .55s cubic-bezier(.32,.72,0,1) both}
 @keyframes tn-pop{from{opacity:0;transform:scale(.55) rotate(-6deg)}to{opacity:1;transform:scale(1) rotate(0)}}
 @media (prefers-reduced-motion:reduce){
-  .sh.sq .sh-name .tn,.sh.sq .sh-name span{transition:none!important;animation:none!important}
+  .sh.sq,.sh.sq .sh-name,.sh.sq .sh-corner,.sh.sq .sh-name .tn,.sh.sq .sh-name span{transition:none!important;animation:none!important}
 }
 @media (max-width:859px){
   :root[data-skin="host"] #c-body{margin:0;border-radius:0!important;box-shadow:none}
@@ -3065,8 +3075,16 @@ function calThumb(a){const m=mono(a);return photos[a]
   ?`<i class="tn" data-calpic role="button" tabindex="0" title="${esc(a)}" aria-label="${esc(a)}" style="background-image:url('${photos[a]}')"></i>`
   :`<i class="tn mono" data-calpic role="button" tabindex="0" title="${esc(a)}" aria-label="${esc(m)}" style="${tnHue(a)}">${esc(m)}</i>`}
 function toggleCalPic(){const show=!calPicOn();try{localStorage.setItem("kv_calpic",show?"1":"0")}catch(x){}
-  const sh=$("c-body")&&$("c-body").querySelector(".sh");if(!sh){renderCal();return}
+  const el=$("c-body"),sh=el&&el.querySelector(".sh");if(!sh){renderCal();return}
+  const prevL=parseFloat(getComputedStyle(sh).getPropertyValue("--L"))||0;
+  const Lpic=parseFloat(sh.style.getPropertyValue("--L-pic"))||prevL;
+  const Lname=parseFloat(sh.style.getPropertyValue("--L-name"))||prevL;
+  const nextL=show?Lpic:Lname,dL=nextL-prevL;
+  sh.style.setProperty("--L",nextL+"px");
   sh.classList.toggle("pics",show);sh.classList.toggle("names",!show);
+  if(el){el.style.scrollPaddingLeft=nextL+"px";el.scrollLeft=Math.max(0,el.scrollLeft+dL);calMon()}
+  // group row widths follow the stretched rail
+  sh.querySelectorAll(".sh-grp").forEach(g=>{const dw=parseFloat(sh.style.getPropertyValue("--days-w"))||0;g.style.width=(nextL+dw)+"px"});
   if(show){sh.classList.remove("tn-anim");void sh.offsetWidth;sh.classList.add("tn-anim");clearTimeout(toggleCalPic._t);toggleCalPic._t=setTimeout(()=>sh.classList.remove("tn-anim"),600)}}
 function calStOk(b){const m=calSt(),tg=tagOf(b);if(m==="all")return true;if(m==="req")return tg==="req";if(m==="cancel")return tg==="cancel";if(m==="book")return tg!=="req"&&tg!=="cancel";return true}
 const LANG_T={ro:"Română",ru:"Russian",en:"English",uk:"Ukrainian",other:"other"},DEP_T={held:"received",back:"returned",kept:"kept"};
@@ -3140,8 +3158,10 @@ function renderCal(){
   const HEADH=LT?(sz==="lg"?64:sz==="sm"?50:58):(sz==="lg"?84:sz==="sm"?68:76);
   const visN=LT?cfg.apts.filter(a=>!calHidden().has(a)).length:cfg.apts.length;
   // true squares: day width === row height; size preset sets the cell side
-  const Lw=LT?(innerWidth<600?Math.max(88,Math.min(120,Math.round(cell*2.3))):Math.max(140,Math.min(180,Math.round(cell*3.2))))
+  // pics: left rail = 1 cell (patratel); names: wide label rail — toggles with stretch anim
+  const Lname=LT?(innerWidth<600?Math.max(88,Math.min(120,Math.round(cell*2.3))):Math.max(140,Math.min(180,Math.round(cell*3.2))))
     :Math.max(80,Math.min(innerWidth<600?108:150,Math.round(cell*2.4)));
+  const Lpic=cell, picOn=calPicOn(), Lw=picOn?Lpic:Lname;
   const P=calP=Math.max(3,Math.floor((CW-Lw)/cell));
   const W=calW=cell, H=cell;
   calBar(true);
@@ -3179,8 +3199,8 @@ function renderCal(){
     rows+=`<div class="sh-row${ug?" grp":""}"><div class="sh-name" data-aptpage="${esc(a)}" title="${esc([ug,ul].filter(Boolean).join(" · ")||a)}">${calThumb(a)}<span>${esc(a)}${uc?`<small class="cap">👤${uc}</small>`:""}</span><em>${nights}</em></div><div class="sh-tl" data-tl="${esc(a)}" style="width:${n*W}px">${wk}${mLine}${tdMark}${cells}${bars}</div></div>`;
   }
   document.body.classList.toggle("calpm",calPM);
-  $("c-body").innerHTML=`<div class="sh sq sz-${sz}${calPM?" pm":""}${calPicOn()?" pics":" names"}" style="--W:${W}px;--L:${Lw}px;--H:${H}px;--cell:${cell}px;width:${Lw+n*W}px">${head}${rows}</div>`;
-  {const el=$("c-body"),key=todayStr()+"|"+sz+"|"+W+"|"+P,keep=calKey===key?el.scrollLeft:null,t0=el.scrollTop;calKey=key;
+  $("c-body").innerHTML=`<div class="sh sq sz-${sz}${calPM?" pm":""}${picOn?" pics":" names"}" style="--W:${W}px;--L:${Lw}px;--L-pic:${Lpic}px;--L-name:${Lname}px;--H:${H}px;--cell:${cell}px;--days-w:${n*W}px">${head}${rows}</div>`;
+  {const el=$("c-body"),key=todayStr()+"|"+sz+"|"+W+"|"+P+"|"+(picOn?"p":"n"),keep=calKey===key?el.scrollLeft:null,t0=el.scrollTop;calKey=key;
    const bodyH=HEADH+visN*H+nG*22+2;
    const maxH=Math.max(260,innerHeight-el.getBoundingClientRect().top-navH-8);
    el.style.height=Math.min(bodyH,maxH)+"px";el.style.overflowY=bodyH>maxH?"auto":"hidden";el.style.scrollPaddingLeft=Lw+"px";
