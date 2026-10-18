@@ -19,26 +19,85 @@ import { seedTemplates, sanitizeTemplate, sendGuestMessage, fireEventMessages, r
 import { botName, linkCode, webhookSecret, handleUpdate, tgNotify } from "../../lib/telegram";
 import { syncFeed, syncDue, feedUrlOk, sourceOf, newIcalKey } from "../../lib/ical";
 import { contractTexts, fill, DEFAULT_TPL } from "../../lib/contract";
-import { maibConfig, maibCheckout, maibVerify } from "../../lib/maib";
-import {
-  createGuestInvoice, findDiscount, applyDiscount, bumpDiscountUse,
-  listDiscounts, normalizeCode, rowToDiscount,
-} from "../../lib/guest_invoice";
+import { maibConfig, maibFromCreds, maibCheckout, maibVerify, type MaibCfg } from "../../lib/maib";
 
+// ---------- guest maib (per company) ----------
+function guestMaibOf(cfg: any): MaibCfg {
+  const m = cfg?.guestMaib || {};
+  if (!m.on) return maibFromCreds({});
+  return maibFromCreds({ clientId: m.clientId, clientSecret: m.clientSecret, signatureKey: m.signatureKey, sandbox: !!m.sandbox });
+}
+function guestMaibPublic(cfg: any) {
+  const m = cfg?.guestMaib || {}, ok = !!(m.on && m.clientId && m.clientSecret && m.signatureKey);
+  const pct = Math.max(0, Math.min(100, Math.round(+m.depositPct || 0)));
+  return { on: ok, depositPct: pct, sandbox: !!m.sandbox };
+}
+function toMdl(amount: number, cur: string, rates: any) {
+  const eur = +rates?.eur || 20, usd = +rates?.usd || 0.85;
+  if (cur === "MDL") return Math.round(amount * 100) / 100;
+  if (cur === "USD") return Math.round(amount * usd * eur * 100) / 100;
+  return Math.round(amount * eur * 100) / 100; // EUR default
+}
+function payUrlOf(slug: string, token: string, request: Request) {
+  const h = hostOf(request), origin = new URL(request.url).origin;
+  return h.endsWith("espace.md") || siteOf(h).kind !== "dev"
+    ? `https://${slug}.espace.md/plata/${token}`
+    : `${origin}/pay.html?c=${encodeURIComponent(slug)}&t=${encodeURIComponent(token)}`;
+}
+async function applyGuestPayToBooking(db: D1Database, gp: any, cfg: any) {
+  const b = await one(db, "SELECT * FROM bookings WHERE org_id = ? AND id = ?", gp.org_id, gp.booking_id);
+  if (!b) return;
+  const cur = ["EUR", "MDL", "USD"].includes(gp.cur) ? gp.cur : (b.price_cur || "EUR");
+  const add = Math.max(0, +gp.amount_src || 0);
+  if (cur === "MDL") await run(db, "UPDATE bookings SET mdl = COALESCE(mdl,0) + ?, pay = CASE WHEN pay = '' OR pay IS NULL THEN 'Карта' ELSE pay END, updated_at = ? WHERE org_id = ? AND id = ?", add, nowIso(), gp.org_id, b.id);
+  else if (cur === "USD") await run(db, "UPDATE bookings SET usd = COALESCE(usd,0) + ?, pay = CASE WHEN pay = '' OR pay IS NULL THEN 'Карта' ELSE pay END, updated_at = ? WHERE org_id = ? AND id = ?", add, nowIso(), gp.org_id, b.id);
+  else await run(db, "UPDATE bookings SET eur = COALESCE(eur,0) + ?, pay = CASE WHEN pay = '' OR pay IS NULL THEN 'Карта' ELSE pay END, updated_at = ? WHERE org_id = ? AND id = ?", add, nowIso(), gp.org_id, b.id);
+  const b2 = await one(db, "SELECT * FROM bookings WHERE org_id = ? AND id = ?", gp.org_id, b.id);
+  if (!b2) return;
+  const rates = cfg.rates || { eur: 20, usd: 0.85 };
+  const gotEur = (+b2.mdl || 0) / (+rates.eur || 20) + (+b2.eur || 0) + (+b2.usd || 0) * (+rates.usd || 0.85);
+  const pe = +b2.price > 0 ? (b2.price_cur === "MDL" ? +b2.price / (+rates.eur || 20) : b2.price_cur === "USD" ? +b2.price * (+rates.usd || 0.85) : +b2.price) : 0;
+  const st = pe ? (gotEur >= pe * 0.98 ? "paid" : gotEur > 0.5 ? "part" : "unpaid") : (gotEur > 0.5 ? "paid" : "unpaid");
+  await run(db, "UPDATE bookings SET pay_status = ? WHERE org_id = ? AND id = ?", st, gp.org_id, b.id);
+}
 
 // A one-time link to set a password. Opening it proves the email belongs to the person, so it is the only way
 // to get a password: at sign-up, when added to a team, when the email changes, and for "forgot password".
 // The link opens the company's own address (the admin's for the platform owner).
-// maib → us after a payment. Only a correctly signed "Executed" payment of the exact amount adds credits, once per order.
+// maib → us after a payment. Platform top-ups use env secrets; guest booking pays use the company's guestMaib key.
 async function maibCallback(request: Request, env: Env, waitUntil: (p: Promise<any>) => void) {
-  const cfg = maibConfig(env), raw = await request.text(), db = env.DB;
-  if (!cfg.ok) return new Response("not configured", { status: 503 });
-  if (!(await maibVerify(cfg.key, raw, request.headers.get("x-signature") || "", request.headers.get("x-signature-timestamp") || ""))) return new Response("bad signature", { status: 401 });
+  const raw = await request.text(), db = env.DB;
   let d: any = {}; try { d = JSON.parse(raw); } catch { return new Response("bad json", { status: 400 }); }
-  const p = await one(db, "SELECT * FROM maib_payments WHERE id = ?", str(d.orderId, 40));
-  if (!p) return new Response("OK"); // not ours / unknown: acknowledge so maib stops retrying
+  const orderId = str(d.orderId, 40);
+  const gp = orderId ? await one(db, "SELECT * FROM guest_payments WHERE id = ?", orderId) : null;
+  let key = "";
+  if (gp) {
+    const orgCfg = (await getConfig(db, gp.org_id)) || {};
+    key = guestMaibOf(orgCfg).key;
+  } else {
+    key = maibConfig(env).key;
+  }
+  if (!key) return new Response("not configured", { status: 503 });
+  if (!(await maibVerify(key, raw, request.headers.get("x-signature") || "", request.headers.get("x-signature-timestamp") || ""))) return new Response("bad signature", { status: 401 });
   const status = String(d.paymentStatus || ""), paidAmount = Number(d.paymentAmount ?? d.amount), cur = String(d.paymentCurrency || d.currency || "MDL");
   const card = str(d.senderCardNumber, 30).slice(-4), method = str(d.paymentMethod, 20);
+
+  if (gp) {
+    if (status === "Executed" && cur === "MDL" && Math.abs(paidAmount - gp.amount) < 0.01) {
+      const claim = await one(db, "UPDATE guest_payments SET status = 'paid', payment_id = ?, method = ?, card = ?, paid_at = ? WHERE id = ? AND status != 'paid' RETURNING id", str(d.paymentId, 60), method, card, nowIso(), gp.id);
+      if (!claim) return new Response("OK");
+      const orgCfg = (await getConfig(db, gp.org_id)) || {};
+      await applyGuestPayToBooking(db, gp, orgCfg);
+      const b = await one(db, "SELECT apt, guest, date FROM bookings WHERE org_id = ? AND id = ?", gp.org_id, gp.booking_id);
+      waitUntil(notify(db, gp.org_id, ["manager"], { title: `💳 Оплата: ${gp.amount} лей`, body: `${b?.apt || ""} · ${b?.guest || gp.guest || ""} · ${gp.kind === "deposit" ? "аванс" : "остаток"}${card ? " · ••" + card : ""}` }).catch(() => {}));
+    } else if (status && status !== "Executed" && gp.status === "new") {
+      await run(db, "UPDATE guest_payments SET status = 'failed', payment_id = ?, method = ? WHERE id = ? AND status = 'new'", str(d.paymentId, 60), status.slice(0, 20), gp.id);
+    }
+    return new Response("OK");
+  }
+
+  const p = await one(db, "SELECT * FROM maib_payments WHERE id = ?", orderId);
+  if (!p) return new Response("OK"); // not ours / unknown: acknowledge so maib stops retrying
   if (status === "Executed" && cur === "MDL" && Math.abs(paidAmount - p.amount) < 0.01) {
     const claim = await one(db, "UPDATE maib_payments SET status = 'paid', payment_id = ?, method = ?, card = ?, paid_at = ? WHERE id = ? AND status != 'paid' RETURNING id", str(d.paymentId, 60), method, card, nowIso(), p.id);
     if (!claim) return new Response("OK"); // already counted
@@ -565,7 +624,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
         name: org.name, slug: org.code, min: Math.max(1, +dir.min || 1), pricing: { weekend: +(cfg.pricing?.weekend) || 0, seasons: (cfg.pricing?.seasons || []).map((x: any) => ({ from: x.from, to: x.to, pct: +x.pct || 0, min: +x.min || 0 })) }, phone: dir.phone || "", email: dir.email || "", terms: dir.terms || "", intro: dir.intro || "",
         units: units.map((a: string) => { const u = (cfg.units || {})[a] || {}, o: any = { name: a, addr: dir.addr === false ? "" : ((cfg.addr || {})[a] || "").split(",")[0] }; for (const k of PUB) if (u[k] != null && u[k] !== "") o[k] = u[k];
           o.busy = taken.filter((b: any) => b.apt === a && addDays(b.date, b.nights) > t).map((b: any) => [b.date, b.nights]); o.rules = rules[a] || {}; return o; }),
-        today: t, discounts: !!(discN && discN.n > 0),
+        today: t, pay: guestMaibPublic(cfg),
       });
     }
     if (fn === "pub_discount") {
@@ -612,98 +671,80 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     const owner = await orgEmail(db, org.id);
     if (owner) await sendMail(env, db, { to: owner, ...mails.requestNew(org.name, org.code, { apt, date, nights, pax, name, phone, email, msg, price, cur }), kind: "request", orgId: org.id });
     if (email) await sendMail(env, db, { to: email, ...mails.requestGot(org.name, { apt, date, nights, pax, price, cur, phone: dir.phone || "", email: dir.email || "" }), kind: "request", orgId: org.id });
-    return json({ ok: true, id, price, cur, discount: discExtra });
+    const pay = guestMaibPublic(cfg);
+    const deposit = pay.on && pay.depositPct > 0 ? Math.round(price * pay.depositPct) / 100 : 0;
+    return json({ ok: true, id, price, cur, pay, deposit });
   }
-  // ---------- occupancy widget for the owner's site (iframe): <slug>.espace.md/widget ----------
-  if (fn === "pub_widget") {
+
+  // ---------- guest card pay: public pay page /plata/<token> and deposit after a booking request ----------
+  if (fn === "pub_pay_info" || fn === "pub_pay_start") {
+    const token = str(body.token, 40).toLowerCase();
+    if (!/^[a-f0-9]{16,40}$/.test(token)) return json({ message: "not_found" }, 404);
+    const gp = await one(db, "SELECT * FROM guest_payments WHERE token = ?", token);
+    if (!gp) return json({ message: "not_found" }, 404);
+    const org = await one(db, "SELECT * FROM orgs WHERE id = ?", gp.org_id);
+    if (!org || isExpired(await chargeOrg(db, org))) return json({ message: "closed" }, 403);
+    const cfg = (await getConfig(db, org.id)) || {};
+    const mcfg = guestMaibOf(cfg);
+    if (!mcfg.ok) return json({ message: "maib_off" }, 403);
+    const b = await one(db, "SELECT id, apt, guest, date, nights, price, price_cur, phone, email, pay_status FROM bookings WHERE org_id = ? AND id = ?", org.id, gp.booking_id);
+    if (!b) return json({ message: "not_found" }, 404);
+    if (fn === "pub_pay_info") {
+      return json({
+        org: org.name, slug: org.code, status: gp.status, kind: gp.kind,
+        amount: gp.amount, amount_src: gp.amount_src, cur: gp.cur,
+        apt: b.apt, guest: b.guest, date: b.date, nights: b.nights, price: b.price, price_cur: b.price_cur,
+        sandbox: mcfg.sandbox,
+      });
+    }
+    if (gp.status === "paid") return json({ message: "already_paid" }, 409);
+    const ip = request.headers.get("cf-connecting-ip") || "x", local = ["localhost", "127.0.0.1"].includes(new URL(request.url).hostname);
+    if (!local) { if (await throttled(db, "gpay:" + ip)) return json({ message: "locked" }, 429); await failHit(db, "gpay:" + ip); }
+    const origin = new URL(request.url).origin;
+    const okUrl = payUrlOf(org.code, gp.token, request) + (payUrlOf(org.code, gp.token, request).includes("?") ? "&" : "?") + "ok=1";
+    const failUrl = payUrlOf(org.code, gp.token, request) + (payUrlOf(org.code, gp.token, request).includes("?") ? "&" : "?") + "fail=1";
+    const callbackUrl = origin + "/api/maib_callback";
+    try {
+      const r = await maibCheckout(mcfg, {
+        orderId: gp.id, amount: gp.amount,
+        description: `${gp.kind === "deposit" ? "Avans" : "Plată"} · ${b.apt} · ${b.date}`,
+        itemTitle: gp.kind === "deposit" ? "Avans rezervare" : "Plată rezervare", itemId: "booking",
+        lang: ["ro", "ru", "en"].includes(body.lang) ? body.lang : "ro",
+        payer: { name: b.guest || gp.guest, email: b.email || "", phone: b.phone || "", ip, ua: request.headers.get("user-agent") || "" },
+        callbackUrl, successUrl: okUrl, failUrl,
+      });
+      await run(db, "UPDATE guest_payments SET checkout_id = ?, status = 'new' WHERE id = ?", r.checkoutId, gp.id);
+      return json({ url: r.checkoutUrl, id: gp.id });
+    } catch (e: any) {
+      await run(db, "UPDATE guest_payments SET status = 'failed', method = ? WHERE id = ?", "error: " + String(e?.message || e).slice(0, 180), gp.id);
+      return json({ message: "maib_error" }, 502);
+    }
+  }
+  if (fn === "pub_pay_deposit") {
+    // after pub_request: create a deposit payment link for that booking request
     const code = (reqSlug || str(body.slug, 40)).toLowerCase();
     const org = isSlug(code) ? await one(db, "SELECT * FROM orgs WHERE code = ?", code) : null;
     if (!org) return json({ message: "not_found" }, 404);
-    const cfg = (await getConfig(db, org.id)) || {}, dir = cfg.direct || {};
-    if (isExpired(await chargeOrg(db, org))) return json({ message: "closed", name: org.name }, 403);
-    const hidden = new Set(dir.hidden || []);
-    const want = str(body.apt, 100);
-    let units = (cfg.apts || []).filter((a: string) => !hidden.has(a) && +((cfg.units || {})[a]?.price) > 0);
-    if (want) units = units.filter((a: string) => a === want);
-    if (!units.length && want && (cfg.apts || []).includes(want)) units = [want];
-    const t = today(), till = addDays(t, 90);
-    const taken = await all(db, "SELECT apt, date, nights FROM bookings WHERE org_id = ? AND nights > 0 AND date < ? AND date >= ?", org.id, till, addDays(t, -60));
-    const bookUrl = `https://${org.code}.espace.md/rezerva`;
-    return json({
-      name: org.name, slug: org.code, today: t, days: 42, book: bookUrl, direct: !!dir.on,
-      units: units.map((a: string) => {
-        const u = (cfg.units || {})[a] || {};
-        return {
-          name: a, price: +u.price || 0, pcur: ["EUR", "MDL", "USD"].includes(u.pcur) ? u.pcur : "EUR",
-          guests: +u.guests || 0, kind: u.kind || "",
-          busy: taken.filter((b: any) => b.apt === a && addDays(b.date, b.nights) > t).map((b: any) => [b.date, b.nights]),
-        };
-      }),
-    });
-  }
-  // ---------- public offer link: <slug>.espace.md/oferta/<token> ----------
-  if (fn === "pub_offer" || fn === "pub_offer_photo" || fn === "pub_offer_request") {
-    const tok = str(body.token, 80);
-    if (!/^[a-f0-9]{32}$/.test(tok)) return json({ message: "not_found" }, 404);
-    const of = await one(db, "SELECT o.*, g.code, g.name AS org_name, g.id AS oid FROM offers o JOIN orgs g ON g.id = o.org_id WHERE o.token = ?", tok);
-    if (!of) return json({ message: "not_found" }, 404);
-    if (of.expires_at && of.expires_at < nowIso()) return json({ message: "expired", name: of.org_name }, 410);
-    if (isExpired(await chargeOrg(db, await one(db, "SELECT * FROM orgs WHERE id = ?", of.org_id)))) return json({ message: "closed", name: of.org_name }, 403);
-    const cfg = (await getConfig(db, of.org_id)) || {}, dir = cfg.direct || {};
-    let apts: string[] = [];
-    try { apts = JSON.parse(of.apts || "[]"); } catch { apts = []; }
-    apts = apts.filter((a: any) => typeof a === "string" && (cfg.apts || []).includes(a));
-    const t = today(), date = of.date, nights = +of.nights || 0;
-    const rules = await dayRules(db, of.org_id, addDays(date, -1), addDays(date, nights + 60));
-    const taken = await all(db, "SELECT apt, date, nights FROM bookings WHERE org_id = ? AND nights > 0 AND date < ? AND date >= ?", of.org_id, addDays(date, nights + 1), addDays(date, -60));
-    if (fn === "pub_offer_photo") {
-      const apt = str(body.apt, 100); if (!apts.includes(apt)) return json({ message: "not_found" }, 404);
-      const ph = await one(db, "SELECT data FROM apt_photos WHERE org_id = ? AND apt = ?", of.org_id, apt);
-      return json({ data: ph?.data || "" });
-    }
-    if (fn === "pub_offer") {
-      await run(db, "UPDATE offers SET views = views + 1 WHERE token = ?", tok).catch(() => {});
-      const PUB = ["kind", "group", "area", "bedrooms", "baths", "floor", "beds", "guests", "price", "pcur", "cin", "cout", "amen", "rtype", "minn", "cfee", "dep", "layout", "dow", "xg", "xgFrom", "xc", "los", "bufB", "bufA", "arr", "lead", "maxn"];
-      return json({
-        name: of.org_name, slug: of.code, token: tok, date, nights, note: of.note || "",
-        phone: dir.phone || "", email: dir.email || "", terms: dir.terms || "",
-        pricing: { weekend: +(cfg.pricing?.weekend) || 0, seasons: (cfg.pricing?.seasons || []).map((x: any) => ({ from: x.from, to: x.to, pct: +x.pct || 0, min: +x.min || 0 })) },
-        today: t,
-        units: apts.map((a: string) => {
-          const u = (cfg.units || {})[a] || {}, o: any = { name: a };
-          for (const k of PUB) if (u[k] != null && u[k] !== "") o[k] = u[k];
-          const busyList = taken.filter((b: any) => b.apt === a).map((b: any) => [b.date, b.nights]);
-          o.busy = busyList; o.rules = rules[a] || {};
-          const ck = EsPrice.check(u, date, nights, { P: cfg.pricing, R: rules[a] || {}, dirMin: +dir.min || 1, today: t, busy: busyList, pax: 2, kids: 0 });
-          o.ok = !!ck.ok; o.why = ck.ok ? "" : (ck.why || "taken");
-          if (ck.ok) { const q = EsPrice.quote(u, date, nights, { P: cfg.pricing, R: rules[a] || {}, pax: 2, kids: 0 }); o.total = q.total; o.quote = { base: q.base, avg: q.avg, cfee: q.cfee, flat: q.flat }; }
-          return o;
-        }),
-      });
-    }
-    // pub_offer_request: guest books one unit from the offer (same as pub_request, but scoped to the offer)
-    const ip = request.headers.get("cf-connecting-ip") || "x", local = ["localhost", "127.0.0.1"].includes(new URL(request.url).hostname);
-    if (!local) { if (await throttled(db, "breq:" + ip)) return json({ message: "locked" }, 429); await failHit(db, "breq:" + ip); }
-    const apt = str(body.apt, 100), name = str(body.name, 80).trim(), phone = str(body.phone, 40).trim(), email = str(body.email, 120).trim().toLowerCase();
-    const pax = Math.max(1, Math.min(50, Math.floor(num(body.guests)) || 1)), kids = Math.max(0, Math.min(20, Math.floor(num(body.kids)) || 0));
-    if (!apts.includes(apt)) return json({ message: "bad_unit" }, 400);
-    if (!name || (!phone && !isEmail(email)) || (email && !isEmail(email))) return json({ message: "need_contact" }, 400);
-    const u = (cfg.units || {})[apt] || {}, cap = +u.guests || 0;
-    const busyList = taken.filter((b: any) => b.apt === apt).map((b: any) => [b.date, b.nights]);
-    const ck = EsPrice.check(u, date, nights, { P: cfg.pricing, R: rules[apt] || {}, dirMin: +dir.min || 1, today: t, busy: busyList, pax, kids });
-    if (!ck.ok) return ck.why === "taken" ? json({ message: "taken" }, 409) : ck.why === "guests" ? json({ message: "too_many_guests", cap }, 400) : json({ message: "bad_dates", why: ck.why, min: ck.min }, 400);
-    const q = EsPrice.quote(u, date, nights, { P: cfg.pricing, R: rules[apt] || {}, pax, kids });
-    const price = q.total, cur = ["EUR", "MDL", "USD"].includes(u.pcur) ? u.pcur : "EUR";
-    const id = uuid(), now = nowIso(), msg = str(body.message, 600).trim();
-    await run(db, `INSERT INTO bookings(id, org_id, date, apt, guest, nights, phone, email, pax, source, tag, note, price, price_cur, pay_status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,'Прямой','req',?,?,?, 'unpaid', ?, ?)`,
-      id, of.org_id, date, apt, name, nights, phone, email, pax + kids, ("Cerere din ofertă" + (kids ? ` (${pax} adulți, ${kids} copii)` : "") + (msg ? ": " + msg : "")).slice(0, 1000), price, cur, now, now);
-    { const ex = extraOf({ kids, lang: ["ro", "ru", "en"].includes(body.lang) ? body.lang : "" }); if (ex && ex !== "{}") await run(db, "UPDATE bookings SET extra = ? WHERE org_id = ? AND id = ?", ex, of.org_id, id).catch(() => {}); }
-    await audit(db, of.org_id, null, "booking", "request", id, bLabel({ apt, date, guest: name }), { nights, pax, price, price_cur: cur, offer: tok }, "web");
-    await notify(db, of.org_id, ["manager"], { title: `Cerere din ofertă: ${apt}`, body: `${name} · ${date} · ${nights} n. · ${pax} pers.${phone ? " · " + phone : ""}` });
-    const owner = await orgEmail(db, of.org_id);
-    if (owner) await sendMail(env, db, { to: owner, ...mails.requestNew(of.org_name, of.code, { apt, date, nights, pax, name, phone, email, msg, price, cur }), kind: "request", orgId: of.org_id });
-    if (email) await sendMail(env, db, { to: email, ...mails.requestGot(of.org_name, { apt, date, nights, pax, price, cur, phone: dir.phone || "", email: dir.email || "" }), kind: "request", orgId: of.org_id });
-    return json({ ok: true, id, price, cur });
+    if (isExpired(await chargeOrg(db, org))) return json({ message: "closed" }, 403);
+    const cfg = (await getConfig(db, org.id)) || {};
+    const pay = guestMaibPublic(cfg);
+    if (!pay.on || pay.depositPct <= 0) return json({ message: "maib_off" }, 403);
+    const bid = str(body.booking_id, 40);
+    if (!isUuid(bid)) return json({ message: "bad_id" }, 400);
+    const b = await one(db, "SELECT * FROM bookings WHERE org_id = ? AND id = ?", org.id, bid);
+    if (!b || b.tag !== "req") return json({ message: "not_found" }, 404);
+    const open = await one(db, "SELECT id, token, status, amount, amount_src, cur FROM guest_payments WHERE org_id = ? AND booking_id = ? AND kind = 'deposit' AND status IN ('new','paid') ORDER BY created_at DESC LIMIT 1", org.id, bid);
+    if (open && open.status === "paid") return json({ message: "already_paid" }, 409);
+    if (open) return json({ token: open.token, url: payUrlOf(org.code, open.token, request), amount: open.amount, amount_src: open.amount_src, cur: open.cur, reuse: true });
+    const cur = ["EUR", "MDL", "USD"].includes(b.price_cur) ? b.price_cur : "EUR";
+    const amountSrc = Math.round(+b.price * pay.depositPct) / 100;
+    if (!(amountSrc > 0)) return json({ message: "bad_amount" }, 400);
+    const amount = toMdl(amountSrc, cur, cfg.rates || {});
+    if (!(amount >= 1)) return json({ message: "bad_amount" }, 400);
+    const id = uuid(), token = randHex(16);
+    await run(db, "INSERT INTO guest_payments(id, org_id, booking_id, kind, amount, amount_src, cur, status, token, guest, note, created_at) VALUES (?,?,?,?,?,?,?,'new',?,?,?,?)",
+      id, org.id, bid, "deposit", amount, amountSrc, cur, token, b.guest || "", `avans ${pay.depositPct}%`, nowIso());
+    return json({ token, url: payUrlOf(org.code, token, request), amount, amount_src: amountSrc, cur, id });
   }
   // ---------- paid extras ordered from the public guest guide (/g/<token>) ----------
   if (fn === "pub_svc_order") {
@@ -2063,42 +2104,41 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       return json(r?.photo || "");
     }
 
-    // ---------- paid extras ordered from the guest guide ----------
-    case "kv_svc_orders": {
-      const st = str(body.status, 10);
-      const rows = st === "all"
-        ? await all(db, "SELECT * FROM svc_orders WHERE org_id = ? ORDER BY created_at DESC LIMIT 80", O)
-        : await all(db, "SELECT * FROM svc_orders WHERE org_id = ? AND status = 'new' ORDER BY created_at DESC LIMIT 80", O);
-      return json(rows);
+    // ---------- guest card pay links (company's own maib project) ----------
+    case "kv_pay_list": {
+      const bid = str(body.booking_id, 40);
+      if (bid && !isUuid(bid)) return json({ message: "bad_id" }, 400);
+      const rows = bid
+        ? await all(db, "SELECT id, booking_id, kind, amount, amount_src, cur, status, token, guest, note, created_at, paid_at FROM guest_payments WHERE org_id = ? AND booking_id = ? ORDER BY created_at DESC LIMIT 40", O, bid)
+        : await all(db, "SELECT id, booking_id, kind, amount, amount_src, cur, status, token, guest, note, created_at, paid_at FROM guest_payments WHERE org_id = ? ORDER BY created_at DESC LIMIT 80", O);
+      return json(rows.map((r: any) => ({ ...r, url: payUrlOf(org.code, r.token, request) })));
     }
-    case "kv_svc_done": {
-      const id = str(body.id, 40);
-      if (!isUuid(id)) return json({ message: "bad_id" }, 400);
-      const r = await one(db, "SELECT id, status FROM svc_orders WHERE org_id = ? AND id = ?", O, id);
-      if (!r) return json({ message: "not_found" }, 404);
-      const st = body.cancel === true ? "cancel" : "done";
-      await run(db, "UPDATE svc_orders SET status = ? WHERE org_id = ? AND id = ?", st, O, id);
-      return json(true);
+    case "kv_pay_link": {
+      const cfg = (await getConfig(db, O)) || {};
+      const pay = guestMaibPublic(cfg);
+      if (!pay.on) return json({ message: "maib_off" }, 403);
+      const bid = str(body.booking_id, 40);
+      if (!isUuid(bid)) return json({ message: "bad_id" }, 400);
+      const b = await one(db, "SELECT * FROM bookings WHERE org_id = ? AND id = ?", O, bid);
+      if (!b || b.tag === "closed") return json({ message: "not_found" }, 404);
+      const rates = cfg.rates || { eur: 20, usd: 0.85 };
+      const cur = ["EUR", "MDL", "USD"].includes(b.price_cur) ? b.price_cur : "EUR";
+      const gotEur = (+b.mdl || 0) / (+rates.eur || 20) + (+b.eur || 0) + (+b.usd || 0) * (+rates.usd || 0.85);
+      const pe = +b.price > 0 ? (cur === "MDL" ? +b.price / (+rates.eur || 20) : cur === "USD" ? +b.price * (+rates.usd || 0.85) : +b.price) : 0;
+      const leftEur = Math.max(0, Math.round((pe - gotEur) * 100) / 100);
+      let amountSrc = num(body.amount);
+      if (!(amountSrc > 0)) {
+        amountSrc = cur === "MDL" ? leftEur * (+rates.eur || 20) : cur === "USD" ? leftEur / (+rates.usd || 0.85) : leftEur;
+        amountSrc = Math.round(amountSrc * 100) / 100;
+      }
+      if (!(amountSrc > 0)) return json({ message: "nothing_due" }, 400);
+      const amount = toMdl(amountSrc, cur, rates);
+      if (!(amount >= 1)) return json({ message: "bad_amount" }, 400);
+      const id = uuid(), token = randHex(16);
+      await run(db, "INSERT INTO guest_payments(id, org_id, booking_id, kind, amount, amount_src, cur, status, token, guest, note, created_at) VALUES (?,?,?,?,?,?,?,'new',?,?,?,?)",
+        id, O, bid, "balance", amount, amountSrc, cur, token, b.guest || "", str(body.note, 200), nowIso());
+      return json({ id, token, url: payUrlOf(org.code, token, request), amount, amount_src: amountSrc, cur });
     }
-
-    // ---------- consumables shopping list ----------
-    case "kv_supply_list": {
-      const st = str(body.status, 10);
-      const rows = st === "all"
-        ? await all(db, "SELECT * FROM supply_need WHERE org_id = ? ORDER BY created_at DESC LIMIT 100", O)
-        : await all(db, "SELECT * FROM supply_need WHERE org_id = ? AND status = 'need' ORDER BY created_at DESC LIMIT 100", O);
-      return json(rows);
-    }
-    case "kv_supply_done": {
-      const id = str(body.id, 40);
-      if (!isUuid(id)) return json({ message: "bad_id" }, 400);
-      const r = await one(db, "SELECT id FROM supply_need WHERE org_id = ? AND id = ?", O, id);
-      if (!r) return json({ message: "not_found" }, 404);
-      if (body.undo === true) await run(db, "UPDATE supply_need SET status = 'need', done_at = '' WHERE org_id = ? AND id = ?", O, id);
-      else await run(db, "UPDATE supply_need SET status = 'bought', done_at = ? WHERE org_id = ? AND id = ?", nowIso(), O, id);
-      return json(true);
-    }
-
     default:
       return json({ message: "not_found" }, 404);
   }

@@ -1,20 +1,48 @@
-// espace.md — card / Apple Pay / Google Pay / MIA top-ups through maib e-Commerce Checkout (hosted payment page).
+// espace.md — card / Apple Pay / Google Pay / MIA through maib e-Commerce Checkout (hosted payment page).
 // Docs: https://docs.maibmerchants.md/checkout
-//   POST {base}/v2/auth/token {clientId, clientSecret} → result.accessToken
-//   POST {base}/v2/checkouts (Bearer) → result.checkoutId, result.checkoutUrl
-//   callback: POST to our callbackUrl, headers X-Signature: "sha256=<base64 HMAC-SHA256(rawBody + "." + timestamp, signatureKey)>"
-//             and X-Signature-Timestamp (ms); body has orderId, paymentId, paymentStatus ("Executed" | "Failed"), amount, currency…
-// Secrets (Cloudflare Pages / GitHub): MAIB_CLIENT_ID, MAIB_CLIENT_SECRET, MAIB_SIGNATURE_KEY; MAIB_SANDBOX=1 for the test environment.
+// Two uses:
+//   1) Platform credit top-ups — secrets from Cloudflare env (MAIB_*).
+//   2) Guest booking payments — each company stores its own maib project in cfg.guestMaib
+//      (money goes to that company, not to the platform balance).
 import type { Env } from "./core";
 
 export const MAIB_PROD = "https://api.maibmerchants.md";
 export const MAIB_SANDBOX = "https://sandbox.maibmerchants.md";
 
-export function maibConfig(env: Env) {
+export type MaibCfg = {
+  ok: boolean;
+  base: string;
+  sandbox: boolean;
+  clientId: string;
+  clientSecret: string;
+  key: string;
+};
+
+export function maibConfig(env: Env): MaibCfg {
   const e = env as any;
-  const ok = !!(e.MAIB_CLIENT_ID && e.MAIB_CLIENT_SECRET && e.MAIB_SIGNATURE_KEY);
-  const base = String(e.MAIB_BASE_URL || (e.MAIB_SANDBOX === "1" || e.MAIB_SANDBOX === "true" ? MAIB_SANDBOX : MAIB_PROD)).replace(/\/+$/, "");
-  return { ok, base, sandbox: base !== MAIB_PROD, clientId: String(e.MAIB_CLIENT_ID || ""), clientSecret: String(e.MAIB_CLIENT_SECRET || ""), key: String(e.MAIB_SIGNATURE_KEY || "") };
+  return maibFromCreds({
+    clientId: e.MAIB_CLIENT_ID,
+    clientSecret: e.MAIB_CLIENT_SECRET,
+    signatureKey: e.MAIB_SIGNATURE_KEY,
+    sandbox: e.MAIB_SANDBOX === "1" || e.MAIB_SANDBOX === "true",
+    baseUrl: e.MAIB_BASE_URL,
+  });
+}
+
+/** Build a maib client from explicit credentials (per-company guest pay). */
+export function maibFromCreds(c: {
+  clientId?: unknown;
+  clientSecret?: unknown;
+  signatureKey?: unknown;
+  sandbox?: boolean;
+  baseUrl?: unknown;
+}): MaibCfg {
+  const clientId = String(c.clientId || "").trim();
+  const clientSecret = String(c.clientSecret || "").trim();
+  const key = String(c.signatureKey || "").trim();
+  const ok = !!(clientId && clientSecret && key);
+  const base = String(c.baseUrl || (c.sandbox ? MAIB_SANDBOX : MAIB_PROD)).replace(/\/+$/, "");
+  return { ok, base, sandbox: base !== MAIB_PROD, clientId, clientSecret, key };
 }
 
 async function call(url: string, init: RequestInit) {
@@ -24,7 +52,7 @@ async function call(url: string, init: RequestInit) {
   return j.result ?? j;
 }
 
-export async function maibToken(cfg: ReturnType<typeof maibConfig>) {
+export async function maibToken(cfg: MaibCfg) {
   const r = await call(cfg.base + "/v2/auth/token", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ clientId: cfg.clientId, clientSecret: cfg.clientSecret }) });
   if (!r.accessToken) throw new Error("maib: no token");
   return String(r.accessToken);
@@ -32,16 +60,18 @@ export async function maibToken(cfg: ReturnType<typeof maibConfig>) {
 
 export type CheckoutReq = {
   orderId: string; amount: number; description: string; lang: string;
+  itemTitle?: string; itemId?: string;
   payer: { name?: string; email?: string; phone?: string; ip?: string; ua?: string };
   callbackUrl: string; successUrl: string; failUrl: string;
 };
-export async function maibCheckout(cfg: ReturnType<typeof maibConfig>, q: CheckoutReq) {
+export async function maibCheckout(cfg: MaibCfg, q: CheckoutReq) {
   const token = await maibToken(cfg);
   const amount = Math.round(q.amount * 100) / 100;
+  const title = (q.itemTitle || "Credite espace.md").slice(0, 120);
   const body = {
     amount, currency: "MDL",
     orderInfo: { id: q.orderId, description: q.description.slice(0, 120), date: new Date().toISOString(),
-      items: [{ externalId: "credits", title: "Credite espace.md", amount, currency: "MDL", quantity: 1 }] },
+      items: [{ externalId: (q.itemId || "pay").slice(0, 40), title, amount, currency: "MDL", quantity: 1 }] },
     payerInfo: { name: q.payer.name || null, email: q.payer.email || null, phone: q.payer.phone || null, ip: q.payer.ip || null, userAgent: (q.payer.ua || "").slice(0, 200) || null },
     language: ["ro", "ru", "en"].includes(q.lang) ? q.lang : "ro",
     callbackUrl: q.callbackUrl, successUrl: q.successUrl, failUrl: q.failUrl,

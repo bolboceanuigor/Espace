@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Plată · espace.md</title>
+<link rel="icon" href="/icon.svg">
+<style>
+:root{--bg:#f4f1ea;--card:#fff;--fg:#17140a;--mut:#6f6a60;--acc:#0d8a7f;--line:#e6e1d6;--ok:#1f6b3a;--bad:#b42318}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:linear-gradient(160deg,#e8f2fa 0%,#f4f1ea 45%,#fff8ef 100%);color:var(--fg);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:440px;margin:0 auto;padding:28px 16px 48px}
+.brand{display:flex;align-items:center;gap:10px;margin-bottom:18px}.brand img{width:36px;height:36px;border-radius:50%}.brand b{font-weight:800;letter-spacing:.02em}
+.card{background:var(--card);border-radius:20px;padding:20px 18px;box-shadow:0 1px 0 var(--line)}
+h1{margin:0 0 6px;font-size:22px;line-height:1.2}.sub{color:var(--mut);font-size:14.5px;margin:0 0 14px}
+.row{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--line);font-size:14.5px}.row:first-of-type{border-top:0}.row span{color:var(--mut)}.row b{font-weight:700;text-align:right}
+.big{margin:14px 0 4px;font-size:28px;font-weight:800;letter-spacing:-.02em}
+.note{color:var(--mut);font-size:13.5px;margin:8px 0 0}
+.go{display:block;width:100%;margin-top:16px;border:0;border-radius:14px;background:var(--acc);color:#fff;font:inherit;font-weight:800;padding:14px 16px;cursor:pointer}
+.go:disabled{opacity:.55;cursor:default}
+.msg{margin-top:12px;font-weight:700;font-size:14.5px}.msg.ok{color:var(--ok)}.msg.bad{color:var(--bad)}
+.lang{display:flex;gap:4px;margin-left:auto;background:rgba(23,20,10,.08);border-radius:999px;padding:3px}.lang button{border:0;background:none;font:inherit;font-size:12.5px;font-weight:800;padding:6px 9px;border-radius:999px;cursor:pointer;color:var(--fg)}.lang button[aria-current]{background:var(--fg);color:#fff}
+.empty{text-align:center;color:var(--mut);padding:40px 10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><img src="/logo-64.png" alt=""><b id="brand">espace.md</b>
+    <div class="lang" id="langs"></div>
+  </div>
+  <div class="card" id="box"><div class="empty">…</div></div>
+</div>
+<script>
+const T={
+ ro:{title:"Plată rezervare",dep:"Avans",bal:"Rest de plată",apt:"Obiect",dates:"Date",guest:"Oaspete",total:"Total rezervare",pay:"De plată acum",mdl:"lei",go:"Plătește cu cardul",paid:"Plata a fost înregistrată. Mulțumim!",fail:"Plata nu a reușit. Poți încerca din nou.",wait:"Te ducem la pagina băncii…",gone:"Linkul nu e valid sau a expirat.",off:"Plățile online nu sunt active.",err:"Nu s-a putut deschide plata. Încearcă din nou."},
+ ru:{title:"Оплата брони",dep:"Аванс",bal:"Остаток к оплате",apt:"Объект",dates:"Даты",guest:"Гость",total:"Всего за бронь",pay:"К оплате сейчас",mdl:"лей",go:"Оплатить картой",paid:"Оплата прошла. Спасибо!",fail:"Оплата не прошла. Можно попробовать ещё раз.",wait:"Переходим на страницу банка…",gone:"Ссылка недействительна или устарела.",off:"Онлайн-оплата не подключена.",err:"Не удалось открыть оплату. Попробуйте ещё раз."},
+ en:{title:"Booking payment",dep:"Deposit",bal:"Balance due",apt:"Unit",dates:"Dates",guest:"Guest",total:"Booking total",pay:"Pay now",mdl:"lei",go:"Pay by card",paid:"Payment recorded. Thank you!",fail:"Payment failed. You can try again.",wait:"Taking you to the bank page…",gone:"This link is not valid or has expired.",off:"Online payments are not active.",err:"Could not start payment. Try again."}
+};
+const $=id=>document.getElementById(id);
+const q=new URLSearchParams(location.search);
+const tok=(location.pathname.match(/\/plata\/([a-f0-9]{16,40})/i)||[])[1]||q.get("t")||"";
+const slug=q.get("c")||"";
+let L=(q.get("l")||localStorage.getItem("es_pay_lang")||((navigator.language||"").slice(0,2)==="ru"?"ru":(navigator.language||"").slice(0,2)==="en"?"en":"ro"));
+if(!T[L])L="ro";
+const t=k=>T[L][k]||k;
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const money=(n,c)=>`${Math.round(+n*100)/100}\u00a0${c==="EUR"?"€":c==="USD"?"$":t("mdl")}`;
+const fd=d=>d?d.slice(8,10)+"."+d.slice(5,7)+"."+d.slice(0,4):"";
+async function api(fn,body={}){
+  const r=await fetch("/api/"+fn,{method:"POST",headers:{"Content-Type":"application/json",...(slug?{"X-Espace-Org":slug}:{})},body:JSON.stringify({token:tok,slug,...body})});
+  const j=await r.json().catch(()=>({})); if(!r.ok){const e=new Error(j.message||"err");e.code=j.message;throw e} return j;
+}
+function renderLang(){$("langs").innerHTML=["ro","ru","en"].map(l=>`<button type="button" data-l="${l}" ${l===L?'aria-current="true"':""}>${l.toUpperCase()}</button>`).join("")}
+async function load(){
+  renderLang();
+  if(!tok){$("box").innerHTML=`<div class="empty">${esc(t("gone"))}</div>`;return}
+  try{
+    const d=await api("pub_pay_info");
+    $("brand").textContent=d.org||"espace.md"; document.title=(d.org||"espace.md")+" · "+t("title");
+    if(q.get("ok")==="1"||d.status==="paid"){$("box").innerHTML=`<h1>${esc(t("title"))}</h1><p class="msg ok">${esc(t("paid"))}</p>`;return}
+    if(q.get("fail")==="1"){/* show retry */}
+    $("box").innerHTML=`<h1>${esc(d.kind==="deposit"?t("dep"):t("bal"))}</h1>
+      <p class="sub">${esc(d.org||"")}</p>
+      <div class="row"><span>${esc(t("apt"))}</span><b>${esc(d.apt)}</b></div>
+      <div class="row"><span>${esc(t("dates"))}</span><b>${esc(fd(d.date))}${d.nights?` · ${d.nights} n.`:""}</b></div>
+      ${d.guest?`<div class="row"><span>${esc(t("guest"))}</span><b>${esc(d.guest)}</b></div>`:""}
+      ${d.price?`<div class="row"><span>${esc(t("total"))}</span><b>${esc(money(d.price,d.price_cur))}</b></div>`:""}
+      <div class="big">${esc(money(d.amount,"MDL"))}</div>
+      <p class="note">${esc(t("pay"))}${d.amount_src&&d.cur!=="MDL"?` · ${esc(money(d.amount_src,d.cur))}`:""}${d.sandbox?" · sandbox":""}</p>
+      ${q.get("fail")==="1"?`<p class="msg bad">${esc(t("fail"))}</p>`:""}
+      <button type="button" class="go" id="go">${esc(t("go"))}</button>
+      <p class="msg" id="err" hidden></p>`;
+    $("go").onclick=async()=>{const b=$("go"),err=$("err");b.disabled=true;err.hidden=true;err.textContent=t("wait");err.className="msg";err.hidden=false;
+      try{const r=await api("pub_pay_start",{lang:L});location.href=r.url}
+      catch(x){b.disabled=false;err.className="msg bad";err.textContent=x.code==="already_paid"?t("paid"):x.code==="maib_off"?t("off"):x.code==="locked"?t("err"):t("err");err.hidden=false}}
+  }catch(x){$("box").innerHTML=`<div class="empty">${esc(x.code==="closed"?t("off"):t("gone"))}</div>`}
+}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-l]");if(!b)return;L=b.dataset.l;try{localStorage.setItem("es_pay_lang",L)}catch(x){}load()});
+load();
+</script>
+</body>
+</html>

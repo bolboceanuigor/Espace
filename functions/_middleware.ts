@@ -53,9 +53,9 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
     const h = new Headers(r.headers); h.set("cache-control", "no-cache"); h.set("x-robots-tag", "noindex");
     return new Response(r.body, { status: r.status, headers: h });
   }
-  // online check-in: <slug>.espace.md/checkin/<token>
-  if (s.kind === "tenant" && /^\/checkin\/[a-f0-9]{32}\/?$/.test(p)) {
-    const r = await env.ASSETS.fetch(new URL("/checkin", url));
+  // guest card payment page: <slug>.espace.md/plata/<token>
+  if (s.kind === "tenant" && /^\/plata\/[a-f0-9]{16,40}\/?$/.test(p)) {
+    const r = await env.ASSETS.fetch(new URL("/pay", url));
     const h = new Headers(r.headers); h.set("cache-control", "no-cache"); h.set("x-robots-tag", "noindex");
     return new Response(r.body, { status: r.status, headers: h });
   }

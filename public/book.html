@@ -144,6 +144,7 @@ const T={
    need:"Scrie numele și un telefon sau un email.",badEmail:"Verifică emailul.",net:"Nu e legătură. Încearcă din nou.",takenErr:"Între timp, aceste date au fost rezervate. Alege altele.",lock:"Prea multe cereri. Încearcă peste 15 minute.",
    after:"Cererea nu e încă o rezervare: gazda o confirmă și primești răspunsul pe email sau la telefon.",
    doneH:"Cererea a fost trimisă",doneP:(o)=>`${o} a primit cererea. Te contactează în curând pentru confirmare.`,close:"Închide",
+   payNow:"Plătește avansul",payHint:"Poți plăti avansul acum cu cardul. Restul — după confirmare.",
    closed:"Rezervările online nu sunt deschise acum.",notFound:"Pagina nu există.",nights:"Nopți",perNightL:"Preț pe noapte",guestsS:"Persoane",
    kind:{apt:"Apartament",studio:"Garsonieră",house:"Casă",villa:"Vilă",room:"Cameră",bed:"Loc în hostel"},
    beds:{dbl:"pat dublu",sgl:"pat single",sofa:"canapea",bunk:"pat supraetajat"},
@@ -157,6 +158,7 @@ const T={
    need:"Напишите имя и телефон или email.",badEmail:"Проверьте email.",net:"Нет связи. Попробуйте ещё раз.",takenErr:"Пока вы выбирали, эти даты заняли. Выберите другие.",lock:"Слишком много заявок. Попробуйте через 15 минут.",
    after:"Заявка — ещё не бронь: хозяин подтвердит её, ответ придёт на email или по телефону.",
    doneH:"Заявка отправлена",doneP:(o)=>`${o} получил заявку и скоро свяжется с вами для подтверждения.`,close:"Закрыть",
+   payNow:"Оплатить аванс",payHint:"Можно оплатить аванс картой сейчас. Остаток — после подтверждения.",
    closed:"Онлайн-бронирование сейчас закрыто.",notFound:"Такой страницы нет.",nights:"Ночей",perNightL:"Цена за ночь",guestsS:"Гостей",
    kind:{apt:"Квартира",studio:"Студия",house:"Дом",villa:"Вилла",room:"Номер",bed:"Место в хостеле"},
    beds:{dbl:"двуспальная кровать",sgl:"односпальная",sofa:"диван",bunk:"двухъярусная"},
@@ -170,6 +172,7 @@ const T={
    need:"Add your name and a phone or email.",badEmail:"Check the email.",net:"No connection. Try again.",takenErr:"These dates were just booked. Choose others.",lock:"Too many requests. Try again in 15 minutes.",
    after:"A request isn’t a booking yet: the host confirms it and you get the answer by email or phone.",
    doneH:"Request sent",doneP:(o)=>`${o} got your request and will contact you soon to confirm.`,close:"Close",
+   payNow:"Pay the deposit",payHint:"You can pay the deposit by card now. The rest is after confirmation.",
    closed:"Online booking isn’t open right now.",notFound:"This page doesn’t exist.",nights:"Nights",perNightL:"Price per night",guestsS:"Guests",
    kind:{apt:"Apartment",studio:"Studio",house:"House",villa:"Villa",room:"Room",bed:"Hostel bed"},
    beds:{dbl:"double bed",sgl:"single bed",sofa:"sofa bed",bunk:"bunk bed"},
@@ -254,8 +257,12 @@ function openReq(name){const u=D.units.find(x=>x.name===name);if(!u)return;const
     catch(x){disc=null;msg.textContent=t("promoBad");paintSum()}finally{pgo.disabled=false}};
   $("rf").onsubmit=async e=>{e.preventDefault();const v={name:$("r-name").value.trim(),phone:$("r-phone").value.trim(),email:$("r-email").value.trim(),message:$("r-msg").value.trim()},err=$("r-err");
     if(!v.name||(!v.phone&&!v.email)){err.textContent=t("need");return}if(v.email&&!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.email)){err.textContent=t("badEmail");return}
-    const b=$("r-go");b.disabled=true;try{await api("pub_request",{...v,apt:u.name,date:din,nights,guests:G,kids:K,lang:L,discount:disc?disc.code:(($("r-promo")||{}).value||"").trim()});
-      sh.innerHTML=`<div class="done"><div class="ok">✓</div><h3 id="sh-h">${t("doneH")}</h3><p>${esc(t("doneP")(D.name))}</p><div class="sum"><div><span>${esc(u.name)}</span><span>${fdm(din)} — ${fdm(dout)}</span></div></div><div class="acts"><button type="button" class="go" data-close="1">${t("close")}</button></div></div>`;
+    const b=$("r-go");b.disabled=true;try{const res=await api("pub_request",{...v,apt:u.name,date:din,nights,guests:G,kids:K,lang:L});
+      const canPay=res&&res.id&&res.pay&&res.pay.on&&res.deposit>0;
+      sh.innerHTML=`<div class="done"><div class="ok">✓</div><h3 id="sh-h">${t("doneH")}</h3><p>${esc(t("doneP")(D.name))}</p><div class="sum"><div><span>${esc(u.name)}</span><span>${fdm(din)} — ${fdm(dout)}</span></div>${canPay?`<div><span>${esc(t("payNow"))}</span><span>${money(res.deposit,res.cur)}</span></div>`:""}</div>
+        ${canPay?`<p class="note">${esc(t("payHint"))}</p><div class="acts"><button type="button" class="go" id="r-pay">${esc(t("payNow"))}</button><button type="button" class="ghost" data-close="1">${t("close")}</button></div>`
+          :`<div class="acts"><button type="button" class="go" data-close="1">${t("close")}</button></div>`}</div>`;
+      if(canPay)$("r-pay").onclick=async()=>{const pb=$("r-pay");pb.disabled=true;try{const p=await api("pub_pay_deposit",{booking_id:res.id,lang:L});location.href=p.url}catch(x){pb.disabled=false;const e=document.createElement("p");e.className="msg";e.textContent=t("net");sh.appendChild(e)}};
       u.busy=[...(u.busy||[]),[din,nights]];render()}
     catch(x){b.disabled=false;err.textContent=x.code==="bad_dates"&&x.data&&x.data.why?whyText(x.data):x.code==="taken"?t("takenErr"):x.code==="locked"?t("lock"):x.code==="too_many_guests"?t("tooMany")(x.data.cap):x.code==="need_contact"?t("need"):["bad_code","expired","exhausted","not_started","wrong_unit"].includes(x.code)?t("promoBad"):t("net");if(x.code==="taken")load()}}}
 function closeSheet(){$("sheet").hidden=true}

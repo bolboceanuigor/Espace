@@ -2491,7 +2491,7 @@ document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest
   PRS=null;PRW=null;saveCfg({...cfg,pricing:{weekend:wk||0,seasons}},"Prices saved")});
 function directSection(){const d=cfg.direct||{},url="https://"+ME.org.code+".espace.md/rezerva",hid=new Set(d.hidden||[]);
   const withPrice=cfg.apts.filter(a=>+unitOf(a).price>0),noPrice=cfg.apts.filter(a=>!(+unitOf(a).price>0));
-  const wUrl="https://"+ME.org.code+".espace.md/widget",wCode=`<iframe src="${wUrl}" style="width:100%;max-width:720px;height:480px;border:0;border-radius:12px" loading="lazy" title="Disponibilitate"></iframe>`;
+  const gm=cfg.guestMaib||{};
   return `<div class="card"><label class="dtog"><input type="checkbox" id="dr-on" ${d.on?"checked":""} ${RO?"disabled":""}><span><b>Take bookings on your own page</b><small>Guests pick dates, see free units and the price, and send a request. No commission.</small></span></label>
     <div class="iexp" style="margin-top:12px"><b>Link for guests</b><div class="iexpr" style="margin-top:6px"><input type="text" readonly value="${esc(url)}" id="dr-url"><button type="button" class="btn sm" id="dr-copy">Copy</button><a class="btn sm" href="${esc(url)}" target="_blank" rel="noopener">Open</a></div>
       <p class="small" style="margin:6px 0 0">Put it on Instagram, your website, in Google Maps and in your replies to guests.</p></div></div>
@@ -2510,14 +2510,27 @@ function directSection(){const d=cfg.direct||{},url="https://"+ME.org.code+".esp
     <label class="l">Units on the page <em>— only units with a nightly price are shown</em></label>
     <div class="uamen">${withPrice.map(a=>`<button type="button" data-drunit="${esc(a)}" aria-pressed="${!hid.has(a)}">${esc(a)}</button>`).join("")||`<span class="small">No unit has a price yet.</span>`}</div>
     ${noPrice.length?`<p class="small" style="margin:8px 0 0">No price, hidden from guests: ${esc(noPrice.slice(0,8).join(", "))}${noPrice.length>8?" …":""}. Set the price in «Units» → ⚙.</p>`:""}
-    ${RO?"":`<div class="actions"><button type="button" class="btn primary" id="dr-save">Save</button></div>`}</div>`}
-document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("#dr-save,#dr-copy,#dr-wcopy,#dr-wone-copy,[data-drunit],[data-wapt]");if(!t)return;
+    ${RO?"":`<div class="actions"><button type="button" class="btn primary" id="dr-save">Save</button></div>`}</div>
+  <div class="card"><b>Card payment (maib)</b>
+    <p class="small" style="margin-top:4px">Money goes to <b>your</b> project maib, not to the espace.md. Keys — from the maibmerchants.md.</p>
+    <label class="dtog"><input type="checkbox" id="gm-on" ${gm.on?"checked":""} ${RO?"disabled":""}><span><b>Accept online payments from guests</b><small>Deposit on the booking page and a balance link from the booking card.</small></span></label>
+    <div class="grid2" style="margin-top:10px"><div><label class="l" for="gm-pct">Deposit, % of total</label><input id="gm-pct" inputmode="numeric" value="${esc(gm.depositPct??30)}" ${RO?"disabled":""}></div>
+      <div><label class="l">&nbsp;</label><label class="dtog" style="margin-top:6px"><input type="checkbox" id="gm-sand" ${gm.sandbox?"checked":""} ${RO?"disabled":""}><span><b>Sandbox</b><small>test maib</small></span></label></div></div>
+    <label class="l" for="gm-cid">Project ID (clientId)</label><input id="gm-cid" value="${esc(gm.clientId||"")}" autocomplete="off" ${RO?"disabled":""} maxlength="80">
+    <label class="l" for="gm-sec">Project Secret (clientSecret)</label><input id="gm-sec" type="password" value="" placeholder="${gm.clientSecret?"kept as before — enter a new one to change it":""}" autocomplete="new-password" ${RO?"disabled":""} maxlength="120">
+    <label class="l" for="gm-sig">Signature Key</label><input id="gm-sig" type="password" value="" placeholder="${gm.signatureKey?"kept as before — enter a new one to change it":""}" autocomplete="new-password" ${RO?"disabled":""} maxlength="120">
+    ${RO?"":`<div class="actions"><button type="button" class="btn primary" id="gm-save">Save payments</button></div>`}
+    <p class="small" style="margin-bottom:0">Callback URL for the maib: <code style="word-break:break-all">${esc(location.origin)}/api/maib_callback</code></p></div>`}
+document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("#dr-save,#dr-copy,#gm-save,[data-drunit]");if(!t)return;
   if(t.dataset.drunit!=null){t.setAttribute("aria-pressed",String(t.getAttribute("aria-pressed")!=="true"));return}
   if(t.id==="dr-copy"){try{await navigator.clipboard.writeText($("dr-url").value);toast("Link copied")}catch(x){$("dr-url").select()}return}
-  if(t.id==="dr-wcopy"){try{await navigator.clipboard.writeText($("dr-wcode").value);toast("Widget code copied")}catch(x){$("dr-wcode").select()}return}
-  if(t.dataset.wapt!=null){const a=t.dataset.wapt,u="https://"+ME.org.code+".espace.md/widget?u="+encodeURIComponent(a),code=`<iframe src="${u}" style="width:100%;max-width:720px;height:360px;border:0;border-radius:12px" loading="lazy" title="${a}"></iframe>`;
-    const box=$("dr-wone");if(box){box.hidden=false;$("dr-wone-t").textContent=a;$("dr-wone-c").value=code}return}
-  if(t.id==="dr-wone-copy"){try{await navigator.clipboard.writeText($("dr-wone-c").value);toast("Widget code copied")}catch(x){$("dr-wone-c").select()}return}
+  if(t.id==="gm-save"){if(RO)return;
+    const prev=cfg.guestMaib||{},pct=Math.max(0,Math.min(100,parseInt($("gm-pct").value,10)||0));
+    const sec=($("gm-sec").value||"").trim(),sig=($("gm-sig").value||"").trim(),cid=($("gm-cid").value||"").trim();
+    const guestMaib={on:$("gm-on").checked,depositPct:pct,sandbox:$("gm-sand").checked,clientId:cid||prev.clientId||"",
+      clientSecret:sec||prev.clientSecret||"",signatureKey:sig||prev.signatureKey||""};
+    if(guestMaib.on&&!(guestMaib.clientId&&guestMaib.clientSecret&&guestMaib.signatureKey)){toast("Need Project ID, Secret and Signature Key");return}
+    saveCfg({...cfg,guestMaib},guestMaib.on?"Card payments are on":"Card payments are off");return}
   const em=$("dr-email").value.trim();if(em&&!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em)){toast("Check email");return}
   const direct={on:$("dr-on").checked,intro:$("dr-intro").value.trim().slice(0,400),phone:$("dr-phone").value.trim().slice(0,40),email:em,min:Math.max(1,Math.min(30,parseInt($("dr-min").value,10)||1)),terms:$("dr-terms").value.trim().slice(0,1500),arrival:$("dr-arr").checked,
     hidden:[...document.querySelectorAll("[data-drunit][aria-pressed=false]")].map(x=>x.dataset.drunit)};
@@ -2889,13 +2902,13 @@ function bookView(id){const b=bookings.find(x=>x.id===id);if(!b)return;const tg=
    ${ct?`<div class="fcontact bv-ct">${ct}</div>`:b.tag==="closed"?"":`<div class="bv-nophone">No phone given</div>`}
    <div class="bv-rows">${rows.map(([k,v])=>`<div><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join("")}</div>
    ${b.tag==="req"&&!RO?`<div class="bv-req"><p class="small">Request from the booking page${b.email?" · "+esc(b.email):""}${b.pax?" · guests: "+b.pax:""}. The dates are held for it for now.</p><div class="actions"><button type="button" class="btn primary" data-reqok="${esc(b.id)}">✓ Confirm</button><button type="button" class="btn danger" data-reqno="${esc(b.id)}">Decline</button></div></div>`:""}
+   ${!RO&&b.tag!=="closed"&&cfg.guestMaib&&cfg.guestMaib.on&&(cfg.guestMaib.clientId)?`<div class="actions" style="margin-top:10px"><button type="button" class="btn" data-paylink="${esc(b.id)}">💳 Payment link</button></div><p class="small" id="bv-payurl" hidden style="margin:6px 0 0;word-break:break-all"></p>`:""}
    ${RO?"":`<button type="button" class="btn${b.tag==="req"?"":" primary"} bv-edit" data-bedit="${esc(b.id)}">Edit booking</button>`}
    ${b.nights>0&&b.tag!=="closed"?`<div class="bv-ct2" id="bv-k" data-bid="${esc(b.id)}">${(setTimeout(()=>kLoad(b.id),0),"")}</div>`:""}
    ${b.nights>0&&b.tag!=="closed"?`<div class="bv-ct2" id="bv-inv" data-bid="${esc(b.id)}">${(setTimeout(()=>invLoad(b.id),0),"")}</div>`:""}
    <button type="button" class="linkbtn" data-audref="${esc(b.id)}" style="margin-top:10px">🕘 Change history</button></div>`)}
-document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("[data-reqok],[data-reqno],[data-bcancel]");if(!t)return;
-  if(t.dataset.bcancel){cancelBooking(t.dataset.bcancel);return}
-  const ok=!!t.dataset.reqok,id=t.dataset.reqok||t.dataset.reqno;
+document.addEventListener("click",async e=>{const pl=e.target.closest&&e.target.closest("[data-paylink]");if(pl){pl.disabled=true;try{const r=await api("kv_pay_link",{booking_id:pl.dataset.paylink});const box=$("bv-payurl");if(box){box.hidden=false;box.innerHTML=`<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.url)}</a> · ${fmt(r.amount)} lei`;try{await navigator.clipboard.writeText(r.url);toast("Link copied")}catch(x){toast("Link ready")}}else toast("Link ready")}catch(x){pl.disabled=false;toast(x.code==="maib_off"?"Turn on payments in Settings first → Booking page":x.code==="nothing_due"?"Already fully paid":"Didn’t work")}return}
+  const t=e.target.closest&&e.target.closest("[data-reqok],[data-reqno]");if(!t)return;const ok=!!t.dataset.reqok,id=t.dataset.reqok||t.dataset.reqno;
   if(!ok&&!t.classList.contains("armed")){t.classList.add("armed");t.textContent="Decline for sure?";return}
   t.disabled=true;try{const r=await api("kv_req_decide",{id,ok});closeSheet();await reload();toast((ok?"Booking confirmed":"Request declined")+(r.mailed==="sent"?" · the guest got an email":""))}catch(x){t.disabled=false;toast("Didn’t work")}});
 function cancelBooking(id){const b=bookings.find(x=>x.id===id);if(!b||b.tag==="cancel"||b.tag==="closed")return;

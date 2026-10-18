@@ -482,37 +482,29 @@ CREATE TABLE IF NOT EXISTS maib_payments (
 );
 CREATE INDEX IF NOT EXISTS maib_payments_org_idx ON maib_payments(org_id, created_at);
 
--- guest orders of paid extras from the public guide (transfer, early check-in, crib…)
-CREATE TABLE IF NOT EXISTS svc_orders (
-  id TEXT PRIMARY KEY,
+-- guest card payments for a booking (deposit on book page, or balance link from the app).
+-- Money goes to the company's own maib project (cfg.guestMaib), not the platform credit balance.
+CREATE TABLE IF NOT EXISTS guest_payments (
+  id TEXT PRIMARY KEY,                         -- also the orderId sent to maib
   org_id TEXT NOT NULL,
-  apt TEXT NOT NULL DEFAULT '',
-  service_id TEXT NOT NULL DEFAULT '',
-  service_name TEXT NOT NULL DEFAULT '',
-  price REAL NOT NULL DEFAULT 0,
-  price_cur TEXT NOT NULL DEFAULT 'EUR',
+  booking_id TEXT NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'balance',        -- deposit | balance
+  amount REAL NOT NULL,                        -- MDL charged via maib
+  amount_src REAL NOT NULL DEFAULT 0,          -- amount in booking currency
+  cur TEXT NOT NULL DEFAULT 'EUR',             -- booking currency of amount_src
+  status TEXT NOT NULL DEFAULT 'new',          -- new | paid | failed
+  checkout_id TEXT NOT NULL DEFAULT '',
+  payment_id TEXT NOT NULL DEFAULT '',
+  method TEXT NOT NULL DEFAULT '',
+  card TEXT NOT NULL DEFAULT '',
+  token TEXT NOT NULL UNIQUE,                  -- public /plata/<token>
   guest TEXT NOT NULL DEFAULT '',
-  phone TEXT NOT NULL DEFAULT '',
   note TEXT NOT NULL DEFAULT '',
-  status TEXT NOT NULL DEFAULT 'new',   -- new | done | cancel
-  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-);
-CREATE INDEX IF NOT EXISTS svc_orders_org_idx ON svc_orders(org_id, created_at);
-
--- consumables running low: cleaner marks an item on a unit; manager sees the shopping list
-CREATE TABLE IF NOT EXISTS supply_need (
-  id TEXT PRIMARY KEY,
-  org_id TEXT NOT NULL,
-  apt TEXT NOT NULL,
-  item TEXT NOT NULL,
-  note TEXT NOT NULL DEFAULT '',
-  by_name TEXT NOT NULL DEFAULT '',
-  staff_id TEXT NOT NULL DEFAULT '',
-  status TEXT NOT NULL DEFAULT 'need',  -- need | bought
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  done_at TEXT NOT NULL DEFAULT ''
+  paid_at TEXT NOT NULL DEFAULT ''
 );
-CREATE INDEX IF NOT EXISTS supply_need_org_idx ON supply_need(org_id, status, created_at);
+CREATE INDEX IF NOT EXISTS guest_payments_org_idx ON guest_payments(org_id, created_at);
+CREATE INDEX IF NOT EXISTS guest_payments_booking_idx ON guest_payments(org_id, booking_id);
 
 -- prices and rules per unit per day, set from the calendar (price mode) or in bulk: overrides the unit's price, seasons and weekend %
 CREATE TABLE IF NOT EXISTS day_rates (
