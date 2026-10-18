@@ -1507,7 +1507,7 @@ const catIcon=c=>CAT_ICON[c]||"📌";
 const catCol=c=>CAT_COL[Math.max(0,cfg.categories.indexOf(c))%CAT_COL.length];
 const telDigits=p=>(p||"").replace(/[^\d+]/g,"");
 
-const RO_OK=["kv_load","kv_photos","kv_guides","kv_task_photo","kv_push_key","kv_push_sub","billing","bill_invoice","bill_pay","bill_pay_status","auth_me","auth_logout","auth_switch","auth_password","auth_new_org","kv_contacts","kv_contact_get","kv_contacts_export"];
+const RO_OK=["kv_load","kv_photos","kv_guides","kv_task_photo","kv_push_key","kv_push_sub","billing","bill_invoice","bill_pay","bill_pay_status","auth_me","auth_logout","auth_switch","auth_password","auth_new_org","kv_checkin_get"];
 const CHECK_OK=["kv_verify","kv_month_close","kv_month_open"];
 let ME=null, ROLE="", EXPIRED=false;
 const SLUG=(()=>{const h=location.hostname;if(h.endsWith(".espace.md"))return h.slice(0,-".espace.md".length);let c="";try{c=new URLSearchParams(location.search).get("c")||sessionStorage.getItem("es_c")||""}catch(e){}c=c.toLowerCase().replace(/[^a-z0-9-]/g,"");try{if(c)sessionStorage.setItem("es_c",c)}catch(e){}return c})();
@@ -2152,7 +2152,7 @@ function ctOpenEditNew(){openSheet("New contact",`<button type="button" class="g
 const AF={date:"Date",apt:"Unit",guest:"Guest",nights:"Nights",mdl:"Lei",eur:"€",usd:"$",oth:"Other currency",oth_cur:"Currency code",util:"Utilities",util_cur:"Utilities currency",pay:"Payment",who:"Received by",note:"Note",source:"Source",phone:"Phone",pax:"Guests",price:"Price",price_cur:"Price currency",pay_status:"Payment status",tag:"Tag",category:"Category",yearly:"Yearly",amount:"Amount",method:"How",paid_on:"Payout date",role:"Role",created:"Added",dup:"Already there",bad:"Skipped",aptsAdded:"New units",aptsRemoved:"Units removed",from:"Before",to:"Now"};
 const AA={contract:"created the contract",signed:"guest signed the contract",create:"added",update:"changed",delete:"deleted",request:"request from the booking page",confirm:"confirmed the request",decline:"declined the request",import:"import from a file",rename:"renamed a unit",pay:"marked a payout",unpay:"removed the payout mark",close:"closed the month",open:"reopened the month",add:"gave access",remove:"removed access",role:"changed the role"};
 const AK={booking:"Booking",expense:"Expense",settings:"Settings",owner:"Owner",team:"Team",month:"Month",import:"Import"};
-const AS={contract:"contract",tax:"taxes",taxPaid:"tax payments",apts:"units",units:"unit details",addr:"addresses",owners:"owners",pricing:"seasons and prices",direct:"booking page",rates:"exchange rates",other:"other currencies",people:"managers",checklist:"checklist",onboarded:"first setup",archived:"unit archive",payouts:"maid payouts",duty:"shift schedule",groups:"groups"};
+const AS={checkin:"online check-in",contract:"contract",tax:"taxes",taxPaid:"tax payments",apts:"units",units:"unit details",addr:"addresses",owners:"owners",pricing:"seasons and prices",direct:"booking page",rates:"exchange rates",other:"other currencies",people:"managers",checklist:"checklist",onboarded:"first setup",archived:"unit archive",payouts:"maid payouts",duty:"shift schedule",groups:"groups"};
 const PST={unpaid:"unpaid",part:"partly",paid:"paid"};
 function audVal(f,v){if(v==null||v===""||v===0&&!["nights","pax"].includes(f))return "—";if(Array.isArray(v))return v.map(esc).join(", ")||"—";
   if(f==="date"||f==="paid_on")return dm(String(v));if(f==="tag")return ((TAGS.find(t=>t[0]===v)||[])[1])||String(v);if(f==="pay_status")return PST[v]||String(v);
@@ -2251,6 +2251,37 @@ async function kLoad(bid){const box=$("bv-k");if(!box||box.dataset.bid!==bid)ret
   $("bv-k").innerHTML=k&&k.status==="signed"?`<div class="kst ok"><b>✓ Contract № ${esc(k.number)} signed</b><span class="small">${esc(k.guest_name)}${k.guest_doc?" · "+esc(k.guest_doc):""} · ${fdtS(k.signed_at)}</span><div class="actions"><a class="btn sm" href="${esc(k.url)}" target="_blank" rel="noopener">Open the contract</a></div></div>`
     :`<div class="kst"><b>${k?`Contract № ${esc(k.number)} · awaiting signature`:"Guest contract"}</b><span class="small">${k?(k.views?`guest opened it: ${k.views}`:"the guest hasn’t opened it yet"):"filled from the booking — the guest signs on the phone"}</span>
       ${RO?"":`<div class="actions">${b.email?`<button type="button" class="btn sm primary" data-ksend="${esc(bid)}">✉ Send to ${esc(b.email)}</button>`:""}<button type="button" class="btn sm${b.email?"":" primary"}" data-kcopy="${esc(bid)}">${k?"Copy the link":"Create and copy the link"}</button>${b.phone?`<button type="button" class="btn sm" data-kwa="${esc(bid)}">WhatsApp</button>`:""}</div>`}</div>`}
+
+/* ONLINE CHECK-IN: public link for the guest; fields configured in Settings */
+let CI={};
+const CI_FL=[["name","Name"],["birth","Date of birth"],["citizenship","Citizenship"],["doc_type","Document type"],["doc_num","Document number"],["doc_issued","Issued"],["doc_expires","Expires"],["address","Address"],["companions","Companions"],["doc_photo","Photo of ID"],["signature","Signature"]];
+const CI_MODE={req:"required",opt:"optional",hide:"hide"};
+async function ciLoad(bid){const box=$("bv-ci");if(!box)return;
+  try{const r=await api("kv_checkin_get",{booking_id:bid});CI[bid]=r;ciRender(bid)}catch(e){box.innerHTML=`<div class="kst"><b>Online check-in</b><span class="small">didn’t load</span></div>`}}
+function ciRender(bid){const box=$("bv-ci");if(!box)return;const r=CI[bid],b=bookings.find(x=>x.id===bid)||{};
+  if(!r){box.innerHTML=`<div class="kst"><b>Online check-in</b><span class="small">the guest fills in details before arrival</span>${RO?"":`<div class="actions"><button type="button" class="btn sm primary" data-cimake="${esc(bid)}">Create the link</button></div>`}</div>`;return}
+  if(r.status==="done"){const d=r.data||{};box.innerHTML=`<div class="kst ok"><b>✓ Check-in completed</b><span class="small">${esc(d.name||b.guest||"")}${d.doc_num?" · "+esc(d.doc_num):""}${r.completed_at?" · "+fdtS(r.completed_at):""}</span>
+    <div class="small" style="margin-top:6px">${CI_FL.filter(([k])=>d[k]!=null&&k!=="signature"&&k!=="doc_photo").map(([k,l])=>`<div><b>${esc(l)}:</b> ${esc(Array.isArray(d[k])?d[k].join(", "):d[k])}</div>`).join("")}</div>
+    <div class="actions"><a class="btn sm" href="${esc(r.url)}" target="_blank" rel="noopener">Open the form</a></div></div>`;return}
+  if(r.status==="purged"){box.innerHTML=`<div class="kst"><b>Online check-in</b><span class="small">personal data deleted after the retention period</span></div>`;return}
+  box.innerHTML=`<div class="kst"><b>Online check-in · waiting for the guest</b><span class="small">link to fill in before arrival</span>
+    ${RO?"":`<div class="actions"><button type="button" class="btn sm primary" data-cicopy="${esc(bid)}">Copy the link</button>${b.phone?`<button type="button" class="btn sm" data-ciwa="${esc(bid)}">WhatsApp</button>`:""}</div>`}</div>`}
+document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("[data-cimake],[data-cicopy],[data-ciwa]");if(!t)return;
+  const bid=t.dataset.cimake||t.dataset.cicopy||t.dataset.ciwa;t.disabled=true;
+  try{const r=await api("kv_checkin_make",{booking_id:bid});CI[bid]=r;if(t.dataset.ciwa){const b=bookings.find(x=>x.id===bid)||{},dg=phoneDigits(b.phone);window.open("https://wa.me/"+dg+"?text="+encodeURIComponent("Link: "+r.url),"_blank")}
+    else if(t.dataset.cicopy||t.dataset.cimake)gCopy(r.url,"Check-in link copied");ciRender(bid)}catch(x){toast("Didn’t work")}t.disabled=false});
+function checkinSection(){const c=(cfg.checkin)||{},fields={...(Object.fromEntries(CI_FL.map(([k])=>[k,"req"]))),...(c.fields||{})};
+  fields.companions=fields.companions||"opt";fields.doc_photo=fields.doc_photo||"opt";
+  const retain=c.retain_months!=null?c.retain_months:12;
+  return `<div class="card"><p class="small" style="margin-top:0">The guest opens the booking link and fills in the details. Each field can be required, optional or hidden. Personal data is deleted after the chosen number of months.</p>
+    ${CI_FL.map(([k,l])=>`<div class="grid2" style="align-items:center;margin:6px 0"><b style="font-size:14px">${esc(l)}</b><select data-cif="${k}" style="height:40px" ${RO?"disabled":""}>${["req","opt","hide"].map(m=>`<option value="${m}"${fields[k]===m?" selected":""}>${CI_MODE[m]}</option>`).join("")}</select></div>`).join("")}
+    <label class="l" for="ci-retain">Keep data after arrival, months</label><input id="ci-retain" inputmode="numeric" value="${esc(String(retain))}" ${RO?"disabled":""}>
+    ${RO?"":`<div class="actions"><button class="btn primary" id="ci-save">Save</button></div>`}</div>`}
+document.addEventListener("click",e=>{if(e.target.id!=="ci-save")return;
+  const fields={};document.querySelectorAll("[data-cif]").forEach(s=>{fields[s.dataset.cif]=s.value});
+  const retain=Math.max(0,Math.min(60,parseInt(($("ci-retain")||{}).value,10)||12));
+  saveCfg({...cfg,checkin:{fields,retain_months:retain}},"Check-in saved")});
+
 async function kMake(bid,send){try{return await api("kv_contract",{booking_id:bid,send})}catch(e){toast(e.code==="no_email"?"The booking has no email of the guest":"Didn’t work");return null}}
 document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("[data-ksend],[data-kcopy],[data-kwa]");if(!t)return;const d=t.dataset,bid=d.ksend||d.kcopy||d.kwa;
   if(d.kwa){const w=window.open("about:blank","_blank");const r=await kMake(bid,false);const b=bookings.find(x=>x.id===bid)||{};if(!r){if(w)w.close();return}
@@ -2731,8 +2762,7 @@ function bookView(id){const b=bookings.find(x=>x.id===id);if(!b)return;const tg=
    <div class="bv-rows">${rows.map(([k,v])=>`<div><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join("")}</div>
    ${b.tag==="req"&&!RO?`<div class="bv-req"><p class="small">Request from the booking page${b.email?" · "+esc(b.email):""}${b.pax?" · guests: "+b.pax:""}. The dates are held for it for now.</p><div class="actions"><button type="button" class="btn primary" data-reqok="${esc(b.id)}">✓ Confirm</button><button type="button" class="btn danger" data-reqno="${esc(b.id)}">Decline</button></div></div>`:""}
    ${RO?"":`<button type="button" class="btn${b.tag==="req"?"":" primary"} bv-edit" data-bedit="${esc(b.id)}">Edit booking</button>`}
-   ${canCancel?`<button type="button" class="btn danger" data-bcancel="${esc(b.id)}" style="margin-top:8px">Cancel booking</button>`:""}
-   ${b.nights>0&&b.tag!=="closed"&&b.tag!=="cancel"?`<div class="bv-ct2" id="bv-k" data-bid="${esc(b.id)}">${(setTimeout(()=>kLoad(b.id),0),"")}</div>`:""}
+   ${b.nights>0&&b.tag!=="closed"?`<div class="bv-ct2" id="bv-ci" data-bid="${esc(b.id)}">${(setTimeout(()=>ciLoad(b.id),0),"")}</div><div class="bv-ct2" id="bv-k" data-bid="${esc(b.id)}">${(setTimeout(()=>kLoad(b.id),0),"")}</div>`:""}
    <button type="button" class="linkbtn" data-audref="${esc(b.id)}" style="margin-top:10px">🕘 Change history</button></div>`)}
 document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("[data-reqok],[data-reqno],[data-bcancel]");if(!t)return;
   if(t.dataset.bcancel){cancelBooking(t.dataset.bcancel);return}
@@ -3488,6 +3518,7 @@ function renderSettings(){
     `],
     apts:["home","Units",`${cfg.apts.length} ${plural(cfg.apts.length,"unit","units","units")} · details, addresses, photos, order`,()=>aptsSection()],
     pricing:["rate","Seasons & weekends",(()=>{const P=cfg.pricing||{},n=(P.seasons||[]).length;return [P.weekend?"weekends +"+P.weekend+"%":"",n?n+" "+plural(n,"season","seasons","seasons"):""].filter(Boolean).join(" · ")||"higher prices in season and on weekends"})(),()=>pricingSection()],
+    checkin:["web","Online check-in",(cfg.checkin||{}).retain_months!=null?`keep for ${(cfg.checkin||{}).retain_months} mo.`:"guest fields before arrival",()=>checkinSection()],
     contract:["chk","Guest contract",(cfg.contract||{}).landlord?"host: "+(cfg.contract||{}).landlord:"guest signs on the phone",()=>contractSection()],
     msgs:["pen","Guest messages",MSG.length?MSG.filter(t=>t.active!==false).length+" templates":"templated emails · auto and manual",()=>msgsSection()],
     owners:["mgr","Owners",(cfg.owners||[]).length?(cfg.owners||[]).map(o=>o.name).join(", "):"commission, payouts and monthly statement",()=>ownersSection()],

@@ -16,7 +16,7 @@ import { botName, linkCode, webhookSecret, handleUpdate, tgNotify } from "../../
 import { syncFeed, syncDue, feedUrlOk, sourceOf, newIcalKey } from "../../lib/ical";
 import { contractTexts, fill, DEFAULT_TPL } from "../../lib/contract";
 import { maibConfig, maibCheckout, maibVerify } from "../../lib/maib";
-import { upsertFromBooking, syncAll as syncContacts, listContacts, getContact, saveContact, mergeContacts, toCsv as contactsCsv } from "../../lib/contacts";
+import { ensureCheckin, checkinCfgOf, parseData as parseCheckinData, validateSubmit as validateCheckin, purgeCheckins } from "../../lib/checkin";
 
 
 // A one-time link to set a password. Opening it proves the email belongs to the person, so it is the only way
@@ -437,6 +437,35 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     const o = isSlug(str(body.slug, 40)) ? await one(db, "SELECT name, code FROM orgs WHERE code = ?", str(body.slug, 40)) : null;
     return o ? json({ name: o.name, slug: o.code }) : json({ message: "not_found" }, 404);
   }
+  // ---------- online check-in (<slug>.espace.md/checkin/<token>), public by its secret link ----------
+  if (fn === "pub_checkin" || fn === "pub_checkin_submit") {
+    const tok = str(body.token, 80);
+    const row = /^[a-f0-9]{32}$/.test(tok)
+      ? await one(db, "SELECT c.*, o.code, o.name AS org_name FROM checkins c JOIN orgs o ON o.id = c.org_id WHERE c.token = ?", tok)
+      : null;
+    if (!row || (reqSlug && row.code !== reqSlug)) return json({ message: "not_found" }, 404);
+    const b = await one(db, "SELECT id, guest, email, phone, apt, date, nights, pax FROM bookings WHERE org_id = ? AND id = ?", row.org_id, row.booking_id);
+    const cfg = (await getConfig(db, row.org_id)) || {};
+    const ci = checkinCfgOf(cfg);
+    if (fn === "pub_checkin") {
+      return json({
+        company: row.org_name, slug: row.code, status: row.status,
+        fields: ci.fields, apt: b?.apt || "", date: b?.date || "", nights: b?.nights || 0,
+        guest: b?.guest || "", completed_at: row.completed_at || "",
+        data: row.status === "done" ? (() => { const d = parseCheckinData(row.data); delete d.doc_photo; delete d.signature; return d; })() : null,
+        gone: !b,
+      });
+    }
+    if (row.status === "done") return json({ message: "already_done" }, 409);
+    if (!b) return json({ message: "not_found" }, 404);
+    const v = validateCheckin(ci, body);
+    if (!v.ok) return json({ message: (v as any).message }, 400);
+    const at = nowIso();
+    await run(db, `UPDATE checkins SET status = 'done', data = ?, completed_at = ?, updated_at = ? WHERE token = ? AND status != 'done'`,
+      JSON.stringify(v.data), at, at, tok);
+    await notify(db, row.org_id, ["manager"], { title: `Check-in: ${b.apt}`, body: `${v.data.name || b.guest} · ${b.date}` }).catch(() => {});
+    return json({ ok: true, at });
+  }
   // ---------- a guest's rental contract (<slug>.espace.md/contract/<token>), public by its secret link ----------
   if (fn === "pub_contract" || fn === "pub_contract_sign") {
     const tok = str(body.token, 64);
@@ -596,10 +625,11 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     const guestMails = await runGuestMails(env, db).catch(() => 0);
     // Airbnb / Booking.com calendars: new reservations become bookings, managers get a notification
     const feeds = await syncDue(db, (O, msg) => notify(db, O, ["manager"], msg)).catch(() => 0);
+    const purged = await purgeCheckins(db).catch(() => 0);
     await run(db, "DELETE FROM audit WHERE at < ?", new Date(Date.now() - 400 * 86400000).toISOString()).catch(() => {}); // the change log keeps ~13 months
     // the admin panel's health page shows when this last ran
-    await run(db, "INSERT INTO sys_state(k, v) VALUES ('cron_last', ?) ON CONFLICT (k) DO UPDATE SET v = excluded.v", JSON.stringify({ at: nowIso(), orgs: n, mailed, guestMails, feeds })).catch(() => {});
-    return json({ orgs: n, mailed, guestMails, feeds });
+    await run(db, "INSERT INTO sys_state(k, v) VALUES ('cron_last', ?) ON CONFLICT (k) DO UPDATE SET v = excluded.v", JSON.stringify({ at: nowIso(), orgs: n, mailed, feeds, purged })).catch(() => {});
+    return json({ orgs: n, mailed, feeds, purged });
   }
 
   // ---------- Google OAuth status (public; secrets stay on the server) ----------
@@ -1276,6 +1306,24 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     }
     // ---------- Telegram for this person in this company ----------
     // ---------- rental contracts with guests ----------
+    case "kv_checkin_get": {
+      const bid = str(body.booking_id, 40);
+      if (!isUuid(bid)) return json({ message: "bad_id" }, 400);
+      let row = await one(db, "SELECT * FROM checkins WHERE org_id = ? AND booking_id = ?", O, bid);
+      if (!row && body.create === true) row = await ensureCheckin(db, O, bid);
+      if (!row) return json(null);
+      const data = row.status === "purged" ? {} : parseCheckinData(row.data);
+      return json({
+        id: row.id, status: row.status, completed_at: row.completed_at || "",
+        url: `https://${org.code}.espace.md/checkin/${row.token}`,
+        data, fields: checkinCfgOf(await getConfig(db, O) || {}).fields,
+      });
+    }
+    case "kv_checkin_make": {
+      const row = await ensureCheckin(db, O, str(body.booking_id, 40));
+      if (!row) return json({ message: "not_found" }, 404);
+      return json({ id: row.id, status: row.status, url: `https://${org.code}.espace.md/checkin/${row.token}`, completed_at: row.completed_at || "" });
+    }
     case "kv_contract_get": { // the booking's contract, if any
       const k = await one(db, "SELECT token, number, status, lang, guest_name, guest_doc, guest_country, signed_at, views, created_at FROM contracts WHERE org_id = ? AND booking_id = ?", O, str(body.booking_id, 40));
       return json(k ? { ...k, url: `https://${org.code}.espace.md/contract/${k.token}` } : null);
