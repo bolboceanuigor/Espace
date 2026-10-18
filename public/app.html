@@ -315,8 +315,13 @@ body.calmode .ctopbar{padding-top:calc(8px + env(safe-area-inset-top,0px))}
 :root[data-skin="host"] .sh.sq .sh-day.today b{background:transparent;color:#e24b5a;min-width:0;font-weight:700}
 :root[data-skin="host"] .sh-tl .wk,:root[data-skin="host"] .sh-tl .mline{display:none}
 :root[data-skin="host"] .sh-tl{background-image:none!important}
-:root[data-skin="host"] .sh-row{border-bottom:1px solid var(--line)!important}
-:root[data-skin="host"] .sh.sq .sh-name{font-size:12px;font-weight:600;color:var(--ink);gap:10px;padding:0 8px 0 12px;border-right:1px solid var(--line);justify-content:flex-start}
+:root[data-skin="host"] .sh-row{border-bottom:1px solid #e6edf5!important}
+/* zebra: alb / gri clar pe rânduri (denumiri + grilă) */
+:root[data-skin="host"] .sh.sq .sh-row.z0 .sh-name,:root[data-skin="host"] .sh.sq .sh-row.z0 .sh-tl{background:#fff}
+:root[data-skin="host"] .sh.sq .sh-row.z1 .sh-name,:root[data-skin="host"] .sh.sq .sh-row.z1 .sh-tl{background:#e8eef5}
+:root[data-skin="host"] .sh.sq .sh-row.z0 .sh-name{border-right-color:#e6edf5}
+:root[data-skin="host"] .sh.sq .sh-row.z1 .sh-name{border-right-color:#d8e2ec}
+:root[data-skin="host"] .sh.sq .sh-name{font-size:12px;font-weight:600;color:var(--ink);gap:10px;padding:0 8px 0 12px;border-right:1px solid #e6edf5;justify-content:flex-start}
 :root[data-skin="host"] .sh.sq .sh-name span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 :root[data-skin="host"] .sh.sq .sh-name em,:root[data-skin="host"] .sh.sq .sh-name .cap{display:none}
 :root[data-skin="host"] .sh-name .tn{display:grid!important;width:40px;height:40px;flex:none;border-radius:50%;box-shadow:0 0 0 2px #fff,0 4px 14px rgba(26,35,50,.16);background-color:var(--accent-soft)}
@@ -335,14 +340,23 @@ body.calmode .ctopbar{padding-top:calc(8px + env(safe-area-inset-top,0px))}
 :root[data-skin="host"] .sh.pics .sh-corner .ctoday:not(.on) .ctoday-ico{color:#fff}
 :root[data-skin="host"] .sh.sq.names .sh-corner .ctoday .ctoday-ico{display:none}
 :root[data-skin="host"] .sh.sq.names .sh-corner .ctoday .ctoday-lbl{display:inline}
-:root[data-skin="host"] .sh.sq .bar{top:max(3px,calc((var(--H) - 28px) / 2));bottom:auto;height:min(28px,calc(var(--H) - 8px));padding:0 8px 0 6px;display:flex;align-items:center;gap:6px;font-size:12px;line-height:1.4;border-radius:14px;box-shadow:none}
-:root[data-skin="host"] .sh.sq .bar .nm{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-:root[data-skin="host"] .sh.sq .bar .amt{position:static;margin-left:auto;padding-left:6px;background:none;color:rgba(255,255,255,.92);font-size:11px;flex:none}
-:root[data-skin="host"] .bar.closed{background-image:none!important}
-:root[data-skin="host"] .sh.sq .bar .bd{display:grid!important}
-:root[data-skin="host"] .sh.sq .bar .amt{font-weight:500!important;opacity:.9}
+/* booking pills — soft glass edge, not Realty-flat */
+:root[data-skin="host"] .sh.sq .bar{top:max(4px,calc((var(--H) - 30px) / 2));bottom:auto;height:min(30px,calc(var(--H) - 8px));padding:0 9px 0 7px;display:flex;align-items:center;gap:6px;font-size:12px;line-height:1.25;border-radius:10px;color:#1a2332;box-shadow:0 1px 2px rgba(26,35,50,.1),0 4px 10px rgba(26,35,50,.06),inset 0 1px 0 rgba(255,255,255,.35);letter-spacing:-.01em;background-image:linear-gradient(180deg,rgba(255,255,255,.28),rgba(255,255,255,0) 55%)}
+:root[data-skin="host"] .sh.sq .bar .nm{font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+:root[data-skin="host"] .sh.sq .bar .amt{position:static;margin-left:auto;padding:2px 7px;border-radius:7px;background:rgba(26,35,50,.14);color:#fff;font-size:10.5px;font-weight:700;flex:none;font-variant-numeric:tabular-nums;backdrop-filter:blur(2px)}
+:root[data-skin="host"] .bar.closed{background-image:none!important;opacity:.85;color:#fff}
+:root[data-skin="host"] .sh.sq .bar .bd{display:grid!important;place-items:center;width:17px;height:17px;border-radius:50%;font-size:9px;font-weight:800;color:#fff;background:rgba(26,35,50,.28);box-shadow:0 0 0 1.5px rgba(255,255,255,.45)}
+:root[data-skin="host"] .sh.sq .bar .bd.A{background:#ff5a5f}:root[data-skin="host"] .sh.sq .bar .bd.B{background:#003580}:root[data-skin="host"] .sh.sq .bar .bd.D{background:#2f6fed}
+:root[data-skin="host"] .sh.sq .bar .amt{font-weight:700!important;opacity:1}
 :root[data-skin="host"] .sh.sq .sh-name{box-shadow:none!important;padding:0 8px;gap:10px}
 :root[data-skin="host"] .sh.sq .bar.short .amt{display:none}
+:root[data-skin="host"] .sh.sq .bar.unp{box-shadow:0 1px 2px rgba(26,35,50,.1),0 4px 10px rgba(26,35,50,.06),inset 0 0 0 1.5px rgba(255,255,255,.65)}
+:root[data-skin="host"] .sh.sq .bar.narrow{padding:0 6px;gap:4px;border-radius:8px}
+:root[data-skin="host"] .sh.sq .bar.half{border-radius:8px;font-size:11px}
+/* clear day grid + today line (centred in the day column) */
+:root[data-skin="host"] .sh-tl{background-image:repeating-linear-gradient(to right,transparent 0,transparent calc(var(--W) - 1px),#e2eaf2 calc(var(--W) - 1px),#e2eaf2 var(--W))!important}
+:root[data-skin="host"] .sh.sq .sh-day{border-right:1px solid #e6edf5!important}
+:root[data-skin="host"] .sh-tl .td{background:transparent!important;box-shadow:inset 2px 0 0 #e24b5a;width:2px!important;margin-left:calc(var(--W) / 2 - 1px);opacity:1;border-radius:1px}
 :root[data-skin="host"] .sh.sq.names .sh-name{padding:0 12px 0 14px!important;gap:0;justify-content:flex-start}
 :root[data-skin="host"] .sh.sq.names .sh-name span{max-width:100%;opacity:1;transform:none;font-size:13.5px;font-weight:700;letter-spacing:-.015em;color:var(--ink)}
 :root[data-skin="host"] .sh.sq.pics .sh-name{padding:0!important;gap:0;justify-content:center}
@@ -3075,10 +3089,10 @@ const payActive=b=>occupies(b)&&b.tag!=="closed"&&b.tag!=="req"&&endOf(b)>=today
 const TAGS=[["booking","Booking","#f7c58a"],["airbnb","Airbnb","#f6a5a3"],["req","Заявка","#a9c8f5"],["cancel","Отмена","#c4c4c8"],["closed","Закрыто","#5a606c"]];
 const CAL_ST=[["all","Все"],["book","Брони"],["req","Заявки"],["cancel","Аннулированные"]];
 function calSt(){try{const v=localStorage.getItem("kv_calst")||"all";return CAL_ST.some(x=>x[0]===v)?v:"all"}catch(e){return"all"}}
-/* three cell sizes — true squares; user picks what's comfortable on this phone */
-const CAL_SZ={sm:{cell:36,label:"Маленький"},md:{cell:48,label:"Обычный"},lg:{cell:66,label:"Крупный"}};
+/* size = how many days fit on screen (Realty-style); cell side is derived from viewport */
+const CAL_SZ={sm:{days:10,label:"Маленький"},md:{days:9,label:"Обычный"},lg:{days:7,label:"Крупный"}};
 function calSz(){try{const v=localStorage.getItem("kv_calsz")||"md";return CAL_SZ[v]?v:"md"}catch(e){return"md"}}
-function calSzBtns(){const sz=calSz();return `<div class="cbsz" role="group" aria-label="Размер календаря">${[["sm","Маленький"],["md","Обычный"],["lg","Крупный"]].map(([k,l])=>`<button type="button" class="cbsz-b" data-calsz="${k}" aria-pressed="${sz===k}" title="${l}"><i class="cbsz-i ${k}"></i><span>${l}</span></button>`).join("")}</div>`}
+function calSzBtns(){const sz=calSz();return `<div class="cbsz" role="group" aria-label="Размер календаря">${[["sm","Маленький"],["md","Обычный"],["lg","Крупный"]].map(([k,l])=>`<button type="button" class="cbsz-b" data-calsz="${k}" aria-pressed="${sz===k}" title="${l} · ${CAL_SZ[k].days} дней"><i class="cbsz-i ${k}"></i><span>${l}</span></button>`).join("")}</div>`}
 /* Hostfully: photos in circles (default); tap → retract photo, expand name text */
 const mono=a=>{const w=String(a).replace(/[^\p{L}\p{N} ]/gu," ").trim().split(/\s+/).filter(x=>/^\p{L}/u.test(x));return ((w.length>1?w[0][0]+w[1][0]:(w[0]||String(a)).slice(0,2))||"?").toUpperCase()};
 function calPicOn(){try{return localStorage.getItem("kv_calpic")!=="0"}catch(e){return true}}
@@ -3164,17 +3178,19 @@ function calMon(){const el=$("c-body"),m=$("c-mon");if(!el||!m)return;const i=Ma
   if(m.textContent!==t)m.textContent=t;const tb=$("c-today"),d=el.scrollLeft-calB*calW;if(tb)tb.classList.toggle("on",Math.abs(d)<2);const ar=$("c-arr");if(ar)ar.textContent=d<0?"→":"←"}let CAL_N=10;
 const CAL_I='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
 function renderCal(){
-  const LT=LIGHT(), sz=calSz(), cell=CAL_SZ[sz].cell, BACK=calB=60, n=BACK+366, td=toT(todayStr()), s0=calS0=td-BACK*DAY, tdIdx=BACK;
+  const LT=LIGHT(), sz=calSz(), days=CAL_SZ[sz].days, BACK=calB=60, n=BACK+366, td=toT(todayStr()), s0=calS0=td-BACK*DAY, tdIdx=BACK;
   const box=$("c-body"), CW=box.clientWidth||innerWidth;
   const nav=$("tabs"), navR=nav.getBoundingClientRect(), navH=getComputedStyle(nav).position==="fixed"&&navR.top>innerHeight/2?Math.max(0,innerHeight-navR.top):0;
   const HEADH=LT?(sz==="lg"?64:sz==="sm"?50:58):(sz==="lg"?84:sz==="sm"?68:76);
   const visN=LT?cfg.apts.filter(a=>!calHidden().has(a)).length:cfg.apts.length;
-  // true squares: day width === row height; size preset sets the cell side
-  // pics: left rail = 1 cell (patratel); names: wide label rail — toggles with stretch anim
-  const Lname=LT?(innerWidth<600?Math.max(88,Math.min(120,Math.round(cell*2.3))):Math.max(140,Math.min(180,Math.round(cell*3.2))))
-    :Math.max(80,Math.min(innerWidth<600?108:150,Math.round(cell*2.4)));
-  const Lpic=cell, picOn=calPicOn(), Lw=picOn?Lpic:Lname;
-  const P=calP=Math.max(3,Math.floor((CW-Lw)/cell));
+  // fit exactly N days on this device: cell = f(viewport, rail); squares W===H
+  const picOn=calPicOn();
+  const Lname=LT?(innerWidth<600?Math.max(96,Math.min(128,Math.round(CW*.3))):Math.max(140,Math.min(180,Math.round(CW*.22))))
+    :Math.max(88,Math.min(innerWidth<600?112:150,Math.round(CW*.26)));
+  // pics rail = 1 cell → cell*(days+1)≈CW; names rail fixed → cell*days≈CW-Lname
+  const cell=Math.max(28,picOn?Math.floor(CW/(days+1)):Math.floor((CW-Lname)/days));
+  const Lpic=cell, Lw=picOn?Lpic:Lname;
+  const P=calP=days;
   const W=calW=cell, H=cell;
   calBar(true);
   const leg=$("c-legend");if(leg){leg.hidden=innerWidth<860;leg.innerHTML=TAGS.map(([k,l,c])=>`<span><i style="background:${c}"></i>${esc(l)}</span>`).join("")+`<span><i class="lg-unp"></i>не оплачено</span>`}
@@ -3187,7 +3203,7 @@ function renderCal(){
   head+=`</div></div></div>`;
   const tdMark=tdIdx>=0&&tdIdx<n?`<i class="td" style="left:${tdIdx*W}px"></i>`:"";
   let rows="";
-  const occ=occMap(), grouped=cfg.apts.some(a=>unitOf(a).group);let lastG=null,nG=0;
+  const occ=occMap(), grouped=cfg.apts.some(a=>unitOf(a).group);let lastG=null,nG=0,rowI=0;
   const hidU=LT?calHidden():new Set();
   for(const a of cfg.apts){
     if(hidU.has(a))continue;
@@ -3204,15 +3220,17 @@ function renderCal(){
       const over=overlaps(b,bookings).length>0;
       const bd=b.source==="Airbnb"||b.pay==="Airbnb"?`<span class="bd A">A</span>`:b.source==="Booking"?`<span class="bd B">B</span>`:(b.source==="Прямой"||b.source==="Direct"||(!b.source&&b.tag!=="closed"&&b.tag!=="cancel"&&LIGHT()))?`<span class="bd D">D</span>`:"";
       const label=b.tag==="closed"?("Закрыто"+(b.note?" · "+b.note:"")):b.tag==="cancel"?("Отмена · "+(b.guest||"без имени")):LT?(b.guest||"без имени"):[b.guest||"без имени",b.phone].filter(Boolean).join(" ");
-      bars+=`<div class="bar${lz?" half":""}${(R-L)*W-4<64?" narrow":""}${LT&&(R-L)*W-4<130?" short":""}${st<0?" cut-l":""}${en>n?" cut-r":""}${over?" over":""}${b.tag==="closed"?" closed":""}${b.tag==="cancel"?" cancel":""}${payActive(b)&&payState(b).state==="unpaid"?" unp":""}" data-edit="${esc(b.id)}" style="${lz}left:${L*W+2}px;width:${(R-L)*W-4}px;background-color:${barCol(b)}" title="${esc(label+" · "+dm(b.date)+" → "+dm(endOf(b))+" · "+amounts(b)+((st<0||en>n)?" · в этом месяце "+Math.round(shareOf(b,mon.y,mon.m)*b.nights)+" из "+b.nights+" ночей":""))}">${over?"‼ ":""}${b.verified?`<span class="vk">✓</span>`:""}${bd}<span class="nm">${esc(label)}</span>${(()=>{if(b.tag==="cancel")return "";if(payActive(b)){const ps=payState(b);if(ps.state!=="paid"){const t=ps.state==="unpaid"?(b.price?"не опл. "+fmt0(+b.price)+(ps.cur==="EUR"?"€":ps.cur==="USD"?"$":""):"не опл."):(ps.left?"ещё "+fmt0(ps.left)+(ps.cur==="EUR"?"€":ps.cur==="USD"?"$":""):"аванс");return `<span class="amt pst">${esc(t)}</span>`}}const cut=false;if(!shortAmt(b))return "";if((R-L)*W-4<64){const k=cut?shareOf(b,mon.y,mon.m):1;return `<span class="amt tiny" title="${esc(shortAmt(b,k))}">${esc(tinyAmt(b,k))}</span>`}if(!cut)return `<span class="amt">${esc(shortAmt(b))}</span>`;const k=shareOf(b,mon.y,mon.m);return `<span class="amt" title="за этот месяц ${esc(shortAmt(b,k))} из ${esc(shortAmt(b))}">${esc(shortAmt(b,k))}</span>`})()}</div>`;
+      const gap=LT?3:4, barW=Math.max(8,(R-L)*W-gap*2);
+      bars+=`<div class="bar${lz?" half":""}${barW<64?" narrow":""}${LT&&barW<120?" short":""}${st<0?" cut-l":""}${en>n?" cut-r":""}${over?" over":""}${b.tag==="closed"?" closed":""}${b.tag==="cancel"?" cancel":""}${payActive(b)&&payState(b).state==="unpaid"?" unp":""}" data-edit="${esc(b.id)}" style="${lz}left:${L*W+gap}px;width:${barW}px;background-color:${barCol(b)}" title="${esc(label+" · "+dm(b.date)+" → "+dm(endOf(b))+" · "+amounts(b)+((st<0||en>n)?" · в этом месяце "+Math.round(shareOf(b,mon.y,mon.m)*b.nights)+" из "+b.nights+" ночей":""))}">${over?"‼ ":""}${b.verified?`<span class="vk">✓</span>`:""}${bd}<span class="nm">${esc(label)}</span>${(()=>{if(b.tag==="cancel")return "";if(payActive(b)){const ps=payState(b);if(ps.state!=="paid"){const t=ps.state==="unpaid"?(b.price?"не опл. "+fmt0(+b.price)+(ps.cur==="EUR"?"€":ps.cur==="USD"?"$":""):"не опл."):(ps.left?"ещё "+fmt0(ps.left)+(ps.cur==="EUR"?"€":ps.cur==="USD"?"$":""):"аванс");return `<span class="amt pst">${esc(t)}</span>`}}const cut=false;if(!shortAmt(b))return "";if(barW<64){const k=cut?shareOf(b,mon.y,mon.m):1;return `<span class="amt tiny" title="${esc(shortAmt(b,k))}">${esc(tinyAmt(b,k))}</span>`}if(!cut)return `<span class="amt">${esc(shortAmt(b))}</span>`;const k=shareOf(b,mon.y,mon.m);return `<span class="amt" title="за этот месяц ${esc(shortAmt(b,k))} из ${esc(shortAmt(b))}">${esc(shortAmt(b,k))}</span>`})()}</div>`;
     }
     const cells=dayCells(a,s0,n,W,list);
     const uc=capOf(unitOf(a)),ul=unitLine(a),ug=unitOf(a).group;
-    rows+=`<div class="sh-row${ug?" grp":""}"><div class="sh-name" data-aptpage="${esc(a)}" title="${esc([ug,ul].filter(Boolean).join(" · ")||a)}">${calThumb(a)}<span>${esc(a)}${uc?`<small class="cap">👤${uc}</small>`:""}</span><em>${nights}</em></div><div class="sh-tl" data-tl="${esc(a)}" style="width:${n*W}px">${wk}${mLine}${tdMark}${cells}${bars}</div></div>`;
+    const zebra=rowI%2?" z1":" z0";rowI++;
+    rows+=`<div class="sh-row${ug?" grp":""}${zebra}"><div class="sh-name" data-aptpage="${esc(a)}" title="${esc([ug,ul].filter(Boolean).join(" · ")||a)}">${calThumb(a)}<span>${esc(a)}${uc?`<small class="cap">👤${uc}</small>`:""}</span><em>${nights}</em></div><div class="sh-tl" data-tl="${esc(a)}" style="width:${n*W}px">${wk}${mLine}${tdMark}${cells}${bars}</div></div>`;
   }
   document.body.classList.toggle("calpm",calPM);
-  $("c-body").innerHTML=`<div class="sh sq sz-${sz}${calPM?" pm":""}${picOn?" pics":" names"}" style="--W:${W}px;--L:${Lw}px;--L-pic:${Lpic}px;--L-name:${Lname}px;--H:${H}px;--cell:${cell}px;--days-w:${n*W}px">${head}${rows}</div>`;
-  {const el=$("c-body"),key=todayStr()+"|"+sz+"|"+W+"|"+P+"|"+(picOn?"p":"n"),keep=calKey===key?el.scrollLeft:null,t0=el.scrollTop;calKey=key;
+  $("c-body").innerHTML=`<div class="sh sq sz-${sz}${calPM?" pm":""}${picOn?" pics":" names"}" style="--W:${W}px;--L:${Lw}px;--L-pic:${Lpic}px;--L-name:${Lname}px;--H:${H}px;--cell:${cell}px;--days:${days};--days-w:${n*W}px">${head}${rows}</div>`;
+  {const el=$("c-body"),key=todayStr()+"|"+sz+"|"+W+"|"+P+"|"+CW+"|"+(picOn?"p":"n"),keep=calKey===key?el.scrollLeft:null,t0=el.scrollTop;calKey=key;
    const bodyH=HEADH+visN*H+nG*22+2;
    const maxH=Math.max(260,innerHeight-el.getBoundingClientRect().top-navH-8);
    el.style.height=Math.min(bodyH,maxH)+"px";el.style.overflowY=bodyH>maxH?"auto":"hidden";el.style.scrollPaddingLeft=Lw+"px";
@@ -3224,9 +3242,9 @@ function renderCal(){
      if(Lw<=W+1&&go<todayX&&go>=todayX-W-1)go=todayX;
      el.scrollLeft=go;el.scrollTop=t0;
      calMon();el.onscroll=()=>{cancelAnimationFrame(calMR);calMR=requestAnimationFrame(calMon)};
-     // re-fit if the number of visible day columns changed after layout settled
-     const P2=Math.max(3,Math.floor(((el.clientWidth||CW)-Lw)/cell));
-     if(P2!==P&&!calRefit){calRefit=true;renderCal();calRefit=false}})}
+     // re-fit cell if real width differed from first paint (device chrome / keyboard)
+     const CW2=el.clientWidth||CW,cell2=Math.max(28,picOn?Math.floor(CW2/(days+1)):Math.floor((CW2-Lname)/days));
+     if(cell2!==cell&&!calRefit){calRefit=true;renderCal();calRefit=false}})}
 }
 // Fresha-inspired calendar top bar: ☰ size menu · date range ▾ · bell · account
 const HAM_I='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>';
@@ -3247,9 +3265,9 @@ function openCalMenu(){
   const pic=calPicOn();
   openSheet("Календарь",`<p class="small" style="margin-top:0">Нажми кружок квартиры — фото уберётся и останется только название. Ещё раз слева — фото вернутся. Листай календарь влево и вправо, чтобы менять дни.</p>
     <div class="mgroup">Размер</div><div class="cszlist">
-      ${szRow("sm","Маленький","больше дней на экране · 36×36")}
-      ${szRow("md","Обычный","баланс · 48×48")}
-      ${szRow("lg","Крупный","крупные клетки · 66×66")}
+      ${szRow("sm","Маленький","10 дней на экране")}
+      ${szRow("md","Обычный","9 дней на экране")}
+      ${szRow("lg","Крупный","7 дней на экране")}
     </div>
     <div class="mgroup">Ещё</div><div class="cmore">
       <div class="cbst" role="tablist" aria-label="Состояние броней" style="margin-bottom:4px">${CAL_ST.map(([k,l])=>`<button type="button" class="cbchip" data-calst="${k}" aria-pressed="${st===k}">${l}</button>`).join("")}</div>
