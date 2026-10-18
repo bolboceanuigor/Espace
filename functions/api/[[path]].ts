@@ -1490,24 +1490,24 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       const feeds = await all(db, "SELECT id, url, source, last_sync, last_ok, last_msg, last_count FROM ical_feeds WHERE org_id = ? AND apt = ? ORDER BY created_at", O, apt);
       return json({ feeds, export: key ? `https://espace.md/ical/${org.code}/${key}.ics` : "" });
     }
-    case "kv_ical_org": {
-      // company-wide export (all units) for Google Calendar
-      const cfg = await getConfig(db, O);
-      const key = cfg?.ical || "";
-      return json({ export: key ? `https://espace.md/ical/${org.code}/${key}.ics` : "", key });
+    case "kv_ical_status": {
+      // company-wide feed status (all units) for Settings → calendars
+      const feeds = await all(db, "SELECT id, apt, url, source, last_sync, last_ok, last_msg, last_count FROM ical_feeds WHERE org_id = ? ORDER BY apt, created_at", O);
+      const bad = feeds.filter((f: any) => f.last_sync && !f.last_ok).length;
+      return json({ feeds, total: feeds.length, bad });
     }
-    case "kv_ical_key": { // makes (or returns) the unit's export link; body.org=true → company-wide key
-      const cfg = await getConfig(db, O);
-      if (!cfg) return json({ message: "bad_apt" }, 400);
-      if (body.org === true) {
-        if (!cfg.ical || body.renew === true) {
-          cfg.ical = newIcalKey();
-          await run(db, "UPDATE app_config SET data = ? WHERE org_id = ?", JSON.stringify(cfg), O);
-        }
-        return json({ export: `https://espace.md/ical/${org.code}/${cfg.ical}.ics`, key: cfg.ical });
+    case "kv_ical_sync_all": {
+      const feeds = await all(db, "SELECT * FROM ical_feeds WHERE org_id = ? ORDER BY last_sync LIMIT 40", O);
+      const out: any[] = [];
+      for (const f of feeds) {
+        const r = await syncFeed(db, f);
+        out.push({ id: f.id, apt: f.apt, source: f.source, ...r });
       }
-      const apt = str(body.apt, 100);
-      if (!(cfg.apts || []).includes(apt)) return json({ message: "bad_apt" }, 400);
+      return json({ ok: true, n: out.length, results: out });
+    }
+    case "kv_ical_key": { // makes (or returns) the unit's export link
+      const apt = str(body.apt, 100), cfg = await getConfig(db, O);
+      if (!cfg || !(cfg.apts || []).includes(apt)) return json({ message: "bad_apt" }, 400);
       cfg.units = cfg.units || {}; cfg.units[apt] = cfg.units[apt] || {};
       if (!cfg.units[apt].ical || body.renew === true) {
         cfg.units[apt].ical = newIcalKey();

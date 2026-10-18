@@ -1507,7 +1507,7 @@ const catIcon=c=>CAT_ICON[c]||"📌";
 const catCol=c=>CAT_COL[Math.max(0,cfg.categories.indexOf(c))%CAT_COL.length];
 const telDigits=p=>(p||"").replace(/[^\d+]/g,"");
 
-const RO_OK=["kv_load","kv_photos","kv_guides","kv_task_photo","kv_push_key","kv_push_sub","billing","bill_invoice","bill_pay","bill_pay_status","auth_me","auth_logout","auth_switch","auth_password","auth_new_org","kv_checkin_get"];
+const RO_OK=["kv_load","kv_photos","kv_guides","kv_task_photo","kv_push_key","kv_push_sub","billing","bill_invoice","bill_pay","bill_pay_status","auth_me","auth_logout","auth_switch","auth_password","auth_new_org","kv_ical_list","kv_ical_status"];
 const CHECK_OK=["kv_verify","kv_month_close","kv_month_open"];
 let ME=null, ROLE="", EXPIRED=false;
 const SLUG=(()=>{const h=location.hostname;if(h.endsWith(".espace.md"))return h.slice(0,-".espace.md".length);let c="";try{c=new URLSearchParams(location.search).get("c")||sessionStorage.getItem("es_c")||""}catch(e){}c=c.toLowerCase().replace(/[^a-z0-9-]/g,"");try{if(c)sessionStorage.setItem("es_c",c)}catch(e){}return c})();
@@ -2549,21 +2549,28 @@ async function icalLoad(a){const box=$("uf-ical-body");if(!box)return;
       ${r.export?`<div class="iexpr"><input type="text" readonly value="${esc(r.export)}" id="ical-exp"><button type="button" class="btn sm" data-icopy="1">Copiază</button><a class="btn sm" href="${esc(gCalUrl(r.export))}" target="_blank" rel="noopener">În calendar Google</a></div>`:RO?"":`<button type="button" class="btn" data-ikey="1">Creează linkul</button>`}</div>`;
   }catch(e){if($("uf-ical-body"))$("uf-ical-body").textContent="Nu s-a încărcat"}}
 const icalErr=m=>/HTTP 404|HTTP 410/.test(m)?"linkul nu mai funcționează — ia unul nou de pe site":/not_ical/.test(m)?"la link nu e un calendar — verifică dacă e linkul de export .ics":/abort|timeout/i.test(m)?"site-ul n-a răspuns la timp, reîncercăm":/unit_gone/.test(m)?"obiectul a fost șters":m;
-const gCalUrl=u=>"https://calendar.google.com/calendar/r?cid="+encodeURIComponent(String(u||"").replace(/^https:/i,"webcal:"));
-const mapsUrl=addr=>{const a=String(addr||"").trim();const q=/chi[sșş]in[aăá]u/i.test(a)?a:a+(a?", ":"")+"Chișinău";return "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(q)};
-let GCAL_URL="";
-async function gcalLoad(){try{const r=await api("kv_ical_org");GCAL_URL=r.export||"";if(r.key)cfg={...cfg,ical:r.key};if(setSec==="gcal")renderSettings()}catch(e){GCAL_URL=""}}
-function gcalSection(){setTimeout(()=>{if(!GCAL_URL&&!cfg.ical)gcalLoad();else if(cfg.ical&&!GCAL_URL)GCAL_URL=`https://espace.md/ical/${ME.org.code}/${cfg.ical}.ics`},0);
-  const url=GCAL_URL||(cfg.ical?`https://espace.md/ical/${ME.org.code}/${cfg.ical}.ics`:"");
-  return `<div class="card"><p class="small" style="margin-top:0">Un calendar cu toate obiectele — în calendarul personal Google sau Apple. Numele oaspeților nu apar, doar datele ocupate.</p>
-    ${url?`<div class="iexpr"><input type="text" readonly value="${esc(url)}" id="gcal-url"><button type="button" class="btn sm" id="gcal-copy">Copiază</button></div>
-      <div class="actions" style="margin-top:10px"><a class="btn primary" href="${esc(gCalUrl(url))}" target="_blank" rel="noopener">Adaugă în calendar Google</a></div>
-      <p class="small">Apasă butonul — se deschide confirmarea abonării. Actualizările vin singure. Pentru un singur obiect, linkul e în Setări, în fișa obiectului, la sincronizare.</p>`
-      :`<p class="small">Mai întâi creează linkul — apoi îl deschizi în calendar.</p>
-      ${RO?"":`<div class="actions"><button type="button" class="btn primary" id="gcal-make">Creează linkul</button></div>`}`}</div>`}
-document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("#gcal-make,#gcal-copy");if(!t)return;
-  if(t.id==="gcal-copy"){const v=($("gcal-url")||{}).value||"";try{await navigator.clipboard.writeText(v);toast("Linkul a fost copiat")}catch(x){($("gcal-url")||{}).select?.()}return}
-  t.disabled=true;try{const r=await api("kv_ical_key",{org:true});cfg={...cfg,ical:r.key};GCAL_URL=r.export;toast("Linkul e gata");renderSettings()}catch(x){t.disabled=false;toast("Nu a reușit")}});
+
+/* COMPANY iCal STATUS: all Airbnb/Booking feeds in one place (Settings) */
+let ICAL_ST=null;
+async function icalStatusLoad(){try{ICAL_ST=await api("kv_ical_status");if(setSec==="icals")renderSettings()}catch(e){ICAL_ST={feeds:[],total:0,bad:0}}}
+function icalsSection(){setTimeout(()=>{if(!ICAL_ST)icalStatusLoad()},0);
+  const feeds=(ICAL_ST&&ICAL_ST.feeds)||[], bad=ICAL_ST?ICAL_ST.bad:0;
+  if(!ICAL_ST)return `<div class="card"><p class="small">Încarc…</p></div>`;
+  if(!feeds.length)return `<div class="card"><p class="small" style="margin-top:0">Încă nu sunt calendare conectate. Adaugă linkul de export al platformei în fișa obiectului → Sincronizare.</p></div>`;
+  return `<div class="card"><p class="small" style="margin-top:0">${feeds.length} ${plural(feeds.length,"calendar","calendare","calendare")}${bad?` · <b style="color:#b42318">${bad} cu eroare</b>`:" · toate în regulă"}. Actualizarea rulează singură; aici poți verifica și actualiza acum.</p>
+    ${RO?"":`<div class="actions" style="margin-bottom:10px"><button type="button" class="btn primary" id="ical-sync-all">Sincronizează toate</button></div>`}
+    ${feeds.map(f=>`<div class="ifeed${f.last_ok||!f.last_sync?"":" bad"}"><span class="isrc">${esc(f.source)}</span><span class="iu"><b>${esc(f.apt)}</b>
+      <small title="${esc(f.url)}">${esc(f.url.replace(/^https?:\/\//,"").slice(0,40))}${f.url.length>48?"…":""}</small>
+      <small>${f.last_ok?"✓ "+agoT(f.last_sync)+" · evenimente: "+f.last_count:f.last_sync?"⚠ "+esc(icalErr(f.last_msg)):"încă nesincronizat"}</small></span>
+      ${RO?"":`<button type="button" class="btn sm" data-isync2="${esc(f.id)}">Actualizează</button>`}</div>`).join("")}</div>`}
+document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("#ical-sync-all,[data-isync2]");if(!t)return;
+  t.disabled=true;
+  try{
+    if(t.id==="ical-sync-all"){const r=await api("kv_ical_sync_all");const ok=(r.results||[]).filter(x=>x.ok).length;toast(`Actualizat: ${ok} din ${r.n}`);await reload();await icalStatusLoad();return}
+    const r=await api("kv_ical_sync",{id:t.dataset.isync2});toast(r.ok?`Gata: +${r.added}`:icalErr(r.error||""));await reload();await icalStatusLoad();
+  }catch(x){toast("Nu a reușit");t.disabled=false}});
+
+
 document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("#ical-add,[data-isync],[data-idel],[data-ikey],[data-icopy]");if(!t)return;const a=uOpen;if(!a)return;
   try{
     if(t.id==="ical-add"){const url=$("ical-url").value.trim();if(!/^(https?|webcal):\/\//i.test(url)){toast("Lipește linkul, începe cu https://");return}
@@ -3523,7 +3530,7 @@ function renderSettings(){
     msgs:["pen","Mesaje către oaspeți",MSG.length?MSG.filter(t=>t.active!==false).length+" șabloane":"mesaje după șablon · automat și manual",()=>msgsSection()],
     owners:["mgr","Proprietari",(cfg.owners||[]).length?(cfg.owners||[]).map(o=>o.name).join(", "):"comision, plăți și raport lunar",()=>ownersSection()],
     import:["chk","Import din Excel",`rezervări și obiecte dintr-un fișier · Excel, CSV, RealtyCalendar`,()=>importSection()],
-    gcal:["web","Calendar Google",cfg.ical?"toate obiectele · linkul e gata":"toate rezervările în calendarul personal",()=>gcalSection()],
+    icals:["web","Calendare platforme",ICAL_ST?`${ICAL_ST.total} ${plural(ICAL_ST.total,"link","linkuri","linkuri")}${ICAL_ST.bad?" · "+ICAL_ST.bad+" cu eroare":""}`:"starea sincronizării",()=>icalsSection()],
     direct:["web","Pagina de rezervare",cfg.direct&&cfg.direct.on?"pornită · "+ME.org.code+".espace.md/rezerva":"oaspeții rezervă direct, fără comision",()=>directSection()],
     people:["mgr","Manageri",cfg.people.join(", ")||"neindicate",()=>`<div class="card"><label class="l" for="set-people">Managerii — cine primește bani și lucrează în ture <em>— separate prin virgulă</em></label><input type="text" id="set-people" value="${esc(cfg.people.join(", "))}">
       <div class="actions"><button class="btn primary" id="save-people">Salvează</button></div></div>
