@@ -154,8 +154,8 @@ Ce trebuie să aibă fiecare modul ca aplicația să fie completă și funcțion
 | Ce | Stare | Gata când |
 |---|---|---|
 | Factură către oaspete pe rezervare | ❌ | În Setări se completează furnizorul, TVA, valuta și limba. Factura are link public și PDF, se atașează la mesaj și are numerotare separată pe fiecare companie. |
-| Avans online prin maib pe pagina de rezervare | ❌ | **Întrebi pe Igor înainte de cod.** Banii trebuie să ajungă la companie, nu la platformă, deci fiecare companie are propriul cont maib. |
-| Link de plată pentru restul sumei | ❌ | Aceeași condiție ca la avans. |
+| Avans online prin maib pe pagina de rezervare | ✅ | Fiecare companie își pune proiectul maib în Setări. Banii ajung la firmă, nu la platformă. |
+| Link de plată pentru restul sumei | ✅ | Din fișa rezervării → «Ссылка на оплату» → `/plata/<token>`. |
 | Coduri de reducere | ❌ | Procent sau sumă, cu perioadă, număr maxim de folosiri și unități. Se aplică pe pagina publică. |
 
 ## 13. Pagina publică de rezervare și site-ul companiei
