@@ -1102,6 +1102,7 @@ body.calmode .wrap{padding-bottom:0;max-width:none}
 .seg3 button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
 .codebox{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-top:10px}.codebox b{font-family:ui-monospace,Menlo,monospace;font-size:20px;letter-spacing:.12em}.codebox .btn{margin-left:auto}
 .tmrow{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}.tmrow .m{display:flex;flex-direction:column;flex:1;min-width:0}.tmrow .m small{color:var(--muted)}.tmrow select{width:auto}
+.tmcard{padding:10px 0;border-bottom:1px solid var(--line)}.tmrights{margin:8px 0 4px;padding:10px 12px;background:var(--d2,#f4f6f8);border-radius:12px}.tmrights .l{margin-top:8px}.tmrights .l:first-child{margin-top:0}.tmsecs{display:flex;flex-direction:column;gap:6px;margin:6px 0 10px}.tmrights .ownapts{margin:6px 0 4px}
 .billtop{display:flex;flex-direction:column;gap:2px}.billt{width:100%;border-collapse:collapse;margin:8px 0}.billt td,.billt th{padding:6px 4px;border-bottom:1px solid var(--line);font-size:14px}.billt tr.cur td{background:var(--surface);font-weight:700}
 .setup{margin-bottom:14px}.setup-h{display:flex;align-items:center;gap:8px}.setup-h .small{margin-left:auto}
 .setup-bar{height:6px;border-radius:3px;background:var(--line);margin:10px 0 6px;overflow:hidden}.setup-bar i{display:block;height:100%;background:var(--accent);border-radius:3px}
@@ -1528,6 +1529,10 @@ const SLUG=(()=>{const h=location.hostname;if(h.endsWith(".espace.md"))return h.
 const ORG_URL=s=>location.hostname.endsWith(".espace.md")||location.hostname==="espace.md"?`https://${s}.espace.md/`:`/app?c=${s}`;
 const authH=()=>({"Content-Type":"application/json","X-Espace-Org":SLUG,...(PIN?{"Authorization":"Bearer "+PIN}:{})});
 let RO=false;
+let RIGHTS={apts:null,sections:null}; // null list = unrestricted (same as owner)
+const SEC_VIEWS={exp:"money",verify:"money",tax:"money",fin:"reports",settings:"settings"};
+function canSec(s){return ROLE==="owner"||!RIGHTS.sections||RIGHTS.sections.includes(s)}
+function canApt(a){return ROLE==="owner"||!RIGHTS.apts||RIGHTS.apts.includes(a)}
 async function api(fn,args={}){
   if(RO&&!RO_OK.includes(fn)&&!(ROLE==="checker"&&CHECK_OK.includes(fn))&&!fn.startsWith("team_")){window._roT=Date.now();toast(EXPIRED?"Abonamentul a expirat — datele sunt doar pentru vizualizare":"Mod vizualizare — modificările nu sunt disponibile");const err=new Error("read_only");err.code="read_only";throw err}
   const r=await fetch("/api/"+fn,{method:"POST",headers:authH(),body:JSON.stringify(args)});
@@ -3473,11 +3478,10 @@ const svgI=k=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke
 function setAccent(k){try{localStorage.setItem("kv_accent",k)}catch(e){}if(k)document.documentElement.setAttribute("data-accent",k);else document.documentElement.removeAttribute("data-accent");renderView()}
 function renderMenu(){
   const c=hubCounts(), vb=+(($("v-badge")||{}).textContent||0)||0, ac=document.documentElement.getAttribute("data-accent")||"";
-  const T=(go,ic,l,sub,n)=>`<button type="button" class="mtile" data-go="${go}"><span class="mi">${svgI(go)}</span><div><b>${l}</b>${sub?`<small>${sub}</small>`:""}</div>${n?`<em>${n}</em>`:""}</button>`;
-  $("menu-body").innerHTML=`${LIGHT()?`<div class="mgroup">Lucru</div><div class="mtiles">${T("todo","","Sarcini și reparații","de făcut, reparații, remindere",(c.todo||0)+(c.rep||0))}${T("shifts","","Toate turele","predări de tură închise")}</div>`:""}<div class="mgroup">Bani</div><div class="mtiles">
-    ${T("exp","🧾","Cheltuieli","cheltuieli pe luni")}${T("fin","📊","Finanțe","venit, canale, perioade")}
-    ${T("verify","✅","Verificarea plăților","verificarea banilor pe lună",vb)}${T("shifts","🗂️","Toate turele","predări de tură închise")}${T("log","🕘","Jurnalul modificărilor","cine ce a schimbat")}${T("tax","🧮","Налоги",(()=>{const n=taxNext();return n?`de plată ${fmt0(n.tax)} lei până pe ${dm(n.due)}`:"venit și impozit pe luni"})())}</div>
-    <div class="mgroup">Oaspeți și setări</div><div class="mtiles">${T("guests","","Contacte","baza de oaspeți din rezervări")}${T("guide","📖","Ghid pentru oaspeți","Wi‑Fi, intrare, reguli")}${T("settings","⚙️","Setări","apartamente, menajere, PIN")}</div>
+  const T=(go,ic,l,sub,n)=>{if(SEC_VIEWS[go]&&go!=="settings"&&!canSec(SEC_VIEWS[go]))return"";return `<button type="button" class="mtile" data-go="${go}"><span class="mi">${svgI(go)}</span><div><b>${l}</b>${sub?`<small>${sub}</small>`:""}</div>${n?`<em>${n}</em>`:""}</button>`};
+  const moneyTiles=[T("exp","🧾","Cheltuieli","cheltuieli pe luni"),T("fin","📊","Finanțe","venit, totaluri, an"),T("verify","✅","Verificarea plăților","verificarea banilor pe lună",vb),T("shifts","🗂️","Toate turele","predări de tură închise"),T("log","🕘","Jurnalul modificărilor","cine ce a schimbat"),T("tax","🧮","Налоги",(()=>{const n=taxNext();return n?`de plată ${fmt0(n.tax)} lei până pe ${dm(n.due)}`:"venit și impozit pe luni"})())].join("");
+  $("menu-body").innerHTML=`${LIGHT()?`<div class="mgroup">Lucru</div><div class="mtiles">${T("todo","","Sarcini și reparații","de făcut, reparații, remindere",(c.todo||0)+(c.rep||0))}${T("shifts","","Toate turele","predări de tură închise")}</div>`:""}${moneyTiles?`<div class="mgroup">Bani</div><div class="mtiles">${moneyTiles}</div>`:""}
+    <div class="mgroup">Oaspeți și setări</div><div class="mtiles">${T("guide","📖","Ghid pentru oaspeți","Wi‑Fi, intrare, reguli")}${T("settings","⚙️","Setări",canSec("settings")?"apartamente, menajere, PIN":"cont și abonament")}</div>
     <div class="mgroup">Aspect · pe acest telefon</div><div class="skinsw">${[["wow","Întunecat","#14171d","#2a303b"],["host","Luminos","#e8f2fa","#0d8a7f"]].map(([k,l,c1,c2])=>`<button type="button" data-skinpick="${k}" aria-pressed="${(document.documentElement.getAttribute("data-skin")||"host")===k}"><i style="background:linear-gradient(135deg,${c1} 50%,${c2} 50%);box-shadow:inset 0 0 0 1px rgba(127,127,127,.35)"></i>${l}</button>`).join("")}</div>
     ${document.documentElement.getAttribute("data-skin")==="host"?"":`<div class="mgroup">Culoarea aplicației · pe acest telefon</div><div class="skinsw">${[["","Galben","#fed36a","#ef8159"],["violet","Violet","#c4b0ff","#e48bd6"],["sky","Albastru","#8fcbff","#8f8cff"]].map(([k,l,c1,c2])=>`<button type="button" data-accent="${k}" aria-pressed="${ac===k}"><i style="background:linear-gradient(135deg,${c1},${c2})"></i>${l}</button>`).join("")}</div>`}`;
 }
@@ -3641,6 +3645,7 @@ const SET_IC={web:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0
 const setIc=k=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${SET_IC[k]||MI[k]||""}</svg>`;
 function settingsPage(sec){ // Setări — a page with sub-pages
   if(typeof sec==="string")setSec=sec;
+  if(setSec&&setSec!=="acct"&&setSec!=="bill"&&!canSec("settings")){toast("Nu ai acces la această secțiune");setSec="";}
   if(!$("sheet").hidden)closeSheet();
   if(view!=="settings")show("settings");else renderSettings();
 }
@@ -3713,6 +3718,8 @@ function renderSettings(){
       <label class="l" for="tm-role">Rol</label><select id="tm-role">${["manager","checker","viewer"].map(r=>`<option value="${r}">${ROLE_T[r]}</option>`).join("")}</select>
       <div class="actions"><button class="btn primary" id="tm-add">Adaugă</button></div></div>`}]}:{}),
     bill:["chk","Abonament",billLine(),()=>{setTimeout(billLoad,0);return `<div class="card" id="bill-box"><span class="small">Încarc…</span></div>`}]};
+  // without the settings section, only account + billing stay visible
+  if(!canSec("settings")){for(const k of Object.keys(SEC))if(k!=="acct"&&k!=="bill")delete SEC[k]}
   let h;
   if(!SEC[setSec]){setSec="";
     h=`<div class="card setlist">${Object.entries(SEC).map(([k,[ic,t,sub]])=>`<button type="button" class="setli" data-setsec="${k}"><span class="ic">${setIc(ic)}</span><span class="m"><b>${t}</b><small>${esc(sub)}</small></span><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></button>`).join("")}</div>`;
@@ -4283,6 +4290,8 @@ function hvHome(){
 }
 function show(v){
   if(bpop)closeBPop();
+  if(v==="fin"&&!canSec("reports")){toast("Nu ai acces la această secțiune");return}
+  if((v==="exp"||v==="verify")&&!canSec("money")){toast("Nu ai acces la această secțiune");return}
   const navV=v;
   viewScroll[view==="cln"?"cln:"+hubMode:view]=window.scrollY;
   if(v==="today"&&view!=="today"&&hvMode==="edit"){hvMode="list";hvAptOpen=false}
@@ -4344,7 +4353,7 @@ document.addEventListener("click",e=>{
   const ds=t.dataset;
   if(ds.accent!=null&&t.closest(".skinsw")){setAccent(ds.accent);return}
   if(ds.skinpick){const k=ds.skinpick==="host"?"host":"wow";try{localStorage.setItem("kv_skin_pick",k);localStorage.setItem("kv_skin",k)}catch(e){}document.documentElement.setAttribute("data-skin",k);const m=document.querySelector('meta[name="theme-color"]');if(m)m.content=k==="host"?"#e8f2fa":"#14171d";renderView();if(view==="cal")renderCal();return}
-  if(ds.go){const g=ds.go;if(g==="tax"){TAXY=null;taxPage();return}if(g==="log"){auditPage();return}if(g==="shifts"){handoverPage();return}if(g==="guests"){contactsPage();return}if(g==="guide"){guidePage();return}if(g==="bell"){bellSheet(notifs,"bellseen","bell-badge");return}if(["todo","rep","rem"].includes(g)){clnTab=g;ls.set("hubtab2",g);show("tasks")}else if(g==="clean")show("cln");else if(g==="verify"){vFilter="todo";verifyPage()}else if(g==="settings")settingsPage("");else show(g);scrollTo(0,0);return}
+  if(ds.go){const g=ds.go;if(SEC_VIEWS[g]&&!canSec(SEC_VIEWS[g])&&g!=="settings"){toast("Nu ai acces la această secțiune");return}if(g==="tax"){if(!canSec("money")){toast("Nu ai acces la această secțiune");return}TAXY=null;taxPage();return}if(g==="log"){auditPage();return}if(g==="shifts"){handoverPage();return}if(g==="guide"){guidePage();return}if(g==="bell"){bellSheet(notifs,"bellseen","bell-badge");return}if(["todo","rep","rem"].includes(g)){clnTab=g;ls.set("hubtab2",g);show("tasks")}else if(g==="clean")show("cln");else if(g==="verify"){if(!canSec("money")){toast("Nu ai acces la această secțiune");return}vFilter="todo";verifyPage()}else if(g==="settings")settingsPage("");else show(g);scrollTo(0,0);return}
   if(ds.view){if(t.closest("#tabs")&&ds.view==="today"){hvHome();return}if(t.closest("#tabs")&&ds.view===view&&view==="menu")return;if(ds.view==="add"&&view!=="add"){form=blankB();eform=blankE();fillB();fillE()}show(ds.view);return}
   if(ds.mode){setMode(ds.mode);renderView();return}
   if(ds.apt!=null){readB();form.apt=ds.apt;fAptOpen=false;renderChipsB();infoB();capHint();return}
@@ -4598,6 +4607,12 @@ document.addEventListener("click",e=>{
   if(t.id==="gacc-unlink"){api("google_unlink").then(me=>{setMe(me);toast("Intrarea fără parolă e dezactivată");settingsPage("acct")}).catch(e=>toast(e.code==="need_password"?"Setează mai întâi o parolă — altfel nu ai cum să intri":"Nu s-a dezactivat"));return}
   if(t.id==="tm-add"){const v={name:$("tm-name").value.trim(),email:$("tm-email").value.trim(),role:$("tm-role").value};
     t.disabled=true;api("team_add",v).then(r=>{["tm-name","tm-email"].forEach(i=>$(i).value="");toast(r.invited?"Invitația a fost trimisă la "+v.email:"Acces acordat");teamLoad()}).catch(e=>toast(e.code==="bad_email"?"Verifică email":e.code==="pw_too_short"?"Parola — minimum 8 caractere":e.code==="need_names"?"Scrie numele":"Nu a reușit")).finally(()=>t.disabled=false);return}
+  if(ds.tmrightsSave){const uid=ds.tmrightsSave,box=document.querySelector(`[data-tmrights="${uid}"]`);if(!box)return;
+    const apts=[...box.querySelectorAll("[data-tmapt]:checked")].map(x=>x.value);
+    const sections=[...box.querySelectorAll("[data-tmsec]:checked")].map(x=>x.value);
+    const allA=cfg.apts.slice(),allS=["money","reports","settings"];
+    t.disabled=true;api("team_rights",{user_id:uid,apts:apts.length===allA.length&&allA.every(a=>apts.includes(a))?null:apts,sections:sections.length===allS.length?null:sections})
+      .then(()=>{toast("Drepturile au fost salvate");teamLoad()}).catch(e=>toast(e.code==="need_migration"?"Actualizează aplicația — coloanele de drepturi nu sunt încă pe server":"Nu a reușit")).finally(()=>t.disabled=false);return}
   if(ds.tmdel){askDel("Scoți accesul?","Persoana nu va mai putea deschide această companie.",()=>api("team_remove",{user_id:ds.tmdel}).then(()=>{toast("Acces retras");teamLoad()}).catch(()=>toast("Nu a reușit")),"Scoate");return}
 });
 $("sheet").addEventListener("click",e=>{if(e.target.id==="sheet")closeSheet()});
@@ -4740,6 +4755,7 @@ function subBar(){annBar();let el=$("subbar");const b=ME&&ME.billing;
   el.innerHTML=exp?`Creditele s-au terminat — datele se văd, dar modificările nu sunt disponibile. ${more}`:b.in_trial&&!(b.balance>0)?`Perioadă de probă până la ${fd(b.trial_ends)}. Suplinește creditele ca să continui. ${more}`:`Creditele ajung până la ${fd(b.active_until)} (zile: ${Math.max(0,b.days_left)}). ${more}`}
 function setMe(me){ME=me;ROLE=me.role||"";EXPIRED=!!(me.billing&&me.billing.expired);
   RO=ROLE==="viewer"||ROLE==="checker"||EXPIRED;document.body.classList.toggle("ro",RO);
+  RIGHTS=ROLE==="owner"?{apts:null,sections:null}:(me.rights&&typeof me.rights==="object"?{apts:me.rights.apts??null,sections:me.rights.sections??null}:{apts:null,sections:null});
   $("org-name").textContent=orgName();document.title=orgName()+" · espace.md";subBar()}
 async function billLoad(){const box=$("bill-box");if(!box)return;try{const b=await api("billing");
   const canPay=(ROLE==="owner"||ROLE==="manager")&&!(ME&&ME.support),cr=n=>fmt(n)+" "+plural(Math.floor(n),"credit","credite","credite");
@@ -4770,7 +4786,24 @@ async function payReturn(){const h=location.hash;if(!/[#&]plata=/.test(h))return
   for(let i=0;i<15;i++){try{const r=await api("bill_pay_status",{id});if(r.status==="paid"){toast("Adăugat: +"+fmt(r.amount)+" credite. Sold: "+fmt(r.balance));try{setMe(await api("auth_me"))}catch(x){}if(!$("bill-box"))return;billLoad();return}if(r.status==="failed"){toast("Banca a refuzat plata — banii nu au fost retrași.");return}}catch(e){}await new Promise(r=>setTimeout(r,2000))}
   toast("Plata a fost acceptată de bancă — creditele apar într-un minut.")}
 async function teamLoad(){const el=$("team-list");if(!el)return;try{const list=await api("team_list");
-  el.innerHTML=list.map(u=>`<div class="tmrow"><span class="m"><b>${esc(u.name||u.email)}</b><small>${esc(u.email)}</small></span>${u.role==="prop"?`<span class="small">${ROLE_T.prop}</span><button class="btn sm danger" data-tmdel="${esc(u.id)}">Scoate</button>`:u.role==="owner"||u.id===(ME&&ME.user.id)?`<span class="small">${ROLE_T[u.role]}</span>`:`<select data-tmrole="${esc(u.id)}" aria-label="Rol">${["manager","checker","viewer","owner"].map(r=>`<option value="${r}"${u.role===r?" selected":""}>${ROLE_T[r]}</option>`).join("")}</select><button class="btn sm danger" data-tmdel="${esc(u.id)}">Scoate</button>`}</div>`).join("")}catch(e){el.textContent="Nu s-a încărcat"}}
+  const SECS=[["money","Bani","cheltuieli, verificare plăți, impozite"],["reports","Rapoarte","finanțe și exporturi"],["settings","Setări","apartamente, menajere, calendare"]];
+  el.innerHTML=list.map(u=>{
+    const self=u.id===(ME&&ME.user.id),locked=u.role==="owner"||u.role==="prop"||self;
+    const head=u.role==="prop"?`<span class="small">${ROLE_T.prop}</span><button class="btn sm danger" data-tmdel="${esc(u.id)}">Scoate</button>`
+      :u.role==="owner"||self?`<span class="small">${ROLE_T[u.role]}</span>`
+      :`<select data-tmrole="${esc(u.id)}" aria-label="Rol">${["manager","checker","viewer","owner"].map(r=>`<option value="${r}"${u.role===r?" selected":""}>${ROLE_T[r]}</option>`).join("")}</select><button class="btn sm danger" data-tmdel="${esc(u.id)}">Scoate</button>`;
+    let rights="";
+    if(!locked){
+      const apts=Array.isArray(u.apts)?u.apts:null,secs=Array.isArray(u.sections)?u.sections:null;
+      const aptBoxes=cfg.apts.length?cfg.apts.map(a=>{const on=apts===null||apts.includes(a);return `<label class="${on?"on":""}"><input type="checkbox" data-tmapt value="${esc(a)}" ${on?"checked":""}>${esc(a)}</label>`}).join(""):`<span class="small">Adaugă mai întâi unitățile</span>`;
+      const secBoxes=SECS.map(([k,l,sub])=>{const on=secs===null||secs.includes(k);return `<label class="dtog"><input type="checkbox" data-tmsec value="${k}" ${on?"checked":""}><span><b>${l}</b><small>${sub}</small></span></label>`}).join("");
+      rights=`<div class="tmrights" data-tmrights="${esc(u.id)}"><label class="l">Ce unități vede</label><div class="ownapts">${aptBoxes}</div>
+        <label class="l">Ce secțiuni poate deschide</label><div class="tmsecs">${secBoxes}</div>
+        <button type="button" class="btn sm primary" data-tmrights-save="${esc(u.id)}">Salvează drepturile</button>
+        <p class="small" style="margin:8px 0 0">Serverul respectă și el aceste drepturi — a ascunde secțiunea în meniu nu e de ajuns.</p></div>`;
+    }
+    return `<div class="tmcard"><div class="tmrow"><span class="m"><b>${esc(u.name||u.email)}</b><small>${esc(u.email)}</small></span>${head}</div>${rights}</div>`;
+  }).join("")}catch(e){el.textContent="Nu s-a încărcat"}}
 async function logout(){try{await api("auth_logout")}catch(e){}ls.set("tok","");PIN=null;ME=null;RO=false;document.body.classList.remove("ro");closeSheet();lock("")}
 let GMODE="login",GOOGLE_OK=false;
 function syncGoogleBtn(){const w=$("g-google-wrap"),a=$("g-google");if(w)w.hidden=!(GOOGLE_OK&&GMODE==="login");
