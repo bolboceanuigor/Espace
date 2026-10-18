@@ -278,7 +278,7 @@ async function api(fn,args={}){
   const j=await r.json().catch(()=>null);if(!r.ok){const e=new Error((j&&j.message)||"HTTP "+r.status);e.code=j&&j.message;if(e.code==="bad_session")showLogin("");throw e}return j}
 const ERR={email_taken:"Acest email e deja folosit de alt cont.",bad_amount:"Suma e greșită.",bad_slug:"Adresă nevalidă: 3–30 caractere, litere latine, cifre, cratimă.",slug_taken:"Adresa e ocupată.",bad_email:"Email greșit.",pw_too_short:"Parola: minimum 8 caractere.",need_names:"Completează numele.",need_text:"Scrie textul.",bad_date:"Data e greșită.",forbidden:"Nu ai acces.",not_found:"Nu există.",
   is_super:"Contul tău de administrator nu poate fi oprit de aici.",last_owner:"Compania trebuie să rămână cu cel puțin un proprietar.",is_prop:"Proprietarii de apartamente se gestionează din aplicația companiei.",
-  bad_confirm:"Adresa scrisă nu se potrivește.",need_reason:"Scrie motivul.",bad_role:"Rol greșit."};
+  bad_confirm:"Adresa scrisă nu se potrivește.",need_reason:"Scrie motivul.",bad_role:"Rol greșit.",bad_password:"Parola curentă e greșită.",pw_mismatch:"Parolele noi nu coincid."};
 const ADJ=["bonus","corectie"];
 const errText=e=>ERR[e.code]||("Eroare: "+(e.message||"rețea"));
 
@@ -482,7 +482,16 @@ V.settings=async()=>{const s=await api("sa_settings");renderNav();
     <div class="actions"><button class="btn p" data-act="save-settings">Salvează</button><span class="msg" id="set-msg"></span></div></div></div>
   <div class="panel"><div class="hd"><h2>Prețuri · credite</h2></div><div class="bd"><p class="ink2" style="margin-top:0">1 credit = 1 leu. Fiecare companie plătește în avans; în fiecare zi se scad <b>unități × tarif</b> credite. Tariful general e pentru toate companiile fără tarif propriu (pe care îl pui în fișa companiei).</p>
     <div class="form"><div><label class="f" for="s-apt_rate">Tarif general, credite / unitate / zi</label><input id="s-apt_rate" type="number" min="0.01" max="1000" step="0.01" value="${esc(s.apt_rate??1)}"></div></div>
-    <p class="mute">Ex.: 5 apartamente × 1 = 5 credite pe zi ≈ 150 lei pe lună. Se salvează cu butonul din stânga.</p></div></div></div>`;
+    <p class="mute">Ex.: 5 apartamente × 1 = 5 credite pe zi ≈ 150 lei pe lună. Se salvează cu butonul din stânga.</p></div></div></div>
+  <div class="panel" style="margin-top:16px"><div class="hd"><h2>Contul tău de admin</h2><span class="sp"></span><span class="mute">${esc((ME&&ME.user&&ME.user.email)||"")}</span></div><div class="bd">
+    <p class="ink2" style="margin-top:0">Schimbă parola cu care intri pe admin.espace.md. După salvare, celelalte dispozitive sunt deconectate.</p>
+    <div class="form" style="max-width:420px">
+      <div class="full"><label class="f" for="pw-old">Parola curentă</label><input id="pw-old" type="password" autocomplete="current-password"></div>
+      <div class="full"><label class="f" for="pw-new">Parola nouă <span class="mute">— minimum 8 caractere</span></label><input id="pw-new" type="password" autocomplete="new-password"></div>
+      <div class="full"><label class="f" for="pw-new2">Confirmă parola nouă</label><input id="pw-new2" type="password" autocomplete="new-password"></div>
+    </div>
+    <div class="actions"><button class="btn p" data-act="save-password">Schimbă parola</button><span class="msg" id="pw-msg"></span></div>
+  </div></div>`;
   if(!OV){await refresh("ov");V.settings()}};
 
 /* users: every account, across companies */
@@ -614,6 +623,12 @@ async function act(a,ds){
   if(a==="ann-del"){if(!confirm("Ștergi anunțul?"))return;await api("sa_ann_delete",{id:ds.id});return reloadView()}
   if(a==="save-settings"){const b={vat:$("s-vat").checked,vat_rate:+val("s-vat_rate"),apt_rate:+val("s-apt_rate")||1};for(const k of ["name","idno","vat_code","address","bank","bic","iban","email","phone","prefix","due_days","footer"])b[k]=k==="due_days"?+val("s-"+k):val("s-"+k);
     try{await api("sa_settings_save",b);$("set-msg").className="msg ok";$("set-msg").textContent="Salvat"}catch(e){$("set-msg").className="msg bad";$("set-msg").textContent=errText(e)}return}
+  if(a==="save-password"){const m=$("pw-msg"),o=val("pw-old"),n=val("pw-new"),n2=val("pw-new2");m.className="msg";
+    if(n.length<8){m.className="msg bad";m.textContent=ERR.pw_too_short;return}
+    if(n!==n2){m.className="msg bad";m.textContent=ERR.pw_mismatch;return}
+    if(!o){m.className="msg bad";m.textContent="Scrie parola curentă.";return}
+    try{await api("auth_password",{old_password:o,new_password:n});$("pw-old").value="";$("pw-new").value="";$("pw-new2").value="";m.className="msg ok";m.textContent="Parola e schimbată.";toast("Parola e schimbată")}
+    catch(e){m.className="msg bad";m.textContent=errText(e)}return}
   if(a==="err-probe"){try{await api("sa_error_probe")}catch(e){if(e.code!=="probe_error_test")throw e}
     await new Promise(r=>setTimeout(r,500));toast("Eroarea de test e în jurnal");return reloadView()}
 }
