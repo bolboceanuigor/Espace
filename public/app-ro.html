@@ -798,6 +798,20 @@ input:focus{border-color:var(--accent);outline:none}
 .seg button{border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:0 12px;height:40px;font-weight:500;display:inline-flex;align-items:center;gap:6px}
 .seg button i{width:8px;height:8px;border-radius:50%}
 .seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.finper{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.finper button{border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:0 11px;height:36px;font-size:13px;font-weight:500}
+.finper button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.fincustom{display:flex;flex-wrap:wrap;gap:8px;align-items:end;margin:0 0 14px}
+.fincustom label{display:grid;gap:4px;font-size:12px;color:var(--muted);font-weight:600}
+.fincustom input{height:40px;border:1px solid var(--line);border-radius:9px;padding:0 10px;background:var(--surface);font-weight:500}
+.chbars{display:grid;gap:8px;margin-top:12px}
+.chbar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 10px;align-items:center;font-size:13px}
+.chbar .nm{display:flex;align-items:center;gap:6px;min-width:0;font-weight:600}
+.chbar .nm i{width:10px;height:10px;border-radius:3px;flex:none}
+.chbar .nm span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chbar .tr{grid-column:1/-1;height:10px;background:var(--raised);border-radius:6px;overflow:hidden;border:1px solid var(--line)}
+.chbar .tr em{display:block;height:100%;border-radius:5px}
+.chbar .v{font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
 .cats{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:6px}
 .cat{border:1px solid var(--line);background:var(--bg);border-radius:12px;padding:10px 6px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;font-weight:600;text-align:center;line-height:1.15}
 .cat .ic{font-size:22px;line-height:1}
@@ -2756,7 +2770,62 @@ function renderExp(){
 
 /* FINANCE */
 let finYear=false;
+let finPer="cur"; // cur | next | p3 | year | ly | custom
+let finFrom="", finTo="";
 const fPct=(a,b)=>b?Math.round((a-b)/Math.abs(b)*100):null;
+const finYmd=(y,m,d)=>`${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+const finLastDay=(y,m)=>new Date(Date.UTC(y,m+1,0)).getUTCDate();
+function finBounds(){
+  const n=new Date(), y=n.getFullYear(), m=n.getMonth();
+  if(finPer==="cur") return {from:finYmd(mon.y,mon.m,1),to:finYmd(mon.y,mon.m,finLastDay(mon.y,mon.m)),label:MONTHS[mon.m]+" "+mon.y,mode:"month"};
+  if(finPer==="next"){let Y=y,M=m+1;if(M>11){M=0;Y++}return {from:finYmd(Y,M,1),to:finYmd(Y,M,finLastDay(Y,M)),label:MONTHS[M]+" "+Y,mode:"month"};}
+  if(finPer==="p3"){let Y2=y,M2=m+2;while(M2>11){M2-=12;Y2++}return {from:finYmd(y,m,1),to:finYmd(Y2,M2,finLastDay(Y2,M2)),label:MONTHS[m]+" — "+MONTHS[M2]+" "+Y2,mode:"span"};}
+  if(finPer==="year"||finPer==="ly"){const Y=mon.y;return {from:finYmd(Y,0,1),to:finYmd(Y,11,31),label:String(Y),mode:"year"};}
+  const a=finFrom||finYmd(y,m,1), b=finTo||finYmd(y,m,finLastDay(y,m));
+  const from=a<=b?a:b, to=a<=b?b:a;
+  return {from,to,label:dm(from)+" — "+dm(to)+"."+to.slice(0,4),mode:"span"};
+}
+function rangeShare(b,from,to){
+  const s=toT(from), e=toT(to)+DAY, t=toT(b.date);
+  if(!(b.nights>0)) return t>=s&&t<e?1:0;
+  const en=t+b.nights*DAY, ov=Math.max(0,Math.min(en,e)-Math.max(t,s))/DAY;
+  return ov/b.nights;
+}
+function channelStats(from,to){
+  const map={};
+  const row=src=>{if(!map[src])map[src]={src,inc:0,nights:0,cnt:0,cancel:0,com:0};return map[src]};
+  for(const b of bookings){
+    if(!cfg.apts.includes(b.apt)) continue;
+    const src=b.source||"neindicat", r=row(src);
+    if(b.tag==="cancel"){if(b.date>=from&&b.date<=to)r.cancel++;continue}
+    if(b.tag==="closed"||b.tag==="req") continue;
+    const k=rangeShare(b,from,to); if(!k) continue;
+    r.inc+=(eurOf(b)+utilEur(b))*k;
+    if(b.nights>0){r.nights+=b.nights*k;if(b.date>=from&&b.date<=to)r.cnt++}
+    const x=b.x||{};
+    const comRaw=x.com?+x.com:(x.com_pct&&b.price?Math.round(+b.price*x.com_pct)/100:0);
+    if(comRaw) r.com+=toEurC(comRaw,b.price_cur||"EUR")*k;
+  }
+  return Object.values(map).filter(r=>r.inc||r.nights||r.cnt||r.cancel||r.com).sort((a,b)=>b.inc-a.inc||b.cnt-a.cnt);
+}
+function finChannelsHtml(from,to,label){
+  const rows=channelStats(from,to), tot=rows.reduce((a,r)=>a+r.inc,0), mx=Math.max(1,...rows.map(r=>r.inc));
+  const sum={inc:tot,nights:rows.reduce((a,r)=>a+r.nights,0),cnt:rows.reduce((a,r)=>a+r.cnt,0),cancel:rows.reduce((a,r)=>a+r.cancel,0),com:rows.reduce((a,r)=>a+r.com,0)};
+  let h=`<h3>Pe canale · ${esc(label)}</h3>`;
+  if(!rows.length) return h+`<div class="empty">În această perioadă nu sunt rezervări pe canale</div>`;
+  h+=`<div class="card">${donut(rows.map(r=>({label:r.src,value:r.inc||0.001,color:SRC_COL[r.src]||"#9a93a5"})))}`;
+  h+=`<div class="chbars">${rows.map(r=>`<div class="chbar"><div class="nm"><i style="background:${SRC_COL[r.src]||"#9a93a5"}"></i><span>${esc(r.src)}</span></div><div class="v">${fmt0(r.inc)} €</div><div class="tr"><em style="width:${Math.round(r.inc/mx*100)}%;background:${SRC_COL[r.src]||"#9a93a5"}"></em></div></div>`).join("")}</div>`;
+  h+=`<div class="tbl-wrap" style="margin-top:12px;border:0"><table class="t"><thead><tr><th>Canal</th><th>Venit</th><th>Nopți</th><th>Sosiri</th><th>Anulări</th><th>Comision</th></tr></thead><tbody>`;
+  h+=rows.map(r=>`<tr><td>${esc(r.src)}</td><td>${fmt0(r.inc)} €</td><td>${Math.round(r.nights)}</td><td>${r.cnt}</td><td>${r.cancel||"—"}</td><td>${r.com?fmt0(r.com)+" €":"—"}</td></tr>`).join("");
+  h+=`<tr class="tot"><td>Total</td><td>${fmt0(sum.inc)} €</td><td>${Math.round(sum.nights)}</td><td>${sum.cnt}</td><td>${sum.cancel||"—"}</td><td>${sum.com?fmt0(sum.com)+" €":"—"}</td></tr>`;
+  return h+`</tbody></table></div></div>`;
+}
+function finPerBar(){
+  const items=[["cur","Luna aceasta"],["next","Următoarea"],["p3","Trei luni"],["year","Anul acesta"],["ly","Anul trecut"],["custom","Interval ales"]];
+  let h=`<div class="finper" role="group" aria-label="Perioadă">${items.map(([k,t])=>`<button type="button" data-finper="${k}" aria-pressed="${finPer===k}">${t}</button>`).join("")}</div>`;
+  if(finPer==="custom") h+=`<div class="fincustom"><label>De la <input type="date" id="fin-from" value="${esc(finFrom||finBounds().from)}"></label><label>Până la <input type="date" id="fin-to" value="${esc(finTo||finBounds().to)}"></label></div>`;
+  return h;
+}
 // arrow + % vs a previous period; good=1 when growth is good (income), -1 when growth is bad (expenses)
 function fDelta(cur,prev,good=1,label=""){const d=fPct(cur,prev);if(d===null||!isFinite(d))return "";const cls=d===0?"":(d>0)===(good>0)?"up":"dn";return `<em class="fd ${cls}">${d>0?"▲":d<0?"▼":"="} ${Math.abs(d)}%${label?" "+label:""}</em>`}
 function fKpi(label,val,sub,delta){return `<div class="fk"><span>${label}</span><b>${val}</b><small>${sub||""}</small>${delta?`<div>${delta}</div>`:""}</div>`}
@@ -2787,7 +2856,7 @@ function finApts(rows,days){
     <div class="fa3">venit ${fmt0(r.inc)} € · cheltuieli ${fmt0(r.exp)} €${r.cnt!=null?` · ${r.cnt} ${plural(r.cnt,"sosire","sosirii","sosiri")}`:""}</div></button>`}).join("")}</div>`;
 }
 function finCats(map){const e=Object.entries(map).filter(([,v])=>v>0);return e.length?donut(e.map(([k,v])=>({label:catIcon(k)+" "+k,value:v,color:catCol(k)}))):`<div class="empty">Fără cheltuieli</div>`}
-const finSeg=y=>`<div class="seg" style="margin:4px 0 14px"><button type="button" data-finy="0" aria-pressed="${!y}">Luna</button><button type="button" data-finy="1" aria-pressed="${!!y}">Anul ${mon.y}</button></div>`;
+const finSeg=y=>finPerBar()+`<div class="seg" style="margin:4px 0 14px"><button type="button" data-finy="0" aria-pressed="${!y&&(finPer==="cur"||finPer==="next")}">Luna</button><button type="button" data-finy="1" aria-pressed="${!!y||finPer==="year"||finPer==="ly"}">Anul ${mon.y}</button></div>`;
 // stats for days 1..d of a month (to compare "so far this month" with the same days of the previous month)
 function periodStats(y,m,d){
   const s=mStartOf(y,m),e=s+d*DAY,n=daysIn(y,m),A=cfg.apts,occ=occMap(y,m),T={inc:0,util:0,exp:0,nights:0,cnt:0};
@@ -2825,10 +2894,28 @@ function renderFinYear(){
   h+=`<h3>Cheltuieli anuale <span class="count">${yearly.length}</span></h3>`;
   h+=yearly.length?`<div class="list">${yearly.map(e=>{const nx=next(e),soon=toT(nx)-toT(todayStr())<=30*DAY;return `<button class="bk" data-eedit="${esc(e.id)}"><span class="thumb" style="background:${catCol(e.category)}22;font-size:24px">${catIcon(e.category)}</span><div class="m"><b>${esc(e.category)}${e.note?" · "+esc(e.note):""}</b><div class="l2">${esc(e.apt||"Comune")} · pe ${fmt0(eurOf(e)/12)} € pe lună</div>${soon?`<span class="f">⏰ următoarea plată ${dm(nx)}.${nx.slice(0,4)}</span>`:""}</div><div class="a" style="color:var(--exp)">−${esc(amounts(e))}<small>${soon?"curând":"urm. "+dm(nx)+"."+nx.slice(2,4)}</small></div></button>`}).join("")}</div>`
     :`<div class="empty">Impozite, asigurare, abonamente anuale — adaugă cheltuiala și alege «Anuală». Se împarte pe 12 luni, iar aici se vede când e următoarea plată.</div>`;
+  const B=finBounds();
+  h+=finChannelsHtml(B.from,B.to,B.label);
   $("s-body").innerHTML=finSeg(true)+h;
 }
+function renderFinSpan(){
+  const B=finBounds(), A=cfg.apts;
+  let inc=0, util=0, nights=0, cnt=0, exp=0;
+  for(const b of bookings){if(!A.includes(b.apt)||b.tag==="cancel"||b.tag==="closed"||b.tag==="req")continue;const k=rangeShare(b,B.from,B.to);if(!k)continue;inc+=(eurOf(b)+utilEur(b))*k;util+=utilEur(b)*k;if(b.nights>0){nights+=b.nights*k;if(b.date>=B.from&&b.date<=B.to)cnt++}}
+  for(const e of expenses){const t=toT(e.date);if(e.yearly){/* skip yearly split for span — count 1/12 per overlapping month */let y=+e.date.slice(0,4),m=+e.date.slice(5,7)-1;for(let i=0;i<12;i++){const ym=y*12+m+i, fy=+B.from.slice(0,4),fm=+B.from.slice(5,7)-1, ty=+B.to.slice(0,4),tm=+B.to.slice(5,7)-1;if(ym>=fy*12+fm&&ym<=ty*12+tm)exp+=eurOf(e)/12}}else if(e.date>=B.from&&e.date<=B.to)exp+=eurOf(e)}
+  const profit=inc-exp, adr=nights?(inc-util)/nights:0;
+  let h=`<div class="bal fhero" style="box-shadow:0 20px 40px rgba(var(--a1-rgb),.18)"><div class="fh-l">Perioadă · ${esc(B.label)}</div><div class="bal-amt">${profit<0?"−":""}${fmt0(Math.abs(profit))} €</div>
+    <div class="fh-s">venit ${fmt0(inc)} € − cheltuieli ${fmt0(exp)} €${inc?` · marjă ${Math.round(profit/inc*100)}%`:""}</div></div>`;
+  h+=`<div class="fks">${fKpi("Venit",fmt0(inc)+" €",`${cnt} ${plural(cnt,"sosire","sosirii","sosiri")}`,"")}
+    ${fKpi("Cheltuieli",fmt0(exp)+" €",inc?Math.round(exp/inc*100)+"% din venit":"","")}
+    ${fKpi("Nopți",fmt0(nights),"ocupate în perioadă","")}
+    ${fKpi("Prețul nopții",fmt0(adr)+" €","în medie, fără utilități","")}</div>`;
+  h+=finChannelsHtml(B.from,B.to,B.label);
+  $("s-body").innerHTML=finPerBar()+h;
+}
 function renderFin(){
-  if(finYear) return renderFinYear();
+  if(finPer==="p3"||finPer==="custom") return renderFinSpan();
+  if(finPer==="year"||finPer==="ly"||finYear) return renderFinYear();
   const st=monthStats(), A=cfg.apts, n=daysIn(), T=st.T;
   const [py,pm]=lastMonths(2)[0], PT=monthStats(py,pm).T;
   const month=bookings.filter(inMonth);
@@ -2867,6 +2954,7 @@ function renderFin(){
   h+=`<h3>Cheltuieli pe categorii</h3><div class="card">${finCats(byCat)}</div>`;
   h+=`<div class="two"><div><h3>Metoda de plată</h3><div class="card">${donut(Object.entries(byPay).map(([k,v])=>({label:k,value:v,color:PAY_COL[k]||"#9a93a5"})))}</div></div>
     <div><h3>De unde vin rezervările</h3><div class="card">${donut(Object.entries(bySrc).map(([k,v])=>({label:k,value:v,color:SRC_COL[k]||"#9a93a5"})))}</div></div></div>`;
+  {const B=finBounds();h+=finChannelsHtml(B.from,B.to,B.label)}
   h+=`<h3>Numerar în mână · doar «Numerar»</h3>`+(cash.length?`<div class="card fcash">${cash.map(r=>`<div class="fcr"><span class="ava">${esc((r.p||"?").slice(0,1).toUpperCase())}</span><b>${esc(r.p||"neindicat")}</b><div>${[r.mdl?fmt(r.mdl)+" lei":"",r.eur?fmt(r.eur)+" €":"",r.usd?fmt(r.usd)+" $":""].filter(Boolean).join(" · ")}<small>≈ ${fmt0(eurOf(r))} €</small></div></div>`).join("")}</div>`:`<div class="empty">Luna aceasta nu s-a plătit în numerar</div>`);
   h+=flagged.length?`<h3>Verifică <span class="count">${flagged.length}</span></h3><div class="list">${flagged.slice(0,showAllFlags?999:5).map(b=>rowB(b)).join("")}</div>${flagged.length>5&&!showAllFlags?`<div class="actions" style="margin-top:8px"><button class="btn sm" id="show-flags">Arată toate ${flagged.length}</button></div>`:""}`:`<h3>Verificare</h3><div class="empty">Totul e completat ✓</div>`;
   h+=`<h3>Excel</h3><div class="card"><div class="actions" style="margin-top:0">
@@ -3016,7 +3104,8 @@ function poVals(){const g=id=>num(($(id)||{}).value||0)||0;const m=g("po-mdl"),e
 function poSum(){const el=$("po-sum");if(!el)return;const v=poVals(),owed=+(el.closest(".pc-form")||{dataset:{}}).dataset.owed||0;$("po-r-eur").hidden=!v.e;$("po-r-usd").hidden=!v.u;
   el.innerHTML=v.total?`total <b>${fmt0(v.total)} lei</b> · datorie ${fmt0(owed)} lei${v.total>owed+0.5?` · <em>mai mult cu ${fmt0(v.total-owed)}</em>`:""}`:`datorie ${fmt0(owed)} lei`}
 document.addEventListener("input",e=>{if(/^po-(mdl|eur|usd|reur|rusd)$/.test(e.target.id))poSum()});
-document.addEventListener("change",e=>{if(e.target.id==="f-srcsel"){form.source=e.target.value;if(!form.id&&$("f-compct")&&!(form.x||{}).com_pct)$("f-compct").value=comPct(form.source)||"";xHints();infoB()}if(e.target.id==="f-depst")xHints()});
+document.addEventListener("change",e=>{if(e.target.id==="f-srcsel"){form.source=e.target.value;if(!form.id&&$("f-compct")&&!(form.x||{}).com_pct)$("f-compct").value=comPct(form.source)||"";xHints();infoB()}if(e.target.id==="f-depst")xHints()
+  if(e.target.id==="fin-from"||e.target.id==="fin-to"){if(e.target.id==="fin-from")finFrom=e.target.value;else finTo=e.target.value;finPer="custom";renderView()}});
 document.addEventListener("input",e=>{if(["f-compct","f-com","f-price","f-kids"].includes(e.target.id)){readB();xHints();infoB()}});
 let clnPayForm=null,clnJm=null,clnJOpen=false,clnOwOpen=false,clnPoDel=null,clnDeepOpen=false,clnDeepAll=false;
 document.addEventListener("toggle",e=>{const d=e.target;if(!d.classList||!d.classList.contains("pjwrap"))return;if(d.querySelector("[data-jtoggle]"))clnJOpen=d.open;else if(d.querySelector("[data-owtoggle]"))clnOwOpen=d.open},true);
@@ -3059,7 +3148,7 @@ function renderMenu(){
   const c=hubCounts(), vb=+(($("v-badge")||{}).textContent||0)||0, ac=document.documentElement.getAttribute("data-accent")||"";
   const T=(go,ic,l,sub,n)=>`<button type="button" class="mtile" data-go="${go}"><span class="mi">${svgI(go)}</span><div><b>${l}</b>${sub?`<small>${sub}</small>`:""}</div>${n?`<em>${n}</em>`:""}</button>`;
   $("menu-body").innerHTML=`${LIGHT()?`<div class="mgroup">Lucru</div><div class="mtiles">${T("todo","","Sarcini și reparații","de făcut, reparații, remindere",(c.todo||0)+(c.rep||0))}${T("shifts","","Toate turele","predări de tură închise")}</div>`:""}<div class="mgroup">Bani</div><div class="mtiles">
-    ${T("exp","🧾","Cheltuieli","cheltuieli pe luni")}${T("fin","📊","Finanțe","venit, totaluri, an")}
+    ${T("exp","🧾","Cheltuieli","cheltuieli pe luni")}${T("fin","📊","Finanțe","venit, canale, perioade")}
     ${T("verify","✅","Verificarea plăților","verificarea banilor pe lună",vb)}${T("shifts","🗂️","Toate turele","predări de tură închise")}${T("log","🕘","Jurnalul modificărilor","cine ce a schimbat")}${T("tax","🧮","Налоги",(()=>{const n=taxNext();return n?`de plată ${fmt0(n.tax)} lei până pe ${dm(n.due)}`:"venit și impozit pe luni"})())}</div>
     <div class="mgroup">Oaspeți și setări</div><div class="mtiles">${T("guide","📖","Ghid pentru oaspeți","Wi‑Fi, intrare, reguli")}${T("settings","⚙️","Setări","apartamente, menajere, PIN")}</div>
     <div class="mgroup">Aspect · pe acest telefon</div><div class="skinsw">${[["wow","Întunecat","#14171d","#2a303b"],["host","Luminos","#e8f2fa","#0d8a7f"]].map(([k,l,c1,c2])=>`<button type="button" data-skinpick="${k}" aria-pressed="${(document.documentElement.getAttribute("data-skin")||"host")===k}"><i style="background:linear-gradient(135deg,${c1} 50%,${c2} 50%);box-shadow:inset 0 0 0 1px rgba(127,127,127,.35)"></i>${l}</button>`).join("")}</div>
@@ -4056,8 +4145,15 @@ document.addEventListener("click",e=>{
   if(t.id==="chk-add"){const l=[...checklist()];l.push({id:"c"+Date.now().toString(36),text:"Punct nou",every:30});saveCfg({...cfg,checklist:l},"Punctul a fost adăugat");return}
   if(ds.chkdel){saveCfg({...cfg,checklist:checklist().filter(c=>c.id!==ds.chkdel)},"Punctul a fost șters");return}
   if(t.id==="chk-save"){const l=checklist().map(c=>({id:c.id,text:(($("ck-t-"+c.id)||{}).value||c.text).trim(),every:Math.max(0,Math.floor(num(($("ck-e-"+c.id)||{}).value)||0))})).filter(c=>c.text);saveCfg({...cfg,checklist:l},"Lista de verificare a fost salvată");return}
-  if(ds.finy!=null){finYear=ds.finy==="1";renderView();return}
-  if(ds.finmonth!=null){mon.m=+ds.finmonth;finYear=false;renderView();window.scrollTo({top:0});return}
+  if(ds.finy!=null){finYear=ds.finy==="1";finPer=finYear?"year":"cur";renderView();return}
+  if(ds.finmonth!=null){mon.m=+ds.finmonth;finYear=false;finPer="cur";renderView();window.scrollTo({top:0});return}
+  if(ds.finper!=null){finPer=ds.finper;const n=new Date(),y=n.getFullYear(),m=n.getMonth();
+    if(finPer==="cur"){finYear=false;mon.y=y;mon.m=m}
+    else if(finPer==="next"){finYear=false;mon.y=y;mon.m=m+1;if(mon.m>11){mon.m=0;mon.y++}}
+    else if(finPer==="year"){finYear=true;mon.y=y}
+    else if(finPer==="ly"){finYear=true;mon.y=y-1}
+    else if(finPer==="p3"||finPer==="custom"){finYear=false;if(finPer==="custom"&&!finFrom){finFrom=finYmd(y,m,1);finTo=finYmd(y,m,finLastDay(y,m))}}
+    renderView();window.scrollTo({top:0});return}
   if(ds.ekind!=null){readE();eform.yearly=ds.ekind==="1";renderE();infoE();return}
   if(ds.ewho!=null){readE();eform.who=eform.who===ds.ewho?"":ds.ewho;renderE();return}
   if(ds.hvcal!=null){const r=hv.rows[+ds.hvcal];hvCalOn(r);hvRenderRows(r,"guest");hvQueueSave();return}
