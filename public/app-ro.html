@@ -254,9 +254,34 @@ button,.btn,.chip,nav.tabs,.mtile,.bar,.sh-name,.sh-day{-webkit-user-select:none
 @media (min-width:860px){:root[data-skin="host"] #c-body{margin:0 20px 20px}}
 .cbar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:14px 16px 10px;background:transparent}
 .cbar[hidden]{display:none}
+/* Fresha-like calendar top: ☰ · 12–18 oct. ▾ · bell · avatar */
+.ctopbar{padding:8px 12px 6px;gap:0;flex-wrap:nowrap;background:var(--surface,#fff);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:12}
+body.calmode .ctopbar{padding-top:calc(8px + env(safe-area-inset-top,0px))}
+.ctop{display:flex;align-items:center;gap:4px;width:100%;min-width:0}
+.ctop-ico{flex:none;width:42px;height:42px;border:0;border-radius:50%;background:none;color:var(--ink,#1a2332);display:grid;place-items:center;padding:0;position:relative}
+.ctop-ico:active{background:var(--d2,#eef3f8)}
+.ctop-ico svg{width:22px;height:22px}
+.ctop-ico .badge{position:absolute;top:6px;right:6px;min-width:8px;height:8px;padding:0;border-radius:50%;background:#e24b5a;border:2px solid var(--surface,#fff);font-size:0;line-height:0}
+.ctop-ico .badge:not([hidden]){display:block}
+.ctop-mon{position:relative;flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:5px;height:42px;padding:0 8px;cursor:pointer;color:var(--ink,#1a2332)}
+.ctop-mon span{font-size:17px;font-weight:700;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ctop-mon svg{flex:none;width:16px;height:16px;opacity:.7}
+.ctop-mon input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;border:0;padding:0}
+.ctop-ava{flex:none;width:36px;height:36px;margin:0 4px 0 2px;border:0;border-radius:50%;background:var(--accent-soft,#e6f5f3);color:var(--accent,#0d8a7f);font:700 13px/36px var(--font);text-align:center;padding:0;letter-spacing:.02em}
+.ctop-ava:active{filter:brightness(.95)}
+.cszlist{display:flex;flex-direction:column;gap:8px;margin:4px 0 16px}
+.cszlist button{display:flex;align-items:center;gap:14px;width:100%;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:16px;padding:14px 14px;color:var(--fg);font:inherit}
+.cszlist button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.cszlist .qi{width:44px;height:44px;border-radius:12px;border:1.5px solid currentColor;display:grid;place-items:center;flex:none}
+.cszlist .qi i{display:block;border:1.5px solid currentColor;border-radius:3px}
+.cszlist .qi i.sm{width:10px;height:10px}.cszlist .qi i.md{width:14px;height:14px}.cszlist .qi i.lg{width:18px;height:18px}
+.cszlist b{display:block;font-size:16px;font-weight:700}.cszlist small{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
+.cmore{display:grid;gap:8px}
+.cmore button{display:flex;align-items:center;gap:12px;width:100%;border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:12px 14px;color:var(--fg);font:inherit;font-weight:600;text-align:left}
 .cbmon{position:relative;flex:1;min-width:0;display:flex;align-items:center;gap:4px;font-size:19px;font-weight:700;color:var(--ink);letter-spacing:-.01em;cursor:pointer;white-space:nowrap}
 .cbmon span{overflow:hidden;text-overflow:ellipsis}.cbmon svg{flex:none;color:var(--ink)}
 .cbmon input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;border:0;padding:0}
+@media (max-width:859px){#c-legend{display:none!important}}
 .cbchip{height:34px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-size:12.5px;cursor:pointer;flex:none}
 .cbchip[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:#fff}
 .cbst{display:flex;gap:4px;flex:none;flex-wrap:wrap;align-items:center}
@@ -1351,8 +1376,8 @@ body.wizon{overflow:hidden}
   </section>
 
   <section id="v-cal" hidden>
-    <div class="cal-legend" id="c-legend"></div>
-    <div class="cbar" id="c-bar" hidden></div>
+    <div class="cbar ctopbar" id="c-bar" hidden></div>
+    <div class="cal-legend" id="c-legend" hidden></div>
     <div id="c-body"></div>
   </section>
 
@@ -3069,8 +3094,12 @@ function tinyAmt(b,k=1){const r=v=>String(Math.round(v*k));const parts=[b.mdl?r(
 function shortAmt(b,k=1){const r=v=>fmt0(v*k);const parts=[b.mdl?r(b.mdl)+" lei":"",b.eur?r(b.eur)+"€":"",b.usd?"$"+r(b.usd):"",b.oth&&b.oth_cur?r(b.oth)+" "+b.oth_cur:"",+b.util?"com. "+r(+b.util)+(b.util_cur==="EUR"?"€":b.util_cur==="USD"?"$":" lei"):""].filter(Boolean);return parts.join(" + ")}
 let calKey="",calOff=0,calS0=0,calRefit=false,calP=10,calMR=0,calB=60;
 const MON_C=["Ian","Feb","Mar","Apr","Mai","Iun","Iul","Aug","Sep","Oct","Noi","Dec"];
+const MON_S=["ian.","feb.","mar.","apr.","mai","iun.","iul.","aug.","sept.","oct.","nov.","dec."];
 function calMon(){const el=$("c-body"),m=$("c-mon");if(!el||!m)return;const i=Math.round(el.scrollLeft/calW),a=new Date(calS0+i*DAY),b=new Date(calS0+(i+calP-1)*DAY);const ya=a.getUTCFullYear(),cy=new Date().getFullYear();
-  const t=LIGHT()?MONTHS[a.getUTCMonth()]+" "+ya:a.getUTCMonth()===b.getUTCMonth()?MONTHS[a.getUTCMonth()]+(ya!==cy?" "+ya:""):MON_C[a.getUTCMonth()]+" – "+MON_C[b.getUTCMonth()]+(b.getUTCFullYear()!==cy?" "+b.getUTCFullYear():"");
+  // Fresha-style range in the top bar: 12-18 oct.
+  const t=a.getUTCMonth()===b.getUTCMonth()
+    ?`${a.getUTCDate()}–${b.getUTCDate()} ${MON_S[a.getUTCMonth()]}`
+    :`${a.getUTCDate()} ${MON_S[a.getUTCMonth()]} – ${b.getUTCDate()} ${MON_S[b.getUTCMonth()]}${b.getUTCFullYear()!==cy?" "+b.getUTCFullYear():""}`;
   if(m.textContent!==t)m.textContent=t;const tb=$("c-today"),d=el.scrollLeft-calB*calW;if(tb)tb.classList.toggle("on",Math.abs(d)<2);const ar=$("c-arr");if(ar)ar.textContent=d<0?"→":"←"}let CAL_N=10;
 const CAL_I='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
 function renderCal(){
@@ -3084,9 +3113,9 @@ function renderCal(){
     :Math.max(80,Math.min(innerWidth<600?108:150,Math.round(cell*2.4)));
   const P=calP=Math.max(3,Math.floor((CW-Lw)/cell));
   const W=calW=cell, H=cell;
-  calBar(LT);
-  $("c-legend").innerHTML=TAGS.map(([k,l,c])=>`<span><i style="background:${c}"></i>${esc(l)}</span>`).join("")+`<span><i class="lg-unp"></i>neachitat</span>`;
-  let head=`<div class="sh-head"><div class="sh-corner"><button type="button" id="c-today" class="ctoday"><b id="c-arr">←</b> Azi</button>${LT?"":calSzBtns()}${RO||LT?"":`<button type="button" id="c-pm" class="cpm" aria-pressed="${calPM}" title="Prețuri și reguli pe zile">Prețuri</button><button type="button" id="c-offer" class="cpm" title="Link-ofertă pentru oaspete">Ofertă</button>`}</div><div class="sh-hcol">${LT?"":`<div class="sh-mons"><div class="cmonc" style="width:${P*W}px">${CAL_I}<span id="c-mon"></span></div></div>`}`;
+  calBar(true);
+  const leg=$("c-legend");if(leg){leg.hidden=innerWidth<860;leg.innerHTML=TAGS.map(([k,l,c])=>`<span><i style="background:${c}"></i>${esc(l)}</span>`).join("")+`<span><i class="lg-unp"></i>neachitat</span>`}
+  let head=`<div class="sh-head"><div class="sh-corner"><button type="button" id="c-today" class="ctoday"><b id="c-arr">←</b> Azi</button>${RO||LT?"":`<button type="button" id="c-pm" class="cpm" aria-pressed="${calPM}" title="Prețuri și reguli pe zile">Prețuri</button><button type="button" id="c-offer" class="cpm" title="Link-ofertă pentru oaspete">Ofertă</button>`}</div><div class="sh-hcol">${LT?"":`<div class="sh-mons"><div class="cmonc" style="width:${P*W}px">${CAL_I}</div></div>`}`;
   {const segs=[];for(let i=0;i<n;i++){const d=new Date(s0+i*DAY),k=d.getUTCFullYear()*12+d.getUTCMonth();if(!segs.length||segs[segs.length-1].k!==k)segs.push({k,m:d.getUTCMonth(),y:d.getUTCFullYear(),len:0,at:i});segs[segs.length-1].len++}
    head+=`<div class="sh-days">`;
    var mLine=segs.slice(1).map(g=>`<i class="mline" style="left:${g.at*W}px"></i>`).join(""),mStarts=new Set(segs.slice(1).map(g=>g.at))}
@@ -3130,29 +3159,55 @@ function renderCal(){
      const P2=Math.max(3,Math.floor(((el.clientWidth||CW)-Lw)/cell));
      if(P2!==P&&!calRefit){calRefit=true;renderCal();calRefit=false}})}
 }
-// light look: the calendar has its own bar — month (tap to jump), price mode, which units to show, new booking
+// Fresha-inspired calendar top bar: ☰ size menu · date range ▾ · bell · account
 const mono=a=>{const w=String(a).replace(/[^\p{L}\p{N} ]/gu," ").trim().split(/\s+/).filter(x=>/^\p{L}/u.test(x));return ((w.length>1?w[0][0]+w[1][0]:(w[0]||String(a)).slice(0,2))||"?").toUpperCase()};
+const HAM_I='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>';
+const CHEV_I='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
+const BELL_I='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg>';
+function meIni(){return initialsOf((ME&&ME.user&&(ME.user.name||ME.user.email))||"?")}
 function calBar(on){const el=$("c-bar");if(!el)return;el.hidden=!on;if(!on)return;
-  const hid=calHidden(),nh=cfg.apts.filter(a=>hid.has(a)).length,st=calSt();
-  el.innerHTML=`<label class="cbmon"><span id="c-mon"></span><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg><input type="date" id="c-jump" aria-label="Mergi la dată"></label>
-    ${calSzBtns()}
-    <div class="cbst" role="tablist" aria-label="Starea rezervărilor">${CAL_ST.map(([k,l])=>`<button type="button" class="cbchip" data-calst="${k}" aria-pressed="${st===k}">${l}</button>`).join("")}</div>
-    ${RO?"":`<button type="button" id="c-pm" class="cbchip" aria-pressed="${calPM}">Prețuri</button>`}
-    ${RO?"":`<button type="button" id="c-offer" class="cbchip" title="Link-ofertă pentru oaspete">Ofertă</button>`}
-    <button type="button" class="cbbtn${nh?" on":""}" id="c-flt" aria-label="Ce unități se văd" title="Ce unități se văd"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>${nh?`<i>${nh}</i>`:""}</button>
-    ${RO?"":`<button type="button" class="cbbtn add" id="c-add" aria-label="Rezervare nouă" title="Rezervare nouă"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>`}`}
+  const seen=+(ls.get("bellseen")||0),bn=(notifs||[]).filter(x=>x.id>seen).length;
+  el.innerHTML=`<div class="ctop">
+    <button type="button" class="ctop-ico" id="c-menu" aria-label="Meniu calendar" aria-haspopup="dialog">${HAM_I}</button>
+    <label class="ctop-mon" title="Mergi la dată"><span id="c-mon"></span>${CHEV_I}<input type="date" id="c-jump" aria-label="Mergi la dată"></label>
+    <button type="button" class="ctop-ico" id="c-bell" aria-label="Notificări">${BELL_I}<span class="badge" id="c-bell-badge" ${bn?"":"hidden"}>${bn>9?"9+":bn||""}</span></button>
+    <button type="button" class="ctop-ava" id="c-acct" aria-label="Cont" title="${esc((ME&&ME.user&&ME.user.name)||"")}">${esc(meIni())}</button>
+  </div>`}
+function openCalMenu(){
+  const sz=calSz(), hid=calHidden(), nh=cfg.apts.filter(a=>hid.has(a)).length, st=calSt();
+  const szRow=(k,l,sub)=>`<button type="button" data-calsz="${k}" aria-pressed="${sz===k}"><span class="qi"><i class="${k}"></i></span><span><b>${l}</b><small>${sub}</small></span></button>`;
+  openSheet("Calendar",`<p class="small" style="margin-top:0">Celulele mai comode la apăsat și la citit rezervările. Glisează calendarul stânga-dreapta ca să schimbi zilele.</p>
+    <div class="mgroup">Mărime</div><div class="cszlist">
+      ${szRow("sm","Mic","mai multe zile pe ecran · 36×36")}
+      ${szRow("md","Standard","sold · 48×48")}
+      ${szRow("lg","Mare","celule mari · 66×66")}
+    </div>
+    <div class="mgroup">Mai mult</div><div class="cmore">
+      <div class="cbst" role="tablist" aria-label="Starea rezervărilor" style="margin-bottom:4px">${CAL_ST.map(([k,l])=>`<button type="button" class="cbchip" data-calst="${k}" aria-pressed="${st===k}">${l}</button>`).join("")}</div>
+      ${RO?"":`<button type="button" id="c-pm" aria-pressed="${calPM}">${calPM?"Ascunde prețurile":"Prețuri pe zile"}</button>`}
+      ${RO?"":`<button type="button" id="c-offer">Link-ofertă</button>`}
+      <button type="button" id="c-flt">Obiecte în calendar${nh?" · ascuns "+nh:""}</button>
+      ${RO?"":`<button type="button" id="c-add">＋ Rezervare nouă</button>`}
+      <button type="button" id="c-gotoday">La azi</button>
+    </div>`,{type:"calmenu"});
+}
 function calHidden(){try{return new Set(JSON.parse(localStorage.getItem("kv_calhide")||"[]"))}catch(e){return new Set()}}
 document.addEventListener("change",e=>{if(e.target.id!=="c-jump"||!e.target.value)return;const el=$("c-body"),i=Math.round((toT(e.target.value)-calS0)/DAY);el.scrollTo({left:Math.max(0,i)*calW,behavior:"smooth"});e.target.value=""});
-document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("#c-flt,#c-add,[data-calhide],#c-showall,[data-calst],[data-calsz]");if(!t)return;
-  if(t.dataset.calsz!=null){try{localStorage.setItem("kv_calsz",t.dataset.calsz)}catch(x){}calKey="";renderCal();return}
-  if(t.dataset.calst!=null){try{localStorage.setItem("kv_calst",t.dataset.calst)}catch(x){}renderCal();return}
-  if(t.id==="c-add"){newB("",todayStr());return}
-  if(t.id==="c-offer"){offerSheet();return}
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("#c-menu,#c-bell,#c-acct,#c-gotoday,#c-flt,#c-add,#c-pm,#c-offer,[data-calhide],#c-showall,[data-calst],[data-calsz]");if(!t)return;
+  if(t.id==="c-menu"){openCalMenu();return}
+  if(t.id==="c-bell"){bellSheet(notifs,"bellseen","c-bell-badge");bellUpdate(notifs,"bell-badge","bellseen");return}
+  if(t.id==="c-acct"){settingsPage("acct");return}
+  if(t.id==="c-gotoday"){closeSheet();const el=$("c-body");if(el)el.scrollTo({left:calB*calW,behavior:"smooth"});return}
+  if(t.dataset.calsz!=null){try{localStorage.setItem("kv_calsz",t.dataset.calsz)}catch(x){}calKey="";closeSheet();renderCal();return}
+  if(t.dataset.calst!=null){try{localStorage.setItem("kv_calst",t.dataset.calst)}catch(x){}if(sheetCtx&&sheetCtx.type==="calmenu")openCalMenu();else renderCal();return}
+  if(t.id==="c-add"){if(sheetCtx&&sheetCtx.type==="calmenu")closeSheet();newB("",todayStr());return}
+  if(t.id==="c-offer"){if(sheetCtx&&sheetCtx.type==="calmenu")closeSheet();offerSheet();return}
+  if(t.id==="c-pm"){if(sheetCtx&&sheetCtx.type==="calmenu")closeSheet();return}
   const hid=calHidden();
   if(t.dataset.calhide!=null){const a=t.dataset.calhide;hid.has(a)?hid.delete(a):hid.add(a);if(hid.size>=cfg.apts.length){toast("Trebuie să rămână cel puțin o unitate");return}}
   if(t.id==="c-showall")hid.clear();
   if(t.id!=="c-flt"){try{localStorage.setItem("kv_calhide",JSON.stringify([...hid]))}catch(x){}}
-  openSheet("Unități în calendar",`<p class="small" style="margin-top:0">Unitățile ascunse nu apar doar în calendarul de pe acest dispozitiv — rezervările și rapoartele rămân la fel.</p><div class="uamen">${cfg.apts.map(a=>`<button type="button" data-calhide="${esc(a)}" aria-pressed="${!hid.has(a)}">${esc(a)}</button>`).join("")}</div>${hid.size?`<div class="actions"><button type="button" class="btn" id="c-showall">Arată toate</button></div>`:""}`,{type:"calhide"});
+  openSheet("Obiecte în calendar",`<p class="small" style="margin-top:0">Unitățile ascunse nu apar doar în calendarul de pe acest dispozitiv — rezervările și rapoartele rămân la fel.</p><div class="uamen">${cfg.apts.map(a=>`<button type="button" data-calhide="${esc(a)}" aria-pressed="${!hid.has(a)}">${esc(a)}</button>`).join("")}</div>${hid.size?`<div class="actions"><button type="button" class="btn" id="c-showall">Arată toate</button></div>`:""}`,{type:"calhide"});
   if(t.id!=="c-flt")renderCal()});
 /* price mode: each free night shows its price and minimum stay; tap two days to select, then set price and rules */
 let calPM=(()=>{try{return localStorage.getItem("kv_calpm")==="1"}catch(e){return false}})(), pmSel=null;
@@ -3192,7 +3247,7 @@ function rsSum(){const r=rsRead(),el=$("rs-sum");if(!r||!el)return;let n=0;if(r.
   el.textContent=r.apts.length&&n?`Se schimbă: ${n} ${plural(n,"zi","zile","zile")} × ${r.apts.length} ${plural(r.apts.length,"unitate","unități","unități")}`:"Alege unitățile, datele și zilele săptămânii"}
 document.addEventListener("input",e=>{if(e.target.closest&&e.target.closest(".rs"))rsSum()});
 document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("[data-rsapt],[data-rswd],#rs-pmode [data-pm],[data-rs3] button,#rs-save,#rs-clear,#c-pm");if(!t)return;
-  if(t.id==="c-pm"){calPM=!calPM;pmSel=null;try{localStorage.setItem("kv_calpm",calPM?"1":"")}catch(x){}renderCal();if(calPM)toast("Modul prețuri: apasă prima și ultima zi");return}
+  if(t.id==="c-pm"){if(sheetCtx&&sheetCtx.type==="calmenu")closeSheet();calPM=!calPM;pmSel=null;try{localStorage.setItem("kv_calpm",calPM?"1":"")}catch(x){}renderCal();if(calPM)toast("Modul prețuri: apasă prima și ultima zi");return}
   if(t.dataset.rsapt!=null||t.dataset.rswd!=null){t.setAttribute("aria-pressed",String(t.getAttribute("aria-pressed")!=="true"));rsSum();return}
   if(t.dataset.pm!=null){t.parentNode.querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",String(b===t)));const m=t.dataset.pm,box=$("rs-pbox");box.hidden=!(m==="set"||m==="pct");$("rs-pv").placeholder=m==="pct"?"de exemplu 10 sau −15":"preț";if(!box.hidden)$("rs-pv").focus();return}
   if(t.closest("[data-rs3]")){t.parentNode.querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",String(b===t)));return}
