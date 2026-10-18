@@ -1556,6 +1556,7 @@ async function reload(){
   VI={};(d.vinfo||[]).forEach(r=>{let sn={};try{sn=JSON.parse(r.snap||"{}")}catch(e){}VI[r.kind+":"+r.ref_id]={...r,snap:sn}});closedM={};(d.closedMonths||[]).forEach(r=>closedM[r.ym]=r);
   reminders=d.reminders||[]; todos=d.todos||[]; notifs=d.notifs||[]; bellNew(notifs); bellUpdate(notifs,"bell-badge","bellseen"); {const isFix=x=>(cfg.staffRole||{})[x.id]==="fix";fixers=(d.staff||[]).filter(isFix);staffAll=(d.staff||[]).filter(x=>!isFix(x))} staff=staffAll.filter(x=>x.active!==false);
   if((cfg.payouts||[]).some(p=>!p.shift)&&!window._poSync){window._poSync=1;setTimeout(()=>payoutsToShift().then(n=>{window._poSync=0;if(n){toast("Cleaner payouts are recorded in the Shift");reload()}}).catch(()=>{window._poSync=0}),500)} tasks=d.tasks||[]; checksLast={}; (d.checks||[]).forEach(r=>checksLast[r.apt+"|"+r.item]=r.last);
+  STEPS_X={team:null,ical:null}; // re-check first-steps ticks after data changes
   loaded=true; $("banner").hidden=true; renderView(); tabBadge(); refreshAptTiles(); vBadge(); if(view==="verify"&&!vBusy)renderVerify();
 }
 async function loadPhotos(){try{photos=await api("kv_photos")||{};renderView()}catch(e){}}
@@ -3119,7 +3120,7 @@ function offerSheet(pre){const td=todayStr(),from=pre&&pre.from||td,nights=pre&&
       <div><label class="l" for="of-nights">Nights</label><input type="text" inputmode="numeric" id="of-nights" value="${nights}" style="max-width:120px"></div></div>
     <p class="small" id="of-range" style="margin:6px 0 0"></p>
     <label class="l" style="margin-top:12px">Free units</label><div class="uamen" id="of-apts"></div>
-    <label class="l" for="of-note" style="margin-top:10px">Message to the guest <em>— optional</em></label><textarea id="of-note" rows="2" maxlength="400" placeholder="Discount if you book today"></textarea>
+    <label class="l" for="of-note" style="margin-top:10px">Message guest <em>— optional</em></label><textarea id="of-note" rows="2" maxlength="400" placeholder="Discount if you book today"></textarea>
     <p class="msg bad" id="of-err" hidden></p>
     <div class="actions"><button type="button" class="btn primary" id="of-go">Create the link</button></div>
     <div id="of-done" hidden style="margin-top:14px"><div class="iexp"><b>Guest link</b><div class="iexpr" style="margin-top:6px"><input type="text" readonly id="of-url"><button type="button" class="btn sm" id="of-copy">Copy</button><a class="btn sm" id="of-open" href="#" target="_blank" rel="noopener">Open</a></div>
