@@ -346,5 +346,9 @@
   "добавить в список на день": "add to the day list",
   "запись в текущую смену": "log in the open shift",
   "трата из кассы": "expense from the till",
-  "что починить": "what to fix"
+  "что починить": "what to fix",
+  "Маленький": "Small",
+  "Обычный": "Standard",
+  "Крупный": "Large",
+  "Размер календаря": "Calendar size"
 }
