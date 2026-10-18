@@ -1,5 +1,5 @@
-node_modules/
-.wrangler/
 .dev.vars
 *.log
+node_modules/
 tools/__pycache__/
+.wrangler/
