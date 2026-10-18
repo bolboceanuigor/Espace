@@ -182,7 +182,7 @@ export async function loadSession(db: D1Database, env: Env, token: string): Prom
   if (!seen || Date.now() - Date.parse(seen) > 30 * 60000) {
     run(db, "UPDATE sessions SET last_seen = ? WHERE token_hash = ?", nowIso(), th).catch(() => {});
   }
-  return { user, org, role, tokenHash: th, isSuper, support };
+  return { user, org, role, tokenHash: th, isSuper, support, rights };
 }
 
 // ---------- roles ----------

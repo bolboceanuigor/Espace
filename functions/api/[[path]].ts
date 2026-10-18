@@ -7,7 +7,7 @@ import {
   type Env, type Ctx, json, sleep, nowIso, uuid, num, str, isDate, isUuid, snum, isEmail, all, one, run,
   starterConfig, hashPin, pinMatches, hashPassword, passwordMatches, throttled, failHit, failClear, newSession, clientMeta, deviceLabel, bearer, loadSession,
   ROLES, roleAllows, READ_FNS, TRIAL_DAYS, today, addMonths, isExpired, billingOf, chargeOrg, topUp, stayPrice, minNights, EsPrice, dayRules, randCode, randHex, sameStr, sha256hex,
-  SECTIONS, parseJsonList, parseRights, allowsApt, allowsSection, sectionOfFn, type MemberRights,
+  SECTIONS, parseJsonList, parseRights, allowsApt, allowsSection, sectionOfFn, type MemberRights, logApiError,
 } from "../../lib/core";
 import {
   newTotpSecret, otpauthUrl, qrSvg, totpOk, newBackupCodes, hashBackupCodes, consumeBackup,
@@ -20,6 +20,13 @@ import { botName, linkCode, webhookSecret, handleUpdate, tgNotify } from "../../
 import { syncFeed, syncDue, feedUrlOk, sourceOf, newIcalKey } from "../../lib/ical";
 import { contractTexts, fill, DEFAULT_TPL } from "../../lib/contract";
 import { maibConfig, maibFromCreds, maibCheckout, maibVerify, type MaibCfg } from "../../lib/maib";
+import { googleOk } from "../../lib/google";
+import { upsertFromBooking, syncAll as syncContacts, listContacts, getContact, saveContact, mergeContacts, toCsv as contactsCsv } from "../../lib/contacts";
+import { ensureCheckin, checkinCfgOf, parseData as parseCheckinData, validateSubmit as validateCheckin, purgeCheckins } from "../../lib/checkin";
+import {
+  createGuestInvoice, findDiscount, applyDiscount, bumpDiscountUse,
+  listDiscounts, normalizeCode, rowToDiscount,
+} from "../../lib/guest_invoice";
 
 // ---------- guest maib (per company) ----------
 function guestMaibOf(cfg: any): MaibCfg {
@@ -271,7 +278,9 @@ async function cleanerView(db: D1Database, O: string, me: any, td: string) {
   const staff = await all(db, "SELECT * FROM staff WHERE org_id = ? AND active = 1 ORDER BY created_at", O);
   const staffIdsAll = staff.map((x: any) => x.id);
   const from = addDays(td, -1), to = addDays(td, 6);
-  const bks = await all(db, "SELECT id, apt, date, nights FROM bookings WHERE org_id = ? AND nights > 0 AND tag NOT IN ('closed','req','cancel') AND date >= ? AND date <= ?", O, addDays(from, -400), to);
+  const bks = await all(db, "SELECT id, apt, date, nights, guest, extra FROM bookings WHERE org_id = ? AND nights > 0 AND tag NOT IN ('closed','req','cancel') AND date >= ? AND date <= ?", O, addDays(from, -400), to);
+  const bkOf = (x: any) => { let ex: any = {}; try { ex = typeof x.extra === "string" ? JSON.parse(x.extra || "{}") : (x.extra || {}); } catch { ex = {}; } return { id: x.id, apt: x.apt, date: x.date, nights: x.nights, guest: x.guest || "", team_note: (ex && ex.team) || "", cin_time: (ex && ex.tin) || "" }; };
+  const bkById: Record<string, any> = {}; for (const x of bks) bkById[x.id] = bkOf(x);
   const tasks = await all(db, "SELECT id, kind, date, apt, staff_id, status, note, booking_id, reported_by, time, sent FROM tasks WHERE org_id = ? AND ((date >= ? AND date <= ?) OR (kind = 'repair' AND status != 'done'))", O, from, to);
   const lastRows = await all(db, "SELECT apt, item, MAX(date) AS last FROM checks WHERE org_id = ? GROUP BY apt, item", O);
   const last: Record<string, string> = {}; for (const r of lastRows) last[r.apt + "|" + r.item] = r.last;
@@ -452,13 +461,14 @@ async function myOrgs(db: D1Database, userId: string) {
 }
 async function meOf(db: D1Database, c: Ctx) {
   const orgs = await myOrgs(db, c.user.id);
-  const totp = !!(await one(db, "SELECT totp_secret FROM users WHERE id = ?", c.user.id).catch(() => null))?.totp_secret;
+  const urow = await one(db, "SELECT totp_secret, google_sub FROM users WHERE id = ?", c.user.id).catch(() => one(db, "SELECT totp_secret FROM users WHERE id = ?", c.user.id));
+  const totp = !!(urow && urow.totp_secret);
   return {
-    user: { id: c.user.id, email: c.user.email, name: c.user.name, google: !!(g && g.google_sub) }, super: c.isSuper,
+    user: { id: c.user.id, email: c.user.email, name: c.user.name, google: !!(urow && urow.google_sub) }, super: c.isSuper,
     org: c.org ? { id: c.org.id, name: c.org.name, code: c.org.code } : null, role: c.role, orgs,
     billing: c.org ? await billingOf(db, c.org) : null,
     support: c.support, announcement: c.org ? await activeAnnouncement(db) : null,
-    totp,
+    totp, rights: c.rights || { apts: null, sections: null },
   };
 }
 
