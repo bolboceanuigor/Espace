@@ -72,7 +72,7 @@ Ce trebuie să aibă fiecare modul ca aplicația să fie completă și funcțion
 | Grilă unități × zile, culori pe canal, rezervare nouă din calendar | ✅ | |
 | Modul prețuri: prețul zilei în celulă, editare pe interval, minim de nopți, fără sosire sau plecare, zi închisă | ✅ | `day_rates` |
 | Filtrul unităților vizibile | ✅ | |
-| Filtrul pe stare: rezervare, cerere, anulată | 🟡 | Butoane rapide deasupra grilei. Anulatele se văd tăiate. |
+| Filtrul pe stare: rezervare, cerere, anulată | ✅ | Butoane Все / Брони / Заявки / Аннулированные deasupra grilei. Anulatele se văd tăiate. |
 | Mutarea unei rezervări prin tragere (drag & drop), pe desktop | ❌ | Tragi bara pe altă unitate sau dată, confirmi și se verifică suprapunerea. |
 | Ofertă cu link pentru oaspete | ❌ | Selectezi unitățile libere pe niște date și primești un link public cu pozele, prețul calculat și butonul „Rezervă”. |
 
