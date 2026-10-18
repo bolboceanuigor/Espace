@@ -217,6 +217,14 @@ export const mails = {
       { title: `Счёт ${number}`, body: `<p>Для <b>${esc(org)}</b>: <b>${amount} лей</b>, оплатить до <b>${dmy(due)}</b>. В назначении платежа укажите номер счёта.</p>` },
       { url, ro: "Deschide factura (PDF)", ru: "Открыть счёт (PDF)" }),
   }),
+  // a company sends a guest invoice (stay payment), separate from platform credit invoices
+  guestInvoice: (org: string, r: { number: string; amount: number; cur: string; due: string; url: string; apt: string; date: string }) => ({
+    subject: `${org}: factura ${r.number} — ${r.amount} ${r.cur}`,
+    html: layout(
+      { title: `Factura ${r.number}`, body: `<p><b>${esc(org)}</b> vă trimite factura pentru <b>${esc(r.apt)}</b> (de pe ${dmy(r.date)}): <b>${r.amount} ${esc(r.cur)}</b>, scadența <b>${dmy(r.due)}</b>. O deschideți, tipăriți sau salvați ca PDF.</p>` },
+      { title: `Счёт ${r.number}`, body: `<p>${esc(org)} отправляет счёт за <b>${esc(r.apt)}</b> (с ${dmy(r.date)}): <b>${r.amount} ${esc(r.cur)}</b>, оплатить до <b>${dmy(r.due)}</b>. Можно открыть, распечатать или сохранить в PDF.</p>` },
+      { url: r.url, ro: "Deschide factura (PDF)", ru: "Открыть счёт (PDF)" }),
+  }),
   invoiceDue: (org: string, number: string, amount: number, due: string, url: string, overdue: boolean) => ({
     subject: overdue ? `Factura ${number} e scadentă azi` : `Factura ${number}: scadența pe ${dmy(due)}`,
     html: layout(

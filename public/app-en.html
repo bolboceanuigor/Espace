@@ -1521,7 +1521,7 @@ const catIcon=c=>CAT_ICON[c]||"📌";
 const catCol=c=>CAT_COL[Math.max(0,cfg.categories.indexOf(c))%CAT_COL.length];
 const telDigits=p=>(p||"").replace(/[^\d+]/g,"");
 
-const RO_OK=["kv_load","kv_photos","kv_guides","kv_task_photo","kv_push_key","kv_push_sub","billing","bill_invoice","bill_pay","bill_pay_status","auth_me","auth_logout","auth_switch","auth_password","auth_new_org","kv_ical_list","kv_ical_status"];
+const RO_OK=["kv_load","kv_photos","kv_guides","kv_task_photo","kv_push_key","kv_push_sub","billing","bill_invoice","bill_pay","bill_pay_status","auth_me","auth_logout","auth_switch","auth_password","auth_new_org","kv_guest_invoice_list","kv_discount_list"];
 const CHECK_OK=["kv_verify","kv_month_close","kv_month_open"];
 let ME=null, ROLE="", EXPIRED=false;
 const SLUG=(()=>{const h=location.hostname;if(h.endsWith(".espace.md"))return h.slice(0,-".espace.md".length);let c="";try{c=new URLSearchParams(location.search).get("c")||sessionStorage.getItem("es_c")||""}catch(e){}c=c.toLowerCase().replace(/[^a-z0-9-]/g,"");try{if(c)sessionStorage.setItem("es_c",c)}catch(e){}return c})();
@@ -2164,9 +2164,9 @@ function ctOpenEditNew(){openSheet("New contact",`<button type="button" class="g
 
 /* CHANGE LOG: who changed what (bookings, expenses, payouts, settings, team) */
 const AF={date:"Date",apt:"Unit",guest:"Guest",nights:"Nights",mdl:"Lei",eur:"€",usd:"$",oth:"Other currency",oth_cur:"Currency code",util:"Utilities",util_cur:"Utilities currency",pay:"Payment",who:"Received by",note:"Note",source:"Source",phone:"Phone",pax:"Guests",price:"Price",price_cur:"Price currency",pay_status:"Payment status",tag:"Tag",category:"Category",yearly:"Yearly",amount:"Amount",method:"How",paid_on:"Payout date",role:"Role",created:"Added",dup:"Already there",bad:"Skipped",aptsAdded:"New units",aptsRemoved:"Units removed",from:"Before",to:"Now"};
-const AA={contract:"created the contract",signed:"guest signed the contract",create:"added",update:"changed",delete:"deleted",request:"request from the booking page",confirm:"confirmed the request",decline:"declined the request",import:"import from a file",rename:"renamed a unit",pay:"marked a payout",unpay:"removed the payout mark",close:"closed the month",open:"reopened the month",add:"gave access",remove:"removed access",role:"changed the role"};
+const AA={contract:"created the contract",signed:"guest signed the contract",invoice:"issued a guest invoice",invoice_void:"voided a guest invoice",create:"added",update:"changed",delete:"deleted",request:"request from the booking page",confirm:"confirmed the request",decline:"declined the request",import:"import from a file",rename:"renamed a unit",pay:"marked a payout",unpay:"removed the payout mark",close:"closed the month",open:"reopened the month",add:"gave access",remove:"removed access",role:"changed the role"};
 const AK={booking:"Booking",expense:"Expense",settings:"Settings",owner:"Owner",team:"Team",month:"Month",import:"Import"};
-const AS={checkin:"online check-in",contract:"contract",tax:"taxes",taxPaid:"tax payments",apts:"units",units:"unit details",addr:"addresses",owners:"owners",pricing:"seasons and prices",direct:"booking page",rates:"exchange rates",other:"other currencies",people:"managers",checklist:"checklist",onboarded:"first setup",archived:"unit archive",payouts:"maid payouts",duty:"shift schedule",groups:"groups"};
+const AS={contract:"contract",tax:"taxes",taxPaid:"tax payments",apts:"units",units:"unit details",addr:"addresses",owners:"owners",pricing:"seasons and prices",direct:"booking page",invoice:"guest invoices",rates:"exchange rates",other:"other currencies",people:"managers",checklist:"checklist",onboarded:"first setup",archived:"unit archive",payouts:"maid payouts",duty:"shift schedule",groups:"groups"};
 const PST={unpaid:"unpaid",part:"partly",paid:"paid"};
 function audVal(f,v){if(v==null||v===""||v===0&&!["nights","pax"].includes(f))return "—";if(Array.isArray(v))return v.map(esc).join(", ")||"—";
   if(f==="date"||f==="paid_on")return dm(String(v));if(f==="tag")return ((TAGS.find(t=>t[0]===v)||[])[1])||String(v);if(f==="pay_status")return PST[v]||String(v);
@@ -2302,6 +2302,23 @@ document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.c
     const msg=`Bună ziua! Contractul de închiriere nr. ${r.number} pentru ${b.apt}: ${r.url}`;if(w)w.location.href="https://wa.me/"+digits(b.phone)+"?text="+encodeURIComponent(msg);kLoad(bid);return}
   t.disabled=true;const r=await kMake(bid,!!d.ksend);t.disabled=false;if(!r)return;
   if(d.ksend)toast(r.mailed==="failed"?"The email didn’t go out — copy the link":"Contract sent to the guest");else gCopy(r.url,"Contract link copied — send it to the guest");kLoad(bid)});
+/* GUEST INVOICES: company → guest, public PDF link /factura/<token> */
+async function invLoad(bid){const box=$("bv-inv");if(!box||box.dataset.bid!==bid)return;let list=[];try{list=await api("kv_guest_invoice_list",{booking_id:bid})||[]}catch(e){box.innerHTML="";return}
+  if(!$("bv-inv")||$("bv-inv").dataset.bid!==bid)return;const b=bookings.find(x=>x.id===bid)||{},ready=!!((cfg.invoice||{}).name);
+  const st=s=>({sent:"awaiting payment",paid:"paid",void:"cancelled"}[s]||s);
+  const rows=(list||[]).map(x=>`<div class="small" style="margin:4px 0"><a href="${esc(x.url)}" target="_blank" rel="noopener">№ ${esc(x.number)}</a> · ${dm(x.issued_at)} · ${fmt0(x.amount)} ${esc(CUR_L[x.currency]||x.currency)} · ${st(x.status)}
+    ${RO||x.status==="void"?"":` · <button type="button" class="linkbtn" data-invcopy="${esc(x.url)}">link</button>${x.status==="sent"?` · <button type="button" class="linkbtn" data-invpaid="${esc(x.id)}" data-invbid="${esc(bid)}">paid</button> · <button type="button" class="linkbtn" data-invvoid="${esc(x.id)}" data-invbid="${esc(bid)}">cancel</button>`:""}`}</div>`).join("");
+  box.innerHTML=`<div class="kst"><b>Guest invoice</b><span class="small">${ready?(list.length?"invoices for this booking":"from the booking price — link and print for the guest"):"fill in the seller first in Settings — Guest invoices"}</span>
+    ${rows}${RO||!ready?"":`<div class="actions"><button type="button" class="btn sm primary" data-invmake="${esc(bid)}">Issue invoice</button>${b.email?`<button type="button" class="btn sm" data-invsend="${esc(bid)}">Issue and send</button>`:""}</div>`}</div>`}
+document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("[data-invmake],[data-invsend],[data-invcopy],[data-invpaid],[data-invvoid]");if(!t)return;
+  if(t.dataset.invcopy){gCopy(t.dataset.invcopy,"Invoice link copied — send it to the guest");return}
+  const bid=t.dataset.invmake||t.dataset.invsend||t.dataset.invbid;
+  if(t.dataset.invpaid){try{await api("kv_guest_invoice_paid",{id:t.dataset.invpaid});invLoad(bid);toast("Invoice marked as paid")}catch(x){toast("Didn’t work")}return}
+  if(t.dataset.invvoid){if(!t.classList.contains("armed")){t.classList.add("armed");t.textContent="sure?";return}try{await api("kv_guest_invoice_void",{id:t.dataset.invvoid});invLoad(bid);toast("Invoice cancelled")}catch(x){toast("Didn’t work")}return}
+  t.disabled=true;try{const r=await api("kv_guest_invoice_create",{booking_id:bid,send:!!t.dataset.invsend});
+    toast(t.dataset.invsend?(r.mailed==="failed"?"Invoice created, email failed — copy the link":"Invoice sent to the guest"):("Счёт "+r.number));if(r.url)window.open(r.url,"_blank");invLoad(bid)}
+  catch(x){toast(x.code==="need_seller"?"Fill in the seller in Settings — Guest invoices":x.code==="bad_amount"?"The booking has no price":x.code==="too_many_open"?"Already 5 open invoices":x.code==="no_email"?"The booking has no email":"Didn’t work")}
+  finally{t.disabled=false}});
 let KT=null,KL="ro"; // contract template being edited
 function contractSection(){const c=cfg.contract||{};if(!KT)KT={...(c.tpl||{})};
   const f=(k,l,ph)=>`<div><label class="l" for="ks-${k}">${l}</label><input type="text" id="ks-${k}" value="${esc(c[k]||"")}" placeholder="${esc(ph||"")}" ${RO?"disabled":""}></div>`;
@@ -2488,6 +2505,57 @@ document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.c
   const direct={on:$("dr-on").checked,intro:$("dr-intro").value.trim().slice(0,400),phone:$("dr-phone").value.trim().slice(0,40),email:em,min:Math.max(1,Math.min(30,parseInt($("dr-min").value,10)||1)),terms:$("dr-terms").value.trim().slice(0,1500),arrival:$("dr-arr").checked,
     hidden:[...document.querySelectorAll("[data-drunit][aria-pressed=false]")].map(x=>x.dataset.drunit)};
   saveCfg({...cfg,direct},direct.on?"Booking page is on":"Saved")});
+function invoiceSection(){const i=cfg.invoice||{},f=(k,l,ph,mx)=>`<div><label class="l" for="inv-${k}">${l}</label><input type="text" id="inv-${k}" value="${esc(i[k]||"")}" placeholder="${esc(ph||"")}" maxlength="${mx||120}" ${RO?"disabled":""}></div>`;
+  return `<div class="card"><p class="small" style="margin-top:0">These details go on the guest invoice. From a booking — Issue invoice: link and print, numbering per company. Email the guest or copy the link into a message.</p>
+    <div class="grid2">${f("name","Seller — company or name","",120)}${f("idno","ID number","",30)}</div>
+    <div class="grid2">${f("vat_code","VAT code","",40)}${f("iban","Bank account","",40)}</div>
+    <div class="grid2">${f("bank","Bank","",80)}${f("bic","Bank code","",20)}</div>
+    <label class="l" for="inv-address">Address</label><input type="text" id="inv-address" value="${esc(i.address||"")}" maxlength="300" ${RO?"disabled":""}>
+    <div class="grid2">${f("email","Email on invoice","",120)}${f("phone","Phone","",40)}</div>
+    <div class="grid2"><div><label class="l" for="inv-prefix">Number prefix</label><input type="text" id="inv-prefix" value="${esc(i.prefix||"F")}" maxlength="12" ${RO?"disabled":""}></div>
+      <div><label class="l" for="inv-due">Payment term, days</label><input type="text" inputmode="numeric" id="inv-due" value="${esc(i.due_days??5)}" ${RO?"disabled":""}></div></div>
+    <div class="grid2"><div><label class="l" for="inv-lang">Invoice language</label><select id="inv-lang" class="fsel" ${RO?"disabled":""}>${[["ro","Română"],["ru","Russian"],["en","English"]].map(([v,l])=>`<option value="${v}"${(i.lang||"ro")===v?" selected":""}>${l}</option>`).join("")}</select></div>
+      <div><label class="l" for="inv-vatr">VAT rate in percent</label><input type="text" inputmode="decimal" id="inv-vatr" value="${esc(i.vat_rate??20)}" ${RO?"disabled":""}></div></div>
+    <label class="dtog" style="margin-top:10px"><input type="checkbox" id="inv-vat" ${i.vat?"checked":""} ${RO?"disabled":""}><span><b>VAT registered</b><small>The invoice will show net and VAT amounts.</small></span></label>
+    <label class="l" for="inv-footer">Footer text on invoice</label><textarea id="inv-footer" rows="2" maxlength="500" ${RO?"disabled":""}>${esc(i.footer||"")}</textarea>
+    ${RO?"":`<div class="actions"><button type="button" class="btn primary" id="inv-save">Save</button></div>`}</div>`}
+document.addEventListener("click",e=>{if(e.target.id!=="inv-save")return;
+  const g=k=>(($("inv-"+k)||{}).value||"").trim();
+  const invoice={name:g("name").slice(0,120),idno:g("idno").slice(0,30),vat_code:g("vat_code").slice(0,40),iban:g("iban").slice(0,40),bank:g("bank").slice(0,80),bic:g("bic").slice(0,20),
+    address:g("address").slice(0,300),email:g("email").slice(0,120),phone:g("phone").slice(0,40),prefix:(g("prefix")||"F").slice(0,12),
+    due_days:Math.max(0,Math.min(90,parseInt(g("due"),10)||5)),lang:["ro","ru","en"].includes(g("lang"))?g("lang"):"ro",
+    vat:$("inv-vat").checked,vat_rate:Math.max(0,Math.min(40,parseFloat(String(g("vatr")).replace(",","."))||20)),footer:g("footer").slice(0,500)};
+  if(!invoice.name){toast("Enter the seller name");return}
+  saveCfg({...cfg,invoice},"Invoice details saved")});
+let DISC=[];
+async function discLoad(){try{DISC=await api("kv_discount_list")||[]}catch(e){DISC=[]}if(setSec==="promo")renderSettings()}
+function discSection(){const rows=DISC.map(d=>`<div class="ckrow" style="flex-wrap:wrap;gap:6px;align-items:center"><b>${esc(d.code)}</b><span class="small">${d.kind==="pct"?d.value+"%":"−"+fmt0(d.value)+(d.currency?" "+d.currency:"")}${d.from_date||d.to_date?" · "+[d.from_date,d.to_date].filter(Boolean).map(dm).join("–"):""}${d.max_uses?" · "+d.used_count+"/"+d.max_uses:""}${d.apts&&d.apts.length?" · "+d.apts.length+" units":""}${d.active?"":" · off"}</span>
+  ${RO?"":`<button type="button" class="btn sm" data-discedit="${esc(d.id)}">Edit</button><button type="button" class="btn sm danger" data-discdel="${esc(d.id)}">Delete</button>`}</div>`).join("")||`<p class="small">No codes yet. Guests enter a code on the booking page and the price drops.</p>`;
+  const e=DISC_EDIT||{id:"",code:"",kind:"pct",value:"",from_date:"",to_date:"",max_uses:"",apts:[],active:true,note:""};
+  return `<div class="card" style="padding-top:6px">${rows}</div>
+    ${RO?"":`<div class="card"><b>${e.id?"Edit code":"New discount code"}</b>
+      <div class="grid2"><div><label class="l" for="dc-code">Code</label><input id="dc-code" value="${esc(e.code)}" maxlength="40" placeholder="SUMMER10" style="text-transform:uppercase"></div>
+        <div><label class="l" for="dc-kind">Type</label><select id="dc-kind" class="fsel"><option value="pct"${e.kind!=="sum"?" selected":""}>Percent</option><option value="sum"${e.kind==="sum"?" selected":""}>Amount</option></select></div></div>
+      <div class="grid2"><div><label class="l" for="dc-val">Value</label><input id="dc-val" inputmode="decimal" value="${esc(e.value)}" placeholder="10"></div>
+        <div><label class="l" for="dc-max">Max uses <em>— zero means unlimited</em></label><input id="dc-max" inputmode="numeric" value="${esc(e.max_uses||"0")}"></div></div>
+      <div class="grid2"><div><label class="l" for="dc-from">Valid from</label><input type="date" id="dc-from" value="${esc(e.from_date||"")}"></div>
+        <div><label class="l" for="dc-to">per</label><input type="date" id="dc-to" value="${esc(e.to_date||"")}"></div></div>
+      <label class="l">Units <em>— empty — all on the page</em></label>
+      <div class="uamen">${(cfg.apts||[]).map(a=>`<button type="button" data-dcap="${esc(a)}" aria-pressed="${(e.apts||[]).includes(a)}">${esc(a)}</button>`).join("")||`<span class="small">No units</span>`}</div>
+      <label class="dtog" style="margin-top:10px"><input type="checkbox" id="dc-on" ${e.active!==false?"checked":""}><span><b>Active</b></span></label>
+      <div class="actions"><button type="button" class="btn primary" id="dc-save">Save code</button>${e.id?`<button type="button" class="btn" id="dc-cancel">Cancel</button>`:""}</div></div>`}`}
+let DISC_EDIT=null;
+document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("#dc-save,#dc-cancel,[data-discedit],[data-discdel],[data-dcap]");if(!t)return;
+  if(t.dataset.dcap!=null){t.setAttribute("aria-pressed",String(t.getAttribute("aria-pressed")!=="true"));return}
+  if(t.id==="dc-cancel"){DISC_EDIT=null;renderSettings();return}
+  if(t.dataset.discedit){DISC_EDIT=DISC.find(x=>x.id===t.dataset.discedit)||null;renderSettings();return}
+  if(t.dataset.discdel){if(!t.classList.contains("armed")){t.classList.add("armed");t.textContent="Sure?";return}
+    try{await api("kv_discount_del",{id:t.dataset.discdel});DISC_EDIT=null;await discLoad();toast("Code deleted")}catch(x){toast("Didn’t work")}return}
+  if(t.id!=="dc-save")return;
+  const d={id:(DISC_EDIT&&DISC_EDIT.id)||"",code:$("dc-code").value.trim(),kind:$("dc-kind").value,value:$("dc-val").value,max_uses:$("dc-max").value,
+    from_date:$("dc-from").value,to_date:$("dc-to").value,active:$("dc-on").checked,
+    apts:[...document.querySelectorAll("[data-dcap][aria-pressed=true]")].map(x=>x.dataset.dcap)};
+  t.disabled=true;try{await api("kv_discount_save",{d});DISC_EDIT=null;await discLoad();toast("Code saved")}catch(x){toast(x.code==="dup_code"?"That code already exists":x.code==="bad_value"?"Check the value":"Didn’t work")}finally{t.disabled=false}});
 function aptsSection(){
   const groups=[];cfg.apts.forEach((a,i)=>{const g=unitOf(a).group||"";let G=groups.find(x=>x.g===g);if(!G)groups.push(G={g,items:[]});G.items.push([a,i])});
   const multi=groups.length>1||groups[0]&&groups[0].g;
@@ -2768,7 +2836,7 @@ function xRows(b){const x=b.x||{},u=unitOf(b.apt),cs=(v,c)=>fmt0(v)+" "+(CUR_L[c
   return [["Children",x.kids?String(x.kids):""],["Language",LANG_T[x.lang]||""],["Time",x.tin||x.tout?"check-in "+(x.tin||u.cin||"14:00")+" · check-out "+(x.tout||u.cout||"12:00"):""],
     ["For the team",x.team||""],["Deposit",x.dep||x.dep_st?[x.dep?cs(x.dep,x.dep_cur||"MDL"):"",DEP_T[x.dep_st]||"",x.dep_st==="kept"&&x.dep_kept?"kept "+cs(x.dep_kept,x.dep_cur||"MDL")+(x.dep_note?" ("+x.dep_note+")":""):""].filter(Boolean).join(" · "):""],
     ["Commission",x.com?cs(x.com,b.price_cur||"EUR")+(x.com_pct?" ("+x.com_pct+"%)":""):""],
-    ["Cancel",b.tag==="cancel"?[x.cx||"",x.cx_keep?"kept "+fmt0(x.cx_keep):""].filter(Boolean).join(" · "):""]]}
+    ["Discount",x.disc_code?`${x.disc_code} · −${cs(x.disc_off,b.price_cur||"EUR")}${x.disc_kind==="pct"?" ("+x.disc_value+"%)":""}`:""]]}
 function bookView(id){const b=bookings.find(x=>x.id===id);if(!b)return;const tg=TAGS.find(x=>x[0]===tagOf(b));
   const nn=+b.nights||0,nw=nn%10===1&&nn%100!==11?"night":[2,3,4].includes(nn%10)&&![12,13,14].includes(nn%100)?"nights":"nights";
   const cs=v=>fmt0(v)+" "+(CUR_L[b.price_cur||"EUR"]||b.price_cur||"");
@@ -2783,7 +2851,8 @@ function bookView(id){const b=bookings.find(x=>x.id===id);if(!b)return;const tg=
    <div class="bv-rows">${rows.map(([k,v])=>`<div><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join("")}</div>
    ${b.tag==="req"&&!RO?`<div class="bv-req"><p class="small">Request from the booking page${b.email?" · "+esc(b.email):""}${b.pax?" · guests: "+b.pax:""}. The dates are held for it for now.</p><div class="actions"><button type="button" class="btn primary" data-reqok="${esc(b.id)}">✓ Confirm</button><button type="button" class="btn danger" data-reqno="${esc(b.id)}">Decline</button></div></div>`:""}
    ${RO?"":`<button type="button" class="btn${b.tag==="req"?"":" primary"} bv-edit" data-bedit="${esc(b.id)}">Edit booking</button>`}
-   ${b.nights>0&&b.tag!=="closed"?`<div class="bv-ct2" id="bv-ci" data-bid="${esc(b.id)}">${(setTimeout(()=>ciLoad(b.id),0),"")}</div><div class="bv-ct2" id="bv-k" data-bid="${esc(b.id)}">${(setTimeout(()=>kLoad(b.id),0),"")}</div>`:""}
+   ${b.nights>0&&b.tag!=="closed"?`<div class="bv-ct2" id="bv-k" data-bid="${esc(b.id)}">${(setTimeout(()=>kLoad(b.id),0),"")}</div>`:""}
+   ${b.nights>0&&b.tag!=="closed"?`<div class="bv-ct2" id="bv-inv" data-bid="${esc(b.id)}">${(setTimeout(()=>invLoad(b.id),0),"")}</div>`:""}
    <button type="button" class="linkbtn" data-audref="${esc(b.id)}" style="margin-top:10px">🕘 Change history</button></div>`)}
 document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("[data-reqok],[data-reqno],[data-bcancel]");if(!t)return;
   if(t.dataset.bcancel){cancelBooking(t.dataset.bcancel);return}
@@ -3621,6 +3690,8 @@ function renderSettings(){
     import:["chk","Import from Excel",`bookings and units from a file · Excel, CSV, RealtyCalendar`,()=>importSection()],
     icals:["web","Channel calendars",ICAL_ST?`${ICAL_ST.total} ${plural(ICAL_ST.total,"link","links","links")}${ICAL_ST.bad?" · "+ICAL_ST.bad+" with errors":""}`:"sync status",()=>icalsSection()],
     direct:["web","Booking page",cfg.direct&&cfg.direct.on?"on · "+ME.org.code+".espace.md/rezerva":"guests book directly, no commission",()=>directSection()],
+    invoice:["chk","Guest invoices",(cfg.invoice||{}).name?"seller — "+(cfg.invoice||{}).name:"seller details, VAT, numbering",()=>invoiceSection()],
+    promo:["rate","Discount codes",DISC.length?DISC.filter(x=>x.active).length+" "+plural(DISC.filter(x=>x.active).length,"active","active","active"):"percent or amount on the booking page",()=>{setTimeout(discLoad,0);return discSection()}],
     people:["mgr","Managers",cfg.people.join(", ")||"not given",()=>`<div class="card"><label class="l" for="set-people">Managers — who take money and work in shifts <em>— comma-separated</em></label><input type="text" id="set-people" value="${esc(cfg.people.join(", "))}">
       <div class="actions"><button class="btn primary" id="save-people">Save</button></div></div>
     `],

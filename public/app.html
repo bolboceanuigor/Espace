@@ -1521,7 +1521,7 @@ const catIcon=c=>CAT_ICON[c]||"📌";
 const catCol=c=>CAT_COL[Math.max(0,cfg.categories.indexOf(c))%CAT_COL.length];
 const telDigits=p=>(p||"").replace(/[^\d+]/g,"");
 
-const RO_OK=["kv_load","kv_photos","kv_guides","kv_task_photo","kv_push_key","kv_push_sub","billing","bill_invoice","bill_pay","bill_pay_status","auth_me","auth_logout","auth_switch","auth_password","auth_new_org","kv_ical_list","kv_ical_status"];
+const RO_OK=["kv_load","kv_photos","kv_guides","kv_task_photo","kv_push_key","kv_push_sub","billing","bill_invoice","bill_pay","bill_pay_status","auth_me","auth_logout","auth_switch","auth_password","auth_new_org","kv_guest_invoice_list","kv_discount_list"];
 const CHECK_OK=["kv_verify","kv_month_close","kv_month_open"];
 let ME=null, ROLE="", EXPIRED=false;
 const SLUG=(()=>{const h=location.hostname;if(h.endsWith(".espace.md"))return h.slice(0,-".espace.md".length);let c="";try{c=new URLSearchParams(location.search).get("c")||sessionStorage.getItem("es_c")||""}catch(e){}c=c.toLowerCase().replace(/[^a-z0-9-]/g,"");try{if(c)sessionStorage.setItem("es_c",c)}catch(e){}return c})();
@@ -2165,9 +2165,9 @@ function ctOpenEditNew(){openSheet("Новый контакт",`<button type="bu
 
 /* CHANGE LOG: who changed what (bookings, expenses, payouts, settings, team) */
 const AF={date:"Дата",apt:"Объект",guest:"Гость",nights:"Ночей",mdl:"Лей",eur:"€",usd:"$",oth:"Другая валюта",oth_cur:"Код валюты",util:"Коммуналка",util_cur:"Валюта коммуналки",pay:"Оплата",who:"Принял",note:"Заметка",source:"Откуда",phone:"Телефон",pax:"Гостей",price:"Цена",price_cur:"Валюта цены",pay_status:"Статус оплаты",tag:"Метка",category:"Категория",yearly:"Годовой",amount:"Сумма",method:"Как",paid_on:"Дата выплаты",role:"Роль",created:"Добавлено",dup:"Уже были",bad:"Пропущено",aptsAdded:"Новые объекты",aptsRemoved:"Удалены объекты",from:"Было",to:"Стало"};
-const AA={contract:"создал(а) договор",signed:"гость подписал договор",create:"добавил(а)",update:"изменил(а)",delete:"удалил(а)",request:"заявка со страницы бронирования",confirm:"подтвердил(а) заявку",decline:"отклонил(а) заявку",import:"импорт из файла",rename:"переименовал(а) объект",pay:"отметил(а) выплату",unpay:"снял(а) отметку о выплате",close:"закрыл(а) месяц",open:"открыл(а) месяц",add:"дал(а) доступ",remove:"убрал(а) доступ",role:"сменил(а) роль"};
+const AA={contract:"создал(а) договор",signed:"гость подписал договор",invoice:"выставил(а) счёт гостю",invoice_void:"отменил(а) счёт гостю",create:"добавил(а)",update:"изменил(а)",delete:"удалил(а)",request:"заявка со страницы бронирования",confirm:"подтвердил(а) заявку",decline:"отклонил(а) заявку",import:"импорт из файла",rename:"переименовал(а) объект",pay:"отметил(а) выплату",unpay:"снял(а) отметку о выплате",close:"закрыл(а) месяц",open:"открыл(а) месяц",add:"дал(а) доступ",remove:"убрал(а) доступ",role:"сменил(а) роль"};
 const AK={booking:"Бронь",expense:"Расход",settings:"Настройки",owner:"Собственник",team:"Команда",month:"Месяц",import:"Импорт"};
-const AS={checkin:"онлайн-заселение",contract:"договор",tax:"налоги",taxPaid:"оплата налогов",apts:"объекты",units:"детали объектов",addr:"адреса",owners:"собственники",pricing:"сезоны и цены",direct:"страница бронирования",rates:"курс валют",other:"другие валюты",people:"менеджеры",checklist:"чек-лист",onboarded:"первая настройка",archived:"архив объектов",payouts:"выплаты горничным",duty:"график смен",groups:"группы"};
+const AS={contract:"договор",tax:"налоги",taxPaid:"оплата налогов",apts:"объекты",units:"детали объектов",addr:"адреса",owners:"собственники",pricing:"сезоны и цены",direct:"страница бронирования",invoice:"счета гостям",rates:"курс валют",other:"другие валюты",people:"менеджеры",checklist:"чек-лист",onboarded:"первая настройка",archived:"архив объектов",payouts:"выплаты горничным",duty:"график смен",groups:"группы"};
 const PST={unpaid:"не оплачено",part:"частично",paid:"оплачено"};
 function audVal(f,v){if(v==null||v===""||v===0&&!["nights","pax"].includes(f))return "—";if(Array.isArray(v))return v.map(esc).join(", ")||"—";
   if(f==="date"||f==="paid_on")return dm(String(v));if(f==="tag")return ((TAGS.find(t=>t[0]===v)||[])[1])||String(v);if(f==="pay_status")return PST[v]||String(v);
@@ -2303,6 +2303,23 @@ document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.c
     const msg=`Bună ziua! Contractul de închiriere nr. ${r.number} pentru ${b.apt}: ${r.url}`;if(w)w.location.href="https://wa.me/"+digits(b.phone)+"?text="+encodeURIComponent(msg);kLoad(bid);return}
   t.disabled=true;const r=await kMake(bid,!!d.ksend);t.disabled=false;if(!r)return;
   if(d.ksend)toast(r.mailed==="failed"?"Письмо не ушло — скопируй ссылку":"Договор отправлен гостю");else gCopy(r.url,"Ссылка на договор скопирована — отправь гостю");kLoad(bid)});
+/* GUEST INVOICES: company → guest, public PDF link /factura/<token> */
+async function invLoad(bid){const box=$("bv-inv");if(!box||box.dataset.bid!==bid)return;let list=[];try{list=await api("kv_guest_invoice_list",{booking_id:bid})||[]}catch(e){box.innerHTML="";return}
+  if(!$("bv-inv")||$("bv-inv").dataset.bid!==bid)return;const b=bookings.find(x=>x.id===bid)||{},ready=!!((cfg.invoice||{}).name);
+  const st=s=>({sent:"ждёт оплаты",paid:"оплачен",void:"отменён"}[s]||s);
+  const rows=(list||[]).map(x=>`<div class="small" style="margin:4px 0"><a href="${esc(x.url)}" target="_blank" rel="noopener">№ ${esc(x.number)}</a> · ${dm(x.issued_at)} · ${fmt0(x.amount)} ${esc(CUR_L[x.currency]||x.currency)} · ${st(x.status)}
+    ${RO||x.status==="void"?"":` · <button type="button" class="linkbtn" data-invcopy="${esc(x.url)}">ссылка</button>${x.status==="sent"?` · <button type="button" class="linkbtn" data-invpaid="${esc(x.id)}" data-invbid="${esc(bid)}">оплачен</button> · <button type="button" class="linkbtn" data-invvoid="${esc(x.id)}" data-invbid="${esc(bid)}">отменить</button>`:""}`}</div>`).join("");
+  box.innerHTML=`<div class="kst"><b>Счёт гостю</b><span class="small">${ready?(list.length?"выставленные счета по этой брони":"из цены брони — ссылка и печать для гостя"):"сначала заполни поставщика в Настройки — Счета гостям"}</span>
+    ${rows}${RO||!ready?"":`<div class="actions"><button type="button" class="btn sm primary" data-invmake="${esc(bid)}">Выставить счёт</button>${b.email?`<button type="button" class="btn sm" data-invsend="${esc(bid)}">Выставить и отправить</button>`:""}</div>`}</div>`}
+document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("[data-invmake],[data-invsend],[data-invcopy],[data-invpaid],[data-invvoid]");if(!t)return;
+  if(t.dataset.invcopy){gCopy(t.dataset.invcopy,"Ссылка на счёт скопирована — отправь гостю в сообщении");return}
+  const bid=t.dataset.invmake||t.dataset.invsend||t.dataset.invbid;
+  if(t.dataset.invpaid){try{await api("kv_guest_invoice_paid",{id:t.dataset.invpaid});invLoad(bid);toast("Счёт отмечен оплаченным")}catch(x){toast("Не получилось")}return}
+  if(t.dataset.invvoid){if(!t.classList.contains("armed")){t.classList.add("armed");t.textContent="точно?";return}try{await api("kv_guest_invoice_void",{id:t.dataset.invvoid});invLoad(bid);toast("Счёт отменён")}catch(x){toast("Не получилось")}return}
+  t.disabled=true;try{const r=await api("kv_guest_invoice_create",{booking_id:bid,send:!!t.dataset.invsend});
+    toast(t.dataset.invsend?(r.mailed==="failed"?"Счёт создан, письмо не ушло — скопируй ссылку":"Счёт отправлен гостю"):("Счёт "+r.number));if(r.url)window.open(r.url,"_blank");invLoad(bid)}
+  catch(x){toast(x.code==="need_seller"?"Заполни поставщика в Настройки — Счета гостям":x.code==="bad_amount"?"У брони нет цены":x.code==="too_many_open"?"Уже 5 открытых счетов":x.code==="no_email"?"У брони нет почты":"Не получилось")}
+  finally{t.disabled=false}});
 let KT=null,KL="ro"; // contract template being edited
 function contractSection(){const c=cfg.contract||{};if(!KT)KT={...(c.tpl||{})};
   const f=(k,l,ph)=>`<div><label class="l" for="ks-${k}">${l}</label><input type="text" id="ks-${k}" value="${esc(c[k]||"")}" placeholder="${esc(ph||"")}" ${RO?"disabled":""}></div>`;
@@ -2489,6 +2506,57 @@ document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.c
   const direct={on:$("dr-on").checked,intro:$("dr-intro").value.trim().slice(0,400),phone:$("dr-phone").value.trim().slice(0,40),email:em,min:Math.max(1,Math.min(30,parseInt($("dr-min").value,10)||1)),terms:$("dr-terms").value.trim().slice(0,1500),arrival:$("dr-arr").checked,
     hidden:[...document.querySelectorAll("[data-drunit][aria-pressed=false]")].map(x=>x.dataset.drunit)};
   saveCfg({...cfg,direct},direct.on?"Страница бронирования включена":"Сохранено")});
+function invoiceSection(){const i=cfg.invoice||{},f=(k,l,ph,mx)=>`<div><label class="l" for="inv-${k}">${l}</label><input type="text" id="inv-${k}" value="${esc(i[k]||"")}" placeholder="${esc(ph||"")}" maxlength="${mx||120}" ${RO?"disabled":""}></div>`;
+  return `<div class="card"><p class="small" style="margin-top:0">Эти реквизиты попадают в счёт гостю. В брони — «Выставить счёт»: ссылка и печать, отдельная нумерация на компанию. Можно отправить на почту гостя или скопировать в сообщение.</p>
+    <div class="grid2">${f("name","Поставщик — фирма или ФИО","",120)}${f("idno","Идентификационный номер","",30)}</div>
+    <div class="grid2">${f("vat_code","Код НДС","",40)}${f("iban","Счёт в банке","",40)}</div>
+    <div class="grid2">${f("bank","Банк","",80)}${f("bic","Код банка","",20)}</div>
+    <label class="l" for="inv-address">Адрес</label><input type="text" id="inv-address" value="${esc(i.address||"")}" maxlength="300" ${RO?"disabled":""}>
+    <div class="grid2">${f("email","Почта на счёте","",120)}${f("phone","Телефон","",40)}</div>
+    <div class="grid2"><div><label class="l" for="inv-prefix">Префикс номера</label><input type="text" id="inv-prefix" value="${esc(i.prefix||"F")}" maxlength="12" ${RO?"disabled":""}></div>
+      <div><label class="l" for="inv-due">Срок оплаты, дней</label><input type="text" inputmode="numeric" id="inv-due" value="${esc(i.due_days??5)}" ${RO?"disabled":""}></div></div>
+    <div class="grid2"><div><label class="l" for="inv-lang">Язык счёта</label><select id="inv-lang" class="fsel" ${RO?"disabled":""}>${[["ro","Română"],["ru","Русский"],["en","English"]].map(([v,l])=>`<option value="${v}"${(i.lang||"ro")===v?" selected":""}>${l}</option>`).join("")}</select></div>
+      <div><label class="l" for="inv-vatr">Ставка НДС в процентах</label><input type="text" inputmode="decimal" id="inv-vatr" value="${esc(i.vat_rate??20)}" ${RO?"disabled":""}></div></div>
+    <label class="dtog" style="margin-top:10px"><input type="checkbox" id="inv-vat" ${i.vat?"checked":""} ${RO?"disabled":""}><span><b>Плательщик НДС</b><small>В счёте появятся сумма без НДС и НДС.</small></span></label>
+    <label class="l" for="inv-footer">Подпись внизу счёта</label><textarea id="inv-footer" rows="2" maxlength="500" ${RO?"disabled":""}>${esc(i.footer||"")}</textarea>
+    ${RO?"":`<div class="actions"><button type="button" class="btn primary" id="inv-save">Сохранить</button></div>`}</div>`}
+document.addEventListener("click",e=>{if(e.target.id!=="inv-save")return;
+  const g=k=>(($("inv-"+k)||{}).value||"").trim();
+  const invoice={name:g("name").slice(0,120),idno:g("idno").slice(0,30),vat_code:g("vat_code").slice(0,40),iban:g("iban").slice(0,40),bank:g("bank").slice(0,80),bic:g("bic").slice(0,20),
+    address:g("address").slice(0,300),email:g("email").slice(0,120),phone:g("phone").slice(0,40),prefix:(g("prefix")||"F").slice(0,12),
+    due_days:Math.max(0,Math.min(90,parseInt(g("due"),10)||5)),lang:["ro","ru","en"].includes(g("lang"))?g("lang"):"ro",
+    vat:$("inv-vat").checked,vat_rate:Math.max(0,Math.min(40,parseFloat(String(g("vatr")).replace(",","."))||20)),footer:g("footer").slice(0,500)};
+  if(!invoice.name){toast("Укажи поставщика");return}
+  saveCfg({...cfg,invoice},"Реквизиты для счетов сохранены")});
+let DISC=[];
+async function discLoad(){try{DISC=await api("kv_discount_list")||[]}catch(e){DISC=[]}if(setSec==="promo")renderSettings()}
+function discSection(){const rows=DISC.map(d=>`<div class="ckrow" style="flex-wrap:wrap;gap:6px;align-items:center"><b>${esc(d.code)}</b><span class="small">${d.kind==="pct"?d.value+"%":"−"+fmt0(d.value)+(d.currency?" "+d.currency:"")}${d.from_date||d.to_date?" · "+[d.from_date,d.to_date].filter(Boolean).map(dm).join("–"):""}${d.max_uses?" · "+d.used_count+"/"+d.max_uses:""}${d.apts&&d.apts.length?" · "+d.apts.length+" объект.":""}${d.active?"":" · выкл."}</span>
+  ${RO?"":`<button type="button" class="btn sm" data-discedit="${esc(d.id)}">Изменить</button><button type="button" class="btn sm danger" data-discdel="${esc(d.id)}">Удалить</button>`}</div>`).join("")||`<p class="small">Пока нет кодов. Гость вводит код на странице бронирования — цена уменьшается.</p>`;
+  const e=DISC_EDIT||{id:"",code:"",kind:"pct",value:"",from_date:"",to_date:"",max_uses:"",apts:[],active:true,note:""};
+  return `<div class="card" style="padding-top:6px">${rows}</div>
+    ${RO?"":`<div class="card"><b>${e.id?"Изменить код":"Новый код скидки"}</b>
+      <div class="grid2"><div><label class="l" for="dc-code">Код</label><input id="dc-code" value="${esc(e.code)}" maxlength="40" placeholder="SUMMER10" style="text-transform:uppercase"></div>
+        <div><label class="l" for="dc-kind">Тип</label><select id="dc-kind" class="fsel"><option value="pct"${e.kind!=="sum"?" selected":""}>Процент</option><option value="sum"${e.kind==="sum"?" selected":""}>Сумма</option></select></div></div>
+      <div class="grid2"><div><label class="l" for="dc-val">Значение</label><input id="dc-val" inputmode="decimal" value="${esc(e.value)}" placeholder="10"></div>
+        <div><label class="l" for="dc-max">Макс. использований <em>— ноль без лимита</em></label><input id="dc-max" inputmode="numeric" value="${esc(e.max_uses||"0")}"></div></div>
+      <div class="grid2"><div><label class="l" for="dc-from">Действует с</label><input type="date" id="dc-from" value="${esc(e.from_date||"")}"></div>
+        <div><label class="l" for="dc-to">по</label><input type="date" id="dc-to" value="${esc(e.to_date||"")}"></div></div>
+      <label class="l">Объекты <em>— пусто — все на странице</em></label>
+      <div class="uamen">${(cfg.apts||[]).map(a=>`<button type="button" data-dcap="${esc(a)}" aria-pressed="${(e.apts||[]).includes(a)}">${esc(a)}</button>`).join("")||`<span class="small">Нет объектов</span>`}</div>
+      <label class="dtog" style="margin-top:10px"><input type="checkbox" id="dc-on" ${e.active!==false?"checked":""}><span><b>Активен</b></span></label>
+      <div class="actions"><button type="button" class="btn primary" id="dc-save">Сохранить код</button>${e.id?`<button type="button" class="btn" id="dc-cancel">Отмена</button>`:""}</div></div>`}`}
+let DISC_EDIT=null;
+document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("#dc-save,#dc-cancel,[data-discedit],[data-discdel],[data-dcap]");if(!t)return;
+  if(t.dataset.dcap!=null){t.setAttribute("aria-pressed",String(t.getAttribute("aria-pressed")!=="true"));return}
+  if(t.id==="dc-cancel"){DISC_EDIT=null;renderSettings();return}
+  if(t.dataset.discedit){DISC_EDIT=DISC.find(x=>x.id===t.dataset.discedit)||null;renderSettings();return}
+  if(t.dataset.discdel){if(!t.classList.contains("armed")){t.classList.add("armed");t.textContent="Точно?";return}
+    try{await api("kv_discount_del",{id:t.dataset.discdel});DISC_EDIT=null;await discLoad();toast("Код удалён")}catch(x){toast("Не получилось")}return}
+  if(t.id!=="dc-save")return;
+  const d={id:(DISC_EDIT&&DISC_EDIT.id)||"",code:$("dc-code").value.trim(),kind:$("dc-kind").value,value:$("dc-val").value,max_uses:$("dc-max").value,
+    from_date:$("dc-from").value,to_date:$("dc-to").value,active:$("dc-on").checked,
+    apts:[...document.querySelectorAll("[data-dcap][aria-pressed=true]")].map(x=>x.dataset.dcap)};
+  t.disabled=true;try{await api("kv_discount_save",{d});DISC_EDIT=null;await discLoad();toast("Код сохранён")}catch(x){toast(x.code==="dup_code"?"Такой код уже есть":x.code==="bad_value"?"Проверь значение":"Не получилось")}finally{t.disabled=false}});
 function aptsSection(){
   const groups=[];cfg.apts.forEach((a,i)=>{const g=unitOf(a).group||"";let G=groups.find(x=>x.g===g);if(!G)groups.push(G={g,items:[]});G.items.push([a,i])});
   const multi=groups.length>1||groups[0]&&groups[0].g;
@@ -2769,7 +2837,7 @@ function xRows(b){const x=b.x||{},u=unitOf(b.apt),cs=(v,c)=>fmt0(v)+" "+(CUR_L[c
   return [["Дети",x.kids?String(x.kids):""],["Язык",LANG_T[x.lang]||""],["Время",x.tin||x.tout?"заезд "+(x.tin||u.cin||"14:00")+" · выезд "+(x.tout||u.cout||"12:00"):""],
     ["Для команды",x.team||""],["Залог",x.dep||x.dep_st?[x.dep?cs(x.dep,x.dep_cur||"MDL"):"",DEP_T[x.dep_st]||"",x.dep_st==="kept"&&x.dep_kept?"удержано "+cs(x.dep_kept,x.dep_cur||"MDL")+(x.dep_note?" ("+x.dep_note+")":""):""].filter(Boolean).join(" · "):""],
     ["Комиссия",x.com?cs(x.com,b.price_cur||"EUR")+(x.com_pct?" ("+x.com_pct+"%)":""):""],
-    ["Отмена",b.tag==="cancel"?[x.cx||"",x.cx_keep?"удержано "+fmt0(x.cx_keep):""].filter(Boolean).join(" · "):""]]}
+    ["Скидка",x.disc_code?`${x.disc_code} · −${cs(x.disc_off,b.price_cur||"EUR")}${x.disc_kind==="pct"?" ("+x.disc_value+"%)":""}`:""]]}
 function bookView(id){const b=bookings.find(x=>x.id===id);if(!b)return;const tg=TAGS.find(x=>x[0]===tagOf(b));
   const nn=+b.nights||0,nw=nn%10===1&&nn%100!==11?"ночь":[2,3,4].includes(nn%10)&&![12,13,14].includes(nn%100)?"ночи":"ночей";
   const cs=v=>fmt0(v)+" "+(CUR_L[b.price_cur||"EUR"]||b.price_cur||"");
@@ -2784,7 +2852,8 @@ function bookView(id){const b=bookings.find(x=>x.id===id);if(!b)return;const tg=
    <div class="bv-rows">${rows.map(([k,v])=>`<div><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join("")}</div>
    ${b.tag==="req"&&!RO?`<div class="bv-req"><p class="small">Заявка со страницы бронирования${b.email?" · "+esc(b.email):""}${b.pax?" · гостей: "+b.pax:""}. Даты пока заняты для неё.</p><div class="actions"><button type="button" class="btn primary" data-reqok="${esc(b.id)}">✓ Подтвердить</button><button type="button" class="btn danger" data-reqno="${esc(b.id)}">Отклонить</button></div></div>`:""}
    ${RO?"":`<button type="button" class="btn${b.tag==="req"?"":" primary"} bv-edit" data-bedit="${esc(b.id)}">Изменить бронь</button>`}
-   ${b.nights>0&&b.tag!=="closed"?`<div class="bv-ct2" id="bv-ci" data-bid="${esc(b.id)}">${(setTimeout(()=>ciLoad(b.id),0),"")}</div><div class="bv-ct2" id="bv-k" data-bid="${esc(b.id)}">${(setTimeout(()=>kLoad(b.id),0),"")}</div>`:""}
+   ${b.nights>0&&b.tag!=="closed"?`<div class="bv-ct2" id="bv-k" data-bid="${esc(b.id)}">${(setTimeout(()=>kLoad(b.id),0),"")}</div>`:""}
+   ${b.nights>0&&b.tag!=="closed"?`<div class="bv-ct2" id="bv-inv" data-bid="${esc(b.id)}">${(setTimeout(()=>invLoad(b.id),0),"")}</div>`:""}
    <button type="button" class="linkbtn" data-audref="${esc(b.id)}" style="margin-top:10px">🕘 История изменений</button></div>`)}
 document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("[data-reqok],[data-reqno],[data-bcancel]");if(!t)return;
   if(t.dataset.bcancel){cancelBooking(t.dataset.bcancel);return}
@@ -3622,6 +3691,8 @@ function renderSettings(){
     import:["chk","Импорт из Excel",`брони и объекты из файла · Excel, CSV, RealtyCalendar`,()=>importSection()],
     icals:["web","Календари площадок",ICAL_ST?`${ICAL_ST.total} ${plural(ICAL_ST.total,"ссылка","ссылки","ссылок")}${ICAL_ST.bad?" · "+ICAL_ST.bad+" с ошибкой":""}`:"статус синхронизации",()=>icalsSection()],
     direct:["web","Страница бронирования",cfg.direct&&cfg.direct.on?"включена · "+ME.org.code+".espace.md/rezerva":"гости бронируют напрямую, без комиссии",()=>directSection()],
+    invoice:["chk","Счета гостям",(cfg.invoice||{}).name?"поставщик — "+(cfg.invoice||{}).name:"реквизиты, НДС, нумерация",()=>invoiceSection()],
+    promo:["rate","Коды скидок",DISC.length?DISC.filter(x=>x.active).length+" "+plural(DISC.filter(x=>x.active).length,"активный","активных","активных"):"процент или сумма на странице бронирования",()=>{setTimeout(discLoad,0);return discSection()}],
     people:["mgr","Менеджеры",cfg.people.join(", ")||"не указаны",()=>`<div class="card"><label class="l" for="set-people">Менеджеры — кто принимает деньги и работает сменами <em>— через запятую</em></label><input type="text" id="set-people" value="${esc(cfg.people.join(", "))}">
       <div class="actions"><button class="btn primary" id="save-people">Сохранить</button></div></div>
     `],
