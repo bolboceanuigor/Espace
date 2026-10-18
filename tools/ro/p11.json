@@ -1,12 +1,5 @@
 {
-"Описание для гостей": "Descriere pentru oaspeți",
-"как добраться": "cum ajungi",
-"Описание": "Descriere",
-"что увидит гость на странице бронирования": "ce vede oaspetele pe pagina de rezervare",
-"Как добраться": "Cum ajungi",
-"от остановки, парковка, подъезд": "de la stație, parcare, scara",
-"Карта": "Hartă",
-"координаты или ссылка": "coordonate sau link",
-"пусто: из адреса": "gol: din adresă",
-"Укажи адрес объекта выше (в списке адресов) или координаты — гость увидит карту.": "Pune adresa obiectului mai sus (în lista de adrese) sau coordonatele — oaspetele va vedea harta."
+"Заявки": "Cereri",
+"Аннулированные": "Anulate",
+"Состояние броней": "Starea rezervărilor"
 }

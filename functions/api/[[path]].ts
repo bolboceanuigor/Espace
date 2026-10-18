@@ -129,7 +129,7 @@ async function passwordLink(db: D1Database, request: Request, userId: string, ho
 }
 
 const MONEY_KEYS = ["schet", "eur", "usd", "mdl"];
-const TAGS = ["booking", "airbnb", "closed", "cancel"];
+const TAGS = ["booking", "airbnb", "req", "cancel", "closed"];
 
 const xlsx = (buf: ArrayBuffer | Uint8Array, name: string) => new Response(buf as any, { headers: {
   "content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

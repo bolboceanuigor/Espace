@@ -263,6 +263,9 @@ button,.btn,.chip,nav.tabs,.mtile,.bar,.sh-name,.sh-day{-webkit-user-select:none
 .cbmon input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;border:0;padding:0}
 .cbchip{height:34px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-size:12.5px;cursor:pointer;flex:none}
 .cbchip[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:#fff}
+.cbst{display:flex;gap:4px;flex:none;flex-wrap:wrap;align-items:center}
+.cbst .cbchip{padding:0 10px;height:32px;font-size:12px}
+.bar.cancel{opacity:.55;filter:grayscale(.35)}.bar.cancel .nm{text-decoration:line-through}
 .cbbtn{position:relative;flex:none;width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);display:grid;place-items:center;cursor:pointer;padding:0}
 .cbbtn.add{background:var(--accent);border-color:var(--accent);color:#fff}
 .cbbtn.on{border-color:var(--accent);color:var(--accent)}
@@ -2911,7 +2914,10 @@ function payState(b){const air=b.source==="Airbnb"||b.pay==="Airbnb",got=b.night
   const left=pe&&got<pe?Math.round(fromEurC(pe-got,b.price_cur||"EUR")):0;return {state,got,pe,left,cur:b.price_cur||"EUR"}}
 const payActive=b=>occupies(b)&&b.tag!=="closed"&&b.tag!=="req"&&endOf(b)>=todayStr();
 // calendar colour = who made the booking (Excel keeps colouring by who took the money)
-const TAGS=[["booking","Booking","#f7c58a"],["airbnb","Airbnb","#f6a5a3"],["req","Заявка","#a9c8f5"],["closed","Закрыто","#5a606c"],["cancel","Отменена","#9aa0a8"]];
+const TAGS=[["booking","Booking","#f7c58a"],["airbnb","Airbnb","#f6a5a3"],["req","Заявка","#a9c8f5"],["cancel","Отмена","#c4c4c8"],["closed","Закрыто","#5a606c"]];
+const CAL_ST=[["all","Все"],["book","Брони"],["req","Заявки"],["cancel","Аннулированные"]];
+function calSt(){try{const v=localStorage.getItem("kv_calst")||"all";return CAL_ST.some(x=>x[0]===v)?v:"all"}catch(e){return"all"}}
+function calStOk(b){const m=calSt(),tg=tagOf(b);if(m==="all")return true;if(m==="req")return tg==="req";if(m==="cancel")return tg==="cancel";if(m==="book")return tg!=="req"&&tg!=="cancel";return true}
 const LANG_T={ro:"Română",ru:"Русский",en:"English",uk:"Украинский",other:"другой"},DEP_T={held:"получен",back:"возвращён",kept:"удержан"};
 function xRows(b){const x=b.x||{},u=unitOf(b.apt),cs=(v,c)=>fmt0(v)+" "+(CUR_L[c]||c||"");
   return [["Дети",x.kids?String(x.kids):""],["Язык",LANG_T[x.lang]||""],["Время",x.tin||x.tout?"заезд "+(x.tin||u.cin||"14:00")+" · выезд "+(x.tout||u.cout||"12:00"):""],
@@ -2998,7 +3004,7 @@ function renderCal(){
     if(hidU.has(a))continue;
     if(grouped){const g=unitOf(a).group||"";if(g!==lastG){lastG=g;nG++;rows+=`<div class="sh-grp" style="width:${Lw+n*W}px"><b>${esc(g||"Другие")}</b></div>`}}
     let nights=0; for(let i=0;i<n;i++) if(occ[a+"|"+(s0+i*DAY)]) nights++;
-    const list=bookings.filter(b=>b.apt===a&&b.nights>0&&toT(b.date)<s0+n*DAY&&toT(b.date)+b.nights*DAY>s0).sort((x,y)=>x.date.localeCompare(y.date)||(x.tag==="cancel"?1:0)-(y.tag==="cancel"?1:0));
+    const list=bookings.filter(b=>b.apt===a&&b.nights>0&&calStOk(b)&&toT(b.date)<s0+n*DAY&&toT(b.date)+b.nights*DAY>s0).sort((x,y)=>x.date.localeCompare(y.date));
     let bars="";
     const laneEnd=[], lane={};
     for(const b of list){const st=toT(b.date);let k=laneEnd.findIndex(e=>e<=st);if(k<0){k=laneEnd.length;laneEnd.push(0)}laneEnd[k]=st+b.nights*DAY;lane[b.id]=k}
@@ -3007,9 +3013,9 @@ function renderCal(){
       const st=(toT(b.date)-s0)/DAY, en=st+b.nights, L=Math.max(0,st), R=Math.min(n,en);
       const lz=lanes>1?`top:calc(${lane[b.id]*100/lanes}% + 2px);bottom:auto;height:calc(${100/lanes}% - 4px);padding-top:1px;`:"";
       const over=overlaps(b,bookings).length>0;
-      const bd=b.source==="Airbnb"||b.pay==="Airbnb"?`<span class="bd A">A</span>`:b.source==="Booking"?`<span class="bd B">B</span>`:(b.source==="Прямой"||b.source==="Direct"||(!b.source&&b.tag!=="closed"&&LIGHT()))?`<span class="bd D">D</span>`:"";
-      const label=b.tag==="closed"?("Закрыто"+(b.note?" · "+b.note:"")):b.tag==="cancel"?("Отменена"+(b.guest?" · "+b.guest:"")):LT?(b.guest||"без имени"):[b.guest||"без имени",b.phone].filter(Boolean).join(" ");
-      bars+=`<div class="bar${lz?" half":""}${(R-L)*W-4<64?" narrow":""}${LT&&(R-L)*W-4<130?" short":""}${st<0?" cut-l":""}${en>n?" cut-r":""}${over?" over":""}${b.tag==="closed"?" closed":""}${b.tag==="cancel"?" cancel":""}${payActive(b)&&payState(b).state==="unpaid"?" unp":""}" data-edit="${esc(b.id)}" style="${lz}left:${L*W+2}px;width:${(R-L)*W-4}px;background-color:${barCol(b)}" title="${esc(label+" · "+dm(b.date)+" → "+dm(endOf(b))+" · "+amounts(b)+((st<0||en>n)?" · в этом месяце "+Math.round(shareOf(b,mon.y,mon.m)*b.nights)+" из "+b.nights+" ночей":""))}">${over?"‼ ":""}${b.verified?`<span class="vk">✓</span>`:""}${bd}<span class="nm">${esc(label)}</span>${(()=>{if(payActive(b)){const ps=payState(b);if(ps.state!=="paid"){const t=ps.state==="unpaid"?(b.price?"не опл. "+fmt0(+b.price)+(ps.cur==="EUR"?"€":ps.cur==="USD"?"$":""):"не опл."):(ps.left?"ещё "+fmt0(ps.left)+(ps.cur==="EUR"?"€":ps.cur==="USD"?"$":""):"аванс");return `<span class="amt pst">${esc(t)}</span>`}}const cut=false;if(!shortAmt(b))return "";if((R-L)*W-4<64){const k=cut?shareOf(b,mon.y,mon.m):1;return `<span class="amt tiny" title="${esc(shortAmt(b,k))}">${esc(tinyAmt(b,k))}</span>`}if(!cut)return `<span class="amt">${esc(shortAmt(b))}</span>`;const k=shareOf(b,mon.y,mon.m);return `<span class="amt" title="за этот месяц ${esc(shortAmt(b,k))} из ${esc(shortAmt(b))}">${esc(shortAmt(b,k))}</span>`})()}</div>`;
+      const bd=b.source==="Airbnb"||b.pay==="Airbnb"?`<span class="bd A">A</span>`:b.source==="Booking"?`<span class="bd B">B</span>`:(b.source==="Прямой"||b.source==="Direct"||(!b.source&&b.tag!=="closed"&&b.tag!=="cancel"&&LIGHT()))?`<span class="bd D">D</span>`:"";
+      const label=b.tag==="closed"?("Закрыто"+(b.note?" · "+b.note:"")):b.tag==="cancel"?("Отмена · "+(b.guest||"без имени")):LT?(b.guest||"без имени"):[b.guest||"без имени",b.phone].filter(Boolean).join(" ");
+      bars+=`<div class="bar${lz?" half":""}${(R-L)*W-4<64?" narrow":""}${LT&&(R-L)*W-4<130?" short":""}${st<0?" cut-l":""}${en>n?" cut-r":""}${over?" over":""}${b.tag==="closed"?" closed":""}${b.tag==="cancel"?" cancel":""}${payActive(b)&&payState(b).state==="unpaid"?" unp":""}" data-edit="${esc(b.id)}" style="${lz}left:${L*W+2}px;width:${(R-L)*W-4}px;background-color:${barCol(b)}" title="${esc(label+" · "+dm(b.date)+" → "+dm(endOf(b))+" · "+amounts(b)+((st<0||en>n)?" · в этом месяце "+Math.round(shareOf(b,mon.y,mon.m)*b.nights)+" из "+b.nights+" ночей":""))}">${over?"‼ ":""}${b.verified?`<span class="vk">✓</span>`:""}${bd}<span class="nm">${esc(label)}</span>${(()=>{if(b.tag==="cancel")return "";if(payActive(b)){const ps=payState(b);if(ps.state!=="paid"){const t=ps.state==="unpaid"?(b.price?"не опл. "+fmt0(+b.price)+(ps.cur==="EUR"?"€":ps.cur==="USD"?"$":""):"не опл."):(ps.left?"ещё "+fmt0(ps.left)+(ps.cur==="EUR"?"€":ps.cur==="USD"?"$":""):"аванс");return `<span class="amt pst">${esc(t)}</span>`}}const cut=false;if(!shortAmt(b))return "";if((R-L)*W-4<64){const k=cut?shareOf(b,mon.y,mon.m):1;return `<span class="amt tiny" title="${esc(shortAmt(b,k))}">${esc(tinyAmt(b,k))}</span>`}if(!cut)return `<span class="amt">${esc(shortAmt(b))}</span>`;const k=shareOf(b,mon.y,mon.m);return `<span class="amt" title="за этот месяц ${esc(shortAmt(b,k))} из ${esc(shortAmt(b))}">${esc(shortAmt(b,k))}</span>`})()}</div>`;
     }
     const cells=dayCells(a,s0,n,W,list);
     const uc=capOf(unitOf(a)),ul=unitLine(a),ug=unitOf(a).group;
@@ -3028,15 +3034,17 @@ function renderCal(){
 // light look: the calendar has its own bar — month (tap to jump), price mode, which units to show, new booking
 const mono=a=>{const w=String(a).replace(/[^\p{L}\p{N} ]/gu," ").trim().split(/\s+/).filter(x=>/^\p{L}/u.test(x));return ((w.length>1?w[0][0]+w[1][0]:(w[0]||String(a)).slice(0,2))||"?").toUpperCase()};
 function calBar(on){const el=$("c-bar");if(!el)return;el.hidden=!on;if(!on)return;
-  const hid=calHidden(),nh=cfg.apts.filter(a=>hid.has(a)).length;
+  const hid=calHidden(),nh=cfg.apts.filter(a=>hid.has(a)).length,st=calSt();
   el.innerHTML=`<label class="cbmon"><span id="c-mon"></span><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg><input type="date" id="c-jump" aria-label="Перейти к дате"></label>
+    <div class="cbst" role="tablist" aria-label="Состояние броней">${CAL_ST.map(([k,l])=>`<button type="button" class="cbchip" data-calst="${k}" aria-pressed="${st===k}">${l}</button>`).join("")}</div>
     ${RO?"":`<button type="button" id="c-pm" class="cbchip" aria-pressed="${calPM}">Цены</button>`}
     ${RO?"":`<button type="button" id="c-offer" class="cbchip" title="Ссылка-предложение для гостя">Оферта</button>`}
     <button type="button" class="cbbtn${nh?" on":""}" id="c-flt" aria-label="Какие объекты показывать" title="Какие объекты показывать"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>${nh?`<i>${nh}</i>`:""}</button>
     ${RO?"":`<button type="button" class="cbbtn add" id="c-add" aria-label="Новая бронь" title="Новая бронь"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>`}`}
 function calHidden(){try{return new Set(JSON.parse(localStorage.getItem("kv_calhide")||"[]"))}catch(e){return new Set()}}
 document.addEventListener("change",e=>{if(e.target.id!=="c-jump"||!e.target.value)return;const el=$("c-body"),i=Math.round((toT(e.target.value)-calS0)/DAY);el.scrollTo({left:Math.max(0,i)*calW,behavior:"smooth"});e.target.value=""});
-document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("#c-flt,#c-add,#c-offer,[data-calhide],#c-showall");if(!t)return;
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("#c-flt,#c-add,[data-calhide],#c-showall,[data-calst]");if(!t)return;
+  if(t.dataset.calst!=null){try{localStorage.setItem("kv_calst",t.dataset.calst)}catch(x){}renderCal();return}
   if(t.id==="c-add"){newB("",todayStr());return}
   if(t.id==="c-offer"){offerSheet();return}
   const hid=calHidden();
