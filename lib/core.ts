@@ -82,10 +82,38 @@ export const failClear = (db: D1Database, k: string) => run(db, "DELETE FROM aut
 
 // ---------- sessions ----------
 export const SESSION_DAYS = 90;
-export async function newSession(db: D1Database, userId: string, orgId: string) {
-  const token = randHex(32);
-  await run(db, "INSERT INTO sessions(token_hash, user_id, org_id, expires_at) VALUES (?,?,?,?)",
-    await sha256hex(token), userId, orgId, new Date(Date.now() + SESSION_DAYS * 86400000).toISOString());
+export type SessionMeta = { ua?: string; ip?: string };
+export function clientMeta(req: Request): SessionMeta {
+  const fwd = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim();
+  return { ua: req.headers.get("user-agent") || "", ip: req.headers.get("cf-connecting-ip") || fwd || "" };
+}
+export function deviceLabel(ua: string) {
+  const s = String(ua || "");
+  let browser = "Browser";
+  if (/Edg\//i.test(s)) browser = "Edge";
+  else if (/OPR\/|Opera/i.test(s)) browser = "Opera";
+  else if (/Chrome\//i.test(s) || /CriOS\//i.test(s)) browser = "Chrome";
+  else if (/Firefox\//i.test(s) || /FxiOS\//i.test(s)) browser = "Firefox";
+  else if (/Safari\//i.test(s)) browser = "Safari";
+  let os = "";
+  if (/iPhone|iPad|iPod/i.test(s)) os = "iOS";
+  else if (/Android/i.test(s)) os = "Android";
+  else if (/Mac OS X|Macintosh/i.test(s)) os = "macOS";
+  else if (/Windows/i.test(s)) os = "Windows";
+  else if (/Linux/i.test(s)) os = "Linux";
+  return [browser, os].filter(Boolean).join(" · ");
+}
+export async function newSession(db: D1Database, userId: string, orgId: string, meta: SessionMeta = {}) {
+  const token = randHex(32), id = randHex(16), now = nowIso();
+  const th = await sha256hex(token);
+  const exp = new Date(Date.now() + SESSION_DAYS * 86400000).toISOString();
+  const ua = String(meta.ua || "").slice(0, 240), ip = String(meta.ip || "").slice(0, 64);
+  try {
+    await run(db, "INSERT INTO sessions(token_hash, user_id, org_id, expires_at, id, ua, ip, last_seen) VALUES (?,?,?,?,?,?,?,?)",
+      th, userId, orgId, exp, id, ua, ip, now);
+  } catch {
+    await run(db, "INSERT INTO sessions(token_hash, user_id, org_id, expires_at) VALUES (?,?,?,?)", th, userId, orgId, exp);
+  }
   return token;
 }
 export function bearer(req: Request) {
@@ -149,7 +177,12 @@ export async function loadSession(db: D1Database, env: Env, token: string): Prom
       rights = role === "owner" ? { apts: null, sections: null } : parseRights(m);
     }
   }
-  return { user, org, role, tokenHash: th, isSuper, support, rights };
+  // refresh last_seen at most every 30 minutes (column may be missing on an old database)
+  const seen = String(s.last_seen || "");
+  if (!seen || Date.now() - Date.parse(seen) > 30 * 60000) {
+    run(db, "UPDATE sessions SET last_seen = ? WHERE token_hash = ?", nowIso(), th).catch(() => {});
+  }
+  return { user, org, role, tokenHash: th, isSuper, support };
 }
 
 // ---------- roles ----------

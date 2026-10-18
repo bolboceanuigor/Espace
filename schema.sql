@@ -44,7 +44,11 @@ CREATE TABLE IF NOT EXISTS sessions (
   user_id TEXT NOT NULL,
   org_id TEXT NOT NULL DEFAULT '',
   expires_at TEXT NOT NULL,
-  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  id TEXT NOT NULL DEFAULT '',
+  ua TEXT NOT NULL DEFAULT '',
+  ip TEXT NOT NULL DEFAULT '',
+  last_seen TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS sessions_user_idx ON sessions(user_id);
 CREATE TABLE IF NOT EXISTS payments (
