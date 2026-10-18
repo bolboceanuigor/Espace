@@ -316,11 +316,16 @@ body.calmode .ctopbar{padding-top:calc(8px + env(safe-area-inset-top,0px))}
 :root[data-skin="host"] .sh-tl .wk,:root[data-skin="host"] .sh-tl .mline{display:none}
 :root[data-skin="host"] .sh-tl{background-image:none!important}
 :root[data-skin="host"] .sh-row{border-bottom:1px solid var(--line)!important}
-:root[data-skin="host"] .sh.sq .sh-name{font-size:12px;font-weight:600;color:var(--ink);gap:10px;padding:0 8px 0 12px;border-right:1px solid var(--line);justify-content:center}
+:root[data-skin="host"] .sh.sq .sh-name{font-size:12px;font-weight:600;color:var(--ink);gap:10px;padding:0 8px 0 12px;border-right:1px solid var(--line);justify-content:flex-start}
 :root[data-skin="host"] .sh.sq .sh-name span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 :root[data-skin="host"] .sh.sq .sh-name em,:root[data-skin="host"] .sh.sq .sh-name .cap{display:none}
-:root[data-skin="host"] .sh-name .tn{display:grid!important;width:40px;height:40px;flex:none;border-radius:50%;box-shadow:0 0 0 2px #fff}
-:root[data-skin="host"] .sh-name .tn.mono{background:var(--accent-soft);color:var(--accent);font-size:11px;font-weight:700;place-items:center}
+:root[data-skin="host"] .sh-name .tn{display:grid!important;width:40px;height:40px;flex:none;border-radius:50%;box-shadow:0 0 0 2px #fff,0 4px 14px rgba(26,35,50,.16);background-color:var(--accent-soft)}
+:root[data-skin="host"] .sh-name .tn.mono{background:linear-gradient(145deg,var(--tn-a,var(--accent-soft)),var(--tn-b,var(--accent-soft)));color:#fff;font-size:11px;font-weight:700;place-items:center;text-shadow:0 1px 1px rgba(0,0,0,.12)}
+/* pics: doar cerculețe (Hostfully); names: doar text, denumirea se întinde */
+:root[data-skin="host"] .sh.pics .sh-name{justify-content:center;gap:0;padding-left:8px;padding-right:8px}
+:root[data-skin="host"] .sh.pics .sh-name span{max-width:0;opacity:0;transform:translateX(-10px);margin:0;pointer-events:none}
+:root[data-skin="host"] .sh.names .sh-name{padding-left:14px;gap:0;justify-content:flex-start}
+:root[data-skin="host"] .sh.names .sh-name span{max-width:100%;opacity:1;transform:none;font-size:13.5px;font-weight:700;letter-spacing:-.015em;color:var(--ink)}
 :root[data-skin="host"] .sh.sq .bar{top:max(3px,calc((var(--H) - 28px) / 2));bottom:auto;height:min(28px,calc(var(--H) - 8px));padding:0 8px 0 6px;display:flex;align-items:center;gap:6px;font-size:12px;line-height:1.4;border-radius:14px;box-shadow:none}
 :root[data-skin="host"] .sh.sq .bar .nm{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 :root[data-skin="host"] .sh.sq .bar .amt{position:static;margin-left:auto;padding-left:6px;background:none;color:rgba(255,255,255,.92);font-size:11px;flex:none}
@@ -329,6 +334,19 @@ body.calmode .ctopbar{padding-top:calc(8px + env(safe-area-inset-top,0px))}
 :root[data-skin="host"] .sh.sq .bar .amt{font-weight:500!important;opacity:.9}
 :root[data-skin="host"] .sh.sq .sh-name{box-shadow:none!important;padding:0 8px;gap:10px}
 :root[data-skin="host"] .sh.sq .bar.short .amt{display:none}
+/* Hostfully-style apt thumbs: tap circle → retract photo, expand name */
+.sh.sq .sh-name .tn{display:grid;place-items:center;flex:none;width:36px;height:36px;border-radius:50%;background:var(--accent-soft) center/cover no-repeat;color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;overflow:hidden;box-shadow:0 0 0 2px rgba(255,255,255,.9),0 3px 10px rgba(0,0,0,.12);
+  transition:width .45s cubic-bezier(.32,.72,0,1),height .45s cubic-bezier(.32,.72,0,1),opacity .3s ease,transform .45s cubic-bezier(.32,.72,0,1),margin .45s cubic-bezier(.32,.72,0,1),filter .35s ease,box-shadow .35s ease;will-change:width,transform,opacity}
+.sh.sq .sh-name .tn:active{transform:scale(.9)}
+.sh.sq .sh-name .tn.mono{background-image:linear-gradient(145deg,var(--tn-a,#5b8def),var(--tn-b,#2f6fed));color:#fff}
+.sh.sq .sh-name span{transition:opacity .35s cubic-bezier(.32,.72,0,1),transform .45s cubic-bezier(.32,.72,0,1),max-width .45s cubic-bezier(.32,.72,0,1),font-size .35s ease}
+.sh.names .sh-name .tn{width:0!important;height:0!important;opacity:0;margin:0!important;transform:scale(.45);filter:blur(6px);pointer-events:none;box-shadow:none!important}
+.sh.names .sh-name span{transform:translateX(0);opacity:1}
+.sh.tn-anim.pics .sh-name .tn{animation:tn-pop .55s cubic-bezier(.32,.72,0,1) both}
+@keyframes tn-pop{from{opacity:0;transform:scale(.55) rotate(-6deg)}to{opacity:1;transform:scale(1) rotate(0)}}
+@media (prefers-reduced-motion:reduce){
+  .sh.sq .sh-name .tn,.sh.sq .sh-name span{transition:none!important;animation:none!important}
+}
 @media (max-width:859px){
   :root[data-skin="host"] #c-body{margin:0;border-radius:0!important;box-shadow:none}
   :root[data-skin="host"] body.calmode,:root[data-skin="host"] #v-cal{background:var(--surface)}
@@ -3039,6 +3057,17 @@ function calSt(){try{const v=localStorage.getItem("kv_calst")||"all";return CAL_
 const CAL_SZ={sm:{cell:36,label:"Mic"},md:{cell:48,label:"Standard"},lg:{cell:66,label:"Mare"}};
 function calSz(){try{const v=localStorage.getItem("kv_calsz")||"md";return CAL_SZ[v]?v:"md"}catch(e){return"md"}}
 function calSzBtns(){const sz=calSz();return `<div class="cbsz" role="group" aria-label="Mărimea calendarului">${[["sm","Mic"],["md","Standard"],["lg","Mare"]].map(([k,l])=>`<button type="button" class="cbsz-b" data-calsz="${k}" aria-pressed="${sz===k}" title="${l}"><i class="cbsz-i ${k}"></i><span>${l}</span></button>`).join("")}</div>`}
+/* Hostfully: photos in circles (default); tap → retract photo, expand name text */
+const mono=a=>{const w=String(a).replace(/[^\p{L}\p{N} ]/gu," ").trim().split(/\s+/).filter(x=>/^\p{L}/u.test(x));return ((w.length>1?w[0][0]+w[1][0]:(w[0]||String(a)).slice(0,2))||"?").toUpperCase()};
+function calPicOn(){try{return localStorage.getItem("kv_calpic")!=="0"}catch(e){return true}}
+function tnHue(a){let h=0;const s=String(a);for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;const a1=h%360,a2=(a1+38)%360;return`--tn-a:hsl(${a1} 62% 52%);--tn-b:hsl(${a2} 68% 42%)`}
+function calThumb(a){const m=mono(a);return photos[a]
+  ?`<i class="tn" data-calpic role="button" tabindex="0" title="${esc(a)}" aria-label="${esc(a)}" style="background-image:url('${photos[a]}')"></i>`
+  :`<i class="tn mono" data-calpic role="button" tabindex="0" title="${esc(a)}" aria-label="${esc(m)}" style="${tnHue(a)}">${esc(m)}</i>`}
+function toggleCalPic(){const show=!calPicOn();try{localStorage.setItem("kv_calpic",show?"1":"0")}catch(x){}
+  const sh=$("c-body")&&$("c-body").querySelector(".sh");if(!sh){renderCal();return}
+  sh.classList.toggle("pics",show);sh.classList.toggle("names",!show);
+  if(show){sh.classList.remove("tn-anim");void sh.offsetWidth;sh.classList.add("tn-anim");clearTimeout(toggleCalPic._t);toggleCalPic._t=setTimeout(()=>sh.classList.remove("tn-anim"),600)}}
 function calStOk(b){const m=calSt(),tg=tagOf(b);if(m==="all")return true;if(m==="req")return tg==="req";if(m==="cancel")return tg==="cancel";if(m==="book")return tg!=="req"&&tg!=="cancel";return true}
 const LANG_T={ro:"Română",ru:"Rusă",en:"English",uk:"Ucraineană",other:"alta"},DEP_T={held:"primită",back:"returnată",kept:"reținută"};
 function xRows(b){const x=b.x||{},u=unitOf(b.apt),cs=(v,c)=>fmt0(v)+" "+(CUR_L[c]||c||"");
@@ -3147,10 +3176,10 @@ function renderCal(){
     }
     const cells=dayCells(a,s0,n,W,list);
     const uc=capOf(unitOf(a)),ul=unitLine(a),ug=unitOf(a).group;
-    rows+=`<div class="sh-row${ug?" grp":""}"><div class="sh-name" data-aptpage="${esc(a)}" title="${esc([ug,ul].filter(Boolean).join(" · "))}">${photos[a]?`<i class="tn" style="background-image:url('${photos[a]}')"></i>`:LT?`<i class="tn mono">${esc(mono(a))}</i>`:""}<span>${esc(a)}${uc?`<small class="cap">👤${uc}</small>`:""}</span><em>${nights}</em></div><div class="sh-tl" data-tl="${esc(a)}" style="width:${n*W}px">${wk}${mLine}${tdMark}${cells}${bars}</div></div>`;
+    rows+=`<div class="sh-row${ug?" grp":""}"><div class="sh-name" data-aptpage="${esc(a)}" title="${esc([ug,ul].filter(Boolean).join(" · ")||a)}">${calThumb(a)}<span>${esc(a)}${uc?`<small class="cap">👤${uc}</small>`:""}</span><em>${nights}</em></div><div class="sh-tl" data-tl="${esc(a)}" style="width:${n*W}px">${wk}${mLine}${tdMark}${cells}${bars}</div></div>`;
   }
   document.body.classList.toggle("calpm",calPM);
-  $("c-body").innerHTML=`<div class="sh sq sz-${sz}${calPM?" pm":""}" style="--W:${W}px;--L:${Lw}px;--H:${H}px;--cell:${cell}px;width:${Lw+n*W}px">${head}${rows}</div>`;
+  $("c-body").innerHTML=`<div class="sh sq sz-${sz}${calPM?" pm":""}${calPicOn()?" pics":" names"}" style="--W:${W}px;--L:${Lw}px;--H:${H}px;--cell:${cell}px;width:${Lw+n*W}px">${head}${rows}</div>`;
   {const el=$("c-body"),key=todayStr()+"|"+sz+"|"+W+"|"+P,keep=calKey===key?el.scrollLeft:null,t0=el.scrollTop;calKey=key;
    const bodyH=HEADH+visN*H+nG*22+2;
    const maxH=Math.max(260,innerHeight-el.getBoundingClientRect().top-navH-8);
@@ -3162,7 +3191,6 @@ function renderCal(){
      if(P2!==P&&!calRefit){calRefit=true;renderCal();calRefit=false}})}
 }
 // Fresha-inspired calendar top bar: ☰ size menu · date range ▾ · bell · account
-const mono=a=>{const w=String(a).replace(/[^\p{L}\p{N} ]/gu," ").trim().split(/\s+/).filter(x=>/^\p{L}/u.test(x));return ((w.length>1?w[0][0]+w[1][0]:(w[0]||String(a)).slice(0,2))||"?").toUpperCase()};
 const HAM_I='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>';
 const CHEV_I='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
 const BELL_I='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg>';
@@ -3178,7 +3206,8 @@ function calBar(on){const el=$("c-bar");if(!el)return;el.hidden=!on;if(!on)retur
 function openCalMenu(){
   const sz=calSz(), hid=calHidden(), nh=cfg.apts.filter(a=>hid.has(a)).length, st=calSt();
   const szRow=(k,l,sub)=>`<button type="button" data-calsz="${k}" aria-pressed="${sz===k}"><span class="qi"><i class="${k}"></i></span><span><b>${l}</b><small>${sub}</small></span></button>`;
-  openSheet("Calendar",`<p class="small" style="margin-top:0">Celulele mai comode la apăsat și la citit rezervările. Glisează calendarul stânga-dreapta ca să schimbi zilele.</p>
+  const pic=calPicOn();
+  openSheet("Calendar",`<p class="small" style="margin-top:0">Apasă cerculețul apartamentului — poza dispare și rămâne doar denumirea. Din nou în stânga — pozele revin. Glisează calendarul stânga-dreapta ca să schimbi zilele.</p>
     <div class="mgroup">Mărime</div><div class="cszlist">
       ${szRow("sm","Mic","mai multe zile pe ecran · 36×36")}
       ${szRow("md","Standard","sold · 48×48")}
@@ -3186,6 +3215,7 @@ function openCalMenu(){
     </div>
     <div class="mgroup">Mai mult</div><div class="cmore">
       <div class="cbst" role="tablist" aria-label="Starea rezervărilor" style="margin-bottom:4px">${CAL_ST.map(([k,l])=>`<button type="button" class="cbchip" data-calst="${k}" aria-pressed="${st===k}">${l}</button>`).join("")}</div>
+      <button type="button" id="c-pic" aria-pressed="${pic}">${pic?"Ascunde pozele apartamentelor":"Arată pozele apartamentelor"}</button>
       ${RO?"":`<button type="button" id="c-pm" aria-pressed="${calPM}">${calPM?"Ascunde prețurile":"Prețuri pe zile"}</button>`}
       ${RO?"":`<button type="button" id="c-offer">Link-ofertă</button>`}
       <button type="button" id="c-flt">Obiecte în calendar${nh?" · ascuns "+nh:""}</button>
@@ -3195,11 +3225,12 @@ function openCalMenu(){
 }
 function calHidden(){try{return new Set(JSON.parse(localStorage.getItem("kv_calhide")||"[]"))}catch(e){return new Set()}}
 document.addEventListener("change",e=>{if(e.target.id!=="c-jump"||!e.target.value)return;const el=$("c-body"),i=Math.round((toT(e.target.value)-calS0)/DAY);el.scrollTo({left:Math.max(0,i)*calW,behavior:"smooth"});e.target.value=""});
-document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("#c-menu,#c-bell,#c-acct,#c-gotoday,#c-flt,#c-add,#c-pm,#c-offer,[data-calhide],#c-showall,[data-calst],[data-calsz]");if(!t)return;
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("#c-menu,#c-bell,#c-acct,#c-gotoday,#c-flt,#c-add,#c-pm,#c-offer,#c-pic,[data-calhide],#c-showall,[data-calst],[data-calsz]");if(!t)return;
   if(t.id==="c-menu"){openCalMenu();return}
   if(t.id==="c-bell"){bellSheet(notifs,"bellseen","c-bell-badge");bellUpdate(notifs,"bell-badge","bellseen");return}
   if(t.id==="c-acct"){settingsPage("acct");return}
   if(t.id==="c-gotoday"){closeSheet();const el=$("c-body");if(el)el.scrollTo({left:calB*calW,behavior:"smooth"});return}
+  if(t.id==="c-pic"){toggleCalPic();if(sheetCtx&&sheetCtx.type==="calmenu")openCalMenu();return}
   if(t.dataset.calsz!=null){try{localStorage.setItem("kv_calsz",t.dataset.calsz)}catch(x){}calKey="";closeSheet();renderCal();return}
   if(t.dataset.calst!=null){try{localStorage.setItem("kv_calst",t.dataset.calst)}catch(x){}if(sheetCtx&&sheetCtx.type==="calmenu")openCalMenu();else renderCal();return}
   if(t.id==="c-add"){if(sheetCtx&&sheetCtx.type==="calmenu")closeSheet();newB("",todayStr());return}
@@ -4669,7 +4700,15 @@ function toast(t){if(RO&&!/просмотр|vizualizare|view/i.test(t)&&Date.now
 
 document.addEventListener("click",e=>{
   if(e.target.closest(".acts a")) return;
-  const ap=e.target.closest("[data-aptpage]"); if(ap){aptPage(ap.dataset.aptpage);return}
+  if(e.target.closest("[data-calpic]")){e.preventDefault();e.stopPropagation();toggleCalPic();return}
+  const ap=e.target.closest("[data-aptpage]");
+  if(ap){
+    // names mode: tap left edge where the photo was → restore circles (Hostfully)
+    if(ap.classList.contains("sh-name")&&!calPicOn()){
+      const x=e.clientX-ap.getBoundingClientRect().left;if(x<40){toggleCalPic();return}
+    }
+    aptPage(ap.dataset.aptpage);return
+  }
   if(e.target.id==="c-today"){const el=$("c-body");el.scrollTo({left:calB*calW,behavior:"smooth"});return}
   {const nv=e.target.closest("[data-calnav]");if(nv){calOff+=(+nv.dataset.calnav)*CAL_N;renderCal();return}}
   const tl=e.target.closest("[data-tl]"); if(tl&&calPM){const x=e.clientX-tl.getBoundingClientRect().left;const i=Math.floor(x/calW);pmTap(tl.dataset.tl,fromT(calS0+i*DAY));return}
