@@ -1868,6 +1868,18 @@ function unitForm(a){const u=unitOf(a),b=u.beds||{},groups=[...new Set(cfg.apts.
       <label class="l">Sosire doar în aceste zile <em>— nimic ales: în oricare</em></label>
       <div class="uamen">${[1,2,3,4,5,6,0].map(w=>`<button type="button" data-uarr="${w}" aria-pressed="${(u.arr||[]).includes(w)}">${WD[w]}</button>`).join("")}</div>
       <p class="small" style="margin:6px 0 0">Prețuri și zile închise pe date anume — în calendar, butonul «Prețuri».</p></details>
+    <details class="usec" ${(u.desc&&(u.desc.ru||u.desc.ro||u.desc.en))||(u.how&&(u.how.ru||u.how.ro||u.how.en))||u.map?" open":""}><summary>Descriere pentru oaspeți <small>RO / RU / EN · cum ajungi · hartă</small></summary>
+      <div class="az-seg" role="tablist" style="margin:8px 0" id="uf-ilang">${[["ru","RU"],["ro","RO"],["en","EN"]].map(([k,l])=>`<button type="button" data-uilang="${k}" aria-selected="${(window._ufLang||"ru")===k}">${l}</button>`).join("")}</div>
+      <div data-ufpanel="ru" ${((window._ufLang||"ru")!=="ru")?"hidden":""}><label class="l" for="uf-desc-ru">Descriere (RU)</label><textarea id="uf-desc-ru" rows="3" placeholder="ce vede oaspetele pe pagina de rezervare">${esc((u.desc||{}).ru||"")}</textarea>
+        <label class="l" for="uf-how-ru">Cum ajungi (RU)</label><textarea id="uf-how-ru" rows="2" placeholder="de la stație, parcare, scara…">${esc((u.how||{}).ru||"")}</textarea></div>
+      <div data-ufpanel="ro" ${(window._ufLang||"ru")!=="ro"?"hidden":""}><label class="l" for="uf-desc-ro">Descriere (RO)</label><textarea id="uf-desc-ro" rows="3" placeholder="ce vede oaspetele pe pagina de rezervare">${esc((u.desc||{}).ro||"")}</textarea>
+        <label class="l" for="uf-how-ro">Cum ajungi (RO)</label><textarea id="uf-how-ro" rows="2" placeholder="de la stație, parcare, scara…">${esc((u.how||{}).ro||"")}</textarea></div>
+      <div data-ufpanel="en" ${(window._ufLang||"ru")!=="en"?"hidden":""}><label class="l" for="uf-desc-en">Description (EN)</label><textarea id="uf-desc-en" rows="3" placeholder="what the guest sees on the booking page">${esc((u.desc||{}).en||"")}</textarea>
+        <label class="l" for="uf-how-en">How to get there (EN)</label><textarea id="uf-how-en" rows="2" placeholder="from the stop, parking, entrance…">${esc((u.how||{}).en||"")}</textarea></div>
+      <label class="l" for="uf-map">Hartă <em>— coordonate sau link Google Maps; gol: din adresă</em></label>
+      <input type="text" id="uf-map" value="${esc(u.map||"")}" placeholder="47.0245, 28.8322 sau https://maps.google.com/…">
+      ${(u.map||(cfg.addr||{})[a])?`<iframe class="gmap" style="margin-top:8px;width:100%;height:160px;border:0;border-radius:12px" loading="lazy" src="https://maps.google.com/maps?q=${encodeURIComponent(u.map||(cfg.addr||{})[a]||a)}&z=16&output=embed" title="hartă"></iframe>`:`<p class="small" style="margin:6px 0 0">Pune adresa obiectului mai sus (în lista de adrese) sau coordonatele — oaspetele va vedea harta.</p>`}
+    </details>
     <label class="l" for="uf-note">Note</label><textarea id="uf-note" rows="2" placeholder="unde e lenjeria, particularități…">${esc(u.note||"")}</textarea>
     <div class="uical" id="uf-ical" data-apt="${esc(a)}"><label class="l">Sincronizare cu Airbnb și Booking</label><div id="uf-ical-body" class="small">Încarc…</div></div>
     <div class="actions"><button type="button" class="btn primary" data-usave="${esc(a)}">Salvează</button>${cfg.apts.length>1?`<button type="button" class="btn" data-ucopy="${esc(a)}">Copiază pe altele…</button>`:""}<button type="button" class="btn" data-uedit="">Anulare</button></div>
@@ -2270,7 +2282,7 @@ function aptsSection(){
     ${uHotel?hotelForm():""}
     <p class="small" style="margin-bottom:0">Apasă pe ⚙ de lângă apartament ca să completezi suprafața, dormitoarele, paturile și dotările — menajerele vor vedea câtă lenjerie trebuie. Un apartament șters iese din calendar, dar rezervările și cheltuielile lui rămân în rapoarte.</p>`}
 // the form's fields; keys the form doesn't show (rtype, the iCal key…) are kept as they were
-const UFORM_K=["layout","kind","group","area","bedrooms","baths","floor","beds","guests","price","pcur","cin","cout","amen","note","wifi","wpass","door","park","cmin","cpay","cfee","dep","minn","dow","xg","xgFrom","xc","los","bufB","bufA","lead","maxn","arr"];
+const UFORM_K=["layout","kind","group","area","bedrooms","baths","floor","beds","guests","price","pcur","cin","cout","amen","note","desc","how","map","wifi","wpass","door","park","cmin","cpay","cfee","dep","minn","dow","xg","xgFrom","xc","los","bufB","bufA","lead","maxn","arr"];
 function unitRead(a){const num0=id=>{const v=String(($(id)||{}).value||"").replace(",",".").trim();return v===""?"":Math.max(0,+v||0)},txt=(id,n)=>String(($(id)||{}).value||"").trim().slice(0,n);
   const beds={};BEDT.forEach(([k])=>{const v=+(($("uf-b-"+k)||{}).textContent||0);if(v>0)beds[k]=v});
   const u={...unitOf(a)};UFORM_K.forEach(k=>delete u[k]);
@@ -2280,14 +2292,24 @@ function unitRead(a){const num0=id=>{const v=String(($(id)||{}).value||"").repla
     dow:(()=>{const o={};document.querySelectorAll("[data-udow]").forEach(x=>{const v=String(x.value).replace(",",".").trim();if(v!==""&&+v>0)o[x.dataset.udow]=Math.round(+v*100)/100});return Object.keys(o).length?o:""})(),
     xgFrom:num0("uf-xgfrom"),xg:num0("uf-xg"),xc:num0("uf-xc"),bufB:num0("uf-bufb"),bufA:num0("uf-bufa"),lead:num0("uf-lead"),maxn:num0("uf-maxn"),
     los:[0,1].map(i=>({n:parseInt((document.querySelector(`[data-ulosn="${i}"]`)||{}).value,10)||0,pct:+String((document.querySelector(`[data-ulosp="${i}"]`)||{}).value||"").replace(",",".")||0})).filter(x=>x.n>1&&x.pct>0&&x.pct<=90).sort((a,b)=>a.n-b.n),
-    arr:[...document.querySelectorAll("[data-uarr][aria-pressed=true]")].map(x=>+x.dataset.uarr),note:$("uf-note").value.trim().slice(0,500),
+    arr:[...document.querySelectorAll("[data-uarr][aria-pressed=true]")].map(x=>+x.dataset.uarr),
+    desc:(()=>{const o={};for(const L of["ru","ro","en"]){const v=(($("uf-desc-"+L)||{}).value||"").trim().slice(0,2000);if(v)o[L]=v}return Object.keys(o).length?o:""})(),
+    how:(()=>{const o={};for(const L of["ru","ro","en"]){const v=(($("uf-how-"+L)||{}).value||"").trim().slice(0,2000);if(v)o[L]=v}return Object.keys(o).length?o:""})(),
+    map:(($("uf-map")||{}).value||"").trim().slice(0,300),
+    note:$("uf-note").value.trim().slice(0,500),
     layout:layRead(),    wifi:txt("uf-wifi",60),wpass:txt("uf-wpass",60),door:txt("uf-door",60),park:txt("uf-park",80),cmin:num0("uf-cmin"),cpay:num0("uf-cpay"),cfee:num0("uf-cfee"),dep:num0("uf-dep"),minn:num0("uf-minn")});
   if(u.minn!=="")u.minn=Math.min(60,Math.round(u.minn))||"";
   ["bufB","bufA","lead","maxn","xgFrom"].forEach(k=>{if(u[k]!=="")u[k]=Math.min(k==="maxn"?365:k==="lead"?365:k==="xgFrom"?50:30,Math.round(u[k]))||""});
   if(u.arr&&u.arr.length===7)u.arr=[];
   Object.keys(u).forEach(k=>{if(u[k]===""||u[k]===0&&["cmin","cpay","cfee","dep","minn","xg","xgFrom","xc","bufB","bufA","lead","maxn"].includes(k)||u[k]==null||(Array.isArray(u[k])&&!u[k].length)||(k==="beds"&&!Object.keys(u.beds).length))delete u[k]});
   return u}
-function unitSave(a){const u=unitRead(a);uOpen="";saveCfg({...cfg,units:{...(cfg.units||{}),[a]:u}},"Salvat")}
+async function unitSave(a){const u=unitRead(a);uOpen="";await saveCfg({...cfg,units:{...(cfg.units||{}),[a]:u}},"Salvat");
+  // mirror how-to / map into the guest guide when those guide fields are still empty
+  try{await gLoad();const g=gGet(a);if(!g)return;g.data=g.data||{};g.data.sec=g.data.sec||{};
+    const how=u.how||{};let touch=false;
+    if(how.ru||how.ro||how.en){const s=g.data.sec.enter||(g.data.sec.enter={});for(const L of["ru","ro","en"])if(how[L]&&!String(s[L]||"").trim()){s[L]=how[L];touch=true}}
+    if(u.map){g.data.loc=g.data.loc||{};if(!g.data.loc.map){g.data.loc.map=u.map;touch=true}}
+    if(touch){const tok=await api("kv_guide_save",{apt:a,data:g.data});if(tok&&!g.token)g.token=tok}}catch(e){}}
 function unitCopy(a){const targets=[...document.querySelectorAll("[data-ucpt]:checked")].map(x=>x.dataset.ucpt).filter(x=>cfg.apts.includes(x));
   if(!targets.length){toast("Bifează unde să copiez");return}
   const src=unitRead(a),units={...(cfg.units||{}),[a]:src};
@@ -2300,9 +2322,10 @@ function unitDelete(a){
   if(bookings.some(b=>b.apt===a&&endOf(b)>t)){toast("Acest apartament are rezervări viitoare — mută-le sau șterge-le mai întâi");uDelArm="";settingsPage("apts");return}
   uDelArm="";uOpen="";
   saveCfg({...cfg,apts:cfg.apts.filter(x=>x!==a),archived:[...new Set([...(cfg.archived||[]),a])]},"Șters — istoricul se păstrează")}
-document.addEventListener("click",e=>{const t=e.target.closest("[data-uedit],[data-ustep],[data-uamen],[data-usave],[data-ucopy],[data-ucpall],[data-ucpgo],[data-udel],[data-uhotel],#uh-add");if(!t)return;const ds=t.dataset;
+document.addEventListener("click",e=>{const t=e.target.closest("[data-uedit],[data-ustep],[data-uamen],[data-uilang],[data-usave],[data-ucopy],[data-ucpall],[data-ucpgo],[data-udel],[data-uhotel],#uh-add");if(!t)return;const ds=t.dataset;
   if(ds.uedit!=null){uOpen=uOpen===ds.uedit?"":ds.uedit;uDelArm="";settingsPage("apts");if(uOpen)setTimeout(()=>icalLoad(uOpen),0);return}
   if(ds.ustep){const el=$("uf-b-"+ds.ustep);el.textContent=Math.max(0,Math.min(20,(+el.textContent||0)+(+ds.d)));const g=$("uf-guests");if(g&&!g.value){const b={};BEDT.forEach(([k])=>b[k]=+$("uf-b-"+k).textContent);g.placeholder="după paturi: "+capAuto({beds:b})}return}
+  if(ds.uilang){window._ufLang=ds.uilang;document.querySelectorAll("[data-uilang]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.uilang===ds.uilang)));document.querySelectorAll("[data-ufpanel]").forEach(p=>p.hidden=p.dataset.ufpanel!==ds.uilang);return}
   if(ds.uamen){t.setAttribute("aria-pressed",String(t.getAttribute("aria-pressed")!=="true"));return}
   if(ds.usave){unitSave(ds.usave);return}
   if(ds.ucopy){const p=$("ucopy");if(p){p.hidden=!p.hidden;if(!p.hidden)p.scrollIntoView({block:"nearest",behavior:"smooth"})}return}
