@@ -151,6 +151,7 @@ body.kb nav.tabs{display:none!important}
 :root[data-skin="host"] .aptbtn .cbar.ok{background:var(--ok-soft);color:var(--ok)}:root[data-skin="host"] .aptbtn .cbar.bad{background:var(--bad-soft);color:var(--bad)}:root[data-skin="host"] .aptbtn .cbar.busy{background:var(--d2);color:var(--muted)}
 /* calendar: Hostfully-style shahmatka — pill bars, channel badges, soft stage */
 :root[data-skin="host"] #c-body{box-shadow:var(--sh-pop);border-color:transparent;border-radius:20px!important;overflow:hidden}
+:root[data-skin="host"] body.calmode #c-body{overflow:auto;-webkit-overflow-scrolling:touch}
 :root[data-skin="host"] .sh-name{color:var(--ink);font-weight:600;gap:10px}
 :root[data-skin="host"] .sh-name .tn{display:block}
 :root[data-skin="host"] .sh-day{color:var(--ink);font-weight:600!important;display:flex;flex-direction:column-reverse;align-items:center;justify-content:center;gap:2px;border-right-color:var(--line)!important}
@@ -642,7 +643,9 @@ body.calmode .wrap{padding-inline:0!important;padding-top:0!important}body.calmo
 .sh.sz-lg .sh-name{font-size:14.5px}.sh.sz-lg .sh-day{font-size:17px!important}.sh.sz-lg .sh-day small{font-size:12.5px!important}
 .sh.sz-lg .bar{font-size:13px;padding:4px 7px 0;border-radius:8px}.sh.sz-lg .bar .amt{font-size:11.5px;line-height:14px;padding:0 4px}
 .sh.sz-lg .sh-name .tn{width:32px;height:32px}
-body.calmode #c-body{scroll-snap-type:x mandatory;scroll-padding-left:var(--L);overflow-x:auto;overflow-y:hidden;touch-action:pan-x;overscroll-behavior:none}
+/* swipe L/R moves days; top range (c-mon) follows via calMon onscroll — no need to tap the date label */
+body.calmode #c-body{scroll-snap-type:x proximity;scroll-padding-left:var(--L);overflow-x:auto;overflow-y:auto;touch-action:pan-x pan-y;-webkit-overflow-scrolling:touch;overscroll-behavior:none}
+body.calmode #c-body .bar,body.calmode #c-body .sh-day,body.calmode #c-body .sh-name,body.calmode #c-body .sh-tl,body.calmode #c-body .sh-tl .pc{touch-action:pan-x pan-y}
 html:has(body.calmode),body.calmode{overscroll-behavior:none}
 .sh.sq .sh-corner{align-items:center;justify-content:center;padding:0 4px;box-shadow:4px 0 8px -4px rgba(0,0,0,.5)}
 .sh.sq .sh-corner .ctoday{flex:none;font-size:15px!important;font-weight:800;color:var(--hl,#fed36a);background:none;border:0;padding:10px 4px!important;line-height:1;transition:opacity .2s;white-space:nowrap}
