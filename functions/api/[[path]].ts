@@ -5,7 +5,7 @@ import { buildMonthWorkbook, monthTitle, buildHandoverWorkbook } from "../../lib
 import { newVapid, sendPush, type Vapid } from "../../lib/push";
 import {
   type Env, type Ctx, json, sleep, nowIso, uuid, num, str, isDate, isUuid, snum, isEmail, all, one, run,
-  starterConfig, hashPin, pinMatches, hashPassword, passwordMatches, throttled, failHit, failClear, newSession, bearer, loadSession,
+  starterConfig, hashPin, pinMatches, hashPassword, passwordMatches, throttled, failHit, failClear, newSession, clientMeta, deviceLabel, bearer, loadSession,
   ROLES, roleAllows, READ_FNS, TRIAL_DAYS, today, addMonths, isExpired, billingOf, chargeOrg, topUp, stayPrice, minNights, EsPrice, dayRules, randCode, randHex, sameStr, sha256hex,
 } from "../../lib/core";
 import { hostOf, siteOf, slugOk, isSlug } from "../../lib/host";
@@ -555,7 +555,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     const orgs = await myOrgs(db, r.user_id), want = (reqSlug && orgs.find((o: any) => o.code === reqSlug)) || orgs[0];
     if (!want || site.kind === "admin" || str(body.from, 10) === "admin") return json({ email: u?.email || "" });
     await run(db, "UPDATE users SET last_login = ? WHERE id = ?", nowIso(), r.user_id).catch(() => {});
-    return json({ email: u?.email || "", token: await newSession(db, r.user_id, want.id), slug: want.code });
+    return json({ email: u?.email || "", token: await newSession(db, r.user_id, want.id, clientMeta(request)), slug: want.code });
   }
 
   // ---------- platform cron: reminders and morning summaries for every active company ----------
@@ -623,7 +623,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     const orgs = await myOrgs(db, u.id);
     const want = reqSlug ? orgs.find((o: any) => o.code === reqSlug) : (orgs.find((o: any) => o.id === body.org_id) || orgs[0]);
     if (reqSlug && !want) { await failHit(db, k); await sleep(1000); return json({ message: "not_member" }, 403); }
-    const token = await newSession(db, u.id, want ? want.id : "");
+    const token = await newSession(db, u.id, want ? want.id : "", clientMeta(request));
     const c = await loadSession(db, env, token);
     return json({ token, me: await meOf(db, c!) });
   }
@@ -698,6 +698,34 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
 
   if (fn === "auth_me") return json(await meOf(db, c));
   if (fn === "auth_logout") { await run(db, "DELETE FROM sessions WHERE token_hash = ?", c.tokenHash); return json(true); }
+  if (fn === "auth_sessions") {
+    const rows = await all(db, "SELECT token_hash, id, ua, ip, created_at, last_seen, expires_at, support FROM sessions WHERE user_id = ? AND expires_at > ? ORDER BY COALESCE(NULLIF(last_seen,''), created_at) DESC LIMIT 40", c.user.id, nowIso())
+      .catch(() => all(db, "SELECT token_hash, created_at, expires_at FROM sessions WHERE user_id = ? AND expires_at > ? ORDER BY created_at DESC LIMIT 40", c.user.id, nowIso()));
+    return json({
+      sessions: rows.map((r: any) => {
+        const sid = (r.id && String(r.id).length >= 8) ? String(r.id) : String(r.token_hash || "").slice(0, 16);
+        return {
+          id: sid, current: r.token_hash === c.tokenHash, support: !!r.support,
+          device: deviceLabel(r.ua || ""), ua: str(r.ua || "", 120), ip: str(r.ip || "", 64),
+          created_at: r.created_at || "", last_seen: r.last_seen || r.created_at || "",
+        };
+      }),
+    });
+  }
+  if (fn === "auth_logout_session") {
+    const sid = str(body.id, 40).toLowerCase();
+    if (!/^[a-f0-9]{8,40}$/.test(sid)) return json({ message: "bad_id" }, 400);
+    const row = await one(db, "SELECT token_hash, id FROM sessions WHERE user_id = ? AND (id = ? OR token_hash LIKE ?)", c.user.id, sid, sid + "%");
+    if (!row) return json({ message: "not_found" }, 404);
+    if (row.token_hash === c.tokenHash) return json({ message: "current" }, 409);
+    await run(db, "DELETE FROM sessions WHERE token_hash = ? AND user_id = ?", row.token_hash, c.user.id);
+    return json(true);
+  }
+  if (fn === "auth_logout_all") {
+    // leave every device, including this one — the app clears the token and shows the login screen
+    await run(db, "DELETE FROM sessions WHERE user_id = ?", c.user.id);
+    return json(true);
+  }
   if (fn === "auth_switch") {
     const m = await one(db, "SELECT org_id FROM members WHERE user_id = ? AND org_id = ?", c.user.id, str(body.org_id, 40));
     if (!m) return json({ message: "not_member" }, 403);

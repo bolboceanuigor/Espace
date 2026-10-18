@@ -1,0 +1,18 @@
+{
+"Активные сессии": "Active sessions",
+"Устройства, где вы вошли в аккаунт. Можно выйти с одного или со всех сразу.": "Devices where you are signed in. You can sign out of one or all of them.",
+"Выйти на всех устройствах": "Sign out of all devices",
+"Нет активных сессий": "No active sessions",
+"это устройство": "this device",
+"поддержка": "support",
+"Устройство": "Device",
+"сегодня": "today",
+"Выйти": "Sign out",
+"Не удалось загрузить": "Could not load",
+"Выйти на всех устройствах?": "Sign out of all devices?",
+"Потребуется войти заново на каждом устройстве, включая это.": "You will need to sign in again on every device, including this one.",
+"Выйти везде": "Sign out everywhere",
+"Вышли везде": "Signed out everywhere",
+"Сессия закрыта": "Session closed",
+"Это текущее устройство — нажмите «Выйти»": "This is the current device — tap «Sign out»"
+}
