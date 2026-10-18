@@ -461,7 +461,11 @@ async function myOrgs(db: D1Database, userId: string) {
 }
 async function meOf(db: D1Database, c: Ctx) {
   const orgs = await myOrgs(db, c.user.id);
-  const urow = await one(db, "SELECT totp_secret, google_sub FROM users WHERE id = ?", c.user.id).catch(() => one(db, "SELECT totp_secret FROM users WHERE id = ?", c.user.id));
+  // columns may be missing until migrations run on an older D1 — never fail login for that
+  const urow = await one(db, "SELECT totp_secret, google_sub FROM users WHERE id = ?", c.user.id)
+    .catch(() => one(db, "SELECT totp_secret FROM users WHERE id = ?", c.user.id))
+    .catch(() => one(db, "SELECT google_sub FROM users WHERE id = ?", c.user.id))
+    .catch(() => null);
   const totp = !!(urow && urow.totp_secret);
   return {
     user: { id: c.user.id, email: c.user.email, name: c.user.name, google: !!(urow && urow.google_sub) }, super: c.isSuper,
@@ -904,6 +908,15 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     const orgs = await myOrgs(db, u.id);
     const want = reqSlug ? orgs.find((o: any) => o.code === reqSlug) : (orgs.find((o: any) => o.id === body.org_id) || orgs[0]);
     if (reqSlug && !want) { await failHit(db, k); await sleep(1000); return json({ message: "not_member" }, 403); }
+    // 2FA: password ok → short challenge (column may be missing on old D1)
+    if (u.totp_secret) {
+      const chal = randHex(32);
+      await run(db, "DELETE FROM totp_chal WHERE user_id = ?", u.id).catch(() => {});
+      await run(db, "INSERT INTO totp_chal(token_hash, user_id, org_id, expires_at) VALUES (?,?,?,?)",
+        await sha256hex(chal), u.id, want ? want.id : "", new Date(Date.now() + 10 * 60000).toISOString());
+      return json({ need_2fa: true, challenge: chal });
+    }
+    await run(db, "UPDATE users SET last_login = ? WHERE id = ?", nowIso(), u.id).catch(() => {});
     const token = await newSession(db, u.id, want ? want.id : "", clientMeta(request));
     const c = await loadSession(db, env, token);
     return json({ token, me: await meOf(db, c!) });

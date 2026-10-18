@@ -662,7 +662,7 @@ function showLogin(msg){$("app").hidden=true;$("login").hidden=false;$("lmsg").t
   fetch("/api/google_status",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"}).then(r=>r.ok?r.json():null).then(j=>{const w=$("l-google-wrap");if(w)w.hidden=!(j&&j.ok)}).catch(()=>{})}
 $("lf").addEventListener("submit",async e=>{e.preventDefault();$("lmsg").textContent="";
   try{const r=await fetch("/api/auth_login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:$("em").value.trim(),password:$("pw").value})});const j=await r.json();
-    if(!r.ok){$("lmsg").textContent=j.message==="locked"?"Prea multe încercări — așteaptă 15 minute":"Email sau parolă greșită";return}
+    if(!r.ok){$("lmsg").textContent=j.message==="locked"?"Prea multe încercări — așteaptă 15 minute":j.message==="server_error"?"Eroare pe server — încearcă din nou peste un minut":j.message==="disabled"?"Contul e suspendat":"Email sau parolă greșită";return}
     TOK=j.token;try{localStorage.setItem("es_admin_tok",TOK)}catch(e){}if(!j.me.super){showLogin("Acest cont nu este administrator al platformei.");return}start(j.me)}catch(err){$("lmsg").textContent="Nu e legătură cu serverul"}});
 $("forgot").onclick=async e=>{e.preventDefault();const em=$("em").value.trim();if(!em){$("lmsg").textContent="Scrie emailul mai sus, apoi apasă din nou.";return}
   const r=await fetch("/api/auth_reset_request",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:em,from:"admin"})});

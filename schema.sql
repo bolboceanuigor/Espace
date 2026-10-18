@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL DEFAULT '',
   pw_hash TEXT NOT NULL,
+  google_sub TEXT UNIQUE,                 -- Google OpenID subject; NULL until linked
   totp_secret TEXT NOT NULL DEFAULT '',    -- base32; empty = 2FA off
   totp_pending TEXT NOT NULL DEFAULT '',   -- secret while setting up, before confirm
   totp_backup TEXT NOT NULL DEFAULT '[]',  -- JSON sha256 hashes of unused backup codes
