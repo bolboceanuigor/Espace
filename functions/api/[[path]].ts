@@ -11,6 +11,7 @@ import {
 import { hostOf, siteOf, slugOk, isSlug } from "../../lib/host";
 import { handleAdmin, logEvent, activeAnnouncement, getSettings, createInvoice } from "../../lib/admin";
 import { sendMail, mails, dailyMail, orgEmail } from "../../lib/mail";
+import { seedTemplates, sanitizeTemplate, sendGuestMessage, fireEventMessages, runGuestMails, parseList, fillTags, bookingVars, pickLang } from "../../lib/guestmsg";
 import { botName, linkCode, webhookSecret, handleUpdate, tgNotify } from "../../lib/telegram";
 import { syncFeed, syncDue, feedUrlOk, sourceOf, newIcalKey } from "../../lib/ical";
 import { contractTexts, fill, DEFAULT_TPL } from "../../lib/contract";
@@ -383,7 +384,7 @@ function extraOf(x: any) {
   for (const k of Object.keys(o)) if (o[k] === "" || o[k] === 0) delete o[k];
   return JSON.stringify(o);
 }
-const B_F = ["date", "apt", "guest", "nights", "mdl", "eur", "usd", "oth", "oth_cur", "util", "util_cur", "pay", "who", "note", "source", "phone", "pax", "price", "price_cur", "pay_status", "tag"];
+const B_F = ["date", "apt", "guest", "nights", "mdl", "eur", "usd", "oth", "oth_cur", "util", "util_cur", "pay", "who", "note", "source", "phone", "pax", "price", "price_cur", "pay_status", "tag", "email"];
 const E_F = ["date", "apt", "category", "mdl", "eur", "usd", "oth", "oth_cur", "who", "note", "yearly"];
 const same = (a: any, b: any) => { const n = (v: any) => (v === null || v === undefined || v === "" || v === 0 ? "" : String(v)); return n(a) === n(b); };
 function diffOf(a: any, b: any, fields: string[]) { const d: Record<string, any[]> = {}; for (const f of fields) if (!same(a?.[f], b?.[f])) d[f] = [a?.[f] ?? null, b?.[f] ?? null]; return d; }
@@ -590,13 +591,14 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     // every company: take today's fee from the balance, then run its reminders if it is active
     for (let org of await all(db, "SELECT * FROM orgs WHERE status = 'active'")) { org = await chargeOrg(db, org).catch(() => org); if (!isExpired(org)) { await runDue(db, org).catch(() => {}); n++; } }
     const mailed = await dailyMail(env, db).catch(() => 0);
+    // guest message templates (before/after check-in/out) — same cron, Resend + dedupe key
+    const guestMails = await runGuestMails(env, db).catch(() => 0);
     // Airbnb / Booking.com calendars: new reservations become bookings, managers get a notification
     const feeds = await syncDue(db, (O, msg) => notify(db, O, ["manager"], msg)).catch(() => 0);
     await run(db, "DELETE FROM audit WHERE at < ?", new Date(Date.now() - 400 * 86400000).toISOString()).catch(() => {}); // the change log keeps ~13 months
     // the admin panel's health page shows when this last ran
-    await run(db, "INSERT INTO sys_state(k, v) VALUES ('cron_last', ?) ON CONFLICT (k) DO UPDATE SET v = excluded.v", JSON.stringify({ at: nowIso(), orgs: n, mailed, feeds })).catch(() => {});
-    await run(db, "DELETE FROM errors WHERE created_at < ?", new Date(Date.now() - 30 * 86400000).toISOString()).catch(() => {});
-    return json({ orgs: n, mailed, feeds });
+    await run(db, "INSERT INTO sys_state(k, v) VALUES ('cron_last', ?) ON CONFLICT (k) DO UPDATE SET v = excluded.v", JSON.stringify({ at: nowIso(), orgs: n, mailed, guestMails, feeds })).catch(() => {});
+    return json({ orgs: n, mailed, guestMails, feeds });
   }
 
   // ---------- Google OAuth status (public; secrets stay on the server) ----------
@@ -936,35 +938,34 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       if (!isDate(b.date) || !str(b.apt)) return json({ message: "bad_booking" }, 400);
       const prev = isUuid(b.id) ? await one(db, "SELECT * FROM bookings WHERE org_id = ? AND id = ?", O, b.id) : null;
       if (await monthClosed(db, O, b.date, prev?.date)) return CLOSED();
-      let tag = TAGS.includes(str(b.tag, 10)) ? str(b.tag, 10) : "";
-      // cancelled stays cancelled until a dedicated restore exists; keep reason fields from the previous extra
-      if (prev?.tag === "cancel") {
-        tag = "cancel";
-        try {
-          const px = JSON.parse(prev.extra || "{}") || {};
-          b.x = { ...(b.x && typeof b.x === "object" ? b.x : {}), cx: b.x?.cx || px.cx || "", cx_keep: b.x?.cx_keep ?? px.cx_keep ?? 0, cx_at: px.cx_at || "" };
-        } catch { /* keep b.x */ }
-      }
+      const email = str(b.email, 120).toLowerCase();
       const v = { date: b.date, apt: str(b.apt, 100), guest: str(b.guest, 200), nights: Math.min(366, Math.floor(num(b.nights))),
         mdl: num(b.mdl), eur: num(b.eur), usd: num(b.usd), pay: str(b.pay, 50), who: str(b.who, 50), note: str(b.note, 1000),
         source: str(b.source, 50), phone: str(b.phone, 40), pax: Math.max(0, Math.min(500, Math.floor(num(b.pax)))), oth: num(b.oth), oth_cur: str(b.oth_cur, 10).toUpperCase(), util: num(b.util),
-        price: Math.max(0, num(b.price)), price_cur: (["MDL", "EUR", "USD"].includes(str(b.price_cur, 5).toUpperCase()) ? str(b.price_cur, 5).toUpperCase() : "EUR"), pay_status: (["unpaid", "part", "paid"].includes(str(b.pay_status, 10)) ? str(b.pay_status, 10) : ""), tag,
-        util_cur: (["MDL", "EUR", "USD"].includes(str(b.util_cur, 5).toUpperCase()) ? str(b.util_cur, 5).toUpperCase() : "MDL") };
+        price: Math.max(0, num(b.price)), price_cur: (["MDL", "EUR", "USD"].includes(str(b.price_cur, 5).toUpperCase()) ? str(b.price_cur, 5).toUpperCase() : "EUR"), pay_status: (["unpaid", "part", "paid"].includes(str(b.pay_status, 10)) ? str(b.pay_status, 10) : ""), tag: (TAGS.includes(str(b.tag, 10)) ? str(b.tag, 10) : ""),
+        util_cur: (["MDL", "EUR", "USD"].includes(str(b.util_cur, 5).toUpperCase()) ? str(b.util_cur, 5).toUpperCase() : "MDL"), email };
       const extra = extraOf(b.x); // null = an older app that does not send it: keep what is stored
       if (isUuid(b.id)) {
         const r = await one(db, `UPDATE bookings SET verified=(verified AND mdl=? AND eur=? AND usd=? AND oth IS ? AND util=? AND pay=?),
-          date=?, apt=?, guest=?, nights=?, mdl=?, eur=?, usd=?, pay=?, who=?, note=?, source=?, phone=?, pax=?, oth=?, oth_cur=?, util=?, util_cur=?, price=?, price_cur=?, pay_status=?, tag=?, updated_at=? WHERE org_id=? AND id=? RETURNING id`,
+          date=?, apt=?, guest=?, nights=?, mdl=?, eur=?, usd=?, pay=?, who=?, note=?, source=?, phone=?, pax=?, oth=?, oth_cur=?, util=?, util_cur=?, price=?, price_cur=?, pay_status=?, tag=?, email=?, updated_at=? WHERE org_id=? AND id=? RETURNING id`,
           v.mdl, v.eur, v.usd, v.oth, v.util, v.pay,
-          v.date, v.apt, v.guest, v.nights, v.mdl, v.eur, v.usd, v.pay, v.who, v.note, v.source, v.phone, v.pax, v.oth, v.oth_cur, v.util, v.util_cur, v.price, v.price_cur, v.pay_status, v.tag, nowIso(), O, b.id);
+          v.date, v.apt, v.guest, v.nights, v.mdl, v.eur, v.usd, v.pay, v.who, v.note, v.source, v.phone, v.pax, v.oth, v.oth_cur, v.util, v.util_cur, v.price, v.price_cur, v.pay_status, v.tag, v.email, nowIso(), O, b.id);
         if (r?.id && extra !== null) await run(db, "UPDATE bookings SET extra = ? WHERE org_id = ? AND id = ?", extra, O, r.id).catch(() => {});
         if (r?.id && prev) { const d = diffOf(prev, v, B_F); if (Object.keys(d).length) await audit(db, O, c, "booking", "update", b.id, bLabel(v), d); }
+        // cancel tag just set → fire cancel templates once
+        if (r?.id && v.tag === "cancel" && prev && prev.tag !== "cancel") {
+          const full = await one(db, "SELECT * FROM bookings WHERE org_id = ? AND id = ?", O, b.id);
+          waitUntil(fireEventMessages(env, db, org, full, "cancel").catch(() => {}));
+        }
         return json(r?.id ?? null);
       }
       const id = uuid(), t = nowIso();
-      await run(db, "INSERT INTO bookings(id,org_id,date,apt,guest,nights,mdl,eur,usd,pay,who,note,source,phone,pax,oth,oth_cur,util,util_cur,price,price_cur,pay_status,tag,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-        id, O, v.date, v.apt, v.guest, v.nights, v.mdl, v.eur, v.usd, v.pay, v.who, v.note, v.source, v.phone, v.pax, v.oth, v.oth_cur, v.util, v.util_cur, v.price, v.price_cur, v.pay_status, v.tag, t, t);
+      await run(db, "INSERT INTO bookings(id,org_id,date,apt,guest,nights,mdl,eur,usd,pay,who,note,source,phone,pax,oth,oth_cur,util,util_cur,price,price_cur,pay_status,tag,email,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        id, O, v.date, v.apt, v.guest, v.nights, v.mdl, v.eur, v.usd, v.pay, v.who, v.note, v.source, v.phone, v.pax, v.oth, v.oth_cur, v.util, v.util_cur, v.price, v.price_cur, v.pay_status, v.tag, v.email, t, t);
       if (extra !== null && extra !== "{}") await run(db, "UPDATE bookings SET extra = ? WHERE org_id = ? AND id = ?", extra, O, id).catch(() => {});
       await audit(db, O, c, "booking", "create", id, bLabel(v), snapOf(v, B_F));
+      const full = await one(db, "SELECT * FROM bookings WHERE org_id = ? AND id = ?", O, id);
+      if (v.tag !== "cancel" && v.tag !== "closed" && v.tag !== "req") waitUntil(fireEventMessages(env, db, org, full, "new").catch(() => {}));
       return json(id);
     }
     case "bk_file_list": {
@@ -1619,6 +1620,75 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       if (!isUuid(body.p_id)) return json({ message: "bad_id" }, 400);
       const r = await one(db, "SELECT photo FROM tasks WHERE org_id = ? AND id = ?", O, body.p_id);
       return json(r?.photo || "");
+    }
+
+    // ---------- guest messages (module 7) ----------
+    case "kv_msg_list": {
+      await seedTemplates(db, O).catch(() => {});
+      const list = await all(db, "SELECT * FROM msg_templates WHERE org_id = ? ORDER BY created_at", O);
+      for (const t of list) { t.apts = parseList(t.apts); t.channels = parseList(t.channels); t.active = !!t.active; }
+      return json(list);
+    }
+    case "kv_msg_seed": {
+      const n = await seedTemplates(db, O);
+      return json({ n });
+    }
+    case "kv_msg_save": {
+      const t = sanitizeTemplate(body.t || body);
+      const now = nowIso();
+      if (t.id) {
+        const r = await one(db, `UPDATE msg_templates SET name=?, trigger=?, offset_days=?, send_hour=?, apts=?, channels=?,
+          subject_ro=?, subject_ru=?, subject_en=?, body_ro=?, body_ru=?, body_en=?, active=?, updated_at=?
+          WHERE org_id=? AND id=? RETURNING id`,
+          t.name, t.trigger, t.offset_days, t.send_hour, t.apts, t.channels,
+          t.subject_ro, t.subject_ru, t.subject_en, t.body_ro, t.body_ru, t.body_en, t.active, now, O, t.id);
+        return json(r?.id || null);
+      }
+      const id = uuid();
+      await run(db, `INSERT INTO msg_templates(id,org_id,name,trigger,offset_days,send_hour,apts,channels,subject_ro,subject_ru,subject_en,body_ro,body_ru,body_en,active,created_at,updated_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        id, O, t.name, t.trigger, t.offset_days, t.send_hour, t.apts, t.channels,
+        t.subject_ro, t.subject_ru, t.subject_en, t.body_ro, t.body_ru, t.body_en, t.active, now, now);
+      return json(id);
+    }
+    case "kv_msg_del": {
+      if (!isUuid(body.id)) return json({ message: "bad_id" }, 400);
+      await run(db, "DELETE FROM msg_templates WHERE org_id = ? AND id = ?", O, body.id);
+      return json(true);
+    }
+    case "kv_msg_history": {
+      if (!isUuid(body.booking_id)) return json({ message: "bad_id" }, 400);
+      return json(await all(db, "SELECT id, template_id, channel, to_addr, lang, subject, status, created_at FROM msg_sent WHERE org_id = ? AND booking_id = ? ORDER BY created_at DESC LIMIT 50", O, body.booking_id));
+    }
+    case "kv_msg_preview": {
+      if (!isUuid(body.booking_id)) return json({ message: "bad_id" }, 400);
+      const b = await one(db, "SELECT * FROM bookings WHERE org_id = ? AND id = ?", O, body.booking_id);
+      if (!b) return json({ message: "not_found" }, 404);
+      const cfg = (await getConfig(db, O)) || {};
+      let extra: any = {}; try { extra = JSON.parse(b.extra || "{}"); } catch {}
+      const lang = ["ro", "ru", "en"].includes(body.lang) ? body.lang : pickLang(extra);
+      const vars = await bookingVars(db, org, b, cfg);
+      const subject = fillTags(str(body.subject, 200), vars);
+      const text = fillTags(str(body.body, 5000), vars);
+      return json({ subject, body: text, lang, vars, to: b.email || "" });
+    }
+    case "kv_msg_send": {
+      if (!isUuid(body.booking_id)) return json({ message: "bad_id" }, 400);
+      const b = await one(db, "SELECT * FROM bookings WHERE org_id = ? AND id = ?", O, body.booking_id);
+      if (!b) return json({ message: "not_found" }, 404);
+      let tpl: any = { id: "", trigger: "manual", offset_days: 0 };
+      if (isUuid(body.template_id)) {
+        tpl = await one(db, "SELECT * FROM msg_templates WHERE org_id = ? AND id = ?", O, body.template_id);
+        if (!tpl) return json({ message: "not_found" }, 404);
+      }
+      const r = await sendGuestMessage(env, db, org, b, tpl, {
+        previewSubject: typeof body.subject === "string" ? body.subject : undefined,
+        previewBody: typeof body.body === "string" ? body.body : undefined,
+        forceLang: ["ro", "ru", "en"].includes(body.lang) ? body.lang : undefined,
+        manual: true,
+      });
+      if (!r.ok) return json({ message: r.message || "error" }, 400);
+      return json(r);
     }
     default:
       return json({ message: "not_found" }, 404);

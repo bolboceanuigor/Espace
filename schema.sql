@@ -481,13 +481,39 @@ CREATE TABLE IF NOT EXISTS day_rates (
   PRIMARY KEY (org_id, apt, day)
 );
 
--- server 5xx log for the admin health page (platform-wide, not per-company export)
-CREATE TABLE IF NOT EXISTS errors (
+-- guest messaging (module 7): automated + manual emails to guests
+CREATE TABLE IF NOT EXISTS msg_templates (
   id TEXT PRIMARY KEY,
-  org_id TEXT NOT NULL DEFAULT '',
-  fn TEXT NOT NULL DEFAULT '',
-  status INTEGER NOT NULL DEFAULT 500,
-  message TEXT NOT NULL DEFAULT '',
+  org_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  trigger TEXT NOT NULL,                  -- new | before_in | on_in | before_out | after_out | cancel
+  offset_days INTEGER NOT NULL DEFAULT 0,
+  send_hour INTEGER NOT NULL DEFAULT 10,  -- 0–23 Europe/Chisinau
+  apts TEXT NOT NULL DEFAULT '[]',        -- JSON list of unit names; [] = all
+  channels TEXT NOT NULL DEFAULT '[]',    -- JSON list of sources; [] = all
+  subject_ro TEXT NOT NULL DEFAULT '',
+  subject_ru TEXT NOT NULL DEFAULT '',
+  subject_en TEXT NOT NULL DEFAULT '',
+  body_ro TEXT NOT NULL DEFAULT '',
+  body_ru TEXT NOT NULL DEFAULT '',
+  body_en TEXT NOT NULL DEFAULT '',
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS msg_templates_org_idx ON msg_templates(org_id);
+CREATE TABLE IF NOT EXISTS msg_sent (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL,
+  booking_id TEXT NOT NULL,
+  template_id TEXT NOT NULL DEFAULT '',
+  channel TEXT NOT NULL DEFAULT 'email',
+  to_addr TEXT NOT NULL,
+  lang TEXT NOT NULL DEFAULT 'ro',
+  subject TEXT NOT NULL DEFAULT '',
+  body TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT '',
+  detail TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
-CREATE INDEX IF NOT EXISTS errors_created_idx ON errors(created_at);
+CREATE INDEX IF NOT EXISTS msg_sent_booking_idx ON msg_sent(org_id, booking_id, created_at);
