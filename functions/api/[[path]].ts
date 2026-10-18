@@ -1418,9 +1418,24 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       const feeds = await all(db, "SELECT id, url, source, last_sync, last_ok, last_msg, last_count FROM ical_feeds WHERE org_id = ? AND apt = ? ORDER BY created_at", O, apt);
       return json({ feeds, export: key ? `https://espace.md/ical/${org.code}/${key}.ics` : "" });
     }
-    case "kv_ical_key": { // makes (or returns) the unit's export link
-      const apt = str(body.apt, 100), cfg = await getConfig(db, O);
-      if (!cfg || !(cfg.apts || []).includes(apt)) return json({ message: "bad_apt" }, 400);
+    case "kv_ical_org": {
+      // company-wide export (all units) for Google Calendar
+      const cfg = await getConfig(db, O);
+      const key = cfg?.ical || "";
+      return json({ export: key ? `https://espace.md/ical/${org.code}/${key}.ics` : "", key });
+    }
+    case "kv_ical_key": { // makes (or returns) the unit's export link; body.org=true → company-wide key
+      const cfg = await getConfig(db, O);
+      if (!cfg) return json({ message: "bad_apt" }, 400);
+      if (body.org === true) {
+        if (!cfg.ical || body.renew === true) {
+          cfg.ical = newIcalKey();
+          await run(db, "UPDATE app_config SET data = ? WHERE org_id = ?", JSON.stringify(cfg), O);
+        }
+        return json({ export: `https://espace.md/ical/${org.code}/${cfg.ical}.ics`, key: cfg.ical });
+      }
+      const apt = str(body.apt, 100);
+      if (!(cfg.apts || []).includes(apt)) return json({ message: "bad_apt" }, 400);
       cfg.units = cfg.units || {}; cfg.units[apt] = cfg.units[apt] || {};
       if (!cfg.units[apt].ical || body.renew === true) {
         cfg.units[apt].ical = newIcalKey();

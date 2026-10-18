@@ -1507,7 +1507,7 @@ const catIcon=c=>CAT_ICON[c]||"📌";
 const catCol=c=>CAT_COL[Math.max(0,cfg.categories.indexOf(c))%CAT_COL.length];
 const telDigits=p=>(p||"").replace(/[^\d+]/g,"");
 
-const RO_OK=["kv_load","kv_photos","kv_guides","kv_task_photo","kv_push_key","kv_push_sub","billing","bill_invoice","bill_pay","bill_pay_status","auth_me","auth_logout","auth_switch","auth_password","auth_new_org","kv_msg_list","kv_msg_history","kv_msg_preview"];
+const RO_OK=["kv_load","kv_photos","kv_guides","kv_task_photo","kv_push_key","kv_push_sub","billing","bill_invoice","bill_pay","bill_pay_status","auth_me","auth_logout","auth_switch","auth_password","auth_new_org","kv_ical_list","kv_ical_org"];
 const CHECK_OK=["kv_verify","kv_month_close","kv_month_open"];
 let ME=null, ROLE="", EXPIRED=false;
 const SLUG=(()=>{const h=location.hostname;if(h.endsWith(".espace.md"))return h.slice(0,-".espace.md".length);let c="";try{c=new URLSearchParams(location.search).get("c")||sessionStorage.getItem("es_c")||""}catch(e){}c=c.toLowerCase().replace(/[^a-z0-9-]/g,"");try{if(c)sessionStorage.setItem("es_c",c)}catch(e){}return c})();
@@ -1938,7 +1938,8 @@ function unitCard(a,i){const line=unitLine(a);
       <button type="button" class="ibtn" data-ren="${esc(a)}" aria-label="Redenumește ${esc(a)}">${setIc("pen")}</button>
       <button type="button" class="ibtn" data-up="${i}" ${i?"":"disabled"} aria-label="Mai sus">${setIc("up")}</button>
       <button type="button" class="ibtn del${uDelArm===a?" armed":""}" data-udel="${esc(a)}" aria-label="Șterge ${esc(a)}">${uDelArm===a?"Sigur?":setIc("del")}</button></div>
-    <input type="text" data-addr="${esc(a)}" value="${esc((cfg.addr||{})[a]||"")}" placeholder="Adresa: Decebal 6/2, ap. 61, etajul 7" aria-label="Adresa ${esc(a)}">
+    <div class="grid2" style="align-items:end;gap:8px;margin-top:6px"><div style="min-width:0"><input type="text" data-addr="${esc(a)}" value="${esc((cfg.addr||{})[a]||"")}" placeholder="Adresa: Decebal 6/2, ap. 61, etajul 7" aria-label="Adresa ${esc(a)}"></div>
+      ${(cfg.addr||{})[a]?`<a class="btn sm" href="${esc(mapsUrl((cfg.addr||{})[a]))}" target="_blank" rel="noopener">Pe hartă</a>`:`<span></span>`}</div>
     ${uOpen===a?unitForm(a):""}</div>`}
 function hotelForm(){return `<div class="card uform"><b>Camerele hotelului sau pensiunii</b>
     <div class="grid2"><div><label class="l" for="uh-name">Numele hotelului</label><input type="text" id="uh-name" list="uf-groups" placeholder="Hotel Central"></div>
@@ -2462,9 +2463,24 @@ async function icalLoad(a){const box=$("uf-ical-body");if(!box)return;
       ${RO?"":`<div class="iadd"><select id="ical-src" aria-label="Site">${ICAL_SRC.map(([k,t])=>`<option value="${k}">${t}</option>`).join("")}</select><input type="url" id="ical-url" placeholder="https://www.airbnb.com/calendar/ical/…" autocomplete="off"><button type="button" class="btn" id="ical-add">Adaugă</button></div>
       <details class="ihelp"><summary>De unde iau linkul?</summary><p><b>Airbnb:</b> Calendar → Disponibilitate → Conectează calendare → Exportă calendarul → copiază linkul.<br><b>Booking.com:</b> Tarife și disponibilitate → Sincronizarea calendarelor → Export calendar → copiază linkul.</p></details>`}
       <div class="iexp"><b>Link pentru Airbnb și Booking</b><p class="small" style="margin:2px 0 6px">Lipește-l acolo la «Import calendar» — zilele ocupate aici se închid pe acele site-uri.</p>
-      ${r.export?`<div class="iexpr"><input type="text" readonly value="${esc(r.export)}" id="ical-exp"><button type="button" class="btn sm" data-icopy="1">Copiază</button></div>`:RO?"":`<button type="button" class="btn" data-ikey="1">Creează linkul</button>`}</div>`;
+      ${r.export?`<div class="iexpr"><input type="text" readonly value="${esc(r.export)}" id="ical-exp"><button type="button" class="btn sm" data-icopy="1">Copiază</button><a class="btn sm" href="${esc(gCalUrl(r.export))}" target="_blank" rel="noopener">În calendar Google</a></div>`:RO?"":`<button type="button" class="btn" data-ikey="1">Creează linkul</button>`}</div>`;
   }catch(e){if($("uf-ical-body"))$("uf-ical-body").textContent="Nu s-a încărcat"}}
 const icalErr=m=>/HTTP 404|HTTP 410/.test(m)?"linkul nu mai funcționează — ia unul nou de pe site":/not_ical/.test(m)?"la link nu e un calendar — verifică dacă e linkul de export .ics":/abort|timeout/i.test(m)?"site-ul n-a răspuns la timp, reîncercăm":/unit_gone/.test(m)?"obiectul a fost șters":m;
+const gCalUrl=u=>"https://calendar.google.com/calendar/r?cid="+encodeURIComponent(String(u||"").replace(/^https:/i,"webcal:"));
+const mapsUrl=addr=>{const a=String(addr||"").trim();const q=/chi[sșş]in[aăá]u/i.test(a)?a:a+(a?", ":"")+"Chișinău";return "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(q)};
+let GCAL_URL="";
+async function gcalLoad(){try{const r=await api("kv_ical_org");GCAL_URL=r.export||"";if(r.key)cfg={...cfg,ical:r.key};if(setSec==="gcal")renderSettings()}catch(e){GCAL_URL=""}}
+function gcalSection(){setTimeout(()=>{if(!GCAL_URL&&!cfg.ical)gcalLoad();else if(cfg.ical&&!GCAL_URL)GCAL_URL=`https://espace.md/ical/${ME.org.code}/${cfg.ical}.ics`},0);
+  const url=GCAL_URL||(cfg.ical?`https://espace.md/ical/${ME.org.code}/${cfg.ical}.ics`:"");
+  return `<div class="card"><p class="small" style="margin-top:0">Un calendar cu toate obiectele — în calendarul personal Google sau Apple. Numele oaspeților nu apar, doar datele ocupate.</p>
+    ${url?`<div class="iexpr"><input type="text" readonly value="${esc(url)}" id="gcal-url"><button type="button" class="btn sm" id="gcal-copy">Copiază</button></div>
+      <div class="actions" style="margin-top:10px"><a class="btn primary" href="${esc(gCalUrl(url))}" target="_blank" rel="noopener">Adaugă în calendar Google</a></div>
+      <p class="small">Apasă butonul — se deschide confirmarea abonării. Actualizările vin singure. Pentru un singur obiect, linkul e în Setări, în fișa obiectului, la sincronizare.</p>`
+      :`<p class="small">Mai întâi creează linkul — apoi îl deschizi în calendar.</p>
+      ${RO?"":`<div class="actions"><button type="button" class="btn primary" id="gcal-make">Creează linkul</button></div>`}`}</div>`}
+document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("#gcal-make,#gcal-copy");if(!t)return;
+  if(t.id==="gcal-copy"){const v=($("gcal-url")||{}).value||"";try{await navigator.clipboard.writeText(v);toast("Linkul a fost copiat")}catch(x){($("gcal-url")||{}).select?.()}return}
+  t.disabled=true;try{const r=await api("kv_ical_key",{org:true});cfg={...cfg,ical:r.key};GCAL_URL=r.export;toast("Linkul e gata");renderSettings()}catch(x){t.disabled=false;toast("Nu a reușit")}});
 document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("#ical-add,[data-isync],[data-idel],[data-ikey],[data-icopy]");if(!t)return;const a=uOpen;if(!a)return;
   try{
     if(t.id==="ical-add"){const url=$("ical-url").value.trim();if(!/^(https?|webcal):\/\//i.test(url)){toast("Lipește linkul, începe cu https://");return}
@@ -3038,9 +3054,10 @@ function aptPage(a){
   const upcoming=bookings.filter(b=>b.apt===a&&b.nights>0&&endOf(b)>td).sort((x,y)=>x.date.localeCompare(y.date));
   const hist=bookings.filter(b=>b.apt===a&&inMonth(b)&&!upcoming.includes(b)).sort((x,y)=>y.date.localeCompare(x.date));
   const ex=expenses.filter(e=>e.apt===a&&inMonth(e)).sort((x,y)=>y.date.localeCompare(x.date));
-  const now=stayOn(a,toT(td));
+  const now=stayOn(a,toT(td)), ad=(cfg.addr||{})[a]||"";
   const html=`<div class="hero" style="${photos[a]?`background-image:url('${photos[a]}')`:""}"><span>${esc(a)}</span></div>
     <p class="small" style="margin:10px 0 0">${now?`Acum locuiește: <b>${esc(now.guest||"fără nume")}</b> până la ${dm(endOf(now))}`:"Acum e liber"}</p>
+    ${ad?`<p class="small" style="margin:6px 0 0">📍 ${esc(ad)} · <a href="${esc(mapsUrl(ad))}" target="_blank" rel="noopener">Pe hartă</a></p>`:""}
     <div class="tiles" style="margin-top:12px">
       <div class="tile"><span>Se încarcă · ${MONTHS[mon.m].toLowerCase()}</span><b class="num">${Math.round(st.nights/n*100)}%</b><small>${st.nights} din ${n} nopți</small></div>
       <div class="tile inc"><span>Venit</span><b class="num">${fmt0(st.inc)} €</b><small>${st.nights?fmt0(st.inc/st.nights)+" €/noapte":"&nbsp;"}</small></div>
@@ -3423,6 +3440,7 @@ function renderSettings(){
     msgs:["pen","Mesaje către oaspeți",MSG.length?MSG.filter(t=>t.active!==false).length+" șabloane":"mesaje după șablon · automat și manual",()=>msgsSection()],
     owners:["mgr","Proprietari",(cfg.owners||[]).length?(cfg.owners||[]).map(o=>o.name).join(", "):"comision, plăți și raport lunar",()=>ownersSection()],
     import:["chk","Import din Excel",`rezervări și obiecte dintr-un fișier · Excel, CSV, RealtyCalendar`,()=>importSection()],
+    gcal:["web","Calendar Google",cfg.ical?"toate obiectele · linkul e gata":"toate rezervările în calendarul personal",()=>gcalSection()],
     direct:["web","Pagina de rezervare",cfg.direct&&cfg.direct.on?"pornită · "+ME.org.code+".espace.md/rezerva":"oaspeții rezervă direct, fără comision",()=>directSection()],
     people:["mgr","Manageri",cfg.people.join(", ")||"neindicate",()=>`<div class="card"><label class="l" for="set-people">Managerii — cine primește bani și lucrează în ture <em>— separate prin virgulă</em></label><input type="text" id="set-people" value="${esc(cfg.people.join(", "))}">
       <div class="actions"><button class="btn primary" id="save-people">Salvează</button></div></div>
