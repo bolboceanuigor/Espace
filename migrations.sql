@@ -21,5 +21,10 @@ ALTER TABLE bookings ADD COLUMN email TEXT NOT NULL DEFAULT '';
 ALTER TABLE orgs ADD COLUMN apt_rate REAL NOT NULL DEFAULT 0;
 ALTER TABLE users ADD COLUMN disabled INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE bookings ADD COLUMN extra TEXT NOT NULL DEFAULT '{}';
-CREATE TABLE IF NOT EXISTS errors (id TEXT PRIMARY KEY, org_id TEXT NOT NULL DEFAULT '', fn TEXT NOT NULL DEFAULT '', status INTEGER NOT NULL DEFAULT 500, message TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')));
-CREATE INDEX IF NOT EXISTS errors_created_idx ON errors(created_at);
+ALTER TABLE users ADD COLUMN google_sub TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS users_google_sub_uidx ON users(google_sub);
+CREATE TABLE IF NOT EXISTS oauth_states (
+  state TEXT PRIMARY KEY,
+  data TEXT NOT NULL,
+  expires_at TEXT NOT NULL
+);

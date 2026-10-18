@@ -10,6 +10,8 @@ export interface Env {
   MAIL_REPLY_TO?: string;    // where replies go, e.g. the owner's inbox
   TELEGRAM_BOT_TOKEN?: string; // the espace.md bot: managers link their Telegram and get the app's notifications there
   TELEGRAM_API?: string;       // only for local tests: a fake Telegram API address
+  GOOGLE_CLIENT_ID?: string;     // Google OAuth (OpenID) — set by Igor in CF / GitHub
+  GOOGLE_CLIENT_SECRET?: string;
 }
 
 export const json = (data: unknown, status = 200) =>

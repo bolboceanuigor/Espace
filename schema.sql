@@ -18,7 +18,14 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL DEFAULT '',
   pw_hash TEXT NOT NULL,
+  google_sub TEXT UNIQUE,                 -- Google OpenID subject; NULL until linked
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+-- short-lived OAuth CSRF states (Google login / link)
+CREATE TABLE IF NOT EXISTS oauth_states (
+  state TEXT PRIMARY KEY,
+  data TEXT NOT NULL,
+  expires_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS members (
   org_id TEXT NOT NULL,
