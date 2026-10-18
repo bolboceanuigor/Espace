@@ -3185,10 +3185,13 @@ function renderCal(){
   const visN=LT?cfg.apts.filter(a=>!calHidden().has(a)).length:cfg.apts.length;
   // fit exactly N days on this device: cell = f(viewport, rail); squares W===H
   const picOn=calPicOn();
-  const Lname=LT?(innerWidth<600?Math.max(96,Math.min(128,Math.round(CW*.3))):Math.max(140,Math.min(180,Math.round(CW*.22))))
+  const MIN_CELL=28;
+  let Lname=LT?(innerWidth<600?Math.max(96,Math.min(128,Math.round(CW*.3))):Math.max(140,Math.min(180,Math.round(CW*.22))))
     :Math.max(88,Math.min(innerWidth<600?112:150,Math.round(CW*.26)));
-  // pics rail = 1 cell → cell*(days+1)≈CW; names rail fixed → cell*days≈CW-Lname
-  const cell=Math.max(28,picOn?Math.floor(CW/(days+1)):Math.floor((CW-Lname)/days));
+  // names: shrink rail if needed so N day-columns always fit (narrow phones)
+  if(!picOn){const maxL=Math.max(64,CW-days*MIN_CELL);if(Lname>maxL)Lname=maxL}
+  // pics rail = 1 cell → cell*(days+1)≈CW; names rail → cell*days≈CW-Lname
+  const cell=Math.max(MIN_CELL,picOn?Math.floor(CW/(days+1)):Math.floor((CW-Lname)/days));
   const Lpic=cell, Lw=picOn?Lpic:Lname;
   const P=calP=days;
   const W=calW=cell, H=cell;
