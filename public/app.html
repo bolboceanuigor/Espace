@@ -1493,7 +1493,7 @@ const catIcon=c=>CAT_ICON[c]||"📌";
 const catCol=c=>CAT_COL[Math.max(0,cfg.categories.indexOf(c))%CAT_COL.length];
 const telDigits=p=>(p||"").replace(/[^\d+]/g,"");
 
-const RO_OK=["kv_load","kv_photos","kv_guides","kv_task_photo","kv_push_key","kv_push_sub","billing","bill_invoice","bill_pay","bill_pay_status","auth_me","auth_logout","auth_switch","auth_password","auth_new_org"];
+const RO_OK=["kv_load","kv_photos","kv_guides","kv_task_photo","kv_push_key","kv_push_sub","billing","bill_invoice","bill_pay","bill_pay_status","auth_me","auth_logout","auth_switch","auth_password","auth_new_org","kv_ical_list","kv_ical_status"];
 const CHECK_OK=["kv_verify","kv_month_close","kv_month_open"];
 let ME=null, ROLE="", EXPIRED=false;
 const SLUG=(()=>{const h=location.hostname;if(h.endsWith(".espace.md"))return h.slice(0,-".espace.md".length);let c="";try{c=new URLSearchParams(location.search).get("c")||sessionStorage.getItem("es_c")||""}catch(e){}c=c.toLowerCase().replace(/[^a-z0-9-]/g,"");try{if(c)sessionStorage.setItem("es_c",c)}catch(e){}return c})();
@@ -2333,6 +2333,28 @@ async function icalLoad(a){const box=$("uf-ical-body");if(!box)return;
       ${r.export?`<div class="iexpr"><input type="text" readonly value="${esc(r.export)}" id="ical-exp"><button type="button" class="btn sm" data-icopy="1">Скопировать</button></div>`:RO?"":`<button type="button" class="btn" data-ikey="1">Создать ссылку</button>`}</div>`;
   }catch(e){if($("uf-ical-body"))$("uf-ical-body").textContent="Не загрузилось"}}
 const icalErr=m=>/HTTP 404|HTTP 410/.test(m)?"ссылка больше не работает — возьмите новую на сайте":/not_ical/.test(m)?"по ссылке нет календаря — проверьте, что это ссылка экспорта .ics":/abort|timeout/i.test(m)?"сайт не ответил вовремя, повторим":/unit_gone/.test(m)?"объект удалён":m;
+
+/* COMPANY iCal STATUS: all Airbnb/Booking feeds in one place (Settings) */
+let ICAL_ST=null;
+async function icalStatusLoad(){try{ICAL_ST=await api("kv_ical_status");if(setSec==="icals")renderSettings()}catch(e){ICAL_ST={feeds:[],total:0,bad:0}}}
+function icalsSection(){setTimeout(()=>{if(!ICAL_ST)icalStatusLoad()},0);
+  const feeds=(ICAL_ST&&ICAL_ST.feeds)||[], bad=ICAL_ST?ICAL_ST.bad:0;
+  if(!ICAL_ST)return `<div class="card"><p class="small">Загружаю…</p></div>`;
+  if(!feeds.length)return `<div class="card"><p class="small" style="margin-top:0">Пока нет подключённых календарей. Добавь ссылку экспорта площадки в карточке объекта → Синхронизация.</p></div>`;
+  return `<div class="card"><p class="small" style="margin-top:0">${feeds.length} ${plural(feeds.length,"календарь","календаря","календарей")}${bad?` · <b style="color:#b42318">${bad} с ошибкой</b>`:" · все в порядке"}. Обновление идёт само; здесь можно проверить и обновить сейчас.</p>
+    ${RO?"":`<div class="actions" style="margin-bottom:10px"><button type="button" class="btn primary" id="ical-sync-all">Синхронизировать все</button></div>`}
+    ${feeds.map(f=>`<div class="ifeed${f.last_ok||!f.last_sync?"":" bad"}"><span class="isrc">${esc(f.source)}</span><span class="iu"><b>${esc(f.apt)}</b>
+      <small title="${esc(f.url)}">${esc(f.url.replace(/^https?:\/\//,"").slice(0,40))}${f.url.length>48?"…":""}</small>
+      <small>${f.last_ok?"✓ "+agoT(f.last_sync)+" · событий: "+f.last_count:f.last_sync?"⚠ "+esc(icalErr(f.last_msg)):"ещё не синхронизировано"}</small></span>
+      ${RO?"":`<button type="button" class="btn sm" data-isync2="${esc(f.id)}">Обновить</button>`}</div>`).join("")}</div>`}
+document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("#ical-sync-all,[data-isync2]");if(!t)return;
+  t.disabled=true;
+  try{
+    if(t.id==="ical-sync-all"){const r=await api("kv_ical_sync_all");const ok=(r.results||[]).filter(x=>x.ok).length;toast(`Обновлено: ${ok} из ${r.n}`);await reload();await icalStatusLoad();return}
+    const r=await api("kv_ical_sync",{id:t.dataset.isync2});toast(r.ok?`Готово: +${r.added}`:icalErr(r.error||""));await reload();await icalStatusLoad();
+  }catch(x){toast("Не получилось");t.disabled=false}});
+
+
 document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("#ical-add,[data-isync],[data-idel],[data-ikey],[data-icopy]");if(!t)return;const a=uOpen;if(!a)return;
   try{
     if(t.id==="ical-add"){const url=$("ical-url").value.trim();if(!/^(https?|webcal):\/\//i.test(url)){toast("Вставьте ссылку, она начинается с https://");return}
@@ -3270,6 +3292,7 @@ function renderSettings(){
     contract:["chk","Договор с гостем",(cfg.contract||{}).landlord?"наймодатель: "+(cfg.contract||{}).landlord:"подпись гостя на телефоне",()=>contractSection()],
     owners:["mgr","Собственники",(cfg.owners||[]).length?(cfg.owners||[]).map(o=>o.name).join(", "):"комиссия, выплаты и отчёт за месяц",()=>ownersSection()],
     import:["chk","Импорт из Excel",`брони и объекты из файла · Excel, CSV, RealtyCalendar`,()=>importSection()],
+    icals:["web","Календари площадок",ICAL_ST?`${ICAL_ST.total} ${plural(ICAL_ST.total,"ссылка","ссылки","ссылок")}${ICAL_ST.bad?" · "+ICAL_ST.bad+" с ошибкой":""}`:"статус синхронизации",()=>icalsSection()],
     direct:["web","Страница бронирования",cfg.direct&&cfg.direct.on?"включена · "+ME.org.code+".espace.md/rezerva":"гости бронируют напрямую, без комиссии",()=>directSection()],
     people:["mgr","Менеджеры",cfg.people.join(", ")||"не указаны",()=>`<div class="card"><label class="l" for="set-people">Менеджеры — кто принимает деньги и работает сменами <em>— через запятую</em></label><input type="text" id="set-people" value="${esc(cfg.people.join(", "))}">
       <div class="actions"><button class="btn primary" id="save-people">Сохранить</button></div></div>
