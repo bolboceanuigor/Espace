@@ -325,14 +325,15 @@ body.calmode .ctopbar{padding-top:calc(8px + env(safe-area-inset-top,0px))}
 :root[data-skin="host"] .sh.pics .sh-name{justify-content:center;gap:0;padding:0!important}
 :root[data-skin="host"] .sh.pics .sh-name span{max-width:0;opacity:0;transform:translateX(-10px);margin:0;pointer-events:none}
 :root[data-skin="host"] .sh.pics .sh-name .tn{width:calc(var(--H) - 10px)!important;height:calc(var(--H) - 10px)!important}
-/* pics corner: numărul zilei de azi, centrat — nu punct verde */
+/* pics corner: icon calendar (sari la azi) — NU numărul zilei peste poze */
 :root[data-skin="host"] .sh.pics .sh-corner{padding:0!important;display:flex!important;align-items:center!important;justify-content:center!important;flex-direction:row!important}
-:root[data-skin="host"] .sh.pics .sh-corner .ctoday{width:calc(var(--H) - 12px)!important;height:calc(var(--H) - 12px)!important;max-width:calc(var(--L) - 8px);max-height:calc(var(--L) - 8px);margin:0 auto;padding:0!important;border:0!important;border-radius:50%;background:var(--accent-soft)!important;color:var(--accent)!important;font-size:0!important;display:grid!important;place-items:center;box-shadow:none;opacity:1!important;line-height:1}
+:root[data-skin="host"] .sh.pics .sh-corner .ctoday{width:calc(var(--H) - 12px)!important;height:calc(var(--H) - 12px)!important;max-width:calc(var(--L) - 8px);max-height:calc(var(--L) - 8px);margin:0 auto;padding:0!important;border:0!important;border-radius:12px;background:var(--d2,#eef3f8)!important;color:var(--ink)!important;font-size:0!important;display:grid!important;place-items:center;box-shadow:none;opacity:1!important;line-height:1}
 :root[data-skin="host"] .sh.pics .sh-corner .ctoday b,:root[data-skin="host"] .sh.pics .sh-corner .ctoday .ctoday-lbl{display:none!important}
-:root[data-skin="host"] .sh.pics .sh-corner .ctoday .ctoday-num{display:grid;place-items:center;width:100%;height:100%;border-radius:50%;font-size:15px;font-weight:700;letter-spacing:-.03em;line-height:1;color:var(--accent)}
-:root[data-skin="host"] .sh.pics .sh-corner .ctoday:not(.on) .ctoday-num{background:var(--accent);color:#fff}
-:root[data-skin="host"] .sh.pics .sh-corner .ctoday.on .ctoday-num{background:transparent;color:var(--muted)}
-:root[data-skin="host"] .sh.sq.names .sh-corner .ctoday .ctoday-num{display:none}
+:root[data-skin="host"] .sh.pics .sh-corner .ctoday .ctoday-ico{display:grid;place-items:center;color:var(--accent)}
+:root[data-skin="host"] .sh.pics .sh-corner .ctoday .ctoday-ico svg{width:18px;height:18px}
+:root[data-skin="host"] .sh.pics .sh-corner .ctoday:not(.on){background:var(--accent)!important;color:#fff!important}
+:root[data-skin="host"] .sh.pics .sh-corner .ctoday:not(.on) .ctoday-ico{color:#fff}
+:root[data-skin="host"] .sh.sq.names .sh-corner .ctoday .ctoday-ico{display:none}
 :root[data-skin="host"] .sh.sq.names .sh-corner .ctoday .ctoday-lbl{display:inline}
 :root[data-skin="host"] .sh.sq .bar{top:max(3px,calc((var(--H) - 28px) / 2));bottom:auto;height:min(28px,calc(var(--H) - 8px));padding:0 8px 0 6px;display:flex;align-items:center;gap:6px;font-size:12px;line-height:1.4;border-radius:14px;box-shadow:none}
 :root[data-skin="host"] .sh.sq .bar .nm{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -358,10 +359,11 @@ body.calmode .ctopbar{padding-top:calc(8px + env(safe-area-inset-top,0px))}
 .sh.pics .sh-name .tn{width:calc(var(--H) - 10px);height:calc(var(--H) - 10px)}
 .sh.names .sh-name .tn{width:0!important;height:0!important;opacity:0;margin:0!important;transform:scale(.45);filter:blur(6px);pointer-events:none;box-shadow:none!important}
 .sh.names .sh-name span{transform:translateX(0);opacity:1}
-.ctoday-num{display:none}
+.ctoday-ico{display:none}
 .sh.pics .sh-corner{display:flex;align-items:center;justify-content:center;flex-direction:row!important}
 .sh.pics .ctoday-lbl,.sh.pics .ctoday>b{display:none!important}
-.sh.pics .ctoday-num{display:grid;place-items:center;font-size:15px;font-weight:700;letter-spacing:-.03em;line-height:1}
+.sh.pics .ctoday-ico{display:grid;place-items:center}
+.sh.pics .ctoday-ico svg{width:18px;height:18px}
 .sh.tn-anim.pics .sh-name .tn{animation:tn-pop .55s cubic-bezier(.32,.72,0,1) both}
 @keyframes tn-pop{from{opacity:0;transform:scale(.55) rotate(-6deg)}to{opacity:1;transform:scale(1) rotate(0)}}
 @media (prefers-reduced-motion:reduce){
@@ -3176,8 +3178,7 @@ function renderCal(){
   const W=calW=cell, H=cell;
   calBar(true);
   const leg=$("c-legend");if(leg){leg.hidden=innerWidth<860;leg.innerHTML=TAGS.map(([k,l,c])=>`<span><i style="background:${c}"></i>${esc(l)}</span>`).join("")+`<span><i class="lg-unp"></i>не оплачено</span>`}
-  const tdNum=new Date(td).getUTCDate();
-  let head=`<div class="sh-head"><div class="sh-corner"><button type="button" id="c-today" class="ctoday" title="Сегодня" aria-label="Сегодня"><b id="c-arr">←</b><span class="ctoday-lbl">Сегодня</span><span class="ctoday-num" id="c-tday">${tdNum}</span></button>${RO||LT?"":`<button type="button" id="c-pm" class="cpm" aria-pressed="${calPM}" title="Цены и правила по дням">Цены</button><button type="button" id="c-offer" class="cpm" title="Ссылка-предложение для гостя">Оферта</button>`}</div><div class="sh-hcol">${LT?"":`<div class="sh-mons"><div class="cmonc" style="width:${P*W}px">${CAL_I}</div></div>`}`;
+  let head=`<div class="sh-head"><div class="sh-corner"><button type="button" id="c-today" class="ctoday" title="Сегодня" aria-label="Сегодня"><b id="c-arr">←</b><span class="ctoday-lbl">Сегодня</span><span class="ctoday-ico" aria-hidden="true">${CAL_I}</span></button>${RO||LT?"":`<button type="button" id="c-pm" class="cpm" aria-pressed="${calPM}" title="Цены и правила по дням">Цены</button><button type="button" id="c-offer" class="cpm" title="Ссылка-предложение для гостя">Оферта</button>`}</div><div class="sh-hcol">${LT?"":`<div class="sh-mons"><div class="cmonc" style="width:${P*W}px">${CAL_I}</div></div>`}`;
   {const segs=[];for(let i=0;i<n;i++){const d=new Date(s0+i*DAY),k=d.getUTCFullYear()*12+d.getUTCMonth();if(!segs.length||segs[segs.length-1].k!==k)segs.push({k,m:d.getUTCMonth(),y:d.getUTCFullYear(),len:0,at:i});segs[segs.length-1].len++}
    head+=`<div class="sh-days">`;
    var mLine=segs.slice(1).map(g=>`<i class="mline" style="left:${g.at*W}px"></i>`).join(""),mStarts=new Set(segs.slice(1).map(g=>g.at))}
@@ -3215,7 +3216,13 @@ function renderCal(){
    const bodyH=HEADH+visN*H+nG*22+2;
    const maxH=Math.max(260,innerHeight-el.getBoundingClientRect().top-navH-8);
    el.style.height=Math.min(bodyH,maxH)+"px";el.style.overflowY=bodyH>maxH?"auto":"hidden";el.style.scrollPaddingLeft=Lw+"px";
-   requestAnimationFrame(()=>{el.scrollLeft=keep!=null?keep:(LT?BACK-1:BACK)*W;el.scrollTop=t0;
+   // today must be the first day AFTER the sticky rail (never under the photos)
+   const todayX=BACK*W;
+   requestAnimationFrame(()=>{
+     let go=keep!=null?keep:todayX;
+     // old LT offset (BACK-1) hid "today" under a 1-cell photo rail — nudge forward
+     if(Lw<=W+1&&go<todayX&&go>=todayX-W-1)go=todayX;
+     el.scrollLeft=go;el.scrollTop=t0;
      calMon();el.onscroll=()=>{cancelAnimationFrame(calMR);calMR=requestAnimationFrame(calMon)};
      // re-fit if the number of visible day columns changed after layout settled
      const P2=Math.max(3,Math.floor(((el.clientWidth||CW)-Lw)/cell));
