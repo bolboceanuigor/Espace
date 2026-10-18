@@ -43,7 +43,7 @@ Ce trebuie să aibă fiecare modul ca aplicația să fie completă și funcțion
 | Înregistrare pe site, email cu link de parolă, intrare, resetarea parolei | ✅ | |
 | Mai multe companii pe același cont, cu comutare între ele | ✅ | |
 | **Intrare cu Google** (vezi modulul 15) | ❌ | Butonul „Continuă cu Google” pe pagina de intrare și pe cea de înregistrare. Un cont nou primește compania în probă, la fel ca la înregistrarea cu email. |
-| Autentificare în 2 pași (TOTP) pentru owner și manager | ❌ | Se activează din Setări, cu cod QR și 8 coduri de rezervă. La intrare se cere codul de 6 cifre. Adminul o poate reseta din panou. |
+| Autentificare în 2 pași (TOTP) pentru owner și manager | ✅ | Se activează din Setări, cu cod QR și 8 coduri de rezervă. La intrare se cere codul de 6 cifre. Adminul o poate reseta din panou. |
 | Conturi suspendate de admin (`users.disabled`) | ✅ | |
 | Sesiuni active: lista și „ieși de pe toate dispozitivele” | ❌ | În Setări → Securitate: lista de dispozitive (data, browser) și butonul de ieșire de pe toate. |
 

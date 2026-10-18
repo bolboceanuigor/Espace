@@ -9,6 +9,9 @@ import {
   ROLES, roleAllows, READ_FNS, TRIAL_DAYS, today, addMonths, isExpired, billingOf, chargeOrg, topUp, stayPrice, minNights, EsPrice, dayRules, randCode, randHex, sameStr, sha256hex,
   SECTIONS, parseJsonList, parseRights, allowsApt, allowsSection, sectionOfFn, type MemberRights,
 } from "../../lib/core";
+import {
+  newTotpSecret, otpauthUrl, qrSvg, totpOk, newBackupCodes, hashBackupCodes, consumeBackup,
+} from "../../lib/totp";
 import { hostOf, siteOf, slugOk, isSlug } from "../../lib/host";
 import { handleAdmin, logEvent, activeAnnouncement, getSettings, createInvoice } from "../../lib/admin";
 import { sendMail, mails, dailyMail, orgEmail } from "../../lib/mail";
@@ -386,13 +389,13 @@ async function myOrgs(db: D1Database, userId: string) {
 }
 async function meOf(db: D1Database, c: Ctx) {
   const orgs = await myOrgs(db, c.user.id);
-  const g = await one(db, "SELECT google_sub FROM users WHERE id = ?", c.user.id).catch(() => null);
+  const totp = !!(await one(db, "SELECT totp_secret FROM users WHERE id = ?", c.user.id).catch(() => null))?.totp_secret;
   return {
     user: { id: c.user.id, email: c.user.email, name: c.user.name, google: !!(g && g.google_sub) }, super: c.isSuper,
     org: c.org ? { id: c.org.id, name: c.org.name, code: c.org.code } : null, role: c.role, orgs,
     billing: c.org ? await billingOf(db, c.org) : null,
     support: c.support, announcement: c.org ? await activeAnnouncement(db) : null,
-    rights: c.role === "owner" ? { apts: null, sections: null } : (c.rights || { apts: null, sections: null }),
+    totp,
   };
 }
 
@@ -730,11 +733,41 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     if (!u || !(await passwordMatches(pw, u.pw_hash))) { await failHit(db, k); await sleep(1000); return json({ message: "bad_login" }, 401); }
     await failClear(db, k);
     if (u.disabled) { await sleep(600); return json({ message: "disabled" }, 403); }
-    await run(db, "UPDATE users SET last_login = ? WHERE id = ?", nowIso(), u.id).catch(() => {});
     const orgs = await myOrgs(db, u.id);
     const want = reqSlug ? orgs.find((o: any) => o.code === reqSlug) : (orgs.find((o: any) => o.id === body.org_id) || orgs[0]);
     if (reqSlug && !want) { await failHit(db, k); await sleep(1000); return json({ message: "not_member" }, 403); }
+    // 2FA: password ok → short challenge, real session only after the 6-digit (or backup) code
+    if (u.totp_secret) {
+      const chal = randHex(32);
+      await run(db, "DELETE FROM totp_chal WHERE user_id = ?", u.id).catch(() => {});
+      await run(db, "INSERT INTO totp_chal(token_hash, user_id, org_id, expires_at) VALUES (?,?,?,?)",
+        await sha256hex(chal), u.id, want ? want.id : "", new Date(Date.now() + 10 * 60000).toISOString());
+      return json({ need_2fa: true, challenge: chal });
+    }
+    await run(db, "UPDATE users SET last_login = ? WHERE id = ?", nowIso(), u.id).catch(() => {});
     const token = await newSession(db, u.id, want ? want.id : "");
+    const c = await loadSession(db, env, token);
+    return json({ token, me: await meOf(db, c!) });
+  }
+
+  if (fn === "auth_2fa_login") {
+    const chal = str(body.challenge, 80), code = str(body.code, 20);
+    const k = "2fa:" + (await sha256hex(chal)).slice(0, 16);
+    if (await throttled(db, k)) return json({ message: "locked" }, 429);
+    const row = chal.length === 64 ? await one(db, "SELECT * FROM totp_chal WHERE token_hash = ?", await sha256hex(chal)).catch(() => null) : null;
+    if (!row || row.expires_at < nowIso()) { await failHit(db, k); await sleep(600); return json({ message: "bad_2fa" }, 401); }
+    const u = await one(db, "SELECT id, email, totp_secret, totp_backup, disabled FROM users WHERE id = ?", row.user_id);
+    if (!u || u.disabled || !u.totp_secret) { await failHit(db, k); return json({ message: "bad_2fa" }, 401); }
+    let ok = await totpOk(u.totp_secret, code);
+    if (!ok) {
+      const left = await consumeBackup(u.totp_backup || "[]", code);
+      if (left) { await run(db, "UPDATE users SET totp_backup = ? WHERE id = ?", JSON.stringify(left), u.id); ok = true; }
+    }
+    if (!ok) { await failHit(db, k); await sleep(800); return json({ message: "bad_2fa" }, 401); }
+    await failClear(db, k);
+    await run(db, "DELETE FROM totp_chal WHERE token_hash = ?", row.token_hash);
+    await run(db, "UPDATE users SET last_login = ? WHERE id = ?", nowIso(), u.id).catch(() => {});
+    const token = await newSession(db, u.id, row.org_id || "");
     const c = await loadSession(db, env, token);
     return json({ token, me: await meOf(db, c!) });
   }
@@ -824,23 +857,41 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     await run(db, "DELETE FROM sessions WHERE user_id = ? AND token_hash != ?", c.user.id, c.tokenHash); // sign out everywhere else
     return json(true);
   }
-  // link / unlink Google from Setări → Аккаунт (returns a start URL; browser navigates there)
-  if (fn === "google_link") {
-    if (!googleOk(env)) return json({ message: "google_off" }, 503);
-    const tok = bearer(request);
-    if (!tok) return json({ message: "bad_session" }, 401);
-    const site = siteOf(hostOf(request));
-    const q = new URLSearchParams({ mode: "link", s: tok });
-    if (site.kind === "admin") q.set("next", "admin");
-    const origin = new URL(request.url).origin;
-    return json({ url: origin + "/api/google/start?" + q.toString() });
+  // ---------- 2FA TOTP (owner / manager): QR + 8 backup codes; login asks for 6 digits ----------
+  if (fn === "auth_2fa_begin") {
+    if (c.support) return json({ message: "forbidden" }, 403);
+    if (!["owner", "manager"].includes(c.role) && !c.isSuper) return json({ message: "forbidden" }, 403);
+    const u = await one(db, "SELECT pw_hash, totp_secret FROM users WHERE id = ?", c.user.id).catch(() => null);
+    if (!u) return json({ message: "need_migration" }, 503);
+    if (u.totp_secret) return json({ message: "already_on" }, 409);
+    if (!(await passwordMatches(String(body.password || ""), u.pw_hash))) { await sleep(800); return json({ message: "bad_password" }, 401); }
+    const secret = newTotpSecret(), codes = newBackupCodes(8);
+    await run(db, "UPDATE users SET totp_pending = ?, totp_backup = ? WHERE id = ?", secret, JSON.stringify(await hashBackupCodes(codes)), c.user.id);
+    const url = otpauthUrl(c.user.email, secret);
+    return json({ secret, otpauth: url, qr: qrSvg(url), backup_codes: codes });
   }
-  if (fn === "google_unlink") {
-    const u = await one(db, "SELECT pw_hash, google_sub FROM users WHERE id = ?", c.user.id);
-    if (!u?.google_sub) return json(true);
-    if (!u.pw_hash) return json({ message: "need_password" }, 409); // keep at least one way in
-    await run(db, "UPDATE users SET google_sub = NULL WHERE id = ?", c.user.id);
-    return json(await meOf(db, (await loadSession(db, env, bearer(request)))!));
+  if (fn === "auth_2fa_confirm") {
+    if (c.support) return json({ message: "forbidden" }, 403);
+    const u = await one(db, "SELECT totp_pending, totp_secret FROM users WHERE id = ?", c.user.id).catch(() => null);
+    if (!u) return json({ message: "need_migration" }, 503);
+    if (u.totp_secret) return json({ message: "already_on" }, 409);
+    if (!u.totp_pending || !(await totpOk(u.totp_pending, str(body.code, 12)))) { await sleep(600); return json({ message: "bad_2fa" }, 401); }
+    await run(db, "UPDATE users SET totp_secret = totp_pending, totp_pending = '' WHERE id = ?", c.user.id);
+    return json({ totp: true });
+  }
+  if (fn === "auth_2fa_disable") {
+    if (c.support) return json({ message: "forbidden" }, 403);
+    const u = await one(db, "SELECT pw_hash, totp_secret, totp_backup FROM users WHERE id = ?", c.user.id).catch(() => null);
+    if (!u?.totp_secret) return json({ message: "not_on" }, 409);
+    if (!(await passwordMatches(String(body.password || ""), u.pw_hash))) { await sleep(800); return json({ message: "bad_password" }, 401); }
+    let ok = await totpOk(u.totp_secret, str(body.code, 20));
+    if (!ok) {
+      const left = await consumeBackup(u.totp_backup || "[]", str(body.code, 20));
+      if (left) { await run(db, "UPDATE users SET totp_backup = ? WHERE id = ?", JSON.stringify(left), c.user.id); ok = true; }
+    }
+    if (!ok) { await sleep(600); return json({ message: "bad_2fa" }, 401); }
+    await run(db, "UPDATE users SET totp_secret = '', totp_pending = '', totp_backup = '[]' WHERE id = ?", c.user.id);
+    return json({ totp: false });
   }
   // a signed-in person (e.g. the platform owner) can open one more company of their own
   if (fn === "auth_new_org") {
