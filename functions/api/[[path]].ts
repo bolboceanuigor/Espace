@@ -7,6 +7,7 @@ import {
   type Env, type Ctx, json, sleep, nowIso, uuid, num, str, isDate, isUuid, snum, isEmail, all, one, run,
   starterConfig, hashPin, pinMatches, hashPassword, passwordMatches, throttled, failHit, failClear, newSession, bearer, loadSession,
   ROLES, roleAllows, READ_FNS, TRIAL_DAYS, today, addMonths, isExpired, billingOf, chargeOrg, topUp, stayPrice, minNights, EsPrice, dayRules, randCode, randHex, sameStr, sha256hex,
+  SECTIONS, parseJsonList, parseRights, allowsApt, allowsSection, sectionOfFn, type MemberRights,
 } from "../../lib/core";
 import { hostOf, siteOf, slugOk, isSlug } from "../../lib/host";
 import { handleAdmin, logEvent, activeAnnouncement, getSettings, createInvoice } from "../../lib/admin";
@@ -70,7 +71,19 @@ const xlsx = (buf: ArrayBuffer | Uint8Array, name: string) => new Response(buf a
 function guideToken() { return randCode(10); }
 async function getConfig(db: D1Database, O: string) { const c = await one(db, "SELECT data FROM app_config WHERE org_id = ?", O); return c ? JSON.parse(c.data) : null; }
 
-async function loadAll(db: D1Database, O: string) {
+function filterByApts<T extends { apt?: string }>(rows: T[], apts: string[] | null) {
+  if (!apts) return rows;
+  const set = new Set(apts);
+  return rows.filter((r) => !r.apt || set.has(r.apt));
+}
+function scopeConfig(config: any, apts: string[] | null) {
+  if (!config || !apts) return config;
+  const set = new Set(apts);
+  const list = (config.apts || []).filter((a: string) => set.has(a));
+  const units = Object.fromEntries(Object.entries(config.units || {}).filter(([k]) => set.has(k)));
+  return { ...config, apts: list, units };
+}
+async function loadAll(db: D1Database, O: string, rights?: MemberRights) {
   const [config, bookings, expenses, handovers, staff, tasks, checks] = await Promise.all([
     getConfig(db, O),
     all(db, "SELECT * FROM bookings WHERE org_id = ? ORDER BY date, created_at", O),
@@ -93,7 +106,18 @@ async function loadAll(db: D1Database, O: string) {
   const vinfo = await all(db, "SELECT kind, ref_id, state, who, at, note, snap FROM verify_info WHERE org_id = ?", O);
   const closedMonths = await all(db, "SELECT ym, who, at FROM month_close WHERE org_id = ? ORDER BY ym", O);
   const t0 = nowIso().slice(0, 10), dayRates = await dayRules(db, O, addDays(t0, -70), addDays(t0, 430));
-  return { config, bookings, expenses, handovers, staff, tasks, checks, reminders, todos, notifs, vinfo, closedMonths, dayRates };
+  const apts = rights?.apts ?? null;
+  let scopedRates = dayRates;
+  if (apts) scopedRates = Object.fromEntries(Object.entries(dayRates || {}).filter(([k]) => apts.includes(k)));
+  return {
+    config: scopeConfig(config, apts),
+    bookings: filterByApts(bookings, apts),
+    expenses: filterByApts(expenses, apts),
+    handovers, staff,
+    tasks: filterByApts(tasks, apts),
+    checks: filterByApts(checks, apts),
+    reminders, todos, notifs, vinfo, closedMonths, dayRates: scopedRates,
+  };
 }
 
 // Shift rows with a check-in date become calendar bookings (linked by shift_id); rows removed from the shift remove their booking.
@@ -356,6 +380,7 @@ async function meOf(db: D1Database, c: Ctx) {
     org: c.org ? { id: c.org.id, name: c.org.name, code: c.org.code } : null, role: c.role, orgs,
     billing: c.org ? await billingOf(db, c.org) : null,
     support: c.support, announcement: c.org ? await activeAnnouncement(db) : null,
+    rights: c.role === "owner" ? { apts: null, sections: null } : (c.rights || { apts: null, sections: null }),
   };
 }
 
@@ -741,6 +766,9 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
   if (!roleAllows(c.role, fn)) return json({ message: "read_only" }, 403);
   // unpaid or blocked: the data stays visible, nothing can be changed
   if (isExpired(org) && !READ_FNS.includes(fn) && !fn.startsWith("team_") && fn !== "bill_invoice" && fn !== "bill_pay" && fn !== "bill_pay_status" && fn !== "kv_prop_load") return json({ message: "subscription_expired" }, 402);
+  // per-member section rights (owner unrestricted; support keeps read-only via role)
+  { const sec = sectionOfFn(fn); if (sec && !allowsSection(c.rights, c.role, sec)) return json({ message: "forbidden_section" }, 403); }
+  const denyApt = (apt: string) => !allowsApt(c.rights, c.role, apt) ? json({ message: "forbidden_apt" }, 403) : null;
 
   if (fn === "billing") {
     // the balance history: top-ups and the daily fees, the fees grouped by month
@@ -791,7 +819,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     return json({ number: r.number, token: r.token, amount: r.amount, due_at: r.due_at });
   }
   if (fn === "excel" || fn === "excel_handovers") {
-    const data = await loadAll(db, O);
+    const data = await loadAll(db, O, c.rights);
     if (fn === "excel_handovers") return xlsx(await buildHandoverWorkbook(data.handovers as any, data.config), org.name + " — Пересменки.xlsx");
     const ym = str(body.month, 7);
     if (!/^\d{4}-\d{2}$/.test(ym)) return json({ message: "bad_month" }, 400);
@@ -800,7 +828,12 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
 
   // ---------- team (owner only) ----------
   if (fn === "team_list") {
-    return json(await all(db, "SELECT u.id, u.email, u.name, m.role, m.created_at FROM members m JOIN users u ON u.id = m.user_id WHERE m.org_id = ? ORDER BY m.created_at", O));
+    const rows = await all(db, "SELECT u.id, u.email, u.name, m.role, m.apts, m.sections, m.created_at FROM members m JOIN users u ON u.id = m.user_id WHERE m.org_id = ? ORDER BY m.created_at", O)
+      .catch(() => all(db, "SELECT u.id, u.email, u.name, m.role, m.created_at FROM members m JOIN users u ON u.id = m.user_id WHERE m.org_id = ? ORDER BY m.created_at", O));
+    return json(rows.map((u: any) => {
+      const r = parseRights(u);
+      return { id: u.id, email: u.email, name: u.name, role: u.role, created_at: u.created_at, apts: r.apts, sections: r.sections };
+    }));
   }
   if (fn === "team_add") { // a new person gets an email with a link to set a password; an existing account is only given access
     const email = str(body.email, 120).trim().toLowerCase(), name = str(body.name, 60), role = ROLES.includes(body.role) && body.role !== "owner" ? body.role : "manager";
@@ -819,6 +852,32 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     await audit(db, O, c, "team", "add", u.id, email, { role });
     const mailed = await sendMail(env, db, { to: email, ...(role === "prop" ? mails.inviteProp(org.name, org.code, url, !u.pw_hash) : mails.invite(c.user.name || c.user.email, org.name, org.code, url, !u.pw_hash)), kind: "invite", orgId: O });
     return json({ id: u.id, invited: invited || !u.pw_hash, mailed });
+  }
+  if (fn === "team_rights") { // unit + section checkboxes for one member (owner only; not for prop / self)
+    const uid = str(body.user_id, 40);
+    if (uid === c.user.id) return json({ message: "not_self" }, 400);
+    const m = await one(db, "SELECT role FROM members WHERE org_id = ? AND user_id = ?", O, uid);
+    if (!m) return json({ message: "not_found" }, 404);
+    if (m.role === "prop" || m.role === "owner") return json({ message: "no_rights" }, 409);
+    const cfg = (await getConfig(db, O)) || {};
+    const allApts: string[] = cfg.apts || [];
+    let aptsRaw: string[] | null = null, sectionsRaw: string[] | null = null;
+    if (body.apts === null || body.apts === undefined) aptsRaw = null;
+    else if (!Array.isArray(body.apts)) return json({ message: "bad_apts" }, 400);
+    else aptsRaw = [...new Set<string>(body.apts.map((a: any) => str(a, 100)).filter((a: string) => allApts.includes(a)))];
+    if (body.sections === null || body.sections === undefined) sectionsRaw = null;
+    else if (!Array.isArray(body.sections)) return json({ message: "bad_sections" }, 400);
+    else sectionsRaw = [...new Set<string>(body.sections.map((s: any) => str(s, 20)).filter((s: string) => (SECTIONS as readonly string[]).includes(s)))];
+    // all units / all sections → store '' (unrestricted) so new units stay visible
+    const aptsVal = aptsRaw === null || (aptsRaw.length === allApts.length && allApts.every((a) => aptsRaw!.includes(a))) ? "" : JSON.stringify(aptsRaw);
+    const sectionsVal = sectionsRaw === null || (sectionsRaw.length === SECTIONS.length && SECTIONS.every((s) => sectionsRaw!.includes(s))) ? "" : JSON.stringify(sectionsRaw);
+    try {
+      await run(db, "UPDATE members SET apts = ?, sections = ? WHERE org_id = ? AND user_id = ?", aptsVal, sectionsVal, O, uid);
+    } catch {
+      return json({ message: "need_migration" }, 503);
+    }
+    { const u = await one(db, "SELECT email FROM users WHERE id = ?", uid); await audit(db, O, c, "team", "rights", uid, u?.email || "", { apts: aptsVal || "all", sections: sectionsVal || "all" }); }
+    return json({ apts: parseJsonList(aptsVal), sections: parseJsonList(sectionsVal) });
   }
   if (fn === "team_role" || fn === "team_remove") {
     const uid = str(body.user_id, 40);
@@ -840,16 +899,19 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
 
   switch (fn) {
     case "kv_load":
-      return json(await loadAll(db, O));
+      return json(await loadAll(db, O, c.rights));
 
     // prices and rules per day, per unit (calendar price mode, bulk edits)
     case "rates_get": {
       const from = isDate(body.from) ? body.from : addDays(today(), -70), to = isDate(body.to) ? body.to : addDays(today(), 430);
-      return json(await dayRules(db, O, from, to < addDays(from, 800) ? to : addDays(from, 800)));
+      let rates = await dayRules(db, O, from, to < addDays(from, 800) ? to : addDays(from, 800));
+      if (c.rights?.apts) rates = Object.fromEntries(Object.entries(rates || {}).filter(([k]) => c.rights.apts!.includes(k)));
+      return json(rates);
     }
     case "rates_set": {
       const cfg = (await getConfig(db, O)) || {}, P = cfg.pricing || {};
-      const apts: string[] = [...new Set<string>((Array.isArray(body.apts) ? body.apts : []).map((a: any) => str(a, 100)))].filter((a: string) => (cfg.apts || []).includes(a));
+      const apts: string[] = [...new Set<string>((Array.isArray(body.apts) ? body.apts : []).map((a: any) => str(a, 100)))]
+        .filter((a: string) => (cfg.apts || []).includes(a) && allowsApt(c.rights, c.role, a));
       const from = isDate(body.from) ? body.from : "", to = isDate(body.to) ? body.to : "";
       if (!apts.length || !from || !to || to < from) return json({ message: "bad_range" }, 400);
       if (addDays(from, 731) < to) return json({ message: "range_too_long" }, 400);
@@ -887,7 +949,9 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     case "kv_save": {
       const b = body.b || {};
       if (!isDate(b.date) || !str(b.apt)) return json({ message: "bad_booking" }, 400);
+      { const bad = denyApt(str(b.apt, 100)); if (bad) return bad; }
       const prev = isUuid(b.id) ? await one(db, "SELECT * FROM bookings WHERE org_id = ? AND id = ?", O, b.id) : null;
+      if (prev && !allowsApt(c.rights, c.role, prev.apt)) return json({ message: "forbidden_apt" }, 403);
       if (await monthClosed(db, O, b.date, prev?.date)) return CLOSED();
       const v = { date: b.date, apt: str(b.apt, 100), guest: str(b.guest, 200), nights: Math.min(366, Math.floor(num(b.nights))),
         mdl: num(b.mdl), eur: num(b.eur), usd: num(b.usd), pay: str(b.pay, 50), who: str(b.who, 50), note: str(b.note, 1000),
@@ -955,6 +1019,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     case "kv_delete": {
       if (!isUuid(body.p_id)) return json({ message: "bad_id" }, 400);
       const old = await one(db, "SELECT * FROM bookings WHERE org_id = ? AND id = ?", O, body.p_id); if (await monthClosed(db, O, old?.date)) return CLOSED();
+      if (old && !allowsApt(c.rights, c.role, old.apt)) return json({ message: "forbidden_apt" }, 403);
       await run(db, "DELETE FROM bookings WHERE org_id = ? AND id = ?", O, body.p_id);
       if (old) await audit(db, O, c, "booking", "delete", body.p_id, bLabel(old), snapOf(old, B_F));
       return json(null);
@@ -962,7 +1027,9 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     case "kv_save_expense": {
       const e = body.e || {};
       if (!isDate(e.date) || !str(e.category)) return json({ message: "bad_expense" }, 400);
+      { const apt = str(e.apt, 100); if (apt) { const bad = denyApt(apt); if (bad) return bad; } }
       const prev = isUuid(e.id) ? await one(db, "SELECT * FROM expenses WHERE org_id = ? AND id = ?", O, e.id) : null;
+      if (prev?.apt && !allowsApt(c.rights, c.role, prev.apt)) return json({ message: "forbidden_apt" }, 403);
       if (await monthClosed(db, O, e.date, prev?.date)) return CLOSED();
       const v = { date: e.date, apt: str(e.apt, 100), category: str(e.category, 60), mdl: num(e.mdl), eur: num(e.eur), usd: num(e.usd),
         who: str(e.who, 50), note: str(e.note, 1000), oth: num(e.oth), oth_cur: str(e.oth_cur, 10).toUpperCase(), yearly: e.yearly === true ? 1 : 0 };
@@ -982,6 +1049,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     case "kv_delete_expense": {
       if (!isUuid(body.p_id)) return json({ message: "bad_id" }, 400);
       const old = await one(db, "SELECT * FROM expenses WHERE org_id = ? AND id = ?", O, body.p_id); if (await monthClosed(db, O, old?.date)) return CLOSED();
+      if (old?.apt && !allowsApt(c.rights, c.role, old.apt)) return json({ message: "forbidden_apt" }, 403);
       await run(db, "DELETE FROM expenses WHERE org_id = ? AND id = ?", O, body.p_id);
       if (old) await audit(db, O, c, "expense", "delete", body.p_id, eLabel(old), snapOf(old, E_F));
       return json(null);
@@ -1371,6 +1439,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
     case "kv_task_save": {
       const x = body.t || {};
       if (!["clean", "general", "repair", "ready"].includes(x.kind) || !isDate(x.date) || !str(x.apt)) return json({ message: "bad_task" }, 400);
+      { const bad = denyApt(str(x.apt, 100)); if (bad) return bad; }
       const v = { kind: x.kind, date: x.date, apt: str(x.apt, 100), staff_id: isUuid(x.staff_id) ? x.staff_id : null, status: x.status === "done" ? "done" : x.status === "skip" ? "skip" : x.status === "progress" && x.kind === "repair" ? "progress" : "todo",
         done_by: str(x.done_by, 80), result: str(x.result, 500),
         time: /^\d{2}:\d{2}$/.test(x.time || "") ? x.time : "",

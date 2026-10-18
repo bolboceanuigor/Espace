@@ -196,7 +196,7 @@ Ce trebuie să aibă fiecare modul ca aplicația să fie completă și funcțion
 | Notificări în aplicație, push și Telegram pentru manageri | ✅ | |
 | Memento-uri și to-do | ✅ | |
 | Echipa: invitație, roluri, scoatere | ✅ | |
-| Drepturi pe unități și pe secțiuni pentru fiecare membru | ❌ | Owner-ul bifează ce unități vede omul și ce secțiuni poate deschide (bani, rapoarte, setări). Serverul respectă bifele, nu doar ecranul. |
+| Drepturi pe unități și pe secțiuni pentru fiecare membru | ✅ | Owner-ul bifează ce unități vede omul și ce secțiuni poate deschide (bani, rapoarte, setări). Serverul respectă bifele, nu doar ecranul. |
 
 ## 17. Facturarea platformei (credite)
 

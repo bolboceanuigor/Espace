@@ -1,0 +1,15 @@
+{
+  "Сервер тоже соблюдает эти права — скрыть раздел в меню недостаточно.": "The server also enforces these rights — hiding a section in the menu is not enough.",
+  "Обновите приложение — колонки прав ещё не на сервере": "Update the app — rights columns are not on the server yet",
+  "расходы, проверка оплат, налоги": "expenses, payment checks, taxes",
+  "квартиры, горничные, календари": "units, cleaners, calendars",
+  "Нет доступа к этому разделу": "No access to this section",
+  "Сначала добавьте объекты": "Add units first",
+  "Какие разделы открывает": "Which sections they can open",
+  "Какие объекты видит": "Which units they see",
+  "аккаунт и подписка": "account and subscription",
+  "финансы и выгрузки": "finance and exports",
+  "Права сохранены": "Rights saved",
+  "Сохранить права": "Save rights",
+  "Отчёты": "Reports"
+}

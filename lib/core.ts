@@ -79,7 +79,39 @@ export function bearer(req: Request) {
   const h = req.headers.get("authorization") || "";
   return /^Bearer [0-9a-f]{64}$/.test(h) ? h.slice(7) : "";
 }
-export type Ctx = { user: any; org: any | null; role: string; tokenHash: string; isSuper: boolean; support: boolean };
+// per-member unit/section rights (Harta §16): null list = unrestricted; [] = none
+export type MemberRights = { apts: string[] | null; sections: string[] | null };
+export const SECTIONS = ["money", "reports", "settings"] as const;
+export function parseJsonList(raw: unknown): string[] | null {
+  if (raw == null || raw === "") return null;
+  try {
+    const a = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (!Array.isArray(a)) return null;
+    return [...new Set(a.map((x) => String(x == null ? "" : x).slice(0, 100).trim()).filter(Boolean))];
+  } catch { return null; }
+}
+export function parseRights(m: any): MemberRights {
+  return { apts: parseJsonList(m?.apts), sections: parseJsonList(m?.sections) };
+}
+export function allowsApt(rights: MemberRights | undefined, role: string, apt: string) {
+  if (role === "owner" || !rights || rights.apts === null) return true;
+  return rights.apts.includes(apt);
+}
+export function allowsSection(rights: MemberRights | undefined, role: string, sec: string) {
+  if (role === "owner" || !rights || rights.sections === null) return true;
+  return rights.sections.includes(sec);
+}
+// which section a write/read API belongs to (null = no extra section gate)
+export function sectionOfFn(fn: string): string | null {
+  if (["kv_save_expense", "kv_delete_expense", "kv_owner_pay", "kv_owner_payouts", "kv_owner_report", "kv_verify", "kv_month_close", "kv_month_open"].includes(fn)) return "money";
+  if (["excel", "excel_handovers", "kv_owner_reports"].includes(fn)) return "reports";
+  if (fn === "kv_set_config" || fn === "rates_set" || fn === "kv_rename_apt" || fn === "kv_photo_set" || fn === "kv_staff_save"
+    || fn === "kv_guide_save" || fn === "kv_guide_media_add" || fn === "kv_guide_media_del"
+    || fn.startsWith("kv_ical_")) return "settings";
+  return null;
+}
+
+export type Ctx = { user: any; org: any | null; role: string; tokenHash: string; isSuper: boolean; support: boolean; rights: MemberRights };
 export async function loadSession(db: D1Database, env: Env, token: string): Promise<Ctx | null> {
   if (!token) return null;
   const th = await sha256hex(token);
@@ -90,15 +122,21 @@ export async function loadSession(db: D1Database, env: Env, token: string): Prom
   if (!user || user.disabled) return null;
   delete user.disabled;
   let org = null, role = "";
+  let rights: MemberRights = { apts: null, sections: null };
   const isSuper = !!env.SUPERADMIN_EMAIL && user.email === env.SUPERADMIN_EMAIL.trim().toLowerCase();
   const support = !!s.support;
   if (support && !isSuper) return null;
   if (s.org_id) {
     // a support session (opened by the platform owner from the admin panel) sees the company read-only
-    const m = support ? { role: "viewer" } : await one(db, "SELECT role FROM members WHERE org_id = ? AND user_id = ?", s.org_id, user.id);
-    if (m) { org = await chargeOrg(db, await one(db, "SELECT * FROM orgs WHERE id = ?", s.org_id)); role = m.role; }
+    const m = support ? { role: "viewer", apts: "", sections: "" } : await one(db, "SELECT role, apts, sections FROM members WHERE org_id = ? AND user_id = ?", s.org_id, user.id)
+      .catch(() => one(db, "SELECT role FROM members WHERE org_id = ? AND user_id = ?", s.org_id, user.id));
+    if (m) {
+      org = await chargeOrg(db, await one(db, "SELECT * FROM orgs WHERE id = ?", s.org_id));
+      role = m.role;
+      rights = role === "owner" ? { apts: null, sections: null } : parseRights(m);
+    }
   }
-  return { user, org, role, tokenHash: th, isSuper, support };
+  return { user, org, role, tokenHash: th, isSuper, support, rights };
 }
 
 // ---------- roles ----------

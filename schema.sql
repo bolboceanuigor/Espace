@@ -24,6 +24,8 @@ CREATE TABLE IF NOT EXISTS members (
   org_id TEXT NOT NULL,
   user_id TEXT NOT NULL,
   role TEXT NOT NULL DEFAULT 'manager',  -- owner | manager | checker | viewer
+  apts TEXT NOT NULL DEFAULT '',         -- JSON list of unit names; '' = all units
+  sections TEXT NOT NULL DEFAULT '',     -- JSON list: money | reports | settings; '' = all
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY (org_id, user_id)
 );
