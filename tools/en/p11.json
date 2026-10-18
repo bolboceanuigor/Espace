@@ -3,12 +3,12 @@
 "паспорт, договор": "ID, contract",
 "Нет файлов": "No files",
 "Файл сохранён": "File saved",
-"Файл слишком большой": "File too large",
-"Нужен R2 — см. wrangler.toml": "R2 needed — see wrangler.toml",
+"Файл слишком большой": "File is too large",
+"Уже 10 файлов — удали один, чтобы добавить новый": "Already 10 files — delete one to add another",
+"Уже 10 файлов": "Already 10 files",
+"Не удалось открыть": "Could not open",
 "сегодня заезд": "check-in today",
 "＋ Файл": "＋ File",
 "КБ": "KB",
-"Нужен": "Need",
-"Файл": "File",
-"см.": "see"
+"Файл": "File"
 }

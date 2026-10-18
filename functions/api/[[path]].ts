@@ -924,20 +924,43 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
       if (!(await one(db, "SELECT id FROM bookings WHERE org_id = ? AND id = ?", O, body.booking_id))) return json({ message: "not_found" }, 404);
       return json(await all(db, "SELECT id, name, mime, size, created_at FROM booking_files WHERE org_id = ? AND booking_id = ? ORDER BY created_at DESC", O, body.booking_id));
     }
+    case "bk_file_get": {
+      if (!isUuid(body.id) || !isUuid(body.booking_id)) return json({ message: "bad_id" }, 400);
+      const f = await one(db, "SELECT id, name, mime, size, r2_key, data FROM booking_files WHERE org_id = ? AND id = ? AND booking_id = ?", O, body.id, body.booking_id);
+      if (!f) return json({ message: "not_found" }, 404);
+      if (f.data) return json({ id: f.id, name: f.name, mime: f.mime, size: f.size, data: f.data });
+      if (env.FILES && f.r2_key) {
+        const obj = await env.FILES.get(f.r2_key);
+        if (!obj) return json({ message: "not_found" }, 404);
+        const buf = new Uint8Array(await obj.arrayBuffer());
+        let bin = "";
+        for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]);
+        const data = `data:${f.mime || "application/octet-stream"};base64,${btoa(bin)}`;
+        return json({ id: f.id, name: f.name, mime: f.mime, size: f.size, data });
+      }
+      return json({ message: "not_found" }, 404);
+    }
     case "bk_file_put": {
-      if (!env.FILES) return json({ message: "need_r2", hint: "Creează un bucket R2 (ex. espace-files) în Cloudflare și leagă-l de Pages ca binding FILES. Vezi wrangler.toml." }, 503);
       if (!isUuid(body.booking_id)) return json({ message: "bad_id" }, 400);
       if (!(await one(db, "SELECT id FROM bookings WHERE org_id = ? AND id = ?", O, body.booking_id))) return json({ message: "not_found" }, 404);
+      const nFiles = await one(db, "SELECT COUNT(*) AS n FROM booking_files WHERE org_id = ? AND booking_id = ?", O, body.booking_id);
+      if ((nFiles?.n || 0) >= 10) return json({ message: "too_many" }, 400);
       const name = str(body.name, 120) || "file", mime = str(body.mime, 80) || "application/octet-stream";
       const dataUrl = str(body.data, 900000);
       const m = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
       if (!m) return json({ message: "bad_data" }, 400);
       const bin = Uint8Array.from(atob(m[2]), (ch) => ch.charCodeAt(0));
       if (bin.length > 600000) return json({ message: "too_big" }, 400);
-      const id = uuid(), key = `${O}/${body.booking_id}/${id}`;
-      await env.FILES.put(key, bin, { httpMetadata: { contentType: m[1] || mime } });
-      await run(db, "INSERT INTO booking_files(id, org_id, booking_id, name, mime, size, r2_key) VALUES (?,?,?,?,?,?,?)", id, O, body.booking_id, name, m[1] || mime, bin.length, key);
-      return json({ id, name, mime: m[1] || mime, size: bin.length });
+      const id = uuid(), ctype = m[1] || mime;
+      if (env.FILES) {
+        const key = `${O}/${body.booking_id}/${id}`;
+        await env.FILES.put(key, bin, { httpMetadata: { contentType: ctype } });
+        await run(db, "INSERT INTO booking_files(id, org_id, booking_id, name, mime, size, r2_key, data) VALUES (?,?,?,?,?,?,?,?)", id, O, body.booking_id, name, ctype, bin.length, key, "");
+      } else {
+        // same as apt_photos / guide_media until R2 FILES is bound
+        await run(db, "INSERT INTO booking_files(id, org_id, booking_id, name, mime, size, r2_key, data) VALUES (?,?,?,?,?,?,?,?)", id, O, body.booking_id, name, ctype, bin.length, "", dataUrl);
+      }
+      return json({ id, name, mime: ctype, size: bin.length });
     }
     case "bk_file_del": {
       if (!isUuid(body.id) || !isUuid(body.booking_id)) return json({ message: "bad_id" }, 400);

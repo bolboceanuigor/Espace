@@ -4,11 +4,11 @@
 "Нет файлов": "Niciun fișier",
 "Файл сохранён": "Fișier salvat",
 "Файл слишком большой": "Fișierul e prea mare",
-"Нужен R2 — см. wrangler.toml": "Trebuie R2 — vezi wrangler.toml",
+"Уже 10 файлов — удали один, чтобы добавить новый": "Ai deja 10 fișiere — șterge unul ca să adaugi altul",
+"Уже 10 файлов": "Ai deja 10 fișiere",
+"Не удалось открыть": "Nu s-a putut deschide",
 "сегодня заезд": "check-in azi",
 "＋ Файл": "＋ Fișier",
 "КБ": "Ko",
-"Нужен": "Trebuie",
-"Файл": "Fișier",
-"см.": "vezi"
+"Файл": "Fișier"
 }

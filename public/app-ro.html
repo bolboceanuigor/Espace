@@ -1494,7 +1494,7 @@ const catIcon=c=>CAT_ICON[c]||"📌";
 const catCol=c=>CAT_COL[Math.max(0,cfg.categories.indexOf(c))%CAT_COL.length];
 const telDigits=p=>(p||"").replace(/[^\d+]/g,"");
 
-const RO_OK=["kv_load","kv_photos","kv_guides","kv_task_photo","kv_push_key","kv_push_sub","billing","bill_invoice","bill_pay","bill_pay_status","auth_me","auth_logout","auth_switch","auth_password","auth_new_org"];
+const RO_OK=["kv_load","kv_photos","kv_guides","kv_task_photo","kv_push_key","kv_push_sub","billing","bill_invoice","bill_pay","bill_pay_status","auth_me","auth_logout","auth_switch","auth_password","auth_new_org","bk_file_list","bk_file_get"];
 const CHECK_OK=["kv_verify","kv_month_close","kv_month_open"];
 let ME=null, ROLE="", EXPIRED=false;
 const SLUG=(()=>{const h=location.hostname;if(h.endsWith(".espace.md"))return h.slice(0,-".espace.md".length);let c="";try{c=new URLSearchParams(location.search).get("c")||sessionStorage.getItem("es_c")||""}catch(e){}c=c.toLowerCase().replace(/[^a-z0-9-]/g,"");try{if(c)sessionStorage.setItem("es_c",c)}catch(e){}return c})();
@@ -1606,9 +1606,10 @@ async function loadBkFiles(id){if(!id)return;try{BK_FILES[id]=await api("bk_file
 function renderBkFiles(){
   const box=$("f-files");if(!box)return;
   if(!form.id){box.hidden=true;box.innerHTML="";return}
-  box.hidden=false;const rows=BK_FILES[form.id]||[];
-  box.innerHTML=`<label class="l">Fișiere rezervare <em>— buletin, contract…</em></label><div class="card" style="padding:8px 10px">${rows.length?rows.map(f=>`<div class="setrow"><b>${esc(f.name)}</b><span class="small">${Math.round((f.size||0)/1024)} Ko</span><button type="button" class="ibtn del" data-bkfiledel="${esc(f.id)}" aria-label="Șterge">✕</button></div>`).join(""):`<p class="small" style="margin:0">Niciun fișier</p>`}
-    <div class="actions" style="margin-top:8px"><button type="button" class="btn sm" id="bkfile-add">＋ Fișier</button><input type="file" id="bkfile-inp" accept="image/*,.pdf" hidden></div></div>`;
+  box.hidden=false;const rows=BK_FILES[form.id]||[], full=rows.length>=10;
+  box.innerHTML=`<label class="l">Fișiere rezervare <em>— buletin, contract… până la 10</em></label><div class="card" style="padding:8px 10px">${rows.length?rows.map(f=>`<div class="setrow"><button type="button" class="linkbtn" data-bkfileopen="${esc(f.id)}" style="font-weight:600;text-align:left">${esc(f.name)}</button><span class="small">${Math.round((f.size||0)/1024)} Ko</span>${RO?"":`<button type="button" class="ibtn del" data-bkfiledel="${esc(f.id)}" aria-label="Șterge">✕</button>`}</div>`).join(""):`<p class="small" style="margin:0">Niciun fișier</p>`}
+    ${RO||full?"":`<div class="actions" style="margin-top:8px"><button type="button" class="btn sm" id="bkfile-add">＋ Fișier</button><input type="file" id="bkfile-inp" accept="image/*,.pdf" hidden></div>`}
+    ${full?`<p class="small" style="margin:8px 0 0">Ai deja 10 fișiere — șterge unul ca să adaugi altul</p>`:""}</div>`;
 }
 function asB(){return{tag:form.tag||"",price:num(form.price)||0,price_cur:form.price_cur||"EUR",pay_status:form.pay_status||"",util:num(form.util)||0,util_cur:form.util_cur||"MDL",oth:num(form.oth),oth_cur:form.oth_cur,id:form.id,apt:form.apt,date:form.date,nights:parseInt(form.nights,10)||0,guest:String(form.guest).trim(),phone:String(form.phone).trim(),pax:parseInt(form.pax,10)||0,mdl:num(form.mdl),eur:num(form.eur),usd:num(form.usd),pay:form.pay,who:form.who,source:form.source,note:String(form.note).trim(),x:readX()}}
 // the extra details of a booking (Detalii): read from the form, or what is already in it
@@ -4124,6 +4125,7 @@ document.addEventListener("click",e=>{
   if(t.id==="f-plus"){readB();form.nights=(parseInt(form.nights,10)||0)+1;$("f-nights").value=form.nights;infoB();return}
   if(t.id==="f-save"){saveB();return}
   if(t.id==="bkfile-add"){const inp=$("bkfile-inp");if(inp)inp.click();return}
+  if(ds.bkfileopen&&form.id){(async()=>{try{const r=await api("bk_file_get",{id:ds.bkfileopen,booking_id:form.id});if(r&&r.data)window.open(r.data,"_blank")}catch(x){toast("Nu s-a putut deschide")}})();return}
   if(ds.bkfiledel){api("bk_file_del",{id:ds.bkfiledel,booking_id:form.id}).then(()=>loadBkFiles(form.id)).catch(()=>toast("Nu s-a reușit"));return}
   if(t.id==="f-x"){closeBPop();return}
   if(t.id==="f-cancel"){if(bpop){closeBPop();return}form=blankB({date:form.date});fillB();return}
@@ -4194,7 +4196,7 @@ document.addEventListener("input",e=>{
   if(e.target.closest("#add-e")){readE();infoE()}
 });
 document.addEventListener("change",e=>{
-  if(e.target.id==="bkfile-inp"&&form.id){(async()=>{const f=e.target.files&&e.target.files[0];e.target.value="";if(!f)return;try{const data=f.type.startsWith("image/")?await resizeImg(f):await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)});await api("bk_file_put",{booking_id:form.id,name:f.name,mime:f.type,data});await loadBkFiles(form.id);toast("Fișier salvat")}catch(err){toast(err.code==="need_r2"?"Trebuie R2 — vezi wrangler.toml":err.code==="too_big"?"Fișierul e prea mare":"Nu s-a reușit")}})();return}
+  if(e.target.id==="bkfile-inp"&&form.id){(async()=>{const f=e.target.files&&e.target.files[0];e.target.value="";if(!f)return;try{const data=f.type.startsWith("image/")?await resizeImg(f):await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)});await api("bk_file_put",{booking_id:form.id,name:f.name,mime:f.type||"application/octet-stream",data});await loadBkFiles(form.id);toast("Fișier salvat")}catch(err){toast(err.message==="too_many"||err.code==="too_many"?"Ai deja 10 fișiere":err.message==="too_big"||err.code==="too_big"?"Fișierul e prea mare":"Nu s-a reușit")}})();return}
   if(e.target.id==="hv-from"||e.target.id==="hv-to"){hv.date_from=$("hv-from").value||hv.date_from;hv.date_to=$("hv-to").value||hv.date_to;if(hv.date_from>hv.date_to)hv.date_to=hv.date_from;if(hv.titleAuto){hv.title=hvTitleFrom(hv.date_from,hv.date_to);$("hv-title").value=hv.title}hvSort();hvRenderRows();hvRefreshTable();hvQueueSave();return}
   if(e.target.dataset&&["d","n","src","ucur","cat","ed"].includes(e.target.dataset.hvk)&&hv){const r=hv.rows[+e.target.dataset.hvr];if(r){if(e.target.dataset.hvk==="d"&&!e.target.value){r.d=todayStr()}hvSort();hvRenderRows(["d","ed"].includes(e.target.dataset.hvk)?r:null,"schet");hvRefreshTable();hvQueueSave()}return}
   if(e.target.dataset&&e.target.dataset.hvk==="apt"&&e.target.tagName==="INPUT"){hvRefreshTable();return}
