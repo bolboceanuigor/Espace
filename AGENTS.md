@@ -32,6 +32,8 @@ Lucrezi la **espace.md**, un SaaS pentru administrarea apartamentelor în chirie
 
 ## 2. Reguli stricte
 
+0. **Orice tabel nou intră în `schema.sql`** (iar o coloană nouă, în `migrations.sql`). La unirea ramurilor verifică să nu se piardă. Deploy-ul rulează `tools/check_schema.py` și se oprește dacă codul folosește un tabel care nu există. Lucrează pe o singură ramură odată, nu pe 20 în paralel.
+
 1. **Ce e deja făcut nu se modifică.** Dacă vezi o problemă într-o funcție existentă, nu o rescrie: scrie-mi întâi ce ai găsit. Excepție: un bug evident, reparat minim, pe care mi-l raportezi.
 2. Nu schimba designul existent decât dacă ți-l cer.
 3. **Fiecare tabel are `org_id`.** Fiecare interogare filtrează pe compania din sesiune, iar o companie nu vede niciodată datele alteia. Respectă rolurile din `roleAllows`: owner, manager, checker, viewer, prop. Sesiunea de suport e doar de citire.
