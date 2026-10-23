@@ -4,29 +4,26 @@
 import { buildMonthWorkbook, monthTitle, buildHandoverWorkbook } from "../../lib/excel";
 import { newVapid, sendPush, type Vapid } from "../../lib/push";
 import {
-  type Env, type Ctx, json, sleep, nowIso, uuid, num, str, isDate, isUuid, snum, isEmail, all, one, run,
-  starterConfig, hashPin, pinMatches, hashPassword, passwordMatches, throttled, failHit, failClear, newSession, clientMeta, deviceLabel, bearer, loadSession,
-  ROLES, roleAllows, READ_FNS, TRIAL_DAYS, today, addMonths, isExpired, billingOf, chargeOrg, topUp, stayPrice, minNights, EsPrice, dayRules, randCode, randHex, sameStr, sha256hex,
-  SECTIONS, parseJsonList, parseRights, allowsApt, allowsSection, sectionOfFn, type MemberRights, logApiError,
+  type Env, type Ctx, json, sleep, nowIso, uuid, num, str, isDate, isUuid, snum, isEmail, all, one, run, starterConfig, hashPin, pinMatches,
+  hashPassword, passwordMatches, throttled, failHit, failClear, newSession, bearer, loadSession, ROLES, roleAllows, READ_FNS, TRIAL_DAYS, today,
+  addMonths, isExpired, billingOf, chargeOrg, topUp, stayPrice, minNights, EsPrice, dayRules, randCode, randHex, sameStr, sha256hex, logApiError,
+  clientMeta, deviceLabel, SECTIONS, parseJsonList, parseRights, allowsApt, allowsSection, sectionOfFn, type MemberRights,
 } from "../../lib/core";
-import {
-  newTotpSecret, otpauthUrl, qrSvg, totpOk, newBackupCodes, hashBackupCodes, consumeBackup,
-} from "../../lib/totp";
+import { newTotpSecret, otpauthUrl, qrSvg, totpOk, newBackupCodes, hashBackupCodes, consumeBackup } from "../../lib/totp";
 import { hostOf, siteOf, slugOk, isSlug } from "../../lib/host";
 import { handleAdmin, logEvent, activeAnnouncement, getSettings, createInvoice } from "../../lib/admin";
 import { sendMail, mails, dailyMail, orgEmail } from "../../lib/mail";
-import { seedTemplates, sanitizeTemplate, sendGuestMessage, fireEventMessages, runGuestMails, parseList, fillTags, bookingVars, pickLang } from "../../lib/guestmsg";
+import {
+  seedTemplates, sanitizeTemplate, sendGuestMessage, fireEventMessages, runGuestMails, parseList, fillTags, bookingVars, pickLang,
+} from "../../lib/guestmsg";
 import { botName, linkCode, webhookSecret, handleUpdate, tgNotify } from "../../lib/telegram";
 import { syncFeed, syncDue, feedUrlOk, sourceOf, newIcalKey } from "../../lib/ical";
 import { contractTexts, fill, DEFAULT_TPL } from "../../lib/contract";
-import { maibConfig, maibFromCreds, maibCheckout, maibVerify, type MaibCfg } from "../../lib/maib";
+import { maibConfig, maibCheckout, maibVerify, maibFromCreds, type MaibCfg } from "../../lib/maib";
 import { googleOk } from "../../lib/google";
 import { upsertFromBooking, syncAll as syncContacts, listContacts, getContact, saveContact, mergeContacts, toCsv as contactsCsv } from "../../lib/contacts";
 import { ensureCheckin, checkinCfgOf, parseData as parseCheckinData, validateSubmit as validateCheckin, purgeCheckins } from "../../lib/checkin";
-import {
-  createGuestInvoice, findDiscount, applyDiscount, bumpDiscountUse,
-  listDiscounts, normalizeCode, rowToDiscount,
-} from "../../lib/guest_invoice";
+import { createGuestInvoice, findDiscount, applyDiscount, bumpDiscountUse, listDiscounts, normalizeCode, rowToDiscount } from "../../lib/guest_invoice";
 
 // ---------- guest maib (per company) ----------
 function guestMaibOf(cfg: any): MaibCfg {
@@ -466,13 +463,14 @@ async function meOf(db: D1Database, c: Ctx) {
     .catch(() => one(db, "SELECT totp_secret FROM users WHERE id = ?", c.user.id))
     .catch(() => one(db, "SELECT google_sub FROM users WHERE id = ?", c.user.id))
     .catch(() => null);
-  const totp = !!(urow && urow.totp_secret);
+  const totp = !!(urow && urow.totp_secret), g = urow;
   return {
     user: { id: c.user.id, email: c.user.email, name: c.user.name, google: !!(urow && urow.google_sub) }, super: c.isSuper,
     org: c.org ? { id: c.org.id, name: c.org.name, code: c.org.code } : null, role: c.role, orgs,
     billing: c.org ? await billingOf(db, c.org) : null,
     support: c.support, announcement: c.org ? await activeAnnouncement(db) : null,
-    totp, rights: c.rights || { apts: null, sections: null },
+    rights: c.role === "owner" ? { apts: null, sections: null } : (c.rights || { apts: null, sections: null }),
+    totp,
   };
 }
 
@@ -487,6 +485,7 @@ function extraOf(x: any) {
     kids: Math.max(0, Math.min(50, Math.floor(num(x.kids)))), lang: str(x.lang, 12), tin: t(x.tin), tout: t(x.tout), team: str(x.team, 600),
     dep: num(x.dep), dep_cur: cur(x.dep_cur), dep_st: ["held", "back", "kept"].includes(x.dep_st) ? x.dep_st : "", dep_kept: num(x.dep_kept), dep_note: str(x.dep_note, 200),
     com_pct: Math.min(100, num(x.com_pct)), com: num(x.com),
+    cx: str(x.cx, 400), cx_keep: Math.max(0, num(x.cx_keep)), cx_at: str(x.cx_at, 40),
     disc_code: str(x.disc_code, 40), disc_off: num(x.disc_off), disc_kind: ["pct", "sum"].includes(x.disc_kind) ? x.disc_kind : "", disc_value: num(x.disc_value),
   };
   for (const k of Object.keys(o)) if (o[k] === "" || o[k] === 0) delete o[k];
@@ -632,12 +631,13 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     const taken = await all(db, "SELECT apt, date, nights FROM bookings WHERE org_id = ? AND nights > 0 AND tag NOT IN ('closed','cancel') AND date < ? AND date >= ?", org.id, till, addDays(t, -60));
     const busy = (apt: string, from: string, nights: number) => taken.some((b: any) => b.apt === apt && b.date < addDays(from, nights) && addDays(b.date, b.nights) > from);
     if (fn === "pub_listing") {
+      const discN = await one(db, "SELECT COUNT(*) AS n FROM discount_codes WHERE org_id = ? AND active = 1", org.id).catch(() => ({ n: 0 }));
       const PUB = ["kind", "group", "area", "bedrooms", "baths", "floor", "beds", "guests", "price", "pcur", "cin", "cout", "amen", "rtype", "minn", "cfee", "dep", "layout", "dow", "xg", "xgFrom", "xc", "los", "bufB", "bufA", "arr", "lead", "maxn", "desc", "how", "map"];
       return json({
         name: org.name, slug: org.code, min: Math.max(1, +dir.min || 1), pricing: { weekend: +(cfg.pricing?.weekend) || 0, seasons: (cfg.pricing?.seasons || []).map((x: any) => ({ from: x.from, to: x.to, pct: +x.pct || 0, min: +x.min || 0 })) }, phone: dir.phone || "", email: dir.email || "", terms: dir.terms || "", intro: dir.intro || "",
         units: units.map((a: string) => { const u = (cfg.units || {})[a] || {}, o: any = { name: a, addr: dir.addr === false ? "" : ((cfg.addr || {})[a] || "").split(",")[0] }; for (const k of PUB) if (u[k] != null && u[k] !== "") o[k] = u[k];
           o.busy = taken.filter((b: any) => b.apt === a && addDays(b.date, b.nights) > t).map((b: any) => [b.date, b.nights]); o.rules = rules[a] || {}; return o; }),
-        today: t, pay: guestMaibPublic(cfg),
+        today: t, discounts: !!(discN && discN.n > 0), pay: guestMaibPublic(cfg),
       });
     }
     if (fn === "pub_discount") {
@@ -680,13 +680,105 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       id, org.id, date, apt, name, nights, phone, email, pax + kids, ("Cerere online" + (kids ? ` (${pax} adulți, ${kids} copii)` : "") + (wantCode ? ` · cod ${wantCode}` : "") + (msg ? ": " + msg : "")).slice(0, 1000), price, cur, now, now);
     { const ex = extraOf({ kids, lang: ["ro", "ru", "en"].includes(body.lang) ? body.lang : "", ...(discExtra || {}) }); if (ex && ex !== "{}") await run(db, "UPDATE bookings SET extra = ? WHERE org_id = ? AND id = ?", ex, org.id, id).catch(() => {}); }
     await audit(db, org.id, null, "booking", "request", id, bLabel({ apt, date, guest: name }), { nights, pax, price, price_cur: cur, discount: wantCode || undefined }, "web");
+    await upsertFromBooking(db, org.id, { guest: name, phone, email }).catch(() => {});
     await notify(db, org.id, ["manager"], { title: `Cerere de rezervare: ${apt}`, body: `${name} · ${date} · ${nights} n. · ${pax} pers.${phone ? " · " + phone : ""}${wantCode ? " · " + wantCode : ""}` });
     const owner = await orgEmail(db, org.id);
     if (owner) await sendMail(env, db, { to: owner, ...mails.requestNew(org.name, org.code, { apt, date, nights, pax, name, phone, email, msg, price, cur }), kind: "request", orgId: org.id });
     if (email) await sendMail(env, db, { to: email, ...mails.requestGot(org.name, { apt, date, nights, pax, price, cur, phone: dir.phone || "", email: dir.email || "" }), kind: "request", orgId: org.id });
     const pay = guestMaibPublic(cfg);
     const deposit = pay.on && pay.depositPct > 0 ? Math.round(price * pay.depositPct) / 100 : 0;
-    return json({ ok: true, id, price, cur, pay, deposit });
+    return json({ ok: true, id, price, cur, discount: discExtra, pay, deposit });
+  }
+  // ---------- occupancy widget for the owner's site (iframe): <slug>.espace.md/widget ----------
+  if (fn === "pub_widget") {
+    const code = (reqSlug || str(body.slug, 40)).toLowerCase();
+    const org = isSlug(code) ? await one(db, "SELECT * FROM orgs WHERE code = ?", code) : null;
+    if (!org) return json({ message: "not_found" }, 404);
+    const cfg = (await getConfig(db, org.id)) || {}, dir = cfg.direct || {};
+    if (isExpired(await chargeOrg(db, org))) return json({ message: "closed", name: org.name }, 403);
+    const hidden = new Set(dir.hidden || []);
+    const want = str(body.apt, 100);
+    let units = (cfg.apts || []).filter((a: string) => !hidden.has(a) && +((cfg.units || {})[a]?.price) > 0);
+    if (want) units = units.filter((a: string) => a === want);
+    if (!units.length && want && (cfg.apts || []).includes(want)) units = [want];
+    const t = today(), till = addDays(t, 90);
+    const taken = await all(db, "SELECT apt, date, nights FROM bookings WHERE org_id = ? AND nights > 0 AND date < ? AND date >= ?", org.id, till, addDays(t, -60));
+    const bookUrl = `https://${org.code}.espace.md/rezerva`;
+    return json({
+      name: org.name, slug: org.code, today: t, days: 42, book: bookUrl, direct: !!dir.on,
+      units: units.map((a: string) => {
+        const u = (cfg.units || {})[a] || {};
+        return {
+          name: a, price: +u.price || 0, pcur: ["EUR", "MDL", "USD"].includes(u.pcur) ? u.pcur : "EUR",
+          guests: +u.guests || 0, kind: u.kind || "",
+          busy: taken.filter((b: any) => b.apt === a && addDays(b.date, b.nights) > t).map((b: any) => [b.date, b.nights]),
+        };
+      }),
+    });
+  }
+  // ---------- public offer link: <slug>.espace.md/oferta/<token> ----------
+  if (fn === "pub_offer" || fn === "pub_offer_photo" || fn === "pub_offer_request") {
+    const tok = str(body.token, 80);
+    if (!/^[a-f0-9]{32}$/.test(tok)) return json({ message: "not_found" }, 404);
+    const of = await one(db, "SELECT o.*, g.code, g.name AS org_name, g.id AS oid FROM offers o JOIN orgs g ON g.id = o.org_id WHERE o.token = ?", tok);
+    if (!of) return json({ message: "not_found" }, 404);
+    if (of.expires_at && of.expires_at < nowIso()) return json({ message: "expired", name: of.org_name }, 410);
+    if (isExpired(await chargeOrg(db, await one(db, "SELECT * FROM orgs WHERE id = ?", of.org_id)))) return json({ message: "closed", name: of.org_name }, 403);
+    const cfg = (await getConfig(db, of.org_id)) || {}, dir = cfg.direct || {};
+    let apts: string[] = [];
+    try { apts = JSON.parse(of.apts || "[]"); } catch { apts = []; }
+    apts = apts.filter((a: any) => typeof a === "string" && (cfg.apts || []).includes(a));
+    const t = today(), date = of.date, nights = +of.nights || 0;
+    const rules = await dayRules(db, of.org_id, addDays(date, -1), addDays(date, nights + 60));
+    const taken = await all(db, "SELECT apt, date, nights FROM bookings WHERE org_id = ? AND nights > 0 AND date < ? AND date >= ?", of.org_id, addDays(date, nights + 1), addDays(date, -60));
+    if (fn === "pub_offer_photo") {
+      const apt = str(body.apt, 100); if (!apts.includes(apt)) return json({ message: "not_found" }, 404);
+      const ph = await one(db, "SELECT data FROM apt_photos WHERE org_id = ? AND apt = ?", of.org_id, apt);
+      return json({ data: ph?.data || "" });
+    }
+    if (fn === "pub_offer") {
+      await run(db, "UPDATE offers SET views = views + 1 WHERE token = ?", tok).catch(() => {});
+      const PUB = ["kind", "group", "area", "bedrooms", "baths", "floor", "beds", "guests", "price", "pcur", "cin", "cout", "amen", "rtype", "minn", "cfee", "dep", "layout", "dow", "xg", "xgFrom", "xc", "los", "bufB", "bufA", "arr", "lead", "maxn"];
+      return json({
+        name: of.org_name, slug: of.code, token: tok, date, nights, note: of.note || "",
+        phone: dir.phone || "", email: dir.email || "", terms: dir.terms || "",
+        pricing: { weekend: +(cfg.pricing?.weekend) || 0, seasons: (cfg.pricing?.seasons || []).map((x: any) => ({ from: x.from, to: x.to, pct: +x.pct || 0, min: +x.min || 0 })) },
+        today: t,
+        units: apts.map((a: string) => {
+          const u = (cfg.units || {})[a] || {}, o: any = { name: a };
+          for (const k of PUB) if (u[k] != null && u[k] !== "") o[k] = u[k];
+          const busyList = taken.filter((b: any) => b.apt === a).map((b: any) => [b.date, b.nights]);
+          o.busy = busyList; o.rules = rules[a] || {};
+          const ck = EsPrice.check(u, date, nights, { P: cfg.pricing, R: rules[a] || {}, dirMin: +dir.min || 1, today: t, busy: busyList, pax: 2, kids: 0 });
+          o.ok = !!ck.ok; o.why = ck.ok ? "" : (ck.why || "taken");
+          if (ck.ok) { const q = EsPrice.quote(u, date, nights, { P: cfg.pricing, R: rules[a] || {}, pax: 2, kids: 0 }); o.total = q.total; o.quote = { base: q.base, avg: q.avg, cfee: q.cfee, flat: q.flat }; }
+          return o;
+        }),
+      });
+    }
+    // pub_offer_request: guest books one unit from the offer (same as pub_request, but scoped to the offer)
+    const ip = request.headers.get("cf-connecting-ip") || "x", local = ["localhost", "127.0.0.1"].includes(new URL(request.url).hostname);
+    if (!local) { if (await throttled(db, "breq:" + ip)) return json({ message: "locked" }, 429); await failHit(db, "breq:" + ip); }
+    const apt = str(body.apt, 100), name = str(body.name, 80).trim(), phone = str(body.phone, 40).trim(), email = str(body.email, 120).trim().toLowerCase();
+    const pax = Math.max(1, Math.min(50, Math.floor(num(body.guests)) || 1)), kids = Math.max(0, Math.min(20, Math.floor(num(body.kids)) || 0));
+    if (!apts.includes(apt)) return json({ message: "bad_unit" }, 400);
+    if (!name || (!phone && !isEmail(email)) || (email && !isEmail(email))) return json({ message: "need_contact" }, 400);
+    const u = (cfg.units || {})[apt] || {}, cap = +u.guests || 0;
+    const busyList = taken.filter((b: any) => b.apt === apt).map((b: any) => [b.date, b.nights]);
+    const ck = EsPrice.check(u, date, nights, { P: cfg.pricing, R: rules[apt] || {}, dirMin: +dir.min || 1, today: t, busy: busyList, pax, kids });
+    if (!ck.ok) return ck.why === "taken" ? json({ message: "taken" }, 409) : ck.why === "guests" ? json({ message: "too_many_guests", cap }, 400) : json({ message: "bad_dates", why: ck.why, min: ck.min }, 400);
+    const q = EsPrice.quote(u, date, nights, { P: cfg.pricing, R: rules[apt] || {}, pax, kids });
+    const price = q.total, cur = ["EUR", "MDL", "USD"].includes(u.pcur) ? u.pcur : "EUR";
+    const id = uuid(), now = nowIso(), msg = str(body.message, 600).trim();
+    await run(db, `INSERT INTO bookings(id, org_id, date, apt, guest, nights, phone, email, pax, source, tag, note, price, price_cur, pay_status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,'Прямой','req',?,?,?, 'unpaid', ?, ?)`,
+      id, of.org_id, date, apt, name, nights, phone, email, pax + kids, ("Cerere din ofertă" + (kids ? ` (${pax} adulți, ${kids} copii)` : "") + (msg ? ": " + msg : "")).slice(0, 1000), price, cur, now, now);
+    { const ex = extraOf({ kids, lang: ["ro", "ru", "en"].includes(body.lang) ? body.lang : "" }); if (ex && ex !== "{}") await run(db, "UPDATE bookings SET extra = ? WHERE org_id = ? AND id = ?", ex, of.org_id, id).catch(() => {}); }
+    await audit(db, of.org_id, null, "booking", "request", id, bLabel({ apt, date, guest: name }), { nights, pax, price, price_cur: cur, offer: tok }, "web");
+    await notify(db, of.org_id, ["manager"], { title: `Cerere din ofertă: ${apt}`, body: `${name} · ${date} · ${nights} n. · ${pax} pers.${phone ? " · " + phone : ""}` });
+    const owner = await orgEmail(db, of.org_id);
+    if (owner) await sendMail(env, db, { to: owner, ...mails.requestNew(of.org_name, of.code, { apt, date, nights, pax, name, phone, email, msg, price, cur }), kind: "request", orgId: of.org_id });
+    if (email) await sendMail(env, db, { to: email, ...mails.requestGot(of.org_name, { apt, date, nights, pax, price, cur, phone: dir.phone || "", email: dir.email || "" }), kind: "request", orgId: of.org_id });
+    return json({ ok: true, id, price, cur });
   }
 
   // ---------- guest card pay: public pay page /plata/<token> and deposit after a booking request ----------
@@ -852,8 +944,9 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     const purged = await purgeCheckins(db).catch(() => 0);
     await run(db, "DELETE FROM audit WHERE at < ?", new Date(Date.now() - 400 * 86400000).toISOString()).catch(() => {}); // the change log keeps ~13 months
     // the admin panel's health page shows when this last ran
-    await run(db, "INSERT INTO sys_state(k, v) VALUES ('cron_last', ?) ON CONFLICT (k) DO UPDATE SET v = excluded.v", JSON.stringify({ at: nowIso(), orgs: n, mailed, feeds, purged })).catch(() => {});
-    return json({ orgs: n, mailed, feeds, purged });
+    await run(db, "INSERT INTO sys_state(k, v) VALUES ('cron_last', ?) ON CONFLICT (k) DO UPDATE SET v = excluded.v", JSON.stringify({ at: nowIso(), orgs: n, mailed, guestMails, feeds, purged })).catch(() => {});
+    await run(db, "DELETE FROM errors WHERE created_at < ?", new Date(Date.now() - 30 * 86400000).toISOString()).catch(() => {});
+    return json({ orgs: n, mailed, guestMails, feeds, purged });
   }
 
   // ---------- Google OAuth status (public; secrets stay on the server) ----------
@@ -1070,6 +1163,24 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     await run(db, "UPDATE users SET pw_hash = ? WHERE id = ?", await hashPassword(np), c.user.id);
     await run(db, "DELETE FROM sessions WHERE user_id = ? AND token_hash != ?", c.user.id, c.tokenHash); // sign out everywhere else
     return json(true);
+  }
+  // link / unlink Google from Setări → Аккаунт (returns a start URL; browser navigates there)
+  if (fn === "google_link") {
+    if (!googleOk(env)) return json({ message: "google_off" }, 503);
+    const tok = bearer(request);
+    if (!tok) return json({ message: "bad_session" }, 401);
+    const site = siteOf(hostOf(request));
+    const q = new URLSearchParams({ mode: "link", s: tok });
+    if (site.kind === "admin") q.set("next", "admin");
+    const origin = new URL(request.url).origin;
+    return json({ url: origin + "/api/google/start?" + q.toString() });
+  }
+  if (fn === "google_unlink") {
+    const u = await one(db, "SELECT pw_hash, google_sub FROM users WHERE id = ?", c.user.id);
+    if (!u?.google_sub) return json(true);
+    if (!u.pw_hash) return json({ message: "need_password" }, 409); // keep at least one way in
+    await run(db, "UPDATE users SET google_sub = NULL WHERE id = ?", c.user.id);
+    return json(await meOf(db, (await loadSession(db, env, bearer(request)))!));
   }
   // ---------- 2FA TOTP (owner / manager): QR + 8 backup codes; login asks for 6 digits ----------
   if (fn === "auth_2fa_begin") {
@@ -1322,11 +1433,20 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       const prev = isUuid(b.id) ? await one(db, "SELECT * FROM bookings WHERE org_id = ? AND id = ?", O, b.id) : null;
       if (prev && !allowsApt(c.rights, c.role, prev.apt)) return json({ message: "forbidden_apt" }, 403);
       if (await monthClosed(db, O, b.date, prev?.date)) return CLOSED();
+      let tag = TAGS.includes(str(b.tag, 10)) ? str(b.tag, 10) : "";
+      // cancelled stays cancelled until a dedicated restore exists; keep reason fields from the previous extra
+      if (prev?.tag === "cancel") {
+        tag = "cancel";
+        try {
+          const px = JSON.parse(prev.extra || "{}") || {};
+          b.x = { ...(b.x && typeof b.x === "object" ? b.x : {}), cx: b.x?.cx || px.cx || "", cx_keep: b.x?.cx_keep ?? px.cx_keep ?? 0, cx_at: px.cx_at || "" };
+        } catch { /* keep b.x */ }
+      }
       const email = str(b.email, 120).toLowerCase();
       const v = { date: b.date, apt: str(b.apt, 100), guest: str(b.guest, 200), nights: Math.min(366, Math.floor(num(b.nights))),
         mdl: num(b.mdl), eur: num(b.eur), usd: num(b.usd), pay: str(b.pay, 50), who: str(b.who, 50), note: str(b.note, 1000),
         source: str(b.source, 50), phone: str(b.phone, 40), pax: Math.max(0, Math.min(500, Math.floor(num(b.pax)))), oth: num(b.oth), oth_cur: str(b.oth_cur, 10).toUpperCase(), util: num(b.util),
-        price: Math.max(0, num(b.price)), price_cur: (["MDL", "EUR", "USD"].includes(str(b.price_cur, 5).toUpperCase()) ? str(b.price_cur, 5).toUpperCase() : "EUR"), pay_status: (["unpaid", "part", "paid"].includes(str(b.pay_status, 10)) ? str(b.pay_status, 10) : ""), tag: (TAGS.includes(str(b.tag, 10)) ? str(b.tag, 10) : ""),
+        price: Math.max(0, num(b.price)), price_cur: (["MDL", "EUR", "USD"].includes(str(b.price_cur, 5).toUpperCase()) ? str(b.price_cur, 5).toUpperCase() : "EUR"), pay_status: (["unpaid", "part", "paid"].includes(str(b.pay_status, 10)) ? str(b.pay_status, 10) : ""), tag,
         util_cur: (["MDL", "EUR", "USD"].includes(str(b.util_cur, 5).toUpperCase()) ? str(b.util_cur, 5).toUpperCase() : "MDL"), email };
       const extra = extraOf(b.x); // null = an older app that does not send it: keep what is stored
       if (isUuid(b.id)) {
@@ -1336,6 +1456,11 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
           v.date, v.apt, v.guest, v.nights, v.mdl, v.eur, v.usd, v.pay, v.who, v.note, v.source, v.phone, v.pax, v.oth, v.oth_cur, v.util, v.util_cur, v.price, v.price_cur, v.pay_status, v.tag, v.email, nowIso(), O, b.id);
         if (r?.id && extra !== null) await run(db, "UPDATE bookings SET extra = ? WHERE org_id = ? AND id = ?", extra, O, r.id).catch(() => {});
         if (r?.id && prev) { const d = diffOf(prev, v, B_F); if (Object.keys(d).length) await audit(db, O, c, "booking", "update", b.id, bLabel(v), d); }
+        // cancel tag just set → fire cancel templates once
+        if (r?.id && v.tag === "cancel" && prev && prev.tag !== "cancel") {
+          const full = await one(db, "SELECT * FROM bookings WHERE org_id = ? AND id = ?", O, b.id);
+          waitUntil(fireEventMessages(env, db, org, full, "cancel").catch(() => {}));
+        }
         if (r?.id) await upsertFromBooking(db, O, v).catch(() => {});
         return json(r?.id ?? null);
       }
@@ -1344,6 +1469,8 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
         id, O, v.date, v.apt, v.guest, v.nights, v.mdl, v.eur, v.usd, v.pay, v.who, v.note, v.source, v.phone, v.pax, v.oth, v.oth_cur, v.util, v.util_cur, v.price, v.price_cur, v.pay_status, v.tag, v.email, t, t);
       if (extra !== null && extra !== "{}") await run(db, "UPDATE bookings SET extra = ? WHERE org_id = ? AND id = ?", extra, O, id).catch(() => {});
       await audit(db, O, c, "booking", "create", id, bLabel(v), snapOf(v, B_F));
+      const full = await one(db, "SELECT * FROM bookings WHERE org_id = ? AND id = ?", O, id);
+      if (v.tag !== "cancel" && v.tag !== "closed" && v.tag !== "req") waitUntil(fireEventMessages(env, db, org, full, "new").catch(() => {}));
       await upsertFromBooking(db, O, v).catch(() => {});
       return json(id);
     }
@@ -2007,9 +2134,24 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       }
       return json({ ok: true, n: out.length, results: out });
     }
-    case "kv_ical_key": { // makes (or returns) the unit's export link
-      const apt = str(body.apt, 100), cfg = await getConfig(db, O);
-      if (!cfg || !(cfg.apts || []).includes(apt)) return json({ message: "bad_apt" }, 400);
+    case "kv_ical_org": {
+      // company-wide export (all units) for Google Calendar
+      const cfg = await getConfig(db, O);
+      const key = cfg?.ical || "";
+      return json({ export: key ? `https://espace.md/ical/${org.code}/${key}.ics` : "", key });
+    }
+    case "kv_ical_key": { // makes (or returns) the unit's export link; body.org=true → company-wide key
+      const cfg = await getConfig(db, O);
+      if (!cfg) return json({ message: "bad_apt" }, 400);
+      if (body.org === true) {
+        if (!cfg.ical || body.renew === true) {
+          cfg.ical = newIcalKey();
+          await run(db, "UPDATE app_config SET data = ? WHERE org_id = ?", JSON.stringify(cfg), O);
+        }
+        return json({ export: `https://espace.md/ical/${org.code}/${cfg.ical}.ics`, key: cfg.ical });
+      }
+      const apt = str(body.apt, 100);
+      if (!(cfg.apts || []).includes(apt)) return json({ message: "bad_apt" }, 400);
       cfg.units = cfg.units || {}; cfg.units[apt] = cfg.units[apt] || {};
       if (!cfg.units[apt].ical || body.renew === true) {
         cfg.units[apt].ical = newIcalKey();
@@ -2211,6 +2353,155 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       const r = await one(db, "SELECT photo FROM tasks WHERE org_id = ? AND id = ?", O, body.p_id);
       return json(r?.photo || "");
     }
+
+    // ---------- guest messages (module 7) ----------
+    case "kv_msg_list": {
+      await seedTemplates(db, O).catch(() => {});
+      const list = await all(db, "SELECT * FROM msg_templates WHERE org_id = ? ORDER BY created_at", O);
+      for (const t of list) { t.apts = parseList(t.apts); t.channels = parseList(t.channels); t.active = !!t.active; }
+      return json(list);
+    }
+    case "kv_msg_seed": {
+      const n = await seedTemplates(db, O);
+      return json({ n });
+    }
+    case "kv_msg_save": {
+      const t = sanitizeTemplate(body.t || body);
+      const now = nowIso();
+      if (t.id) {
+        const r = await one(db, `UPDATE msg_templates SET name=?, trigger=?, offset_days=?, send_hour=?, apts=?, channels=?,
+          subject_ro=?, subject_ru=?, subject_en=?, body_ro=?, body_ru=?, body_en=?, active=?, updated_at=?
+          WHERE org_id=? AND id=? RETURNING id`,
+          t.name, t.trigger, t.offset_days, t.send_hour, t.apts, t.channels,
+          t.subject_ro, t.subject_ru, t.subject_en, t.body_ro, t.body_ru, t.body_en, t.active, now, O, t.id);
+        return json(r?.id || null);
+      }
+      const id = uuid();
+      await run(db, `INSERT INTO msg_templates(id,org_id,name,trigger,offset_days,send_hour,apts,channels,subject_ro,subject_ru,subject_en,body_ro,body_ru,body_en,active,created_at,updated_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        id, O, t.name, t.trigger, t.offset_days, t.send_hour, t.apts, t.channels,
+        t.subject_ro, t.subject_ru, t.subject_en, t.body_ro, t.body_ru, t.body_en, t.active, now, now);
+      return json(id);
+    }
+    case "kv_msg_del": {
+      if (!isUuid(body.id)) return json({ message: "bad_id" }, 400);
+      await run(db, "DELETE FROM msg_templates WHERE org_id = ? AND id = ?", O, body.id);
+      return json(true);
+    }
+    case "kv_msg_history": {
+      if (!isUuid(body.booking_id)) return json({ message: "bad_id" }, 400);
+      return json(await all(db, "SELECT id, template_id, channel, to_addr, lang, subject, status, created_at FROM msg_sent WHERE org_id = ? AND booking_id = ? ORDER BY created_at DESC LIMIT 50", O, body.booking_id));
+    }
+    case "kv_msg_preview": {
+      if (!isUuid(body.booking_id)) return json({ message: "bad_id" }, 400);
+      const b = await one(db, "SELECT * FROM bookings WHERE org_id = ? AND id = ?", O, body.booking_id);
+      if (!b) return json({ message: "not_found" }, 404);
+      const cfg = (await getConfig(db, O)) || {};
+      let extra: any = {}; try { extra = JSON.parse(b.extra || "{}"); } catch {}
+      const lang = ["ro", "ru", "en"].includes(body.lang) ? body.lang : pickLang(extra);
+      const vars = await bookingVars(db, org, b, cfg);
+      const subject = fillTags(str(body.subject, 200), vars);
+      const text = fillTags(str(body.body, 5000), vars);
+      return json({ subject, body: text, lang, vars, to: b.email || "" });
+    }
+    case "kv_msg_send": {
+      if (!isUuid(body.booking_id)) return json({ message: "bad_id" }, 400);
+      const b = await one(db, "SELECT * FROM bookings WHERE org_id = ? AND id = ?", O, body.booking_id);
+      if (!b) return json({ message: "not_found" }, 404);
+      let tpl: any = { id: "", trigger: "manual", offset_days: 0 };
+      if (isUuid(body.template_id)) {
+        tpl = await one(db, "SELECT * FROM msg_templates WHERE org_id = ? AND id = ?", O, body.template_id);
+        if (!tpl) return json({ message: "not_found" }, 404);
+      }
+      const r = await sendGuestMessage(env, db, org, b, tpl, {
+        previewSubject: typeof body.subject === "string" ? body.subject : undefined,
+        previewBody: typeof body.body === "string" ? body.body : undefined,
+        forceLang: ["ro", "ru", "en"].includes(body.lang) ? body.lang : undefined,
+        manual: true,
+      });
+      if (!r.ok) return json({ message: r.message || "error" }, 400);
+      return json(r);
+    }
+
+    // ---------- offer links for guests (calendar → public page with price + Rezervă) ----------
+    case "kv_offer_list": {
+      const rows = await all(db, "SELECT token, date, nights, apts, note, created_at, expires_at, views FROM offers WHERE org_id = ? ORDER BY created_at DESC LIMIT 40", O);
+      return json(rows.map((r: any) => ({ ...r, apts: (() => { try { return JSON.parse(r.apts || "[]"); } catch { return []; } })() })));
+    }
+    case "kv_offer_create": {
+      const cfg = (await getConfig(db, O)) || {};
+      const date = isDate(body.date) ? body.date : "";
+      const nights = Math.floor(num(body.nights));
+      const apts: string[] = [...new Set<string>((Array.isArray(body.apts) ? body.apts : []).map((a: any) => str(a, 100)))].filter((a: string) => (cfg.apts || []).includes(a));
+      if (!date || date < today() || !(nights > 0) || nights > 90) return json({ message: "bad_dates" }, 400);
+      if (!apts.length) return json({ message: "need_units" }, 400);
+      if (apts.length > 30) return json({ message: "too_many" }, 400);
+      const till = addDays(date, nights + 1);
+      const taken = await all(db, "SELECT apt, date, nights FROM bookings WHERE org_id = ? AND nights > 0 AND date < ? AND date >= ?", O, till, addDays(date, -60));
+      const rules = await dayRules(db, O, addDays(date, -1), addDays(date, nights + 30));
+      const dir = (cfg.direct || {}), free: string[] = [];
+      for (const a of apts) {
+        const u = (cfg.units || {})[a] || {};
+        const busyList = taken.filter((b: any) => b.apt === a).map((b: any) => [b.date, b.nights]);
+        const ck = EsPrice.check(u, date, nights, { P: cfg.pricing, R: rules[a] || {}, dirMin: +dir.min || 1, today: today(), busy: busyList, pax: 2, kids: 0 });
+        if (ck.ok) free.push(a);
+      }
+      if (!free.length) return json({ message: "none_free" }, 409);
+      const token = randHex(16), now = nowIso(), expires = new Date(Date.now() + 14 * 86400000).toISOString();
+      const note = str(body.note, 400);
+      await run(db, "INSERT INTO offers(token, org_id, date, nights, apts, note, created_by, created_at, expires_at) VALUES (?,?,?,?,?,?,?,?,?)",
+        token, O, date, nights, JSON.stringify(free), note, c.user?.name || c.user?.email || "", now, expires);
+      await audit(db, O, c, "booking", "offer", token, `${free.length > 1 ? free.length + " объектов" : free[0]} · ${date} · ${nights} н.`, { apts: free, nights, note }, "app");
+      const url = `https://${org.code}.espace.md/oferta/${token}`;
+      return json({ token, url, apts: free, date, nights, expires_at: expires });
+    }
+    case "kv_offer_del": {
+      const tok = str(body.token, 80);
+      if (!/^[a-f0-9]{32}$/.test(tok)) return json({ message: "bad_token" }, 400);
+      const r = await one(db, "SELECT token FROM offers WHERE org_id = ? AND token = ?", O, tok);
+      if (!r) return json({ message: "not_found" }, 404);
+      await run(db, "DELETE FROM offers WHERE org_id = ? AND token = ?", O, tok);
+      await audit(db, O, c, "booking", "offer_del", tok, "оферта удалена", {}, "app");
+      return json(true);
+    }
+
+
+    // ---------- paid extras ordered from the guest guide ----------
+    case "kv_svc_orders": {
+      const st = str(body.status, 10);
+      const rows = st === "all"
+        ? await all(db, "SELECT * FROM svc_orders WHERE org_id = ? ORDER BY created_at DESC LIMIT 80", O)
+        : await all(db, "SELECT * FROM svc_orders WHERE org_id = ? AND status = 'new' ORDER BY created_at DESC LIMIT 80", O);
+      return json(rows);
+    }
+    case "kv_svc_done": {
+      const id = str(body.id, 40);
+      if (!isUuid(id)) return json({ message: "bad_id" }, 400);
+      const r = await one(db, "SELECT id, status FROM svc_orders WHERE org_id = ? AND id = ?", O, id);
+      if (!r) return json({ message: "not_found" }, 404);
+      const st = body.cancel === true ? "cancel" : "done";
+      await run(db, "UPDATE svc_orders SET status = ? WHERE org_id = ? AND id = ?", st, O, id);
+      return json(true);
+    }
+
+    // ---------- consumables shopping list ----------
+    case "kv_supply_list": {
+      const st = str(body.status, 10);
+      const rows = st === "all"
+        ? await all(db, "SELECT * FROM supply_need WHERE org_id = ? ORDER BY created_at DESC LIMIT 100", O)
+        : await all(db, "SELECT * FROM supply_need WHERE org_id = ? AND status = 'need' ORDER BY created_at DESC LIMIT 100", O);
+      return json(rows);
+    }
+    case "kv_supply_done": {
+      const id = str(body.id, 40);
+      if (!isUuid(id)) return json({ message: "bad_id" }, 400);
+      const r = await one(db, "SELECT id FROM supply_need WHERE org_id = ? AND id = ?", O, id);
+      if (!r) return json({ message: "not_found" }, 404);
+      if (body.undo === true) await run(db, "UPDATE supply_need SET status = 'need', done_at = '' WHERE org_id = ? AND id = ?", O, id);
+      else await run(db, "UPDATE supply_need SET status = 'bought', done_at = ? WHERE org_id = ? AND id = ?", nowIso(), O, id);
+      return json(true);
+    }
+
 
     // ---------- guest card pay links (company's own maib project) ----------
     case "kv_pay_list": {

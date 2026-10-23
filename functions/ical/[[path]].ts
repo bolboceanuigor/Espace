@@ -22,7 +22,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ params, env }) => {
   const list: any[] = [];
   const targets = unitApt ? [unitApt] : apts;
   for (const apt of targets) {
-    const rows = await env.DB.prepare("SELECT id, date, nights, tag, apt FROM bookings WHERE org_id = ? AND apt = ? AND nights > 0 AND date >= ? ORDER BY date").bind(org.id, apt, addDays(from, -366)).all();
+    const rows = await env.DB.prepare("SELECT id, date, nights, tag, apt FROM bookings WHERE org_id = ? AND apt = ? AND nights > 0 AND tag != 'cancel' AND date >= ? ORDER BY date").bind(org.id, apt, addDays(from, -366)).all();
     for (const b of (rows.results || []) as any[]) {
       if (addDays(b.date, b.nights) >= from) list.push(b);
     }

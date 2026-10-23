@@ -111,6 +111,37 @@ CREATE TABLE IF NOT EXISTS bookings (
 );
 CREATE INDEX IF NOT EXISTS bookings_org_date_idx ON bookings(org_id, date);
 CREATE INDEX IF NOT EXISTS bookings_shift_idx ON bookings(shift_id);
+-- files on a stay: R2 key when FILES binding exists, else data (base64 data-URL) in D1 like apt_photos
+CREATE TABLE IF NOT EXISTS booking_files (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL,
+  booking_id TEXT NOT NULL,
+  name TEXT NOT NULL DEFAULT '',
+  mime TEXT NOT NULL DEFAULT '',
+  size INTEGER NOT NULL DEFAULT 0,
+  r2_key TEXT NOT NULL DEFAULT '',
+  data TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS booking_files_bk_idx ON booking_files(org_id, booking_id);
+
+-- guest contacts (CRM): gathered from bookings by phone / email
+CREATE TABLE IF NOT EXISTS contacts (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL,
+  name TEXT NOT NULL DEFAULT '',
+  phone TEXT NOT NULL DEFAULT '',
+  phone_norm TEXT NOT NULL DEFAULT '',   -- digits only, for matching
+  email TEXT NOT NULL DEFAULT '',
+  email_norm TEXT NOT NULL DEFAULT '',   -- lowercased
+  note TEXT NOT NULL DEFAULT '',
+  flag TEXT NOT NULL DEFAULT '',         -- '' | vip | block
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS contacts_org_idx ON contacts(org_id, updated_at);
+CREATE INDEX IF NOT EXISTS contacts_phone_idx ON contacts(org_id, phone_norm);
+CREATE INDEX IF NOT EXISTS contacts_email_idx ON contacts(org_id, email_norm);
 
 -- online guest check-in (public token link)
 CREATE TABLE IF NOT EXISTS checkins (
@@ -487,111 +518,6 @@ CREATE TABLE IF NOT EXISTS maib_payments (
 );
 CREATE INDEX IF NOT EXISTS maib_payments_org_idx ON maib_payments(org_id, created_at);
 
--- guest card payments for a booking (deposit on book page, or balance link from the app).
--- Money goes to the company's own maib project (cfg.guestMaib), not the platform credit balance.
-CREATE TABLE IF NOT EXISTS guest_payments (
-  id TEXT PRIMARY KEY,                         -- also the orderId sent to maib
-  org_id TEXT NOT NULL,
-  booking_id TEXT NOT NULL,
-  kind TEXT NOT NULL DEFAULT 'balance',        -- deposit | balance
-  amount REAL NOT NULL,                        -- MDL charged via maib
-  amount_src REAL NOT NULL DEFAULT 0,          -- amount in booking currency
-  cur TEXT NOT NULL DEFAULT 'EUR',             -- booking currency of amount_src
-  status TEXT NOT NULL DEFAULT 'new',          -- new | paid | failed
-  checkout_id TEXT NOT NULL DEFAULT '',
-  payment_id TEXT NOT NULL DEFAULT '',
-  method TEXT NOT NULL DEFAULT '',
-  card TEXT NOT NULL DEFAULT '',
-  token TEXT NOT NULL UNIQUE,                  -- public /plata/<token>
-  guest TEXT NOT NULL DEFAULT '',
-  note TEXT NOT NULL DEFAULT '',
-  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  paid_at TEXT NOT NULL DEFAULT ''
-);
-CREATE INDEX IF NOT EXISTS guest_payments_org_idx ON guest_payments(org_id, created_at);
-CREATE INDEX IF NOT EXISTS guest_payments_booking_idx ON guest_payments(org_id, booking_id);
-
--- prices and rules per unit per day, set from the calendar (price mode) or in bulk: overrides the unit's price, seasons and weekend %
-CREATE TABLE IF NOT EXISTS day_rates (
-  org_id TEXT NOT NULL,
-  apt TEXT NOT NULL,
-  day TEXT NOT NULL,                      -- YYYY-MM-DD, the night that starts this day
-  price REAL,                             -- NULL = the usual price
-  min INTEGER NOT NULL DEFAULT 0,         -- min nights for a stay arriving this day (0 = usual)
-  cta INTEGER NOT NULL DEFAULT 0,         -- no arrival this day
-  ctd INTEGER NOT NULL DEFAULT 0,         -- no departure this day
-  closed INTEGER NOT NULL DEFAULT 0,      -- not for sale
-  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  PRIMARY KEY (org_id, apt, day)
-);
-
--- guest messaging (module 7): automated + manual emails to guests
-CREATE TABLE IF NOT EXISTS msg_templates (
-  id TEXT PRIMARY KEY,
-  org_id TEXT NOT NULL,
-  name TEXT NOT NULL,
-  trigger TEXT NOT NULL,                  -- new | before_in | on_in | before_out | after_out | cancel
-  offset_days INTEGER NOT NULL DEFAULT 0,
-  send_hour INTEGER NOT NULL DEFAULT 10,  -- 0–23 Europe/Chisinau
-  apts TEXT NOT NULL DEFAULT '[]',        -- JSON list of unit names; [] = all
-  channels TEXT NOT NULL DEFAULT '[]',    -- JSON list of sources; [] = all
-  subject_ro TEXT NOT NULL DEFAULT '',
-  subject_ru TEXT NOT NULL DEFAULT '',
-  subject_en TEXT NOT NULL DEFAULT '',
-  body_ro TEXT NOT NULL DEFAULT '',
-  body_ru TEXT NOT NULL DEFAULT '',
-  body_en TEXT NOT NULL DEFAULT '',
-  active INTEGER NOT NULL DEFAULT 1,
-  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-);
-CREATE INDEX IF NOT EXISTS msg_templates_org_idx ON msg_templates(org_id);
-CREATE TABLE IF NOT EXISTS msg_sent (
-  id TEXT PRIMARY KEY,
-  org_id TEXT NOT NULL,
-  booking_id TEXT NOT NULL,
-  template_id TEXT NOT NULL DEFAULT '',
-  channel TEXT NOT NULL DEFAULT 'email',
-  to_addr TEXT NOT NULL,
-  lang TEXT NOT NULL DEFAULT 'ro',
-  subject TEXT NOT NULL DEFAULT '',
-  body TEXT NOT NULL DEFAULT '',
-  status TEXT NOT NULL DEFAULT '',
-  detail TEXT NOT NULL DEFAULT '',
-  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-);
-CREATE INDEX IF NOT EXISTS msg_sent_booking_idx ON msg_sent(org_id, booking_id, created_at);
-
--- restored 23.10.2026: these tables were lost when the Cursor branches were merged (code used them, the database never had them)
--- server 5xx log for the admin health page (platform-wide, not per-company export)
-CREATE TABLE IF NOT EXISTS errors (
-  id TEXT PRIMARY KEY,
-  org_id TEXT NOT NULL DEFAULT '',
-  fn TEXT NOT NULL DEFAULT '',
-  status INTEGER NOT NULL DEFAULT 500,
-  message TEXT NOT NULL DEFAULT '',
-  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-);
-CREATE INDEX IF NOT EXISTS errors_created_idx ON errors(created_at);
-
--- guest contacts (CRM): gathered from bookings by phone / email
-CREATE TABLE IF NOT EXISTS contacts (
-  id TEXT PRIMARY KEY,
-  org_id TEXT NOT NULL,
-  name TEXT NOT NULL DEFAULT '',
-  phone TEXT NOT NULL DEFAULT '',
-  phone_norm TEXT NOT NULL DEFAULT '',   -- digits only, for matching
-  email TEXT NOT NULL DEFAULT '',
-  email_norm TEXT NOT NULL DEFAULT '',   -- lowercased
-  note TEXT NOT NULL DEFAULT '',
-  flag TEXT NOT NULL DEFAULT '',         -- '' | vip | block
-  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-);
-CREATE INDEX IF NOT EXISTS contacts_org_idx ON contacts(org_id, updated_at);
-CREATE INDEX IF NOT EXISTS contacts_phone_idx ON contacts(org_id, phone_norm);
-CREATE INDEX IF NOT EXISTS contacts_email_idx ON contacts(org_id, email_norm);
-
 -- invoices issued by a company to its guests (printable at /factura/<token>); separate from platform invoices at /f/
 CREATE TABLE IF NOT EXISTS guest_invoices (
   id TEXT PRIMARY KEY,
@@ -637,19 +563,20 @@ CREATE TABLE IF NOT EXISTS discount_codes (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS discount_codes_org_code ON discount_codes(org_id, code);
 
--- files on a stay: R2 key when FILES binding exists, else data (base64 data-URL) in D1 like apt_photos
-CREATE TABLE IF NOT EXISTS booking_files (
-  id TEXT PRIMARY KEY,
+-- public offer links: manager picks free units + dates; guest opens <slug>.espace.md/oferta/<token>
+CREATE TABLE IF NOT EXISTS offers (
+  token TEXT PRIMARY KEY,
   org_id TEXT NOT NULL,
-  booking_id TEXT NOT NULL,
-  name TEXT NOT NULL DEFAULT '',
-  mime TEXT NOT NULL DEFAULT '',
-  size INTEGER NOT NULL DEFAULT 0,
-  r2_key TEXT NOT NULL DEFAULT '',
-  data TEXT NOT NULL DEFAULT '',
-  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+  date TEXT NOT NULL,                      -- check-in YYYY-MM-DD
+  nights INTEGER NOT NULL,
+  apts TEXT NOT NULL DEFAULT '[]',          -- JSON string array of unit names
+  note TEXT NOT NULL DEFAULT '',
+  created_by TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  expires_at TEXT NOT NULL DEFAULT '',
+  views INTEGER NOT NULL DEFAULT 0
 );
-CREATE INDEX IF NOT EXISTS booking_files_bk_idx ON booking_files(org_id, booking_id);
+CREATE INDEX IF NOT EXISTS offers_org_idx ON offers(org_id, created_at);
 
 -- guest orders of paid extras from the public guide (transfer, early check-in, crib…)
 CREATE TABLE IF NOT EXISTS svc_orders (
@@ -682,3 +609,89 @@ CREATE TABLE IF NOT EXISTS supply_need (
   done_at TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS supply_need_org_idx ON supply_need(org_id, status, created_at);
+
+-- guest card payments for a booking (deposit on book page, or balance link from the app).
+-- Money goes to the company's own maib project (cfg.guestMaib), not the platform credit balance.
+CREATE TABLE IF NOT EXISTS guest_payments (
+  id TEXT PRIMARY KEY,                         -- also the orderId sent to maib
+  org_id TEXT NOT NULL,
+  booking_id TEXT NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'balance',        -- deposit | balance
+  amount REAL NOT NULL,                        -- MDL charged via maib
+  amount_src REAL NOT NULL DEFAULT 0,          -- amount in booking currency
+  cur TEXT NOT NULL DEFAULT 'EUR',             -- booking currency of amount_src
+  status TEXT NOT NULL DEFAULT 'new',          -- new | paid | failed
+  checkout_id TEXT NOT NULL DEFAULT '',
+  payment_id TEXT NOT NULL DEFAULT '',
+  method TEXT NOT NULL DEFAULT '',
+  card TEXT NOT NULL DEFAULT '',
+  token TEXT NOT NULL UNIQUE,                  -- public /plata/<token>
+  guest TEXT NOT NULL DEFAULT '',
+  note TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  paid_at TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS guest_payments_org_idx ON guest_payments(org_id, created_at);
+CREATE INDEX IF NOT EXISTS guest_payments_booking_idx ON guest_payments(org_id, booking_id);
+
+-- prices and rules per unit per day, set from the calendar (price mode) or in bulk: overrides the unit's price, seasons and weekend %
+CREATE TABLE IF NOT EXISTS day_rates (
+  org_id TEXT NOT NULL,
+  apt TEXT NOT NULL,
+  day TEXT NOT NULL,                      -- YYYY-MM-DD, the night that starts this day
+  price REAL,                             -- NULL = the usual price
+  min INTEGER NOT NULL DEFAULT 0,         -- min nights for a stay arriving this day (0 = usual)
+  cta INTEGER NOT NULL DEFAULT 0,         -- no arrival this day
+  ctd INTEGER NOT NULL DEFAULT 0,         -- no departure this day
+  closed INTEGER NOT NULL DEFAULT 0,      -- not for sale
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  PRIMARY KEY (org_id, apt, day)
+);
+
+-- server 5xx log for the admin health page (platform-wide, not per-company export)
+CREATE TABLE IF NOT EXISTS errors (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL DEFAULT '',
+  fn TEXT NOT NULL DEFAULT '',
+  status INTEGER NOT NULL DEFAULT 500,
+  message TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS errors_created_idx ON errors(created_at);
+
+-- guest messaging (module 7): automated + manual emails to guests
+CREATE TABLE IF NOT EXISTS msg_templates (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  trigger TEXT NOT NULL,                  -- new | before_in | on_in | before_out | after_out | cancel
+  offset_days INTEGER NOT NULL DEFAULT 0,
+  send_hour INTEGER NOT NULL DEFAULT 10,  -- 0–23 Europe/Chisinau
+  apts TEXT NOT NULL DEFAULT '[]',        -- JSON list of unit names; [] = all
+  channels TEXT NOT NULL DEFAULT '[]',    -- JSON list of sources; [] = all
+  subject_ro TEXT NOT NULL DEFAULT '',
+  subject_ru TEXT NOT NULL DEFAULT '',
+  subject_en TEXT NOT NULL DEFAULT '',
+  body_ro TEXT NOT NULL DEFAULT '',
+  body_ru TEXT NOT NULL DEFAULT '',
+  body_en TEXT NOT NULL DEFAULT '',
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS msg_templates_org_idx ON msg_templates(org_id);
+CREATE TABLE IF NOT EXISTS msg_sent (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL,
+  booking_id TEXT NOT NULL,
+  template_id TEXT NOT NULL DEFAULT '',
+  channel TEXT NOT NULL DEFAULT 'email',
+  to_addr TEXT NOT NULL,
+  lang TEXT NOT NULL DEFAULT 'ro',
+  subject TEXT NOT NULL DEFAULT '',
+  body TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT '',
+  detail TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS msg_sent_booking_idx ON msg_sent(org_id, booking_id, created_at);

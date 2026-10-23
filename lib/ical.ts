@@ -137,7 +137,7 @@ export function buildIcs(company: string, apt: string, bookings: any[], opts: { 
   const name = opts.all ? company : company + " · " + apt;
   const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//espace.md//calendar//RO", "CALSCALE:GREGORIAN", "METHOD:PUBLISH", `X-WR-CALNAME:${esc(name)}`];
   for (const b of bookings) {
-    if (!(b.nights > 0)) continue;
+    if (!(b.nights > 0) || b.tag === "cancel") continue;
     const sum = (b.tag === "closed" ? "Blocked" : "Reserved") + (opts.all && b.apt ? " · " + b.apt : "");
     lines.push("BEGIN:VEVENT", `UID:${b.id}@espace.md`, `DTSTAMP:${stamp}`, `DTSTART;VALUE=DATE:${d(b.date)}`, `DTEND;VALUE=DATE:${d(addDays(b.date, b.nights))}`,
       `SUMMARY:${esc(sum)}`, "END:VEVENT");

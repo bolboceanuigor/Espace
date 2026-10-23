@@ -1,7 +1,7 @@
 // espace.md — the platform owner's panel (admin.espace.md): metrics, companies, invoices, leads, activity, announcements, settings.
 import {
-  type Ctx, json, uuid, num, str, isDate, isEmail, all, one, run, randCode, newSession, clientMeta,
-  today, addDays, addMonths, activeUntil, coveredUntil, globalRate, RATE_DEFAULT, topUp, billingOf, sha256hex, hashPassword, starterConfig, randHex, failClear, nowIso, chargeOrg,
+  type Ctx, json, uuid, num, str, isDate, isEmail, all, one, run, randCode, newSession, clientMeta, today, addDays, addMonths, activeUntil,
+  coveredUntil, globalRate, RATE_DEFAULT, topUp, billingOf, sha256hex, hashPassword, starterConfig, randHex, failClear, nowIso, chargeOrg,
 } from "./core";
 import { slugOk } from "./host";
 import { sendMail, mails, orgEmail, orgUrl, broadcastMail } from "./mail";

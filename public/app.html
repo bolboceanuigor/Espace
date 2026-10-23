@@ -1270,6 +1270,7 @@ body.calmode .wrap{padding-bottom:0;max-width:none}
 .seg3 button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
 .codebox{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-top:10px}.codebox b{font-family:ui-monospace,Menlo,monospace;font-size:20px;letter-spacing:.12em}.codebox .btn{margin-left:auto}
 .tmrow{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}.tmrow .m{display:flex;flex-direction:column;flex:1;min-width:0}.tmrow .m small{color:var(--muted)}.tmrow select{width:auto}
+.tmcard{padding:10px 0;border-bottom:1px solid var(--line)}.tmrights{margin:8px 0 4px;padding:10px 12px;background:var(--d2,#f4f6f8);border-radius:12px}.tmrights .l{margin-top:8px}.tmrights .l:first-child{margin-top:0}.tmsecs{display:flex;flex-direction:column;gap:6px;margin:6px 0 10px}.tmrights .ownapts{margin:6px 0 4px}
 .tfa-qr{display:flex;justify-content:center;margin:12px 0;padding:12px;background:#fff;border-radius:12px;border:1px solid var(--line)}.tfa-qr svg{display:block}.tfa-codes{margin:8px 0;padding:10px 12px;background:var(--d2,#f4f6f8);border-radius:10px;font-size:13px;line-height:1.6;letter-spacing:.04em}
 .billtop{display:flex;flex-direction:column;gap:2px}.billt{width:100%;border-collapse:collapse;margin:8px 0}.billt td,.billt th{padding:6px 4px;border-bottom:1px solid var(--line);font-size:14px}.billt tr.cur td{background:var(--surface);font-weight:700}
 .setup{margin-bottom:14px}.setup-h{display:flex;align-items:center;gap:8px}.setup-h .small{margin-left:auto}
@@ -1698,7 +1699,7 @@ const catIcon=c=>CAT_ICON[c]||"📌";
 const catCol=c=>CAT_COL[Math.max(0,cfg.categories.indexOf(c))%CAT_COL.length];
 const telDigits=p=>(p||"").replace(/[^\d+]/g,"");
 
-const RO_OK=["kv_load","kv_photos","kv_guides","kv_task_photo","kv_push_key","kv_push_sub","billing","bill_invoice","bill_pay","bill_pay_status","auth_me","auth_logout","auth_sessions","auth_logout_session","auth_logout_all","auth_switch","auth_password","auth_new_org"];
+const RO_OK=["kv_load","kv_photos","kv_guides","kv_task_photo","kv_push_key","kv_push_sub","billing","bill_invoice","bill_pay","bill_pay_status","auth_me","auth_logout","auth_switch","auth_password","auth_new_org","bk_file_list","bk_file_get","google_link","google_unlink","kv_msg_list","kv_msg_history","kv_msg_preview","kv_ical_list","kv_ical_org","kv_contacts","kv_contact_get","kv_contacts_export","kv_checkin_get","kv_ical_status","kv_guest_invoice_list","kv_discount_list","auth_sessions","auth_logout_session","auth_logout_all"];
 const CHECK_OK=["kv_verify","kv_month_close","kv_month_open"];
 let ME=null, ROLE="", EXPIRED=false;
 const SLUG=(()=>{const h=location.hostname;if(h.endsWith(".espace.md"))return h.slice(0,-".espace.md".length);let c="";try{c=new URLSearchParams(location.search).get("c")||sessionStorage.getItem("es_c")||""}catch(e){}c=c.toLowerCase().replace(/[^a-z0-9-]/g,"");try{if(c)sessionStorage.setItem("es_c",c)}catch(e){}return c})();
@@ -1805,7 +1806,7 @@ function fillB(){
   for(const k of BF) $("f-"+k).value=form[k]??"";fillX();
   if(!+form.pax)$("f-pax").value="";setTimeout(capHint,0);
   $("f-title").textContent=form.id?"Изменить бронь":"Новая бронь";
-  $("f-cancel").hidden=!form.id; $("f-del").hidden=!form.id; disarm("f-del");
+  $("f-cancel").hidden=!form.id; $("f-void").hidden=!form.id||form.tag==="cancel"||form.tag==="closed"||!(+form.nights>0); $("f-del").hidden=!form.id; disarm("f-del");
   if($("f-msg"))$("f-msg").hidden=!form.id||RO;if($("f-msgbox"))$("f-msgbox").hidden=true;
   $("f-ver").hidden=!form.verified; if(form.verified) $("f-ver").textContent="✓ Оплата проверена"+(form.verifiedAt?" "+dm(String(form.verifiedAt).slice(0,10)):"")+". Если изменить сумму или способ оплаты — отметку нужно будет поставить снова.";
   $("f-util-row").hidden=!+form.util; $("f-util-toggle").hidden=!$("f-util-row").hidden;
@@ -2041,6 +2042,7 @@ function renderSetup(){if(!W&&wizNeeded())wizStart();const el=$("setup-card");if
     ["team",hasTeam,"Пригласите сотрудника","Менеджер или помощник: доступ в Настройки, раздел Команда.","Команда"],
     ["credits",hasCredits,"Пополните кредиты","Один кредит равен одному лею за объект в день. Пополнение в разделе Счёт.","Счёт"]];
   const done=steps.filter(x=>x[1]).length;
+  if(done===steps.length&&!(cfg.demo&&cfg.demo.on)){el.innerHTML="";return} // Harta: disappears when all checked (unless the demo is still loaded)
   if(done===steps.length){const demoOn=!!(cfg.demo&&cfg.demo.on);el.innerHTML=`<div class="card setup ok"><b>Компания готова к работе</b><p class="small" style="margin:4px 0 0">Квартиры, брони и горничные на месте. Дальше — пригласите менеджеров в «Меню → Настройки → Доступ для сотрудников».</p>
     <div class="actions"><button class="btn sm" data-setup="hide">Скрыть</button>${demoOn?`<button class="btn sm" data-setup="demo-clear">Удалить пример</button>`:`<button class="btn sm" data-setup="demo-load">Загрузить пример</button>`}</div></div>`;return}
   const demoOn=!!(cfg.demo&&cfg.demo.on);
@@ -2051,7 +2053,10 @@ function renderSetup(){if(!W&&wizNeeded())wizStart();const el=$("setup-card");if
       ${demoOn?`<button class="btn sm" data-setup="demo-clear">Удалить пример</button>`:`<button class="btn sm primary" data-setup="demo-load">Загрузить пример</button>`}</div></div>`}
 document.addEventListener("click",e=>{const b=e.target.closest("[data-setup]");if(!b)return;const k=b.dataset.setup;
   if(k==="hide"){ls.set("setup_hide_"+(ME&&ME.org?ME.org.id:""),"1");renderSetup();return}
-  if(k==="apts"){stOpen=null;settingsPage("apts");scrollTo(0,0);return}
+  if(k==="apts"||k==="price"){stOpen=null;settingsPage("apts");scrollTo(0,0);return}
+  if(k==="ical"){stOpen=null;settingsPage("apts");scrollTo(0,0);toast("Откройте квартиру: раздел календарей");return}
+  if(k==="team"){stOpen=null;settingsPage(ROLE==="owner"?"team":"");scrollTo(0,0);return}
+  if(k==="credits"){stOpen=null;settingsPage("bill");scrollTo(0,0);return}
   if(k==="staff"){stOpen="new";settingsPage("staff");scrollTo(0,0);return}
   if(k==="book"){show("add");setMode("b");scrollTo(0,0);return}
   if(k==="demo-load"){b.disabled=true;api("kv_demo_load").then(async()=>{toast("Пример загружен");await reload();renderSetup();renderView()}).catch(e=>toast(e.code==="demo_exists"?"Пример уже загружен":"Не получилось")).finally(()=>b.disabled=false);return}
@@ -2365,7 +2370,7 @@ function ctOpenEditNew(){openSheet("Новый контакт",`<button type="bu
 const AF={date:"Дата",apt:"Объект",guest:"Гость",nights:"Ночей",mdl:"Лей",eur:"€",usd:"$",oth:"Другая валюта",oth_cur:"Код валюты",util:"Коммуналка",util_cur:"Валюта коммуналки",pay:"Оплата",who:"Принял",note:"Заметка",source:"Откуда",phone:"Телефон",pax:"Гостей",price:"Цена",price_cur:"Валюта цены",pay_status:"Статус оплаты",tag:"Метка",category:"Категория",yearly:"Годовой",amount:"Сумма",method:"Как",paid_on:"Дата выплаты",role:"Роль",created:"Добавлено",dup:"Уже были",bad:"Пропущено",aptsAdded:"Новые объекты",aptsRemoved:"Удалены объекты",from:"Было",to:"Стало"};
 const AA={contract:"создал(а) договор",signed:"гость подписал договор",invoice:"выставил(а) счёт гостю",invoice_void:"отменил(а) счёт гостю",create:"добавил(а)",update:"изменил(а)",delete:"удалил(а)",request:"заявка со страницы бронирования",confirm:"подтвердил(а) заявку",decline:"отклонил(а) заявку",import:"импорт из файла",rename:"переименовал(а) объект",pay:"отметил(а) выплату",unpay:"снял(а) отметку о выплате",close:"закрыл(а) месяц",open:"открыл(а) месяц",add:"дал(а) доступ",remove:"убрал(а) доступ",role:"сменил(а) роль"};
 const AK={booking:"Бронь",expense:"Расход",settings:"Настройки",owner:"Собственник",team:"Команда",month:"Месяц",import:"Импорт"};
-const AS={contract:"договор",tax:"налоги",taxPaid:"оплата налогов",apts:"объекты",units:"детали объектов",addr:"адреса",owners:"собственники",pricing:"сезоны и цены",direct:"страница бронирования",invoice:"счета гостям",rates:"курс валют",other:"другие валюты",people:"менеджеры",checklist:"чек-лист",onboarded:"первая настройка",archived:"архив объектов",payouts:"выплаты горничным",duty:"график смен",groups:"группы"};
+const AS={checkin:"онлайн-заселение",contract:"договор",tax:"налоги",taxPaid:"оплата налогов",apts:"объекты",units:"детали объектов",addr:"адреса",owners:"собственники",pricing:"сезоны и цены",direct:"страница бронирования",rates:"курс валют",other:"другие валюты",people:"менеджеры",checklist:"чек-лист",onboarded:"первая настройка",archived:"архив объектов",payouts:"выплаты горничным",duty:"график смен",groups:"группы",invoice:"счета гостям"};
 const PST={unpaid:"не оплачено",part:"частично",paid:"оплачено"};
 function audVal(f,v){if(v==null||v===""||v===0&&!["nights","pax"].includes(f))return "—";if(Array.isArray(v))return v.map(esc).join(", ")||"—";
   if(f==="date"||f==="paid_on")return dm(String(v));if(f==="tag")return ((TAGS.find(t=>t[0]===v)||[])[1])||String(v);if(f==="pay_status")return PST[v]||String(v);
@@ -2684,6 +2689,7 @@ document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest
   PRS=null;PRW=null;saveCfg({...cfg,pricing:{weekend:wk||0,seasons}},"Цены сохранены")});
 function directSection(){const d=cfg.direct||{},url="https://"+ME.org.code+".espace.md/rezerva",hid=new Set(d.hidden||[]);
   const withPrice=cfg.apts.filter(a=>+unitOf(a).price>0),noPrice=cfg.apts.filter(a=>!(+unitOf(a).price>0));
+  const wUrl="https://"+ME.org.code+".espace.md/widget",wCode=`<iframe src="${wUrl}" style="width:100%;max-width:720px;height:480px;border:0;border-radius:12px" loading="lazy" title="Disponibilitate"></iframe>`;
   const gm=cfg.guestMaib||{};
   return `<div class="card"><label class="dtog"><input type="checkbox" id="dr-on" ${d.on?"checked":""} ${RO?"disabled":""}><span><b>Принимать брони на своей странице</b><small>Гость выбирает даты, видит свободные объекты и цену, отправляет заявку. Без комиссии.</small></span></label>
     <div class="iexp" style="margin-top:12px"><b>Ссылка для гостей</b><div class="iexpr" style="margin-top:6px"><input type="text" readonly value="${esc(url)}" id="dr-url"><button type="button" class="btn sm" id="dr-copy">Скопировать</button><a class="btn sm" href="${esc(url)}" target="_blank" rel="noopener">Открыть</a></div>
@@ -2714,9 +2720,13 @@ function directSection(){const d=cfg.direct||{},url="https://"+ME.org.code+".esp
     <label class="l" for="gm-sig">Signature Key</label><input id="gm-sig" type="password" value="" placeholder="${gm.signatureKey?"оставлен как был — введи новый, чтобы сменить":""}" autocomplete="new-password" ${RO?"disabled":""} maxlength="120">
     ${RO?"":`<div class="actions"><button type="button" class="btn primary" id="gm-save">Сохранить оплату</button></div>`}
     <p class="small" style="margin-bottom:0">Callback URL для проекта maib: <code style="word-break:break-all">${esc(location.origin)}/api/maib_callback</code></p></div>`}
-document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("#dr-save,#dr-copy,#gm-save,[data-drunit]");if(!t)return;
+document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("#dr-save,#dr-copy,#dr-wcopy,#dr-wone-copy,#gm-save,[data-drunit],[data-wapt]");if(!t)return;
   if(t.dataset.drunit!=null){t.setAttribute("aria-pressed",String(t.getAttribute("aria-pressed")!=="true"));return}
   if(t.id==="dr-copy"){try{await navigator.clipboard.writeText($("dr-url").value);toast("Ссылка скопирована")}catch(x){$("dr-url").select()}return}
+  if(t.id==="dr-wcopy"){try{await navigator.clipboard.writeText($("dr-wcode").value);toast("Код виджета скопирован")}catch(x){$("dr-wcode").select()}return}
+  if(t.dataset.wapt!=null){const a=t.dataset.wapt,u="https://"+ME.org.code+".espace.md/widget?u="+encodeURIComponent(a),code=`<iframe src="${u}" style="width:100%;max-width:720px;height:360px;border:0;border-radius:12px" loading="lazy" title="${a}"></iframe>`;
+    const box=$("dr-wone");if(box){box.hidden=false;$("dr-wone-t").textContent=a;$("dr-wone-c").value=code}return}
+  if(t.id==="dr-wone-copy"){try{await navigator.clipboard.writeText($("dr-wone-c").value);toast("Код виджета скопирован")}catch(x){$("dr-wone-c").select()}return}
   if(t.id==="gm-save"){if(RO)return;
     const prev=cfg.guestMaib||{},pct=Math.max(0,Math.min(100,parseInt($("gm-pct").value,10)||0));
     const sec=($("gm-sec").value||"").trim(),sig=($("gm-sig").value||"").trim(),cid=($("gm-cid").value||"").trim();
@@ -2728,6 +2738,57 @@ document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.c
   const direct={on:$("dr-on").checked,intro:$("dr-intro").value.trim().slice(0,400),phone:$("dr-phone").value.trim().slice(0,40),email:em,min:Math.max(1,Math.min(30,parseInt($("dr-min").value,10)||1)),terms:$("dr-terms").value.trim().slice(0,1500),arrival:$("dr-arr").checked,
     hidden:[...document.querySelectorAll("[data-drunit][aria-pressed=false]")].map(x=>x.dataset.drunit)};
   saveCfg({...cfg,direct},direct.on?"Страница бронирования включена":"Сохранено")});
+function invoiceSection(){const i=cfg.invoice||{},f=(k,l,ph,mx)=>`<div><label class="l" for="inv-${k}">${l}</label><input type="text" id="inv-${k}" value="${esc(i[k]||"")}" placeholder="${esc(ph||"")}" maxlength="${mx||120}" ${RO?"disabled":""}></div>`;
+  return `<div class="card"><p class="small" style="margin-top:0">Эти реквизиты попадают в счёт гостю. В брони — «Выставить счёт»: ссылка и печать, отдельная нумерация на компанию. Можно отправить на почту гостя или скопировать в сообщение.</p>
+    <div class="grid2">${f("name","Поставщик — фирма или ФИО","",120)}${f("idno","Идентификационный номер","",30)}</div>
+    <div class="grid2">${f("vat_code","Код НДС","",40)}${f("iban","Счёт в банке","",40)}</div>
+    <div class="grid2">${f("bank","Банк","",80)}${f("bic","Код банка","",20)}</div>
+    <label class="l" for="inv-address">Адрес</label><input type="text" id="inv-address" value="${esc(i.address||"")}" maxlength="300" ${RO?"disabled":""}>
+    <div class="grid2">${f("email","Почта на счёте","",120)}${f("phone","Телефон","",40)}</div>
+    <div class="grid2"><div><label class="l" for="inv-prefix">Префикс номера</label><input type="text" id="inv-prefix" value="${esc(i.prefix||"F")}" maxlength="12" ${RO?"disabled":""}></div>
+      <div><label class="l" for="inv-due">Срок оплаты, дней</label><input type="text" inputmode="numeric" id="inv-due" value="${esc(i.due_days??5)}" ${RO?"disabled":""}></div></div>
+    <div class="grid2"><div><label class="l" for="inv-lang">Язык счёта</label><select id="inv-lang" class="fsel" ${RO?"disabled":""}>${[["ro","Română"],["ru","Русский"],["en","English"]].map(([v,l])=>`<option value="${v}"${(i.lang||"ro")===v?" selected":""}>${l}</option>`).join("")}</select></div>
+      <div><label class="l" for="inv-vatr">Ставка НДС в процентах</label><input type="text" inputmode="decimal" id="inv-vatr" value="${esc(i.vat_rate??20)}" ${RO?"disabled":""}></div></div>
+    <label class="dtog" style="margin-top:10px"><input type="checkbox" id="inv-vat" ${i.vat?"checked":""} ${RO?"disabled":""}><span><b>Плательщик НДС</b><small>В счёте появятся сумма без НДС и НДС.</small></span></label>
+    <label class="l" for="inv-footer">Подпись внизу счёта</label><textarea id="inv-footer" rows="2" maxlength="500" ${RO?"disabled":""}>${esc(i.footer||"")}</textarea>
+    ${RO?"":`<div class="actions"><button type="button" class="btn primary" id="inv-save">Сохранить</button></div>`}</div>`}
+document.addEventListener("click",e=>{if(e.target.id!=="inv-save")return;
+  const g=k=>(($("inv-"+k)||{}).value||"").trim();
+  const invoice={name:g("name").slice(0,120),idno:g("idno").slice(0,30),vat_code:g("vat_code").slice(0,40),iban:g("iban").slice(0,40),bank:g("bank").slice(0,80),bic:g("bic").slice(0,20),
+    address:g("address").slice(0,300),email:g("email").slice(0,120),phone:g("phone").slice(0,40),prefix:(g("prefix")||"F").slice(0,12),
+    due_days:Math.max(0,Math.min(90,parseInt(g("due"),10)||5)),lang:["ro","ru","en"].includes(g("lang"))?g("lang"):"ro",
+    vat:$("inv-vat").checked,vat_rate:Math.max(0,Math.min(40,parseFloat(String(g("vatr")).replace(",","."))||20)),footer:g("footer").slice(0,500)};
+  if(!invoice.name){toast("Укажи поставщика");return}
+  saveCfg({...cfg,invoice},"Реквизиты для счетов сохранены")});
+let DISC=[];
+async function discLoad(){try{DISC=await api("kv_discount_list")||[]}catch(e){DISC=[]}if(setSec==="promo")renderSettings()}
+function discSection(){const rows=DISC.map(d=>`<div class="ckrow" style="flex-wrap:wrap;gap:6px;align-items:center"><b>${esc(d.code)}</b><span class="small">${d.kind==="pct"?d.value+"%":"−"+fmt0(d.value)+(d.currency?" "+d.currency:"")}${d.from_date||d.to_date?" · "+[d.from_date,d.to_date].filter(Boolean).map(dm).join("–"):""}${d.max_uses?" · "+d.used_count+"/"+d.max_uses:""}${d.apts&&d.apts.length?" · "+d.apts.length+" объект.":""}${d.active?"":" · выкл."}</span>
+  ${RO?"":`<button type="button" class="btn sm" data-discedit="${esc(d.id)}">Изменить</button><button type="button" class="btn sm danger" data-discdel="${esc(d.id)}">Удалить</button>`}</div>`).join("")||`<p class="small">Пока нет кодов. Гость вводит код на странице бронирования — цена уменьшается.</p>`;
+  const e=DISC_EDIT||{id:"",code:"",kind:"pct",value:"",from_date:"",to_date:"",max_uses:"",apts:[],active:true,note:""};
+  return `<div class="card" style="padding-top:6px">${rows}</div>
+    ${RO?"":`<div class="card"><b>${e.id?"Изменить код":"Новый код скидки"}</b>
+      <div class="grid2"><div><label class="l" for="dc-code">Код</label><input id="dc-code" value="${esc(e.code)}" maxlength="40" placeholder="SUMMER10" style="text-transform:uppercase"></div>
+        <div><label class="l" for="dc-kind">Тип</label><select id="dc-kind" class="fsel"><option value="pct"${e.kind!=="sum"?" selected":""}>Процент</option><option value="sum"${e.kind==="sum"?" selected":""}>Сумма</option></select></div></div>
+      <div class="grid2"><div><label class="l" for="dc-val">Значение</label><input id="dc-val" inputmode="decimal" value="${esc(e.value)}" placeholder="10"></div>
+        <div><label class="l" for="dc-max">Макс. использований <em>— ноль без лимита</em></label><input id="dc-max" inputmode="numeric" value="${esc(e.max_uses||"0")}"></div></div>
+      <div class="grid2"><div><label class="l" for="dc-from">Действует с</label><input type="date" id="dc-from" value="${esc(e.from_date||"")}"></div>
+        <div><label class="l" for="dc-to">по</label><input type="date" id="dc-to" value="${esc(e.to_date||"")}"></div></div>
+      <label class="l">Объекты <em>— пусто — все на странице</em></label>
+      <div class="uamen">${(cfg.apts||[]).map(a=>`<button type="button" data-dcap="${esc(a)}" aria-pressed="${(e.apts||[]).includes(a)}">${esc(a)}</button>`).join("")||`<span class="small">Нет объектов</span>`}</div>
+      <label class="dtog" style="margin-top:10px"><input type="checkbox" id="dc-on" ${e.active!==false?"checked":""}><span><b>Активен</b></span></label>
+      <div class="actions"><button type="button" class="btn primary" id="dc-save">Сохранить код</button>${e.id?`<button type="button" class="btn" id="dc-cancel">Отмена</button>`:""}</div></div>`}`}
+let DISC_EDIT=null;
+document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("#dc-save,#dc-cancel,[data-discedit],[data-discdel],[data-dcap]");if(!t)return;
+  if(t.dataset.dcap!=null){t.setAttribute("aria-pressed",String(t.getAttribute("aria-pressed")!=="true"));return}
+  if(t.id==="dc-cancel"){DISC_EDIT=null;renderSettings();return}
+  if(t.dataset.discedit){DISC_EDIT=DISC.find(x=>x.id===t.dataset.discedit)||null;renderSettings();return}
+  if(t.dataset.discdel){if(!t.classList.contains("armed")){t.classList.add("armed");t.textContent="Точно?";return}
+    try{await api("kv_discount_del",{id:t.dataset.discdel});DISC_EDIT=null;await discLoad();toast("Код удалён")}catch(x){toast("Не получилось")}return}
+  if(t.id!=="dc-save")return;
+  const d={id:(DISC_EDIT&&DISC_EDIT.id)||"",code:$("dc-code").value.trim(),kind:$("dc-kind").value,value:$("dc-val").value,max_uses:$("dc-max").value,
+    from_date:$("dc-from").value,to_date:$("dc-to").value,active:$("dc-on").checked,
+    apts:[...document.querySelectorAll("[data-dcap][aria-pressed=true]")].map(x=>x.dataset.dcap)};
+  t.disabled=true;try{await api("kv_discount_save",{d});DISC_EDIT=null;await discLoad();toast("Код сохранён")}catch(x){toast(x.code==="dup_code"?"Такой код уже есть":x.code==="bad_value"?"Проверь значение":"Не получилось")}finally{t.disabled=false}});
 /* EXTRA SERVICES — catalog in settings; guests order from the public guide; manager gets a notification */
 const SVC_DEF=[["transfer","Трансфер из аэропорта"],["early","Ранний заезд"],["late","Поздний выезд"],["crib","Детская кроватка"],["chair","Детское кресло"]];
 function servicesSection(){const list=Array.isArray(cfg.services)&&cfg.services.length?cfg.services:SVC_DEF.map(([id,name],i)=>({id,name,price:"",cur:"EUR",on:false}));
@@ -2887,6 +2948,21 @@ async function icalLoad(a){const box=$("uf-ical-body");if(!box)return;
       ${r.export?`<div class="iexpr"><input type="text" readonly value="${esc(r.export)}" id="ical-exp"><button type="button" class="btn sm" data-icopy="1">Скопировать</button><a class="btn sm" href="${esc(gCalUrl(r.export))}" target="_blank" rel="noopener">В календарь Google</a></div>`:RO?"":`<button type="button" class="btn" data-ikey="1">Создать ссылку</button>`}</div>`;
   }catch(e){if($("uf-ical-body"))$("uf-ical-body").textContent="Не загрузилось"}}
 const icalErr=m=>/HTTP 404|HTTP 410/.test(m)?"ссылка больше не работает — возьмите новую на сайте":/not_ical/.test(m)?"по ссылке нет календаря — проверьте, что это ссылка экспорта .ics":/abort|timeout/i.test(m)?"сайт не ответил вовремя, повторим":/unit_gone/.test(m)?"объект удалён":m;
+const gCalUrl=u=>"https://calendar.google.com/calendar/r?cid="+encodeURIComponent(String(u||"").replace(/^https:/i,"webcal:"));
+const mapsUrl=addr=>{const a=String(addr||"").trim();const q=/chi[sșş]in[aăá]u/i.test(a)?a:a+(a?", ":"")+"Chișinău";return "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(q)};
+let GCAL_URL="";
+async function gcalLoad(){try{const r=await api("kv_ical_org");GCAL_URL=r.export||"";if(r.key)cfg={...cfg,ical:r.key};if(setSec==="gcal")renderSettings()}catch(e){GCAL_URL=""}}
+function gcalSection(){setTimeout(()=>{if(!GCAL_URL&&!cfg.ical)gcalLoad();else if(cfg.ical&&!GCAL_URL)GCAL_URL=`https://espace.md/ical/${ME.org.code}/${cfg.ical}.ics`},0);
+  const url=GCAL_URL||(cfg.ical?`https://espace.md/ical/${ME.org.code}/${cfg.ical}.ics`:"");
+  return `<div class="card"><p class="small" style="margin-top:0">Один календар со всеми объектами — в личном календаре Google или Apple. Имена гостей в нём не видны, только занятые даты.</p>
+    ${url?`<div class="iexpr"><input type="text" readonly value="${esc(url)}" id="gcal-url"><button type="button" class="btn sm" id="gcal-copy">Скопировать</button></div>
+      <div class="actions" style="margin-top:10px"><a class="btn primary" href="${esc(gCalUrl(url))}" target="_blank" rel="noopener">Добавить в календарь Google</a></div>
+      <p class="small">Нажми кнопку — откроется подтверждение подписки. Обновления приходят сами. Для одного объекта ссылка есть в Настройках, в карточке объекта, блок синхронизации.</p>`
+      :`<p class="small">Сначала создай ссылку — потом откроешь её в календаре.</p>
+      ${RO?"":`<div class="actions"><button type="button" class="btn primary" id="gcal-make">Создать ссылку</button></div>`}`}</div>`}
+document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("#gcal-make,#gcal-copy");if(!t)return;
+  if(t.id==="gcal-copy"){const v=($("gcal-url")||{}).value||"";try{await navigator.clipboard.writeText(v);toast("Ссылка скопирована")}catch(x){($("gcal-url")||{}).select?.()}return}
+  t.disabled=true;try{const r=await api("kv_ical_key",{org:true});cfg={...cfg,ical:r.key};GCAL_URL=r.export;toast("Ссылка готова");renderSettings()}catch(x){t.disabled=false;toast("Не получилось")}});
 
 /* COMPANY iCal STATUS: all Airbnb/Booking feeds in one place (Settings) */
 let ICAL_ST=null;
@@ -3086,7 +3162,7 @@ function payState(b){const air=b.source==="Airbnb"||b.pay==="Airbnb",got=b.night
   const left=pe&&got<pe?Math.round(fromEurC(pe-got,b.price_cur||"EUR")):0;return {state,got,pe,left,cur:b.price_cur||"EUR"}}
 const payActive=b=>occupies(b)&&b.tag!=="closed"&&b.tag!=="req"&&endOf(b)>=todayStr();
 // calendar colour = who made the booking (Excel keeps colouring by who took the money)
-const TAGS=[["booking","Booking","#f7c58a"],["airbnb","Airbnb","#f6a5a3"],["req","Заявка","#a9c8f5"],["cancel","Отмена","#c4c4c8"],["closed","Закрыто","#5a606c"]];
+const TAGS=[["booking","Booking","#f7c58a"],["airbnb","Airbnb","#f6a5a3"],["req","Заявка","#a9c8f5"],["closed","Закрыто","#5a606c"],["cancel","Отменена","#9aa0a8"]];
 const CAL_ST=[["all","Все"],["book","Брони"],["req","Заявки"],["cancel","Аннулированные"]];
 function calSt(){try{const v=localStorage.getItem("kv_calst")||"all";return CAL_ST.some(x=>x[0]===v)?v:"all"}catch(e){return"all"}}
 /* size = how many days fit on screen (Realty-style); cell side is derived from viewport */
@@ -3118,6 +3194,7 @@ function xRows(b){const x=b.x||{},u=unitOf(b.apt),cs=(v,c)=>fmt0(v)+" "+(CUR_L[c
   return [["Дети",x.kids?String(x.kids):""],["Язык",LANG_T[x.lang]||""],["Время",x.tin||x.tout?"заезд "+(x.tin||u.cin||"14:00")+" · выезд "+(x.tout||u.cout||"12:00"):""],
     ["Для команды",x.team||""],["Залог",x.dep||x.dep_st?[x.dep?cs(x.dep,x.dep_cur||"MDL"):"",DEP_T[x.dep_st]||"",x.dep_st==="kept"&&x.dep_kept?"удержано "+cs(x.dep_kept,x.dep_cur||"MDL")+(x.dep_note?" ("+x.dep_note+")":""):""].filter(Boolean).join(" · "):""],
     ["Комиссия",x.com?cs(x.com,b.price_cur||"EUR")+(x.com_pct?" ("+x.com_pct+"%)":""):""],
+    ["Отмена",b.tag==="cancel"?[x.cx||"",x.cx_keep?"удержано "+fmt0(x.cx_keep):""].filter(Boolean).join(" · "):""],
     ["Скидка",x.disc_code?`${x.disc_code} · −${cs(x.disc_off,b.price_cur||"EUR")}${x.disc_kind==="pct"?" ("+x.disc_value+"%)":""}`:""]]}
 function bookView(id){const b=bookings.find(x=>x.id===id);if(!b)return;const tg=TAGS.find(x=>x[0]===tagOf(b));
   const nn=+b.nights||0,nw=nn%10===1&&nn%100!==11?"ночь":[2,3,4].includes(nn%10)&&![12,13,14].includes(nn%100)?"ночи":"ночей";
@@ -3134,11 +3211,14 @@ function bookView(id){const b=bookings.find(x=>x.id===id);if(!b)return;const tg=
    ${b.tag==="req"&&!RO?`<div class="bv-req"><p class="small">Заявка со страницы бронирования${b.email?" · "+esc(b.email):""}${b.pax?" · гостей: "+b.pax:""}. Даты пока заняты для неё.</p><div class="actions"><button type="button" class="btn primary" data-reqok="${esc(b.id)}">✓ Подтвердить</button><button type="button" class="btn danger" data-reqno="${esc(b.id)}">Отклонить</button></div></div>`:""}
    ${!RO&&b.tag!=="closed"&&cfg.guestMaib&&cfg.guestMaib.on&&(cfg.guestMaib.clientId)?`<div class="actions" style="margin-top:10px"><button type="button" class="btn" data-paylink="${esc(b.id)}">💳 Ссылка на оплату</button></div><p class="small" id="bv-payurl" hidden style="margin:6px 0 0;word-break:break-all"></p>`:""}
    ${RO?"":`<button type="button" class="btn${b.tag==="req"?"":" primary"} bv-edit" data-bedit="${esc(b.id)}">Изменить бронь</button>`}
-   ${b.nights>0&&b.tag!=="closed"?`<div class="bv-ct2" id="bv-k" data-bid="${esc(b.id)}">${(setTimeout(()=>kLoad(b.id),0),"")}</div>`:""}
+   ${canCancel?`<button type="button" class="btn danger" data-bcancel="${esc(b.id)}" style="margin-top:8px">Отменить бронь</button>`:""}
+   ${b.nights>0&&b.tag!=="closed"&&b.tag!=="cancel"?`<div class="bv-ct2" id="bv-ci" data-bid="${esc(b.id)}">${(setTimeout(()=>ciLoad(b.id),0),"")}</div><div class="bv-ct2" id="bv-k" data-bid="${esc(b.id)}">${(setTimeout(()=>kLoad(b.id),0),"")}</div>`:""}
    ${b.nights>0&&b.tag!=="closed"?`<div class="bv-ct2" id="bv-inv" data-bid="${esc(b.id)}">${(setTimeout(()=>invLoad(b.id),0),"")}</div>`:""}
    <button type="button" class="linkbtn" data-audref="${esc(b.id)}" style="margin-top:10px">🕘 История изменений</button></div>`)}
 document.addEventListener("click",async e=>{const pl=e.target.closest&&e.target.closest("[data-paylink]");if(pl){pl.disabled=true;try{const r=await api("kv_pay_link",{booking_id:pl.dataset.paylink});const box=$("bv-payurl");if(box){box.hidden=false;box.innerHTML=`<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.url)}</a> · ${fmt(r.amount)} лей`;try{await navigator.clipboard.writeText(r.url);toast("Ссылка скопирована")}catch(x){toast("Ссылка готова")}}else toast("Ссылка готова")}catch(x){pl.disabled=false;toast(x.code==="maib_off"?"Сначала включи оплату в Настройки → Страница бронирования":x.code==="nothing_due"?"Уже всё оплачено":"Не получилось")}return}
-  const t=e.target.closest&&e.target.closest("[data-reqok],[data-reqno]");if(!t)return;const ok=!!t.dataset.reqok,id=t.dataset.reqok||t.dataset.reqno;
+  const t=e.target.closest&&e.target.closest("[data-reqok],[data-reqno],[data-bcancel]");if(!t)return;
+  if(t.dataset.bcancel){cancelBooking(t.dataset.bcancel);return}
+  const ok=!!t.dataset.reqok,id=t.dataset.reqok||t.dataset.reqno;
   if(!ok&&!t.classList.contains("armed")){t.classList.add("armed");t.textContent="Точно отклонить?";return}
   t.disabled=true;try{const r=await api("kv_req_decide",{id,ok});closeSheet();await reload();toast((ok?"Бронь подтверждена":"Заявка отклонена")+(r.mailed==="sent"?" · гостю ушло письмо":""))}catch(x){t.disabled=false;toast("Не получилось")}});
 function cancelBooking(id){const b=bookings.find(x=>x.id===id);if(!b||b.tag==="cancel"||b.tag==="closed")return;
@@ -3212,7 +3292,7 @@ function renderCal(){
     if(hidU.has(a))continue;
     if(grouped){const g=unitOf(a).group||"";if(g!==lastG){lastG=g;nG++;rows+=`<div class="sh-grp" style="width:${Lw+n*W}px"><b>${esc(g||"Другие")}</b></div>`}}
     let nights=0; for(let i=0;i<n;i++) if(occ[a+"|"+(s0+i*DAY)]) nights++;
-    const list=bookings.filter(b=>b.apt===a&&b.nights>0&&calStOk(b)&&toT(b.date)<s0+n*DAY&&toT(b.date)+b.nights*DAY>s0).sort((x,y)=>x.date.localeCompare(y.date));
+    const list=bookings.filter(b=>b.apt===a&&b.nights>0&&calStOk(b)&&toT(b.date)<s0+n*DAY&&toT(b.date)+b.nights*DAY>s0).sort((x,y)=>x.date.localeCompare(y.date)||(x.tag==="cancel"?1:0)-(y.tag==="cancel"?1:0));
     let bars="";
     const laneEnd=[], lane={};
     for(const b of list){const st=toT(b.date);let k=laneEnd.findIndex(e=>e<=st);if(k<0){k=laneEnd.length;laneEnd.push(0)}laneEnd[k]=st+b.nights*DAY;lane[b.id]=k}
@@ -3851,16 +3931,15 @@ function clnMonth(y=mon.y,m=mon.m){
     return {st,P,n:done.length,days,byDay,extraN,extra,hrs,pay:Math.round(pay),how};
   });
 }
-const MI={tax:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 11h2M12 11h2M8 15h2M12 15h4"/>',log:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/><path d="M3 4v4h4"/>',guide:'<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5M9 7h6M9 11h6"/>',shifts:'<path d="M4 4h16v16H4z"/><path d="M4 9h16M9 9v11"/>',bell:'<path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',today:'<rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18M7 15h4"/>',cal:'<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/>',todo:'<path d="M9 6h11M9 12h11M9 18h11"/><path d="m3.5 6 1.2 1.2L7 5M3.5 12l1.2 1.2L7 11M3.5 18l1.2 1.2L7 17"/>',clean:'<path d="M14 3 9 13"/><path d="M5 14h10l2 7H3z"/><path d="M8 17v4M12 17v4"/>',rep:'<path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3 17.8V21h3.2l6.3-6.3a4 4 0 0 0 5.2-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/>',rem:'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M5 3 2 6M19 3l3 3"/>',exp:'<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><path d="M9 8h6M9 12h6"/>',fin:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',verify:'<circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.7 2.7L16.5 9"/>',settings:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',svc:'<path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/><circle cx="12" cy="12" r="4"/>',shop:'<path d="M6 7h12l-1 12H7z"/><path d="M9 7V5a3 3 0 0 1 6 0v2"/><path d="M10 11v4M14 11v4"/>'};
+const MI={tax:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 11h2M12 11h2M8 15h2M12 15h4"/>',log:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/><path d="M3 4v4h4"/>',guide:'<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5M9 7h6M9 11h6"/>',guests:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',shifts:'<path d="M4 4h16v16H4z"/><path d="M4 9h16M9 9v11"/>',bell:'<path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',today:'<rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18M7 15h4"/>',cal:'<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/>',todo:'<path d="M9 6h11M9 12h11M9 18h11"/><path d="m3.5 6 1.2 1.2L7 5M3.5 12l1.2 1.2L7 11M3.5 18l1.2 1.2L7 17"/>',clean:'<path d="M14 3 9 13"/><path d="M5 14h10l2 7H3z"/><path d="M8 17v4M12 17v4"/>',rep:'<path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3 17.8V21h3.2l6.3-6.3a4 4 0 0 0 5.2-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/>',rem:'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M5 3 2 6M19 3l3 3"/>',exp:'<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><path d="M9 8h6M9 12h6"/>',fin:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',verify:'<circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.7 2.7L16.5 9"/>',settings:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',svc:'<path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/><circle cx="12" cy="12" r="4"/>',shop:'<path d="M6 7h12l-1 12H7z"/><path d="M9 7V5a3 3 0 0 1 6 0v2"/><path d="M10 11v4M14 11v4"/>'};
 const svgI=k=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${MI[k]}</svg>`;
 function setAccent(k){try{localStorage.setItem("kv_accent",k)}catch(e){}if(k)document.documentElement.setAttribute("data-accent",k);else document.documentElement.removeAttribute("data-accent");renderView()}
 function renderMenu(){
   const c=hubCounts(), vb=+(($("v-badge")||{}).textContent||0)||0, ac=document.documentElement.getAttribute("data-accent")||"";
-  const T=(go,ic,l,sub,n)=>`<button type="button" class="mtile" data-go="${go}"><span class="mi">${svgI(go)}</span><div><b>${l}</b>${sub?`<small>${sub}</small>`:""}</div>${n?`<em>${n}</em>`:""}</button>`;
-  $("menu-body").innerHTML=`${LIGHT()?`<div class="mgroup">Работа</div><div class="mtiles">${T("todo","","Задачи и ремонт","дела, ремонт, напоминания",(c.todo||0)+(c.rep||0))}${T("shifts","","Все смены","закрытые пересменки")}</div>`:""}<div class="mgroup">Деньги</div><div class="mtiles">
-    ${T("exp","🧾","Расходы","траты по месяцам")}${T("fin","📊","Финансы","доход, итоги, год")}
-    ${T("verify","✅","Проверка оплат","сверка денег за месяц",vb)}${T("shifts","🗂️","Все смены","закрытые пересменки")}${T("log","🕘","Журнал изменений","кто что поменял")}${T("tax","🧮","Налоги",(()=>{const n=taxNext();return n?`к оплате ${fmt0(n.tax)} лей до ${dm(n.due)}`:"доход и налог по месяцам"})())}</div>
-    <div class="mgroup">Гости и настройки</div><div class="mtiles">${T("guide","📖","Гид для гостей","Wi‑Fi, вход, правила")}${T("svc","","Заказы услуг","из гида: трансфер, ранний заезд…")}${T("shop","","Список покупок","что кончается у горничных")}${T("settings","⚙️","Настройки","квартиры, горничные, PIN")}</div>
+  const T=(go,ic,l,sub,n)=>{if(SEC_VIEWS[go]&&go!=="settings"&&!canSec(SEC_VIEWS[go]))return"";return `<button type="button" class="mtile" data-go="${go}"><span class="mi">${svgI(go)}</span><div><b>${l}</b>${sub?`<small>${sub}</small>`:""}</div>${n?`<em>${n}</em>`:""}</button>`};
+  const moneyTiles=[T("exp","🧾","Расходы","траты по месяцам"),T("fin","📊","Финансы","доход, каналы, периоды"),T("verify","✅","Проверка оплат","сверка денег за месяц",vb),T("shifts","🗂️","Все смены","закрытые пересменки"),T("log","🕘","Журнал изменений","кто что поменял"),T("tax","🧮","Налоги",(()=>{const n=taxNext();return n?`к оплате ${fmt0(n.tax)} лей до ${dm(n.due)}`:"доход и налог по месяцам"})())].join("");
+  $("menu-body").innerHTML=`${LIGHT()?`<div class="mgroup">Работа</div><div class="mtiles">${T("todo","","Задачи и ремонт","дела, ремонт, напоминания",(c.todo||0)+(c.rep||0))}${T("shifts","","Все смены","закрытые пересменки")}</div>`:""}${moneyTiles?`<div class="mgroup">Деньги</div><div class="mtiles">${moneyTiles}</div>`:""}
+    <div class="mgroup">Гости и настройки</div><div class="mtiles">${T("guests","","Контакты","база гостей из броней")}${T("guide","📖","Гид для гостей","Wi‑Fi, вход, правила")}${T("svc","","Заказы услуг","из гида: трансфер, ранний заезд…")}${T("shop","","Список покупок","что кончается у горничных")}${T("settings","⚙️","Настройки",canSec("settings")?"квартиры, горничные, PIN":"аккаунт и подписка")}</div>
     <div class="mgroup">Вид · на этом телефоне</div><div class="skinsw">${[["wow","Тёмный","#14171d","#2a303b"],["host","Светлый","#e8f2fa","#0d8a7f"]].map(([k,l,c1,c2])=>`<button type="button" data-skinpick="${k}" aria-pressed="${(document.documentElement.getAttribute("data-skin")||"host")===k}"><i style="background:linear-gradient(135deg,${c1} 50%,${c2} 50%);box-shadow:inset 0 0 0 1px rgba(127,127,127,.35)"></i>${l}</button>`).join("")}</div>
     ${document.documentElement.getAttribute("data-skin")==="host"?"":`<div class="mgroup">Цвет приложения · на этом телефоне</div><div class="skinsw">${[["","Жёлтый","#fed36a","#ef8159"],["violet","Фиолетовый","#c4b0ff","#e48bd6"],["sky","Голубой","#8fcbff","#8f8cff"]].map(([k,l,c1,c2])=>`<button type="button" data-accent="${k}" aria-pressed="${ac===k}"><i style="background:linear-gradient(135deg,${c1},${c2})"></i>${l}</button>`).join("")}</div>`}`;
 }
@@ -4096,9 +4175,13 @@ function renderSettings(){
     msgs:["pen","Сообщения гостям",MSG.length?MSG.filter(t=>t.active!==false).length+" шаблонов":"письма по шаблону · авто и вручную",()=>msgsSection()],
     owners:["mgr","Собственники",(cfg.owners||[]).length?(cfg.owners||[]).map(o=>o.name).join(", "):"комиссия, выплаты и отчёт за месяц",()=>ownersSection()],
     import:["chk","Импорт из Excel",`брони и объекты из файла · Excel, CSV, RealtyCalendar`,()=>importSection()],
+    gcal:["web","Календарь Google",cfg.ical?"все объекты · ссылка готова":"все брони в личном календаре",()=>gcalSection()],
+    icals:["web","Календари площадок",ICAL_ST?`${ICAL_ST.total} ${plural(ICAL_ST.total,"ссылка","ссылки","ссылок")}${ICAL_ST.bad?" · "+ICAL_ST.bad+" с ошибкой":""}`:"статус синхронизации",()=>icalsSection()],
     demo:["chk","Пример данных",cfg.demo&&cfg.demo.on?"загружен · 3 объекта ТЕСТ":"3 объекта и 5 броней ТЕСТ для знакомства",()=>`<div class="card"><b>Загрузить пример</b><p class="small" style="margin:4px 0 10px">Создаёт 3 объекта и 5 броней с пометкой ТЕСТ — чтобы сразу увидеть календарь, «Сегодня» и карточки. Потом можно удалить одним нажатием.</p>
       <div class="actions">${cfg.demo&&cfg.demo.on?`<button type="button" class="btn danger" id="demo-clear">Удалить пример</button>`:`<button type="button" class="btn primary" id="demo-load">Загрузить пример</button>`}</div></div>`],
     direct:["web","Страница бронирования",cfg.direct&&cfg.direct.on?"включена · "+ME.org.code+".espace.md/rezerva":"гости бронируют напрямую, без комиссии",()=>directSection()],
+    invoice:["chk","Счета гостям",(cfg.invoice||{}).name?"поставщик — "+(cfg.invoice||{}).name:"реквизиты, НДС, нумерация",()=>invoiceSection()],
+    promo:["rate","Коды скидок",DISC.length?DISC.filter(x=>x.active).length+" "+plural(DISC.filter(x=>x.active).length,"активный","активных","активных"):"процент или сумма на странице бронирования",()=>{setTimeout(discLoad,0);return discSection()}],
     services:["guide","Доп. услуги",(cfg.services||[]).filter(x=>x&&x.on!==false).length? (cfg.services||[]).filter(x=>x&&x.on!==false).map(x=>x.name).slice(0,3).join(", "):"трансфер, ранний заезд, детская кроватка — в гиде для гостя",()=>servicesSection()],
     supplies:["clean","Расходники",(cfg.supplies||[]).length? (cfg.supplies||[]).map(x=>x.name).slice(0,4).join(", "):"туалетная бумага, мыло — горничная отмечает «кончается»",()=>suppliesSection()],
     people:["mgr","Менеджеры",cfg.people.join(", ")||"не указаны",()=>`<div class="card"><label class="l" for="set-people">Менеджеры — кто принимает деньги и работает сменами <em>— через запятую</em></label><input type="text" id="set-people" value="${esc(cfg.people.join(", "))}">
@@ -4115,6 +4198,9 @@ function renderSettings(){
       <label class="l" for="pw-new">Новый пароль <em>— минимум 8 символов</em></label><input id="pw-new" type="password" autocomplete="new-password">
       <div class="actions"><button class="btn" id="pw-save">Сменить пароль</button><button class="btn danger" id="p-out">Выйти на этом устройстве</button></div>
       <p class="small" style="margin-bottom:0">После смены пароля остальные устройства выйдут из аккаунта.</p></div>
+      ${["owner","manager"].includes(ROLE)&&!(ME&&ME.support)?`<div class="card" id="tfa-box"><b>Вход в два шага</b><p class="small" style="margin:4px 0 10px">${ME&&ME.totp?"Включён: при входе нужен код из приложения на телефоне.":"Дополнительная защита для владельца и менеджера: код из приложения на телефоне."}</p>
+        ${ME&&ME.totp?`<label class="l" for="tfa-off-pw">Пароль</label><input id="tfa-off-pw" type="password" autocomplete="current-password"><label class="l" for="tfa-off-code">Код из приложения</label><input id="tfa-off-code" type="text" inputmode="numeric" maxlength="12" autocomplete="one-time-code"><div class="actions"><button type="button" class="btn danger" id="tfa-off">Выключить</button></div>`
+        :`<label class="l" for="tfa-pw">Пароль для включения</label><input id="tfa-pw" type="password" autocomplete="current-password"><div class="actions"><button type="button" class="btn primary" id="tfa-on">Включить</button></div><div id="tfa-setup" hidden></div>`}</div>`:""}
       <div class="card"><b>Активные сессии</b><p class="small" style="margin:4px 0 10px">Устройства, где вы вошли в аккаунт. Можно выйти с одного или со всех сразу.</p>
       <div id="sess-list" class="small">Загружаю…</div>
       <div class="actions" style="margin-top:10px"><button class="btn danger" type="button" id="sess-all">Выйти на всех устройствах</button></div></div>`],
@@ -4781,7 +4867,7 @@ document.addEventListener("click",e=>{
   const ds=t.dataset;
   if(ds.accent!=null&&t.closest(".skinsw")){setAccent(ds.accent);return}
   if(ds.skinpick){const k=ds.skinpick==="host"?"host":"wow";try{localStorage.setItem("kv_skin_pick",k);localStorage.setItem("kv_skin",k)}catch(e){}document.documentElement.setAttribute("data-skin",k);const m=document.querySelector('meta[name="theme-color"]');if(m)m.content=k==="host"?"#e8f2fa":"#14171d";renderView();if(view==="cal")renderCal();return}
-  if(ds.go){if(sheetCtx&&(sheetCtx.type==="more"||sheetCtx.type==="plus"))closeSheet();const g=ds.go;if(g==="tax"){TAXY=null;taxPage();return}if(g==="log"){auditPage();return}if(g==="shifts"){handoverPage();return}if(g==="guide"){guidePage();return}if(g==="svc"){svcPage();return}if(g==="shop"){shopPage();return}if(g==="bell"){bellSheet(notifs,"bellseen","bell-badge");return}if(["todo","rep","rem"].includes(g)){clnTab=g;ls.set("hubtab2",g);show("tasks")}else if(g==="clean")show("cln");else if(g==="verify"){vFilter="todo";verifyPage()}else if(g==="settings")settingsPage("");else show(g);scrollTo(0,0);return}
+  if(ds.go){if(sheetCtx&&(sheetCtx.type==="more"||sheetCtx.type==="plus"))closeSheet();const g=ds.go;if(SEC_VIEWS[g]&&!canSec(SEC_VIEWS[g])&&g!=="settings"){toast("Нет доступа к этому разделу");return}if(g==="tax"){if(!canSec("money")){toast("Нет доступа к этому разделу");return}TAXY=null;taxPage();return}if(g==="log"){auditPage();return}if(g==="shifts"){handoverPage();return}if(g==="guests"){contactsPage();return}if(g==="guide"){guidePage();return}if(g==="svc"){svcPage();return}if(g==="shop"){shopPage();return}if(g==="bell"){bellSheet(notifs,"bellseen","bell-badge");return}if(["todo","rep","rem"].includes(g)){clnTab=g;ls.set("hubtab2",g);show("tasks")}else if(g==="clean")show("cln");else if(g==="verify"){if(!canSec("money")){toast("Нет доступа к этому разделу");return}vFilter="todo";verifyPage()}else if(g==="settings")settingsPage("");else show(g);scrollTo(0,0);return}
   if(ds.tab==="more"){openMoreSheet();return}
   if(ds.tab==="plus"){openPlusSheet();return}
   if(ds.qadd){closeSheet();const a=ds.qadd;if(a==="book"){form=blankB();openBForm(true)}else if(a==="clean"){show("cln");clnForm="clean";renderCln();scrollTo(0,0)}else if(a==="cash"){hvHome()}else if(a==="exp"){newE()}else if(a==="rep"){show("rep");repNew=true;renderCln();scrollTo(0,0);const f=$("rn-note");if(f)setTimeout(()=>f.focus({preventScroll:true}),60)}return}
@@ -5029,6 +5115,8 @@ document.addEventListener("click",e=>{
   if(t.id==="sh-close"){closeSheet();return}
   if(ds.gmode){gMode(ds.gmode);return}
   if(t.id==="p-out"){logout();return}
+  if(t.id==="sess-all"){askDel("Выйти на всех устройствах?","Потребуется войти заново на каждом устройстве, включая это.",()=>api("auth_logout_all").then(()=>{ls.set("tok","");PIN=null;ME=null;lock("");toast("Вышли везде")}).catch(()=>toast("Не получилось")),"Выйти везде");return}
+  if(ds.sessout){const id=ds.sessout;api("auth_logout_session",{id}).then(()=>{toast("Сессия закрыта");sessLoad()}).catch(e=>toast(e.code==="current"?"Это текущее устройство — нажмите «Выйти»":"Не получилось"));return}
   if(t.id==="demo-load"){t.disabled=true;api("kv_demo_load").then(async()=>{toast("Пример загружен");await reload();settingsPage("demo")}).catch(e=>toast(e.code==="demo_exists"?"Пример уже загружен":"Не получилось")).finally(()=>t.disabled=false);return}
   if(t.id==="demo-clear"){askDel("Удалить пример?","Исчезнут 3 объекта с пометкой ТЕСТ и их брони. Ваши реальные данные не трогаем.",()=>api("kv_demo_clear").then(async()=>{toast("Пример удалён");await reload();settingsPage("demo")}).catch(()=>toast("Не получилось")),"Удалить");return}
   if(ds.setopen){stOpen=null;settingsPage(ds.setopen);scrollTo(0,0);return}
@@ -5036,6 +5124,8 @@ document.addEventListener("click",e=>{
   if(ds.orgsw){api("auth_switch",{org_id:ds.orgsw}).then(async me=>{setMe(me);closeSheet();await reload();loadPhotos();toast("Открыта: "+orgName())}).catch(()=>toast("Не получилось"));return}
   if(t.id==="pw-save"){const o=$("pw-old").value,n=$("pw-new").value;if(n.length<8){toast("Новый пароль — минимум 8 символов");return}
     api("auth_password",{old_password:o,new_password:n}).then(()=>{$("pw-old").value="";$("pw-new").value="";toast("Пароль изменён")}).catch(e=>toast(e.code==="bad_password"?"Текущий пароль неверный":"Не изменён"));return}
+  if(t.id==="gacc-link"){api("google_link").then(r=>{if(r&&r.url)location.href=r.url}).catch(e=>toast(e.code==="google_off"?"Вход без пароля ещё не включён на сервере":"Не получилось"));return}
+  if(t.id==="gacc-unlink"){api("google_unlink").then(me=>{setMe(me);toast("Вход без пароля отключён");settingsPage("acct")}).catch(e=>toast(e.code==="need_password"?"Сначала задайте пароль — иначе нечем будет войти":"Не отключилось"));return}
   if(t.id==="tfa-on"){const pw=$("tfa-pw")?.value||"";if(!pw){toast("Введите пароль");return}
     t.disabled=true;api("auth_2fa_begin",{password:pw}).then(r=>{const box=$("tfa-setup");if(!box)return;box.hidden=false;
       box.innerHTML=`<p class="small">Отсканируйте квадрат в приложении для кодов или введите ключ вручную.</p>
@@ -5263,7 +5353,7 @@ function syncGoogleBtn(){const w=$("g-google-wrap"),a=$("g-google");if(w)w.hidde
 function gMode(m){GMODE=m;document.querySelectorAll("[data-gmode]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.gmode===m)));
   document.querySelectorAll("[data-gf]").forEach(el=>el.hidden=!el.dataset.gf.split(" ").includes(m));
   $("g-go").textContent=m==="forgot"?"Отправить ссылку":m==="reset"?"Сохранить пароль":m==="2fa"?"Подтвердить":"Войти";$("g-msg").innerHTML="";
-  $("g-tabs").hidden=m==="forgot"||m==="reset"||m==="2fa";
+  $("g-tabs").hidden=m==="forgot"||m==="reset"||m==="2fa";syncGoogleBtn();
   setTimeout(()=>{const e=$(m==="maid"?"g-pin":m==="reset"?"g-npw":m==="2fa"?"g-2fa":"g-email");if(e)e.focus()},50)}
 let RESET_TOK="",TFA_CHAL="";
 document.addEventListener("click",e=>{const a=e.target.closest("#g-forgot,#g-back");if(!a)return;e.preventDefault();if(a.id==="g-back")TFA_CHAL="";gMode(a.id==="g-forgot"?"forgot":"login")});

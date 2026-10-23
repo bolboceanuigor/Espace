@@ -149,7 +149,7 @@ const T={
    kind:{apt:"Apartament",studio:"Garsonieră",house:"Casă",villa:"Vilă",room:"Cameră",bed:"Loc în hostel"},
    beds:{dbl:"pat dublu",sgl:"pat single",sofa:"canapea",bunk:"pat supraetajat"},
    am:{wifi:"Wi-Fi",ac:"Aer condiționat",heat:"Încălzire",kitchen:"Bucătărie",washer:"Mașină de spălat",dryer:"Uscător",dish:"Mașină de vase",tv:"TV",parking:"Parcare",balcony:"Balcon",elevator:"Lift",iron:"Fier de călcat",hair:"Uscător de păr",crib:"Pătuț",work:"Loc de muncă",pets:"Animale permise",selfin:"Self check-in",view:"Priveliște"},
-   cin:"Check-in de la",cout:"check-out până la",how:"Cum ajungi",map:"Hartă"},
+   cin:"Check-in de la",cout:"check-out până la",onMap:"Pe hartă →",how:"Cum ajungi",map:"Hartă"},
  ru:{adults:"Взрослые",kidsL:"Дети",kidsS:"дети",xg:"гости сверх",xc:"дети",los:"скидка за длительность",why:{"closed": "В эти дни закрыто.", "no_arrival": "В этот день нельзя заехать.", "no_departure": "В этот день нельзя выехать.", "arrival_day": "Заезд только: ", "lead": "Бронируйте минимум за {n} дн.", "max": "Максимум {n} ночей."},wd:["вс", "пн", "вт", "ср", "чт", "пт", "сб"],cfee:"уборка",dep:"залог, возвращается",in:"Заезд",out:"Выезд",guests:"Гостей",terms:"Условия",foot:"Прямое бронирование без комиссии",night:["ночь","ночи","ночей"],from:"от",perNight:"/ ночь",total:"итого",book:"Забронировать",
    pick:"Выберите даты, чтобы увидеть свободные варианты и цену.",found:n=>"Свободно: "+n,none:"На эти даты свободных нет. Попробуйте другие дни.",
    busy:"На эти даты занято.",freeFrom:"Свободно с",tryIt:"Выбрать эти даты",tooMany:c=>`Вмещает максимум ${c} чел.`,minN:n=>`Минимум ${n} ноч.`,
@@ -163,7 +163,7 @@ const T={
    kind:{apt:"Квартира",studio:"Студия",house:"Дом",villa:"Вилла",room:"Номер",bed:"Место в хостеле"},
    beds:{dbl:"двуспальная кровать",sgl:"односпальная",sofa:"диван",bunk:"двухъярусная"},
    am:{wifi:"Wi-Fi",ac:"Кондиционер",heat:"Отопление",kitchen:"Кухня",washer:"Стиральная машина",dryer:"Сушилка",dish:"Посудомойка",tv:"Телевизор",parking:"Парковка",balcony:"Балкон",elevator:"Лифт",iron:"Утюг",hair:"Фен",crib:"Детская кроватка",work:"Рабочее место",pets:"Можно с животными",selfin:"Самостоятельное заселение",view:"Красивый вид"},
-   cin:"Заезд с",cout:"выезд до",how:"Как добраться",map:"Карта"},
+   cin:"Заезд с",cout:"выезд до",onMap:"На карте →",how:"Как добраться",map:"Карта"},
  en:{adults:"Adults",kidsL:"Children",kidsS:"children",xg:"extra guests",xc:"children",los:"long-stay discount",why:{"closed": "Closed on these dates.", "no_arrival": "No check-in on this day.", "no_departure": "No check-out on this day.", "arrival_day": "Check-in only on: ", "lead": "Book at least {n} days ahead.", "max": "Maximum {n} nights."},wd:["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],cfee:"cleaning",dep:"deposit, refundable",in:"Check-in",out:"Check-out",guests:"Guests",terms:"Terms",foot:"Direct booking, no commission",night:["night","nights","nights"],from:"from",perNight:"/ night",total:"total",book:"Book",
    pick:"Choose your dates to see what’s free and the price.",found:n=>n===1?"1 option free":n+" options free",none:"Nothing free for these dates. Try other days.",
    busy:"Taken on these dates.",freeFrom:"Free from",tryIt:"Pick these dates",tooMany:c=>`Sleeps up to ${c}.`,minN:n=>`Minimum ${n} ${n===1?"night":"nights"}.`,
@@ -177,11 +177,11 @@ const T={
    kind:{apt:"Apartment",studio:"Studio",house:"House",villa:"Villa",room:"Room",bed:"Hostel bed"},
    beds:{dbl:"double bed",sgl:"single bed",sofa:"sofa bed",bunk:"bunk bed"},
    am:{wifi:"Wi-Fi",ac:"Air conditioning",heat:"Heating",kitchen:"Kitchen",washer:"Washer",dryer:"Dryer",dish:"Dishwasher",tv:"TV",parking:"Parking",balcony:"Balcony",elevator:"Lift",iron:"Iron",hair:"Hair dryer",crib:"Crib",work:"Workspace",pets:"Pets allowed",selfin:"Self check-in",view:"Nice view"},
-   cin:"Check-in from",cout:"check-out by",how:"How to get there",map:"Map"}};
+   cin:"Check-in from",cout:"check-out by",onMap:"On the map →",how:"How to get there",map:"Map"}};
 let L=(()=>{try{const s=localStorage.getItem("es_book_lang");if(T[s])return s}catch(e){}const n=(navigator.language||"").slice(0,2);return n==="ru"?"ru":n==="en"?"en":"ro"})();
 const t=k=>T[L][k];
 const unitTxt=(u,k)=>{const o=u&&u[k];if(!o)return"";if(typeof o==="string")return o;return String(o[L]||o.ro||o.ru||o.en||"").trim()};
-const mapsUrl=u=>{const q=String(u.map||u.addr||u.name||"").trim();return /^https?:\/\//i.test(q)?q:"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(q)};
+const mapsUrl=u=>{const q=String(u.map||u.addr||u.name||"").trim();return /^https?:\/\//i.test(q)?q:"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(!u.map&&u.addr&&!/chi[sșş]in[aăá]u/i.test(q)?q+", Chișinău":q)};
 const plural=(n,[a,b,c])=>L==="ru"?(n%10===1&&n%100!==11?a:[2,3,4].includes(n%10)&&![12,13,14].includes(n%100)?b:c):L==="ro"?(n===1?a:n%100>=20||n%100===0&&n>0?c:b):(n===1?a:b);
 const CUR={EUR:"€",USD:"$",MDL:"lei"};
 const money=(v,c)=>(Math.round(v*100)/100).toLocaleString(L==="en"?"en-GB":L==="ru"?"ru-RU":"ro-MD",{maximumFractionDigits:2})+"\u00a0"+(CUR[c]||"€");
@@ -259,7 +259,7 @@ function openReq(name){const u=D.units.find(x=>x.name===name);if(!u)return;const
     catch(x){disc=null;msg.textContent=t("promoBad");paintSum()}finally{pgo.disabled=false}};
   $("rf").onsubmit=async e=>{e.preventDefault();const v={name:$("r-name").value.trim(),phone:$("r-phone").value.trim(),email:$("r-email").value.trim(),message:$("r-msg").value.trim()},err=$("r-err");
     if(!v.name||(!v.phone&&!v.email)){err.textContent=t("need");return}if(v.email&&!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.email)){err.textContent=t("badEmail");return}
-    const b=$("r-go");b.disabled=true;try{const res=await api("pub_request",{...v,apt:u.name,date:din,nights,guests:G,kids:K,lang:L});
+    const b=$("r-go");b.disabled=true;try{const res=await api("pub_request",{...v,apt:u.name,date:din,nights,guests:G,kids:K,lang:L,discount:disc?disc.code:(($("r-promo")||{}).value||"").trim()});
       const canPay=res&&res.id&&res.pay&&res.pay.on&&res.deposit>0;
       sh.innerHTML=`<div class="done"><div class="ok">✓</div><h3 id="sh-h">${t("doneH")}</h3><p>${esc(t("doneP")(D.name))}</p><div class="sum"><div><span>${esc(u.name)}</span><span>${fdm(din)} — ${fdm(dout)}</span></div>${canPay?`<div><span>${esc(t("payNow"))}</span><span>${money(res.deposit,res.cur)}</span></div>`:""}</div>
         ${canPay?`<p class="note">${esc(t("payHint"))}</p><div class="acts"><button type="button" class="go" id="r-pay">${esc(t("payNow"))}</button><button type="button" class="ghost" data-close="1">${t("close")}</button></div>`
