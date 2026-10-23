@@ -9,6 +9,8 @@ Ce trebuie să aibă fiecare modul ca aplicația să fie completă și funcțion
 
 **Fiecare punct ❌ sau 🟡 e gata doar când îndeplinește „Gata când”.**
 
+**23.10.2026:** bifele ✅ au fost verificate pe cod și cu teste, după ce s-a refăcut unirea ramurilor din 18.10. Când termini un punct, bifează-l aici, în același commit.
+
 **Cine folosește aplicația:**
 - **Proprietarul platformei**, adică Igor: admin.espace.md.
 - **Compania**, cu mai multe roluri:
@@ -42,7 +44,7 @@ Ce trebuie să aibă fiecare modul ca aplicația să fie completă și funcțion
 |---|---|---|
 | Înregistrare pe site, email cu link de parolă, intrare, resetarea parolei | ✅ | |
 | Mai multe companii pe același cont, cu comutare între ele | ✅ | |
-| **Intrare cu Google** (vezi modulul 15) | ❌ | Butonul „Continuă cu Google” pe pagina de intrare și pe cea de înregistrare. Un cont nou primește compania în probă, la fel ca la înregistrarea cu email. |
+| **Intrare cu Google** (vezi modulul 15) | 🟡 | Butonul „Continuă cu Google” pe pagina de intrare și pe cea de înregistrare. Un cont nou primește compania în probă, la fel ca la înregistrarea cu email. | **Cod gata (verificat 23.10); lipsesc doar `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` puse de Igor.**
 | Autentificare în 2 pași (TOTP) pentru owner și manager | ✅ | Se activează din Setări, cu cod QR și 8 coduri de rezervă. La intrare se cere codul de 6 cifre. Adminul o poate reseta din panou. |
 | Conturi suspendate de admin (`users.disabled`) | ✅ | |
 | Sesiuni active: lista și „ieși de pe toate dispozitivele” | ✅ | În Setări → Аккаунт: lista de dispozitive (browser, dată, IP) și butonul de ieșire de pe toate. |
@@ -53,8 +55,8 @@ Ce trebuie să aibă fiecare modul ca aplicația să fie completă și funcțion
 |---|---|---|
 | Asistentul de primă configurare (`wizNeeded`): unități | ✅ | |
 | Lista „Primii pași” după asistent | ✅ | Card pe «Сегодня»: 5 bife auto (unități, preț, iCal, echipă, credite); se ascunde cu ✕; dispare când toate sunt bifate. `wizNeeded` neatins. |
-| Date demo | ❌ | Butonul „Încarcă exemplu” creează 3 unități și 5 rezervări marcate TEST. Butonul „Șterge exemplul” le scoate pe toate. |
-| Lista „Primii pași” după asistent | ❌ | Card pe „Azi” cu 5 bife care se completează singure: 1) unitățile, 2) prețul, 3) calendarul Airbnb/Booking, 4) un membru în echipă, 5) suplinirea creditelor. Se poate închide. Dispare când toate sunt bifate. |
+| Date demo | ✅ | Butonul „Încarcă exemplu” creează 3 unități și 5 rezervări marcate TEST. Butonul „Șterge exemplul” le scoate pe toate. |
+| Lista „Primii pași” după asistent | ✅ | Card pe „Azi” cu 5 bife care se completează singure: 1) unitățile, 2) prețul, 3) calendarul Airbnb/Booking, 4) un membru în echipă, 5) suplinirea creditelor. Se poate închide. Dispare când toate sunt bifate. |
 | Date demo | ✅ | Butonul „Загрузить пример” creează 3 unități și 5 rezervări marcate TEST. „Удалить пример” le scoate pe toate. |
 
 ## 3. Unități (apartamente)
@@ -88,37 +90,37 @@ Ce trebuie să aibă fiecare modul ca aplicația să fie completă și funcțion
 | Verificarea plăților (checker) și închiderea lunii | ✅ | |
 | Contract online cu semnătură | ✅ | |
 | **Anulare** (nu ștergere): starea „anulată”, motivul, suma reținută | ✅ | `tag=cancel` + `extra.cx` / `cx_keep`; `kv_cancel`; calendar tăiat; ocupare / iCal / curățenii ignoră anulările. |
-| Fișiere pe rezervare (poza actului, chitanțe) | ❌ | Se încarcă prin R2. Dacă R2 nu e configurat, Igor primește instrucțiuni exacte. Maxim 10 fișiere, câte 10 MB. |
-| Nota pentru echipă vizibilă menajerei | ❌ | Apare în ecranul menajerei, la curățenia dinainte de sosire. |
-| Istoricul modificărilor pe rezervare | 🟡 | `audit` există. Lipsește tabul „Istoric” în fișa rezervării. |
+| Fișiere pe rezervare (poza actului, chitanțe) | ✅ | Se încarcă prin R2. Dacă R2 nu e configurat, Igor primește instrucțiuni exacte. Maxim 10 fișiere, câte 10 MB. |
+| Nota pentru echipă vizibilă menajerei | ✅ | Apare în ecranul menajerei, la curățenia dinainte de sosire. |
+| Istoricul modificărilor pe rezervare | ✅ | `audit` există. Lipsește tabul „Istoric” în fișa rezervării. |
 
 ## 6. Oaspeți (contacte, CRM)
 
 | Ce | Stare | Gata când |
 |---|---|---|
-| Baza de contacte | ❌ | Se adună automat din rezervări (după telefon sau email). Lista are căutare, iar fișa conține numărul de rezervări, totalul plătit, notițe și eticheta VIP / „nu mai primim”. |
-| Unirea duplicatelor | ❌ | Se propun duplicatele cu același telefon sau email. Unirea mută rezervările pe un singur contact. |
-| Export CSV | ❌ | |
-| „Rezervare nouă” din fișa contactului | ❌ | Formularul se deschide cu datele contactului completate. |
+| Baza de contacte | ✅ | Se adună automat din rezervări (după telefon sau email). Lista are căutare, iar fișa conține numărul de rezervări, totalul plătit, notițe și eticheta VIP / „nu mai primim”. |
+| Unirea duplicatelor | ✅ | Se propun duplicatele cu același telefon sau email. Unirea mută rezervările pe un singur contact. |
+| Export CSV | ✅ | |
+| „Rezervare nouă” din fișa contactului | ✅ | Formularul se deschide cu datele contactului completate. |
 
 ## 7. Mesaje către oaspeți
 
 | Ce | Stare | Gata când |
 |---|---|---|
-| Șabloane automate | ❌ | Declanșator: rezervare nouă / X zile înainte de sosire / ziua sosirii / plecare / după plecare / anulare. Se alege ora, filtrul pe unități și canale, textul în RO, RU și EN (după limba oaspetelui). |
-| Etichete în text | ❌ | `{nume} {unitate} {adresa} {sosire} {plecare} {ora_sosire} {nopti} {oaspeti} {total} {rest} {link_ghid} {link_contract} {link_checkin} {link_plata} {cod_usa} {telefon_firma}` |
-| Șabloane gata făcute | ❌ | Confirmare, cu o zi înainte (adresa și ora), a doua zi după sosire, informații de plecare, cerere de recenzie. |
-| Trimitere pe email (Resend) | ❌ | Pleacă din cron, o singură dată pe mesaj (`key`), apare în istoricul rezervării și în admin → Emailuri. |
-| Trimitere manuală dintr-o rezervare | ❌ | Butonul „Trimite mesaj”: alegi șablonul, îl editezi și îl trimiți. |
-| WhatsApp / Viber / Telegram | ❌ | Prima variantă: butonul deschide aplicația cu textul completat (link `wa.me`, `viber://`). Variantă automată doar după decizia lui Igor. |
+| Șabloane automate | ✅ | Declanșator: rezervare nouă / X zile înainte de sosire / ziua sosirii / plecare / după plecare / anulare. Se alege ora, filtrul pe unități și canale, textul în RO, RU și EN (după limba oaspetelui). |
+| Etichete în text | ✅ | `{nume} {unitate} {adresa} {sosire} {plecare} {ora_sosire} {nopti} {oaspeti} {total} {rest} {link_ghid} {link_contract} {link_checkin} {link_plata} {cod_usa} {telefon_firma}` |
+| Șabloane gata făcute | ✅ | Confirmare, cu o zi înainte (adresa și ora), a doua zi după sosire, informații de plecare, cerere de recenzie. |
+| Trimitere pe email (Resend) | ✅ | Pleacă din cron, o singură dată pe mesaj (`key`), apare în istoricul rezervării și în admin → Emailuri. |
+| Trimitere manuală dintr-o rezervare | ✅ | Butonul „Trimite mesaj”: alegi șablonul, îl editezi și îl trimiți. |
+| WhatsApp / Viber / Telegram | ✅ | Prima variantă: butonul deschide aplicația cu textul completat (link `wa.me`, `viber://`). Variantă automată doar după decizia lui Igor. |
 
 ## 8. Check-in online
 
 | Ce | Stare | Gata când |
 |---|---|---|
-| Linkul de check-in pentru oaspete | ❌ | Câmpuri: nume, data nașterii, cetățenie, tip și număr act, emis de, expiră, adresă, însoțitori, poza actului, semnătură. Fiecare câmp poate fi obligatoriu, opțional sau ascuns, din Setări. |
-| Starea în rezervare | ❌ | „Check-in completat” cu datele văzute de manager. Mesajul automat poate trimite linkul. |
-| Datele personale | ❌ | Se șterg automat după X luni (setare), ca să respecte legea protecției datelor. |
+| Linkul de check-in pentru oaspete | ✅ | Câmpuri: nume, data nașterii, cetățenie, tip și număr act, emis de, expiră, adresă, însoțitori, poza actului, semnătură. Fiecare câmp poate fi obligatoriu, opțional sau ascuns, din Setări. |
+| Starea în rezervare | ✅ | „Check-in completat” cu datele văzute de manager. Mesajul automat poate trimite linkul. |
+| Datele personale | ✅ | Se șterg automat după X luni (setare), ca să respecte legea protecției datelor. |
 
 ## 9. Ghidul oaspetelui
 
@@ -146,8 +148,8 @@ Ce trebuie să aibă fiecare modul ca aplicația să fie completă și funcțion
 | Raport lunar: venit, cheltuieli, profit, ADR, ocupare | ✅ | |
 | Rapoarte pentru proprietari (link public) și plăți către proprietari | ✅ | |
 | Export Excel | ✅ | |
-| Rapoarte pe canal: venit, nopți, rezervări, anulări, comision | ❌ | Tabel și grafic pe Airbnb, Booking, Direct și altele, pentru orice perioadă. |
-| Perioade rapide | ❌ | Luna aceasta, luna viitoare, +3 luni, anul acesta, anul trecut, interval ales. |
+| Rapoarte pe canal: venit, nopți, rezervări, anulări, comision | ✅ | Tabel și grafic pe Airbnb, Booking, Direct și altele, pentru orice perioadă. |
+| Perioade rapide | ✅ | Luna aceasta, luna viitoare, +3 luni, anul acesta, anul trecut, interval ales. |
 | Pick-up și fereastra de rezervare | ❌ | Rezervările noi pe zile și cu câte zile înainte se rezervă. |
 | Raport zilnic sau săptămânal pe email pentru owner | ❌ | Opțional din Setări: sosiri, plecări, încasări, ce nu e plătit. |
 
@@ -155,10 +157,10 @@ Ce trebuie să aibă fiecare modul ca aplicația să fie completă și funcțion
 
 | Ce | Stare | Gata când |
 |---|---|---|
-| Factură către oaspete pe rezervare | ❌ | În Setări se completează furnizorul, TVA, valuta și limba. Factura are link public și PDF, se atașează la mesaj și are numerotare separată pe fiecare companie. |
+| Factură către oaspete pe rezervare | ✅ | În Setări se completează furnizorul, TVA, valuta și limba. Factura are link public și PDF, se atașează la mesaj și are numerotare separată pe fiecare companie. |
 | Avans online prin maib pe pagina de rezervare | ✅ | Fiecare companie își pune proiectul maib în Setări. Banii ajung la firmă, nu la platformă. |
 | Link de plată pentru restul sumei | ✅ | Din fișa rezervării → «Ссылка на оплату» → `/plata/<token>`. |
-| Coduri de reducere | ❌ | Procent sau sumă, cu perioadă, număr maxim de folosiri și unități. Se aplică pe pagina publică. |
+| Coduri de reducere | ✅ | Procent sau sumă, cu perioadă, număr maxim de folosiri și unități. Se aplică pe pagina publică. |
 
 ## 13. Pagina publică de rezervare și site-ul companiei
 
@@ -174,7 +176,7 @@ Ce trebuie să aibă fiecare modul ca aplicația să fie completă și funcțion
 | Ce | Stare | Gata când |
 |---|---|---|
 | Import iCal pe unitate și export iCal | ✅ | |
-| Starea fiecărui calendar (ultima sincronizare, eroare) | 🟡 | Se vede în aplicația companiei (acum doar în admin), cu butonul „Sincronizează acum”. |
+| Starea fiecărui calendar (ultima sincronizare, eroare) | ✅ | Se vede în aplicația companiei (acum doar în admin), cu butonul „Sincronizează acum”. |
 | Conectare directă prin API cu Airbnb sau Booking | ⛔ | Cere certificare de partener. Rămânem pe iCal. |
 
 ## 15. Conectarea cu Google
@@ -185,10 +187,10 @@ Ce trebuie să aibă fiecare modul ca aplicația să fie completă și funcțion
 
 | Ce | Stare | Gata când |
 |---|---|---|
-| **Intrare cu Google** (OpenID Connect) | ❌ | Butonul pe pagina de intrare și de înregistrare. Dacă emailul Google există deja, intră în acel cont. Dacă nu, se creează contul și compania în probă. Se cere doar `openid email profile`. Fără biblioteci grele: fetch spre endpoint-urile Google, verificarea `id_token` (semnătură, `aud`, `iss`, `exp`) și `state` contra CSRF. |
-| Legarea Google de un cont existent | ❌ | Setări → Securitate → „Leagă contul Google”. Coloana `users.google_sub`. |
-| Google Calendar: rezervările în calendarul personal | 🟡 | Linkul iCal de export există deja. Lipsesc butonul „Adaugă în Google Calendar” cu instrucțiuni și un link pe fiecare companie cu toate unitățile. |
-| Google Maps | ❌ | Linkul „Deschide în Maps” făcut din adresa unității, în ghid, pe pagina publică și în mesaje (`{link_harta}`). Fără cheie API. |
+| **Intrare cu Google** (OpenID Connect) | 🟡 | Butonul pe pagina de intrare și de înregistrare. Dacă emailul Google există deja, intră în acel cont. Dacă nu, se creează contul și compania în probă. Se cere doar `openid email profile`. Fără biblioteci grele: fetch spre endpoint-urile Google, verificarea `id_token` (semnătură, `aud`, `iss`, `exp`) și `state` contra CSRF. | **Cod gata (verificat 23.10); lipsesc doar `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` puse de Igor.**
+| Legarea Google de un cont existent | ✅ | Setări → Securitate → „Leagă contul Google”. Coloana `users.google_sub`. |
+| Google Calendar: rezervările în calendarul personal | ✅ | Linkul iCal de export există deja. Lipsesc butonul „Adaugă în Google Calendar” cu instrucțiuni și un link pe fiecare companie cu toate unitățile. |
+| Google Maps | ✅ | Linkul „Deschide în Maps” făcut din adresa unității, în ghid, pe pagina publică și în mesaje (`{link_harta}`). Fără cheie API. |
 | Google Drive (exportul lunar al rapoartelor) | ⛔ | Mai târziu, doar dacă se cere. |
 
 ## 16. Notificări și echipă
