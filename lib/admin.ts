@@ -31,7 +31,7 @@ const ADJ = ["bonus", "corectie"], ADJ_SQL = "('bonus','corectie')";
 // every table that holds a company's data (export and delete)
 const ORG_TABLES = ["bookings", "booking_files", "expenses", "handovers", "apt_photos", "app_config", "staff", "tasks", "checks", "app_state", "push_subs", "reminders", "todos", "notifs",
   "guides", "guide_media", "verify_info", "verify_log", "month_close", "invoices", "events", "emails", "charges", "ical_feeds", "tg_links", "tg_codes", "owner_reports",
-  "owner_payouts", "audit", "contracts", "maib_payments", "day_rates", "payments", "members", "sessions"];
+  "owner_payouts", "audit", "contracts", "maib_payments", "day_rates", "contacts", "guest_invoices", "discount_codes", "svc_orders", "supply_need", "payments", "members", "sessions"];
 const NO_EXPORT = ["push_subs", "tg_codes", "tg_links", "sessions", "members"];
 const ROLES_SA = ["owner", "manager", "checker", "viewer"];
 const isSuperEmail = (env: Env, e: string) => !!env.SUPERADMIN_EMAIL && e === env.SUPERADMIN_EMAIL.trim().toLowerCase();

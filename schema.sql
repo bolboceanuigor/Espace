@@ -561,3 +561,124 @@ CREATE TABLE IF NOT EXISTS msg_sent (
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 CREATE INDEX IF NOT EXISTS msg_sent_booking_idx ON msg_sent(org_id, booking_id, created_at);
+
+-- restored 23.10.2026: these tables were lost when the Cursor branches were merged (code used them, the database never had them)
+-- server 5xx log for the admin health page (platform-wide, not per-company export)
+CREATE TABLE IF NOT EXISTS errors (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL DEFAULT '',
+  fn TEXT NOT NULL DEFAULT '',
+  status INTEGER NOT NULL DEFAULT 500,
+  message TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS errors_created_idx ON errors(created_at);
+
+-- guest contacts (CRM): gathered from bookings by phone / email
+CREATE TABLE IF NOT EXISTS contacts (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL,
+  name TEXT NOT NULL DEFAULT '',
+  phone TEXT NOT NULL DEFAULT '',
+  phone_norm TEXT NOT NULL DEFAULT '',   -- digits only, for matching
+  email TEXT NOT NULL DEFAULT '',
+  email_norm TEXT NOT NULL DEFAULT '',   -- lowercased
+  note TEXT NOT NULL DEFAULT '',
+  flag TEXT NOT NULL DEFAULT '',         -- '' | vip | block
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS contacts_org_idx ON contacts(org_id, updated_at);
+CREATE INDEX IF NOT EXISTS contacts_phone_idx ON contacts(org_id, phone_norm);
+CREATE INDEX IF NOT EXISTS contacts_email_idx ON contacts(org_id, email_norm);
+
+-- invoices issued by a company to its guests (printable at /factura/<token>); separate from platform invoices at /f/
+CREATE TABLE IF NOT EXISTS guest_invoices (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL,
+  booking_id TEXT NOT NULL DEFAULT '',
+  number TEXT NOT NULL,
+  token TEXT NOT NULL UNIQUE,
+  issued_at TEXT NOT NULL,
+  due_at TEXT NOT NULL,
+  amount REAL NOT NULL DEFAULT 0,
+  currency TEXT NOT NULL DEFAULT 'MDL',
+  lang TEXT NOT NULL DEFAULT 'ro',
+  status TEXT NOT NULL DEFAULT 'sent',     -- sent | paid | void
+  paid_at TEXT NOT NULL DEFAULT '',
+  buyer TEXT NOT NULL DEFAULT '{}',
+  seller TEXT NOT NULL DEFAULT '{}',
+  lines TEXT NOT NULL DEFAULT '[]',
+  note TEXT NOT NULL DEFAULT '',
+  vat INTEGER NOT NULL DEFAULT 0,
+  vat_rate REAL NOT NULL DEFAULT 20,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS guest_invoices_org_number ON guest_invoices(org_id, number);
+CREATE INDEX IF NOT EXISTS guest_invoices_org_bk ON guest_invoices(org_id, booking_id);
+CREATE INDEX IF NOT EXISTS guest_invoices_token_idx ON guest_invoices(token);
+
+-- promo / discount codes for the public booking page (percent or fixed sum)
+CREATE TABLE IF NOT EXISTS discount_codes (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL,
+  code TEXT NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'pct',       -- pct | sum
+  value REAL NOT NULL DEFAULT 0,
+  currency TEXT NOT NULL DEFAULT '',
+  from_date TEXT NOT NULL DEFAULT '',
+  to_date TEXT NOT NULL DEFAULT '',
+  max_uses INTEGER NOT NULL DEFAULT 0,    -- 0 = unlimited
+  used_count INTEGER NOT NULL DEFAULT 0,
+  apts TEXT NOT NULL DEFAULT '[]',        -- JSON list of unit names; empty = all
+  active INTEGER NOT NULL DEFAULT 1,
+  note TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS discount_codes_org_code ON discount_codes(org_id, code);
+
+-- files on a stay: R2 key when FILES binding exists, else data (base64 data-URL) in D1 like apt_photos
+CREATE TABLE IF NOT EXISTS booking_files (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL,
+  booking_id TEXT NOT NULL,
+  name TEXT NOT NULL DEFAULT '',
+  mime TEXT NOT NULL DEFAULT '',
+  size INTEGER NOT NULL DEFAULT 0,
+  r2_key TEXT NOT NULL DEFAULT '',
+  data TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS booking_files_bk_idx ON booking_files(org_id, booking_id);
+
+-- guest orders of paid extras from the public guide (transfer, early check-in, crib…)
+CREATE TABLE IF NOT EXISTS svc_orders (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL,
+  apt TEXT NOT NULL DEFAULT '',
+  service_id TEXT NOT NULL DEFAULT '',
+  service_name TEXT NOT NULL DEFAULT '',
+  price REAL NOT NULL DEFAULT 0,
+  price_cur TEXT NOT NULL DEFAULT 'EUR',
+  guest TEXT NOT NULL DEFAULT '',
+  phone TEXT NOT NULL DEFAULT '',
+  note TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'new',   -- new | done | cancel
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS svc_orders_org_idx ON svc_orders(org_id, created_at);
+
+-- consumables running low: cleaner marks an item on a unit; manager sees the shopping list
+CREATE TABLE IF NOT EXISTS supply_need (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL,
+  apt TEXT NOT NULL,
+  item TEXT NOT NULL,
+  note TEXT NOT NULL DEFAULT '',
+  by_name TEXT NOT NULL DEFAULT '',
+  staff_id TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'need',  -- need | bought
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  done_at TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS supply_need_org_idx ON supply_need(org_id, status, created_at);
