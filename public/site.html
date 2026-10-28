@@ -275,9 +275,9 @@ dialog .row .btn{flex:1}
     <div class="roles">
       <div class="role"><h3 data-t="r1_h">Manager<small data-t="r1_s">cine primește oaspeții</small></h3><ul>
         <li data-t="r1_1">Calendar cu toate apartamentele și sursele</li>
-        <li data-t="r1_2">Predarea turei cu casa în 4 valute</li>
-        <li data-t="r1_3">Cheltuieli pe apartament și comune</li>
-        <li data-t="r1_4">Sarcini, remindere și notificări pe telefon</li></ul></div>
+        <li data-t="r1_2">Sincronizare iCal cu calendarele Airbnb și Booking</li>
+        <li data-t="r1_3">Predarea turei cu casa în 4 valute</li>
+        <li data-t="r1_4">Cheltuieli, sarcini, remindere și notificări pe telefon</li></ul></div>
       <div class="role"><h3 data-t="r2_h">Menajeră<small data-t="r2_s">intră doar cu PIN</small></h3><ul>
         <li data-t="r2_1">Lista zilei cu adresă, etaj și oră</li>
         <li data-t="r2_2">Checklist: ce se curăță azi și ce o dată pe lună</li>
@@ -345,7 +345,7 @@ dialog .row .btn{flex:1}
     <div class="head"><h2 data-t="faq_h">Întrebări</h2></div>
     <div class="faq">
       <details><summary data-t="q1">Trebuie să instalez ceva?</summary><p data-t="a1">Nu. Se deschide în browser pe telefon sau calculator. Pe telefon o poți pune pe ecranul principal ca o aplicație și primești notificări.</p></details>
-      <details><summary data-t="q2">Se sincronizează cu Booking și Airbnb?</summary><p data-t="a2">Deocamdată rezervările se introduc în calendar de manager — durează câteva secunde. Importul automat al calendarelor e următorul lucru la care lucrăm.</p></details>
+      <details><summary data-t="q2">Se sincronizează cu Booking și Airbnb?</summary><p data-t="a2">Da — prin iCal. În Setări, la obiect, adaugi linkul de export din Airbnb sau Booking și rezervările apar în calendar. Poți și să dai calendarul obiectului în afară. Rezervările directe sau din Viber le introduci tu în câteva secunde.</p></details>
       <details><summary data-t="q3">Ce se întâmplă după cele 14 zile?</summary><p data-t="a3">Suplinești credite cu cardul (Visa, Mastercard, Apple Pay, Google Pay prin maib) sau pe factură. În fiecare zi se scade câte 1 credit (1 leu) pentru fiecare apartament — la 5 apartamente, 5 credite pe zi. Când creditele se termină, datele rămân și le poți vedea și exporta, dar nu mai poți face modificări până la suplinire.</p></details>
       <details><summary data-t="q4">Cine îmi vede datele?</summary><p data-t="a4">Doar oamenii pe care îi adaugi tu. Fiecare companie are adresa ei și datele ei, separate de ale celorlalte.</p></details>
       <details><summary data-t="q5">Am un singur apartament. Merită?</summary><p data-t="a5">Un apartament costă 1 leu pe zi — circa 30 de lei pe lună. Merită dacă ai o menajeră și oaspeți din mai multe surse — atunci nu mai ții totul în cap.</p></details>
@@ -430,7 +430,7 @@ const T={
   p2_h:"Горничная сама знает, что делать",p2:"Список уборок на завтра собирается из выездов гостей. Она получает его на телефон с адресом, этажом и временем и отмечает, когда закончила.",
   p3_h:"Деньги видны на каждой пересменке",p3:"Леи, евро, доллары и румынские леи — по каждой смене. Кто проверяет оплаты, отмечает их по одной, а месяц закрывается, только когда всё сходится.",
   feat_h:"Каждый в команде видит своё",feat_p:"Владелец видит всё. Горничная — только свои уборки, без денег. Бухгалтер — оплаты.",
-  r1_h:"Менеджер",r1_s:"кто встречает гостей",r1_1:"Календарь всех квартир и источников",r1_2:"Пересменка с кассой в 4 валютах",r1_3:"Расходы по квартирам и общие",r1_4:"Задачи, напоминания и уведомления на телефон",
+  r1_h:"Менеджер",r1_s:"кто встречает гостей",r1_1:"Календарь всех квартир и источников",r1_2:"Синхронизация iCal с календарями Airbnb и Booking",r1_3:"Пересменка с кассой в 4 валютах",r1_4:"Расходы, задачи, напоминания и уведомления на телефон",
   r2_h:"Горничная",r2_s:"входит только по PIN",r2_1:"Список на день с адресом, этажом и временем",r2_2:"Чек-лист: что убрать сегодня, а что раз в месяц",r2_3:"Сообщить о поломке с фото",r2_4:"Зарплата за смену, за квартиру или фикс",
   r3_h:"Гость",r3_s:"без приложения, только ссылка",r3_1:"Гид на румынском, русском и английском",r3_2:"Wi‑Fi, как войти, парковка, правила, выезд",r3_3:"Карта, фото и видео для каждой квартиры",
   r4_h:"Владелец",r4_s:"и кто проверяет деньги",r4_1:"Доход, расходы и загрузка по месяцам",r4_2:"Проверка каждой оплаты и каждой смены",r4_3:"Экспорт в Excel, лист на каждую квартиру",r4_4:"Отдельный доступ: менеджер, бухгалтер, только просмотр",
@@ -440,7 +440,7 @@ const T={
   calc_l:"Сколько у вас квартир?",per_month:"в месяц",per_day:"в день",t_apts:"Пополняете",t_month:"Хватит на",indiv:"индивидуально",lei:"лей",cr:"кредитов",cr1:"кредит",cr2:"кредита",d1:"день",d2:"дня",d5:"дней",
   proof:"квартир в Кишинёве каждый день ведутся в espace.md: брони, смены, горничные и проверка каждой оплаты.",proof_s:"Мы сделали приложение для своей команды, на тех задачах, с которыми сталкиваемся каждый день. Всё, что вы видите на этой странице, используется на практике.",
   faq_h:"Вопросы",q1:"Нужно что-то устанавливать?",a1:"Нет. Открывается в браузере на телефоне или компьютере. На телефоне можно добавить на главный экран как приложение и получать уведомления.",
-  q2:"Есть синхронизация с Booking и Airbnb?",a2:"Пока брони вносит менеджер — это несколько секунд. Автоматический импорт календарей — следующее, над чем мы работаем.",
+  q2:"Есть синхронизация с Booking и Airbnb?",a2:"Да — через iCal. В Настройках у квартиры добавляете ссылку экспорта из Airbnb или Booking, и брони появляются в календаре. Можно и отдавать календар объекта наружу. Прямые и из Viber брони вносите сами за несколько секунд.",
   q3:"Что будет после 14 дней?",a3:"Пополняете кредиты картой (Visa, Mastercard, Apple Pay, Google Pay через maib) или по счёту. Каждый день списывается 1 кредит (1 лей) за каждую квартиру — при 5 квартирах 5 кредитов в день. Когда кредиты закончатся, данные останутся — их можно смотреть и выгрузить, но менять нельзя до пополнения.",
   q4:"Кто видит мои данные?",a4:"Только люди, которых вы добавили. У каждой компании свой адрес и свои данные, отдельно от других.",
   q5:"У меня одна квартира. Есть смысл?",a5:"Одна квартира — 1 лей в день, около 30 лей в месяц. Есть смысл, если у вас горничная и гости из разных источников: больше не нужно держать всё в голове.",
