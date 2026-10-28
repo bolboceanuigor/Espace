@@ -5,7 +5,8 @@
   "scripts": {
     "db:local": "wrangler d1 execute espace --local --file schema.sql && grep -v '^--' migrations.sql | while read -r q; do [ -n \"$q\" ] && wrangler d1 execute espace --local --command \"$q\" >/dev/null 2>&1; done; true",
     "dev": "wrangler pages dev public --d1 DB=espace",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "test": "node --experimental-strip-types tools/smoke.ts"
   },
   "dependencies": {
     "exceljs": "^4.4.0",
