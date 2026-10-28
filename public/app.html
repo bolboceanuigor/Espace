@@ -2068,7 +2068,7 @@ document.addEventListener("click",e=>{const b=e.target.closest("[data-setup]");i
   if(k==="demo-clear"){askDel("Удалить пример?","Исчезнут 3 объекта с пометкой ТЕСТ и их брони. Ваши реальные данные не трогаем.",()=>api("kv_demo_clear").then(async()=>{toast("Пример удалён");await reload();renderSetup();renderView()}).catch(()=>toast("Не получилось")),"Удалить");return}});
 /* UNITS — details of every apartment / house / hotel room live in cfg.units[name]:
    kind, group (building or hotel), area, bedrooms, baths, floor, beds {dbl,sgl,sofa,bunk}, guests, price, cin, cout, amen[], note.
-   cfg.apts stays the list of names used everywhere (calendar, bookings, cleanings); a deleted unit moves to cfg.archived. */
+   cfg.apts stays the list of names used everywhere (calendar, bookings, cleanings); archive moves a unit to cfg.archived (restore brings it back). */
 const UKIND={apt:"Квартира",studio:"Студия",house:"Дом",villa:"Вилла",room:"Номер",bed:"Место в хостеле"};
 const ROOMT={single:["Одноместный",{sgl:1},1],double:["Двухместный",{dbl:1},2],twin:["Твин",{sgl:2},2],triple:["Трёхместный",{dbl:1,sgl:1},3],family:["Семейный",{dbl:1,sgl:2},4],suite:["Люкс",{dbl:1,sofa:1},4],bed:["Место в хостеле",{bunk:1},1]};
 const BEDT=[["dbl","двуспальная"],["sgl","односпальная"],["sofa","диван"],["bunk","двухъярусная"]];
@@ -2160,7 +2160,7 @@ function unitCard(a,i){const line=unitLine(a);
       <button type="button" class="ibtn" data-photo="${esc(a)}" aria-label="Фото ${esc(a)}">${setIc("cam")}</button>
       <button type="button" class="ibtn" data-ren="${esc(a)}" aria-label="Переименовать ${esc(a)}">${setIc("pen")}</button>
       <button type="button" class="ibtn" data-up="${i}" ${i?"":"disabled"} aria-label="Выше">${setIc("up")}</button>
-      <button type="button" class="ibtn del${uDelArm===a?" armed":""}" data-udel="${esc(a)}" aria-label="Удалить ${esc(a)}">${uDelArm===a?"Точно?":setIc("del")}</button></div>
+      <button type="button" class="ibtn del${uDelArm===a?" armed":""}" data-udel="${esc(a)}" title="В архив" aria-label="В архив: ${esc(a)}">${uDelArm===a?"В архив?":setIc("del")}</button></div>
     <div class="grid2" style="align-items:end;gap:8px;margin-top:6px"><div style="min-width:0"><input type="text" data-addr="${esc(a)}" value="${esc((cfg.addr||{})[a]||"")}" placeholder="Адрес: Decebal 6/2, кв. 61, этаж 7" aria-label="Адрес ${esc(a)}"></div>
       ${(cfg.addr||{})[a]?`<a class="btn sm" href="${esc(mapsUrl((cfg.addr||{})[a]))}" target="_blank" rel="noopener">На карте</a>`:`<span></span>`}</div>
     ${uOpen===a?unitForm(a):""}</div>`}
@@ -2872,6 +2872,7 @@ document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.c
 function aptsSection(){
   const groups=[];cfg.apts.forEach((a,i)=>{const g=unitOf(a).group||"";let G=groups.find(x=>x.g===g);if(!G)groups.push(G={g,items:[]});G.items.push([a,i])});
   const multi=groups.length>1||groups[0]&&groups[0].g;
+  const arch=(cfg.archived||[]).filter(a=>a&&!cfg.apts.includes(a));
   return `<div class="card" style="padding-top:6px">${groups.map(G=>`${multi?`<div class="ugrp"><b>${G.g?esc(G.g):"Без здания"}</b><small>${G.items.length}</small></div>`:""}${G.g?typeRates(G):""}${G.items.map(([a,i])=>unitCard(a,i)).join("")}`).join("")}
       <div class="actions"><button class="btn primary" id="save-addr">Сохранить адреса</button></div></div>
     <div class="card"><b>Добавить</b>
@@ -2879,7 +2880,10 @@ function aptsSection(){
       <button type="button" class="btn" data-uhotel="1" style="margin-top:8px;width:100%">＋ Номера отеля или хостела</button>
       <button type="button" class="btn" data-wizagain="1" style="margin-top:8px;width:100%">✦ Мастер настройки: объекты и команда по шагам</button></div>
     ${uHotel?hotelForm():""}
-    <p class="small" style="margin-bottom:0">Нажми на ⚙ рядом с квартирой, чтобы заполнить площадь, спальни, кровати и удобства — горничные увидят, сколько белья нужно. Удалённая квартира уходит из календаря, но её брони и расходы остаются в отчётах.</p>`}
+    ${arch.length?`<div class="card"><b>Архив</b><p class="small" style="margin:4px 0 8px">Скрыты из календаря и новых отчётов. Старые брони и расходы остаются.</p>
+      ${arch.map(a=>`<div class="setrow" style="gap:8px"><span class="um"><b>${esc(a)}</b><small>${esc(unitLine(a)||"в архиве")}</small></span>
+        ${RO?"":`<button type="button" class="btn sm" data-urestore="${esc(a)}">Вернуть</button>`}</div>`).join("")}</div>`:""}
+    <p class="small" style="margin-bottom:0">Нажми на ⚙ рядом с квартирой, чтобы заполнить площадь, спальни, кровати и удобства. Кнопка корзины уводит объект в архив — из календаря пропадает, история броней остаётся.</p>`}
 // the form's fields; keys the form doesn't show (rtype, the iCal key…) are kept as they were
 const UFORM_K=["layout","kind","group","area","bedrooms","baths","floor","beds","guests","price","pcur","cin","cout","amen","note","desc","how","map","wifi","wpass","door","park","cmin","cpay","cfee","dep","minn","dow","xg","xgFrom","xc","los","bufB","bufA","lead","maxn","arr"];
 function unitRead(a){const num0=id=>{const v=String(($(id)||{}).value||"").replace(",",".").trim();return v===""?"":Math.max(0,+v||0)},txt=(id,n)=>String(($(id)||{}).value||"").trim().slice(0,n);
@@ -2915,13 +2919,18 @@ function unitCopy(a){const targets=[...document.querySelectorAll("[data-ucpt]:ch
   targets.forEach(x=>{const v={...unitOf(x)};UCOPY_K.forEach(k=>{if(src[k]!=null)v[k]=Array.isArray(src[k])?[...src[k]]:typeof src[k]==="object"?{...src[k]}:src[k];else delete v[k]});
     if(v.rtype&&src.kind!==v.kind)delete v.rtype;units[x]=v});
   uOpen="";saveCfg({...cfg,units},"Скопировано на "+targets.length+" "+plural(targets.length,"объект","объекта","объектов"))}
-function unitDelete(a){
+function unitArchive(a){
   if(cfg.apts.length<=1){toast("Должна остаться хотя бы одна квартира");return}
   const t=todayStr();
-  if(bookings.some(b=>b.apt===a&&endOf(b)>t)){toast("В этой квартире есть будущие брони — сначала перенеси или удали их");uDelArm="";settingsPage("apts");return}
+  if(bookings.some(b=>b.apt===a&&endOf(b)>t&&b.tag!=="cancel")){toast("В этой квартире есть будущие брони — сначала перенеси или отмени их");uDelArm="";settingsPage("apts");return}
   uDelArm="";uOpen="";
-  saveCfg({...cfg,apts:cfg.apts.filter(x=>x!==a),archived:[...new Set([...(cfg.archived||[]),a])]},"Удалено — история сохранена")}
-document.addEventListener("click",e=>{const t=e.target.closest("[data-uedit],[data-ustep],[data-uamen],[data-uilang],[data-usave],[data-ucopy],[data-ucpall],[data-ucpgo],[data-udel],[data-uhotel],#uh-add");if(!t)return;const ds=t.dataset;
+  const dir={...(cfg.direct||{})};if(Array.isArray(dir.hidden))dir.hidden=dir.hidden.filter(x=>x!==a);
+  saveCfg({...cfg,apts:cfg.apts.filter(x=>x!==a),archived:[...new Set([...(cfg.archived||[]).filter(x=>x!==a),a])],direct:dir},"В архиве — история сохранена")}
+function unitRestore(a){
+  if(!a||cfg.apts.includes(a)){toast("Уже в списке");return}
+  const arch=(cfg.archived||[]).filter(x=>x!==a);
+  saveCfg({...cfg,apts:[...cfg.apts,a],archived:arch},"Вернули из архива")}
+document.addEventListener("click",e=>{const t=e.target.closest("[data-uedit],[data-ustep],[data-uamen],[data-uilang],[data-usave],[data-ucopy],[data-ucpall],[data-ucpgo],[data-udel],[data-urestore],[data-uhotel],#uh-add");if(!t)return;const ds=t.dataset;
   if(ds.uedit!=null){uOpen=uOpen===ds.uedit?"":ds.uedit;uDelArm="";settingsPage("apts");if(uOpen)setTimeout(()=>icalLoad(uOpen),0);return}
   if(ds.ustep){const el=$("uf-b-"+ds.ustep);el.textContent=Math.max(0,Math.min(20,(+el.textContent||0)+(+ds.d)));const g=$("uf-guests");if(g&&!g.value){const b={};BEDT.forEach(([k])=>b[k]=+$("uf-b-"+k).textContent);g.placeholder="по кроватям: "+capAuto({beds:b})}return}
   if(ds.uilang){window._ufLang=ds.uilang;document.querySelectorAll("[data-uilang]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.uilang===ds.uilang)));document.querySelectorAll("[data-ufpanel]").forEach(p=>p.hidden=p.dataset.ufpanel!==ds.uilang);return}
@@ -2930,7 +2939,8 @@ document.addEventListener("click",e=>{const t=e.target.closest("[data-uedit],[da
   if(ds.ucopy){const p=$("ucopy");if(p){p.hidden=!p.hidden;if(!p.hidden)p.scrollIntoView({block:"nearest",behavior:"smooth"})}return}
   if(ds.ucpall){const bs=[...document.querySelectorAll("[data-ucpt]")],all=bs.every(x=>x.checked);bs.forEach(x=>x.checked=!all);return}
   if(ds.ucpgo){unitCopy(ds.ucpgo);return}
-  if(ds.udel){if(uDelArm!==ds.udel){uDelArm=ds.udel;settingsPage("apts");setTimeout(()=>{if(uDelArm===ds.udel){uDelArm="";settingsPage("apts")}},4000);return}unitDelete(ds.udel);return}
+  if(ds.udel){if(uDelArm!==ds.udel){uDelArm=ds.udel;settingsPage("apts");setTimeout(()=>{if(uDelArm===ds.udel){uDelArm="";settingsPage("apts")}},4000);return}unitArchive(ds.udel);return}
+  if(ds.urestore){if(RO)return;unitRestore(ds.urestore);return}
   if(ds.uhotel!=null){uHotel=ds.uhotel==="1";settingsPage("apts");if(uHotel)setTimeout(()=>{$("uh-name").focus();hotelPrev()},0);return}
   if(t.id==="uh-add"){const hotel=$("uh-name").value.trim().slice(0,60),n=Math.max(1,Math.min(200,parseInt($("uh-n").value,10)||0)),type=$("uh-type").value;
     if(!hotel){toast("Напиши название отеля");return}

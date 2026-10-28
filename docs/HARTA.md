@@ -65,7 +65,7 @@ Ce trebuie să aibă fiecare modul ca aplicația să fie completă și funcțion
 |---|---|---|
 | Listă, adresă, poze, camere, paturi, capacitate, orele de check-in și check-out, curățenie, garanție | ✅ | |
 | Prețuri: preț de bază, pe zi a săptămânii, sezoane, weekend, oaspete în plus, copil, reducere pentru durată, zile blocate înainte și după, preaviz, maxim de nopți, zile permise de sosire | ✅ | `public/price.js` |
-| Arhivarea unei unități (ascunsă, istoricul rămâne) | 🟡 | Butonul „Arhivează”: unitatea dispare din calendar și din rapoarte noi, iar rezervările vechi rămân. |
+| Arhivarea unei unități (ascunsă, istoricul rămâne) | ✅ | Butonul „În arhivă” mută obiectul în `cfg.archived` (dispare din calendar). Secțiunea «Архив» + «Вернуть». Rezervările vechi rămân. |
 | Etichete și grupuri de unități (zonă, proprietar, tip) | 🟡 | Se filtrează calendarul și rapoartele după grup. |
 | Descriere RO/RU/EN + „cum ajungi” + hartă | ✅ | În Setări → obiect: descriere + cum ajungi pe limbi; pe `book.html` și în ghid (secțiunea «Cum intrați» + hartă din adresă/coordonate). |
 
