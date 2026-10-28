@@ -404,5 +404,9 @@
   "В архиве — история сохранена": "În arhivă — istoricul e păstrat",
   "Вернули из архива": "Readus din arhivă",
   "Уже в списке": "E deja în listă",
-  "В этой квартире есть будущие брони — сначала перенеси или отмени их": "Apartamentul are rezervări viitoare — mută-le sau anulează-le întâi"
+  "В этой квартире есть будущие брони — сначала перенеси или отмени их": "Apartamentul are rezervări viitoare — mută-le sau anulează-le întâi",
+  "Скрытые объекты не видны только в календаре на этом устройстве — брони и отчёты не меняются. Группы берутся из поля «Здание или отель» у объекта.": "Obiectele ascunse nu se văd doar în calendar pe acest dispozitiv — rezervările și rapoartele nu se schimbă. Grupurile vin din câmpul «Clădire sau hotel» al obiectului.",
+  "Здание или зона": "Clădire sau zonă",
+  "Фильтр объектов": "Filtru obiecte",
+  "Все объекты": "Toate obiectele"
 }

@@ -967,9 +967,10 @@ input:focus{border-color:var(--accent);outline:none}
 .seg button{border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:0 12px;height:40px;font-weight:500;display:inline-flex;align-items:center;gap:6px}
 .seg button i{width:8px;height:8px;border-radius:50%}
 .seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
-.finper{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
-.finper button{border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:0 11px;height:36px;font-size:13px;font-weight:500}
-.finper button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.finper,.finfilt{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.finper button,.finfilt button{border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:0 11px;height:36px;font-size:13px;font-weight:500}
+.finper button[aria-pressed="true"],.finfilt button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.finfilt{margin-bottom:8px}
 .fincustom{display:flex;flex-wrap:wrap;gap:8px;align-items:end;margin:0 0 14px}
 .fincustom label{display:grid;gap:4px;font-size:12px;color:var(--muted);font-weight:600}
 .fincustom input{height:40px;border:1px solid var(--line);border-radius:9px;padding:0 10px;background:var(--surface);font-weight:500}
@@ -1770,10 +1771,10 @@ function occMap(y=mon.y,m=mon.m){
   }
   return map;
 }
-function monthStats(y=mon.y,m=mon.m){
-  const occ=occMap(y,m), n=daysIn(y,m), res={}, s=mStartOf(y,m);
+function monthStats(y=mon.y,m=mon.m,A=cfg.apts){
+  const occ=occMap(y,m), n=daysIn(y,m), res={}, s=mStartOf(y,m), list=A&&A.length?A:cfg.apts;
   const T={nights:0,cnt:0,inc:0,util:0,exp:0,mdl:0,eur:0,usd:0};
-  for(const a of cfg.apts){
+  for(const a of list){
     let nights=0; for(let i=0;i<n;i++) if(occ[a+"|"+(s+i*DAY)]) nights++;
     const bl=bookings.filter(b=>b.apt===a).map(b=>[b,shareOf(b,y,m)]).filter(([,k])=>k>0);
     const el=expenses.filter(e=>e.apt===a).map(e=>[e,expShare(e,y,m)]).filter(([,k])=>k>0);
@@ -1783,8 +1784,9 @@ function monthStats(y=mon.y,m=mon.m){
     r.profit=r.inc-r.exp; res[a]=r;
     for(const k in T) T[k]+=r[k];
   }
-  T.shared=expenses.filter(e=>!cfg.apts.includes(e.apt)).reduce((x,e)=>x+eurOf(e)*expShare(e,y,m),0);
-  T.exp+=T.shared; T.profit=T.inc-T.exp; T.days=n; T.occ=T.nights/(n*cfg.apts.length||1);
+  // shared expenses only when looking at the full portfolio (no group/type/owner filter)
+  T.shared=list.length===cfg.apts.length?expenses.filter(e=>!cfg.apts.includes(e.apt)).reduce((x,e)=>x+eurOf(e)*expShare(e,y,m),0):0;
+  T.exp+=T.shared; T.profit=T.inc-T.exp; T.days=n; T.occ=T.nights/(n*list.length||1);
   return {apts:res,T};
 }
 
@@ -3299,7 +3301,7 @@ function renderCal(){
   const box=$("c-body"), CW=box.clientWidth||innerWidth;
   const nav=$("tabs"), navR=nav.getBoundingClientRect(), navH=getComputedStyle(nav).position==="fixed"&&navR.top>innerHeight/2?Math.max(0,innerHeight-navR.top):0;
   const HEADH=LT?(sz==="lg"?64:sz==="sm"?50:58):(sz==="lg"?84:sz==="sm"?68:76);
-  const visN=LT?cfg.apts.filter(a=>!calHidden().has(a)).length:cfg.apts.length;
+  const visN=cfg.apts.filter(a=>!calHidden().has(a)).length;
   // fit exactly N days on this device: cell = f(viewport, rail); squares W===H
   const picOn=calPicOn();
   const MIN_CELL=28;
@@ -3324,7 +3326,7 @@ function renderCal(){
   const tdMark=tdIdx>=0&&tdIdx<n?`<i class="td" style="left:${tdIdx*W}px"></i>`:"";
   let rows="";
   const occ=occMap(), grouped=cfg.apts.some(a=>unitOf(a).group);let lastG=null,nG=0,rowI=0;
-  const hidU=LT?calHidden():new Set();
+  const hidU=calHidden();
   for(const a of cfg.apts){
     if(hidU.has(a))continue;
     if(grouped){const g=unitOf(a).group||"";if(g!==lastG){lastG=g;nG++;rows+=`<div class="sh-grp" style="width:${Lw+n*W}px"><b>${esc(g||"Altele")}</b></div>`}}
@@ -3400,8 +3402,26 @@ function openCalMenu(){
     </div>`,{type:"calmenu"});
 }
 function calHidden(){try{return new Set(JSON.parse(localStorage.getItem("kv_calhide")||"[]"))}catch(e){return new Set()}}
+function calHideSave(hid){try{localStorage.setItem("kv_calhide",JSON.stringify([...hid]))}catch(x){}}
+function calGrpOn(g,hid){const list=cfg.apts.filter(a=>(unitOf(a).group||"")===g);return list.length>0&&list.every(a=>!hid.has(a))}
+function calKindOn(k,hid){const list=cfg.apts.filter(a=>(unitOf(a).kind||"apt")===k);return list.length>0&&list.every(a=>!hid.has(a))}
+function calOwnOn(id,hid){const o=(cfg.owners||[]).find(x=>x.id===id),list=((o&&o.apts)||[]).filter(a=>cfg.apts.includes(a));return list.length>0&&list.every(a=>!hid.has(a))}
+function openCalFlt(){
+  const hid=calHidden();
+  const groups=[...new Set(cfg.apts.map(a=>unitOf(a).group||""))];
+  const hasG=groups.some(Boolean)||groups.length>1;
+  const kinds=[...new Set(cfg.apts.map(a=>unitOf(a).kind||"apt"))];
+  const O=(cfg.owners||[]).filter(o=>((o.apts||[]).some(a=>cfg.apts.includes(a))));
+  let h=`<p class="small" style="margin-top:0">Obiectele ascunse nu se văd doar în calendar pe acest dispozitiv — rezervările și rapoartele nu se schimbă. Grupurile vin din câmpul «Clădire sau hotel» al obiectului.</p>`;
+  if(hasG){h+=`<div class="mgroup">Clădire sau zonă</div><div class="uamen">${groups.map(g=>`<button type="button" data-calgrp="${esc(g)}" aria-pressed="${calGrpOn(g,hid)}">${esc(g||"Fără clădire")}</button>`).join("")}</div>`}
+  if(kinds.length>1){h+=`<div class="mgroup">Tip</div><div class="uamen">${kinds.map(k=>`<button type="button" data-calkind="${esc(k)}" aria-pressed="${calKindOn(k,hid)}">${esc(UKIND[k]||k)}</button>`).join("")}</div>`}
+  if(O.length){h+=`<div class="mgroup">Proprietar</div><div class="uamen">${O.map(o=>`<button type="button" data-calown="${esc(o.id)}" aria-pressed="${calOwnOn(o.id,hid)}">${esc(o.name||"—")}</button>`).join("")}</div>`}
+  h+=`<div class="mgroup">Unități</div><div class="uamen">${cfg.apts.map(a=>`<button type="button" data-calhide="${esc(a)}" aria-pressed="${!hid.has(a)}">${esc(a)}</button>`).join("")}</div>`;
+  if(hid.size)h+=`<div class="actions"><button type="button" class="btn" id="c-showall">Arată toate</button></div>`;
+  openSheet("Obiecte în calendar",h,{type:"calhide"});
+}
 document.addEventListener("change",e=>{if(e.target.id!=="c-jump"||!e.target.value)return;const el=$("c-body"),i=Math.round((toT(e.target.value)-calS0)/DAY);el.scrollTo({left:Math.max(0,i)*calW,behavior:"smooth"});e.target.value=""});
-document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("#c-menu,#c-bell,#c-acct,#c-gotoday,#c-flt,#c-add,#c-pm,#c-offer,#c-pic,[data-calhide],#c-showall,[data-calst],[data-calsz]");if(!t)return;
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("#c-menu,#c-bell,#c-acct,#c-gotoday,#c-flt,#c-add,#c-pm,#c-offer,#c-pic,[data-calhide],[data-calgrp],[data-calkind],[data-calown],#c-showall,[data-calst],[data-calsz]");if(!t)return;
   if(t.id==="c-menu"){openCalMenu();return}
   if(t.id==="c-bell"){bellSheet(notifs,"bellseen","c-bell-badge");bellUpdate(notifs,"bell-badge","bellseen");return}
   if(t.id==="c-acct"){settingsPage("acct");return}
@@ -3412,12 +3432,15 @@ document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest
   if(t.id==="c-add"){if(sheetCtx&&sheetCtx.type==="calmenu")closeSheet();newB("",todayStr());return}
   if(t.id==="c-offer"){if(sheetCtx&&sheetCtx.type==="calmenu")closeSheet();offerSheet();return}
   if(t.id==="c-pm"){if(sheetCtx&&sheetCtx.type==="calmenu")closeSheet();return}
+  if(t.id==="c-flt"){openCalFlt();return}
   const hid=calHidden();
-  if(t.dataset.calhide!=null){const a=t.dataset.calhide;hid.has(a)?hid.delete(a):hid.add(a);if(hid.size>=cfg.apts.length){toast("Trebuie să rămână cel puțin o unitate");return}}
+  const ensureOne=()=>{if(hid.size>=cfg.apts.length){toast("Trebuie să rămână cel puțin o unitate");return false}return true};
+  if(t.dataset.calhide!=null){const a=t.dataset.calhide;hid.has(a)?hid.delete(a):hid.add(a);if(!ensureOne())return}
+  if(t.dataset.calgrp!=null){const g=t.dataset.calgrp,list=cfg.apts.filter(a=>(unitOf(a).group||"")===g),on=calGrpOn(g,hid);list.forEach(a=>on?hid.add(a):hid.delete(a));if(!ensureOne())return}
+  if(t.dataset.calkind!=null){const k=t.dataset.calkind,list=cfg.apts.filter(a=>(unitOf(a).kind||"apt")===k),on=calKindOn(k,hid);list.forEach(a=>on?hid.add(a):hid.delete(a));if(!ensureOne())return}
+  if(t.dataset.calown!=null){const o=(cfg.owners||[]).find(x=>x.id===t.dataset.calown),list=((o&&o.apts)||[]).filter(a=>cfg.apts.includes(a)),on=calOwnOn(t.dataset.calown,hid);list.forEach(a=>on?hid.add(a):hid.delete(a));if(!ensureOne())return}
   if(t.id==="c-showall")hid.clear();
-  if(t.id!=="c-flt"){try{localStorage.setItem("kv_calhide",JSON.stringify([...hid]))}catch(x){}}
-  openSheet("Obiecte în calendar",`<p class="small" style="margin-top:0">Unitățile ascunse nu apar doar în calendarul de pe acest dispozitiv — rezervările și rapoartele rămân la fel.</p><div class="uamen">${cfg.apts.map(a=>`<button type="button" data-calhide="${esc(a)}" aria-pressed="${!hid.has(a)}">${esc(a)}</button>`).join("")}</div>${hid.size?`<div class="actions"><button type="button" class="btn" id="c-showall">Arată toate</button></div>`:""}`,{type:"calhide"});
-  if(t.id!=="c-flt")renderCal()});
+  calHideSave(hid);openCalFlt();renderCal()});
 /* price mode: each free night shows its price and minimum stay; tap two days to select, then set price and rules */
 let calPM=(()=>{try{return localStorage.getItem("kv_calpm")==="1"}catch(e){return false}})(), pmSel=null;
 function dayCells(a,s0,n,W,list){const R=DR[a]||{},u=unitOf(a),out=[],td=todayStr();
@@ -3597,6 +3620,29 @@ function renderExp(){
 /* FINANCE */
 let finYear=false;
 let finPer="cur"; // cur | next | p3 | year | ly | custom
+// report scope: filter finance by building/zone (group), unit kind, or owner — local to this device
+let repFilt=(()=>{try{return JSON.parse(localStorage.getItem("kv_repfilt")||"{}")}catch(e){return {}}})();
+function repSave(){try{localStorage.setItem("kv_repfilt",JSON.stringify(repFilt))}catch(e){}}
+function repApts(){
+  let A=cfg.apts.slice();
+  if(repFilt.g!=null) A=A.filter(a=>(unitOf(a).group||"")===repFilt.g);
+  if(repFilt.k) A=A.filter(a=>(unitOf(a).kind||"apt")===repFilt.k);
+  if(repFilt.o){const o=(cfg.owners||[]).find(x=>x.id===repFilt.o);A=A.filter(a=>((o&&o.apts)||[]).includes(a))}
+  return A;
+}
+function repActive(){return repFilt.g!=null||!!repFilt.k||!!repFilt.o}
+function finFiltBar(){
+  const groups=[...new Set(cfg.apts.map(a=>unitOf(a).group||""))];
+  const hasG=groups.some(Boolean)||groups.length>1;
+  const kinds=[...new Set(cfg.apts.map(a=>unitOf(a).kind||"apt"))];
+  const O=(cfg.owners||[]).filter(o=>((o.apts||[]).some(a=>cfg.apts.includes(a))));
+  if(!hasG&&kinds.length<2&&!O.length) return "";
+  let h=`<div class="finfilt" role="group" aria-label="Filtru obiecte"><button type="button" data-repclr="1" aria-pressed="${!repActive()}">Toate obiectele</button>`;
+  if(hasG) groups.forEach(g=>{h+=`<button type="button" data-repg="${esc(g)}" aria-pressed="${repFilt.g===g}">${esc(g||"Fără clădire")}</button>`});
+  if(kinds.length>1) kinds.forEach(k=>{h+=`<button type="button" data-repk="${esc(k)}" aria-pressed="${repFilt.k===k}">${esc(UKIND[k]||k)}</button>`});
+  O.forEach(o=>{h+=`<button type="button" data-repo="${esc(o.id)}" aria-pressed="${repFilt.o===o.id}">${esc(o.name||"—")}</button>`});
+  return h+`</div>`;
+}
 let finFrom="", finTo="";
 const fPct=(a,b)=>b?Math.round((a-b)/Math.abs(b)*100):null;
 const finYmd=(y,m,d)=>`${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
@@ -3617,11 +3663,11 @@ function rangeShare(b,from,to){
   const en=t+b.nights*DAY, ov=Math.max(0,Math.min(en,e)-Math.max(t,s))/DAY;
   return ov/b.nights;
 }
-function channelStats(from,to){
-  const map={};
+function channelStats(from,to,A=repApts()){
+  const map={}, allow=new Set(A&&A.length?A:cfg.apts);
   const row=src=>{if(!map[src])map[src]={src,inc:0,nights:0,cnt:0,cancel:0,com:0};return map[src]};
   for(const b of bookings){
-    if(!cfg.apts.includes(b.apt)) continue;
+    if(!allow.has(b.apt)) continue;
     const src=b.source||"neindicat", r=row(src);
     if(b.tag==="cancel"){if(b.date>=from&&b.date<=to)r.cancel++;continue}
     if(b.tag==="closed"||b.tag==="req") continue;
@@ -3648,7 +3694,8 @@ function finChannelsHtml(from,to,label){
 }
 function finPerBar(){
   const items=[["cur","Luna aceasta"],["next","Următoarea"],["p3","Trei luni"],["year","Anul acesta"],["ly","Anul trecut"],["custom","Interval ales"]];
-  let h=`<div class="finper" role="group" aria-label="Perioadă">${items.map(([k,t])=>`<button type="button" data-finper="${k}" aria-pressed="${finPer===k}">${t}</button>`).join("")}</div>`;
+  let h=finFiltBar();
+  h+=`<div class="finper" role="group" aria-label="Perioadă">${items.map(([k,t])=>`<button type="button" data-finper="${k}" aria-pressed="${finPer===k}">${t}</button>`).join("")}</div>`;
   if(finPer==="custom") h+=`<div class="fincustom"><label>De la <input type="date" id="fin-from" value="${esc(finFrom||finBounds().from)}"></label><label>Până la <input type="date" id="fin-to" value="${esc(finTo||finBounds().to)}"></label></div>`;
   return h;
 }
@@ -3684,21 +3731,22 @@ function finApts(rows,days){
 function finCats(map){const e=Object.entries(map).filter(([,v])=>v>0);return e.length?donut(e.map(([k,v])=>({label:catIcon(k)+" "+k,value:v,color:catCol(k)}))):`<div class="empty">Fără cheltuieli</div>`}
 const finSeg=y=>finPerBar()+`<div class="seg" style="margin:4px 0 14px"><button type="button" data-finy="0" aria-pressed="${!y&&(finPer==="cur"||finPer==="next")}">Luna</button><button type="button" data-finy="1" aria-pressed="${!!y||finPer==="year"||finPer==="ly"}">Anul ${mon.y}</button></div>`;
 // stats for days 1..d of a month (to compare "so far this month" with the same days of the previous month)
-function periodStats(y,m,d){
-  const s=mStartOf(y,m),e=s+d*DAY,n=daysIn(y,m),A=cfg.apts,occ=occMap(y,m),T={inc:0,util:0,exp:0,nights:0,cnt:0};
-  for(const b of bookings){if(!A.includes(b.apt))continue;const t=toT(b.date);let k;
+function periodStats(y,m,d,A=repApts()){
+  const s=mStartOf(y,m),e=s+d*DAY,n=daysIn(y,m),list=A&&A.length?A:cfg.apts,occ=occMap(y,m),T={inc:0,util:0,exp:0,nights:0,cnt:0};
+  const allow=new Set(list);
+  for(const b of bookings){if(!allow.has(b.apt))continue;const t=toT(b.date);let k;
     if(!(b.nights>0))k=t>=s&&t<e?1:0;else{const en=t+b.nights*DAY;k=Math.max(0,Math.min(en,e)-Math.max(t,s))/DAY/b.nights;if(b.nights>0&&t>=s&&t<e)T.cnt++}
     if(k){T.util+=utilEur(b)*k;T.inc+=(eurOf(b)+utilEur(b))*k}}
-  for(const x of expenses){const k=x.yearly?expShare(x,y,m)*d/n:(toT(x.date)>=s&&toT(x.date)<e?1:0);if(k)T.exp+=eurOf(x)*k}
-  for(const a of A)for(let i=0;i<d;i++)if(occ[a+"|"+(s+i*DAY)])T.nights++;
-  T.profit=T.inc-T.exp;T.occ=T.nights/(d*A.length||1);T.adr=T.nights?(T.inc-T.util)/T.nights:0;return T}
+  for(const x of expenses){if(x.apt&&!allow.has(x.apt)&&cfg.apts.includes(x.apt))continue;if(!x.apt&&list.length!==cfg.apts.length)continue;const k=x.yearly?expShare(x,y,m)*d/n:(toT(x.date)>=s&&toT(x.date)<e?1:0);if(k)T.exp+=eurOf(x)*k}
+  for(const a of list)for(let i=0;i<d;i++)if(occ[a+"|"+(s+i*DAY)])T.nights++;
+  T.profit=T.inc-T.exp;T.occ=T.nights/(d*list.length||1);T.adr=T.nights?(T.inc-T.util)/T.nights:0;return T}
 function renderFinYear(){
-  const y=mon.y, A=cfg.apts;
-  const ms=[...Array(12)].map((_,m)=>({m,...monthStats(y,m)}));
+  const y=mon.y, A=repApts();
+  const ms=[...Array(12)].map((_,m)=>({m,...monthStats(y,m,A)}));
   const sum=list=>{const Y={inc:0,exp:0,profit:0,nights:0,cnt:0,util:0,days:0};list.forEach(r=>{for(const k in Y)Y[k]+=(k==="days"?r.T.days:r.T[k])||0});return Y};
-  const Y=sum(ms), P=sum([...Array(12)].map((_,m)=>({T:monthStats(y-1,m).T})));
+  const Y=sum(ms), P=sum([...Array(12)].map((_,m)=>({T:monthStats(y-1,m,A).T})));
   const occ=Y.nights/(Y.days*A.length||1), pocc=P.nights/(P.days*A.length||1), adr=Y.nights?(Y.inc-Y.util)/Y.nights:0;
-  const byCat={}; expenses.forEach(e=>{for(let m=0;m<12;m++){const k=expShare(e,y,m);if(k)byCat[e.category]=(byCat[e.category]||0)+eurOf(e)*k}});
+  const byCat={}; expenses.forEach(e=>{if(e.apt&&!A.includes(e.apt)&&cfg.apts.includes(e.apt))return;if(!e.apt&&A.length!==cfg.apts.length)return;for(let m=0;m<12;m++){const k=expShare(e,y,m);if(k)byCat[e.category]=(byCat[e.category]||0)+eurOf(e)*k}});
   const aptY=A.map(a=>{const r={a,inc:0,exp:0,profit:0,nights:0,util:0,cnt:0};ms.forEach(x=>{const s=x.apts[a];for(const k of ["inc","exp","profit","nights","util","cnt"])r[k]+=s[k]||0});return r}).sort((p,q)=>q.profit-p.profit);
   const now=new Date(), done=ms.filter(r=>y<now.getFullYear()||r.m<=now.getMonth()), bestM=[...done].sort((p,q)=>q.T.profit-p.T.profit)[0];
   const yearly=expenses.filter(e=>e.yearly).sort((p,q)=>p.date.localeCompare(q.date));
@@ -3725,10 +3773,10 @@ function renderFinYear(){
   $("s-body").innerHTML=finSeg(true)+h;
 }
 function renderFinSpan(){
-  const B=finBounds(), A=cfg.apts;
+  const B=finBounds(), A=repApts();
   let inc=0, util=0, nights=0, cnt=0, exp=0;
   for(const b of bookings){if(!A.includes(b.apt)||b.tag==="cancel"||b.tag==="closed"||b.tag==="req")continue;const k=rangeShare(b,B.from,B.to);if(!k)continue;inc+=(eurOf(b)+utilEur(b))*k;util+=utilEur(b)*k;if(b.nights>0){nights+=b.nights*k;if(b.date>=B.from&&b.date<=B.to)cnt++}}
-  for(const e of expenses){const t=toT(e.date);if(e.yearly){/* skip yearly split for span — count 1/12 per overlapping month */let y=+e.date.slice(0,4),m=+e.date.slice(5,7)-1;for(let i=0;i<12;i++){const ym=y*12+m+i, fy=+B.from.slice(0,4),fm=+B.from.slice(5,7)-1, ty=+B.to.slice(0,4),tm=+B.to.slice(5,7)-1;if(ym>=fy*12+fm&&ym<=ty*12+tm)exp+=eurOf(e)/12}}else if(e.date>=B.from&&e.date<=B.to)exp+=eurOf(e)}
+  for(const e of expenses){if(e.apt&&!A.includes(e.apt)&&cfg.apts.includes(e.apt))continue;if(!e.apt&&A.length!==cfg.apts.length)continue;if(e.yearly){/* skip yearly split for span — count 1/12 per overlapping month */let y=+e.date.slice(0,4),m=+e.date.slice(5,7)-1;for(let i=0;i<12;i++){const ym=y*12+m+i, fy=+B.from.slice(0,4),fm=+B.from.slice(5,7)-1, ty=+B.to.slice(0,4),tm=+B.to.slice(5,7)-1;if(ym>=fy*12+fm&&ym<=ty*12+tm)exp+=eurOf(e)/12}}else if(e.date>=B.from&&e.date<=B.to)exp+=eurOf(e)}
   const profit=inc-exp, adr=nights?(inc-util)/nights:0;
   let h=`<div class="bal fhero" style="box-shadow:0 20px 40px rgba(var(--a1-rgb),.18)"><div class="fh-l">Perioadă · ${esc(B.label)}</div><div class="bal-amt">${profit<0?"−":""}${fmt0(Math.abs(profit))} €</div>
     <div class="fh-s">venit ${fmt0(inc)} € − cheltuieli ${fmt0(exp)} €${inc?` · marjă ${Math.round(profit/inc*100)}%`:""}</div></div>`;
@@ -3742,20 +3790,20 @@ function renderFinSpan(){
 function renderFin(){
   if(finPer==="p3"||finPer==="custom") return renderFinSpan();
   if(finPer==="year"||finPer==="ly"||finYear) return renderFinYear();
-  const st=monthStats(), A=cfg.apts, n=daysIn(), T=st.T;
-  const [py,pm]=lastMonths(2)[0], PT=monthStats(py,pm).T;
-  const month=bookings.filter(inMonth);
-  const hist=lastMonths(6).map(([y,m])=>{const s=monthStats(y,m);return{label:MON_S[m]+(m===0?" "+String(y).slice(2):""),inc:s.T.inc,exp:s.T.exp,cur:y===mon.y&&m===mon.m}});
-  const shared=bookings.map(b=>[b,shareOf(b,mon.y,mon.m)]).filter(([,k])=>k>0);
+  const A=repApts(), st=monthStats(mon.y,mon.m,A), n=daysIn(), T=st.T;
+  const [py,pm]=lastMonths(2)[0], PT=monthStats(py,pm,A).T;
+  const month=bookings.filter(b=>inMonth(b)&&A.includes(b.apt));
+  const hist=lastMonths(6).map(([y,m])=>{const s=monthStats(y,m,A);return{label:MON_S[m]+(m===0?" "+String(y).slice(2):""),inc:s.T.inc,exp:s.T.exp,cur:y===mon.y&&m===mon.m}});
+  const shared=bookings.filter(b=>A.includes(b.apt)).map(b=>[b,shareOf(b,mon.y,mon.m)]).filter(([,k])=>k>0);
   const byPay={}; shared.forEach(([b,k])=>{const key=b.pay||"neindicat";byPay[key]=(byPay[key]||0)+(eurOf(b)+utilEur(b))*k});
   const bySrc={}; shared.forEach(([b,k])=>{const key=b.source||"neindicat";bySrc[key]=(bySrc[key]||0)+(eurOf(b)+utilEur(b))*k});
-  const byCat={}; expenses.forEach(e=>{const k=expShare(e,mon.y,mon.m);if(k)byCat[e.category]=(byCat[e.category]||0)+eurOf(e)*k});
+  const byCat={}; expenses.forEach(e=>{if(e.apt&&!A.includes(e.apt)&&cfg.apts.includes(e.apt))return;if(!e.apt&&A.length!==cfg.apts.length)return;const k=expShare(e,mon.y,mon.m);if(k)byCat[e.category]=(byCat[e.category]||0)+eurOf(e)*k});
   const cash=[...cfg.people,""].map(p=>{const r={p,mdl:0,eur:0,usd:0};month.filter(b=>(b.who||"")===p&&b.pay==="Кэш").forEach(b=>{r.mdl+=b.mdl;r.eur+=b.eur;r.usd+=b.usd});return r}).filter(r=>r.mdl+r.eur+r.usd);
   const flagged=month.filter(b=>issues(b).length).sort((a,b)=>a.date.localeCompare(b.date));
   const adr=T.nights?(T.inc-T.util)/T.nights:0, revpar=(T.inc-T.util)/(n*A.length||1);
   // compare like with like: in the running month — days 1..today vs the same days of the previous month
   const _now=new Date(), running=mon.y===_now.getFullYear()&&mon.m===_now.getMonth(), dd=_now.getDate();
-  const C=running?periodStats(mon.y,mon.m,dd):{...T,adr}, P=running?periodStats(py,pm,Math.min(dd,daysIn(py,pm))):{...PT,adr:PT.nights?(PT.inc-PT.util)/PT.nights:0};
+  const C=running?periodStats(mon.y,mon.m,dd,A):{...T,adr}, P=running?periodStats(py,pm,Math.min(dd,daysIn(py,pm)),A):{...PT,adr:PT.nights?(PT.inc-PT.util)/PT.nights:0};
   const cmpL=running?`față de 1–${Math.min(dd,daysIn(py,pm))} ${MONTHS_G[pm]}`:"față de luna trecută";
   const stays=month.filter(b=>b.nights>0), avgStay=stays.length?stays.reduce((x,b)=>x+b.nights,0)/stays.length:0;
   // this month: how far we are, what's still free
@@ -5042,6 +5090,10 @@ document.addEventListener("click",e=>{
   if(t.id==="chk-add"){const l=[...checklist()];l.push({id:"c"+Date.now().toString(36),text:"Punct nou",every:30});saveCfg({...cfg,checklist:l},"Punctul a fost adăugat");return}
   if(ds.chkdel){saveCfg({...cfg,checklist:checklist().filter(c=>c.id!==ds.chkdel)},"Punctul a fost șters");return}
   if(t.id==="chk-save"){const l=checklist().map(c=>({id:c.id,text:(($("ck-t-"+c.id)||{}).value||c.text).trim(),every:Math.max(0,Math.floor(num(($("ck-e-"+c.id)||{}).value)||0))})).filter(c=>c.text);saveCfg({...cfg,checklist:l},"Lista de verificare a fost salvată");return}
+  if(ds.repclr!=null){repFilt={};repSave();renderView();return}
+  if(ds.repg!=null){repFilt=repFilt.g===ds.repg?{}:{g:ds.repg};repSave();renderView();return}
+  if(ds.repk!=null){repFilt=repFilt.k===ds.repk?{}:{k:ds.repk};repSave();renderView();return}
+  if(ds.repo!=null){repFilt=repFilt.o===ds.repo?{}:{o:ds.repo};repSave();renderView();return}
   if(ds.finy!=null){finYear=ds.finy==="1";finPer=finYear?"year":"cur";renderView();return}
   if(ds.finmonth!=null){mon.m=+ds.finmonth;finYear=false;finPer="cur";renderView();window.scrollTo({top:0});return}
   if(ds.finper!=null){finPer=ds.finper;const n=new Date(),y=n.getFullYear(),m=n.getMonth();

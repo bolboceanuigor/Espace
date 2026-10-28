@@ -403,5 +403,9 @@
   "В архиве — история сохранена": "Archived — history kept",
   "Вернули из архива": "Restored from archive",
   "Уже в списке": "Already in the list",
-  "В этой квартире есть будущие брони — сначала перенеси или отмени их": "This unit has future bookings — move or cancel them first"
+  "В этой квартире есть будущие брони — сначала перенеси или отмени их": "This unit has future bookings — move or cancel them first",
+  "Скрытые объекты не видны только в календаре на этом устройстве — брони и отчёты не меняются. Группы берутся из поля «Здание или отель» у объекта.": "Hidden units stay out of the calendar on this device only — bookings and reports are unchanged. Groups come from the unit Building or hotel field.",
+  "Здание или зона": "Building or zone",
+  "Фильтр объектов": "Unit filter",
+  "Все объекты": "All units"
 }
