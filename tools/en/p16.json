@@ -407,5 +407,9 @@
   "Скрытые объекты не видны только в календаре на этом устройстве — брони и отчёты не меняются. Группы берутся из поля «Здание или отель» у объекта.": "Hidden units stay out of the calendar on this device only — bookings and reports are unchanged. Groups come from the unit Building or hotel field.",
   "Здание или зона": "Building or zone",
   "Фильтр объектов": "Unit filter",
-  "Все объекты": "All units"
+  "Все объекты": "All units",
+  "Перенести бронь?": "Move this booking?",
+  "Перенести": "Move",
+  "Есть пересечение с": "Overlaps",
+  "Бронь перенесена": "Booking moved"
 }
