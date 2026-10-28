@@ -298,6 +298,8 @@ body.calmode .ctopbar{padding-top:calc(8px + env(safe-area-inset-top,0px))}
 :root[data-skin="wow"] .cbsz-b[aria-pressed="true"],:root[data-skin="black"] .cbsz-b[aria-pressed="true"],:root[data-skin="night"] .cbsz-b[aria-pressed="true"],:root[data-skin="pult"] .cbsz-b[aria-pressed="true"]{background:rgba(255,255,255,.12);color:var(--a1,#fed36a);box-shadow:none}
 .sh.sq .sh-corner .cbsz{margin:4px 0}
 .bar.cancel{opacity:.55;filter:grayscale(.35)}.bar.cancel .nm{text-decoration:line-through}
+/* desktop drag-and-drop: move a booking bar to another unit/date */
+@media (pointer:fine){.sh .bar[data-edit]{cursor:grab}.sh .bar.dragging{opacity:.35;cursor:grabbing}.bar-ghost{position:fixed;z-index:80;pointer-events:none;opacity:.92;box-shadow:0 10px 28px rgba(26,35,50,.28);cursor:grabbing}.sh-tl.dnd-over{outline:2px solid var(--accent);outline-offset:-2px;background:rgba(var(--a1-rgb),.08)}.cal-dnd{user-select:none!important}.cal-dnd .sh-tl{cursor:copy}}
 .cbbtn{position:relative;flex:none;width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);display:grid;place-items:center;cursor:pointer;padding:0}
 .cbbtn.add{background:var(--accent);border-color:var(--accent);color:#fff}
 .cbbtn.on{border-color:var(--accent);color:var(--accent)}
@@ -3441,6 +3443,61 @@ document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest
   if(t.dataset.calown!=null){const o=(cfg.owners||[]).find(x=>x.id===t.dataset.calown),list=((o&&o.apts)||[]).filter(a=>cfg.apts.includes(a)),on=calOwnOn(t.dataset.calown,hid);list.forEach(a=>on?hid.add(a):hid.delete(a));if(!ensureOne())return}
   if(t.id==="c-showall")hid.clear();
   calHideSave(hid);openCalFlt();renderCal()});
+/* DESKTOP only: drag a booking bar onto another unit/date → confirm → overlap check → kv_save */
+const calFine=()=>matchMedia("(pointer:fine)").matches;
+let calDnd=null;
+function calDndClear(){
+  if(!calDnd)return;
+  if(calDnd.ghost)calDnd.ghost.remove();
+  if(calDnd.bar)calDnd.bar.classList.remove("dragging");
+  document.querySelectorAll(".sh-tl.dnd-over").forEach(x=>x.classList.remove("dnd-over"));
+  document.body.classList.remove("cal-dnd");
+  window.removeEventListener("pointermove",calDndMove);
+  window.removeEventListener("pointerup",calDndUp);
+  window.removeEventListener("pointercancel",calDndUp);
+  calDnd=null;
+}
+function calDndHit(x,y){
+  const prev=calDnd&&calDnd.ghost;if(prev)prev.style.visibility="hidden";
+  const el=document.elementFromPoint(x,y);if(prev)prev.style.visibility="";
+  const tl=el&&el.closest&&el.closest("#c-body [data-tl]");if(!tl)return null;
+  const i=Math.floor((x-tl.getBoundingClientRect().left)/calW);
+  if(i<0||!Number.isFinite(i))return null;
+  return {apt:tl.dataset.tl,date:fromT(calS0+i*DAY),tl};
+}
+function calDndMove(e){
+  if(!calDnd)return;
+  const dx=e.clientX-calDnd.ox,dy=e.clientY-calDnd.oy;
+  if(!calDnd.moved){if(dx*dx+dy*dy<49)return;calDnd.moved=true;document.body.classList.add("cal-dnd");calDnd.bar.classList.add("dragging");
+    const g=calDnd.bar.cloneNode(true);g.removeAttribute("data-edit");g.classList.add("bar-ghost");g.style.width=calDnd.bar.offsetWidth+"px";g.style.height=calDnd.bar.offsetHeight+"px";document.body.appendChild(g);calDnd.ghost=g;try{calDnd.bar.setPointerCapture(e.pointerId)}catch(x){}}
+  if(calDnd.ghost){calDnd.ghost.style.left=(e.clientX-calDnd.ghost.offsetWidth/3)+"px";calDnd.ghost.style.top=(e.clientY-calDnd.ghost.offsetHeight/2)+"px"}
+  document.querySelectorAll(".sh-tl.dnd-over").forEach(x=>x.classList.remove("dnd-over"));
+  const hit=calDndHit(e.clientX,e.clientY);if(hit&&hit.tl)hit.tl.classList.add("dnd-over");
+}
+async function calDndCommit(b,apt,date){
+  const nb={...b,apt,date};const hit=overlaps(nb,bookings);
+  if(hit.length){toast("Se intersectează cu "+(hit[0].guest||"fără nume")+" · "+hit[0].apt+" · "+dm(hit[0].date));return}
+  try{await api("kv_save",{b:{...nb,id:b.id}});await reload();if(view==="cal")renderCal();toast("Rezervarea a fost mutată: "+(b.guest||"fără nume")+" → "+apt+" · "+dm(date)+(b.nights?" · "+b.nights+" n.":""))}
+  catch(e){toast(navigator.onLine?"Nu s-a salvat":"Fără internet")}
+}
+function calDndUp(e){
+  if(!calDnd)return;
+  const moved=calDnd.moved,id=calDnd.id;const hit=moved?calDndHit(e.clientX,e.clientY):null;
+  calDndClear();
+  if(!moved)return;
+  window._calDnDSkip=true;setTimeout(()=>{window._calDnDSkip=false},0);
+  const b=bookings.find(x=>x.id===id);if(!b||!hit)return;
+  if(hit.apt===b.apt&&hit.date===b.date)return;
+  if(RO){toast("Doar vizualizare");return}
+  askDel("Muți rezervarea?",esc(b.guest||"fără nume")+" · "+esc(b.apt)+" · "+dm(b.date)+" → "+esc(hit.apt)+" · "+dm(hit.date)+(b.nights?" · "+b.nights+" n.":""),()=>calDndCommit(b,hit.apt,hit.date),"Mută");
+}
+document.addEventListener("pointerdown",e=>{
+  if(RO||calPM||!calFine()||e.button)return;
+  const bar=e.target.closest&&e.target.closest("#c-body .bar[data-edit]");if(!bar)return;
+  const b=bookings.find(x=>x.id===bar.dataset.edit);if(!b||!(b.nights>0)||b.tag==="cancel")return;
+  calDnd={id:b.id,ox:e.clientX,oy:e.clientY,bar,ghost:null,moved:false};
+  window.addEventListener("pointermove",calDndMove);window.addEventListener("pointerup",calDndUp);window.addEventListener("pointercancel",calDndUp);
+});
 /* price mode: each free night shows its price and minimum stay; tap two days to select, then set price and rules */
 let calPM=(()=>{try{return localStorage.getItem("kv_calpm")==="1"}catch(e){return false}})(), pmSel=null;
 function dayCells(a,s0,n,W,list){const R=DR[a]||{},u=unitOf(a),out=[],td=todayStr();
@@ -5132,7 +5189,7 @@ document.addEventListener("click",e=>{
   if(ds.vm){mon.m+=+ds.vm;if(mon.m<0){mon.m=11;mon.y--}if(mon.m>11){mon.m=0;mon.y++}renderView();vBadge();return}
   if(t.id==="open-bell"){bellSheet(notifs,"bellseen","bell-badge");return}
   if(t.id==="open-verify"){vFilter="todo";verifyPage();return}
-  if(ds.edit){if(t.classList.contains("bar"))bookView(ds.edit);else editB(ds.edit);return}
+  if(ds.edit){if(window._calDnDSkip){window._calDnDSkip=false;return}if(t.classList.contains("bar"))bookView(ds.edit);else editB(ds.edit);return}
   if(ds.bedit){closeSheet();editB(ds.bedit);return}
   if(ds.pricecur){form.price_cur=ds.pricecur;renderSegsB();infoB();return}
   if(ds.tagopen){fTagOpen=!fTagOpen;renderChipsB();return}

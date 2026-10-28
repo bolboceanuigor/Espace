@@ -408,5 +408,9 @@
   "Скрытые объекты не видны только в календаре на этом устройстве — брони и отчёты не меняются. Группы берутся из поля «Здание или отель» у объекта.": "Obiectele ascunse nu se văd doar în calendar pe acest dispozitiv — rezervările și rapoartele nu se schimbă. Grupurile vin din câmpul «Clădire sau hotel» al obiectului.",
   "Здание или зона": "Clădire sau zonă",
   "Фильтр объектов": "Filtru obiecte",
-  "Все объекты": "Toate obiectele"
+  "Все объекты": "Toate obiectele",
+  "Перенести бронь?": "Muți rezervarea?",
+  "Перенести": "Mută",
+  "Есть пересечение с": "Se intersectează cu",
+  "Бронь перенесена": "Rezervarea a fost mutată"
 }

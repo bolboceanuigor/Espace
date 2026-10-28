@@ -77,7 +77,7 @@ Ce trebuie să aibă fiecare modul ca aplicația să fie completă și funcțion
 | Modul prețuri: prețul zilei în celulă, editare pe interval, minim de nopți, fără sosire sau plecare, zi închisă | ✅ | `day_rates` |
 | Filtrul unităților vizibile | ✅ | |
 | Filtrul pe stare: rezervare, cerere, anulată | ✅ | Butoane Все / Брони / Заявки / Аннулированные deasupra grilei. Anulatele se văd tăiate. |
-| Mutarea unei rezervări prin tragere (drag & drop), pe desktop | ❌ | Tragi bara pe altă unitate sau dată, confirmi și se verifică suprapunerea. |
+| Mutarea unei rezervări prin tragere (drag & drop), pe desktop | ✅ | Tragi bara pe altă unitate/dată (pointer fine). Confirmare + verificare overlap, apoi `kv_save`. Pe telefon rămâne tap → fișă. |
 | Ofertă cu link pentru oaspete | ✅ | Selectezi unitățile libere pe niște date și primești un link public cu pozele, prețul calculat și butonul „Rezervă”. |
 
 ## 5. Rezervarea
