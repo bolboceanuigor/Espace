@@ -388,5 +388,9 @@
   "Аккаунт": "Account",
   "Размер": "Size",
   "скрыто": "hidden",
-  "окт.»": "Oct»"
+  "окт.»": "Oct»",
+  "История": "History",
+  "Карточка брони": "Booking card",
+  "Кто и что менял на этой брони. Хранится 13 месяцев.": "Who changed what on this booking. Kept for 13 months.",
+  "Создание, правки, отмена, договор и счета появятся здесь.": "Creates, edits, cancellations, contracts and invoices show up here."
 }
