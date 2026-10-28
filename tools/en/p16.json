@@ -392,5 +392,16 @@
   "История": "History",
   "Карточка брони": "Booking card",
   "Кто и что менял на этой брони. Хранится 13 месяцев.": "Who changed what on this booking. Kept for 13 months.",
-  "Создание, правки, отмена, договор и счета появятся здесь.": "Creates, edits, cancellations, contracts and invoices show up here."
+  "Создание, правки, отмена, договор и счета появятся здесь.": "Creates, edits, cancellations, contracts and invoices show up here.",
+  "В архив": "Archive",
+  "В архив?": "Archive?",
+  "В архив:": "Archive:",
+  "Архив": "Archive",
+  "Скрыты из календаря и новых отчётов. Старые брони и расходы остаются.": "Hidden from the calendar and new reports. Old bookings and expenses stay.",
+  "в архиве": "archived",
+  "Вернуть": "Restore",
+  "В архиве — история сохранена": "Archived — history kept",
+  "Вернули из архива": "Restored from archive",
+  "Уже в списке": "Already in the list",
+  "В этой квартире есть будущие брони — сначала перенеси или отмени их": "This unit has future bookings — move or cancel them first"
 }

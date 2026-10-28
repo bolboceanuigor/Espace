@@ -2068,7 +2068,7 @@ document.addEventListener("click",e=>{const b=e.target.closest("[data-setup]");i
   if(k==="demo-clear"){askDel("Ștergi exemplul?","Dispar 3 obiecte marcate TEST și rezervările lor. Datele tale reale nu sunt atinse.",()=>api("kv_demo_clear").then(async()=>{toast("Exemplul a fost șters");await reload();renderSetup();renderView()}).catch(()=>toast("Nu a reușit")),"Șterge");return}});
 /* UNITS — details of every apartment / house / hotel room live in cfg.units[name]:
    kind, group (building or hotel), area, bedrooms, baths, floor, beds {dbl,sgl,sofa,bunk}, guests, price, cin, cout, amen[], note.
-   cfg.apts stays the list of names used everywhere (calendar, bookings, cleanings); a deleted unit moves to cfg.archived. */
+   cfg.apts stays the list of names used everywhere (calendar, bookings, cleanings); archive moves a unit to cfg.archived (restore brings it back). */
 const UKIND={apt:"Apartament",studio:"Garsonieră",house:"Casă",villa:"Vilă",room:"Cameră",bed:"Pat în hostel"};
 const ROOMT={single:["Single",{sgl:1},1],double:["Dublă",{dbl:1},2],twin:["Twin",{sgl:2},2],triple:["Triplă",{dbl:1,sgl:1},3],family:["Familie",{dbl:1,sgl:2},4],suite:["Suită",{dbl:1,sofa:1},4],bed:["Pat în hostel",{bunk:1},1]};
 const BEDT=[["dbl","dublu"],["sgl","single"],["sofa","canapea"],["bunk","supraetajat"]];
@@ -2160,7 +2160,7 @@ function unitCard(a,i){const line=unitLine(a);
       <button type="button" class="ibtn" data-photo="${esc(a)}" aria-label="Poze ${esc(a)}">${setIc("cam")}</button>
       <button type="button" class="ibtn" data-ren="${esc(a)}" aria-label="Redenumește ${esc(a)}">${setIc("pen")}</button>
       <button type="button" class="ibtn" data-up="${i}" ${i?"":"disabled"} aria-label="Mai sus">${setIc("up")}</button>
-      <button type="button" class="ibtn del${uDelArm===a?" armed":""}" data-udel="${esc(a)}" aria-label="Șterge ${esc(a)}">${uDelArm===a?"Sigur?":setIc("del")}</button></div>
+      <button type="button" class="ibtn del${uDelArm===a?" armed":""}" data-udel="${esc(a)}" title="În arhivă" aria-label="În arhivă: ${esc(a)}">${uDelArm===a?"În arhivă?":setIc("del")}</button></div>
     <div class="grid2" style="align-items:end;gap:8px;margin-top:6px"><div style="min-width:0"><input type="text" data-addr="${esc(a)}" value="${esc((cfg.addr||{})[a]||"")}" placeholder="Adresa: Decebal 6/2, ap. 61, etajul 7" aria-label="Adresa ${esc(a)}"></div>
       ${(cfg.addr||{})[a]?`<a class="btn sm" href="${esc(mapsUrl((cfg.addr||{})[a]))}" target="_blank" rel="noopener">Pe hartă</a>`:`<span></span>`}</div>
     ${uOpen===a?unitForm(a):""}</div>`}
@@ -2872,6 +2872,7 @@ document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.c
 function aptsSection(){
   const groups=[];cfg.apts.forEach((a,i)=>{const g=unitOf(a).group||"";let G=groups.find(x=>x.g===g);if(!G)groups.push(G={g,items:[]});G.items.push([a,i])});
   const multi=groups.length>1||groups[0]&&groups[0].g;
+  const arch=(cfg.archived||[]).filter(a=>a&&!cfg.apts.includes(a));
   return `<div class="card" style="padding-top:6px">${groups.map(G=>`${multi?`<div class="ugrp"><b>${G.g?esc(G.g):"Fără clădire"}</b><small>${G.items.length}</small></div>`:""}${G.g?typeRates(G):""}${G.items.map(([a,i])=>unitCard(a,i)).join("")}`).join("")}
       <div class="actions"><button class="btn primary" id="save-addr">Salvează adresele</button></div></div>
     <div class="card"><b>Adaugă</b>
@@ -2879,7 +2880,10 @@ function aptsSection(){
       <button type="button" class="btn" data-uhotel="1" style="margin-top:8px;width:100%">＋ Camere de hotel sau hostel</button>
       <button type="button" class="btn" data-wizagain="1" style="margin-top:8px;width:100%">✦ Asistent de configurare: obiecte și echipă, pas cu pas</button></div>
     ${uHotel?hotelForm():""}
-    <p class="small" style="margin-bottom:0">Apasă pe ⚙ de lângă apartament ca să completezi suprafața, dormitoarele, paturile și dotările — menajerele vor vedea câtă lenjerie trebuie. Un apartament șters iese din calendar, dar rezervările și cheltuielile lui rămân în rapoarte.</p>`}
+    ${arch.length?`<div class="card"><b>Arhivă</b><p class="small" style="margin:4px 0 8px">Ascunse din calendar și din rapoartele noi. Rezervările și cheltuielile vechi rămân.</p>
+      ${arch.map(a=>`<div class="setrow" style="gap:8px"><span class="um"><b>${esc(a)}</b><small>${esc(unitLine(a)||"în arhivă")}</small></span>
+        ${RO?"":`<button type="button" class="btn sm" data-urestore="${esc(a)}">Readu</button>`}</div>`).join("")}</div>`:""}
+    <p class="small" style="margin-bottom:0">Apasă pe ⚙ de lângă apartament ca să completezi suprafața, dormitoarele, paturile și facilitățile. Butonul de coș mută obiectul în arhivă — dispare din calendar, istoricul rezervărilor rămâne.</p>`}
 // the form's fields; keys the form doesn't show (rtype, the iCal key…) are kept as they were
 const UFORM_K=["layout","kind","group","area","bedrooms","baths","floor","beds","guests","price","pcur","cin","cout","amen","note","desc","how","map","wifi","wpass","door","park","cmin","cpay","cfee","dep","minn","dow","xg","xgFrom","xc","los","bufB","bufA","lead","maxn","arr"];
 function unitRead(a){const num0=id=>{const v=String(($(id)||{}).value||"").replace(",",".").trim();return v===""?"":Math.max(0,+v||0)},txt=(id,n)=>String(($(id)||{}).value||"").trim().slice(0,n);
@@ -2915,13 +2919,18 @@ function unitCopy(a){const targets=[...document.querySelectorAll("[data-ucpt]:ch
   targets.forEach(x=>{const v={...unitOf(x)};UCOPY_K.forEach(k=>{if(src[k]!=null)v[k]=Array.isArray(src[k])?[...src[k]]:typeof src[k]==="object"?{...src[k]}:src[k];else delete v[k]});
     if(v.rtype&&src.kind!==v.kind)delete v.rtype;units[x]=v});
   uOpen="";saveCfg({...cfg,units},"Copiat pe "+targets.length+" "+plural(targets.length,"unitate","unități","unități"))}
-function unitDelete(a){
+function unitArchive(a){
   if(cfg.apts.length<=1){toast("Trebuie să rămână cel puțin un apartament");return}
   const t=todayStr();
-  if(bookings.some(b=>b.apt===a&&endOf(b)>t)){toast("Acest apartament are rezervări viitoare — mută-le sau șterge-le mai întâi");uDelArm="";settingsPage("apts");return}
+  if(bookings.some(b=>b.apt===a&&endOf(b)>t&&b.tag!=="cancel")){toast("Apartamentul are rezervări viitoare — mută-le sau anulează-le întâi");uDelArm="";settingsPage("apts");return}
   uDelArm="";uOpen="";
-  saveCfg({...cfg,apts:cfg.apts.filter(x=>x!==a),archived:[...new Set([...(cfg.archived||[]),a])]},"Șters — istoricul se păstrează")}
-document.addEventListener("click",e=>{const t=e.target.closest("[data-uedit],[data-ustep],[data-uamen],[data-uilang],[data-usave],[data-ucopy],[data-ucpall],[data-ucpgo],[data-udel],[data-uhotel],#uh-add");if(!t)return;const ds=t.dataset;
+  const dir={...(cfg.direct||{})};if(Array.isArray(dir.hidden))dir.hidden=dir.hidden.filter(x=>x!==a);
+  saveCfg({...cfg,apts:cfg.apts.filter(x=>x!==a),archived:[...new Set([...(cfg.archived||[]).filter(x=>x!==a),a])],direct:dir},"În arhivă — istoricul e păstrat")}
+function unitRestore(a){
+  if(!a||cfg.apts.includes(a)){toast("E deja în listă");return}
+  const arch=(cfg.archived||[]).filter(x=>x!==a);
+  saveCfg({...cfg,apts:[...cfg.apts,a],archived:arch},"Readus din arhivă")}
+document.addEventListener("click",e=>{const t=e.target.closest("[data-uedit],[data-ustep],[data-uamen],[data-uilang],[data-usave],[data-ucopy],[data-ucpall],[data-ucpgo],[data-udel],[data-urestore],[data-uhotel],#uh-add");if(!t)return;const ds=t.dataset;
   if(ds.uedit!=null){uOpen=uOpen===ds.uedit?"":ds.uedit;uDelArm="";settingsPage("apts");if(uOpen)setTimeout(()=>icalLoad(uOpen),0);return}
   if(ds.ustep){const el=$("uf-b-"+ds.ustep);el.textContent=Math.max(0,Math.min(20,(+el.textContent||0)+(+ds.d)));const g=$("uf-guests");if(g&&!g.value){const b={};BEDT.forEach(([k])=>b[k]=+$("uf-b-"+k).textContent);g.placeholder="după paturi: "+capAuto({beds:b})}return}
   if(ds.uilang){window._ufLang=ds.uilang;document.querySelectorAll("[data-uilang]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.uilang===ds.uilang)));document.querySelectorAll("[data-ufpanel]").forEach(p=>p.hidden=p.dataset.ufpanel!==ds.uilang);return}
@@ -2930,7 +2939,8 @@ document.addEventListener("click",e=>{const t=e.target.closest("[data-uedit],[da
   if(ds.ucopy){const p=$("ucopy");if(p){p.hidden=!p.hidden;if(!p.hidden)p.scrollIntoView({block:"nearest",behavior:"smooth"})}return}
   if(ds.ucpall){const bs=[...document.querySelectorAll("[data-ucpt]")],all=bs.every(x=>x.checked);bs.forEach(x=>x.checked=!all);return}
   if(ds.ucpgo){unitCopy(ds.ucpgo);return}
-  if(ds.udel){if(uDelArm!==ds.udel){uDelArm=ds.udel;settingsPage("apts");setTimeout(()=>{if(uDelArm===ds.udel){uDelArm="";settingsPage("apts")}},4000);return}unitDelete(ds.udel);return}
+  if(ds.udel){if(uDelArm!==ds.udel){uDelArm=ds.udel;settingsPage("apts");setTimeout(()=>{if(uDelArm===ds.udel){uDelArm="";settingsPage("apts")}},4000);return}unitArchive(ds.udel);return}
+  if(ds.urestore){if(RO)return;unitRestore(ds.urestore);return}
   if(ds.uhotel!=null){uHotel=ds.uhotel==="1";settingsPage("apts");if(uHotel)setTimeout(()=>{$("uh-name").focus();hotelPrev()},0);return}
   if(t.id==="uh-add"){const hotel=$("uh-name").value.trim().slice(0,60),n=Math.max(1,Math.min(200,parseInt($("uh-n").value,10)||0)),type=$("uh-type").value;
     if(!hotel){toast("Scrie numele hotelului");return}
@@ -3206,8 +3216,8 @@ function xRows(b){const x=b.x||{},u=unitOf(b.apt),cs=(v,c)=>fmt0(v)+" "+(CUR_L[c
 async function bvHistLoad(more){const box=$("bv-hist");if(!box||!AUD||!AUD.ref)return;
   try{const rows=await api("kv_audit",{kind:"booking",ref:AUD.ref,before:more&&AUD.rows.length?AUD.rows[AUD.rows.length-1].id:0});
     AUD.rows=more?AUD.rows.concat(rows):rows;AUD.more=rows.length===100}catch(e){box.innerHTML=`<div class="empty">Nu s-a încărcat</div>`;return}
-  box.innerHTML=AUD.rows.length?AUD.rows.map(audRow).join("")+(AUD.more?`<div class="actions"><button type="button" class="btn sm" data-bvhistmore="1">Arată mai multe</button></div>`:"")+`<p class="small">Cine si ce a schimbat pe rezervarea asta. Se pastreaza 13 luni.</p>`
-    :`<div class="empty">Încă nu sunt modificări</div><p class="small">Crearea, modificarile, anularea, contractul si facturile apar aici.</p>`}
+  box.innerHTML=AUD.rows.length?AUD.rows.map(audRow).join("")+(AUD.more?`<div class="actions"><button type="button" class="btn sm" data-bvhistmore="1">Arată mai multe</button></div>`:"")+`<p class="small">Cine și ce a schimbat pe rezervarea asta. Se păstrează 13 luni.</p>`
+    :`<div class="empty">Încă nu sunt modificări</div><p class="small">Crearea, modificările, anularea, contractul și facturile apar aici.</p>`}
 function bvTab(tab){const det=$("bv-det"),hist=$("bv-hist-wrap");
   document.querySelectorAll("[data-bvtab]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.bvtab===tab)));
   if(det)det.hidden=tab!=="det";if(hist)hist.hidden=tab!=="hist";
