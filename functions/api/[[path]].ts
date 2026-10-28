@@ -12,7 +12,7 @@ import {
 import { newTotpSecret, otpauthUrl, qrSvg, totpOk, newBackupCodes, hashBackupCodes, consumeBackup } from "../../lib/totp";
 import { hostOf, siteOf, slugOk, isSlug } from "../../lib/host";
 import { handleAdmin, logEvent, activeAnnouncement, getSettings, createInvoice } from "../../lib/admin";
-import { sendMail, mails, dailyMail, orgEmail } from "../../lib/mail";
+import { sendMail, mails, dailyMail, runOwnerDigests, orgEmail } from "../../lib/mail";
 import {
   seedTemplates, sanitizeTemplate, sendGuestMessage, fireEventMessages, runGuestMails, parseList, fillTags, bookingVars, pickLang,
 } from "../../lib/guestmsg";
@@ -937,6 +937,8 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     // every company: take today's fee from the balance, then run its reminders if it is active
     for (let org of await all(db, "SELECT * FROM orgs WHERE status = 'active'")) { org = await chargeOrg(db, org).catch(() => org); if (!isExpired(org)) { await runDue(db, org).catch(() => {}); n++; } }
     const mailed = await dailyMail(env, db).catch(() => 0);
+    // owner daily/weekly digest (cfg.digest) — sosiri, plecări, încasări, neplătit
+    const digests = await runOwnerDigests(env, db).catch(() => 0);
     // guest message templates (before/after check-in/out) — same cron, Resend + dedupe key
     const guestMails = await runGuestMails(env, db).catch(() => 0);
     // Airbnb / Booking.com calendars: new reservations become bookings, managers get a notification
@@ -944,9 +946,9 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     const purged = await purgeCheckins(db).catch(() => 0);
     await run(db, "DELETE FROM audit WHERE at < ?", new Date(Date.now() - 400 * 86400000).toISOString()).catch(() => {}); // the change log keeps ~13 months
     // the admin panel's health page shows when this last ran
-    await run(db, "INSERT INTO sys_state(k, v) VALUES ('cron_last', ?) ON CONFLICT (k) DO UPDATE SET v = excluded.v", JSON.stringify({ at: nowIso(), orgs: n, mailed, guestMails, feeds, purged })).catch(() => {});
+    await run(db, "INSERT INTO sys_state(k, v) VALUES ('cron_last', ?) ON CONFLICT (k) DO UPDATE SET v = excluded.v", JSON.stringify({ at: nowIso(), orgs: n, mailed, digests, guestMails, feeds, purged })).catch(() => {});
     await run(db, "DELETE FROM errors WHERE created_at < ?", new Date(Date.now() - 30 * 86400000).toISOString()).catch(() => {});
-    return json({ orgs: n, mailed, guestMails, feeds, purged });
+    return json({ orgs: n, mailed, digests, guestMails, feeds, purged });
   }
 
   // ---------- Google OAuth status (public; secrets stay on the server) ----------

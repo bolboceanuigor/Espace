@@ -2763,6 +2763,10 @@ function invoiceSection(){const i=cfg.invoice||{},f=(k,l,ph,mx)=>`<div><label cl
     <label class="dtog" style="margin-top:10px"><input type="checkbox" id="inv-vat" ${i.vat?"checked":""} ${RO?"disabled":""}><span><b>Plătitor de TVA</b><small>Pe factură apar suma fără TVA și TVA.</small></span></label>
     <label class="l" for="inv-footer">Text jos pe factură</label><textarea id="inv-footer" rows="2" maxlength="500" ${RO?"disabled":""}>${esc(i.footer||"")}</textarea>
     ${RO?"":`<div class="actions"><button type="button" class="btn primary" id="inv-save">Salvează</button></div>`}</div>`}
+document.addEventListener("change",e=>{if(e.target.id==="dg-on"){const s=$("dg-freq");if(s)s.disabled=RO||!e.target.checked}});
+document.addEventListener("click",e=>{if(e.target.id!=="dg-save"||RO)return;
+  const on=!!($("dg-on")&&$("dg-on").checked),freq=($("dg-freq")&&$("dg-freq").value)==="weekly"?"weekly":"daily";
+  saveCfg({...cfg,digest:{on,freq}},on?(freq==="weekly"?"Raport o dată pe săptămână":"Raport în fiecare zi"):"Raportul pe email e oprit")});
 document.addEventListener("click",e=>{if(e.target.id!=="inv-save")return;
   const g=k=>(($("inv-"+k)||{}).value||"").trim();
   const invoice={name:g("name").slice(0,120),idno:g("idno").slice(0,30),vat_code:g("vat_code").slice(0,40),iban:g("iban").slice(0,40),bank:g("bank").slice(0,80),bic:g("bic").slice(0,20),
@@ -4278,6 +4282,12 @@ function renderSettings(){
     push:["bell","Notificări","pe acest telefon",()=>`<div class="card"><p class="small" id="push-st" style="margin-top:0">…</p><div class="actions"><button class="btn primary" id="push-on">🔔 Pornește pe acest telefon</button><button class="btn" id="push-test" hidden>Verifică</button></div>
       <p class="small" style="margin-bottom:0">Vor veni: apartament curățat, menajera a raportat o defecțiune, rezumatul de dimineață la 8:00 și memento-urile tale (fila «Curățenii»). Pornește-le pe fiecare telefon unde e nevoie.</p></div>
     `],
+    digest:["chk","Raport pe email",(()=>{const d=cfg.digest||{};return d.on?(d.freq==="weekly"?"o dată pe săptămână":"în fiecare zi")+" · proprietarului":"oprit · sosiri, plecări, plăți"})(),()=>{const d=cfg.digest||{},on=!!d.on,freq=d.freq==="weekly"?"weekly":"daily";
+      return `<div class="card"><label class="dtog" style="margin-top:0"><input type="checkbox" id="dg-on" ${on?"checked":""} ${RO?"disabled":""}><span><b>Trimite raportul</b><small>Sosiri, plecări, ce ați încasat și ce nu e plătit. Pe emailul proprietarului (sau al facturării).</small></span></label>
+      <label class="l" for="dg-freq">Cât de des</label>
+      <select id="dg-freq" ${RO||!on?"disabled":""}>${[["daily","În fiecare zi"],["weekly","O dată pe săptămână, lunea"]].map(([v,l])=>`<option value="${v}"${freq===v?" selected":""}>${l}</option>`).join("")}</select>
+      <p class="small" style="margin-bottom:0">Dimineața pe la opt, ora Chișinăului. Scrisoarea pleacă o dată pe zi, împreună cu celelalte memento-uri.</p>
+      ${RO?"":`<div class="actions"><button type="button" class="btn primary" id="dg-save">Salvează</button></div>`}</div>`}],
     rate:["rate","Cursul valutar",`1 € = ${cfg.rates.eur} lei · 1 $ = ${cfg.rates.usd} €${(cfg.other||[]).length?" · +"+(cfg.other||[]).length:""}`,()=>`<div class="card"><div class="grid2">
       <div><label class="l" for="r-eur">Lei pentru 1 €</label><input id="r-eur" inputmode="decimal" value="${cfg.rates.eur}"></div>
       <div><label class="l" for="r-usd">€ pentru 1 $</label><input id="r-usd" inputmode="decimal" value="${cfg.rates.usd}"></div></div>

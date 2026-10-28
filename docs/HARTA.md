@@ -151,7 +151,7 @@ Ce trebuie să aibă fiecare modul ca aplicația să fie completă și funcțion
 | Rapoarte pe canal: venit, nopți, rezervări, anulări, comision | ✅ | Tabel și grafic pe Airbnb, Booking, Direct și altele, pentru orice perioadă. |
 | Perioade rapide | ✅ | Luna aceasta, luna viitoare, +3 luni, anul acesta, anul trecut, interval ales. |
 | Pick-up și fereastra de rezervare | ❌ | Rezervările noi pe zile și cu câte zile înainte se rezervă. |
-| Raport zilnic sau săptămânal pe email pentru owner | ❌ | Opțional din Setări: sosiri, plecări, încasări, ce nu e plătit. |
+| Raport zilnic sau săptămânal pe email pentru owner | ✅ | Setări → Отчёт на почту (`cfg.digest`); cron dimineața: sosiri, plecări, încasări, neplătit. |
 
 ## 12. Facturi și plăți de la oaspeți
 

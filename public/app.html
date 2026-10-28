@@ -2763,6 +2763,10 @@ function invoiceSection(){const i=cfg.invoice||{},f=(k,l,ph,mx)=>`<div><label cl
     <label class="dtog" style="margin-top:10px"><input type="checkbox" id="inv-vat" ${i.vat?"checked":""} ${RO?"disabled":""}><span><b>Плательщик НДС</b><small>В счёте появятся сумма без НДС и НДС.</small></span></label>
     <label class="l" for="inv-footer">Подпись внизу счёта</label><textarea id="inv-footer" rows="2" maxlength="500" ${RO?"disabled":""}>${esc(i.footer||"")}</textarea>
     ${RO?"":`<div class="actions"><button type="button" class="btn primary" id="inv-save">Сохранить</button></div>`}</div>`}
+document.addEventListener("change",e=>{if(e.target.id==="dg-on"){const s=$("dg-freq");if(s)s.disabled=RO||!e.target.checked}});
+document.addEventListener("click",e=>{if(e.target.id!=="dg-save"||RO)return;
+  const on=!!($("dg-on")&&$("dg-on").checked),freq=($("dg-freq")&&$("dg-freq").value)==="weekly"?"weekly":"daily";
+  saveCfg({...cfg,digest:{on,freq}},on?(freq==="weekly"?"Отчёт раз в неделю":"Отчёт каждый день"):"Отчёт на почту выключен")});
 document.addEventListener("click",e=>{if(e.target.id!=="inv-save")return;
   const g=k=>(($("inv-"+k)||{}).value||"").trim();
   const invoice={name:g("name").slice(0,120),idno:g("idno").slice(0,30),vat_code:g("vat_code").slice(0,40),iban:g("iban").slice(0,40),bank:g("bank").slice(0,80),bic:g("bic").slice(0,20),
@@ -4278,6 +4282,12 @@ function renderSettings(){
     push:["bell","Уведомления","на этом телефоне",()=>`<div class="card"><p class="small" id="push-st" style="margin-top:0">…</p><div class="actions"><button class="btn primary" id="push-on">🔔 Включить на этом телефоне</button><button class="btn" id="push-test" hidden>Проверить</button></div>
       <p class="small" style="margin-bottom:0">Придут: квартира убрана, горничная сообщила о поломке, сводка утром в 8:00 и твои напоминания (вкладка «Уборки»). Включи на каждом телефоне, где нужно.</p></div>
     `],
+    digest:["chk","Отчёт на почту",(()=>{const d=cfg.digest||{};return d.on?(d.freq==="weekly"?"раз в неделю":"каждый день")+" · владельцу":"выкл. · заезды, выезды, оплаты"})(),()=>{const d=cfg.digest||{},on=!!d.on,freq=d.freq==="weekly"?"weekly":"daily";
+      return `<div class="card"><label class="dtog" style="margin-top:0"><input type="checkbox" id="dg-on" ${on?"checked":""} ${RO?"disabled":""}><span><b>Присылать отчёт</b><small>Заезды, выезды, что приняли и что ещё не оплачено. На почту владельца (или счёта).</small></span></label>
+      <label class="l" for="dg-freq">Как часто</label>
+      <select id="dg-freq" ${RO||!on?"disabled":""}>${[["daily","Каждый день"],["weekly","Раз в неделю по понедельникам"]].map(([v,l])=>`<option value="${v}"${freq===v?" selected":""}>${l}</option>`).join("")}</select>
+      <p class="small" style="margin-bottom:0">Утром около восьми по Кишинёву. Письмо уходит один раз в день, вместе с другими напоминаниями.</p>
+      ${RO?"":`<div class="actions"><button type="button" class="btn primary" id="dg-save">Сохранить</button></div>`}</div>`}],
     rate:["rate","Курс валют",`1 € = ${cfg.rates.eur} лей · 1 $ = ${cfg.rates.usd} €${(cfg.other||[]).length?" · +"+(cfg.other||[]).length:""}`,()=>`<div class="card"><div class="grid2">
       <div><label class="l" for="r-eur">Лей за 1 €</label><input id="r-eur" inputmode="decimal" value="${cfg.rates.eur}"></div>
       <div><label class="l" for="r-usd">€ за 1 $</label><input id="r-usd" inputmode="decimal" value="${cfg.rates.usd}"></div></div>

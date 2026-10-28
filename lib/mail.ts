@@ -242,6 +242,103 @@ export const mails = {
 const curL = (c: string) => ({ EUR: "€", USD: "$", MDL: "lei" } as any)[c] || c;
 const lei2 = (n: number) => (Math.round(n * 100) / 100).toFixed(2).replace(".", ",");
 
+function chisinauParts() {
+  const p: any = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Chisinau", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", weekday: "short", hourCycle: "h23",
+  }).formatToParts(new Date()).filter((x) => x.type !== "literal").map((x) => [x.type, x.value]));
+  return { date: `${p.year}-${p.month}-${p.day}`, hour: Number(p.hour) || 0, weekday: String(p.weekday || "") };
+}
+
+function bkMoney(b: any) {
+  const parts: string[] = [];
+  if (+b.eur) parts.push(`${lei2(+b.eur)} €`);
+  if (+b.mdl) parts.push(`${lei2(+b.mdl)} lei`);
+  if (+b.usd) parts.push(`${lei2(+b.usd)} $`);
+  if (+b.oth) parts.push(`${lei2(+b.oth)} ${b.oth_cur || ""}`.trim());
+  return parts.join(" + ") || "0";
+}
+function bkGot(b: any) { return (+b.mdl || 0) + (+b.eur || 0) + (+b.usd || 0) + (+b.oth || 0); }
+function bkLine(b: any) {
+  const g = (b.guest || "—").trim() || "—";
+  return `${esc(b.apt)} · ${esc(g)} · ${dmy(b.date)}${b.nights ? ` · ${b.nights} n.` : ""}`;
+}
+function bkEnd(b: any) { return addDays(b.date, +b.nights || 0); }
+function isAir(b: any) { return b.source === "Airbnb" || b.pay === "Airbnb"; }
+
+/** Owner digest: arrivals, departures, collections, unpaid — optional from Settings (cfg.digest). */
+export async function runOwnerDigests(env: Env, db: D1Database) {
+  const { date: t, hour, weekday } = chisinauParts();
+  if (hour < 7) return 0; // morning in Chișinău; cron may fire earlier
+  let n = 0;
+  const orgs = await all(db, "SELECT o.*, (SELECT data FROM app_config c WHERE c.org_id = o.id) AS cfg FROM orgs o WHERE o.status = 'active'");
+  for (const o of orgs) {
+    let cfg: any = {}; try { cfg = JSON.parse(o.cfg || "{}"); } catch {}
+    const dig = cfg.digest || {};
+    if (!dig.on) continue;
+    const weekly = dig.freq === "weekly";
+    // weekly: Monday only (en-CA weekday short is Mon)
+    if (weekly && weekday !== "Mon") continue;
+    const to = await orgEmail(db, o.id); if (!to) continue;
+    const key = weekly ? `digest:w:${o.id}:${t}` : `digest:d:${o.id}:${t}`;
+    if (await one(db, "SELECT 1 AS x FROM emails WHERE dedupe = ?", key).catch(() => null)) continue;
+
+    const from = weekly ? t : t;
+    const toDay = weekly ? addDays(t, 6) : t;
+    const payFrom = weekly ? addDays(t, -6) : t;
+    const books = await all(db, `SELECT * FROM bookings WHERE org_id = ? AND tag NOT IN ('closed','req')
+      AND date >= ? AND date <= ?`, o.id, addDays(t, -400), addDays(t, 14));
+    const stays = books.filter((b: any) => +b.nights > 0 && b.tag !== "cancel");
+    const arrivals = stays.filter((b: any) => b.date >= from && b.date <= toDay);
+    const departures = stays.filter((b: any) => { const e = bkEnd(b); return e >= from && e <= toDay; });
+    const paidRows = books.filter((b: any) => b.date >= payFrom && b.date <= t && bkGot(b) > 0.5);
+    // unpaid: still open (checkout >= today), not Airbnb, not marked paid
+    const extras = books.filter((b: any) => +b.nights === 0);
+    const unpaid = stays.filter((b: any) => {
+      if (bkEnd(b) < t) return false;
+      if (isAir(b) || b.pay_status === "paid") return false;
+      if (b.pay_status === "unpaid" || b.pay_status === "part") return true;
+      const price = +b.price || 0;
+      if (!(price > 0)) return false;
+      let got = bkGot(b);
+      for (const x of extras) if (x.apt === b.apt && x.date >= b.date && x.date < bkEnd(b)) got += bkGot(x);
+      return got < price * 0.98; // same currency heuristic as UI when status empty
+    });
+
+    const list = (rows: any[], empty: string, map: (b: any) => string) =>
+      rows.length
+        ? `<ul style="margin:8px 0 0;padding-left:18px">${rows.slice(0, 40).map((b) => `<li>${map(b)}</li>`).join("")}${rows.length > 40 ? `<li>… +${rows.length - 40}</li>` : ""}</ul>`
+        : `<p style="margin:6px 0 0;color:#868aa1">${empty}</p>`;
+
+    const periodRo = weekly ? `săptămâna ${dmy(from)}–${dmy(toDay)}` : dmy(t);
+    const periodRu = weekly ? `неделя ${dmy(from)}–${dmy(toDay)}` : dmy(t);
+    const titleRo = weekly ? "Raport săptămânal" : "Raportul zilei";
+    const titleRu = weekly ? "Недельный отчёт" : "Отчёт за день";
+    const arrMap = (b: any) => `${bkLine(b)}${b.source ? ` · ${esc(b.source)}` : ""}`;
+    const payMap = (b: any) => `${bkLine(b)} · <b>${esc(bkMoney(b))}</b>`;
+    const dueMap = (b: any) => `${bkLine(b)}${b.price ? ` · ${esc(String(b.price))} ${esc(curL(b.price_cur || "EUR"))}` : ""}${b.pay_status === "part" ? " · avans" : ""}`;
+    const bodyRo = `<p>Compania <b>${esc(o.name)}</b> · ${esc(periodRo)}.</p>
+<p><b>Sosiri (${arrivals.length})</b></p>${list(arrivals, "Niciuna", arrMap)}
+<p><b>Plecări (${departures.length})</b></p>${list(departures, "Niciuna", (b) => bkLine(b))}
+<p><b>Încasări înregistrate (${paidRows.length})</b></p>${list(paidRows, "Nimic", payMap)}
+<p><b>Neplătit (${unpaid.length})</b></p>${list(unpaid, "Totul e în regulă", dueMap)}`;
+    const bodyRu = `<p>Компания <b>${esc(o.name)}</b> · ${esc(periodRu)}.</p>
+<p><b>Заезды (${arrivals.length})</b></p>${list(arrivals, "Нет", arrMap)}
+<p><b>Выезды (${departures.length})</b></p>${list(departures, "Нет", (b) => bkLine(b))}
+<p><b>Получено (${paidRows.length})</b></p>${list(paidRows, "Ничего", payMap)}
+<p><b>Не оплачено (${unpaid.length})</b></p>${list(unpaid, "Всё в порядке", dueMap)}`;
+
+    const st = await sendMail(env, db, {
+      to,
+      subject: `${o.name}: ${weekly ? "raport săptămânal" : "raport zilnic"} · ${dmy(t)}`,
+      html: layout({ title: titleRo, body: bodyRo }, { title: titleRu, body: bodyRu }, { url: orgUrl(o.code), ro: "Deschide aplicația", ru: "Открыть приложение" }),
+      kind: "digest", orgId: o.id, key,
+    });
+    if (st !== "duplicate") n++;
+  }
+  return n;
+}
+
 // once a day: trial ending in 3 days, subscription just ended, invoice due in 3 days / today
 export async function dailyMail(env: Env, db: D1Database) {
   const t = today(), k = "mail-daily-" + t;

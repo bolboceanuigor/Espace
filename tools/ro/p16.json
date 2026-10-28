@@ -412,5 +412,19 @@
   "Перенести бронь?": "Muți rezervarea?",
   "Перенести": "Mută",
   "Есть пересечение с": "Se intersectează cu",
-  "Бронь перенесена": "Rezervarea a fost mutată"
+  "Бронь перенесена": "Rezervarea a fost mutată",
+  "Отчёт на почту": "Raport pe email",
+  "Присылать отчёт": "Trimite raportul",
+  "Заезды, выезды, что приняли и что ещё не оплачено. На почту владельца (или счёта).": "Sosiri, plecări, ce ați încasat și ce nu e plătit. Pe emailul proprietarului (sau al facturării).",
+  "Как часто": "Cât de des",
+  "Каждый день": "În fiecare zi",
+  "каждый день": "în fiecare zi",
+  "раз в неделю": "o dată pe săptămână",
+  "Раз в неделю по понедельникам": "O dată pe săptămână, lunea",
+  "Утром около восьми по Кишинёву. Письмо уходит один раз в день, вместе с другими напоминаниями.": "Dimineața pe la opt, ora Chișinăului. Scrisoarea pleacă o dată pe zi, împreună cu celelalte memento-uri.",
+  "Отчёт раз в неделю": "Raport o dată pe săptămână",
+  "Отчёт каждый день": "Raport în fiecare zi",
+  "Отчёт на почту выключен": "Raportul pe email e oprit",
+  "заезды, выезды, оплаты": "sosiri, plecări, plăți",
+  "владельцу": "proprietarului"
 }

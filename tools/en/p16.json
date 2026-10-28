@@ -411,5 +411,19 @@
   "Перенести бронь?": "Move this booking?",
   "Перенести": "Move",
   "Есть пересечение с": "Overlaps",
-  "Бронь перенесена": "Booking moved"
+  "Бронь перенесена": "Booking moved",
+  "Отчёт на почту": "Email report",
+  "Присылать отчёт": "Send the report",
+  "Заезды, выезды, что приняли и что ещё не оплачено. На почту владельца (или счёта).": "Arrivals, departures, what you took in and what is still unpaid. To the owner email (or billing).",
+  "Как часто": "How often",
+  "Каждый день": "Every day",
+  "каждый день": "every day",
+  "раз в неделю": "once a week",
+  "Раз в неделю по понедельникам": "Once a week on Mondays",
+  "Утром около восьми по Кишинёву. Письмо уходит один раз в день, вместе с другими напоминаниями.": "Around 8:00 Chișinău time. The email goes out once a day, with the other reminders.",
+  "Отчёт раз в неделю": "Weekly report enabled",
+  "Отчёт каждый день": "Daily report enabled",
+  "Отчёт на почту выключен": "Email report turned off",
+  "заезды, выезды, оплаты": "arrivals, departures, payments",
+  "владельцу": "to the owner"
 }
