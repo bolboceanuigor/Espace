@@ -3749,6 +3749,58 @@ function finChannelsHtml(from,to,label){
   h+=`<tr class="tot"><td>Всего</td><td>${fmt0(sum.inc)} €</td><td>${Math.round(sum.nights)}</td><td>${sum.cnt}</td><td>${sum.cancel||"—"}</td><td>${sum.com?fmt0(sum.com)+" €":"—"}</td></tr>`;
   return h+`</tbody></table></div></div>`;
 }
+/* pick-up = new bookings by the day they were created; window = days from create → check-in */
+function createdYmd(b){if(!b.createdAt)return"";const d=new Date(b.createdAt);return isFinite(d)?d.toISOString().slice(0,10):""}
+function leadDaysOf(b){const c=createdYmd(b);if(!c||!b.date)return null;return Math.round((toT(b.date)-toT(c))/DAY)}
+function pickupStats(from,to,A=repApts()){
+  const allow=new Set(A&&A.length?A:cfg.apts), byDay={}, leads=[]; let cnt=0, cancel=0, req=0, noTs=0;
+  for(const b of bookings){
+    if(!allow.has(b.apt)||b.tag==="closed")continue;
+    const c=createdYmd(b); if(!c){if(b.nights>0)noTs++;continue}
+    if(c<from||c>to)continue;
+    if(b.tag==="cancel"){cancel++;byDay[c]=(byDay[c]||0);continue}
+    if(b.tag==="req"){req++;cnt++;byDay[c]=(byDay[c]||0)+1;const L=leadDaysOf(b);if(L!=null&&L>=0)leads.push(L);continue}
+    if(!(b.nights>0))continue;
+    cnt++;byDay[c]=(byDay[c]||0)+1;const L=leadDaysOf(b);if(L!=null&&L>=0)leads.push(L);
+  }
+  const span=Math.round((toT(to)-toT(from))/DAY)+1;
+  let series=[];
+  if(span<=45){for(let t=toT(from);t<=toT(to);t+=DAY){const d=fromT(t);series.push({label:dm(d),n:byDay[d]||0,cur:d===todayStr()})}}
+  else if(span<=180){const weeks={};for(let t=toT(from);t<=toT(to);t+=DAY){const d=fromT(t),w=fromT(t-(((new Date(t).getUTCDay()+6)%7)*DAY));weeks[w]=(weeks[w]||0)+(byDay[d]||0)}
+    series=Object.keys(weeks).sort().map(w=>({label:dm(w),n:weeks[w],cur:false}))}
+  else{const months={};for(let t=toT(from);t<=toT(to);t+=DAY){const d=fromT(t),k=d.slice(0,7);months[k]=(months[k]||0)+(byDay[d]||0)}
+    series=Object.keys(months).sort().map(k=>({label:MON_S[+k.slice(5,7)-1]+" "+k.slice(2,4),n:months[k],cur:false}))}
+  const buckets=[["в день заезда",0,0],["1–3 дня",1,3],["4–7 дней",4,7],["8–14 дней",8,14],["15–30 дней",15,30],["31–60 дней",31,60],["свыше двух месяцев",61,1e9]];
+  const win=buckets.map(([label,a,b])=>({label,n:leads.filter(x=>x>=a&&x<=b).length}));
+  const avg=leads.length?leads.reduce((s,x)=>s+x,0)/leads.length:0;
+  const sorted=[...leads].sort((a,b)=>a-b), med=sorted.length?(sorted.length%2?sorted[(sorted.length-1)/2]:(sorted[sorted.length/2-1]+sorted[sorted.length/2])/2):0;
+  return {cnt,cancel,req,noTs,series,win,avg,med,leads:leads.length};
+}
+function pickupBars(series){
+  const mx=Math.max(1,...series.map(r=>r.n));
+  if(!series.some(r=>r.n)) return `<div class="empty">Новых броней за период нет</div>`;
+  const W=Math.max(320,series.length*18),H=160,pl=8,pr=8,pt=18,pb=28,gw=(W-pl-pr)/series.length,bw=Math.min(14,gw*.7),y=v=>pt+(H-pt-pb)*(1-v/mx);
+  let s=`<svg class="fchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="График новых броней">`;
+  series.forEach((r,i)=>{const cx=pl+gw*i+gw/2;if(r.cur)s+=`<rect x="${pl+gw*i+1}" y="${pt-12}" width="${gw-2}" height="${H-pt-pb+12}" rx="6" fill="rgba(var(--a1-rgb),.10)"/>`;
+    s+=`<rect x="${cx-bw/2}" y="${y(r.n)}" width="${bw}" height="${Math.max(0,y(0)-y(r.n))}" rx="3" fill="var(--accent)"/>`;
+    if(r.n&&(series.length<=31||r.n===mx))s+=`<text x="${cx}" y="${y(r.n)-4}" text-anchor="middle" class="pv">${r.n}</text>`;
+    if(series.length<=16||i%Math.ceil(series.length/8)===0)s+=`<text x="${cx}" y="${H-8}" text-anchor="middle">${esc(r.label)}</text>`});
+  return s+`</svg>`;
+}
+function finPickupHtml(from,to,label){
+  const P=pickupStats(from,to);
+  let h=`<h3>Пикап и окно брони · ${esc(label)}</h3>`;
+  h+=`<p class="small" style="margin:0 0 8px">Пикап: сколько новых броней появилось в каждый день по дате создания. Окно: за сколько дней до заезда гость забронировал.</p>`;
+  h+=`<div class="fks">${fKpi("Новых броней",String(P.cnt),P.req?("заявок: "+P.req):"по выбранным объектам","")}
+    ${fKpi("Среднее окно",P.leads?P.avg.toFixed(1).replace(".",",")+" дн.":"—","от создания до заезда","")}
+    ${fKpi("Медиана",P.leads?Math.round(P.med)+" дн.":"—","половина бронирует раньше","")}
+    ${fKpi("Отмены",String(P.cancel||0),P.noTs?"часть старых без даты создания":"созданных в периоде","")}</div>`;
+  if(!P.cnt&&!P.cancel) return h+`<div class="empty">За этот период новых броней нет${P.noTs?" · "+P.noTs+" старых без даты создания":""}</div>`;
+  h+=`<div class="card" style="margin-top:12px"><b style="display:block;margin-bottom:6px">Пикап: новые брони</b>${pickupBars(P.series)}</div>`;
+  const mx=Math.max(1,...P.win.map(r=>r.n));
+  h+=`<div class="card" style="margin-top:12px"><b style="display:block;margin-bottom:8px">Окно бронирования</b><div class="chbars">${P.win.map(r=>`<div class="chbar"><div class="nm"><span>${esc(r.label)}</span></div><div class="v">${r.n}</div><div class="tr"><em style="width:${Math.round(r.n/mx*100)}%;background:var(--accent)"></em></div></div>`).join("")}</div></div>`;
+  return h;
+}
 function finPerBar(){
   const items=[["cur","Этот месяц"],["next","Следующий"],["p3","Три месяца"],["year","Этот год"],["ly","Прошлый год"],["custom","Свои даты"]];
   let h=finFiltBar();
@@ -3827,6 +3879,7 @@ function renderFinYear(){
     :`<div class="empty">Налоги, страховка, годовые подписки — добавь расход и выбери «Годовой». Он разделится на 12 месяцев, а здесь будет видно, когда следующая оплата.</div>`;
   const B=finBounds();
   h+=finChannelsHtml(B.from,B.to,B.label);
+  h+=finPickupHtml(B.from,B.to,B.label);
   $("s-body").innerHTML=finSeg(true)+h;
 }
 function renderFinSpan(){
@@ -3842,6 +3895,7 @@ function renderFinSpan(){
     ${fKpi("Ночи",fmt0(nights),"занятых в периоде","")}
     ${fKpi("Цена ночи",fmt0(adr)+" €","в среднем, без коммуналки","")}</div>`;
   h+=finChannelsHtml(B.from,B.to,B.label);
+  h+=finPickupHtml(B.from,B.to,B.label);
   $("s-body").innerHTML=finPerBar()+h;
 }
 function renderFin(){
@@ -3885,7 +3939,7 @@ function renderFin(){
   h+=`<h3>Расходы по категориям</h3><div class="card">${finCats(byCat)}</div>`;
   h+=`<div class="two"><div><h3>Способ оплаты</h3><div class="card">${donut(Object.entries(byPay).map(([k,v])=>({label:k,value:v,color:PAY_COL[k]||"#9a93a5"})))}</div></div>
     <div><h3>Откуда брони</h3><div class="card">${donut(Object.entries(bySrc).map(([k,v])=>({label:k,value:v,color:SRC_COL[k]||"#9a93a5"})))}</div></div></div>`;
-  {const B=finBounds();h+=finChannelsHtml(B.from,B.to,B.label)}
+  {const B=finBounds();h+=finChannelsHtml(B.from,B.to,B.label);h+=finPickupHtml(B.from,B.to,B.label)}
   h+=`<h3>Наличные на руках · только «Кэш»</h3>`+(cash.length?`<div class="card fcash">${cash.map(r=>`<div class="fcr"><span class="ava">${esc((r.p||"?").slice(0,1).toUpperCase())}</span><b>${esc(r.p||"не указано")}</b><div>${[r.mdl?fmt(r.mdl)+" лей":"",r.eur?fmt(r.eur)+" €":"",r.usd?fmt(r.usd)+" $":""].filter(Boolean).join(" · ")}<small>≈ ${fmt0(eurOf(r))} €</small></div></div>`).join("")}</div>`:`<div class="empty">Наличными в этом месяце не платили</div>`);
   h+=flagged.length?`<h3>Проверить <span class="count">${flagged.length}</span></h3><div class="list">${flagged.slice(0,showAllFlags?999:5).map(b=>rowB(b)).join("")}</div>${flagged.length>5&&!showAllFlags?`<div class="actions" style="margin-top:8px"><button class="btn sm" id="show-flags">Показать все ${flagged.length}</button></div>`:""}`:`<h3>Проверка</h3><div class="empty">Всё заполнено ✓</div>`;
   h+=`<h3>Excel</h3><div class="card"><div class="actions" style="margin-top:0">
