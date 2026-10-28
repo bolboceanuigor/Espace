@@ -1147,6 +1147,11 @@ body.calmode .wrap{padding-bottom:0;max-width:none}
 .sguest{padding:10px 12px;border-radius:14px;background:var(--surface);margin-bottom:6px;display:flex;flex-direction:column;gap:2px}
 .txt th{font-size:12px;color:var(--muted);text-align:left;font-weight:600;padding:6px 4px}.txt th.r{text-align:right}.txt tr.txq td{font-size:12.5px;color:var(--muted);background:var(--bg)}.txt tr.txy td{font-weight:700;border-top:2px solid var(--ink)}.tx-ok{color:var(--ok);font-weight:600}.tx-bad{color:var(--exp);font-weight:600}
 .bv-ct2{margin-top:12px}.kst{padding:12px;border-radius:12px;background:var(--bg);display:flex;flex-direction:column;gap:3px}.kst.ok b{color:var(--ok)}.kst .actions{margin-top:8px}
+.bv-tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px;margin:0 0 4px}
+.bv-tabs button{border:0;background:none;border-radius:999px;padding:9px;font:inherit;font-weight:600;color:var(--muted);cursor:pointer}
+.bv-tabs button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink,#fff)}
+.bv-pane[hidden]{display:none!important}
+.bv-hist{margin-top:4px}.bv-hist .aud:first-child{padding-top:2px}.bv-hist .small{margin-top:10px}
 .ownapts{display:flex;flex-wrap:wrap;gap:6px}.ownapts label{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:6px 11px;font-size:13.5px;cursor:pointer}
 .ownapts label.on{border-color:var(--accent);background:rgba(var(--a1-rgb),.08)}.ownapts label.off{opacity:.5;cursor:default}.ownapts input{width:16px;height:16px;accent-color:var(--accent)}
 .otab{width:100%;border-collapse:collapse;font-size:13.5px}.otab td{padding:6px 4px;border-bottom:1px solid var(--line);vertical-align:top}.otab td.r{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}.otab tr.ex td{color:var(--exp)}
@@ -2394,7 +2399,9 @@ function auditPage(ref,title){AUD={kind:"",q:"",ref:ref||"",rows:[],more:false};
     <p class="small">Записываются брони, расходы, выплаты собственникам, настройки и доступы. Хранятся 13 месяцев.</p>`,{type:"audit",apt:ref||""});audLoad(false)}
 let audT=0;
 document.addEventListener("input",e=>{if(e.target.id!=="aud-q"||!AUD)return;clearTimeout(audT);audT=setTimeout(()=>{AUD.q=e.target.value.trim();audLoad(false)},350)});
-document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-audk],[data-audmore],[data-audref]");if(!t)return;
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-audk],[data-audmore],[data-audref],[data-bvtab],[data-bvhistmore]");if(!t)return;
+  if(t.dataset.bvtab){bvTab(t.dataset.bvtab);return}
+  if(t.dataset.bvhistmore){bvHistLoad(true);return}
   if(t.dataset.audref){auditPage(t.dataset.audref,"История брони");return}
   if(!AUD)return;
   if(t.dataset.audmore){audLoad(true);return}
@@ -3196,6 +3203,15 @@ function xRows(b){const x=b.x||{},u=unitOf(b.apt),cs=(v,c)=>fmt0(v)+" "+(CUR_L[c
     ["Комиссия",x.com?cs(x.com,b.price_cur||"EUR")+(x.com_pct?" ("+x.com_pct+"%)":""):""],
     ["Отмена",b.tag==="cancel"?[x.cx||"",x.cx_keep?"удержано "+fmt0(x.cx_keep):""].filter(Boolean).join(" · "):""],
     ["Скидка",x.disc_code?`${x.disc_code} · −${cs(x.disc_off,b.price_cur||"EUR")}${x.disc_kind==="pct"?" ("+x.disc_value+"%)":""}`:""]]}
+async function bvHistLoad(more){const box=$("bv-hist");if(!box||!AUD||!AUD.ref)return;
+  try{const rows=await api("kv_audit",{kind:"booking",ref:AUD.ref,before:more&&AUD.rows.length?AUD.rows[AUD.rows.length-1].id:0});
+    AUD.rows=more?AUD.rows.concat(rows):rows;AUD.more=rows.length===100}catch(e){box.innerHTML=`<div class="empty">Не загрузилось</div>`;return}
+  box.innerHTML=AUD.rows.length?AUD.rows.map(audRow).join("")+(AUD.more?`<div class="actions"><button type="button" class="btn sm" data-bvhistmore="1">Показать ещё</button></div>`:"")+`<p class="small">Кто и что менял на этой брони. Хранится 13 месяцев.</p>`
+    :`<div class="empty">Изменений пока нет</div><p class="small">Создание, правки, отмена, договор и счета появятся здесь.</p>`}
+function bvTab(tab){const det=$("bv-det"),hist=$("bv-hist-wrap");
+  document.querySelectorAll("[data-bvtab]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.bvtab===tab)));
+  if(det)det.hidden=tab!=="det";if(hist)hist.hidden=tab!=="hist";
+  if(tab==="hist"&&AUD&&!AUD.rows.length)bvHistLoad(false)}
 function bookView(id){const b=bookings.find(x=>x.id===id);if(!b)return;const tg=TAGS.find(x=>x[0]===tagOf(b));
   const nn=+b.nights||0,nw=nn%10===1&&nn%100!==11?"ночь":[2,3,4].includes(nn%10)&&![12,13,14].includes(nn%100)?"ночи":"ночей";
   const cs=v=>fmt0(v)+" "+(CUR_L[b.price_cur||"EUR"]||b.price_cur||"");
@@ -3205,7 +3221,14 @@ function bookView(id){const b=bookings.find(x=>x.id===id);if(!b)return;const tg=
   const rows=[["Квартира",b.apt],["Даты",dm(b.date)+" → "+dm(endOf(b))+" · "+nn+" "+nw],["Телефон",b.phone],["Email",b.email],["Откуда",b.source],["Получено",b.price?amounts(b):""],["Принял",[b.pay,b.who].filter(Boolean).join(" · ")],["Заметка",b.note],...xRows(b)].filter(x=>x[1]);
   const ct=contactHTML(b.phone||"");
   const canCancel=!RO&&b.tag!=="cancel"&&b.tag!=="closed"&&b.nights>0;
-  openSheet(b.tag==="closed"?"Закрыто":b.tag==="cancel"?"Отменена":(b.guest||"Без имени"),`<div class="bv">${tg?`<div class="bv-tag"><i style="background:${tg[2]}"></i>${esc(tg[1])}</div>`:""}${pay}
+  AUD={kind:"booking",q:"",ref:b.id,rows:[],more:false};
+  openSheet(b.tag==="closed"?"Закрыто":b.tag==="cancel"?"Отменена":(b.guest||"Без имени"),`<div class="bv">
+   <div class="bv-tabs" role="tablist" aria-label="Карточка брони">
+     <button type="button" role="tab" data-bvtab="det" aria-pressed="true">Детали</button>
+     <button type="button" role="tab" data-bvtab="hist" aria-pressed="false">История</button>
+   </div>
+   <div class="bv-pane" id="bv-det" role="tabpanel">
+   ${tg?`<div class="bv-tag"><i style="background:${tg[2]}"></i>${esc(tg[1])}</div>`:""}${pay}
    ${ct?`<div class="fcontact bv-ct">${ct}</div>`:b.tag==="closed"?"":`<div class="bv-nophone">Телефон не указан</div>`}
    <div class="bv-rows">${rows.map(([k,v])=>`<div><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join("")}</div>
    ${b.tag==="req"&&!RO?`<div class="bv-req"><p class="small">Заявка со страницы бронирования${b.email?" · "+esc(b.email):""}${b.pax?" · гостей: "+b.pax:""}. Даты пока заняты для неё.</p><div class="actions"><button type="button" class="btn primary" data-reqok="${esc(b.id)}">✓ Подтвердить</button><button type="button" class="btn danger" data-reqno="${esc(b.id)}">Отклонить</button></div></div>`:""}
@@ -3214,7 +3237,11 @@ function bookView(id){const b=bookings.find(x=>x.id===id);if(!b)return;const tg=
    ${canCancel?`<button type="button" class="btn danger" data-bcancel="${esc(b.id)}" style="margin-top:8px">Отменить бронь</button>`:""}
    ${b.nights>0&&b.tag!=="closed"&&b.tag!=="cancel"?`<div class="bv-ct2" id="bv-ci" data-bid="${esc(b.id)}">${(setTimeout(()=>ciLoad(b.id),0),"")}</div><div class="bv-ct2" id="bv-k" data-bid="${esc(b.id)}">${(setTimeout(()=>kLoad(b.id),0),"")}</div>`:""}
    ${b.nights>0&&b.tag!=="closed"?`<div class="bv-ct2" id="bv-inv" data-bid="${esc(b.id)}">${(setTimeout(()=>invLoad(b.id),0),"")}</div>`:""}
-   <button type="button" class="linkbtn" data-audref="${esc(b.id)}" style="margin-top:10px">🕘 История изменений</button></div>`)}
+   </div>
+   <div class="bv-pane bv-hist" id="bv-hist-wrap" role="tabpanel" hidden>
+     <div id="bv-hist"><div class="empty">Загружаю…</div></div>
+   </div>
+   </div>`,{type:"booking",apt:b.apt||""})}
 document.addEventListener("click",async e=>{const pl=e.target.closest&&e.target.closest("[data-paylink]");if(pl){pl.disabled=true;try{const r=await api("kv_pay_link",{booking_id:pl.dataset.paylink});const box=$("bv-payurl");if(box){box.hidden=false;box.innerHTML=`<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.url)}</a> · ${fmt(r.amount)} лей`;try{await navigator.clipboard.writeText(r.url);toast("Ссылка скопирована")}catch(x){toast("Ссылка готова")}}else toast("Ссылка готова")}catch(x){pl.disabled=false;toast(x.code==="maib_off"?"Сначала включи оплату в Настройки → Страница бронирования":x.code==="nothing_due"?"Уже всё оплачено":"Не получилось")}return}
   const t=e.target.closest&&e.target.closest("[data-reqok],[data-reqno],[data-bcancel]");if(!t)return;
   if(t.dataset.bcancel){cancelBooking(t.dataset.bcancel);return}
