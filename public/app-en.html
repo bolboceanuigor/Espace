@@ -1933,7 +1933,7 @@ function mapB(b){return {tag:b.tag||"",price:+b.price||0,price_cur:b.price_cur||
 function xOf(v){if(v&&typeof v==="object")return v;try{const o=JSON.parse(v||"{}");return o&&typeof o==="object"?o:{}}catch(e){return {}}}
 function mapE(e){return {...({id:e.id,date:e.date,apt:e.apt||"",category:e.category||"",mdl:+e.mdl||0,eur:+e.eur||0,usd:+e.usd||0,who:e.who||"",note:e.note||"",oth:+e.oth||0,oth_cur:e.oth_cur||"",yearly:!!e.yearly,createdAt:Date.parse(e.created_at)||0,updatedAt:Date.parse(e.updated_at)||0}),shiftId:e.shift_id||null}}
 async function reload(){
-  const d=await api("kv_load");
+  const d=await api("kv_load",{lang:document.documentElement.lang||"ru"});
   if(d.config) cfg={...DEFAULT_CFG,...d.config,rates:{...DEFAULT_CFG.rates,...(d.config.rates||{})}};
   bookings=(d.bookings||[]).map(mapB); DR=d.dayRates||{};
   expenses=(d.expenses||[]).map(mapE);
@@ -5222,7 +5222,7 @@ async function hvSave(){
   try{
     const id=await api("kv_save_handover",{h:{id:hv.id,title:hv.title,person:hv.person,date_from:hv.date_from,date_to:hv.date_to,rows:clean,cols:hv.cols,note:hv.note||"",closed:!!hv.closed}});
     hv.id=id; hvLastServerRows=clean; const st=$("hv-state"); if(st) st.textContent="saved ✓";
-    const fresh=await api("kv_load"); handovers=(fresh.handovers||[]); bookings=(fresh.bookings||[]).map(mapB); expenses=(fresh.expenses||[]).map(mapE); vBadge(); {const rec=handovers.find(x=>x.id===hv.id); if(rec) hvLastServerRows=rec.rows;}
+    const fresh=await api("kv_load",{lang:document.documentElement.lang||"ru"}); handovers=(fresh.handovers||[]); bookings=(fresh.bookings||[]).map(mapB); expenses=(fresh.expenses||[]).map(mapE); vBadge(); {const rec=handovers.find(x=>x.id===hv.id); if(rec) hvLastServerRows=rec.rows;}
   }catch(e){const st=$("hv-state");if(st)st.textContent="not saved — check the internet";}
   finally{hvSaving=false}
 }
@@ -5706,7 +5706,7 @@ document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.c
       <div id="lci-ph">${r.has_photo?`<div class="small">Uploading photo…</div>`:`<p class="small">No photo</p>`}</div>`,{type:"pic"});
     if(r.has_photo){const u=await api("kv_task_photo",{p_id:t.dataset.lcinfo});const b=$("lci-ph");if(b)b.innerHTML=u?`<img src="${u}" style="width:100%;border-radius:12px;margin-top:10px">`:"<p class=\"small\">No photo</p>"}}
   catch(x){toast("Didn’t load")}t.disabled=false});
-async function clReload(){try{cl=await clApi("cl_load");notifs=cl.notifs||[];bellNew(notifs);bellUpdate(notifs,"cl-bell-badge","clbellseen");if(!clDay||!cl.days.some(d=>d.date===clDay))clDay=todayStr();renderCl()}catch(e){if(e.code==="bad_pin"){ls.set("cl","");location.reload()}}}
+async function clReload(){try{cl=await clApi("cl_load",{lang:document.documentElement.lang||"ru"});notifs=cl.notifs||[];bellNew(notifs);bellUpdate(notifs,"cl-bell-badge","clbellseen");if(!clDay||!cl.days.some(d=>d.date===clDay))clDay=todayStr();renderCl()}catch(e){if(e.code==="bad_pin"){ls.set("cl","");location.reload()}}}
 // door code, Wi-Fi, parking and how long the cleaning takes — what she needs at the door
 function clAccess(a){const x=(cl.access||{})[a];if(!x)return "";const p=[];
   if(x.gate)p.push(`🚪 Entrance: <b>${esc(x.gate)}</b>`);if(x.door)p.push(`🔑 Code: <b>${esc(x.door)}</b>`);if(x.wifi||x.wpass)p.push(`📶 ${esc(x.wifi||"Wi-Fi")}${x.wpass?` · <b>${esc(x.wpass)}</b>`:""}`);if(x.park)p.push(`🅿 ${esc(x.park)}`);if(x.cmin&&cl.me.role!=="fix")p.push(`⏱ ~${esc(x.cmin)} min`);

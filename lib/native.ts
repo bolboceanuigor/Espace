@@ -1,6 +1,7 @@
 // Notifications to the native apps: iPhone through Apple (APNs), Android through Google (FCM v1).
 // Keys are Cloudflare secrets set from GitHub: APNS_KEY (.p8 text), APNS_KEY_ID, APPLE_TEAM_ID, FCM_SERVICE_ACCOUNT (Firebase service-account JSON).
 // Without them nothing is sent and nothing breaks: web push and the bell work as before.
+import { ntrMsg } from "./ntr";
 import { type Env, run } from "./core";
 
 const TOPIC = "md.espace.app";
@@ -39,11 +40,12 @@ const fcmSa = (env: Env) => { try { const s = JSON.parse(env.FCM_SERVICE_ACCOUNT
 export const nativeReady = (env: Env) => ({ ios: !!(env.APNS_KEY && env.APNS_KEY_ID && env.APPLE_TEAM_ID), android: !!fcmSa(env) });
 
 /** Send one notification to the given phones; tokens Apple / Google reject are deleted. */
-export async function sendNative(env: Env, db: D1Database, rows: any[], msg: { title: string; body?: string; tag?: string; go?: string }) {
+export async function sendNative(env: Env, db: D1Database, rows: any[], msg0: { title: string; body?: string; tag?: string; go?: string }) {
   const ok = nativeReady(env);
   const drop = (t: string) => run(db, "DELETE FROM native_tokens WHERE token = ?", t).catch(() => {});
   const sa = ok.android ? fcmSa(env) : null;
   await Promise.all(rows.map(async (x: any) => {
+    const msg = ntrMsg(msg0, x.lang || "ru");
     try {
       if (x.platform === "ios" && ok.ios) {
         const send = async (sb: boolean) => fetch(`https://api${sb ? ".sandbox" : ""}.push.apple.com/3/device/${x.token}`, {

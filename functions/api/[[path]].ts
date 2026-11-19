@@ -1,6 +1,7 @@
 // espace.md API — Cloudflare Pages Functions + D1.
 // Ported from Rentwill and made multi-tenant: every query is scoped to the caller's company (org_id),
 // ids sent by the browser are only ever matched together with that org_id.
+import { ntrMsg } from "../../lib/ntr";
 import { buildMonthWorkbook, monthTitle, buildHandoverWorkbook } from "../../lib/excel";
 import { newVapid, sendPush, type Vapid } from "../../lib/push";
 import {
@@ -158,7 +159,7 @@ function scopeConfig(config: any, apts: string[] | null) {
   const units = Object.fromEntries(Object.entries(config.units || {}).filter(([k]) => set.has(k)));
   return { ...config, apts: list, units };
 }
-async function loadAll(db: D1Database, O: string, rights?: MemberRights) {
+async function loadAll(db: D1Database, O: string, rights?: MemberRights, lang?: string) {
   const [config, bookings, expenses, handovers, staff, tasks, checks] = await Promise.all([
     getConfig(db, O),
     all(db, "SELECT * FROM bookings WHERE org_id = ? ORDER BY date, created_at", O),
@@ -177,7 +178,7 @@ async function loadAll(db: D1Database, O: string, rights?: MemberRights) {
   for (const b of bookings) { b.verified = !!b.verified; delete b.shift_adopted; delete b.org_id; }
   for (const e of expenses) { e.yearly = !!e.yearly; delete e.org_id; }
   for (const h of handovers) { h.rows = JSON.parse(h.rows || "[]"); h.cols = JSON.parse(h.cols || "[]"); h.closed = !!h.closed; h.verified = !!h.verified; delete h.org_id; }
-  const notifs = await all(db, "SELECT id, at, title, body FROM notifs WHERE org_id = ? AND target = 'manager' ORDER BY id DESC LIMIT 50", O);
+  const notifs = (await all(db, "SELECT id, at, title, body FROM notifs WHERE org_id = ? AND target = 'manager' ORDER BY id DESC LIMIT 50", O)).map((n: any) => ntrMsg(n, lang || "ru"));
   const vinfo = await all(db, "SELECT kind, ref_id, state, who, at, note, snap FROM verify_info WHERE org_id = ?", O);
   const closedMonths = await all(db, "SELECT ym, who, at FROM month_close WHERE org_id = ? ORDER BY ym", O);
   const t0 = nowIso().slice(0, 10), dayRates = await dayRules(db, O, addDays(t0, -70), addDays(t0, 430));
@@ -301,7 +302,7 @@ async function roomStates(db: D1Database, O: string, cfg: any) {
   return out;
 }
 
-async function cleanerView(db: D1Database, O: string, me: any, td: string) {
+async function cleanerView(db: D1Database, O: string, me: any, td: string, lang?: string) {
   const cfg = (await getConfig(db, O)) || {};
   const checklist = (Array.isArray(cfg.checklist) && cfg.checklist.length ? cfg.checklist : DEFAULT_CHECKLIST);
   const staff = await all(db, "SELECT * FROM staff WHERE org_id = ? AND active = 1 ORDER BY created_at", O);
@@ -362,7 +363,7 @@ async function cleanerView(db: D1Database, O: string, me: any, td: string) {
   // beds per unit, so the cleaner knows how much linen to bring (the app words it in her language)
   const beds: Record<string, any> = {};
   for (const a of cfg.apts || []) { const u = (cfg.units || {})[a]; if (u && u.beds && Object.keys(u.beds).length) beds[a] = { beds: u.beds, guests: +u.guests || 0 }; }
-  const notifs = await all(db, "SELECT id, at, title, body FROM notifs WHERE org_id = ? AND target IN ('staff', ?) ORDER BY id DESC LIMIT 30", O, "staff:" + me.id);
+  const notifs = (await all(db, "SELECT id, at, title, body FROM notifs WHERE org_id = ? AND target IN ('staff', ?) ORDER BY id DESC LIMIT 30", O, "staff:" + me.id)).map((n: any) => ntrMsg(n, lang || "ru"));
   const role = staffRole(cfg, me.id);
   // door codes and Wi-Fi only for the places she goes to this week (a repairman: where repairs wait)
   const mine = new Set<string>(role === "fix" ? repairs.map((r: any) => r.apt) : days.flatMap((d: any) => d.items.map((i: any) => i.apt)));
@@ -435,7 +436,7 @@ async function notify(db: D1Database, O: string, who: string[], msg: { title: st
   }
   if (!conds.length) return;
   // iPhone / Android apps: through Apple and Google
-  if (ENV) { const nat = await all(db, `SELECT token, platform, sb FROM native_tokens WHERE org_id = ? AND (${conds.join(" OR ")})`, O, ...args).catch(() => []); if (nat.length) await sendNative(ENV, db, nat, msg).catch(() => {}); }
+  if (ENV) { const nat = await all(db, `SELECT token, platform, sb, lang FROM native_tokens WHERE org_id = ? AND (${conds.join(" OR ")})`, O, ...args).catch(() => []); if (nat.length) await sendNative(ENV, db, nat, msg).catch(() => {}); }
   const subs = await all(db, `SELECT endpoint, p256dh, auth FROM push_subs WHERE org_id = ? AND (${conds.join(" OR ")})`, O, ...args).catch(() => []);
   if (!subs.length) return;
   const v = await getVapid(db);
@@ -636,7 +637,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     await run(db, `UPDATE contracts SET status = 'signed', lang = ?, guest_name = ?, guest_doc = ?, guest_country = ?, guest_pax = ?, signed_text = ?, signature = ?, signed_at = ?, signed_ip = ?, signed_ua = ? WHERE token = ? AND status != 'signed'`,
       lang, name, doc, country, pax, text, sig, at, request.headers.get("cf-connecting-ip") || "", str(request.headers.get("user-agent"), 200), tok);
     await audit(db, k.org_id, null, "booking", "signed", k.booking_id, bLabel({ ...b, guest: name }), { number: k.number }, "web");
-    await notify(db, k.org_id, ["manager"], { go: "b:" + k.booking_id, title: `Contract semnat: ${b.apt}`, body: `${name} · ${b.date} · nr. ${k.number}` });
+    await notify(db, k.org_id, ["manager"], { go: "b:" + k.booking_id, title: `Договор подписан: ${b.apt}`, body: `${name} · ${b.date} · nr. ${k.number}` });
     const url = `https://${k.code}.espace.md/contract/${tok}`, gmail = str(body.email, 200).trim() || b.email || "";
     if (isEmail(gmail)) await sendMail(env, db, { to: gmail, ...mails.contractSigned(k.org_name, { number: k.number, apt: b.apt, date: b.date, url, guest: true }), kind: "contract", orgId: k.org_id });
     const co = await orgEmail(db, k.org_id);
@@ -720,7 +721,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     { const ex = extraOf({ kids, lang: ["ro", "ru", "en"].includes(body.lang) ? body.lang : "", ...(discExtra || {}) }); if (ex && ex !== "{}") await run(db, "UPDATE bookings SET extra = ? WHERE org_id = ? AND id = ?", ex, org.id, id).catch(() => {}); }
     await audit(db, org.id, null, "booking", "request", id, bLabel({ apt, date, guest: name }), { nights, pax, price, price_cur: cur, discount: wantCode || undefined }, "web");
     await upsertFromBooking(db, org.id, { guest: name, phone, email }).catch(() => {});
-    await notify(db, org.id, ["manager"], { go: "b:" + id, title: `Cerere de rezervare: ${apt}`, body: `${name} · ${date} · ${nights} n. · ${pax} pers.${phone ? " · " + phone : ""}${wantCode ? " · " + wantCode : ""}` });
+    await notify(db, org.id, ["manager"], { go: "b:" + id, title: `Запрос на бронь: ${apt}`, body: `${name} · ${date} · ${nights} n. · ${pax} pers.${phone ? " · " + phone : ""}${wantCode ? " · " + wantCode : ""}` });
     const owner = await orgEmail(db, org.id);
     if (owner) await sendMail(env, db, { to: owner, ...mails.requestNew(org.name, org.code, { apt, date, nights, pax, name, phone, email, msg, price, cur }), kind: "request", orgId: org.id });
     if (email) await sendMail(env, db, { to: email, ...mails.requestGot(org.name, { apt, date, nights, pax, price, cur, phone: dir.phone || "", email: dir.email || "" }), kind: "request", orgId: org.id });
@@ -813,7 +814,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       id, of.org_id, date, apt, name, nights, phone, email, pax + kids, ("Cerere din ofertă" + (kids ? ` (${pax} adulți, ${kids} copii)` : "") + (msg ? ": " + msg : "")).slice(0, 1000), price, cur, now, now);
     { const ex = extraOf({ kids, lang: ["ro", "ru", "en"].includes(body.lang) ? body.lang : "" }); if (ex && ex !== "{}") await run(db, "UPDATE bookings SET extra = ? WHERE org_id = ? AND id = ?", ex, of.org_id, id).catch(() => {}); }
     await audit(db, of.org_id, null, "booking", "request", id, bLabel({ apt, date, guest: name }), { nights, pax, price, price_cur: cur, offer: tok }, "web");
-    await notify(db, of.org_id, ["manager"], { go: "b:" + id, title: `Cerere din ofertă: ${apt}`, body: `${name} · ${date} · ${nights} n. · ${pax} pers.${phone ? " · " + phone : ""}` });
+    await notify(db, of.org_id, ["manager"], { go: "b:" + id, title: `Запрос из предложения: ${apt}`, body: `${name} · ${date} · ${nights} n. · ${pax} pers.${phone ? " · " + phone : ""}` });
     const owner = await orgEmail(db, of.org_id);
     if (owner) await sendMail(env, db, { to: owner, ...mails.requestNew(of.org_name, of.code, { apt, date, nights, pax, name, phone, email, msg, price, cur }), kind: "request", orgId: of.org_id });
     if (email) await sendMail(env, db, { to: email, ...mails.requestGot(of.org_name, { apt, date, nights, pax, price, cur, phone: dir.phone || "", email: dir.email || "" }), kind: "request", orgId: of.org_id });
@@ -1093,7 +1094,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     if (fn === "cl_push_key") return json((await getVapid(db)).pub);
     if (fn === "cl_push_sub") return json(await saveSub(db, O, body.sub, "", me.id));
     if (fn === "cl_native_sub") return json(await saveNative(db, O, body, "", me.id));
-    if (fn === "cl_load") return json(await cleanerView(db, O, me, td));
+    if (fn === "cl_load") return json(await cleanerView(db, O, me, td, str(body.lang, 2)));
     if (fn === "cl_done") {
       const done = body.done !== false, t = nowIso();
       const photo = typeof body.photo === "string" ? body.photo : "";
@@ -1352,7 +1353,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     return json({ number: r.number, token: r.token, amount: r.amount, due_at: r.due_at });
   }
   if (fn === "excel" || fn === "excel_handovers") {
-    const data = await loadAll(db, O, c.rights);
+    const data = await loadAll(db, O, c.rights, str(body.lang, 2));
     if (fn === "excel_handovers") return xlsx(await buildHandoverWorkbook(data.handovers as any, data.config), org.name + " — Пересменки.xlsx");
     const ym = str(body.month, 7);
     if (!/^\d{4}-\d{2}$/.test(ym)) return json({ message: "bad_month" }, 400);
@@ -1432,7 +1433,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
 
   switch (fn) {
     case "kv_load":
-      return json(await loadAll(db, O, c.rights));
+      return json(await loadAll(db, O, c.rights, str(body.lang, 2)));
 
     // prices and rules per day, per unit (calendar price mode, bulk edits)
     case "rates_get": {
@@ -1608,7 +1609,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       await run(db, "INSERT INTO verify_log(org_id, kind, ref_id, action, who, note, at) VALUES (?,'month',?,?,?,?,?)", O, ym, "close", who, "", t).catch(() => {});
       await audit(db, O, c, "month", "close", ym, ym, {});
       const RU = ["январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"];
-      waitUntil(notify(db, O, ["manager"], { title: "✅ Месяц закрыт: " + RU[+ym.slice(5) - 1] + " " + ym.slice(0, 4), body: "Все оплаты и смены проверены" + (who ? " — " + who : "") }).catch(() => {}));
+      waitUntil(notify(db, O, ["manager"], { title: "✅ Месяц закрыт: " + RU[+ym.slice(5) - 1].toLowerCase() + " " + ym.slice(0, 4), body: "Все оплаты и смены проверены" + (who ? " — " + who : "") }).catch(() => {}));
       return json(ym);
     }
     case "kv_month_open": {
