@@ -1845,7 +1845,7 @@ async function pushEnable(call){
   const key=await call("push_key"); let sub=await reg.pushManager.getSubscription();
   if(sub){const cur=sub.options&&sub.options.applicationServerKey;if(cur&&btoa(String.fromCharCode(...new Uint8Array(cur))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"")!==key){await sub.unsubscribe();sub=null}}
   if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:u8key(key)});
-  await call("push_sub",{sub:sub.toJSON()});
+  await call("push_sub",{sub:sub.toJSON(),lang:document.documentElement.lang||"ru"});
 }
 function pushHint(st){return st==="unsupported"?(/iPhone|iPad/.test(navigator.userAgent)&&!isStandalone()?"Deschide espace.md de pe iconița de pe ecranul principal — în Safari notificările nu funcționează.":"Acest browser nu suportă notificări (pe iPhone e nevoie iOS 16.4 sau mai nou)."):st==="denied"?"Notificările sunt blocate. Pornește-le: Setări iPhone → Notificări → espace.md.":st==="on"?"✓ Pornite pe acest telefon.":"Deocamdată oprite pe acest telefon."}
 async function refreshPushCard(){const el=$("push-st");if(!el)return;const st=await pushState();el.textContent=pushHint(st);$("push-on").hidden=st==="on"||st==="unsupported"||st==="denied";$("push-test").hidden=st!=="on"}

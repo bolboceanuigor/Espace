@@ -1845,7 +1845,7 @@ async function pushEnable(call){
   const key=await call("push_key"); let sub=await reg.pushManager.getSubscription();
   if(sub){const cur=sub.options&&sub.options.applicationServerKey;if(cur&&btoa(String.fromCharCode(...new Uint8Array(cur))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"")!==key){await sub.unsubscribe();sub=null}}
   if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:u8key(key)});
-  await call("push_sub",{sub:sub.toJSON()});
+  await call("push_sub",{sub:sub.toJSON(),lang:document.documentElement.lang||"ru"});
 }
 function pushHint(st){return st==="unsupported"?(/iPhone|iPad/.test(navigator.userAgent)&&!isStandalone()?"Открой espace.md с иконки на главном экране — в Safari уведомления не работают.":"Этот браузер не поддерживает уведомления (на iPhone нужен iOS 16.4 или новее)."):st==="denied"?"Уведомления запрещены. Включи их: Настройки iPhone → Уведомления → espace.md.":st==="on"?"✓ Включены на этом телефоне.":"Пока выключены на этом телефоне."}
 async function refreshPushCard(){const el=$("push-st");if(!el)return;const st=await pushState();el.textContent=pushHint(st);$("push-on").hidden=st==="on"||st==="unsupported"||st==="denied";$("push-test").hidden=st!=="on"}

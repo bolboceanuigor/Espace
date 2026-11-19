@@ -1845,7 +1845,7 @@ async function pushEnable(call){
   const key=await call("push_key"); let sub=await reg.pushManager.getSubscription();
   if(sub){const cur=sub.options&&sub.options.applicationServerKey;if(cur&&btoa(String.fromCharCode(...new Uint8Array(cur))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"")!==key){await sub.unsubscribe();sub=null}}
   if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:u8key(key)});
-  await call("push_sub",{sub:sub.toJSON()});
+  await call("push_sub",{sub:sub.toJSON(),lang:document.documentElement.lang||"ru"});
 }
 function pushHint(st){return st==="unsupported"?(/iPhone|iPad/.test(navigator.userAgent)&&!isStandalone()?"Open espace.md from the home screen icon — in Safari notifications don’t work.":"This browser doesn’t support notifications (on iPhone needed iOS 16.4 or newer)."):st==="denied"?"Notifications are blocked. Turn them on: Settings iPhone → Notifications → espace.md.":st==="on"?"✓ On on this phone.":"Off on this phone for now."}
 async function refreshPushCard(){const el=$("push-st");if(!el)return;const st=await pushState();el.textContent=pushHint(st);$("push-on").hidden=st==="on"||st==="unsupported"||st==="denied";$("push-test").hidden=st!=="on"}

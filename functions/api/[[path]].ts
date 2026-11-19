@@ -437,19 +437,20 @@ async function notify(db: D1Database, O: string, who: string[], msg: { title: st
   if (!conds.length) return;
   // iPhone / Android apps: through Apple and Google
   if (ENV) { const nat = await all(db, `SELECT token, platform, sb, lang FROM native_tokens WHERE org_id = ? AND (${conds.join(" OR ")})`, O, ...args).catch(() => []); if (nat.length) await sendNative(ENV, db, nat, msg).catch(() => {}); }
-  const subs = await all(db, `SELECT endpoint, p256dh, auth FROM push_subs WHERE org_id = ? AND (${conds.join(" OR ")})`, O, ...args).catch(() => []);
+  const subs = await all(db, `SELECT * FROM push_subs WHERE org_id = ? AND (${conds.join(" OR ")})`, O, ...args).catch(() => []);
   if (!subs.length) return;
   const v = await getVapid(db);
   await Promise.all(subs.map(async (s: any) => {
-    const st = await sendPush(s, { ...msg, url: msg.go ? "/#go=" + encodeURIComponent(msg.go) : "/" }, v);
+    const st = await sendPush(s, { ...ntrMsg(msg, s.lang || "ru"), url: msg.go ? "/#go=" + encodeURIComponent(msg.go) : "/" }, v);
     if (st === 404 || st === 410) await run(db, "DELETE FROM push_subs WHERE endpoint = ?", s.endpoint);
   }));
 }
-async function saveSub(db: D1Database, O: string, sub: any, userId: string, staffId: string) {
+async function saveSub(db: D1Database, O: string, sub: any, userId: string, staffId: string, lang = "ru") {
   const endpoint = str(sub?.endpoint, 1000), p256dh = str(sub?.keys?.p256dh, 200), auth = str(sub?.keys?.auth, 100);
   if (!/^https:\/\//.test(endpoint) || !p256dh || !auth) return false;
   await run(db, `INSERT INTO push_subs(endpoint, org_id, p256dh, auth, user_id, staff_id) VALUES (?,?,?,?,?,?)
     ON CONFLICT (endpoint) DO UPDATE SET org_id=excluded.org_id, p256dh=excluded.p256dh, auth=excluded.auth, user_id=excluded.user_id, staff_id=excluded.staff_id`, endpoint, O, p256dh, auth, userId, staffId);
+  if (["ru", "ro", "en"].includes(lang)) await run(db, "UPDATE push_subs SET lang = ? WHERE endpoint = ?", lang, endpoint).catch(() => {}); // the column comes from migrations.sql
   return true;
 }
 // due reminders + the 8:00 morning summary, for one company
@@ -1092,7 +1093,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     const td = isDate(body.today) ? body.today : nowIso().slice(0, 10);
     if (fn === "cl_login") return json({ id: me.id, name: me.name, org: org.name });
     if (fn === "cl_push_key") return json((await getVapid(db)).pub);
-    if (fn === "cl_push_sub") return json(await saveSub(db, O, body.sub, "", me.id));
+    if (fn === "cl_push_sub") return json(await saveSub(db, O, body.sub, "", me.id, str(body.lang, 2)));
     if (fn === "cl_native_sub") return json(await saveNative(db, O, body, "", me.id));
     if (fn === "cl_load") return json(await cleanerView(db, O, me, td, str(body.lang, 2)));
     if (fn === "cl_done") {
@@ -2395,7 +2396,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       return json(null);
     }
     case "kv_push_key": return json((await getVapid(db)).pub);
-    case "kv_push_sub": return json(await saveSub(db, O, body.sub, c.user.id, ""));
+    case "kv_push_sub": return json(await saveSub(db, O, body.sub, c.user.id, "", str(body.lang, 2)));
     case "kv_native_sub": return json(await saveNative(db, O, body, c.user.id, ""));
     case "kv_native_unsub": await run(db, "DELETE FROM native_tokens WHERE org_id = ? AND token = ?", O, str(body.token, 400)); return json(true);
     case "kv_push_test": {
