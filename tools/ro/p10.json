@@ -383,5 +383,8 @@
 "Коек в комнате": "Paturi în cameră",
 "Смешанная": "Mixt",
 "Кто живёт": "Cine locuiește",
-"Койки": "Paturi"
+"Койки": "Paturi",
+"Если комнату сдают отдельно, а квартиру — целиком: бронь комнаты закрывает квартиру, бронь квартиры закрывает все её комнаты.": "Când camera se închiriază separat, iar apartamentul întreg: rezervarea camerei blochează apartamentul, rezervarea apartamentului blochează toate camerele lui.",
+"Часть квартиры (коливинг)": "Parte din apartament (coliving)",
+"отдельный номер": "cameră separată"
 }

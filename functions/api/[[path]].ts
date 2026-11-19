@@ -512,6 +512,9 @@ async function audit(db: D1Database, O: string, c: { user?: any } | null, kind: 
     O, c?.user?.id || "", str(who || c?.user?.name || c?.user?.email || "", 80), kind, action, ref || "", str(label, 200), JSON.stringify(data || {}).slice(0, 20000)).catch(() => {});
 }
 
+// stays that block unit a: its own plus those of linked units (coliving: the apartment and its rooms)
+function busyOf(cfg: any, taken: any[], a: string) { const L = new Set([a, ...EsPrice.linked(cfg.units || {}, a)]); return taken.filter((b: any) => L.has(b.apt)); }
+
 export const onRequest: PagesFunction<Env> = async (ctx) => {
   const fn = String(([] as string[]).concat((ctx.params as any).path || []).pop() || "");
   try {
@@ -644,7 +647,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       return json({
         name: org.name, slug: org.code, min: Math.max(1, +dir.min || 1), pricing: { weekend: +(cfg.pricing?.weekend) || 0, seasons: (cfg.pricing?.seasons || []).map((x: any) => ({ from: x.from, to: x.to, pct: +x.pct || 0, min: +x.min || 0 })) }, phone: dir.phone || "", email: dir.email || "", terms: dir.terms || "", intro: dir.intro || "",
         units: units.map((a: string) => { const u = (cfg.units || {})[a] || {}, o: any = { name: a, addr: dir.addr === false ? "" : ((cfg.addr || {})[a] || "").split(",")[0] }; for (const k of PUB) if (u[k] != null && u[k] !== "") o[k] = u[k];
-          o.busy = taken.filter((b: any) => b.apt === a && addDays(b.date, b.nights) > t).map((b: any) => [b.date, b.nights, b.pax]); o.rules = rules[a] || {}; return o; }),
+          o.busy = busyOf(cfg, taken, a).filter((b: any) => addDays(b.date, b.nights) > t).map((b: any) => [b.date, b.nights, b.apt === a ? b.pax : 999]); o.rules = rules[a] || {}; return o; }),
         today: t, discounts: !!(discN && discN.n > 0), pay: guestMaibPublic(cfg),
       });
     }
@@ -668,7 +671,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     const u = (cfg.units || {})[apt] || {}, cap = +u.guests || 0;
     if (!date || date < t || !(nights > 0) || nights > 90) return json({ message: "bad_dates" }, 400);
     if (!name || (!phone && !isEmail(email)) || (email && !isEmail(email))) return json({ message: "need_contact" }, 400);
-    const busyList = taken.filter((b: any) => b.apt === apt).map((b: any) => [b.date, b.nights, b.pax]);
+    const busyList = busyOf(cfg, taken, apt).map((b: any) => [b.date, b.nights, b.apt === apt ? b.pax : 999]);
     const ck = EsPrice.check(u, date, nights, { P: cfg.pricing, R: rules[apt] || {}, dirMin: +dir.min || 1, today: t, busy: busyList, pax, kids });
     if (!ck.ok) return ck.why === "taken" ? json({ message: "taken" }, 409) : ck.why === "guests" ? json({ message: "too_many_guests", cap }, 400) : json({ message: "bad_dates", why: ck.why, min: ck.min }, 400);
     const q = EsPrice.quote(u, date, nights, { P: cfg.pricing, R: rules[apt] || {}, pax, kids });
@@ -719,7 +722,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
         return {
           name: a, price: +u.price || 0, pcur: ["EUR", "MDL", "USD"].includes(u.pcur) ? u.pcur : "EUR",
           guests: +u.guests || 0, kind: u.kind || "",
-          busy: taken.filter((b: any) => b.apt === a && addDays(b.date, b.nights) > t).map((b: any) => [b.date, b.nights, b.pax]),
+          busy: busyOf(cfg, taken, a).filter((b: any) => addDays(b.date, b.nights) > t).map((b: any) => [b.date, b.nights, b.apt === a ? b.pax : 999]),
         };
       }),
     });
@@ -755,7 +758,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
         units: apts.map((a: string) => {
           const u = (cfg.units || {})[a] || {}, o: any = { name: a };
           for (const k of PUB) if (u[k] != null && u[k] !== "") o[k] = u[k];
-          const busyList = taken.filter((b: any) => b.apt === a).map((b: any) => [b.date, b.nights, b.pax]);
+          const busyList = busyOf(cfg, taken, a).map((b: any) => [b.date, b.nights, b.apt === a ? b.pax : 999]);
           o.busy = busyList; o.rules = rules[a] || {};
           const ck = EsPrice.check(u, date, nights, { P: cfg.pricing, R: rules[a] || {}, dirMin: +dir.min || 1, today: t, busy: busyList, pax: 2, kids: 0 });
           o.ok = !!ck.ok; o.why = ck.ok ? "" : (ck.why || "taken");
@@ -772,7 +775,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     if (!apts.includes(apt)) return json({ message: "bad_unit" }, 400);
     if (!name || (!phone && !isEmail(email)) || (email && !isEmail(email))) return json({ message: "need_contact" }, 400);
     const u = (cfg.units || {})[apt] || {}, cap = +u.guests || 0;
-    const busyList = taken.filter((b: any) => b.apt === apt).map((b: any) => [b.date, b.nights, b.pax]);
+    const busyList = busyOf(cfg, taken, apt).map((b: any) => [b.date, b.nights, b.apt === apt ? b.pax : 999]);
     const ck = EsPrice.check(u, date, nights, { P: cfg.pricing, R: rules[apt] || {}, dirMin: +dir.min || 1, today: t, busy: busyList, pax, kids });
     if (!ck.ok) return ck.why === "taken" ? json({ message: "taken" }, 409) : ck.why === "guests" ? json({ message: "too_many_guests", cap }, 400) : json({ message: "bad_dates", why: ck.why, min: ck.min }, 400);
     const q = EsPrice.quote(u, date, nights, { P: cfg.pricing, R: rules[apt] || {}, pax, kids });
@@ -2230,6 +2233,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       data.apts = data.apts.map((a: string) => (a === from ? to : a));
       if (data.addr && data.addr[from] != null) { data.addr[to] = data.addr[from]; delete data.addr[from]; }
       if (data.units && data.units[from] != null) { data.units[to] = data.units[from]; delete data.units[from]; }
+      for (const k in data.units || {}) if (data.units[k] && data.units[k].parent === from) data.units[k].parent = to;
       for (const ow of data.owners || []) if (Array.isArray(ow?.apts)) ow.apts = ow.apts.map((a: string) => (a === from ? to : a));
       await run(db, "UPDATE ical_feeds SET apt = ? WHERE org_id = ? AND apt = ?", to, O, from);
       await audit(db, O, c, "settings", "rename", "", `${from} → ${to}`, { from, to });
@@ -2493,7 +2497,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       const dir = (cfg.direct || {}), free: string[] = [];
       for (const a of apts) {
         const u = (cfg.units || {})[a] || {};
-        const busyList = taken.filter((b: any) => b.apt === a).map((b: any) => [b.date, b.nights, b.pax]);
+        const busyList = busyOf(cfg, taken, a).map((b: any) => [b.date, b.nights, b.apt === a ? b.pax : 999]);
         const ck = EsPrice.check(u, date, nights, { P: cfg.pricing, R: rules[a] || {}, dirMin: +dir.min || 1, today: today(), busy: busyList, pax: 2, kids: 0 });
         if (ck.ok) free.push(a);
       }

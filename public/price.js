@@ -56,6 +56,14 @@
       least = Math.min(least, cap - used); }
     return Math.max(0, least);
   }
+  /* coliving: a room with parent = the apartment it is part of. Booking a room blocks the whole apartment and the other way round.
+     linked(units, a) = the units whose stays block a (its apartment, or its rooms). */
+  function linked(units, a) {
+    var u = (units && units[a]) || {}, out = [];
+    if (u.parent && u.parent !== a) out.push(u.parent);
+    for (var k in (units || {})) if (k !== a && units[k] && units[k].parent === a) out.push(k);
+    return out;
+  }
   /* can a stay din + n nights be taken? o = { P, R, dirMin, today, busy, pax, kids }
      why: closed | no_arrival | no_departure | arrival_day | lead | ahead | min | max | taken | guests */
   function check(u, din, n, o) {
@@ -101,5 +109,5 @@
   }
   // the old simple form, for places that only know a base price
   function stay(base, d, n, P) { var t = 0; for (var i = 0; i < n; i++) t += night({ price: base }, add(d, i), P); return r2(t); }
-  return { seasonOf: seasonOf, night: night, minStay: minStay, gap: gap, free: free, isDorm: isDorm, bedsLeft: bedsLeft, check: check, quote: quote, stay: stay, add: add };
+  return { seasonOf: seasonOf, night: night, minStay: minStay, gap: gap, free: free, isDorm: isDorm, bedsLeft: bedsLeft, linked: linked, check: check, quote: quote, stay: stay, add: add };
 });

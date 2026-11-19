@@ -403,6 +403,7 @@ body.calmode .ctopbar{padding-top:calc(8px + env(safe-area-inset-top,0px))}
 .sh-tl .pc.cta::before,.sh-tl .dr.cta::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:#d9534f}
 .sh-tl .pc.ctd::after,.sh-tl .dr.ctd::after{content:"";position:absolute;right:0;top:0;bottom:0;width:3px;background:#e0a030}
 .sh-tl .dr{position:absolute;top:0;bottom:0;pointer-events:none}
+.sh-tl .dr.lk{background:repeating-linear-gradient(135deg,rgba(6,102,235,.13) 0 4px,transparent 4px 9px)}
 .sh.pm .bar{opacity:.32;pointer-events:none}
 .rseg{display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:6px}.rseg button{flex:1;min-width:0;min-height:40px;border:1px solid var(--line,rgba(255,255,255,.18));background:var(--surface,transparent);color:var(--ink,#eee);border-radius:8px;font:inherit;font-size:13.5px;padding:6px 8px;cursor:pointer}
 .rseg button[aria-pressed=true]{border-color:var(--accent,#fed36a);box-shadow:inset 0 0 0 1px var(--accent,#fed36a);font-weight:600}
@@ -1911,7 +1912,8 @@ function overlaps(b,list){
   if(u.kind==="dorm"&&+u.dbeds>0){const busy=list.filter(o=>o.id!==b.id&&o.apt===b.apt&&occupies(o)).map(o=>[o.date,o.nights,o.pax]);
     if(EsPrice.bedsLeft(u,busy,b.date,b.nights)>=Math.max(1,+b.pax||1))return [];
     return list.filter(o=>o.id!==b.id && o.apt===b.apt && occupies(o) && toT(o.date)<e && toT(o.date)+o.nights*DAY>s);}
-  return list.filter(o=>o.id!==b.id && o.apt===b.apt && occupies(o) && o.date!==b.date && toT(o.date)<e && toT(o.date)+o.nights*DAY>s);
+  const lkU=EsPrice.linked(cfg.units||{},b.apt);
+  return list.filter(o=>o.id!==b.id && occupies(o) && toT(o.date)<e && toT(o.date)+o.nights*DAY>s && ((o.apt===b.apt && o.date!==b.date) || lkU.includes(o.apt)));
 }
 function issues(b){
   if(ok(b)) return [];
@@ -2263,6 +2265,8 @@ function unitForm(a){const u=unitOf(a),b=u.beds||{},groups=[...new Set(cfg.apts.
   return `<div class="uform">
     <div class="grid2"><div><label class="l" for="uf-kind">Type</label><select id="uf-kind">${Object.entries(UKIND).map(([k,t])=>`<option value="${k}"${(u.kind||"apt")===k?" selected":""}>${t}</option>`).join("")}</select></div>
       <div><label class="l" for="uf-group">Building or hotel</label><input type="text" id="uf-group" list="uf-groups" value="${esc(u.group||"")}" placeholder="optional"><datalist id="uf-groups">${groups.map(g=>`<option value="${esc(g)}">`).join("")}</datalist></div></div>
+    <div id="uf-par"${u.kind==="room"||u.parent?"":" hidden"}><label class="l" for="uf-parent">Part of an apartment (coliving)</label><select id="uf-parent"><option value="">— separate room —</option>${cfg.apts.filter(x=>x!==a&&!["room","bed","dorm"].includes(unitOf(x).kind||"apt")).map(x=>`<option value="${esc(x)}"${u.parent===x?" selected":""}>${esc(x)}</option>`).join("")}</select>
+      <p class="hint">When the room is rented on its own and the apartment as a whole: booking the room blocks the apartment, booking the apartment blocks all its rooms.</p></div>
     <div class="grid2" id="uf-dorm"${u.kind==="dorm"?"":" hidden"}>${n("uf-dbeds",u.dbeds,"Beds in the room","8")}<div><label class="l" for="uf-gender">Who stays</label><select id="uf-gender">${Object.entries(GENDER).map(([k,t])=>`<option value="${k}"${(u.gender||"mix")===k?" selected":""}>${t}</option>`).join("")}</select></div>
       <p class="hint" style="grid-column:1/-1">The price is for one bed per night. Sold by the bed: the calendar shows how many are taken, for example 5/8.</p></div>
     <div class="grid4">${n("uf-area",u.area,"Size, m²","45")}${n("uf-bedrooms",u.bedrooms,"Bedrooms","1")}${n("uf-baths",u.baths,"Bathrooms","1")}${n("uf-floor",u.floor,"Floor","")}</div>
@@ -2311,7 +2315,7 @@ function unitForm(a){const u=unitOf(a),b=u.beds||{},groups=[...new Set(cfg.apts.
     <div class="actions"><button type="button" class="btn primary" data-usave="${esc(a)}">Save</button>${cfg.apts.length>1?`<button type="button" class="btn" data-ucopy="${esc(a)}">Copy to others…</button>`:""}<button type="button" class="btn" data-uedit="">Cancel</button></div>
     ${cfg.apts.length>1?copyPanel(a):""}</div>`}
 // copy the shared details (size, beds, prices, amenities, cleaning, booking terms) from one unit to others; names, codes, address, notes stay
-const UCOPY_K=["layout","kind","area","bedrooms","baths","beds","guests","price","pcur","cin","cout","amen","cmin","cpay","cfee","dep","minn","dow","xg","xgFrom","xc","los","bufB","bufA","lead","ahead","maxn","arr","dbeds","gender"];
+const UCOPY_K=["layout","kind","area","bedrooms","baths","beds","guests","price","pcur","cin","cout","amen","cmin","cpay","cfee","dep","minn","dow","xg","xgFrom","xc","los","bufB","bufA","lead","ahead","maxn","arr","dbeds","gender","parent"];
 function copyPanel(a){const others=cfg.apts.filter(x=>x!==a),u=unitOf(a);
   return `<div class="ucopy" id="ucopy" hidden><b>Copy to other units</b><p class="small" style="margin:2px 0 8px">Copied: type, area, bedrooms, beds, guests, price, check-in times, amenities, cleaning and booking terms. Name, address, codes and notes stay as they are on each one.</p>
     <div class="ucl">${others.map(x=>`<label><input type="checkbox" data-ucpt="${esc(x)}"${unitOf(x).group&&unitOf(x).group===u.group?" checked":""}> ${esc(x)}</label>`).join("")}</div>
@@ -3099,6 +3103,7 @@ const UFORM_K=["layout","kind","group","area","bedrooms","baths","floor","beds",
 function unitRead(a){const num0=id=>{const v=String(($(id)||{}).value||"").replace(",",".").trim();return v===""?"":Math.max(0,+v||0)},txt=(id,n)=>String(($(id)||{}).value||"").trim().slice(0,n);
   const beds={};BEDT.forEach(([k])=>{const v=+(($("uf-b-"+k)||{}).textContent||0);if(v>0)beds[k]=v});
   const u={...unitOf(a)};UFORM_K.forEach(k=>delete u[k]);
+  if($("uf-kind").value==="room"&&$("uf-parent")&&$("uf-parent").value)u.parent=$("uf-parent").value;
   Object.assign(u,$("uf-kind").value==="dorm"?{dbeds:Math.min(100,Math.round(+num0("uf-dbeds")||0))||"",gender:$("uf-gender").value}:{});
   Object.assign(u,{kind:$("uf-kind").value,group:$("uf-group").value.trim().slice(0,60),area:num0("uf-area"),bedrooms:num0("uf-bedrooms"),baths:num0("uf-baths"),floor:($("uf-floor").value||"").trim().slice(0,10),
     beds,guests:num0("uf-guests"),price:num0("uf-price"),pcur:num0("uf-price")===""?"":$("uf-pcur").value,cin:$("uf-cin").value,cout:$("uf-cout").value,
@@ -3552,6 +3557,7 @@ function renderCal(){
   const used={},isD=a=>{const u=unitOf(a);return u.kind==="dorm"&&+u.dbeds>0};
   for(const b of bookings){if(!occupies(b)||!(b.nights>0))continue;const t0=toT(b.date),D=isD(b.apt);for(let i=0;i<b.nights;i++){const k=b.apt+"|"+(t0+i*DAY);if(D)used[k]=(used[k]||0)+Math.max(1,+b.pax||1);else busy.add(k)}}
   for(const k in used){const a=k.slice(0,k.lastIndexOf("|"));if(used[k]>=+unitOf(a).dbeds)busy.add(k)}
+  for(const k of [...busy]){const i=k.lastIndexOf("|");for(const x of EsPrice.linked(cfg.units||{},k.slice(0,i)))busy.add(x+"|"+k.slice(i+1))}
   const dormRow=a=>{const N=+unitOf(a).dbeds,key="dorm|"+a;let c="";for(let i=0;i<n;i++){const t=s0+i*DAY,x=used[a+"|"+t]||0;c+=`<i class="${x>=N?"full":""}" style="left:${i*W}px;width:${W}px">${x}/${N}</i>`}
     nS++;return `<div class="sh-row sh-sum lv2"><button type="button" class="sh-name" data-calfold="${esc(key)}"><span>${fold.has(key)?"▸":"▾"} Beds<small class="cap">${N}</small></span></button><div class="sh-tl" style="width:${n*W}px">${c}</div></div>`};
   const vis=cfg.apts.filter(a=>!hidU.has(a)),gUnits={},tUnits={};
@@ -3659,7 +3665,7 @@ function openCalFlt(){
   if(hid.size)h+=`<div class="actions"><button type="button" class="btn" id="c-showall">Show all</button></div>`;
   openSheet("Units on calendar",h,{type:"calhide"});
 }
-document.addEventListener("change",e=>{if(e.target.id==="uf-kind"&&$("uf-dorm"))$("uf-dorm").hidden=e.target.value!=="dorm"});
+document.addEventListener("change",e=>{if(e.target.id==="uf-kind"&&$("uf-dorm")){$("uf-dorm").hidden=e.target.value!=="dorm";if($("uf-par"))$("uf-par").hidden=e.target.value!=="room"}});
 document.addEventListener("change",e=>{if(e.target.id!=="c-jump"||!e.target.value)return;const el=$("c-body"),i=Math.round((toT(e.target.value)-calS0)/DAY);el.scrollTo({left:Math.max(0,i)*calW,behavior:"smooth"});e.target.value=""});
 document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("#c-menu,#c-bell,#c-acct,#c-gotoday,#c-flt,#c-add,#c-pm,#c-offer,#c-pic,[data-calhide],[data-calgrp],[data-calkind],[data-calown],#c-showall,[data-calst],[data-calsz]");if(!t)return;
   if(t.id==="c-menu"){openCalMenu();return}
@@ -3739,6 +3745,9 @@ document.addEventListener("pointerdown",e=>{
 /* price mode: each free night shows its price and minimum stay; tap two days to select, then set price and rules */
 let calPM=(()=>{try{return localStorage.getItem("kv_calpm")==="1"}catch(e){return false}})(), pmSel=null;
 function dayCells(a,s0,n,W,list){const R=DR[a]||{},u=unitOf(a),out=[],td=todayStr();
+  // coliving: days blocked by the apartment or by one of its rooms
+  const lkU=EsPrice.linked(cfg.units||{},a),lk=new Set();if(lkU.length)for(const b of bookings){if(!lkU.includes(b.apt)||!occupies(b))continue;for(let i=0;i<b.nights;i++)lk.add(fromT(toT(b.date)+i*DAY))}
+  for(let i=0;i<n&&lk.size;i++){const d=fromT(s0+i*DAY);if(lk.has(d))out.push(`<i class="dr lk" style="left:${i*W}px;width:${W}px"></i>`)}
   const booked=new Set();if(calPM)for(const b of list){for(let i=0;i<b.nights;i++)booked.add(fromT(toT(b.date)+i*DAY))}
   const cur=u.pcur||"EUR",short=v=>v>=10000?Math.round(v/1000)+"k":v>=1000&&W<40?(Math.round(v/100)/10)+"k":fmt0(v);
   for(let i=0;i<n;i++){const d=fromT(s0+i*DAY),r=R[d];

@@ -384,5 +384,8 @@
 "Коек в комнате": "Beds in the room",
 "Смешанная": "Mixed",
 "Кто живёт": "Who stays",
-"Койки": "Beds"
+"Койки": "Beds",
+"Если комнату сдают отдельно, а квартиру — целиком: бронь комнаты закрывает квартиру, бронь квартиры закрывает все её комнаты.": "When the room is rented on its own and the apartment as a whole: booking the room blocks the apartment, booking the apartment blocks all its rooms.",
+"Часть квартиры (коливинг)": "Part of an apartment (coliving)",
+"отдельный номер": "separate room"
 }
