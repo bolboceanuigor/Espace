@@ -16,9 +16,9 @@ const SECTIONS: [string, string, Record<string, string>][] = [
   ["checkout", "👋", { ru: "Выезд", ro: "Plecarea", en: "Check-out" }],
 ];
 const UI: Record<string, Record<string, string>> = {
-  ru: { where: "Где квартира", guide: "Гид для гостя", address: "Адрес", map: "Открыть в Google Maps", video: "Смотреть видео", hello: "Добро пожаловать!", empty: "Скоро здесь появится информация.", svc: "Дополнительные услуги", order: "Заказать", name: "Имя", phone: "Телефон", note: "Комментарий", send: "Отправить", sent: "Заявка отправлена — хозяин свяжется с вами.", need: "Укажите имя и телефон.", err: "Не отправилось. Попробуйте ещё раз.", free: "по запросу" },
-  ro: { where: "Unde e apartamentul", guide: "Ghidul oaspetelui", address: "Adresa", map: "Deschide în Google Maps", video: "Vezi video", hello: "Bine ați venit!", empty: "Informațiile vor apărea în curând.", svc: "Servicii suplimentare", order: "Comandă", name: "Numele", phone: "Telefon", note: "Comentariu", send: "Trimite", sent: "Cererea a fost trimisă — gazda vă contactează.", need: "Scrieți numele și telefonul.", err: "Nu s-a trimis. Încercați din nou.", free: "la cerere" },
-  en: { where: "Where is the apartment", guide: "Guest guide", address: "Address", map: "Open in Google Maps", video: "Watch video", hello: "Welcome!", empty: "Information coming soon.", svc: "Extra services", order: "Order", name: "Name", phone: "Phone", note: "Note", send: "Send", sent: "Request sent — the host will contact you.", need: "Add your name and phone.", err: "Could not send. Try again.", free: "on request" },
+  ru: { weather: "Погода", today: "Сегодня", where: "Где квартира", guide: "Гид для гостя", address: "Адрес", map: "Открыть в Google Maps", video: "Смотреть видео", hello: "Добро пожаловать!", empty: "Скоро здесь появится информация.", svc: "Дополнительные услуги", order: "Заказать", name: "Имя", phone: "Телефон", note: "Комментарий", send: "Отправить", sent: "Заявка отправлена — хозяин свяжется с вами.", need: "Укажите имя и телефон.", err: "Не отправилось. Попробуйте ещё раз.", free: "по запросу" },
+  ro: { weather: "Vremea", today: "Azi", where: "Unde e apartamentul", guide: "Ghidul oaspetelui", address: "Adresa", map: "Deschide în Google Maps", video: "Vezi video", hello: "Bine ați venit!", empty: "Informațiile vor apărea în curând.", svc: "Servicii suplimentare", order: "Comandă", name: "Numele", phone: "Telefon", note: "Comentariu", send: "Trimite", sent: "Cererea a fost trimisă — gazda vă contactează.", need: "Scrieți numele și telefonul.", err: "Nu s-a trimis. Încercați din nou.", free: "la cerere" },
+  en: { weather: "Weather", today: "Today", where: "Where is the apartment", guide: "Guest guide", address: "Address", map: "Open in Google Maps", video: "Watch video", hello: "Welcome!", empty: "Information coming soon.", svc: "Extra services", order: "Order", name: "Name", phone: "Phone", note: "Note", send: "Send", sent: "Request sent — the host will contact you.", need: "Add your name and phone.", err: "Could not send. Try again.", free: "on request" },
 };
 const LANGS = ["ru", "ro", "en"];
 
@@ -102,6 +102,10 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params }) =>
     return `<section id="${k}"><h2><span>${ic}</span>${esc(names[L])}</h2>${ad}${all ? `<p class="all">${linkify(all)}</p>` : ""}${txt ? `<p>${linkify(txt)}</p>` : ""}${media ? `<div class="ph">${media}</div>` : ""}${vids}</section>`;
   }).filter(Boolean);
   if (locHtml) secs.unshift(locHtml);
+  // weather for the next 4 days: coordinates from the unit's map field, else Chișinău; fetched by the guest's browser (open-meteo, no key)
+  { const m = /(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)/.exec(pt) || /@(-?\d{1,2}\.\d+),(-?\d{1,3}\.\d+)/.exec(pt);
+    const lat = m ? +m[1] : 47.0105, lon = m ? +m[2] : 28.8638;
+    secs.push(`<section id="weather" hidden data-lat="${lat}" data-lon="${lon}" data-lang="${L}"><h2><span>🌤️</span>${esc(T.weather)}</h2><div class="wx"></div></section>`); }
   const svcs = (Array.isArray(cfg.services) ? cfg.services : []).filter((x: any) => x && x.on !== false && x.name);
   const CUR: Record<string, string> = { EUR: "€", USD: "$", MDL: "lei" };
   const svcHtml = svcs.length ? `<section id="svc"><h2><span>🛎️</span>${esc(T.svc)}</h2>
@@ -149,13 +153,19 @@ a{color:#b4531f}.addr{background:#fbf7ef;border-radius:12px;padding:10px 12px;ma
 .shbox{background:var(--card);width:100%;max-width:480px;border-radius:22px 22px 0 0;padding:18px 16px calc(16px + env(safe-area-inset-bottom))}
 .shbox h3{margin:0 0 10px;font-size:18px}.shbox label{display:block;font-size:13.5px;font-weight:700;margin-top:10px}.shbox input{width:100%;margin-top:4px;border:1.5px solid var(--line);border-radius:12px;padding:11px 12px;font:inherit}
 .ob{display:flex;gap:8px;margin-top:14px}.ob .vbtn{flex:1;margin:0;text-align:center}.ghost{border:1px solid var(--line);background:none;border-radius:12px;padding:10px 14px;font-weight:700;cursor:pointer}
+.wx{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.wx div{background:#F2F4F8;border-radius:14px;padding:10px 6px;text-align:center;display:flex;flex-direction:column;gap:2px}.wx small{color:#5A6B7F;font-weight:700;text-transform:capitalize}.wx b{font-size:24px}.wx span{font-weight:800;font-size:13px}
 .msg{color:#b42318;font-weight:700;margin:8px 0 0}.okmsg{background:#e8f6ee;color:#1f6b3a;font-weight:700;border-radius:12px;padding:10px 12px;margin-top:10px}
 </style><link rel="stylesheet" href="/guest.css"></head><body class="gpage">
 <div class="hero"><div class="top"><img src="/logo-64.png" alt=""><b>${esc(brand)}</b><nav class="lang">${langs}</nav></div>
 <h1>${esc(g.apt)}</h1><small>${esc(T.hello)} · ${esc(T.guide)}</small>${chips ? `<div class="chips">${chips}</div>` : ""}</div>
 <main>${secs.join("") || `<div class="empty">${esc(T.empty)}</div>`}<footer>${esc(brand)} · espace.md</footer></main>
 <script>
-const T=${JSON.stringify({ need: T.need, err: T.err, order: T.order })}, GTOK=${JSON.stringify(token)};
+const T=${JSON.stringify({ need: T.need, err: T.err, order: T.order, today: T.today })}, GTOK=${JSON.stringify(token)};
+(()=>{const w=document.getElementById("weather");if(!w||!window.fetch)return;const L=w.dataset.lang;
+  const ic=c=>c===0?"☀️":c<=2?"🌤️":c===3?"☁️":c<=48?"🌫️":c<=67||(c>=80&&c<=82)?"🌧️":c<=77||c===85||c===86?"🌨️":"⛈️";
+  fetch("https://api.open-meteo.com/v1/forecast?latitude="+w.dataset.lat+"&longitude="+w.dataset.lon+"&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=4")
+   .then(r=>r.json()).then(j=>{const d=j&&j.daily;if(!d||!d.time)return;const fmt=new Intl.DateTimeFormat(L==="ru"?"ru-RU":L==="en"?"en-GB":"ro-RO",{weekday:"short"});
+    w.querySelector(".wx").innerHTML=d.time.map((t,i)=>'<div><small>'+(i?fmt.format(new Date(t+"T12:00:00")):T.today)+'</small><b>'+ic(d.weathercode[i])+'</b><span>'+Math.round(d.temperature_2m_max[i])+'° / '+Math.round(d.temperature_2m_min[i])+'°</span></div>').join("");w.hidden=false}).catch(()=>{})})();
 let SID="";
 const $=id=>document.getElementById(id);
 document.addEventListener("click",e=>{
