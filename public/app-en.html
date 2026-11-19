@@ -1766,12 +1766,27 @@ const DAY=86400000;
 let clnOpenRow=null;
 let staff=[], staffAll=[], fixers=[], tasks=[], checksLast={}, clnDay=null, clnForm=null, reminders=[], clnSwap=false, clnPayOpen=null, clnAddSt=false;
 /* PUSH NOTIFICATIONS */
-const pushSupported=()=>"serviceWorker" in navigator&&"PushManager" in window&&"Notification" in window;
+// aplicația de telefon (Capacitor, iPhone / Android): notificările vin prin Apple / Google, nu prin web push
+const CAP=window.Capacitor&&typeof window.Capacitor.isNativePlatform==="function"&&window.Capacitor.isNativePlatform()?window.Capacitor:null;
+const capCall=(pl,m,o)=>CAP.nativePromise(pl,m,o||{});
+let natWait=null,natCall=null;
+if(CAP){try{CAP.addListener("PushNotifications","registration",t=>{const v=t&&t.value;if(natWait)natWait.res(v);else if(v&&natCall)natCall("native_sub",{token:v,platform:CAP.getPlatform(),lang:document.documentElement.lang||"ru"}).catch(()=>{})});
+  CAP.addListener("PushNotifications","registrationError",e=>{if(natWait)natWait.rej(new Error((e&&e.error)||"push"))})}catch(e){}}
+async function natState(){try{const p=await capCall("PushNotifications","checkPermissions");return p.receive==="denied"?"denied":p.receive==="granted"&&ls.get("ntok")?"on":"off"}catch(e){return "unsupported"}}
+async function natEnable(call,ask){natCall=call;let p=await capCall("PushNotifications","checkPermissions");
+  if(p.receive!=="granted"&&ask&&p.receive!=="denied")p=await capCall("PushNotifications","requestPermissions");
+  if(p.receive!=="granted"){if(ask)throw new Error("denied");return}
+  const tok=await new Promise((res,rej)=>{natWait={res,rej};setTimeout(()=>rej(new Error("timeout")),20000);capCall("PushNotifications","register").catch(rej)}).finally(()=>{natWait=null});
+  await call("native_sub",{token:tok,platform:CAP.getPlatform(),lang:document.documentElement.lang||"ru"});ls.set("ntok",tok)}
+// după intrare: o singură dată întrebăm telefonul; apoi doar reînnoim tokenul
+function natAfterLogin(call){if(!CAP)return;const asked=ls.get("nask");ls.set("nask","1");natEnable(call,!asked).catch(()=>{})}
+const pushSupported=()=>!!CAP||("serviceWorker" in navigator&&"PushManager" in window&&"Notification" in window);
 const isStandalone=()=>matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
 if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(()=>{});
 function u8key(k){const t=k.replace(/-/g,"+").replace(/_/g,"/");return Uint8Array.from(atob(t+"=".repeat((4-t.length%4)%4)),c=>c.charCodeAt(0))}
-async function pushState(){if(!pushSupported())return "unsupported";if(Notification.permission==="denied")return "denied";try{const reg=await navigator.serviceWorker.getRegistration();const sub=reg&&await reg.pushManager.getSubscription();return sub&&Notification.permission==="granted"?"on":"off"}catch(e){return "off"}}
+async function pushState(){if(CAP)return natState();if(!pushSupported())return "unsupported";if(Notification.permission==="denied")return "denied";try{const reg=await navigator.serviceWorker.getRegistration();const sub=reg&&await reg.pushManager.getSubscription();return sub&&Notification.permission==="granted"?"on":"off"}catch(e){return "off"}}
 async function pushEnable(call){
+  if(CAP)return natEnable(call,true);
   const perm=await Notification.requestPermission(); if(perm!=="granted") throw new Error("denied");
   const reg=await navigator.serviceWorker.register("/sw.js"); await navigator.serviceWorker.ready;
   const key=await call("push_key"); let sub=await reg.pushManager.getSubscription();
@@ -1843,7 +1858,7 @@ const catIcon=c=>CAT_ICON[c]||"📌";
 const catCol=c=>CAT_COL[Math.max(0,cfg.categories.indexOf(c))%CAT_COL.length];
 const telDigits=p=>(p||"").replace(/[^\d+]/g,"");
 
-const RO_OK=["kv_load","kv_photos","kv_guides","kv_task_photo","kv_push_key","kv_push_sub","billing","bill_invoice","bill_pay","bill_pay_status","auth_me","auth_logout","auth_switch","auth_password","auth_new_org","bk_file_list","bk_file_get","google_link","google_unlink","kv_msg_list","kv_msg_history","kv_msg_preview","kv_ical_list","kv_ical_org","kv_contacts","kv_contact_get","kv_contacts_export","kv_checkin_get","kv_ical_status","kv_guest_invoice_list","kv_discount_list","kv_clean_info","auth_sessions","auth_logout_session","auth_logout_all"];
+const RO_OK=["kv_load","kv_photos","kv_guides","kv_task_photo","kv_push_key","kv_push_sub","kv_native_sub","kv_native_unsub","billing","bill_invoice","bill_pay","bill_pay_status","auth_me","auth_logout","auth_switch","auth_password","auth_new_org","bk_file_list","bk_file_get","google_link","google_unlink","kv_msg_list","kv_msg_history","kv_msg_preview","kv_ical_list","kv_ical_org","kv_contacts","kv_contact_get","kv_contacts_export","kv_checkin_get","kv_ical_status","kv_guest_invoice_list","kv_discount_list","kv_clean_info","auth_sessions","auth_logout_session","auth_logout_all"];
 const CHECK_OK=["kv_verify","kv_month_close","kv_month_open"];
 let ME=null, ROLE="", EXPIRED=false;
 const SLUG=(()=>{const h=location.hostname;if(h.endsWith(".espace.md")&&h!=="app.espace.md")return h.slice(0,-".espace.md".length);const APPH=h==="app.espace.md";let c="";try{c=new URLSearchParams(location.search).get("c")||sessionStorage.getItem("es_c")||(APPH?localStorage.getItem("es_c"):"")||""}catch(e){}c=c.toLowerCase().replace(/[^a-z0-9-]/g,"");try{if(c){sessionStorage.setItem("es_c",c);if(APPH)localStorage.setItem("es_c",c)}}catch(e){}return c})();
@@ -5528,7 +5543,7 @@ function bellSheet(list,key,badgeId){ls.set(key,list.length?list[0].id:0);bellUp
   openSheet("Notifications",list.length?`<div class="list">${list.map(x=>`<div class="card clc" style="margin-top:8px"><div class="clh"><b style="font-size:15px">${esc(x.title)}</b><span class="small" style="margin-left:auto;white-space:nowrap">${fdt(x.at)}</span></div>${x.body?`<div class="small" style="margin-top:4px;white-space:pre-line">${esc(x.body)}</div>`:""}</div>`).join("")}</div>`:`<div class="empty" style="margin-top:12px">No notifications yet.</div>`,{type:"bell"})}
 let CPIN=null, CORG="", cl=null, clDay=null, clChecked={}, clPhotos={};
 async function clApi(fn,args={}){const r=await fetch("/api/"+fn,{method:"POST",headers:{"Content-Type":"application/json","X-Espace-Org":SLUG},body:JSON.stringify({org:CORG,s_pin:CPIN,today:todayStr(),...args})});const t=await r.text();let j=null;try{j=t?JSON.parse(t):null}catch(e){}if(!r.ok){const e=new Error((j&&j.message)||"HTTP "+r.status);e.code=j&&j.message;throw e}return j}
-async function startCleaner(code,p,me){CORG=code;CPIN=p;PIN=null;ls.set("cl",JSON.stringify({code,pin:p}));ls.set("tok","");$("gate").hidden=true;$("app").hidden=true;$("cl-app").hidden=false;$("cl-name").textContent=me.name;$("cl-org").textContent=me.org||"espace.md";await clReload()}
+async function startCleaner(code,p,me){CORG=code;CPIN=p;PIN=null;natAfterLogin((f,a)=>clApi("cl_"+f,a));ls.set("cl",JSON.stringify({code,pin:p}));ls.set("tok","");$("gate").hidden=true;$("app").hidden=true;$("cl-app").hidden=false;$("cl-name").textContent=me.name;$("cl-org").textContent=me.org||"espace.md";await clReload()}
 document.addEventListener("change",async e=>{const t=e.target;if(!t.dataset||!t.dataset.clph)return;const f=t.files&&t.files[0];if(!f)return;
   try{clPhotos[t.dataset.clph]=await resizeImg(f);toast("Photo added");renderCl()}catch(x){toast("Could not upload the photo")}});
 document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("[data-lcinfo]");if(!t)return;t.disabled=true;
@@ -5710,7 +5725,7 @@ let RESET_TOK="",TFA_CHAL="";
 document.addEventListener("click",e=>{const a=e.target.closest("#g-forgot,#g-back");if(!a)return;e.preventDefault();if(a.id==="g-back")TFA_CHAL="";gMode(a.id==="g-forgot"?"forgot":"login")});
 function lock(msg){PIN=null;$("app").hidden=true;$("cl-app").hidden=true;$("gate").hidden=false;gMode(GMODE);$("g-msg").innerHTML=msg?`<div class="msg bad">${esc(msg)}</div>`:"";$("g-pw").value="";$("g-pin").value=""}
 const G_ERR={not_confirmed:"This account isn’t confirmed yet — open the email with the link, or tap «Forgot password?» to get it again",bad_login:"Wrong email or password",disabled:"Access to this account is suspended — contact support",locked:"Too many attempts — wait 15 minutes",email_taken:"This email is already registered — sign in",bad_email:"Check email",pw_too_short:"Password — at least 8 characters",need_names:"Fill in the company name and your name",bad_pin:"Wrong PIN",not_member:"This account has no access to this company",bad_token:"The link has expired or was already used — request a new one",bad_2fa:"Wrong code — try again"};
-async function enterApp(token,me){PIN=token;ls.set("tok",token);ls.set("cl","");setMe(me);
+async function enterApp(token,me){PIN=token;ls.set("tok",token);ls.set("cl","");setMe(me);natAfterLogin((f,a)=>api("kv_"+f,a));
   if(me.role==="prop"){location.replace("/proprietar"+location.search);return}
   if(!me.org){$("gate").hidden=false;$("g-msg").innerHTML=`<div class="msg bad">This account has no access to any company.</div>`;return}
   $("gate").hidden=true;$("app").hidden=false;fitHdr();await reload();loadPhotos()}

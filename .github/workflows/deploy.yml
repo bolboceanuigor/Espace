@@ -59,8 +59,12 @@ jobs:
           MAIB_CLIENT_SECRET: ${{ secrets.MAIB_CLIENT_SECRET }}
           MAIB_SIGNATURE_KEY: ${{ secrets.MAIB_SIGNATURE_KEY }}
           MAIB_SANDBOX: ${{ secrets.MAIB_SANDBOX }}
+          APNS_KEY: ${{ secrets.APNS_KEY }}
+          APNS_KEY_ID: ${{ secrets.APNS_KEY_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          FCM_SERVICE_ACCOUNT: ${{ secrets.FCM_SERVICE_ACCOUNT }}
         run: |
-          for k in SUPERADMIN_EMAIL CRON_KEY RESEND_API_KEY MAIL_FROM MAIL_REPLY_TO TELEGRAM_BOT_TOKEN MAIB_CLIENT_ID MAIB_CLIENT_SECRET MAIB_SIGNATURE_KEY MAIB_SANDBOX; do
+          for k in SUPERADMIN_EMAIL CRON_KEY RESEND_API_KEY MAIL_FROM MAIL_REPLY_TO TELEGRAM_BOT_TOKEN MAIB_CLIENT_ID MAIB_CLIENT_SECRET MAIB_SIGNATURE_KEY MAIB_SANDBOX APNS_KEY APNS_KEY_ID APPLE_TEAM_ID FCM_SERVICE_ACCOUNT; do
             v="${!k}"; if [ -n "$v" ]; then echo "$v" | npx wrangler pages secret put "$k" --project-name espace > /dev/null; echo "set $k"; fi
           done
       - name: Deploy

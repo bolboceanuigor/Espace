@@ -695,3 +695,15 @@ CREATE TABLE IF NOT EXISTS msg_sent (
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 CREATE INDEX IF NOT EXISTS msg_sent_booking_idx ON msg_sent(org_id, booking_id, created_at);
+-- native app (iPhone / Android) notification tokens: one row per phone; staff_id set for maids (PIN), else user_id
+CREATE TABLE IF NOT EXISTS native_tokens (
+  token TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL,
+  platform TEXT NOT NULL,             -- ios | android
+  user_id TEXT NOT NULL DEFAULT '',
+  staff_id TEXT NOT NULL DEFAULT '',
+  lang TEXT NOT NULL DEFAULT 'ru',
+  sb INTEGER NOT NULL DEFAULT 0,      -- 1 = Apple sandbox (Xcode builds)
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS native_tokens_org_idx ON native_tokens(org_id, staff_id);

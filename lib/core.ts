@@ -2,7 +2,8 @@
 
 export interface Env {
   DB: D1Database;
-  FILES?: R2Bucket;          // optional: booking file uploads (passport photos, contracts)
+  FILES?: R2Bucket;
+  APNS_KEY?: string; APNS_KEY_ID?: string; APPLE_TEAM_ID?: string; FCM_SERVICE_ACCOUNT?: string; // native app notifications (lib/native.ts)          // optional: booking file uploads (passport photos, contracts)
   SUPERADMIN_EMAIL?: string; // the platform owner; sees every company in /admin
   CRON_KEY?: string;         // secret for the every-few-minutes reminders ping
   RESEND_API_KEY?: string;   // emails (resend.com); without it emails are only logged

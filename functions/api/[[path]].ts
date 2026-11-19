@@ -25,6 +25,7 @@ import { upsertFromBooking, syncAll as syncContacts, listContacts, getContact, s
 import { exportGuest, forgetGuest, guestApts } from "../../lib/guestdata";
 import { stayGuideUrl } from "../../lib/stay";
 import { runOwnerReports } from "../../lib/ownerreport";
+import { sendNative, saveNative } from "../../lib/native";
 import { ensureCheckin, checkinCfgOf, parseData as parseCheckinData, validateSubmit as validateCheckin, purgeCheckins } from "../../lib/checkin";
 import { createGuestInvoice, findDiscount, applyDiscount, bumpDiscountUse, listDiscounts, normalizeCode, rowToDiscount } from "../../lib/guest_invoice";
 
@@ -405,6 +406,8 @@ async function notify(db: D1Database, O: string, who: string[], msg: { title: st
     else if (w.startsWith("staff:")) { conds.push("staff_id = ?"); args.push(w.slice(6)); }
   }
   if (!conds.length) return;
+  // iPhone / Android apps: through Apple and Google
+  if (ENV) { const nat = await all(db, `SELECT token, platform, sb FROM native_tokens WHERE org_id = ? AND (${conds.join(" OR ")})`, O, ...args).catch(() => []); if (nat.length) await sendNative(ENV, db, nat, msg).catch(() => {}); }
   const subs = await all(db, `SELECT endpoint, p256dh, auth FROM push_subs WHERE org_id = ? AND (${conds.join(" OR ")})`, O, ...args).catch(() => []);
   if (!subs.length) return;
   const v = await getVapid(db);
@@ -1058,6 +1061,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     if (fn === "cl_login") return json({ id: me.id, name: me.name, org: org.name });
     if (fn === "cl_push_key") return json((await getVapid(db)).pub);
     if (fn === "cl_push_sub") return json(await saveSub(db, O, body.sub, "", me.id));
+    if (fn === "cl_native_sub") return json(await saveNative(db, O, body, "", me.id));
     if (fn === "cl_load") return json(await cleanerView(db, O, me, td));
     if (fn === "cl_done") {
       const done = body.done !== false, t = nowIso();
@@ -2356,6 +2360,8 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     }
     case "kv_push_key": return json((await getVapid(db)).pub);
     case "kv_push_sub": return json(await saveSub(db, O, body.sub, c.user.id, ""));
+    case "kv_native_sub": return json(await saveNative(db, O, body, c.user.id, ""));
+    case "kv_native_unsub": await run(db, "DELETE FROM native_tokens WHERE org_id = ? AND token = ?", O, str(body.token, 400)); return json(true);
     case "kv_push_test": {
       await notify(db, O, ["manager"], { title: "🔔 " + org.name, body: "Уведомления работают" });
       waitUntil(runDue(db, org).catch(() => {}));
