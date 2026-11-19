@@ -1826,7 +1826,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       await audit(db, O, c, "booking", body.ok === true ? "confirm" : "decline", b.id, bLabel(b), { nights: b.nights, price: b.price, price_cur: b.price_cur });
       let mailed = "";
       const g = body.ok === true ? await one(db, "SELECT token FROM guides WHERE org_id = ? AND apt = ?", O, b.apt) : null;
-      if (b.email) mailed = await sendMail(env, db, { to: b.email, ...mails.requestAnswer(org.name, body.ok === true, { apt: b.apt, date: b.date, nights: b.nights, price: b.price, cur: b.price_cur, phone: dir.phone || "", email: dir.email || "", note: str(body.note, 300), guide: g ? `https://espace.md/g/${g.token}` : "" }, bLang(b)), kind: "request", orgId: O });
+      if (b.email) mailed = await sendMail(env, db, { to: b.email, ...mails.requestAnswer(org.name, body.ok === true, { apt: b.apt, date: b.date, nights: b.nights, price: b.price, cur: b.price_cur, phone: dir.phone || "", email: dir.email || "", note: str(body.note, 300), guide: g ? await stayGuideUrl(O, b.id, g.token) : "" }, bLang(b)), kind: "request", orgId: O });
       return json({ ok: true, mailed });
     }
     // ---------- import bookings from a spreadsheet (Excel / CSV / RealtyCalendar export), parsed in the app ----------
