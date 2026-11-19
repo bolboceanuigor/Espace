@@ -148,7 +148,7 @@ const T={
    payNow:"Plătește avansul",payHint:"Poți plăti avansul acum cu cardul. Restul — după confirmare.",
    closed:"Rezervările online nu sunt deschise acum.",notFound:"Pagina nu există.",nights:"Nopți",perNightL:"Preț pe noapte",guestsS:"Persoane",
    rt:{single:"Single",double:"Dublă",twin:"Twin",triple:"Triplă",family:"Familie",suite:"Suită",bed:"Pat în dormitor"},left:n=>n===1?"Ultima liberă":"Mai sunt "+n+" libere",
-   kind:{apt:"Apartament",studio:"Garsonieră",house:"Casă",villa:"Vilă",room:"Cameră",bed:"Loc în hostel"},
+   kind:{apt:"Apartament",studio:"Garsonieră",house:"Casă",villa:"Vilă",room:"Cameră",bed:"Loc în hostel",dorm:"Dormitor hostel"},dbeds:(l,n)=>l+" paturi libere din "+n,bedsN:n=>n+" paturi",bedsS:"paturi",perBed:"pe pat",gen:{f:"Doar femei",m:"Doar bărbați"},
    beds:{dbl:"pat dublu",sgl:"pat single",sofa:"canapea",bunk:"pat supraetajat"},
    am:{wifi:"Wi-Fi",ac:"Aer condiționat",heat:"Încălzire",kitchen:"Bucătărie",washer:"Mașină de spălat",dryer:"Uscător",dish:"Mașină de vase",tv:"TV",parking:"Parcare",balcony:"Balcon",elevator:"Lift",iron:"Fier de călcat",hair:"Uscător de păr",crib:"Pătuț",work:"Loc de muncă",pets:"Animale permise",selfin:"Self check-in",view:"Priveliște"},
    cin:"Check-in de la",cout:"check-out până la",onMap:"Pe hartă →",how:"Cum ajungi",map:"Hartă"},
@@ -163,7 +163,7 @@ const T={
    payNow:"Оплатить аванс",payHint:"Можно оплатить аванс картой сейчас. Остаток — после подтверждения.",
    closed:"Онлайн-бронирование сейчас закрыто.",notFound:"Такой страницы нет.",nights:"Ночей",perNightL:"Цена за ночь",guestsS:"Гостей",
    rt:{single:"Одноместный",double:"Двухместный",twin:"Твин",triple:"Трёхместный",family:"Семейный",suite:"Люкс",bed:"Место в хостеле"},left:n=>n===1?"Остался последний":"Свободно: "+n,
-   kind:{apt:"Квартира",studio:"Студия",house:"Дом",villa:"Вилла",room:"Номер",bed:"Место в хостеле"},
+   kind:{apt:"Квартира",studio:"Студия",house:"Дом",villa:"Вилла",room:"Номер",bed:"Место в хостеле",dorm:"Комната хостела"},dbeds:(l,n)=>"Свободно коек: "+l+" из "+n,bedsN:n=>n+" коек",bedsS:"коек",perBed:"за койку",gen:{f:"Только женщины",m:"Только мужчины"},
    beds:{dbl:"двуспальная кровать",sgl:"односпальная",sofa:"диван",bunk:"двухъярусная"},
    am:{wifi:"Wi-Fi",ac:"Кондиционер",heat:"Отопление",kitchen:"Кухня",washer:"Стиральная машина",dryer:"Сушилка",dish:"Посудомойка",tv:"Телевизор",parking:"Парковка",balcony:"Балкон",elevator:"Лифт",iron:"Утюг",hair:"Фен",crib:"Детская кроватка",work:"Рабочее место",pets:"Можно с животными",selfin:"Самостоятельное заселение",view:"Красивый вид"},
    cin:"Заезд с",cout:"выезд до",onMap:"На карте →",how:"Как добраться",map:"Карта"},
@@ -178,7 +178,7 @@ const T={
    payNow:"Pay the deposit",payHint:"You can pay the deposit by card now. The rest is after confirmation.",
    closed:"Online booking isn’t open right now.",notFound:"This page doesn’t exist.",nights:"Nights",perNightL:"Price per night",guestsS:"Guests",
    rt:{single:"Single",double:"Double",twin:"Twin",triple:"Triple",family:"Family",suite:"Suite",bed:"Bed in dorm"},left:n=>n===1?"Last one left":n+" left",
-   kind:{apt:"Apartment",studio:"Studio",house:"House",villa:"Villa",room:"Room",bed:"Hostel bed"},
+   kind:{apt:"Apartment",studio:"Studio",house:"House",villa:"Villa",room:"Room",bed:"Hostel bed",dorm:"Hostel dorm"},dbeds:(l,n)=>l+" of "+n+" beds free",bedsN:n=>n+" beds",bedsS:"beds",perBed:"per bed",gen:{f:"Women only",m:"Men only"},
    beds:{dbl:"double bed",sgl:"single bed",sofa:"sofa bed",bunk:"bunk bed"},
    am:{wifi:"Wi-Fi",ac:"Air conditioning",heat:"Heating",kitchen:"Kitchen",washer:"Washer",dryer:"Dryer",dish:"Dishwasher",tv:"TV",parking:"Parking",balcony:"Balcony",elevator:"Lift",iron:"Iron",hair:"Hair dryer",crib:"Crib",work:"Workspace",pets:"Pets allowed",selfin:"Self check-in",view:"Nice view"},
    cin:"Check-in from",cout:"check-out by",onMap:"On the map →",how:"How to get there",map:"Map"}};
@@ -205,7 +205,7 @@ const quoteU=(u,d,n)=>EsPrice.quote(u,d,n,OPT(u));
 const totalU=(u,d,n)=>quoteU(u,d,n).total;
 const fromP=u=>{const d=din||D.today||todayS();return EsPrice.night(u,d,D.pricing,u.rules||{})||+u.price};
 const extras=u=>[+u.cfee>0?`+ ${money(+u.cfee,u.pcur)} ${t("cfee")}`:"",+u.dep>0?`${money(+u.dep,u.pcur)} ${t("dep")}`:""].filter(Boolean).join(" · ");
-const free=(u,from,n)=>{const R=u.rules||{};for(let i=0;i<n;i++){const r=R[addD(from,i)];if(r&&r.x)return false}return EsPrice.free(u.busy,from,n,EsPrice.gap(u))};
+const free=(u,from,n)=>{const R=u.rules||{};for(let i=0;i<n;i++){const r=R[addD(from,i)];if(r&&r.x)return false}if(EsPrice.isDorm(u))return EsPrice.bedsLeft(u,u.busy,from,n)>=Math.max(1,G+K);return EsPrice.free(u.busy,from,n,EsPrice.gap(u))};
 const whyText=c=>{const w=t("why");if(c.why==="arrival_day")return w.arrival_day+(c.days||[]).map(x=>t("wd")[x]).join(", ");if(c.why==="lead")return w.lead.replace("{n}",c.lead);if(c.why==="ahead")return w.ahead.replace("{n}",c.ahead);if(c.why==="max")return w.max.replace("{n}",c.max);if(c.why==="min")return t("minN")(c.min);if(c.why==="guests")return t("tooMany")(c.cap);return w[c.why]||t("busy")};
 function nextFree(u,from,n){for(let i=1;i<=120;i++){const d=addD(from,i);if(EsPrice.check(u,d,n,OPT(u)).ok)return d}return ""}
 function renderStatic(){document.documentElement.lang=L;document.querySelectorAll("[data-l]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.l===L)));
@@ -215,7 +215,7 @@ function renderStatic(){document.documentElement.lang=L;document.querySelectorAl
   $("terms").hidden=!D.terms;$("terms-t").textContent=D.terms||""}
 function facts(u){const p=[];if(u.bedrooms)p.push(u.bedrooms+" "+plural(+u.bedrooms,t("bedrooms")));
   const b=u.beds||{};const bl=Object.entries(b).filter(([,v])=>v>0).map(([k,v])=>v+" × "+(t("beds")[k]||k));if(bl.length)p.push(bl.join(", "));
-  if(u.guests)p.push("≤ "+u.guests+" "+t("guestsL"));if(u.area)p.push(u.area+" "+t("m2"));return p.join(" · ")}
+  if(EsPrice.isDorm(u)){p.push(t("bedsN")(+u.dbeds));if(t("gen")[u.gender])p.push(t("gen")[u.gender])}else if(u.guests)p.push("≤ "+u.guests+" "+t("guestsL"));if(u.area)p.push(u.area+" "+t("m2"));return p.join(" · ")}
 function render(){const nights=din&&dout?Math.round((toT(dout)-toT(din))/DAY):0,has=nights>0;
   $("gn").textContent=G;$("gm").disabled=G<=1;$("kn").textContent=K;$("km").disabled=K<=0;
   // hotel / hostel rooms of the same type in the same building show as ONE card ("Double — 4 left"); booking takes the first free room
@@ -234,11 +234,11 @@ function render(){const nights=din&&dout?Math.round((toT(dout)-toT(din))/DAY):0,
     const kind=[multi?"":t("kind")[u.kind]||"",u.group||""].filter(Boolean).join(" · ");
     return `<article class="unit${has&&!ok?" off":""}">
       <div class="ph" data-ph="${esc(u.name)}">${esc(title)}</div>
-      <div class="ub"><div class="uh"><h2>${esc(title)}</h2>${kind?`<span class="kind">${esc(kind)}</span>`:""}</div>${multi&&has&&ok?`<p class="facts" style="font-weight:800;color:var(--free)">${esc(t("left")(left))}</p>`:""}
+      <div class="ub"><div class="uh"><h2>${esc(title)}</h2>${kind?`<span class="kind">${esc(kind)}</span>`:""}</div>${multi&&has&&ok?`<p class="facts" style="font-weight:800;color:var(--free)">${esc(t("left")(left))}</p>`:""}${!multi&&has&&ok&&EsPrice.isDorm(u)?`<p class="facts" style="font-weight:800;color:var(--free)">${esc(t("dbeds")(EsPrice.bedsLeft(u,u.busy,din,nights),+u.dbeds))}</p>`:""}
         ${facts(u)?`<p class="facts">${esc(facts(u))}</p>`:""}${unitTxt(u,"desc")?`<p class="facts" style="white-space:pre-wrap">${esc(unitTxt(u,"desc"))}</p>`:""}${unitTxt(u,"how")?`<p class="facts"><b>${esc(t("how")||"Cum ajungi")}:</b> ${esc(unitTxt(u,"how"))}</p>`:""}${u.addr||u.map?`<p class="facts"><a href="${esc(mapsUrl(u))}" target="_blank" rel="noopener">${esc(u.addr||t("map")||"Hartă")}</a></p>`:""}${(u.layout||[]).length?`<ul class="lay">${u.layout.map(r=>`<li><b>${esc(r.n||"")}</b> ${esc(Object.entries(r.b||{}).filter(([,v])=>v>0).map(([k,v])=>v+" × "+(t("beds")[k]||k)).join(", "))}</li>`).join("")}</ul>`:""}${am?`<div class="am">${am}</div>`:""}
         <div class="strip">${strip}</div>
         <div class="legend"><span><i style="background:var(--free-soft)"></i>${t("free")}</span><span><i style="background:var(--busy)"></i>${t("taken")}</span>${u.cin||u.cout?`<span>${t("cin")} ${esc(u.cin||"14:00")}, ${t("cout")} ${esc(u.cout||"12:00")}</span>`:""}</div>
-        <div class="uf"><div class="price">${has&&ok?`<b>${money(total,u.pcur)}</b> <span>${t("total")}</span><small>${(()=>{const q=quoteU(u,din,nights);return (q.flat?`${money(q.nights[0].p,u.pcur)} ${t("perNight")} × ${nights}`:`≈ ${money(q.avg,u.pcur)} ${t("perNight")} × ${nights}`)+(q.xg?` + ${money(q.xg,u.pcur)} ${t("xg")}`:"")+(q.xc?` + ${money(q.xc,u.pcur)} ${t("xc")}`:"")+(q.los?` − ${q.losPct}% ${t("los")}`:"")})()}${extras(u)?" "+extras(u):""}</small>`:`<span>${t("from")}</span> <b>${money(fromP(u),u.pcur)}</b> <span>${t("perNight")}</span>${extras(u)?`<small>${extras(u)}</small>`:""}`}</div>
+        <div class="uf"><div class="price">${has&&ok?`<b>${money(total,u.pcur)}</b> <span>${t("total")}</span><small>${(()=>{const q=quoteU(u,din,nights);return (q.beds>1&&q.flat?`${money(q.nights[0].p/q.beds,u.pcur)} ${t("perBed")} × ${q.beds} ${t("bedsS")} × ${nights}`:q.flat?`${money(q.nights[0].p,u.pcur)} ${t("perNight")} × ${nights}`:`≈ ${money(q.avg,u.pcur)} ${t("perNight")} × ${nights}`)+(q.xg?` + ${money(q.xg,u.pcur)} ${t("xg")}`:"")+(q.xc?` + ${money(q.xc,u.pcur)} ${t("xc")}`:"")+(q.los?` − ${q.losPct}% ${t("los")}`:"")})()}${extras(u)?" "+extras(u):""}</small>`:`<span>${t("from")}</span> <b>${money(fromP(u),u.pcur)}</b> <span>${EsPrice.isDorm(u)?t("perBed")+", "+t("perNight"):t("perNight")}</span>${extras(u)?`<small>${extras(u)}</small>`:""}`}</div>
           ${has&&ok?`<button type="button" class="go" data-book="${esc(u.name)}">${t("book")}</button>`:why?`<p class="why">${why}</p>`:""}</div></div></article>`}).join("")||`<div class="empty">${t("none")}</div>`;
   loadPhotos()}
 // photos: one request per unit, only when its card is near the screen

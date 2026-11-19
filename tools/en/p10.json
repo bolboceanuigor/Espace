@@ -375,5 +375,14 @@
 "Что это": "What it is",
 "Подъезд": "Entrance",
 "здание": "building",
-"Свободно": "Free"
+"Свободно": "Free",
+"Цена — за одну койку за ночь. Продаётся по койкам: в календаре видно, сколько занято, например 5/8.": "The price is for one bed per night. Sold by the bed: the calendar shows how many are taken, for example 5/8.",
+"Комната хостела (койки)": "Hostel dorm (beds)",
+"Один гость — одна койка": "One guest is one bed",
+"Только женщины": "Women only",
+"Только мужчины": "Men only",
+"Коек в комнате": "Beds in the room",
+"Смешанная": "Mixed",
+"Кто живёт": "Who stays",
+"Койки": "Beds"
 }

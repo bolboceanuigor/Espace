@@ -1907,6 +1907,10 @@ function overlaps(b,list){
   if(!occupies(b)) return [];
   const s=toT(b.date), e=s+b.nights*DAY;
   // two check-ins in the same apartment on the same day = a repeat check-in, not a double booking
+  const u=unitOf(b.apt);
+  if(u.kind==="dorm"&&+u.dbeds>0){const busy=list.filter(o=>o.id!==b.id&&o.apt===b.apt&&occupies(o)).map(o=>[o.date,o.nights,o.pax]);
+    if(EsPrice.bedsLeft(u,busy,b.date,b.nights)>=Math.max(1,+b.pax||1))return [];
+    return list.filter(o=>o.id!==b.id && o.apt===b.apt && occupies(o) && toT(o.date)<e && toT(o.date)+o.nights*DAY>s);}
   return list.filter(o=>o.id!==b.id && o.apt===b.apt && occupies(o) && o.date!==b.date && toT(o.date)<e && toT(o.date)+o.nights*DAY>s);
 }
 function issues(b){
@@ -1967,6 +1971,9 @@ const uNight=(a,d)=>EsPrice.night(unitOf(a),d,cfg.pricing,DR[a]||{});
 const uQuote=(a,d,n,pax,kids)=>EsPrice.quote(unitOf(a),d,n,{P:cfg.pricing,R:DR[a]||{},pax,kids});
 // how many people fit, from the unit's details; warns when the booking has more
 function capHint(){const el=$("f-cap");if(!el)return;const u=unitOf(form.apt||""),c=capOf(u),p=parseInt(($("f-pax")||{}).value,10)||0;
+  if(u.kind==="dorm"&&+u.dbeds>0){const n=+u.dbeds,d=form.date,k=+form.nights||1;
+    const left=d?EsPrice.bedsLeft(u,bookings.filter(o=>o.id!==form.id&&o.apt===form.apt&&occupies(o)).map(o=>[o.date,o.nights,o.pax]),d,k):n;
+    el.className="hint"+(p>left?" bad":"");el.textContent="Un oaspete — un pat · liber "+left+" din "+n+(u.gender&&u.gender!=="mix"?" · "+GENDER[u.gender]:"");return}
   el.className="hint"+(c&&p>c?" bad":"");el.textContent=!c?"":p>c?"Mai mulți decât încap: maximum "+c:"Încap până la "+c+(bedsOf(u)?" · "+bedsOf(u):"")}
 document.addEventListener("input",e=>{if(e.target.id==="f-pax")capHint()});
 document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-psug]");if(!t)return;readB();form.price=t.dataset.psug;form.price_cur=t.dataset.pcur;fillB();infoB()});
@@ -2233,7 +2240,8 @@ document.addEventListener("click",e=>{const b=e.target.closest("[data-setup]");i
 /* UNITS — details of every apartment / house / hotel room live in cfg.units[name]:
    kind, group (building or hotel), area, bedrooms, baths, floor, beds {dbl,sgl,sofa,bunk}, guests, price, cin, cout, amen[], note.
    cfg.apts stays the list of names used everywhere (calendar, bookings, cleanings); archive moves a unit to cfg.archived (restore brings it back). */
-const UKIND={apt:"Apartament",studio:"Garsonieră",house:"Casă",villa:"Vilă",room:"Cameră",bed:"Pat în hostel"};
+const GENDER={mix:"Mixt",f:"Doar femei",m:"Doar bărbați"};
+const UKIND={apt:"Apartament",studio:"Garsonieră",house:"Casă",villa:"Vilă",room:"Cameră",bed:"Pat în hostel",dorm:"Dormitor hostel (paturi)"};
 const ROOMT={single:["Single",{sgl:1},1],double:["Dublă",{dbl:1},2],twin:["Twin",{sgl:2},2],triple:["Triplă",{dbl:1,sgl:1},3],family:["Familie",{dbl:1,sgl:2},4],suite:["Suită",{dbl:1,sofa:1},4],bed:["Pat în hostel",{bunk:1},1]};
 const BEDT=[["dbl","dublu"],["sgl","single"],["sofa","canapea"],["bunk","supraetajat"]];
 const AMEN=[["wifi","Wi-Fi"],["ac","Aer condiționat"],["heat","Încălzire"],["kitchen","Bucătărie"],["washer","Mașină de spălat"],["dryer","Uscător"],["dish","Mașină de vase"],["tv","Televizor"],["parking","Parcare"],["balcony","Balcon"],["elevator","Lift"],["iron","Fier de călcat"],["hair","Uscător de păr"],["crib","Pătuț pentru copii"],["work","Birou de lucru"],["pets","Se admit animale"],["selfin","Cazare fără gazdă"],["view","Priveliște frumoasă"]];
@@ -2255,6 +2263,8 @@ function unitForm(a){const u=unitOf(a),b=u.beds||{},groups=[...new Set(cfg.apts.
   return `<div class="uform">
     <div class="grid2"><div><label class="l" for="uf-kind">Tip</label><select id="uf-kind">${Object.entries(UKIND).map(([k,t])=>`<option value="${k}"${(u.kind||"apt")===k?" selected":""}>${t}</option>`).join("")}</select></div>
       <div><label class="l" for="uf-group">Clădire sau hotel</label><input type="text" id="uf-group" list="uf-groups" value="${esc(u.group||"")}" placeholder="opțional"><datalist id="uf-groups">${groups.map(g=>`<option value="${esc(g)}">`).join("")}</datalist></div></div>
+    <div class="grid2" id="uf-dorm"${u.kind==="dorm"?"":" hidden"}>${n("uf-dbeds",u.dbeds,"Paturi în cameră","8")}<div><label class="l" for="uf-gender">Cine locuiește</label><select id="uf-gender">${Object.entries(GENDER).map(([k,t])=>`<option value="${k}"${(u.gender||"mix")===k?" selected":""}>${t}</option>`).join("")}</select></div>
+      <p class="hint" style="grid-column:1/-1">Prețul este pentru un pat pe noapte. Se vinde pe paturi: în calendar se vede câte sunt ocupate, de exemplu 5/8.</p></div>
     <div class="grid4">${n("uf-area",u.area,"Suprafață, m²","45")}${n("uf-bedrooms",u.bedrooms,"Dormitoare","1")}${n("uf-baths",u.baths,"Băi","1")}${n("uf-floor",u.floor,"Etaj","")}</div>
     <label class="l">Paturi</label>
     <div class="grid4 ubeds">${BEDT.map(([k,t])=>`<div class="ubed"><small>${t}</small><div class="stp"><button type="button" data-ustep="${k}" data-d="-1" aria-label="−">−</button><b id="uf-b-${k}">${b[k]||0}</b><button type="button" data-ustep="${k}" data-d="1" aria-label="+">+</button></div></div>`).join("")}</div>
@@ -2301,7 +2311,7 @@ function unitForm(a){const u=unitOf(a),b=u.beds||{},groups=[...new Set(cfg.apts.
     <div class="actions"><button type="button" class="btn primary" data-usave="${esc(a)}">Salvează</button>${cfg.apts.length>1?`<button type="button" class="btn" data-ucopy="${esc(a)}">Copiază pe altele…</button>`:""}<button type="button" class="btn" data-uedit="">Anulare</button></div>
     ${cfg.apts.length>1?copyPanel(a):""}</div>`}
 // copy the shared details (size, beds, prices, amenities, cleaning, booking terms) from one unit to others; names, codes, address, notes stay
-const UCOPY_K=["layout","kind","area","bedrooms","baths","beds","guests","price","pcur","cin","cout","amen","cmin","cpay","cfee","dep","minn","dow","xg","xgFrom","xc","los","bufB","bufA","lead","ahead","maxn","arr"];
+const UCOPY_K=["layout","kind","area","bedrooms","baths","beds","guests","price","pcur","cin","cout","amen","cmin","cpay","cfee","dep","minn","dow","xg","xgFrom","xc","los","bufB","bufA","lead","ahead","maxn","arr","dbeds","gender"];
 function copyPanel(a){const others=cfg.apts.filter(x=>x!==a),u=unitOf(a);
   return `<div class="ucopy" id="ucopy" hidden><b>Copiază pe alte obiecte</b><p class="small" style="margin:2px 0 8px">Se copiază: tipul, suprafața, dormitoarele, paturile, oaspeții, prețul, orele de check-in, dotările, curățenia și condițiile de rezervare. Numele, adresa, codurile și notițele rămân ale fiecăruia.</p>
     <div class="ucl">${others.map(x=>`<label><input type="checkbox" data-ucpt="${esc(x)}"${unitOf(x).group&&unitOf(x).group===u.group?" checked":""}> ${esc(x)}</label>`).join("")}</div>
@@ -3089,6 +3099,7 @@ const UFORM_K=["layout","kind","group","area","bedrooms","baths","floor","beds",
 function unitRead(a){const num0=id=>{const v=String(($(id)||{}).value||"").replace(",",".").trim();return v===""?"":Math.max(0,+v||0)},txt=(id,n)=>String(($(id)||{}).value||"").trim().slice(0,n);
   const beds={};BEDT.forEach(([k])=>{const v=+(($("uf-b-"+k)||{}).textContent||0);if(v>0)beds[k]=v});
   const u={...unitOf(a)};UFORM_K.forEach(k=>delete u[k]);
+  Object.assign(u,$("uf-kind").value==="dorm"?{dbeds:Math.min(100,Math.round(+num0("uf-dbeds")||0))||"",gender:$("uf-gender").value}:{});
   Object.assign(u,{kind:$("uf-kind").value,group:$("uf-group").value.trim().slice(0,60),area:num0("uf-area"),bedrooms:num0("uf-bedrooms"),baths:num0("uf-baths"),floor:($("uf-floor").value||"").trim().slice(0,10),
     beds,guests:num0("uf-guests"),price:num0("uf-price"),pcur:num0("uf-price")===""?"":$("uf-pcur").value,cin:$("uf-cin").value,cout:$("uf-cout").value,
     amen:[...document.querySelectorAll("[data-uamen][aria-pressed=true]")].map(x=>x.dataset.uamen),
@@ -3389,7 +3400,7 @@ const CAL_SZ={sm:{days:10,label:"Mic"},md:{days:9,label:"Mediu"},lg:{days:7,labe
 function calSz(){try{const v=localStorage.getItem("kv_calsz")||"md";return CAL_SZ[v]?v:"md"}catch(e){return"md"}}
 function calSzBtns(){const sz=calSz();return `<div class="cbsz" role="group" aria-label="Mărimea calendarului">${[["sm","Mic"],["md","Mediu"],["lg","Mare"]].map(([k,l])=>`<button type="button" class="cbsz-b" data-calsz="${k}" aria-pressed="${sz===k}" title="${l} · ${CAL_SZ[k].days} zile"><i class="cbsz-i ${k}"></i><span>${l}</span></button>`).join("")}</div>`}
 /* Hostfully: photos in circles (default); tap → retract photo, expand name text */
-const mono=a=>{const u=(cfg.units||{})[a]||{};if((u.kind==="room"||u.kind==="bed")&&/·|\s\d/.test(String(a))){const m=String(a).match(/(\S+)\s*$/);if(m)return m[1].slice(0,4).toUpperCase()}const w=String(a).replace(/[^\p{L}\p{N} ]/gu," ").trim().split(/\s+/).filter(x=>/^\p{L}/u.test(x));return ((w.length>1?w[0][0]+w[1][0]:(w[0]||String(a)).slice(0,2))||"?").toUpperCase()};
+const mono=a=>{const u=(cfg.units||{})[a]||{};if((u.kind==="room"||u.kind==="bed"||u.kind==="dorm")&&/·|\s\d/.test(String(a))){const m=String(a).match(/(\S+)\s*$/);if(m)return m[1].slice(0,4).toUpperCase()}const w=String(a).replace(/[^\p{L}\p{N} ]/gu," ").trim().split(/\s+/).filter(x=>/^\p{L}/u.test(x));return ((w.length>1?w[0][0]+w[1][0]:(w[0]||String(a)).slice(0,2))||"?").toUpperCase()};
 function calPicOn(){try{return localStorage.getItem("kv_calpic")!=="0"}catch(e){return true}}
 function tnHue(a){let h=0;const s=String(a);for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;const a1=h%360,a2=(a1+38)%360;return`--tn-a:hsl(${a1} 62% 52%);--tn-b:hsl(${a2} 68% 42%)`}
 function calThumb(a){const m=mono(a);return photos[a]
@@ -3537,19 +3548,25 @@ function renderCal(){
   const hidU=calHidden();
   // groups (building / hotel) and room types fold into one row that shows how many are free each day
   const fold=calFold(),busy=new Set();
-  for(const b of bookings){if(!occupies(b)||!(b.nights>0))continue;const t0=toT(b.date);for(let i=0;i<b.nights;i++)busy.add(b.apt+"|"+(t0+i*DAY))}
+  // a hostel dorm counts as taken only when every bed is taken; used holds the beds taken per day
+  const used={},isD=a=>{const u=unitOf(a);return u.kind==="dorm"&&+u.dbeds>0};
+  for(const b of bookings){if(!occupies(b)||!(b.nights>0))continue;const t0=toT(b.date),D=isD(b.apt);for(let i=0;i<b.nights;i++){const k=b.apt+"|"+(t0+i*DAY);if(D)used[k]=(used[k]||0)+Math.max(1,+b.pax||1);else busy.add(k)}}
+  for(const k in used){const a=k.slice(0,k.lastIndexOf("|"));if(used[k]>=+unitOf(a).dbeds)busy.add(k)}
+  const dormRow=a=>{const N=+unitOf(a).dbeds,key="dorm|"+a;let c="";for(let i=0;i<n;i++){const t=s0+i*DAY,x=used[a+"|"+t]||0;c+=`<i class="${x>=N?"full":""}" style="left:${i*W}px;width:${W}px">${x}/${N}</i>`}
+    nS++;return `<div class="sh-row sh-sum lv2"><button type="button" class="sh-name" data-calfold="${esc(key)}"><span>${fold.has(key)?"▸":"▾"} Paturi<small class="cap">${N}</small></span></button><div class="sh-tl" style="width:${n*W}px">${c}</div></div>`};
   const vis=cfg.apts.filter(a=>!hidU.has(a)),gUnits={},tUnits={};
   const tKey=a=>{const u=unitOf(a);return u.group&&u.rtype&&(u.kind==="room"||u.kind==="bed")?u.group+"|"+u.rtype:""};
   vis.forEach(a=>{const g=unitOf(a).group||"";(gUnits[g]=gUnits[g]||[]).push(a);const k=tKey(a);if(k)(tUnits[k]=tUnits[k]||[]).push(a)});
   const freeRow=(list,label,key,lvl)=>{let c="";for(let i=0;i<n;i++){const t=s0+i*DAY,f=list.filter(a=>!busy.has(a+"|"+t)).length;c+=`<i class="${f?"":"full"}" style="left:${i*W}px;width:${W}px">${f}</i>`}
     nS++;return `<div class="sh-row sh-sum lv${lvl}"><button type="button" class="sh-name" data-calfold="${esc(key)}"><span>${fold.has(key)?"▸":"▾"} ${esc(label)}<small class="cap">${list.length}</small></span></button><div class="sh-tl" style="width:${n*W}px">${c}</div></div>`};
-  let lastT=null,nS=0,nRow=0;
+  let lastT=null,nS=0,nRow=0,exH=0;
   for(const a of cfg.apts){
     if(hidU.has(a))continue;
     if(grouped){const g=unitOf(a).group||"";if(g!==lastG){lastG=g;lastT=null;nG++;rows+=`<div class="sh-grp" style="width:${Lw+n*W}px"><b>${esc(g||"Altele")}</b></div>`;if(g&&gUnits[g].length>1)rows+=freeRow(gUnits[g],"Libere",g,1)}
       if(g&&fold.has(g))continue;
       const k=tKey(a);if(k&&k!==lastT){lastT=k;if(tUnits[k].length>1)rows+=freeRow(tUnits[k],ROOMT[unitOf(a).rtype]?ROOMT[unitOf(a).rtype][0]:unitOf(a).rtype,k,2)}
       if(k&&fold.has(k)&&tUnits[k].length>1)continue}
+    if(isD(a)){rows+=dormRow(a);if(fold.has("dorm|"+a))continue}
     nRow++;
     let nights=0; for(let i=0;i<n;i++) if(occ[a+"|"+(s0+i*DAY)]) nights++;
     const list=bookings.filter(b=>b.apt===a&&b.nights>0&&calStOk(b)&&toT(b.date)<s0+n*DAY&&toT(b.date)+b.nights*DAY>s0).sort((x,y)=>x.date.localeCompare(y.date)||(x.tag==="cancel"?1:0)-(y.tag==="cancel"?1:0));
@@ -3569,12 +3586,13 @@ function renderCal(){
     const cells=dayCells(a,s0,n,W,list);
     const uc=capOf(unitOf(a)),ul=unitLine(a),ug=unitOf(a).group;
     const zebra=rowI%2?" z1":" z0";rowI++;
-    rows+=`<div class="sh-row${ug?" grp":""}${zebra}"><div class="sh-name" data-aptpage="${esc(a)}" title="${esc([ug,ul].filter(Boolean).join(" · ")||a)}">${calThumb(a)}<span>${esc(a)}${uc?`<small class="cap">👤${uc}</small>`:""}</span><em>${nights}</em></div><div class="sh-tl" data-tl="${esc(a)}" style="width:${n*W}px">${wk}${mLine}${tdMark}${cells}${bars}</div></div>`;
+    const tall=isD(a)&&lanes>2?Math.max(H,lanes*15+6):0;if(tall)exH+=tall-H;
+    rows+=`<div class="sh-row${ug?" grp":""}${zebra}"${tall?` style="height:${tall}px"`:""}><div class="sh-name" data-aptpage="${esc(a)}" title="${esc([ug,ul].filter(Boolean).join(" · ")||a)}">${calThumb(a)}<span>${esc(a)}${uc?`<small class="cap">👤${uc}</small>`:""}</span><em>${nights}</em></div><div class="sh-tl" data-tl="${esc(a)}" style="width:${n*W}px">${wk}${mLine}${tdMark}${cells}${bars}</div></div>`;
   }
   document.body.classList.toggle("calpm",calPM);
   $("c-body").innerHTML=`<div class="sh sq sz-${sz}${calPM?" pm":""}${picOn?" pics":" names"}" style="--W:${W}px;--L:${Lw}px;--L-pic:${Lpic}px;--L-name:${Lname}px;--H:${H}px;--cell:${cell}px;--days:${days};--days-w:${n*W}px">${head}${rows}</div>`;
   {const el=$("c-body"),key=todayStr()+"|"+sz+"|"+W+"|"+P+"|"+CW+"|"+(picOn?"p":"n"),keep=calKey===key?el.scrollLeft:null,t0=el.scrollTop;calKey=key;
-   const bodyH=HEADH+nRow*H+nG*22+nS*28+2;
+   const bodyH=HEADH+nRow*H+nG*22+nS*28+exH+2;
    const maxH=Math.max(260,innerHeight-el.getBoundingClientRect().top-navH-8);
    el.style.height=Math.min(bodyH,maxH)+"px";el.style.overflowY=bodyH>maxH?"auto":"hidden";el.style.scrollPaddingLeft=Lw+"px";
    // today must be the first day AFTER the sticky rail (never under the photos)
@@ -3641,6 +3659,7 @@ function openCalFlt(){
   if(hid.size)h+=`<div class="actions"><button type="button" class="btn" id="c-showall">Arată toate</button></div>`;
   openSheet("Obiecte în calendar",h,{type:"calhide"});
 }
+document.addEventListener("change",e=>{if(e.target.id==="uf-kind"&&$("uf-dorm"))$("uf-dorm").hidden=e.target.value!=="dorm"});
 document.addEventListener("change",e=>{if(e.target.id!=="c-jump"||!e.target.value)return;const el=$("c-body"),i=Math.round((toT(e.target.value)-calS0)/DAY);el.scrollTo({left:Math.max(0,i)*calW,behavior:"smooth"});e.target.value=""});
 document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("#c-menu,#c-bell,#c-acct,#c-gotoday,#c-flt,#c-add,#c-pm,#c-offer,#c-pic,[data-calhide],[data-calgrp],[data-calkind],[data-calown],#c-showall,[data-calst],[data-calsz]");if(!t)return;
   if(t.id==="c-menu"){openCalMenu();return}

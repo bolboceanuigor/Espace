@@ -68,6 +68,10 @@ Ce trebuie să aibă fiecare modul ca aplicația să fie completă și funcțion
 | Arhivarea unei unități (ascunsă, istoricul rămâne) | ✅ | Butonul „În arhivă” mută obiectul în `cfg.archived` (dispare din calendar). Secțiunea «Архив» + «Вернуть». Rezervările vechi rămân. |
 | Etichete și grupuri de unități (zonă, proprietar, tip) | ✅ | Calendar: filtru pe clădire/zonă, tip, proprietar (Meniu → Obiecte). Rapoarte: aceleași filtre deasupra perioadei. Grup = «Здание или отель» pe obiect. |
 | Descriere RO/RU/EN + „cum ajungi” + hartă | ✅ | În Setări → obiect: descriere + cum ajungi pe limbi; pe `book.html` și în ghid (secțiunea «Cum intrați» + hartă din adresă/coordonate). |
+| Clădirea / proprietatea cu câmpuri comune (adresă, Wi-Fi, cod intrare) | ✅ | `cfg.bld[group]`; se copiază în obiecte doar unde câmpul e gol sau egal cu vechea valoare. Codul de la intrare (`gate`) — la menajeră și în ghid în timpul șederii.
+| Camere de hotel pe tip (o singură carte „Dublă — mai sunt 3”) | ✅ | `book.html` grupează `room`/`bed` cu același `group|rtype`; rezervarea ia prima cameră liberă.
+| Calendar grupat: „Свободно” pe clădire și pe tip, se strâng | ✅ | `renderCal` → `freeRow`, `calFold` (localStorage `kv_calfold`).
+| Hostel: cameră cu N paturi, vândută pe pat | ✅ | Tip `dorm` + `dbeds`, `gender` (mixt / femei / bărbați). `price.js`: `bedsLeft`, ocupat doar când nu mai sunt paturi; preț = pe pat × persoane. Server: busy `[data, nopți, pax]`. Calendar: rândul „Койки 5/8” deasupra camerei, rezervările pe benzi. Abonament: pe cameră.
 
 ## 4. Calendarul
 

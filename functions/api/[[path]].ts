@@ -636,15 +636,15 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       return json({ data: ph?.data || "" });
     }
     const t = today(), till = addDays(t, 400), rules = await dayRules(db, org.id, addDays(t, -1), addDays(till, 60));
-    const taken = await all(db, "SELECT apt, date, nights FROM bookings WHERE org_id = ? AND nights > 0 AND tag NOT IN ('closed','cancel') AND date < ? AND date >= ?", org.id, till, addDays(t, -60));
+    const taken = await all(db, "SELECT apt, date, nights, pax FROM bookings WHERE org_id = ? AND nights > 0 AND tag NOT IN ('closed','cancel') AND date < ? AND date >= ?", org.id, till, addDays(t, -60));
     const busy = (apt: string, from: string, nights: number) => taken.some((b: any) => b.apt === apt && b.date < addDays(from, nights) && addDays(b.date, b.nights) > from);
     if (fn === "pub_listing") {
       const discN = await one(db, "SELECT COUNT(*) AS n FROM discount_codes WHERE org_id = ? AND active = 1", org.id).catch(() => ({ n: 0 }));
-      const PUB = ["kind", "group", "area", "bedrooms", "baths", "floor", "beds", "guests", "price", "pcur", "cin", "cout", "amen", "rtype", "minn", "cfee", "dep", "layout", "dow", "xg", "xgFrom", "xc", "los", "bufB", "bufA", "arr", "lead", "ahead", "maxn", "desc", "how", "map"];
+      const PUB = ["kind", "group", "area", "bedrooms", "baths", "floor", "beds", "guests", "price", "pcur", "cin", "cout", "amen", "rtype", "minn", "cfee", "dep", "layout", "dow", "xg", "xgFrom", "xc", "los", "bufB", "bufA", "arr", "lead", "ahead", "dbeds", "gender", "maxn", "desc", "how", "map"];
       return json({
         name: org.name, slug: org.code, min: Math.max(1, +dir.min || 1), pricing: { weekend: +(cfg.pricing?.weekend) || 0, seasons: (cfg.pricing?.seasons || []).map((x: any) => ({ from: x.from, to: x.to, pct: +x.pct || 0, min: +x.min || 0 })) }, phone: dir.phone || "", email: dir.email || "", terms: dir.terms || "", intro: dir.intro || "",
         units: units.map((a: string) => { const u = (cfg.units || {})[a] || {}, o: any = { name: a, addr: dir.addr === false ? "" : ((cfg.addr || {})[a] || "").split(",")[0] }; for (const k of PUB) if (u[k] != null && u[k] !== "") o[k] = u[k];
-          o.busy = taken.filter((b: any) => b.apt === a && addDays(b.date, b.nights) > t).map((b: any) => [b.date, b.nights]); o.rules = rules[a] || {}; return o; }),
+          o.busy = taken.filter((b: any) => b.apt === a && addDays(b.date, b.nights) > t).map((b: any) => [b.date, b.nights, b.pax]); o.rules = rules[a] || {}; return o; }),
         today: t, discounts: !!(discN && discN.n > 0), pay: guestMaibPublic(cfg),
       });
     }
@@ -668,7 +668,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     const u = (cfg.units || {})[apt] || {}, cap = +u.guests || 0;
     if (!date || date < t || !(nights > 0) || nights > 90) return json({ message: "bad_dates" }, 400);
     if (!name || (!phone && !isEmail(email)) || (email && !isEmail(email))) return json({ message: "need_contact" }, 400);
-    const busyList = taken.filter((b: any) => b.apt === apt).map((b: any) => [b.date, b.nights]);
+    const busyList = taken.filter((b: any) => b.apt === apt).map((b: any) => [b.date, b.nights, b.pax]);
     const ck = EsPrice.check(u, date, nights, { P: cfg.pricing, R: rules[apt] || {}, dirMin: +dir.min || 1, today: t, busy: busyList, pax, kids });
     if (!ck.ok) return ck.why === "taken" ? json({ message: "taken" }, 409) : ck.why === "guests" ? json({ message: "too_many_guests", cap }, 400) : json({ message: "bad_dates", why: ck.why, min: ck.min }, 400);
     const q = EsPrice.quote(u, date, nights, { P: cfg.pricing, R: rules[apt] || {}, pax, kids });
@@ -710,7 +710,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     if (want) units = units.filter((a: string) => a === want);
     if (!units.length && want && (cfg.apts || []).includes(want)) units = [want];
     const t = today(), till = addDays(t, 90);
-    const taken = await all(db, "SELECT apt, date, nights FROM bookings WHERE org_id = ? AND nights > 0 AND date < ? AND date >= ?", org.id, till, addDays(t, -60));
+    const taken = await all(db, "SELECT apt, date, nights, pax FROM bookings WHERE org_id = ? AND nights > 0 AND date < ? AND date >= ?", org.id, till, addDays(t, -60));
     const bookUrl = `https://${org.code}.espace.md/rezerva`;
     return json({
       name: org.name, slug: org.code, today: t, days: 42, book: bookUrl, direct: !!dir.on,
@@ -719,7 +719,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
         return {
           name: a, price: +u.price || 0, pcur: ["EUR", "MDL", "USD"].includes(u.pcur) ? u.pcur : "EUR",
           guests: +u.guests || 0, kind: u.kind || "",
-          busy: taken.filter((b: any) => b.apt === a && addDays(b.date, b.nights) > t).map((b: any) => [b.date, b.nights]),
+          busy: taken.filter((b: any) => b.apt === a && addDays(b.date, b.nights) > t).map((b: any) => [b.date, b.nights, b.pax]),
         };
       }),
     });
@@ -738,7 +738,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     apts = apts.filter((a: any) => typeof a === "string" && (cfg.apts || []).includes(a));
     const t = today(), date = of.date, nights = +of.nights || 0;
     const rules = await dayRules(db, of.org_id, addDays(date, -1), addDays(date, nights + 60));
-    const taken = await all(db, "SELECT apt, date, nights FROM bookings WHERE org_id = ? AND nights > 0 AND date < ? AND date >= ?", of.org_id, addDays(date, nights + 1), addDays(date, -60));
+    const taken = await all(db, "SELECT apt, date, nights, pax FROM bookings WHERE org_id = ? AND nights > 0 AND date < ? AND date >= ?", of.org_id, addDays(date, nights + 1), addDays(date, -60));
     if (fn === "pub_offer_photo") {
       const apt = str(body.apt, 100); if (!apts.includes(apt)) return json({ message: "not_found" }, 404);
       const ph = await one(db, "SELECT data FROM apt_photos WHERE org_id = ? AND apt = ?", of.org_id, apt);
@@ -746,7 +746,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     }
     if (fn === "pub_offer") {
       await run(db, "UPDATE offers SET views = views + 1 WHERE token = ?", tok).catch(() => {});
-      const PUB = ["kind", "group", "area", "bedrooms", "baths", "floor", "beds", "guests", "price", "pcur", "cin", "cout", "amen", "rtype", "minn", "cfee", "dep", "layout", "dow", "xg", "xgFrom", "xc", "los", "bufB", "bufA", "arr", "lead", "ahead", "maxn"];
+      const PUB = ["kind", "group", "area", "bedrooms", "baths", "floor", "beds", "guests", "price", "pcur", "cin", "cout", "amen", "rtype", "minn", "cfee", "dep", "layout", "dow", "xg", "xgFrom", "xc", "los", "bufB", "bufA", "arr", "lead", "ahead", "dbeds", "gender", "maxn"];
       return json({
         name: of.org_name, slug: of.code, token: tok, date, nights, note: of.note || "",
         phone: dir.phone || "", email: dir.email || "", terms: dir.terms || "",
@@ -755,7 +755,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
         units: apts.map((a: string) => {
           const u = (cfg.units || {})[a] || {}, o: any = { name: a };
           for (const k of PUB) if (u[k] != null && u[k] !== "") o[k] = u[k];
-          const busyList = taken.filter((b: any) => b.apt === a).map((b: any) => [b.date, b.nights]);
+          const busyList = taken.filter((b: any) => b.apt === a).map((b: any) => [b.date, b.nights, b.pax]);
           o.busy = busyList; o.rules = rules[a] || {};
           const ck = EsPrice.check(u, date, nights, { P: cfg.pricing, R: rules[a] || {}, dirMin: +dir.min || 1, today: t, busy: busyList, pax: 2, kids: 0 });
           o.ok = !!ck.ok; o.why = ck.ok ? "" : (ck.why || "taken");
@@ -772,7 +772,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     if (!apts.includes(apt)) return json({ message: "bad_unit" }, 400);
     if (!name || (!phone && !isEmail(email)) || (email && !isEmail(email))) return json({ message: "need_contact" }, 400);
     const u = (cfg.units || {})[apt] || {}, cap = +u.guests || 0;
-    const busyList = taken.filter((b: any) => b.apt === apt).map((b: any) => [b.date, b.nights]);
+    const busyList = taken.filter((b: any) => b.apt === apt).map((b: any) => [b.date, b.nights, b.pax]);
     const ck = EsPrice.check(u, date, nights, { P: cfg.pricing, R: rules[apt] || {}, dirMin: +dir.min || 1, today: t, busy: busyList, pax, kids });
     if (!ck.ok) return ck.why === "taken" ? json({ message: "taken" }, 409) : ck.why === "guests" ? json({ message: "too_many_guests", cap }, 400) : json({ message: "bad_dates", why: ck.why, min: ck.min }, 400);
     const q = EsPrice.quote(u, date, nights, { P: cfg.pricing, R: rules[apt] || {}, pax, kids });
@@ -1796,7 +1796,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       });
       if (added.length) { cfg.apts = apts; await run(db, "INSERT INTO app_config(org_id,data) VALUES (?,?) ON CONFLICT (org_id) DO UPDATE SET data = excluded.data", O, JSON.stringify(cfg)); }
       // the same stay (unit, date, nights) already in the calendar is skipped, so importing the same file twice is harmless
-      const have = new Set((await all(db, "SELECT apt, date, nights FROM bookings WHERE org_id = ?", O)).map((b: any) => `${b.apt}|${b.date}|${b.nights}`));
+      const have = new Set((await all(db, "SELECT apt, date, nights, pax FROM bookings WHERE org_id = ?", O)).map((b: any) => `${b.apt}|${b.date}|${b.nights}`));
       const closed = new Set((await all(db, "SELECT ym FROM month_close WHERE org_id = ?", O)).map((r: any) => r.ym));
       let created = 0, dup = 0, inClosed = 0; const now = nowIso(), stmts: D1PreparedStatement[] = [];
       for (const b of ok) {
@@ -2488,12 +2488,12 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       if (!apts.length) return json({ message: "need_units" }, 400);
       if (apts.length > 30) return json({ message: "too_many" }, 400);
       const till = addDays(date, nights + 1);
-      const taken = await all(db, "SELECT apt, date, nights FROM bookings WHERE org_id = ? AND nights > 0 AND date < ? AND date >= ?", O, till, addDays(date, -60));
+      const taken = await all(db, "SELECT apt, date, nights, pax FROM bookings WHERE org_id = ? AND nights > 0 AND date < ? AND date >= ?", O, till, addDays(date, -60));
       const rules = await dayRules(db, O, addDays(date, -1), addDays(date, nights + 30));
       const dir = (cfg.direct || {}), free: string[] = [];
       for (const a of apts) {
         const u = (cfg.units || {})[a] || {};
-        const busyList = taken.filter((b: any) => b.apt === a).map((b: any) => [b.date, b.nights]);
+        const busyList = taken.filter((b: any) => b.apt === a).map((b: any) => [b.date, b.nights, b.pax]);
         const ck = EsPrice.check(u, date, nights, { P: cfg.pricing, R: rules[a] || {}, dirMin: +dir.min || 1, today: today(), busy: busyList, pax: 2, kids: 0 });
         if (ck.ok) free.push(a);
       }

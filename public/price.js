@@ -46,6 +46,16 @@
       if (din < add(bout, g) && add(dout, g) > bin) return false; }
     return true;
   }
+  /* hostel dorm: kind "dorm", dbeds beds, sold by the bed. busy entries are then [date, nights, beds]. */
+  function isDorm(u) { return !!(u && u.kind === "dorm" && +u.dbeds > 0); }
+  // fewest free beds over the nights din … din+n−1
+  function bedsLeft(u, busy, din, n) {
+    var cap = Math.round(+(u && u.dbeds) || 0), least = cap;
+    for (var i = 0; i < Math.max(1, n); i++) { var d = add(din, i), used = 0;
+      for (var j = 0; j < (busy || []).length; j++) { var b = busy[j]; if (d >= b[0] && d < add(b[0], b[1])) used += Math.max(1, Math.round(+b[2] || 1)); }
+      least = Math.min(least, cap - used); }
+    return Math.max(0, least);
+  }
   /* can a stay din + n nights be taken? o = { P, R, dirMin, today, busy, pax, kids }
      why: closed | no_arrival | no_departure | arrival_day | lead | ahead | min | max | taken | guests */
   function check(u, din, n, o) {
@@ -61,6 +71,10 @@
     if (n < min) return { ok: false, why: "min", min: min };
     if (+(u && u.maxn) > 0 && n > +u.maxn) return { ok: false, why: "max", min: min, max: +u.maxn };
     var cap = +(u && u.guests) || 0, people = (+o.pax || 0) + (+o.kids || 0);
+    if (isDorm(u)) { var need = Math.max(1, people), beds = Math.round(+u.dbeds);
+      if (need > beds) return { ok: false, why: "guests", min: min, cap: beds };
+      if (o.busy) { var left = bedsLeft(u, o.busy, din, n); if (left < need) return { ok: false, why: "taken", min: min, left: left }; }
+      return { ok: true, min: min }; }
     if (cap && people > cap) return { ok: false, why: "guests", min: min, cap: cap };
     if (o.busy && !free(o.busy, din, n, gap(u))) return { ok: false, why: "taken", min: min };
     return { ok: true, min: min };
@@ -69,8 +83,12 @@
   function quote(u, din, n, o) {
     o = o || {}; var nights = [], base = 0;
     for (var i = 0; i < n; i++) { var d = add(din, i), p = night(u, d, o.P, o.R); nights.push({ d: d, p: p }); base += p; }
-    base = r2(base);
     var pax = Math.max(0, Math.round(+o.pax || 0)), kids = Math.max(0, Math.round(+o.kids || 0));
+    // a dorm: the night price is per bed, one bed per person
+    var bedsN = isDorm(u) ? Math.max(1, pax + kids) : 1;
+    if (bedsN > 1) { base *= bedsN; for (var q = 0; q < nights.length; q++) nights[q].p = r2(nights[q].p * bedsN); }
+    base = r2(base);
+    if (isDorm(u)) { pax = 0; kids = 0; }
     var incl = Math.round(numOr(u && u.xgFrom, 0)), xgN = +(u && u.xg) > 0 && incl > 0 ? Math.max(0, pax - incl) : 0;
     var xg = r2(xgN * (+(u && u.xg) || 0) * n), xc = r2(kids * (+(u && u.xc) || 0) * n);
     var sub = r2(base + xg + xc), losPct = 0;
@@ -79,9 +97,9 @@
     var los = r2(sub * losPct / 100), cfee = n > 0 && +(u && u.cfee) > 0 ? r2(+u.cfee) : 0;
     var total = r2(sub - los + cfee);
     var flat = n > 0 && nights.every(function (x) { return x.p === nights[0].p; });
-    return { nights: nights, base: base, avg: n ? r2(base / n) : 0, flat: flat, xgN: xgN, xg: xg, kids: kids, xc: xc, sub: sub, losPct: losPct, los: los, cfee: cfee, total: total };
+    return { beds: bedsN, nights: nights, base: base, avg: n ? r2(base / n) : 0, flat: flat, xgN: xgN, xg: xg, kids: kids, xc: xc, sub: sub, losPct: losPct, los: los, cfee: cfee, total: total };
   }
   // the old simple form, for places that only know a base price
   function stay(base, d, n, P) { var t = 0; for (var i = 0; i < n; i++) t += night({ price: base }, add(d, i), P); return r2(t); }
-  return { seasonOf: seasonOf, night: night, minStay: minStay, gap: gap, free: free, check: check, quote: quote, stay: stay, add: add };
+  return { seasonOf: seasonOf, night: night, minStay: minStay, gap: gap, free: free, isDorm: isDorm, bedsLeft: bedsLeft, check: check, quote: quote, stay: stay, add: add };
 });
