@@ -2311,6 +2311,12 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
         db.prepare("UPDATE apt_photos SET apt = ? WHERE org_id = ? AND apt = ?").bind(to, O, from),
         db.prepare("UPDATE guides SET apt = ? WHERE org_id = ? AND apt = ?").bind(to, O, from),
         db.prepare("UPDATE guide_media SET apt = ? WHERE org_id = ? AND apt = ?").bind(to, O, from),
+        // prices and rules per day, to-dos, guest service orders, supplies, housekeeping state follow the new name too
+        db.prepare("UPDATE day_rates SET apt = ? WHERE org_id = ? AND apt = ?").bind(to, O, from),
+        db.prepare("UPDATE todos SET apt = ? WHERE org_id = ? AND apt = ?").bind(to, O, from),
+        db.prepare("UPDATE svc_orders SET apt = ? WHERE org_id = ? AND apt = ?").bind(to, O, from),
+        db.prepare("UPDATE supply_need SET apt = ? WHERE org_id = ? AND apt = ?").bind(to, O, from),
+        db.prepare("UPDATE room_state SET apt = ? WHERE org_id = ? AND apt = ?").bind(to, O, from),
       ]);
       return json(null);
     }
