@@ -370,7 +370,8 @@ async function cleanerView(db: D1Database, O: string, me: any, td: string) {
   for (const a of mine) { const u = (cfg.units || {})[a] || {}, o: any = {}; for (const k of ["wifi", "wpass", "door", "gate", "park", "cmin"]) if (u[k]) o[k] = u[k]; if (Object.keys(o).length) access[a] = o; }
   const SUP_DEF = ["Туалетная бумага", "Мыло / гель", "Шампунь", "Мешки для мусора", "Кофе / чай", "Средство для посуды", "Губки", "Бумага для кухни"];
   const supplySrc = Array.isArray(cfg.supplies) && cfg.supplies.length ? cfg.supplies : SUP_DEF.map((name, i) => ({ id: "p" + i, name }));
-  const supplies = supplySrc.filter((x: any) => x && x.name).map((x: any) => ({ id: str(x.id, 40), name: str(x.name, 80) }));
+  const isDef = !(Array.isArray(cfg.supplies) && cfg.supplies.length); // the built-in list: the app shows it in the cleaner's language
+  const supplies = supplySrc.filter((x: any) => x && x.name).map((x: any, i: number) => ({ id: str(x.id, 40), name: str(x.name, 80), ...(isDef ? { def: i } : {}) }));
   const supplyNeed = role === "fix" ? [] : await all(db, "SELECT id, apt, item, status FROM supply_need WHERE org_id = ? AND status = 'need' ORDER BY created_at DESC LIMIT 80", O);
   return { me: { id: me.id, name: me.name, role }, cleanPhoto: !!cfg.cleanPhoto, apts: cfg.apts || [], addr, beds, access, days: role === "fix" ? days.map((d: any) => ({ ...d, items: [] })) : days, repairs, notifs, supplies, supplyNeed };
 }
