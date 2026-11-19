@@ -2739,7 +2739,13 @@ document.addEventListener("click",e=>{if(e.target.id!=="ci-save")return;
   const retain=Math.max(0,Math.min(60,parseInt(($("ci-retain")||{}).value,10)||12));
   saveCfg({...cfg,checkin:{fields,retain_months:retain}},"Заселение сохранено")});
 
-async function kMake(bid,send){try{return await api("kv_contract",{booking_id:bid,send})}catch(e){toast(e.code==="no_email"?"У брони нет email гостя":"Не получилось");return null}}
+async function kMake(bid,send){const kc=cfg.contract||{};
+  // a contract without the company's details reads "address —, phone —": say so before sending it to a guest
+  if(!kc.idno||!kc.addr||!kc.phone){const miss=[!kc.idno&&"IDNO",!kc.addr&&"Адрес",!kc.phone&&"Телефон"].filter(Boolean).join(", ");
+    const go=await new Promise(res=>{askDel("Данные компании не заполнены",esc(miss)+"<br>"+esc("В договоре на их месте будут прочерки."),()=>res(true),"Всё равно создать",{label:"Заполнить",fn:()=>{res(false);closeSheet();settingsPage("contract")}});
+      const w=[...document.querySelectorAll(".delask")].pop();if(w)w.addEventListener("click",e=>{if(e.target===w||e.target.closest('[data-x="0"]'))res(false)})});
+    if(!go)return null}
+  try{return await api("kv_contract",{booking_id:bid,send})}catch(e){toast(e.code==="no_email"?"У брони нет email гостя":"Не получилось");return null}}
 document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("[data-ksend],[data-kcopy],[data-kwa]");if(!t)return;const d=t.dataset,bid=d.ksend||d.kcopy||d.kwa;
   if(d.kwa){const w=window.open("about:blank","_blank");const r=await kMake(bid,false);const b=bookings.find(x=>x.id===bid)||{};if(!r){if(w)w.close();return}
     const msg=`Bună ziua! Contractul de închiriere nr. ${r.number} pentru ${b.apt}: ${r.url}`;if(w)w.location.href="https://wa.me/"+digits(b.phone)+"?text="+encodeURIComponent(msg);kLoad(bid);return}
