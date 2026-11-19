@@ -271,6 +271,8 @@ const DEFAULT_CHECKLIST = [
   { id: "c11", text: "Фильтр кондиционера", every: 60 },
   { id: "c12", text: "Матрас перевернуть, наматрасник постирать", every: 90 },
 ];
+// a checklist item can be limited to some units (apts: [] or missing = every unit)
+const ckForApt = (c: any, apt: string) => !Array.isArray(c?.apts) || !c.apts.length || c.apts.includes(apt);
 async function cleanerView(db: D1Database, O: string, me: any, td: string) {
   const cfg = (await getConfig(db, O)) || {};
   const checklist = (Array.isArray(cfg.checklist) && cfg.checklist.length ? cfg.checklist : DEFAULT_CHECKLIST);
@@ -284,10 +286,10 @@ async function cleanerView(db: D1Database, O: string, me: any, td: string) {
   const lastRows = await all(db, "SELECT apt, item, MAX(date) AS last FROM checks WHERE org_id = ? GROUP BY apt, item", O);
   const last: Record<string, string> = {}; for (const r of lastRows) last[r.apt + "|" + r.item] = r.last;
   const listFor = (apt: string, d: string) => {
-    const always = checklist.filter((c: any) => !c.every).map((c: any) => ({ id: c.id, text: c.text }));
-    const due = checklist.filter((c: any) => c.every > 0).map((c: any) => {
+    const always = checklist.filter((c: any) => !c.every && ckForApt(c, apt)).map((c: any) => ({ id: c.id, text: c.text, req: !!c.req }));
+    const due = checklist.filter((c: any) => c.every > 0 && ckForApt(c, apt)).map((c: any) => {
       const l = last[apt + "|" + c.id]; const age = l ? dayNum(d) - dayNum(l) : 9999;
-      return { id: c.id, text: c.text, age, over: age - c.every, last: l || null };
+      return { id: c.id, text: c.text, req: !!c.req, age, over: age - c.every, last: l || null };
     }).filter((c: any) => c.over >= 0).sort((a: any, b: any) => b.over - a.over).slice(0, 3);
     return [...always, ...due];
   };
@@ -296,16 +298,16 @@ async function cleanerView(db: D1Database, O: string, me: any, td: string) {
   const jit = (k: string) => { let h = 0; for (const ch of k) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return (h % 1000) / 10000; };
   const deepPlan = (apts: string[], d: string) => {
     const cand: any[] = [];
-    for (const a of new Set(apts)) for (const c of checklist) if (c.every > 0) {
+    for (const a of new Set(apts)) for (const c of checklist) if (c.every > 0 && ckForApt(c, a)) {
       const l = last[a + "|" + c.id]; const age = l ? dayNum(d) - dayNum(l) : null; const ratio = (age == null ? 3 : age / c.every) + jit(a + c.id + d);
-      if (ratio >= 0.6) cand.push({ a, id: c.id, text: c.text, age: age ?? 9999, last: l || null, ratio });
+      if (ratio >= 0.6) cand.push({ a, id: c.id, text: c.text, req: !!c.req, age: age ?? 9999, last: l || null, ratio });
     }
     cand.sort((x, y) => y.ratio - x.ratio || y.age - x.age);
     const out: Record<string, any[]> = {}, per: Record<string, number> = {}; let k = 0;
-    for (const x of cand) { if (k >= deepN) break; if ((per[x.a] || 0) >= 2) continue; (out[x.a] ||= []).push({ id: x.id, text: x.text, age: x.age, last: x.last }); per[x.a] = (per[x.a] || 0) + 1; k++; }
+    for (const x of cand) { if (k >= deepN) break; if ((per[x.a] || 0) >= 2) continue; (out[x.a] ||= []).push({ id: x.id, text: x.text, req: x.req, age: x.age, last: x.last }); per[x.a] = (per[x.a] || 0) + 1; k++; }
     return out;
   };
-  const always = checklist.filter((c: any) => !c.every).map((c: any) => ({ id: c.id, text: c.text }));
+  const alwaysFor = (apt: string) => checklist.filter((c: any) => !c.every && ckForApt(c, apt)).map((c: any) => ({ id: c.id, text: c.text, req: !!c.req }));
   const days: any[] = [];
   for (let d = from; d <= to; d = addDays(d, 1)) {
     const items: any[] = [];
@@ -322,7 +324,7 @@ async function cleanerView(db: D1Database, O: string, me: any, td: string) {
         cin_time: (bk && bk.cin_time) || (same && same.cin_time) || "",
         guest: (bk && bk.guest) || (same && same.guest) || "",
         checkin_today: !!sameDay,
-        checklist: full ? listFor(t.apt, d).concat(checklist.filter((c: any) => c.every > 0).map((c: any) => ({ id: c.id, text: c.text }))).filter((c: any, i: number, a: any[]) => a.findIndex((x: any) => x.id === c.id) === i) : [...always, ...(plan[t.apt] || [])] });
+        checklist: full ? listFor(t.apt, d).concat(checklist.filter((c: any) => c.every > 0 && ckForApt(c, t.apt)).map((c: any) => ({ id: c.id, text: c.text, req: !!c.req }))).filter((c: any, i: number, a: any[]) => a.findIndex((x: any) => x.id === c.id) === i) : [...alwaysFor(t.apt), ...(plan[t.apt] || [])] });
     }
     items.sort((a, b) => (a.time || "99").localeCompare(b.time || "99") || (cfg.apts || []).indexOf(a.apt) - (cfg.apts || []).indexOf(b.apt));
     days.push({ date: d, on_duty: isDutyC(me, d, cfg, staffIdsAll), items });
@@ -342,7 +344,7 @@ async function cleanerView(db: D1Database, O: string, me: any, td: string) {
   const supplySrc = Array.isArray(cfg.supplies) && cfg.supplies.length ? cfg.supplies : SUP_DEF.map((name, i) => ({ id: "p" + i, name }));
   const supplies = supplySrc.filter((x: any) => x && x.name).map((x: any) => ({ id: str(x.id, 40), name: str(x.name, 80) }));
   const supplyNeed = role === "fix" ? [] : await all(db, "SELECT id, apt, item, status FROM supply_need WHERE org_id = ? AND status = 'need' ORDER BY created_at DESC LIMIT 80", O);
-  return { me: { id: me.id, name: me.name, role }, apts: cfg.apts || [], addr, beds, access, days: role === "fix" ? days.map((d: any) => ({ ...d, items: [] })) : days, repairs, notifs, supplies, supplyNeed };
+  return { me: { id: me.id, name: me.name, role }, cleanPhoto: !!cfg.cleanPhoto, apts: cfg.apts || [], addr, beds, access, days: role === "fix" ? days.map((d: any) => ({ ...d, items: [] })) : days, repairs, notifs, supplies, supplyNeed };
 }
 
 // a paid repair leaves money traces: an expense (id = task id) and, if paid from the till,
@@ -1057,6 +1059,17 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     if (fn === "cl_load") return json(await cleanerView(db, O, me, td));
     if (fn === "cl_done") {
       const done = body.done !== false, t = nowIso();
+      const photo = typeof body.photo === "string" ? body.photo : "";
+      if (photo && (!/^data:image\/(jpeg|png|webp);base64,/.test(photo) || photo.length > 600000)) return json({ message: "bad_photo" }, 400);
+      if (done) { // required checklist items (every cleaning) and the final photo, if the company asks for them
+        const cfg = (await getConfig(db, O)) || {}, apt = str(body.apt, 100);
+        const ex = isUuid(body.task_id) ? await one(db, "SELECT apt, photo != '' AS has_photo FROM tasks WHERE org_id = ? AND id = ?", O, body.task_id) : null;
+        const unitApt = ex?.apt || apt, got = new Set((Array.isArray(body.checks) ? body.checks : []).map((x: any) => String(x)));
+        const list = Array.isArray(cfg.checklist) && cfg.checklist.length ? cfg.checklist : DEFAULT_CHECKLIST;
+        const miss = list.filter((c: any) => c.req && !c.every && ckForApt(c, unitApt) && !got.has(String(c.id))).map((c: any) => c.id);
+        if (miss.length) return json({ message: "need_checks", miss }, 400);
+        if (cfg.cleanPhoto && !photo && !ex?.has_photo) return json({ message: "need_photo" }, 400);
+      }
       let id = isUuid(body.task_id) && (await one(db, "SELECT id FROM tasks WHERE org_id = ? AND id = ?", O, body.task_id)) ? body.task_id : null;
       if (!id && isUuid(body.booking_id)) { const ex = await one(db, "SELECT id FROM tasks WHERE org_id = ? AND kind = 'clean' AND booking_id = ? AND date = ?", O, body.booking_id, str(body.date, 10)); id = ex?.id || null; }
       if (id) await run(db, "UPDATE tasks SET status = ?, staff_id = ?, done_at = ?, updated_at = ? WHERE org_id = ? AND id = ?", done ? "done" : "todo", me.id, done ? t : null, t, O, id);
@@ -1066,6 +1079,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
         id = uuid();
         await run(db, "INSERT INTO tasks(id,org_id,kind,date,apt,staff_id,status,booking_id,done_at,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)", id, O, "clean", body.date, str(body.apt, 100), me.id, done ? "done" : "todo", body.booking_id, done ? t : null, t, t);
       }
+      if (done && photo) await run(db, "UPDATE tasks SET photo = ? WHERE org_id = ? AND id = ?", photo, O, id);
       const task = await one(db, "SELECT apt, date FROM tasks WHERE org_id = ? AND id = ?", O, id);
       if (done && task && Array.isArray(body.checks)) for (const c of body.checks.slice(0, 30))
         await run(db, "INSERT OR IGNORE INTO checks(org_id,apt,item,date,staff_id) VALUES (?,?,?,?,?)", O, task.apt, str(c, 20), task.date, me.id);
@@ -2365,6 +2379,17 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       await repairUnlink(db, O, await one(db, "SELECT id, kind, apt, note, cost FROM tasks WHERE org_id = ? AND id = ?", O, body.p_id));
       await run(db, "DELETE FROM tasks WHERE org_id = ? AND id = ?", O, body.p_id);
       return json(null);
+    }
+    case "kv_clean_info": { // what the maid ticked on one cleaning, against the list for that unit, and whether there is a photo
+      if (!isUuid(body.id)) return json({ message: "bad_id" }, 400);
+      const tk = await one(db, "SELECT id, apt, date, kind, status, staff_id, done_at, photo != '' AS has_photo FROM tasks WHERE org_id = ? AND id = ?", O, body.id);
+      if (!tk) return json({ message: "not_found" }, 404);
+      { const d = denyApt(tk.apt); if (d) return d; }
+      const cfg = (await getConfig(db, O)) || {};
+      const list = (Array.isArray(cfg.checklist) && cfg.checklist.length ? cfg.checklist : DEFAULT_CHECKLIST).filter((c: any) => ckForApt(c, tk.apt));
+      const got = new Set((await all(db, "SELECT item FROM checks WHERE org_id = ? AND apt = ? AND date = ?", O, tk.apt, tk.date)).map((r: any) => String(r.item)));
+      const items = list.filter((c: any) => !c.every || got.has(String(c.id))).map((c: any) => ({ id: c.id, text: c.text, req: !!c.req, ok: got.has(String(c.id)) }));
+      return json({ apt: tk.apt, date: tk.date, status: tk.status, done_at: tk.done_at, has_photo: !!tk.has_photo, items });
     }
     case "kv_task_photo": {
       if (!isUuid(body.p_id)) return json({ message: "bad_id" }, 400);

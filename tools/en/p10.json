@@ -314,5 +314,16 @@
 "Контакт": "Contact",
 "Код двери гость увидит только с дня заезда до дня выезда.": "The guest sees the door code only from arrival day to departure day.",
 "Сначала заполни гид для этого объекта": "Fill in the guide for this unit first",
-"Ссылка на гид для гостя": "Guide link for the guest"
+"Ссылка на гид для гостя": "Guide link for the guest",
+"Обязательные пункты горничная должна отметить, иначе не сможет нажать «Убрано». Если не выбрать объекты — пункт для всех. 0 дней — проверять при каждой уборке. 30 — раз в месяц: пункт появится у горничные, когда в этой квартире его давно не отмечали.": "Required items must be ticked by the maid, otherwise she cannot tap Cleaned. If no units are chosen, the item applies to all. 0 days means check at every cleaning. 30 means once a month: the item shows up for the maid when it has not been ticked in this apartment for a while.",
+"Фото после уборки — обязательно": "Photo after cleaning — required",
+"Фото после уборки обязательно": "Photo after cleaning required",
+"Не получилось загрузить фото": "Could not upload the photo",
+"Отметь обязательные пункты": "Tick the required items",
+"Добавь фото после уборки": "Add a photo after cleaning",
+"фото добавлено": "photo added",
+"Фото добавлено": "Photo added",
+"Чек-лист пуст": "Checklist is empty",
+"Ещё не убрано": "Not cleaned yet",
+"Фото нет": "No photo"
 }

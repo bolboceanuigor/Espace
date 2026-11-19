@@ -9,7 +9,7 @@ export const READ_FNS = [
   "kv_owner_reports", "kv_owner_payouts", "kv_audit", "kv_contract_get", "kv_contract_preview",
   "bk_file_list", "bk_file_get", "kv_msg_list", "kv_msg_history", "kv_ical_org", "kv_contacts",
   "kv_contact_get", "kv_contacts_export", "kv_checkin_get", "kv_ical_status", "kv_guest_invoice_list",
-  "kv_discount_list", "kv_offer_list", "kv_svc_orders", "kv_supply_list", "kv_pay_list",
+  "kv_discount_list", "kv_clean_info", "kv_offer_list", "kv_svc_orders", "kv_supply_list", "kv_pay_list",
 ];
 export const CHECKER_FNS = ["kv_verify", "kv_month_close", "kv_month_open"];
 

@@ -137,7 +137,7 @@ Ce trebuie să aibă fiecare modul ca aplicația să fie completă și funcțion
 | Menajere cu PIN, curățenii generate din plecări, poze, gata cu sumă | ✅ | |
 | Ture (пересменки), salarii, plăți către menajere | ✅ | |
 | Meșteri: lista de reparații, cheltuiala intră automat | ✅ | |
-| Lista de verificare (checklist) a curățeniei pe unitate | 🟡 | Bife obligatorii înainte de „Gata”, plus poza finală. |
+| Lista de verificare (checklist) a curățeniei pe unitate | ✅ | Pe fiecare punct: „обязательно” și „для объектов” (`cfg.checklist[].req`, `.apts`); setarea „Фото после уборки обязательно” (`cfg.cleanPhoto`). Menajera nu poate apăsa „Убрано” fără punctele ★ și fără poză (verificat și pe server în `cl_done`; poza în `tasks.photo`). Managerul: în rândul curățeniei făcute „📋 Чек-лист · 📷” (`kv_clean_info`). |
 | Consumabile (stocuri pe unitate) | ✅ | Menajera marchează „se termină”, iar managerul primește lista de cumpărat. |
 
 ## 11. Bani: cheltuieli, rapoarte, proprietari

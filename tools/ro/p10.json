@@ -313,5 +313,16 @@
 "Контакт": "Contact",
 "Код двери гость увидит только с дня заезда до дня выезда.": "Oaspetele vede codul ușii doar din ziua sosirii până în ziua plecării.",
 "Сначала заполни гид для этого объекта": "Mai întâi completează ghidul pentru această unitate",
-"Ссылка на гид для гостя": "Link spre ghid pentru oaspete"
+"Ссылка на гид для гостя": "Link spre ghid pentru oaspete",
+"Обязательные пункты горничная должна отметить, иначе не сможет нажать «Убрано». Если не выбрать объекты — пункт для всех. 0 дней — проверять при каждой уборке. 30 — раз в месяц: пункт появится у горничные, когда в этой квартире его давно не отмечали.": "Punctele obligatorii trebuie bifate de menajeră, altfel nu poate apăsa „Curățat”. Dacă nu alegi unități, punctul e pentru toate. 0 zile — se verifică la fiecare curățenie. 30 — o dată pe lună: punctul apare la menajeră când în acest apartament nu a mai fost bifat de mult.",
+"Фото после уборки — обязательно": "Poză după curățenie — obligatoriu",
+"Фото после уборки обязательно": "Poză după curățenie obligatorie",
+"Не получилось загрузить фото": "Nu s-a putut încărca poza",
+"Отметь обязательные пункты": "Bifează punctele obligatorii",
+"Добавь фото после уборки": "Adaugă poza după curățenie",
+"фото добавлено": "poză adăugată",
+"Фото добавлено": "Poză adăugată",
+"Чек-лист пуст": "Lista de verificare e goală",
+"Ещё не убрано": "Încă necurățat",
+"Фото нет": "Fără poză"
 }
