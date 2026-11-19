@@ -11,6 +11,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;700&display=swap" rel="stylesheet">
 <style>
 :root{--stone:#eef0ec;--paper:#ffffff;--ink:#1b2a2f;--muted:#66727a;--line:#dde1dc;--wine:#0d8a7f;--wine-soft:#e7f5f3;--plus:#2f7a4d;--err:#a33a2c;--r:14px}
+.fld.bad input,.fld.bad select,.fld.bad .pick{border-color:var(--err)!important;background:#fdf3f1!important}.fld.bad label{color:var(--err)}
+.pick{display:flex;align-items:center;gap:12px;min-height:52px;padding:8px 14px;border:1.5px dashed var(--line);border-radius:var(--r);background:var(--paper);cursor:pointer;font-weight:600}.pick.on{border-style:solid}.pick img{width:64px;height:48px;object-fit:cover;border-radius:8px}
 *{box-sizing:border-box}html,body{margin:0}
 body{background:var(--stone);color:var(--ink);font:15.5px/1.55 "Golos Text",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
 button,input,select,textarea{font:inherit;color:inherit}
@@ -51,17 +53,17 @@ input,select{height:46px}textarea{padding:10px 13px;min-height:72px;resize:verti
 const T={
  ro:{title:"Check-in online",sub:(a,d)=>`${a} · sosire ${d}`,done:"✓ Check-in trimis. Mulțumim!",gone:"Linkul nu mai e valabil.",
   name:"Numele și prenumele",birth:"Data nașterii",citizenship:"Cetățenia",doc_type:"Tip act",doc_num:"Seria și numărul",doc_issued:"Emis la",doc_expires:"Expiră",
-  address:"Adresa de domiciliu",companions:"Însoțitori (câte un nume pe linie)",doc_photo:"Poza actului",signature:"Semnătura",clear:"Șterge",go:"Trimite check-in",sending:"Se trimite…",
+  address:"Adresa de domiciliu",companions:"Însoțitori (câte un nume pe linie)",doc_photo:"Poza actului",photoPick:"📷 Fotografiază actul",photoChange:"Altă poză",ePhoto:"Poza nu s-a putut citi. Încearcă alta.",signature:"Semnătura",clear:"Șterge",go:"Trimite check-in",sending:"Se trimite…",
   eNeed:"Completați câmpurile obligatorii.",eSig:"Semnați în chenar.",eNet:"Nu s-a trimis. Încercați din nou.",
   types:{"id":"Buletin","passport":"Pașaport","other":"Alt act"}},
  ru:{title:"Онлайн check-in",sub:(a,d)=>`${a} · заезд ${d}`,done:"✓ Check-in отправлен. Спасибо!",gone:"Ссылка больше не действует.",
   name:"Имя и фамилия",birth:"Дата рождения",citizenship:"Гражданство",doc_type:"Тип документа",doc_num:"Серия и номер",doc_issued:"Выдан",doc_expires:"Действует до",
-  address:"Адрес проживания",companions:"Спутники (по одному имени в строке)",doc_photo:"Фото документа",signature:"Подпись",clear:"Стереть",go:"Отправить check-in",sending:"Отправляю…",
+  address:"Адрес проживания",companions:"Спутники (по одному имени в строке)",doc_photo:"Фото документа",photoPick:"📷 Сфотографировать документ",photoChange:"Другое фото",ePhoto:"Фото не читается. Попробуйте другое.",signature:"Подпись",clear:"Стереть",go:"Отправить check-in",sending:"Отправляю…",
   eNeed:"Заполните обязательные поля.",eSig:"Подпишите в рамке.",eNet:"Не отправилось. Попробуйте ещё раз.",
   types:{"id":"Удостоверение","passport":"Паспорт","other":"Другой"}},
  en:{title:"Online check-in",sub:(a,d)=>`${a} · arrival ${d}`,done:"✓ Check-in sent. Thank you!",gone:"This link is no longer valid.",
   name:"Full name",birth:"Date of birth",citizenship:"Citizenship",doc_type:"ID type",doc_num:"Series and number",doc_issued:"Issued on",doc_expires:"Expires",
-  address:"Home address",companions:"Companions (one name per line)",doc_photo:"Photo of ID",signature:"Signature",clear:"Clear",go:"Submit check-in",sending:"Sending…",
+  address:"Home address",companions:"Companions (one name per line)",doc_photo:"Photo of ID",photoPick:"📷 Take a photo of the ID",photoChange:"Another photo",ePhoto:"The photo could not be read. Try another one.",signature:"Signature",clear:"Clear",go:"Submit check-in",sending:"Sending…",
   eNeed:"Fill in the required fields.",eSig:"Sign inside the box.",eNet:"Not sent. Try again.",
   types:{"id":"ID card","passport":"Passport","other":"Other"}}};
 const $=id=>document.getElementById(id);
@@ -69,42 +71,54 @@ const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&
 const tok=(location.pathname.match(/\/checkin\/([a-f0-9]{32})/)||[])[1]||new URLSearchParams(location.search).get("t")||"";
 let L=(document.cookie.match(/(?:^|;\s*)es_lang=(ro|ru|en)/)||[])[1]||(navigator.languages||[navigator.language||""]).map(x=>String(x).slice(0,2).toLowerCase()).map(x=>x==="mo"?"ro":x).find(x=>T[x])||"ro";
 let K=null,busy=false,emsg="",photo="",sigURL="",ink=0;
+// what the guest typed survives every re-render (language switch, an error message, "sending…")
+const V={},FIELDS=["name","birth","citizenship","doc_type","doc_num","doc_issued","doc_expires","address","companions"];
+function keep(){for(const f of FIELDS){const el=$("f-"+f);if(el)V[f]=el.value}}
+const val=(f,d)=>esc(V[f]!=null?V[f]:(d||""));
 const dmy=d=>d&&d.length>=10?d.slice(8,10)+"."+d.slice(5,7)+"."+d.slice(0,4):"";
 async function api(fn,body={}){const r=await fetch("/api/"+fn,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:tok,...body})});
   const j=await r.json().catch(()=>({}));if(!r.ok)throw Object.assign(new Error(j.message||"http"),{code:j.message});return j}
 function mode(f){return (K&&K.fields&&K.fields[f])||"hide"}
-function field(f,html){const m=mode(f);if(m==="hide")return "";return `<label for="f-${f}">${esc(T[L][f]||f)}${m==="req"?" *":""}</label>${html}`}
-function render(){document.querySelectorAll(".lang button").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.l===L)));
+let BAD=new Set();
+function field(f,html){const m=mode(f);if(m==="hide")return "";return `<div class="fld${BAD.has(f)?" bad":""}"><label for="f-${f}">${esc(T[L][f]||f)}${m==="req"?" *":""}</label>${html}</div>`}
+function render(){keep();document.querySelectorAll(".lang button").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.l===L)));
   if(!K){$("main").innerHTML=`<div class="msg">${esc(emsg||"…")}</div>`;return}
   if(K.gone||K.status==="purged"){$("main").innerHTML=`<div class="msg">${esc(T[L].gone)}</div>`;return}
   if(K.status==="done"){$("main").innerHTML=`<h1>${esc(T[L].title)}</h1><div class="ok">${esc(T[L].done)}</div><p class="sub">${esc(T[L].sub(K.apt,dmy(K.date)))}</p>`;return}
   const t=T[L];
   $("main").innerHTML=`<h1>${esc(t.title)}</h1><p class="sub">${esc(t.sub(K.apt,dmy(K.date)))}</p><div class="card">
-    ${field("name",`<input id="f-name" type="text" maxlength="120" value="${esc(K.guest||"")}">`)}
-    <div class="g2">${field("birth",`<input id="f-birth" type="date">`)}${field("citizenship",`<input id="f-citizenship" type="text" maxlength="80">`)}</div>
-    <div class="g2">${field("doc_type",`<select id="f-doc_type"><option value="id">${esc(t.types.id)}</option><option value="passport">${esc(t.types.passport)}</option><option value="other">${esc(t.types.other)}</option></select>`)}
-      ${field("doc_num",`<input id="f-doc_num" type="text" maxlength="60">`)}</div>
-    <div class="g2">${field("doc_issued",`<input id="f-doc_issued" type="date">`)}${field("doc_expires",`<input id="f-doc_expires" type="date">`)}</div>
-    ${field("address",`<input id="f-address" type="text" maxlength="300">`)}
-    ${field("companions",`<textarea id="f-companions"></textarea>`)}
-    ${field("doc_photo",`<input id="f-doc_photo" type="file" accept="image/*">`)}
+    ${field("name",`<input id="f-name" type="text" maxlength="120" value="${val("name",K.guest)}" autocomplete="name">`)}
+    <div class="g2">${field("birth",`<input id="f-birth" type="date" value="${val("birth")}">`)}${field("citizenship",`<input id="f-citizenship" type="text" maxlength="80" value="${val("citizenship")}">`)}</div>
+    <div class="g2">${field("doc_type",`<select id="f-doc_type" data-v="${val("doc_type")}"><option value="id">${esc(t.types.id)}</option><option value="passport">${esc(t.types.passport)}</option><option value="other">${esc(t.types.other)}</option></select>`)}
+      ${field("doc_num",`<input id="f-doc_num" type="text" maxlength="60" value="${val("doc_num")}">`)}</div>
+    <div class="g2">${field("doc_issued",`<input id="f-doc_issued" type="date" value="${val("doc_issued")}">`)}${field("doc_expires",`<input id="f-doc_expires" type="date" value="${val("doc_expires")}">`)}</div>
+    ${field("address",`<input id="f-address" type="text" maxlength="300" value="${val("address")}" autocomplete="street-address">`)}
+    ${field("companions",`<textarea id="f-companions">${val("companions")}</textarea>`)}
+    ${field("doc_photo",`<label class="pick${photo?" on":""}">${photo?`<img src="${photo}" alt="">`:""}<span>${esc(photo?t.photoChange:t.photoPick)}</span><input id="f-doc_photo" type="file" accept="image/*" hidden></label>`)}
     ${mode("signature")!=="hide"?`<label>${esc(t.signature)}${mode("signature")==="req"?" *":""}</label><div class="pad"><canvas id="sig"></canvas></div><button type="button" class="clr" id="clr">${esc(t.clear)}</button>`:""}
     <div class="err" id="err">${esc(emsg)}</div>
     <button type="button" class="go" id="go"${busy?" disabled":""}>${esc(busy?t.sending:t.go)}</button>
   </div>`;
   wire()}
-function wire(){const c=$("sig");if(c){const ctx=c.getContext("2d");const fit=()=>{const r=c.getBoundingClientRect(),d=window.devicePixelRatio||1;c.width=r.width*d;c.height=r.height*d;ctx.setTransform(d,0,0,d,0,0);ctx.lineWidth=2.2;ctx.lineCap="round";ctx.strokeStyle="#1b2a2f"};fit();
+function wire(){const dt=$("f-doc_type");if(dt&&dt.dataset.v)dt.value=dt.dataset.v;
+  const c=$("sig");if(c){const ctx=c.getContext("2d");const fit=()=>{const r=c.getBoundingClientRect(),d=window.devicePixelRatio||1;c.width=r.width*d;c.height=r.height*d;ctx.setTransform(d,0,0,d,0,0);ctx.lineWidth=2.2;ctx.lineCap="round";ctx.strokeStyle="#1b2a2f"};fit();
+  if(sigURL){const im=new Image();im.onload=()=>{const r=c.getBoundingClientRect();ctx.drawImage(im,0,0,r.width,r.height)};im.src=sigURL}
   let draw=false,lx=0,ly=0;const pos=e=>{const r=c.getBoundingClientRect(),p=e.touches?e.touches[0]:e;return{x:p.clientX-r.left,y:p.clientY-r.top}};
   const start=e=>{e.preventDefault();draw=true;const p=pos(e);lx=p.x;ly=p.y};const move=e=>{if(!draw)return;e.preventDefault();const p=pos(e);ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(p.x,p.y);ctx.stroke();lx=p.x;ly=p.y;ink++};
   const end=()=>{draw=false;if(ink)sigURL=c.toDataURL("image/png")};
   c.addEventListener("mousedown",start);c.addEventListener("mousemove",move);window.addEventListener("mouseup",end);
   c.addEventListener("touchstart",start,{passive:false});c.addEventListener("touchmove",move,{passive:false});c.addEventListener("touchend",end);
   $("clr").onclick=()=>{fit();ink=0;sigURL=""}}
-  const ph=$("f-doc_photo");if(ph)ph.onchange=async()=>{const f=ph.files&&ph.files[0];if(!f){photo="";return};if(f.size>900000){emsg="max 900 KB";render();return}
-    const rd=new FileReader();rd.onload=()=>{photo=String(rd.result||"");};rd.readAsDataURL(f)};
+  const ph=$("f-doc_photo");if(ph)ph.onchange=async()=>{const f=ph.files&&ph.files[0];if(!f)return;
+    // phone photos are 3–6 MB: shrink to 1600 px JPEG on the phone before sending
+    try{photo=await shrink(f);emsg=""}catch(e){emsg=T[L].ePhoto}render()};
   $("go").onclick=submit}
+function shrink(f){return new Promise((res,rej)=>{const u=URL.createObjectURL(f),im=new Image();im.onload=()=>{const k=Math.min(1,1600/Math.max(im.width,im.height)),c=document.createElement("canvas");c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);
+  c.getContext("2d").drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);let q=.82,d=c.toDataURL("image/jpeg",q);while(d.length>850000&&q>.4){q-=.1;d=c.toDataURL("image/jpeg",q)}res(d)};im.onerror=()=>{URL.revokeObjectURL(u);rej(new Error("img"))};im.src=u})}
 async function submit(){if(busy)return;const t=T[L],body={};emsg="";
-  for(const f of ["name","birth","citizenship","doc_type","doc_num","doc_issued","doc_expires","address","companions"]){if(mode(f)==="hide")continue;body[f]=($( "f-"+f)||{}).value||""}
+  keep();for(const f of FIELDS){if(mode(f)==="hide")continue;body[f]=V[f]||""}
+  BAD=new Set(FIELDS.filter(f=>mode(f)==="req"&&!String(V[f]||"").trim()));if(mode("doc_photo")==="req"&&!photo)BAD.add("doc_photo");
+  if(BAD.size){emsg=t.eNeed;render();const x=document.querySelector(".fld.bad");if(x)x.scrollIntoView({behavior:"smooth",block:"center"});return}
   if(mode("doc_photo")!=="hide")body.doc_photo=photo;
   if(mode("signature")!=="hide"){if(mode("signature")==="req"&&!sigURL){emsg=t.eSig;render();return}body.signature=sigURL}
   busy=true;render();
