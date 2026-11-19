@@ -2290,7 +2290,7 @@ document.addEventListener("click",e=>{const b=e.target.closest("[data-setup]");i
    cfg.apts stays the list of names used everywhere (calendar, bookings, cleanings); archive moves a unit to cfg.archived (restore brings it back). */
 const GENDER={mix:"Mixt",f:"Doar femei",m:"Doar bărbați"};
 const UKIND={apt:"Apartament",studio:"Garsonieră",house:"Casă",villa:"Vilă",room:"Cameră",bed:"Pat în hostel",dorm:"Dormitor hostel (paturi)"};
-const ROOMT={single:["Single",{sgl:1},1],double:["Dublă",{dbl:1},2],twin:["Twin",{sgl:2},2],triple:["Triplă",{dbl:1,sgl:1},3],family:["Familie",{dbl:1,sgl:2},4],suite:["Suită",{dbl:1,sofa:1},4],bed:["Pat în hostel",{bunk:1},1]};
+const ROOMT={single:["Single",{sgl:1},1],double:["Dublă",{dbl:1},2],twin:["Twin",{sgl:2},2],triple:["Triplă",{dbl:1,sgl:1},3],family:["Familie",{dbl:1,sgl:2},4],suite:["Suită",{dbl:1,sofa:1},4],bed:["Pat în hostel",{bunk:1},1],dorm:["Dormitor hostel (paturi)",{bunk:8},8]};
 const BEDT=[["dbl","dublu"],["sgl","single"],["sofa","canapea"],["bunk","supraetajat"]];
 const AMEN=[["wifi","Wi-Fi"],["ac","Aer condiționat"],["heat","Încălzire"],["kitchen","Bucătărie"],["washer","Mașină de spălat"],["dryer","Uscător"],["dish","Mașină de vase"],["tv","Televizor"],["parking","Parcare"],["balcony","Balcon"],["elevator","Lift"],["iron","Fier de călcat"],["hair","Uscător de păr"],["crib","Pătuț pentru copii"],["work","Birou de lucru"],["pets","Se admit animale"],["selfin","Cazare fără gazdă"],["view","Priveliște frumoasă"]];
 const unitOf=a=>(cfg.units||{})[a]||{};
@@ -3212,7 +3212,7 @@ document.addEventListener("click",e=>{const t=e.target.closest("[data-uedit],[da
     if(!hotel){toast("Scrie numele hotelului");return}
     const names=roomNames(hotel,$("uh-start").value,n,cfg.apts);
     const [,beds,guests]=ROOMT[type],units={...(cfg.units||{})};
-    names.forEach(nm=>units[nm]={kind:type==="bed"?"bed":"room",group:hotel,rtype:type,beds:{...beds},guests});
+    names.forEach(nm=>units[nm]=type==="dorm"?{kind:"dorm",group:hotel,dbeds:guests,guests,beds:{bunk:guests}}:{kind:type==="bed"?"bed":"room",group:hotel,rtype:type,beds:{...beds},guests});
     uHotel=false;saveCfg({...cfg,apts:[...cfg.apts,...names],units},"Camere create: "+names.length);return}});
 /* CALENDAR SYNC — per unit: import links from Airbnb/Booking (their reservations appear here every ~15 min)
    and this unit's own link to paste there, so dates taken here are blocked on those sites. */
@@ -3296,9 +3296,9 @@ function wizUnits(){ // what the wizard will create (new names never clash with 
   const base=wizBase(),units={},apts=[],clash=nm=>apts.includes(nm)||base.includes(nm);
   if(W.kinds.includes("apt")||W.kinds.includes("house"))W.units.forEach((u,i)=>{let nm=(u.name||"").trim()||((u.kind==="house"||u.kind==="villa"?"Casă ":"Apartament ")+(i+1));while(clash(nm))nm+=" ·";apts.push(nm);
     const beds={};["dbl","sgl","sofa"].forEach(k=>{if(+u[k]>0)beds[k]=+u[k]});const x={kind:u.kind,beds};if(+u.bedrooms>0)x.bedrooms=+u.bedrooms;if(+u.area>0)x.area=+u.area;if(+u.guests>0)x.guests=+u.guests;units[nm]=x});
-  if(W.kinds.includes("hotel")||W.kinds.includes("hostel")){const h=W.hotel.name.trim()||"Hotel";let start=parseInt(W.hotel.start,10)||1;
+  if(W.kinds.includes("hotel")||W.kinds.includes("hostel")){const h=W.hotel.name.trim()||(W.kinds.includes("hotel")?"Hotel":"Hostel");let start=parseInt(W.hotel.start,10)||1;
     W.hotel.rooms.forEach(r=>{const n=Math.max(0,Math.min(200,parseInt(r.n,10)||0));const names=roomNames(h,start,n,[...base,...apts]);start+=n;const [,beds,g]=ROOMT[r.t];
-      names.forEach(nm=>{apts.push(nm);units[nm]={kind:r.t==="bed"?"bed":"room",group:h,rtype:r.t,beds:{...beds},guests:+r.g||g}})})}
+      names.forEach(nm=>{apts.push(nm);const gg=+r.g||g;units[nm]=r.t==="dorm"?{kind:"dorm",group:h,dbeds:gg,guests:gg,beds:{bunk:gg}}:{kind:r.t==="bed"?"bed":"room",group:h,rtype:r.t,beds:{...beds},guests:gg}})})}
   return {apts,units}}
 function wizPrice(n){const r=W.rate||1;return fmt(Math.round(n*r*100)/100)+" "+plural(Math.round(n*r),"credit","credite","credite")+" pe zi"}
 function wizRender(){let el=$("wiz");if(!W){if(el)el.remove();document.body.classList.remove("wizon");return}
@@ -3315,7 +3315,7 @@ function wizRender(){let el=$("wiz");if(!W){if(el)el.remove();document.body.clas
     if(W.kinds.includes("hotel")||W.kinds.includes("hostel"))body+=`<div class="wsec"><div class="wsh"><b>${W.kinds.includes("hotel")?"Hotel":"Hostel"}</b></div>
       <div class="grid2"><div><label class="l">Nume</label><input type="text" data-wh="name" value="${esc(W.hotel.name)}" placeholder="Hotel Central"></div><div><label class="l">Prima cameră</label><input type="text" inputmode="numeric" data-wh="start" value="${esc(W.hotel.start)}"></div></div>
       <label class="l">Camere pe tipuri</label>
-      ${W.hotel.rooms.map((r,i)=>`<div class="wr"><select data-wr="${i}" data-f="t">${Object.entries(ROOMT).map(([k,[t]])=>`<option value="${k}"${r.t===k?" selected":""}>${t}</option>`).join("")}</select><label><small>Câte</small><input type="text" inputmode="numeric" data-wr="${i}" data-f="n" value="${esc(r.n)}"></label><label><small>Oaspeți</small><input type="text" inputmode="numeric" data-wr="${i}" data-f="g" value="${esc(r.g??"")}" placeholder="${ROOMT[r.t][2]}"></label>${W.hotel.rooms.length>1?`<button type="button" class="iconbtn" data-wrdel="${i}" aria-label="Scoate">✕</button>`:""}</div>`).join("")}
+      ${W.hotel.rooms.map((r,i)=>`<div class="wr"><select data-wr="${i}" data-f="t">${Object.entries(ROOMT).map(([k,[t]])=>`<option value="${k}"${r.t===k?" selected":""}>${t}</option>`).join("")}</select><label><small>Câte</small><input type="text" inputmode="numeric" data-wr="${i}" data-f="n" value="${esc(r.n)}"></label><label><small>${r.t==="dorm"?"Paturi":"Oaspeți"}</small><input type="text" inputmode="numeric" data-wr="${i}" data-f="g" value="${esc(r.g??"")}" placeholder="${ROOMT[r.t][2]}"></label>${W.hotel.rooms.length>1?`<button type="button" class="iconbtn" data-wrdel="${i}" aria-label="Scoate">✕</button>`:""}</div>`).join("")}
       <button type="button" class="btn" data-wradd="1">＋ Alt tip de cameră</button><p class="small" id="w-hprev"></p></div>`;}
   if(st===2)body=`<h2>Cine lucrează împreună cu voi?</h2><p class="small">Poți sări peste și adăuga mai târziu în Setări.</p>
     <div class="wsec"><div class="wsh"><b>Manageri</b><span class="small">primesc oaspeții și banii, lucrează în ture — primesc un email ca să-și aleagă parola</span></div>
@@ -3348,7 +3348,7 @@ document.addEventListener("change",e=>{if(!W||!e.target.closest||!e.target.close
   if(d.wu!=null)W.units[+d.wu][d.f]=e.target.value;if(d.wr!=null){W.hotel.rooms[+d.wr][d.f]=e.target.value;wizRender()}if(d.wm!=null)W.mgr[+d.wm][d.f]=e.target.value});
 document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("[data-wizagain]")&&!RO){wizStart();W.again=true;wizRender()}});
 document.addEventListener("click",async e=>{if(!W)return;const t=e.target.closest("#wiz [data-wk],#wiz [data-wiz],#wiz [data-wuadd],#wiz [data-wudel],#wiz [data-wradd],#wiz [data-wrdel],#wiz [data-wmadd],#wiz [data-wmdel],#wiz [data-wcadd],#wiz [data-wcdel]");if(!t)return;const d=t.dataset;
-  if(d.wk){W.kinds=W.kinds.includes(d.wk)?W.kinds.filter(x=>x!==d.wk):[...W.kinds,d.wk];if(d.wk==="house"&&W.kinds.includes("house")&&!W.kinds.includes("apt"))W.units.forEach(u=>{if(u.kind==="apt")u.kind="house"});if(d.wk==="hostel"&&W.kinds.includes("hostel")&&!W.kinds.includes("hotel"))W.hotel.rooms=[{t:"bed",n:"8"}];wizRender();return}
+  if(d.wk){W.kinds=W.kinds.includes(d.wk)?W.kinds.filter(x=>x!==d.wk):[...W.kinds,d.wk];if(d.wk==="house"&&W.kinds.includes("house")&&!W.kinds.includes("apt"))W.units.forEach(u=>{if(u.kind==="apt")u.kind="house"});if(d.wk==="hostel"&&W.kinds.includes("hostel")&&!W.kinds.includes("hotel"))W.hotel.rooms=[{t:"dorm",n:"2",g:"8"}];wizRender();return}
   if(d.wuadd==="1"){W.units.push({name:"",kind:W.units[W.units.length-1].kind,bedrooms:"1",dbl:1,sgl:0,sofa:0,guests:"",area:""});wizRender();return}
   if(d.wuadd==="many"){const n=Math.max(1,Math.min(70,parseInt($("wu-many").value,10)||0));const last=W.units[W.units.length-1];while(W.units.length<n)W.units.push({...last,name:""});if(W.units.length>n)W.units=W.units.slice(0,n);wizRender();return}
   if(d.wudel!=null){W.units.splice(+d.wudel,1);wizRender();return}
