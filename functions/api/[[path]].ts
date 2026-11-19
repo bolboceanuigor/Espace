@@ -666,6 +666,15 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     const paid = await one(db, "SELECT amount, method, paid_on FROM owner_payouts WHERE org_id = ? AND owner_id = ? AND ym = ?", r.org_id, r.owner_id, r.ym);
     return json({ company: r.org_name, slug: r.code, ym: r.ym, at: r.updated_at || r.created_at, data: JSON.parse(r.data), paid: paid || null });
   }
+  // ---------- a JavaScript error in a browser (app, maid app, guest pages): kept in `errors` so admin → Sănătate shows it ----------
+  if (fn === "client_error") {
+    const ip = request.headers.get("cf-connecting-ip") || "x";
+    if (await throttled(db, "cerr:" + ip)) return json(null);
+    await failHit(db, "cerr:" + ip); // at most a few per address, so a broken page cannot flood the table
+    const page = str(body.page, 30).replace(/[^a-z0-9_-]/gi, ""), msg = str(body.msg, 300), at = str(body.at, 160);
+    if (msg) await logApiError(db, "js:" + (page || "?"), 599, msg + (at ? " @ " + at : ""), reqSlug || "").catch(() => {});
+    return json(null);
+  }
   // ---------- direct booking page (<slug>.espace.md/rezerva), public ----------
   if (fn === "pub_listing" || fn === "pub_request" || fn === "pub_photo" || fn === "pub_discount") {
     const code = (reqSlug || str(body.slug, 40)).toLowerCase();

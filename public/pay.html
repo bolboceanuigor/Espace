@@ -23,6 +23,7 @@ h1{margin:0 0 6px;font-size:22px;line-height:1.2}.sub{color:var(--mut);font-size
 .empty{text-align:center;color:var(--mut);padding:40px 10px}
 </style>
 <link rel="stylesheet" href="/guest.css">
+<script>/* JS errors go to admin → Sănătate (a few per visit) */(function(){var n=0,seen={};function rep(m,a){m=String(m||"").slice(0,300);if(!m||/^Script error/.test(m)||seen[m]||++n>5)return;seen[m]=1;try{fetch("/api/client_error",{method:"POST",keepalive:true,headers:{"Content-Type":"application/json"},body:JSON.stringify({page:"pay",msg:m,at:String(a||"").slice(0,160)})})}catch(e){}}addEventListener("error",function(e){rep(e.message,(e.filename||"").split("/").pop()+":"+e.lineno+":"+e.colno)});addEventListener("unhandledrejection",function(e){var r=e.reason;if(r&&(r.code||r.name==="AbortError"))return;rep(r&&r.message||r,"promise")})})();</script>
 </head>
 <body>
 <div class="wrap">

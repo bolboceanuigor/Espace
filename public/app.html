@@ -1535,6 +1535,7 @@ html:root[data-skin="host"] .setli .ic,html:root[data-skin="host"] .mtile .mi{co
 .list>.bk{max-width:100%;min-width:0;width:100%;box-sizing:border-box}.list>.bk .m{min-width:0;overflow:hidden}.list>.bk .m .l2,.list>.bk .m b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
 @media (max-width:560px){html body .grid2:has(>div>#f-pay){grid-template-columns:1fr}}#f-pay{flex-wrap:wrap}
 </style>
+<script>/* JS errors go to admin → Sănătate (a few per visit) */(function(){var n=0,seen={};function rep(m,a){m=String(m||"").slice(0,300);if(!m||/^Script error/.test(m)||seen[m]||++n>5)return;seen[m]=1;try{fetch("/api/client_error",{method:"POST",keepalive:true,headers:{"Content-Type":"application/json"},body:JSON.stringify({page:"app",msg:m,at:String(a||"").slice(0,160)})})}catch(e){}}addEventListener("error",function(e){rep(e.message,(e.filename||"").split("/").pop()+":"+e.lineno+":"+e.colno)});addEventListener("unhandledrejection",function(e){var r=e.reason;if(r&&(r.code||r.name==="AbortError"))return;rep(r&&r.message||r,"promise")})})();</script>
 </head>
 <body>
 <!-- la deschidere: „e” din logo se desenează singur cât se încarcă aplicația -->
