@@ -763,7 +763,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
         const u = (cfg.units || {})[a] || {};
         return {
           name: a, price: +u.price || 0, pcur: ["EUR", "MDL", "USD"].includes(u.pcur) ? u.pcur : "EUR",
-          guests: +u.guests || 0, kind: u.kind || "",
+          guests: +u.guests || 0, kind: u.kind || "", ...(u.kind === "dorm" ? { dbeds: +u.dbeds || 0 } : {}),
           busy: busyOf(cfg, taken, a).filter((b: any) => addDays(b.date, b.nights) > t).map((b: any) => [b.date, b.nights, b.apt === a ? b.pax : 999]),
         };
       }),

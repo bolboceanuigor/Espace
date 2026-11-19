@@ -55,12 +55,13 @@ const APT=(()=>{try{return new URLSearchParams(location.search).get("u")||""}cat
 const N=(()=>{const n=+new URLSearchParams(location.search).get("d")||21;return Math.max(14,Math.min(42,n||21))})();
 async function api(fn,body={}){const r=await fetch("/api/"+fn,{method:"POST",headers:{"Content-Type":"application/json",...(SLUG?{"X-Espace-Org":SLUG}:{})},body:JSON.stringify({slug:SLUG,...body})});
   const j=await r.json().catch(()=>({}));if(!r.ok)throw Object.assign(new Error(j.message||"http"),{code:j.message||"http",data:j});return j}
-function busySet(busy){const s=new Set();for(const [d,n] of busy||[])for(let i=0;i<n;i++)s.add(addD(d,i));return s}
+// a hostel dorm (kind "dorm", dbeds beds) is taken on a night only when every bed is taken; busy = [date, nights, beds]
+function busySet(busy,u){const s=new Set(),cap=u&&u.kind==="dorm"?+u.dbeds||0:0,used={};for(const [d,n,p] of busy||[])for(let i=0;i<n;i++){const x=addD(d,i);if(cap){used[x]=(used[x]||0)+Math.max(1,+p||1);if(used[x]>=cap)s.add(x)}else s.add(x)}return s}
 function render(D){document.documentElement.lang=L;document.title=D.name+" · "+t("title");
   const days=[...Array(N)].map((_,i)=>addD(D.today,i));
   const units=D.units||[];
   $("app").innerHTML=`<div class="top"><b>${esc(D.name)}</b><small>${esc(t("title"))}</small></div>
-    ${units.map(u=>{const bs=busySet(u.busy);const strip=days.map(d=>`<i class="${bs.has(d)?"b":""}" title="${d}">${new Date(d+"T00:00:00Z").getUTCDate()}</i>`).join("");
+    ${units.map(u=>{const bs=busySet(u.busy,u);const strip=days.map(d=>`<i class="${bs.has(d)?"b":""}" title="${d}">${new Date(d+"T00:00:00Z").getUTCDate()}</i>`).join("");
       return `<article class="unit"><div class="uh"><h2>${esc(u.name)}</h2>${u.price?`<span class="p">${t("from")} <b>${money(u.price,u.pcur)}</b> ${t("night")}</span>`:""}</div>
         <div class="strip">${strip}</div>
         <div class="leg"><span><i style="background:var(--free-soft)"></i>${t("free")}</span><span><i style="background:var(--busy)"></i>${t("taken")}</span></div>
