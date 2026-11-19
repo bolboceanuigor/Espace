@@ -1985,11 +1985,13 @@ function occMap(y=mon.y,m=mon.m){
   }
   return map;
 }
+// how much of a night a unit is taken: 1, or for a hostel dorm the share of its beds
+function occF(a,list){if(!list||!list.length)return 0;const u=unitOf(a);if(u.kind!=="dorm"||!(+u.dbeds>0))return 1;return Math.min(1,list.reduce((x,o)=>x+Math.max(1,+o.b.pax||1),0)/(+u.dbeds))}
 function monthStats(y=mon.y,m=mon.m,A=cfg.apts){
   const occ=occMap(y,m), n=daysIn(y,m), res={}, s=mStartOf(y,m), list=A&&A.length?A:cfg.apts;
   const T={nights:0,cnt:0,inc:0,util:0,exp:0,mdl:0,eur:0,usd:0};
   for(const a of list){
-    let nights=0; for(let i=0;i<n;i++) if(occ[a+"|"+(s+i*DAY)]) nights++;
+    let nights=0; for(let i=0;i<n;i++) nights+=occF(a,occ[a+"|"+(s+i*DAY)]); nights=Math.round(nights*10)/10;
     const bl=bookings.filter(b=>b.apt===a).map(b=>[b,shareOf(b,y,m)]).filter(([,k])=>k>0);
     const el=expenses.filter(e=>e.apt===a).map(e=>[e,expShare(e,y,m)]).filter(([,k])=>k>0);
     const util=bl.reduce((x,[b,k])=>x+utilEur(b)*k,0);
@@ -2493,7 +2495,7 @@ function finOwners(){const O=cfg.owners||[];
   return `<h3>Proprietari · ${MONTHS[mon.m].toLowerCase()}</h3>${O.map(o=>{const r=ownerCalc(o);return `<button type="button" class="fowner" data-owner="${esc(o.id)}"><div class="fa1"><b>${esc(o.name||"—")}</b><strong>${fmt0(r.tot.pay)} €</strong></div>
     <div class="fa3">${r.units.length} ${plural(r.units.length,"unitate","unități","unități")} · venit ${fmt0(r.tot.inc)} € · comision ${r.fee}% ${fmt0(r.tot.fee)} €${r.expDed?` · cheltuieli ${fmt0(r.tot.exp)} €`:""}</div><span class="orow"><span class="ost" data-ostat="${esc(o.id)}">${esc(ownStTxt(ownSt[o.id]))}</span><span data-opaid="${esc(o.id)}">${ownPaidBadge(o.id)}</span></span></button>`}).join("")}`}
 function ownerSheet(id){const o=(cfg.owners||[]).find(x=>x.id===id);if(!o)return;const r=ownerCalc(o),T=r.tot;
-  const html=`<p class="small" style="margin:0 0 10px">${MONTHS[mon.m]} ${mon.y} · ${r.units.length} ${plural(r.units.length,"unitate","unități","unități")} · ocupat ${T.nights} din ${T.days} nopți</p>
+  const html=`<p class="small" style="margin:0 0 10px">${MONTHS[mon.m]} ${mon.y} · ${r.units.length} ${plural(r.units.length,"unitate","unități","unități")} · ocupat ${Math.round(T.nights)} din ${T.days} nopți</p>
     <div class="tiles"><div class="tile inc"><span>Venit</span><b class="num">${fmt0(T.inc)} €</b><small>${T.nights} ${plural(T.nights,"noapte","nopți","nopți")}</small></div>
       <div class="tile"><span>Comision ${r.fee}%</span><b class="num">${fmt0(T.fee)} €</b><small>&nbsp;</small></div>
       <div class="tile exp"><span>Cheltuieli</span><b class="num">${fmt0(T.exp)} €</b><small>${r.expDed?"se scad":"nu se scad"}</small></div>
@@ -4131,7 +4133,7 @@ function periodStats(y,m,d,A=repApts()){
     if(!(b.nights>0))k=t>=s&&t<e?1:0;else{const en=t+b.nights*DAY;k=Math.max(0,Math.min(en,e)-Math.max(t,s))/DAY/b.nights;if(b.nights>0&&t>=s&&t<e)T.cnt++}
     if(k){T.util+=utilEur(b)*k;T.inc+=(eurOf(b)+utilEur(b))*k}}
   for(const x of expenses){if(x.apt&&!allow.has(x.apt)&&cfg.apts.includes(x.apt))continue;if(!x.apt&&list.length!==cfg.apts.length)continue;const k=x.yearly?expShare(x,y,m)*d/n:(toT(x.date)>=s&&toT(x.date)<e?1:0);if(k)T.exp+=eurOf(x)*k}
-  for(const a of list)for(let i=0;i<d;i++)if(occ[a+"|"+(s+i*DAY)])T.nights++;
+  for(const a of list)for(let i=0;i<d;i++)T.nights+=occF(a,occ[a+"|"+(s+i*DAY)]);
   T.profit=T.inc-T.exp;T.occ=T.nights/(d*list.length||1);T.adr=T.nights?(T.inc-T.util)/T.nights:0;return T}
 function renderFinYear(){
   const y=mon.y, A=repApts();
@@ -4202,14 +4204,14 @@ function renderFin(){
   // this month: how far we are, what's still free
   const now=new Date(), isCur=mon.y===now.getFullYear()&&mon.m===now.getMonth();
   let pace="";
-  if(isCur){const occ=occMap(),t0=toT(todayStr()),end=mStartOf(mon.y,mon.m)+n*DAY;let left=0,booked=0;for(let t=t0;t<end;t+=DAY)for(const a of A){left++;if(occ[a+"|"+t])booked++}
-    const dd=now.getDate();pace=`<div class="fh-p"><div class="fbar"><i style="width:${Math.round(dd/n*100)}%"></i></div><span>au trecut ${dd} din ${n} zile · urmează ocupat ${booked} din ${left} nopți${left-booked?` · liber ${left-booked}`:""}</span></div>`}
+  if(isCur){const occ=occMap(),t0=toT(todayStr()),end=mStartOf(mon.y,mon.m)+n*DAY;let left=0,booked=0;for(let t=t0;t<end;t+=DAY)for(const a of A){left++;booked+=occF(a,occ[a+"|"+t])}
+    const dd=now.getDate();pace=`<div class="fh-p"><div class="fbar"><i style="width:${Math.round(dd/n*100)}%"></i></div><span>au trecut ${dd} din ${n} zile · urmează ocupat ${Math.round(booked)} din ${left} nopți${left-Math.round(booked)?` · liber ${left-Math.round(booked)}`:""}</span></div>`}
   let h=`<div class="bal fhero" style="box-shadow:0 20px 40px rgba(var(--a1-rgb),.18)"><div class="fh-l">Profit · ${MONTHS[mon.m]} ${mon.y}${closedM[ymOf()]?` <span class="fh-ok">✓ verificat · ${esc(closedM[ymOf()].who||"")} ${fdtS(closedM[ymOf()].at).slice(0,5)}</span>`:""}</div><div class="bal-amt">${T.profit<0?"−":""}${fmt0(Math.abs(T.profit))} €</div>
     <div class="fh-s">venit ${fmt0(T.inc)} € − cheltuieli ${fmt0(T.exp)} €${T.inc?` · marjă ${Math.round(T.profit/T.inc*100)}%`:""}</div>
     ${P.inc||P.exp?`<div class="fh-c">${running?`<span class="fh-ptd">pentru 1–${dd} ${MONTHS_G[mon.m]}: ${fmt0(C.profit)} €</span>`:""}${fDelta(C.profit,P.profit,1,cmpL)}</div>`:""}${pace}</div>`;
   h+=`<div class="fks">${fKpi("Venit",fmt0(T.inc)+" €",`${T.cnt} ${plural(T.cnt,"sosire","sosirii","sosiri")}${T.util?" · utilități "+fmt0(T.util)+" €":""}`,fDelta(C.inc,P.inc))}
     ${fKpi("Cheltuieli",fmt0(T.exp)+" €",T.shared?"din care comune "+fmt0(T.shared)+" €":T.inc?Math.round(T.exp/T.inc*100)+"% din venit":"",fDelta(C.exp,P.exp,-1))}
-    ${fKpi("Se încarcă",Math.round(T.occ*100)+"%",`${T.nights} din ${n*A.length} nopți`,P.nights?`<em class="fd ${C.occ>=P.occ?"up":"dn"}">${C.occ>=P.occ?"▲":"▼"} ${Math.abs(Math.round((C.occ-P.occ)*100))} p.p.</em>`:"")}
+    ${fKpi("Se încarcă",Math.round(T.occ*100)+"%",`${Math.round(T.nights)} din ${n*A.length} nopți`,P.nights?`<em class="fd ${C.occ>=P.occ?"up":"dn"}">${C.occ>=P.occ?"▲":"▼"} ${Math.abs(Math.round((C.occ-P.occ)*100))} p.p.</em>`:"")}
     ${fKpi("Prețul nopții",fmt0(adr)+" €","medie, fără utilități",fDelta(C.adr,P.adr))}
     ${fKpi("Venit din apartament",fmt0(revpar)+" €","pe zi, inclusiv zilele libere",'')}
     ${fKpi("Cazare",avgStay?avgStay.toFixed(1).replace(".",",")+" "+plural(Math.round(avgStay),"noapte","nopți","nopți"):"—","în medie pe sosire","")}</div>`;
@@ -4246,7 +4248,7 @@ function aptPage(a){
     <p class="small" style="margin:10px 0 0">${now?`Acum locuiește: <b>${esc(now.guest||"fără nume")}</b> până la ${dm(endOf(now))}`:"Acum e liber"}</p>
     ${ad?`<p class="small" style="margin:6px 0 0">📍 ${esc(ad)} · <a href="${esc(mapsUrl(ad))}" target="_blank" rel="noopener">Pe hartă</a></p>`:""}
     <div class="tiles" style="margin-top:12px">
-      <div class="tile"><span>Se încarcă · ${MONTHS[mon.m].toLowerCase()}</span><b class="num">${Math.round(st.nights/n*100)}%</b><small>${st.nights} din ${n} nopți</small></div>
+      <div class="tile"><span>Se încarcă · ${MONTHS[mon.m].toLowerCase()}</span><b class="num">${Math.round(st.nights/n*100)}%</b><small>${Math.round(st.nights)} din ${n} nopți</small></div>
       <div class="tile inc"><span>Venit</span><b class="num">${fmt0(st.inc)} €</b><small>${st.nights?fmt0(st.inc/st.nights)+" €/noapte":"&nbsp;"}</small></div>
       <div class="tile exp"><span>Cheltuieli</span><b class="num">${fmt0(st.exp)} €</b><small>&nbsp;</small></div>
       <div class="tile ok"><span>Profit</span><b class="num">${fmt0(st.profit)} €</b><small>&nbsp;</small></div>
