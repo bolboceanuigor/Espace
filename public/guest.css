@@ -10,35 +10,35 @@
 @font-face{font-family:"Manrope";font-weight:700;font-display:swap;src:url(/fonts/manrope-cyrillic-700-normal.woff2) format("woff2");unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
 @font-face{font-family:"Manrope";font-weight:800;font-display:swap;src:url(/fonts/manrope-cyrillic-800-normal.woff2) format("woff2");unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
 :root,:root:not([data-theme="light"]){color-scheme:light;
-  --stone:#ffffff!important;--paper:#ffffff!important;--ink:#0A1F33!important;--muted:#5A6B7F!important;--line:#ECEEF3!important;
-  --wine:#0C3855!important;--wine-ink:#D7B46A!important;--wine-soft:#F6EEDC!important;--free:#118A4E!important;--free-soft:#E4F5EC!important;--busy:#DFE3EA!important;
+  --stone:#ffffff!important;--paper:#ffffff!important;--ink:#191C1F!important;--muted:#5A6B7F!important;--line:#ECEEF3!important;
+  --wine:#191C1F!important;--wine-ink:#ffffff!important;--wine-soft:#E8F0FD!important;--free:#118A4E!important;--free-soft:#E4F5EC!important;--busy:#DFE3EA!important;
   --plus:#118A4E!important;--err:#D12C2C!important;--r:20px!important;
-  --bg:#ffffff!important;--card:#ffffff!important;--fg:#0A1F33!important;--mut:#5A6B7F!important;--acc:#0C3855!important;--acc2:#B08A3E!important;--ok:#118A4E!important;--bad:#D12C2C!important}
-html,body{background:#fff!important;color:#0A1F33}
+  --bg:#ffffff!important;--card:#ffffff!important;--fg:#191C1F!important;--mut:#5A6B7F!important;--acc:#191C1F!important;--acc2:#0666EB!important;--ok:#118A4E!important;--bad:#D12C2C!important}
+html,body{background:#fff!important;color:#191C1F}
 body,button,input,select,textarea,h1,h2,h3,h4,.brand,.t1{font-family:"Manrope",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif!important}
 body{font-weight:500}
-h1,h2,.brand{font-weight:800!important;letter-spacing:-.025em;color:#0A1F33}
+h1,h2,.brand{font-weight:800!important;letter-spacing:-.025em;color:#191C1F}
 h3{font-weight:800}
-a{color:#B08A3E}
-.go{border-radius:999px!important;background:#0C3855!important;color:#D7B46A!important;font-weight:800!important;box-shadow:0 8px 20px rgba(12,56,85,.22)}
+a{color:#0666EB}
+.go{border-radius:999px!important;background:#191C1F!important;color:#ffffff!important;font-weight:800!important;box-shadow:0 8px 20px rgba(25,28,31,.22)}
 .go:disabled{opacity:.45;box-shadow:none}
-input:not([type=checkbox]):not([type=radio]),select,textarea{background:#F2F4F8!important;border:1px solid transparent!important;border-radius:14px!important;color:#0A1F33!important;font-weight:600}
-input:focus,select:focus,textarea:focus{background:#fff!important;border-color:#0C3855!important;box-shadow:0 0 0 3px rgba(12,56,85,.14)!important;outline:0}
-input[type=checkbox],input[type=radio]{accent-color:#0C3855}
+input:not([type=checkbox]):not([type=radio]),select,textarea{background:#F2F4F8!important;border:1px solid transparent!important;border-radius:14px!important;color:#191C1F!important;font-weight:600}
+input:focus,select:focus,textarea:focus{background:#fff!important;border-color:#191C1F!important;box-shadow:0 0 0 3px rgba(25,28,31,.14)!important;outline:0}
+input[type=checkbox],input[type=radio]{accent-color:#191C1F}
 /* pagina de rezervare / oferta: locul pozei */
 .ph{background:#F2F4F8!important;border-radius:16px!important}
 /* ghidul oaspetelui: antet bleumarin ca în SmartRepair */
-.gpage .hero{background:linear-gradient(160deg,#0F4268 0%,#0C3855 45%,#0A2540 100%)!important;color:#fff}
+.gpage .hero{background:linear-gradient(135deg,#7B61FF 0%,#3D63F2 50%,#0666EB 100%)!important;color:#fff}
 .gpage .hero h1,.gpage .top b{color:#fff!important}
-.gpage .hero small{color:#D7B46A!important;opacity:1!important}
+.gpage .hero small{color:#fff!important;opacity:.85!important}
 .gpage .lang{background:rgba(255,255,255,.12)!important}
 .gpage .lang a{color:#fff!important}
-.gpage .lang a[aria-current]{background:#D7B46A!important;color:#0A2540!important}
+.gpage .lang a[aria-current]{background:#fff!important;color:#191C1F!important}
 .gpage .chips a{background:rgba(255,255,255,.12)!important;color:#fff!important;border:1px solid rgba(255,255,255,.16)}
 .gpage section{border:1px solid #ECEEF3;box-shadow:none!important;border-radius:22px!important}
-.gpage h2 span{background:#F6EEDC!important;border-radius:12px!important}
+.gpage h2 span{background:#E8F0FD!important;border-radius:12px!important}
 .gpage p.all,.gpage .addr{background:#F2F4F8!important;font-family:"Manrope",system-ui,sans-serif!important;font-weight:800!important;letter-spacing:.01em}
-.gpage .vbtn{background:#0C3855!important;color:#D7B46A!important;border-radius:999px!important}
-.gpage .obtn{background:#F6EEDC!important;border-radius:999px!important}
+.gpage .vbtn{background:#191C1F!important;color:#ffffff!important;border-radius:999px!important}
+.gpage .obtn{background:#E8F0FD!important;border-radius:999px!important}
 .gpage .ghost{border-radius:999px!important}
-.gpage a:not(.vbtn){color:#B08A3E}
+.gpage a:not(.vbtn){color:#0666EB}
