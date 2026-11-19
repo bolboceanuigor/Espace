@@ -13,7 +13,7 @@ import {
 import { newTotpSecret, otpauthUrl, qrSvg, totpOk, newBackupCodes, hashBackupCodes, consumeBackup } from "../../lib/totp";
 import { hostOf, siteOf, slugOk, isSlug } from "../../lib/host";
 import { handleAdmin, logEvent, activeAnnouncement, getSettings, createInvoice } from "../../lib/admin";
-import { sendMail, mails, dailyMail, orgEmail, layout } from "../../lib/mail";
+import { sendMail, bLang, mails, dailyMail, orgEmail, layout } from "../../lib/mail";
 import {
   seedTemplates, sanitizeTemplate, sendGuestMessage, fireEventMessages, runGuestMails, parseList, fillTags, bookingVars, pickLang,
 } from "../../lib/guestmsg";
@@ -640,7 +640,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     await audit(db, k.org_id, null, "booking", "signed", k.booking_id, bLabel({ ...b, guest: name }), { number: k.number }, "web");
     await notify(db, k.org_id, ["manager"], { go: "b:" + k.booking_id, title: `Договор подписан: ${b.apt}`, body: `${name} · ${b.date} · nr. ${k.number}` });
     const url = `https://${k.code}.espace.md/contract/${tok}`, gmail = str(body.email, 200).trim() || b.email || "";
-    if (isEmail(gmail)) await sendMail(env, db, { to: gmail, ...mails.contractSigned(k.org_name, { number: k.number, apt: b.apt, date: b.date, url, guest: true }), kind: "contract", orgId: k.org_id });
+    if (isEmail(gmail)) await sendMail(env, db, { to: gmail, ...mails.contractSigned(k.org_name, { number: k.number, apt: b.apt, date: b.date, url, guest: true }, str(body.lang, 2)), kind: "contract", orgId: k.org_id });
     const co = await orgEmail(db, k.org_id);
     if (co) await sendMail(env, db, { to: co, ...mails.contractSigned(k.org_name, { number: k.number, apt: b.apt, date: b.date, url, guest: false, name }), kind: "contract", orgId: k.org_id });
     return json({ ok: true, at });
@@ -725,7 +725,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     await notify(db, org.id, ["manager"], { go: "b:" + id, title: `Запрос на бронь: ${apt}`, body: `${name} · ${date} · ${nights} n. · ${pax} pers.${phone ? " · " + phone : ""}${wantCode ? " · " + wantCode : ""}` });
     const owner = await orgEmail(db, org.id);
     if (owner) await sendMail(env, db, { to: owner, ...mails.requestNew(org.name, org.code, { apt, date, nights, pax, name, phone, email, msg, price, cur }), kind: "request", orgId: org.id });
-    if (email) await sendMail(env, db, { to: email, ...mails.requestGot(org.name, { apt, date, nights, pax, price, cur, phone: dir.phone || "", email: dir.email || "" }), kind: "request", orgId: org.id });
+    if (email) await sendMail(env, db, { to: email, ...mails.requestGot(org.name, { apt, date, nights, pax, price, cur, phone: dir.phone || "", email: dir.email || "" }, str(body.lang, 2)), kind: "request", orgId: org.id });
     const pay = guestMaibPublic(cfg);
     const deposit = pay.on && pay.depositPct > 0 ? Math.round(price * pay.depositPct) / 100 : 0;
     return json({ ok: true, id, price, cur, discount: discExtra, pay, deposit });
@@ -818,7 +818,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     await notify(db, of.org_id, ["manager"], { go: "b:" + id, title: `Запрос из предложения: ${apt}`, body: `${name} · ${date} · ${nights} n. · ${pax} pers.${phone ? " · " + phone : ""}` });
     const owner = await orgEmail(db, of.org_id);
     if (owner) await sendMail(env, db, { to: owner, ...mails.requestNew(of.org_name, of.code, { apt, date, nights, pax, name, phone, email, msg, price, cur }), kind: "request", orgId: of.org_id });
-    if (email) await sendMail(env, db, { to: email, ...mails.requestGot(of.org_name, { apt, date, nights, pax, price, cur, phone: dir.phone || "", email: dir.email || "" }), kind: "request", orgId: of.org_id });
+    if (email) await sendMail(env, db, { to: email, ...mails.requestGot(of.org_name, { apt, date, nights, pax, price, cur, phone: dir.phone || "", email: dir.email || "" }, str(body.lang, 2)), kind: "request", orgId: of.org_id });
     return json({ ok: true, id, price, cur });
   }
 
@@ -1807,7 +1807,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       await audit(db, O, c, "booking", body.ok === true ? "confirm" : "decline", b.id, bLabel(b), { nights: b.nights, price: b.price, price_cur: b.price_cur });
       let mailed = "";
       const g = body.ok === true ? await one(db, "SELECT token FROM guides WHERE org_id = ? AND apt = ?", O, b.apt) : null;
-      if (b.email) mailed = await sendMail(env, db, { to: b.email, ...mails.requestAnswer(org.name, body.ok === true, { apt: b.apt, date: b.date, nights: b.nights, price: b.price, cur: b.price_cur, phone: dir.phone || "", email: dir.email || "", note: str(body.note, 300), guide: g ? `https://espace.md/g/${g.token}` : "" }), kind: "request", orgId: O });
+      if (b.email) mailed = await sendMail(env, db, { to: b.email, ...mails.requestAnswer(org.name, body.ok === true, { apt: b.apt, date: b.date, nights: b.nights, price: b.price, cur: b.price_cur, phone: dir.phone || "", email: dir.email || "", note: str(body.note, 300), guide: g ? `https://espace.md/g/${g.token}` : "" }, bLang(b)), kind: "request", orgId: O });
       return json({ ok: true, mailed });
     }
     // ---------- import bookings from a spreadsheet (Excel / CSV / RealtyCalendar export), parsed in the app ----------
@@ -1954,7 +1954,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       const to = str(body.email, 200).trim() || b.email;
       if (body.send === true && k.status !== "signed") {
         if (!isEmail(to)) return json({ message: "no_email", url, token: k.token, number: k.number, status: k.status }, 400);
-        mailed = await sendMail(env, db, { to, ...mails.contractLink(org.name, { number: k.number, apt: b.apt, date: b.date, nights: b.nights, url }), kind: "contract", orgId: O });
+        mailed = await sendMail(env, db, { to, ...mails.contractLink(org.name, { number: k.number, apt: b.apt, date: b.date, nights: b.nights, url }, bLang(b)), kind: "contract", orgId: O });
       }
       return json({ token: k.token, number: k.number, status: k.status, url, mailed });
     }
@@ -1977,7 +1977,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       const to = str(body.email, 200).trim() || b.email;
       if (body.send === true) {
         if (!isEmail(to)) return json({ message: "no_email", ...r }, 400);
-        mailed = await sendMail(env, db, { to, ...mails.guestInvoice(org.name, { number: r.number, amount: r.amount, cur: r.currency, due: r.due_at, url: r.url, apt: b.apt, date: b.date }), kind: "guest_invoice", orgId: O, key: "ginv:" + r.id });
+        mailed = await sendMail(env, db, { to, ...mails.guestInvoice(org.name, { number: r.number, amount: r.amount, cur: r.currency, due: r.due_at, url: r.url, apt: b.apt, date: b.date }, r.lang || bLang(b)), kind: "guest_invoice", orgId: O, key: "ginv:" + r.id });
       }
       return json({ ...r, mailed });
     }

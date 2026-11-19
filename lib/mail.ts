@@ -23,6 +23,26 @@ export function layout(ro: { title: string; body: string }, ru: { title: string;
 </div></body></html>`;
 }
 
+// emails to GUESTS: the company's name on top, one language (the guest's), no "you have an account" footer.
+// Without a known language: Romanian and Russian, one under the other, as before.
+type GP = { title: string; body: string };
+const GL = (l?: string) => (l === "ru" || l === "ro" || l === "en" ? l : "");
+export const bLang = (b: any) => { try { const x = typeof b?.extra === "string" ? JSON.parse(b.extra || "{}") : (b?.extra || {}); return String(x.lang || ""); } catch { return ""; } };
+export const guestT = (lang: string | undefined, t: { ro: string; ru: string; en: string }) => t[(GL(lang) || "ro") as "ro"];
+export function guestLayout(org: string, lang: string | undefined, p: { ro: GP; ru: GP; en: GP }, button?: { url: string; ro: string; ru: string; en: string }) {
+  const l = GL(lang);
+  const btn = (t: string) => button ? `<p style="margin:22px 0"><a href="${esc(button.url)}" style="background:#0666EB;color:#fff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:999px;display:inline-block">${esc(t)}</a></p>` : "";
+  const foot = { ro: `Trimis de ${esc(org)} prin espace.md.`, ru: `Отправлено компанией ${esc(org)} через espace.md.`, en: `Sent by ${esc(org)} via espace.md.` };
+  const block = (x: GP, b: string, muted = false) => `<h1 style="font-size:${muted ? 17 : 20}px;margin:0 0 12px${muted ? ";color:#4c5068" : ""}">${esc(x.title)}</h1><div${muted ? ' style="color:#4c5068"' : ""}>${x.body}</div>${btn(b)}`;
+  const inner = l ? block(p[l], button ? button[l] : "") : block(p.ro, button?.ro || "") + `<hr style="border:0;border-top:1px solid #e4e6ee;margin:24px 0">` + block(p.ru, button?.ru || "", true);
+  return `<!doctype html><html lang="${l || "ro"}"><body style="margin:0;background:#f5f6f9;font-family:Arial,Helvetica,sans-serif;color:#14162e">
+<div style="max-width:560px;margin:0 auto;padding:28px 16px">
+<div style="font-weight:800;font-size:18px;margin-bottom:18px">${esc(org)}</div>
+<div style="background:#fff;border-radius:14px;padding:26px 24px;line-height:1.55;font-size:15px">${inner}</div>
+<p style="font-size:12.5px;color:#868aa1;margin-top:16px">${l ? foot[l] : foot.ro + " / " + foot.ru}</p>
+</div></body></html>`;
+}
+
 export async function sendMail(env: Env, db: D1Database, m: { to: string; subject: string; html: string; kind: string; orgId?: string; key?: string }) {
   // `key` makes an email go out once (e.g. "trial3:<org>"), even if the daily job runs twice
   if (m.key && (await one(db, "SELECT 1 AS x FROM emails WHERE dedupe = ?", m.key).catch(() => null))) return "duplicate";
@@ -124,20 +144,34 @@ export const mails = {
       { title: "Новая заявка со страницы бронирования", body: `<p><b>${esc(r.name)}</b> — <b>${esc(r.apt)}</b>, с ${dmy(r.date)}, ${r.nights} н., ${r.pax} чел. Подтвердите или отклоните заявку в приложении.</p>` },
       { url: orgUrl(slug), ro: "Deschide aplicația", ru: "Открыть приложение" }),
   }),
-  requestGot: (org: string, r: any) => ({
-    subject: `${org}: am primit cererea ta (${dmy(r.date)})`,
-    html: layout(
-      { title: "Cererea a fost trimisă", body: `<p>Mulțumim! <b>${esc(org)}</b> a primit cererea pentru <b>${esc(r.apt)}</b>, de pe <b>${dmy(r.date)}</b>, ${r.nights} ${r.nights === 1 ? "noapte" : "nopți"}, ${r.pax} pers. Total: <b>${lei2(r.price)} ${curL(r.cur)}</b>.</p><p>Rezervarea devine fermă după confirmare — primești un email.${r.phone ? " Telefon: " + esc(r.phone) + "." : ""}</p>` },
-      { title: "Заявка отправлена", body: `<p>Спасибо! <b>${esc(org)}</b> получил заявку: <b>${esc(r.apt)}</b>, с ${dmy(r.date)}, ${r.nights} н. Итого: ${lei2(r.price)} ${curL(r.cur)}. Бронь станет окончательной после подтверждения — придёт письмо.</p>` }),
-  }),
-  requestAnswer: (org: string, yes: boolean, r: any) => ({
-    subject: yes ? `${org}: rezervarea e confirmată (${dmy(r.date)})` : `${org}: datele nu sunt disponibile`,
-    html: layout(
-      yes ? { title: "Rezervarea e confirmată", body: `<p><b>${esc(r.apt)}</b>, de pe <b>${dmy(r.date)}</b>, ${r.nights} ${r.nights === 1 ? "noapte" : "nopți"}. Total: <b>${lei2(r.price)} ${curL(r.cur)}</b>.${r.note ? "<br>" + esc(r.note) : ""}</p><p>${r.phone ? "Telefon: <b>" + esc(r.phone) + "</b>. " : ""}Vă așteptăm!</p>${r.guide ? `<p>Ghidul oaspetelui (cum ajungeți, Wi-Fi, reguli): <a href="${esc(r.guide)}">${esc(r.guide)}</a></p>` : ""}` }
-          : { title: "Din păcate, datele nu sunt disponibile", body: `<p>${esc(org)} nu poate confirma cererea pentru ${esc(r.apt)} de pe ${dmy(r.date)}.${r.note ? "<br>" + esc(r.note) : ""} Încercați alte date pe pagina de rezervare.</p>` },
-      yes ? { title: "Бронь подтверждена", body: `<p>${esc(r.apt)}, с ${dmy(r.date)}, ${r.nights} н. Итого: ${lei2(r.price)} ${curL(r.cur)}. Ждём вас!</p>` }
-          : { title: "К сожалению, даты недоступны", body: `<p>${esc(org)} не может подтвердить заявку на ${esc(r.apt)} с ${dmy(r.date)}.</p>` }),
-  }),
+  requestGot: (org: string, r: any, lang?: string) => {
+    const n = r.nights, tot = `${lei2(r.price)} ${curL(r.cur)}`, ph = r.phone ? esc(r.phone) : "";
+    return {
+      subject: guestT(lang, { ro: `${org}: am primit cererea ta (${dmy(r.date)})`, ru: `${org}: заявка получена (${dmy(r.date)})`, en: `${org}: we received your request (${dmy(r.date)})` }),
+      html: guestLayout(org, lang, {
+        ro: { title: "Cererea a fost trimisă", body: `<p>Mulțumim! <b>${esc(org)}</b> a primit cererea pentru <b>${esc(r.apt)}</b>, de pe <b>${dmy(r.date)}</b>, ${n} ${n === 1 ? "noapte" : "nopți"}, ${r.pax} pers. Total: <b>${tot}</b>.</p><p>Rezervarea devine fermă după confirmare — primești un email.${ph ? " Telefon: " + ph + "." : ""}</p>` },
+        ru: { title: "Заявка отправлена", body: `<p>Спасибо! <b>${esc(org)}</b> получил заявку: <b>${esc(r.apt)}</b>, с <b>${dmy(r.date)}</b>, ночей: ${n}, гостей: ${r.pax}. Итого: <b>${tot}</b>.</p><p>Бронь станет окончательной после подтверждения — придёт письмо.${ph ? " Телефон: " + ph + "." : ""}</p>` },
+        en: { title: "Your request was sent", body: `<p>Thank you! <b>${esc(org)}</b> received your request for <b>${esc(r.apt)}</b> from <b>${dmy(r.date)}</b>, ${n} ${n === 1 ? "night" : "nights"}, ${r.pax} guests. Total: <b>${tot}</b>.</p><p>The booking is final once confirmed — you will get an email.${ph ? " Phone: " + ph + "." : ""}</p>` },
+      }),
+    };
+  },
+  requestAnswer: (org: string, yes: boolean, r: any, lang?: string) => {
+    const n = r.nights, tot = `${lei2(r.price)} ${curL(r.cur)}`, note = r.note ? "<br>" + esc(r.note) : "", ph = r.phone ? esc(r.phone) : "";
+    const guide = (t: string) => r.guide ? `<p>${t}: <a href="${esc(r.guide)}">${esc(r.guide)}</a></p>` : "";
+    return {
+      subject: yes ? guestT(lang, { ro: `${org}: rezervarea e confirmată (${dmy(r.date)})`, ru: `${org}: бронь подтверждена (${dmy(r.date)})`, en: `${org}: your booking is confirmed (${dmy(r.date)})` })
+        : guestT(lang, { ro: `${org}: datele nu sunt disponibile`, ru: `${org}: даты недоступны`, en: `${org}: the dates are not available` }),
+      html: guestLayout(org, lang, yes ? {
+        ro: { title: "Rezervarea e confirmată", body: `<p><b>${esc(r.apt)}</b>, de pe <b>${dmy(r.date)}</b>, ${n} ${n === 1 ? "noapte" : "nopți"}. Total: <b>${tot}</b>.${note}</p><p>${ph ? "Telefon: <b>" + ph + "</b>. " : ""}Vă așteptăm!</p>${guide("Ghidul oaspetelui (cum ajungeți, Wi-Fi, reguli)")}` },
+        ru: { title: "Бронь подтверждена", body: `<p><b>${esc(r.apt)}</b>, с <b>${dmy(r.date)}</b>, ночей: ${n}. Итого: <b>${tot}</b>.${note}</p><p>${ph ? "Телефон: <b>" + ph + "</b>. " : ""}Ждём вас!</p>${guide("Гид для гостя (как добраться, Wi-Fi, правила)")}` },
+        en: { title: "Your booking is confirmed", body: `<p><b>${esc(r.apt)}</b>, from <b>${dmy(r.date)}</b>, ${n} ${n === 1 ? "night" : "nights"}. Total: <b>${tot}</b>.${note}</p><p>${ph ? "Phone: <b>" + ph + "</b>. " : ""}See you soon!</p>${guide("Guest guide (how to get there, Wi-Fi, rules)")}` },
+      } : {
+        ro: { title: "Din păcate, datele nu sunt disponibile", body: `<p>${esc(org)} nu poate confirma cererea pentru ${esc(r.apt)} de pe ${dmy(r.date)}.${note} Încercați alte date pe pagina de rezervare.</p>` },
+        ru: { title: "К сожалению, даты недоступны", body: `<p>${esc(org)} не может подтвердить заявку на ${esc(r.apt)} с ${dmy(r.date)}.${note} Попробуйте другие даты на странице бронирования.</p>` },
+        en: { title: "Sorry, the dates are not available", body: `<p>${esc(org)} cannot confirm the request for ${esc(r.apt)} from ${dmy(r.date)}.${note} Please try other dates on the booking page.</p>` },
+      }),
+    };
+  },
   // the monthly statement for an apartment owner: what was earned, what is paid out, a link to the full statement
   ownerReport: (org: string, r: { name: string; ym: string; pay: number; inc: number; nights: number; url: string }) => {
     const LRO = ["ianuarie", "februarie", "martie", "aprilie", "mai", "iunie", "iulie", "august", "septembrie", "octombrie", "noiembrie", "decembrie"];
@@ -166,29 +200,36 @@ export const mails = {
     };
   },
   // a guest gets the link to read and sign the rental contract
-  contractLink: (org: string, r: { number: string; apt: string; date: string; nights: number; url: string }) => ({
-    subject: `${org}: contractul de închiriere nr. ${r.number} — semnați online`,
-    html: layout(
-      { title: "Contractul de închiriere", body: `<p><b>${esc(org)}</b> vă trimite contractul nr. ${esc(r.number)} pentru <b>${esc(r.apt)}</b>, de pe ${dmy(r.date)}, ${r.nights} ${r.nights === 1 ? "noapte" : "nopți"}. Îl citiți și îl semnați pe telefon în 2 minute — e nevoie de numele complet și actul de identitate.</p>` },
-      { title: "Договор аренды", body: `<p>${esc(org)} отправляет договор № ${esc(r.number)}: ${esc(r.apt)}, с ${dmy(r.date)}, ночей: ${r.nights}. Прочитать и подписать можно с телефона за 2 минуты. Contract also available in English.</p>` },
-      { url: r.url, ro: "Citește și semnează", ru: "Прочитать и подписать" }),
+  contractLink: (org: string, r: { number: string; apt: string; date: string; nights: number; url: string }, lang?: string) => ({
+    subject: guestT(lang, { ro: `${org}: contractul de închiriere nr. ${r.number} — semnați online`, ru: `${org}: договор аренды № ${r.number} — подпишите онлайн`, en: `${org}: rental contract no. ${r.number} — sign online` }),
+    html: guestLayout(org, lang, {
+      ro: { title: "Contractul de închiriere", body: `<p><b>${esc(org)}</b> vă trimite contractul nr. ${esc(r.number)} pentru <b>${esc(r.apt)}</b>, de pe ${dmy(r.date)}, ${r.nights} ${r.nights === 1 ? "noapte" : "nopți"}. Îl citiți și îl semnați pe telefon, cu degetul.</p>` },
+      ru: { title: "Договор аренды", body: `<p><b>${esc(org)}</b> отправляет договор № ${esc(r.number)}: <b>${esc(r.apt)}</b>, с ${dmy(r.date)}, ночей: ${r.nights}. Прочитать и подписать можно с телефона, пальцем.</p>` },
+      en: { title: "Rental contract", body: `<p><b>${esc(org)}</b> sends you contract no. ${esc(r.number)} for <b>${esc(r.apt)}</b>, from ${dmy(r.date)}, ${r.nights} ${r.nights === 1 ? "night" : "nights"}. Read it and sign it on your phone with your finger.</p>` },
+    }, { url: r.url, ro: "Citește și semnează", ru: "Прочитать и подписать", en: "Read and sign" }),
   }),
-  contractSigned: (org: string, r: { number: string; apt: string; date: string; url: string; guest: boolean; name?: string }) => ({
-    subject: r.guest ? `${org}: contractul nr. ${r.number} e semnat` : `Contract semnat: ${r.apt}, ${dmy(r.date)} — ${r.name || ""}`,
+  contractSigned: (org: string, r: { number: string; apt: string; date: string; url: string; guest: boolean; name?: string }, lang?: string) => r.guest ? ({
+    subject: guestT(lang, { ro: `${org}: contractul nr. ${r.number} e semnat`, ru: `${org}: договор № ${r.number} подписан`, en: `${org}: contract no. ${r.number} is signed` }),
+    html: guestLayout(org, lang, {
+      ro: { title: "Contractul e semnat", body: `<p>Mulțumim! Contractul nr. ${esc(r.number)} cu <b>${esc(org)}</b> pentru ${esc(r.apt)}, de pe ${dmy(r.date)}, e semnat. Îl puteți deschide oricând, tipări sau salva ca PDF.</p>` },
+      ru: { title: "Договор подписан", body: `<p>Спасибо! Договор № ${esc(r.number)} с <b>${esc(org)}</b>: ${esc(r.apt)}, с ${dmy(r.date)} — подписан. Его можно открыть, распечатать или сохранить в PDF.</p>` },
+      en: { title: "The contract is signed", body: `<p>Thank you! Contract no. ${esc(r.number)} with <b>${esc(org)}</b> for ${esc(r.apt)}, from ${dmy(r.date)}, is signed. You can open, print or save it as PDF any time.</p>` },
+    }, { url: r.url, ro: "Deschide contractul", ru: "Открыть договор", en: "Open the contract" }),
+  }) : ({
+    subject: `Contract semnat: ${r.apt}, ${dmy(r.date)} — ${r.name || ""}`,
     html: layout(
-      r.guest ? { title: "Contractul e semnat", body: `<p>Mulțumim! Contractul nr. ${esc(r.number)} cu <b>${esc(org)}</b> pentru ${esc(r.apt)}, de pe ${dmy(r.date)}, e semnat. Îl puteți deschide oricând, tipări sau salva ca PDF.</p>` }
-        : { title: "Contract semnat de oaspete", body: `<p><b>${esc(r.name || "")}</b> a semnat contractul nr. ${esc(r.number)} pentru <b>${esc(r.apt)}</b>, de pe ${dmy(r.date)}.</p>` },
-      r.guest ? { title: "Договор подписан", body: `<p>Договор № ${esc(r.number)} с ${esc(org)} подписан. Его можно открыть, распечатать или сохранить в PDF.</p>` }
-        : { title: "Гость подписал договор", body: `<p>${esc(r.name || "")} подписал(а) договор № ${esc(r.number)}: ${esc(r.apt)}, ${dmy(r.date)}.</p>` },
+      { title: "Contract semnat de oaspete", body: `<p><b>${esc(r.name || "")}</b> a semnat contractul nr. ${esc(r.number)} pentru <b>${esc(r.apt)}</b>, de pe ${dmy(r.date)}.</p>` },
+      { title: "Гость подписал договор", body: `<p>${esc(r.name || "")} подписал(а) договор № ${esc(r.number)}: ${esc(r.apt)}, ${dmy(r.date)}.</p>` },
       { url: r.url, ro: "Deschide contractul", ru: "Открыть договор" }),
   }),
   // the day before check-in, to a guest who booked on the company's page: time, address, contact, the guest guide
-  arrival: (org: string, r: any) => ({
-    subject: `${org}: vă așteptăm mâine · ${r.apt}`,
-    html: layout(
-      { title: "Vă așteptăm mâine", body: `<p><b>${esc(r.apt)}</b>, ${dmy(r.date)}${r.cin ? ", check-in de la <b>" + esc(r.cin) + "</b>" : ""}.${r.addr ? "<br>Adresa: <b>" + esc(r.addr) + "</b>" : ""}${r.phone ? "<br>Telefon: <b>" + esc(r.phone) + "</b>" : ""}</p>${r.guide ? "<p>În ghid găsiți cum ajungeți, codurile, Wi-Fi și regulile casei.</p>" : ""}` },
-      { title: "Ждём вас завтра", body: `<p><b>${esc(r.apt)}</b>, ${dmy(r.date)}${r.cin ? ", заезд с " + esc(r.cin) : ""}.${r.addr ? "<br>Адрес: " + esc(r.addr) : ""}${r.phone ? "<br>Телефон: " + esc(r.phone) : ""}</p>${r.guide ? "<p>В гиде — как добраться, коды, Wi-Fi и правила.</p>" : ""}` },
-      r.guide ? { url: r.guide, ro: "Deschide ghidul oaspetelui", ru: "Открыть гид" } : undefined),
+  arrival: (org: string, r: any, lang?: string) => ({
+    subject: guestT(lang, { ro: `${org}: vă așteptăm mâine · ${r.apt}`, ru: `${org}: ждём вас завтра · ${r.apt}`, en: `${org}: see you tomorrow · ${r.apt}` }),
+    html: guestLayout(org, lang, {
+      ro: { title: "Vă așteptăm mâine", body: `<p><b>${esc(r.apt)}</b>, ${dmy(r.date)}${r.cin ? ", check-in de la <b>" + esc(r.cin) + "</b>" : ""}.${r.addr ? "<br>Adresa: <b>" + esc(r.addr) + "</b>" : ""}${r.phone ? "<br>Telefon: <b>" + esc(r.phone) + "</b>" : ""}</p>${r.guide ? "<p>În ghid găsiți cum ajungeți, codurile, Wi-Fi și regulile casei.</p>" : ""}` },
+      ru: { title: "Ждём вас завтра", body: `<p><b>${esc(r.apt)}</b>, ${dmy(r.date)}${r.cin ? ", заезд с <b>" + esc(r.cin) + "</b>" : ""}.${r.addr ? "<br>Адрес: <b>" + esc(r.addr) + "</b>" : ""}${r.phone ? "<br>Телефон: <b>" + esc(r.phone) + "</b>" : ""}</p>${r.guide ? "<p>В гиде — как добраться, коды, Wi-Fi и правила дома.</p>" : ""}` },
+      en: { title: "See you tomorrow", body: `<p><b>${esc(r.apt)}</b>, ${dmy(r.date)}${r.cin ? ", check-in from <b>" + esc(r.cin) + "</b>" : ""}.${r.addr ? "<br>Address: <b>" + esc(r.addr) + "</b>" : ""}${r.phone ? "<br>Phone: <b>" + esc(r.phone) + "</b>" : ""}</p>${r.guide ? "<p>The guide has directions, door codes, Wi-Fi and house rules.</p>" : ""}` },
+    }, r.guide ? { url: r.guide, ro: "Deschide ghidul oaspetelui", ru: "Открыть гид", en: "Open the guest guide" } : undefined),
   }),
   trialEnding: (org: string, slug: string, ends: string, daily: number, apts: number, balance: number) => ({
     subject: `Perioada de probă ${org} se termină pe ${dmy(ends)}`,
@@ -219,12 +260,13 @@ export const mails = {
       { url, ro: "Deschide factura (PDF)", ru: "Открыть счёт (PDF)" }),
   }),
   // a company sends a guest invoice (stay payment), separate from platform credit invoices
-  guestInvoice: (org: string, r: { number: string; amount: number; cur: string; due: string; url: string; apt: string; date: string }) => ({
-    subject: `${org}: factura ${r.number} — ${r.amount} ${r.cur}`,
-    html: layout(
-      { title: `Factura ${r.number}`, body: `<p><b>${esc(org)}</b> vă trimite factura pentru <b>${esc(r.apt)}</b> (de pe ${dmy(r.date)}): <b>${r.amount} ${esc(r.cur)}</b>, scadența <b>${dmy(r.due)}</b>. O deschideți, tipăriți sau salvați ca PDF.</p>` },
-      { title: `Счёт ${r.number}`, body: `<p>${esc(org)} отправляет счёт за <b>${esc(r.apt)}</b> (с ${dmy(r.date)}): <b>${r.amount} ${esc(r.cur)}</b>, оплатить до <b>${dmy(r.due)}</b>. Можно открыть, распечатать или сохранить в PDF.</p>` },
-      { url: r.url, ro: "Deschide factura (PDF)", ru: "Открыть счёт (PDF)" }),
+  guestInvoice: (org: string, r: { number: string; amount: number; cur: string; due: string; url: string; apt: string; date: string }, lang?: string) => ({
+    subject: guestT(lang, { ro: `${org}: factura ${r.number} — ${r.amount} ${r.cur}`, ru: `${org}: счёт ${r.number} — ${r.amount} ${r.cur}`, en: `${org}: invoice ${r.number} — ${r.amount} ${r.cur}` }),
+    html: guestLayout(org, lang, {
+      ro: { title: `Factura ${r.number}`, body: `<p><b>${esc(org)}</b> vă trimite factura pentru <b>${esc(r.apt)}</b> (de pe ${dmy(r.date)}): <b>${r.amount} ${esc(r.cur)}</b>, scadența <b>${dmy(r.due)}</b>. O deschideți, tipăriți sau salvați ca PDF.</p>` },
+      ru: { title: `Счёт ${r.number}`, body: `<p><b>${esc(org)}</b> отправляет счёт за <b>${esc(r.apt)}</b> (с ${dmy(r.date)}): <b>${r.amount} ${esc(r.cur)}</b>, оплатить до <b>${dmy(r.due)}</b>. Можно открыть, распечатать или сохранить в PDF.</p>` },
+      en: { title: `Invoice ${r.number}`, body: `<p><b>${esc(org)}</b> sends you the invoice for <b>${esc(r.apt)}</b> (from ${dmy(r.date)}): <b>${r.amount} ${esc(r.cur)}</b>, due <b>${dmy(r.due)}</b>. Open, print or save it as PDF.</p>` },
+    }, { url: r.url, ro: "Deschide factura (PDF)", ru: "Открыть счёт (PDF)", en: "Open the invoice (PDF)" }),
   }),
   invoiceDue: (org: string, number: string, amount: number, due: string, url: string, overdue: boolean) => ({
     subject: overdue ? `Factura ${number} e scadentă azi` : `Factura ${number}: scadența pe ${dmy(due)}`,
@@ -267,7 +309,7 @@ export async function dailyMail(env: Env, db: D1Database) {
     let cfg: any = {}; try { cfg = JSON.parse(b.cfg || "{}"); } catch {}
     if (cfg.direct && cfg.direct.arrival === false) continue;
     const u = (cfg.units || {})[b.apt] || {};
-    await sendMail(env, db, { to: b.email, ...mails.arrival(b.org_name, { apt: b.apt, date: b.date, cin: u.cin || "", addr: (cfg.addr || {})[b.apt] || "", phone: cfg.direct?.phone || "", guide: b.gtok ? await stayGuideUrl(b.org_id, b.id, b.gtok) : "" }), kind: "arrival", orgId: b.org_id, key: "arrival:" + b.id + ":" + b.date });
+    await sendMail(env, db, { to: b.email, ...mails.arrival(b.org_name, { apt: b.apt, date: b.date, cin: u.cin || "", addr: (cfg.addr || {})[b.apt] || "", phone: cfg.direct?.phone || "", guide: b.gtok ? await stayGuideUrl(b.org_id, b.id, b.gtok) : "" }, bLang(b)), kind: "arrival", orgId: b.org_id, key: "arrival:" + b.id + ":" + b.date });
     n++;
   }
   for (const i of await all(db, "SELECT i.*, o.name AS org_name FROM invoices i JOIN orgs o ON o.id = i.org_id WHERE i.status = 'sent' AND i.due_at IN (?, ?)", addDays(t, 3), t)) {
