@@ -1725,7 +1725,7 @@ async function api(fn,args={}){
   if(!r.ok){const m=(j&&j.message)||t||("HTTP "+r.status); const err=new Error(m); err.code=/bad_session/.test(m)?"bad_pin":m; if(m==="month_closed")closedHit=Date.now(); if(m==="subscription_expired"){EXPIRED=true;RO=true;document.body.classList.add("ro");subBar()} throw err}
   return j;
 }
-function mapB(b){return {tag:b.tag||"",price:+b.price||0,price_cur:b.price_cur||"EUR",pay_status:b.pay_status||"",id:b.id,date:b.date,apt:b.apt,guest:b.guest||"",nights:+b.nights||0,mdl:+b.mdl||0,eur:+b.eur||0,usd:+b.usd||0,pay:b.pay||"",who:b.who||"",note:b.note||"",source:b.source||"",phone:b.phone||"",pax:+b.pax||0,email:b.email||"",oth:+b.oth||0,oth_cur:b.oth_cur||"",util:+b.util||0,util_cur:b.util_cur||"MDL",verified:!!b.verified,verifiedAt:b.verified_at||null,shiftId:b.shift_id||null,createdAt:Date.parse(b.created_at)||0,updatedAt:Date.parse(b.updated_at)||0,x:xOf(b.extra)}}
+function mapB(b){return {tag:b.tag||"",price:+b.price||0,price_cur:b.price_cur||"EUR",pay_status:b.pay_status||"",id:b.id,date:b.date,apt:b.apt,guest:b.guest||"",nights:+b.nights||0,mdl:+b.mdl||0,eur:+b.eur||0,usd:+b.usd||0,pay:b.pay||"",who:b.who||"",note:b.note||"",source:b.source||"",phone:b.phone||"",pax:+b.pax||0,email:b.email||"",oth:+b.oth||0,oth_cur:b.oth_cur||"",util:+b.util||0,util_cur:b.util_cur||"MDL",verified:!!b.verified,verifiedAt:b.verified_at||null,shiftId:b.shift_id||null,createdAt:Date.parse(b.created_at)||0,ical:!!b.ext_uid,updatedAt:Date.parse(b.updated_at)||0,x:xOf(b.extra)}}
 function xOf(v){if(v&&typeof v==="object")return v;try{const o=JSON.parse(v||"{}");return o&&typeof o==="object"?o:{}}catch(e){return {}}}
 function mapE(e){return {...({id:e.id,date:e.date,apt:e.apt||"",category:e.category||"",mdl:+e.mdl||0,eur:+e.eur||0,usd:+e.usd||0,who:e.who||"",note:e.note||"",oth:+e.oth||0,oth_cur:e.oth_cur||"",yearly:!!e.yearly,createdAt:Date.parse(e.created_at)||0,updatedAt:Date.parse(e.updated_at)||0}),shiftId:e.shift_id||null}}
 async function reload(){
@@ -3748,6 +3748,41 @@ function channelStats(from,to,A=repApts()){
   }
   return Object.values(map).filter(r=>r.inc||r.nights||r.cnt||r.cancel||r.com).sort((a,b)=>b.inc-a.inc||b.cnt-a.cnt);
 }
+// ---- pick-up: bookings MADE in the period (by creation date) and how far ahead guests book
+let pkSrc="";
+const PK_W=[[0,1,"0–1"],[2,7,"2–7"],[8,14,"8–14"],[15,30,"15–30"],[31,60,"31–60"],[61,1e9,"61+"]];
+function finPickupHtml(from,to,label){
+  const allow=new Set(repApts()&&repApts().length?repApts():cfg.apts), s0=toT(from), s1=toT(to)+DAY;
+  const made=bookings.filter(b=>allow.has(b.apt)&&b.tag!=="closed"&&b.tag!=="req"&&b.createdAt>=s0&&b.createdAt<s1);
+  const srcs=[...new Set(made.map(b=>b.source||"не указано"))].sort();
+  if(pkSrc&&!srcs.includes(pkSrc))pkSrc="";
+  const sel=made.filter(b=>!pkSrc||(b.source||"не указано")===pkSrc);
+  const live=sel.filter(b=>b.tag!=="cancel"&&b.nights>0), cx=sel.filter(b=>b.tag==="cancel");
+  const lead=b=>Math.max(0,Math.round((toT(b.date)-toT(fromT(b.createdAt)))/DAY));
+  const exact=live.filter(b=>!b.ical), approx=live.length-exact.length;
+  const nights=live.reduce((a,b)=>a+b.nights,0), sum=live.reduce((a,b)=>a+(b.price?toEurC(+b.price,b.price_cur||"EUR"):eurOf(b)),0);
+  const avg=exact.length?Math.round(exact.reduce((a,b)=>a+lead(b),0)/exact.length):null;
+  let h=`<h3>Пик-ап · ${esc(label)}</h3>`;
+  h+=srcs.length>1?`<div class="finper" role="group" aria-label="Канал"><button type="button" data-pksrc="" aria-pressed="${!pkSrc}">Все каналы</button>${srcs.map(x=>`<button type="button" data-pksrc="${esc(x)}" aria-pressed="${pkSrc===x}">${esc(x)}</button>`).join("")}</div>`:"";
+  if(!sel.length) return h+`<div class="empty">За этот период новых броней нет</div>`;
+  h+=`<div class="fks">${fKpi("Новых броней",String(live.length),plural(live.length,"бронь","брони","броней")+" создано")}${fKpi("Ночей",String(nights),"в новых бронях")}${fKpi("Сумма",fmt0(sum)+" €","стоимость новых броней")}${fKpi("Бронируют за",avg===null?"—":avg+" дн.","в среднем до заезда")}</div>`;
+  // new bookings per day (per week if the period is long)
+  const days=Math.round((s1-s0)/DAY), step=days>62?7:1, n=Math.ceil(days/step), cnt=Array(n).fill(0);
+  live.forEach(b=>{const i=Math.floor((b.createdAt-s0)/DAY/step);if(i>=0&&i<n)cnt[i]++});
+  const W=360,H=130,pt=16,pb=20,mx=Math.max(1,...cnt),gw=W/n,bw=Math.max(2,Math.min(14,gw*0.7));
+  let svg=`<svg class="fchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Новые брони по ${step===7?"неделям":"дням"}">`;
+  cnt.forEach((v,i)=>{const hh=(H-pt-pb)*v/mx,x=gw*i+gw/2;svg+=`<rect x="${x-bw/2}" y="${H-pb-hh}" width="${bw}" height="${Math.max(v?2:0,hh)}" rx="3" fill="var(--inc)"><title>${dm(fromT(s0+i*step*DAY))}: ${v}</title></rect>`;if(v===mx&&v)svg+=`<text x="${x}" y="${H-pb-hh-4}" text-anchor="middle" class="pv">${v}</text>`});
+  [0,Math.floor(n/2),n-1].forEach(i=>{svg+=`<text x="${Math.min(W-14,Math.max(14,gw*i+gw/2))}" y="${H-5}" text-anchor="middle">${dm(fromT(s0+i*step*DAY))}</text>`});
+  h+=`<div class="card"><p class="small" style="margin:0 0 6px">Новые брони по ${step===7?"неделям":"дням"} (по дате создания)</p>${svg+"</svg>"}</div>`;
+  // booking window
+  const win=list=>PK_W.map(([a,z,t])=>({t,v:list.filter(b=>{const l=lead(b);return l>=a&&l<=z}).length}));
+  const bars=(rows,col)=>{const m=Math.max(1,...rows.map(r=>r.v));return `<div class="chbars">${rows.map(r=>`<div class="chbar"><div class="nm"><span>${r.t} дн.</span></div><div class="v">${r.v}</div><div class="tr"><em style="width:${Math.round(r.v/m*100)}%;background:${col}"></em></div></div>`).join("")}</div>`};
+  h+=`<h3>За сколько дней до заезда бронируют</h3><div class="card">${exact.length?bars(win(exact),"var(--inc)"):`<div class="small">Нет броней с точной датой создания</div>`}
+    ${approx?`<p class="small" style="margin:8px 0 0">Ещё ${approx} ${plural(approx,"бронь","брони","броней")} из календарей Airbnb/Booking (iCal) не учтены: дата создания у них примерная — когда календарь подтянул бронь.</p>`:""}</div>`;
+  const cxe=cx.filter(b=>!b.ical);
+  h+=`<h3>Отмены по окну бронирования</h3><div class="card">${cxe.length?bars(win(cxe),"var(--exp)"):`<div class="small">Отмен среди новых броней нет</div>`}</div>`;
+  return h;
+}
 function finChannelsHtml(from,to,label){
   const rows=channelStats(from,to), tot=rows.reduce((a,r)=>a+r.inc,0), mx=Math.max(1,...rows.map(r=>r.inc));
   const sum={inc:tot,nights:rows.reduce((a,r)=>a+r.nights,0),cnt:rows.reduce((a,r)=>a+r.cnt,0),cancel:rows.reduce((a,r)=>a+r.cancel,0),com:rows.reduce((a,r)=>a+r.com,0)};
@@ -3837,7 +3872,7 @@ function renderFinYear(){
   h+=yearly.length?`<div class="list">${yearly.map(e=>{const nx=next(e),soon=toT(nx)-toT(todayStr())<=30*DAY;return `<button class="bk" data-eedit="${esc(e.id)}"><span class="thumb" style="background:${catCol(e.category)}22;font-size:24px">${catIcon(e.category)}</span><div class="m"><b>${esc(e.category)}${e.note?" · "+esc(e.note):""}</b><div class="l2">${esc(e.apt||"Общие")} · по ${fmt0(eurOf(e)/12)} € в месяц</div>${soon?`<span class="f">⏰ следующая оплата ${dm(nx)}.${nx.slice(0,4)}</span>`:""}</div><div class="a" style="color:var(--exp)">−${esc(amounts(e))}<small>${soon?"скоро":"след. "+dm(nx)+"."+nx.slice(2,4)}</small></div></button>`}).join("")}</div>`
     :`<div class="empty">Налоги, страховка, годовые подписки — добавь расход и выбери «Годовой». Он разделится на 12 месяцев, а здесь будет видно, когда следующая оплата.</div>`;
   const B=finBounds();
-  h+=finChannelsHtml(B.from,B.to,B.label);
+  h+=finChannelsHtml(B.from,B.to,B.label)+finPickupHtml(B.from,B.to,B.label);
   $("s-body").innerHTML=finSeg(true)+h;
 }
 function renderFinSpan(){
@@ -3852,7 +3887,7 @@ function renderFinSpan(){
     ${fKpi("Расходы",fmt0(exp)+" €",inc?Math.round(exp/inc*100)+"% от дохода":"","")}
     ${fKpi("Ночи",fmt0(nights),"занятых в периоде","")}
     ${fKpi("Цена ночи",fmt0(adr)+" €","в среднем, без коммуналки","")}</div>`;
-  h+=finChannelsHtml(B.from,B.to,B.label);
+  h+=finChannelsHtml(B.from,B.to,B.label)+finPickupHtml(B.from,B.to,B.label);
   $("s-body").innerHTML=finPerBar()+h;
 }
 function renderFin(){
@@ -3896,7 +3931,7 @@ function renderFin(){
   h+=`<h3>Расходы по категориям</h3><div class="card">${finCats(byCat)}</div>`;
   h+=`<div class="two"><div><h3>Способ оплаты</h3><div class="card">${donut(Object.entries(byPay).map(([k,v])=>({label:k,value:v,color:PAY_COL[k]||"#9a93a5"})))}</div></div>
     <div><h3>Откуда брони</h3><div class="card">${donut(Object.entries(bySrc).map(([k,v])=>({label:k,value:v,color:SRC_COL[k]||"#9a93a5"})))}</div></div></div>`;
-  {const B=finBounds();h+=finChannelsHtml(B.from,B.to,B.label)}
+  {const B=finBounds();h+=finChannelsHtml(B.from,B.to,B.label)+finPickupHtml(B.from,B.to,B.label)}
   h+=`<h3>Наличные на руках · только «Кэш»</h3>`+(cash.length?`<div class="card fcash">${cash.map(r=>`<div class="fcr"><span class="ava">${esc((r.p||"?").slice(0,1).toUpperCase())}</span><b>${esc(r.p||"не указано")}</b><div>${[r.mdl?fmt(r.mdl)+" лей":"",r.eur?fmt(r.eur)+" €":"",r.usd?fmt(r.usd)+" $":""].filter(Boolean).join(" · ")}<small>≈ ${fmt0(eurOf(r))} €</small></div></div>`).join("")}</div>`:`<div class="empty">Наличными в этом месяце не платили</div>`);
   h+=flagged.length?`<h3>Проверить <span class="count">${flagged.length}</span></h3><div class="list">${flagged.slice(0,showAllFlags?999:5).map(b=>rowB(b)).join("")}</div>${flagged.length>5&&!showAllFlags?`<div class="actions" style="margin-top:8px"><button class="btn sm" id="show-flags">Показать все ${flagged.length}</button></div>`:""}`:`<h3>Проверка</h3><div class="empty">Всё заполнено ✓</div>`;
   h+=`<h3>Excel</h3><div class="card"><div class="actions" style="margin-top:0">
@@ -5167,6 +5202,7 @@ document.addEventListener("click",e=>{
   if(ds.repo!=null){repFilt=repFilt.o===ds.repo?{}:{o:ds.repo};repSave();renderView();return}
   if(ds.finy!=null){finYear=ds.finy==="1";finPer=finYear?"year":"cur";renderView();return}
   if(ds.finmonth!=null){mon.m=+ds.finmonth;finYear=false;finPer="cur";renderView();window.scrollTo({top:0});return}
+  if(ds.pksrc!=null){pkSrc=ds.pksrc;renderView();return}
   if(ds.finper!=null){finPer=ds.finper;const n=new Date(),y=n.getFullYear(),m=n.getMonth();
     if(finPer==="cur"){finYear=false;mon.y=y;mon.m=m}
     else if(finPer==="next"){finYear=false;mon.y=y;mon.m=m+1;if(mon.m>11){mon.m=0;mon.y++}}

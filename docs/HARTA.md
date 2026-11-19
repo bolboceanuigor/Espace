@@ -150,7 +150,7 @@ Ce trebuie să aibă fiecare modul ca aplicația să fie completă și funcțion
 | Export Excel | ✅ | |
 | Rapoarte pe canal: venit, nopți, rezervări, anulări, comision | ✅ | Tabel și grafic pe Airbnb, Booking, Direct și altele, pentru orice perioadă. |
 | Perioade rapide | ✅ | Luna aceasta, luna viitoare, +3 luni, anul acesta, anul trecut, interval ales. |
-| Pick-up și fereastra de rezervare | ❌ | Rezervările noi pe zile și cu câte zile înainte se rezervă. |
+| Pick-up și fereastra de rezervare | ✅ | Rapoarte → „Пик-ап”: rezervări noi (după data creării) pe zile/săptămâni, nopți, valoare, media zilelor până la sosire; fereastra 0–1/2–7/8–14/15–30/31–60/61+ și anulările pe fereastră; filtru pe canal + filtrele de unitate/grup existente. Rezervările din iCal sunt excluse din fereastră (data creării aproximativă). `finPickupHtml`. |
 | Raport zilnic sau săptămânal pe email pentru owner | ❌ | Opțional din Setări: sosiri, plecări, încasări, ce nu e plătit. |
 
 ## 12. Facturi și plăți de la oaspeți
