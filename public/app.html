@@ -403,6 +403,8 @@ body.calmode .ctopbar{padding-top:calc(8px + env(safe-area-inset-top,0px))}
 .sh-tl .pc.cta::before,.sh-tl .dr.cta::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:#d9534f}
 .sh-tl .pc.ctd::after,.sh-tl .dr.ctd::after{content:"";position:absolute;right:0;top:0;bottom:0;width:3px;background:#e0a030}
 #biolock{position:fixed;inset:0;z-index:9999;background:#fff;display:grid;place-items:center}#biolock>div{display:flex;flex-direction:column;align-items:center;gap:12px;width:min(280px,80vw)}#biolock img{border-radius:18px}#biolock b{font-size:22px;margin-bottom:18px}#biolock .btn{width:100%;min-height:48px}
+@media (max-width:560px){.aptset .ah.setrow{flex-wrap:wrap;row-gap:8px}.aptset .ah.setrow .um{flex:1 1 calc(100% - 64px);min-width:0}.aptset .ah.setrow .um b,.aptset .ah.setrow .um small{white-space:normal;overflow:visible;text-overflow:clip}
+.aptset .ah.setrow .ibtn{flex:1 1 0;width:auto;height:40px}.aptset .ah.setrow .ibtn.del.armed{flex:2 1 0}.aptset>.grid2{grid-template-columns:minmax(0,1fr) auto!important}.aptset>.grid2 .btn.sm{padding:0 14px}}
 .rooms{margin:14px 0 4px}.rmh{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}.rmh h3{margin:0;font-size:16px}.rmh span{font-size:12.5px;color:var(--muted)}
 .rmh i{display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 4px 0 6px;vertical-align:1px}.rmh i.ok{background:#12a150}.rmh i.bad{background:#e5484d}
 .rmg{font-size:11.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:12px 2px 6px}
