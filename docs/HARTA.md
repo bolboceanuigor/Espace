@@ -79,6 +79,7 @@ Ce trebuie să aibă fiecare modul ca aplicația să fie completă și funcțion
 | Filtrul pe stare: rezervare, cerere, anulată | ✅ | Butoane Все / Брони / Заявки / Аннулированные deasupra grilei. Anulatele se văd tăiate. |
 | Mutarea unei rezervări prin tragere (drag & drop), pe desktop | ✅ | Tragi bara pe altă unitate/dată (pointer fine). Confirmare + verificare overlap, apoi `kv_save`. Pe telefon rămâne tap → fișă. |
 | Ofertă cu link pentru oaspete | ✅ | Selectezi unitățile libere pe niște date și primești un link public cu pozele, prețul calculat și butonul „Rezervă”. |
+| Rezervare cel mult cu N zile înainte (pe unitate) | ✅ | Obiect → Цены и правила: „Бронь не раньше чем за, дней” (`u.ahead`, motor `price.js` → `why: "ahead"`). Se aplică pe pagina publică, ofertă, widget și pe server. |
 
 ## 5. Rezervarea
 

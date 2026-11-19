@@ -5,7 +5,7 @@
         price, dow {0..6: price for that weekday, overrides price + weekend %}, minn (min nights),
         xg (extra per guest per night) above xgFrom guests, xc (per child per night), los [{n, pct}] (discount from n nights),
         cfee (cleaning, once), bufB / bufA (free days kept before / after each stay), arr [weekdays a stay may start on],
-        lead (book at least this many days ahead), maxn (longest stay)
+        lead (book at least this many days ahead), ahead (book at most this many days ahead), maxn (longest stay)
    P  = company pricing: { weekend: % for Friday/Saturday nights, seasons: [{from:"MM-DD", to:"MM-DD", pct, min}] }
    R  = this unit's day rules: { "YYYY-MM-DD": { p: price, min: nights, cta: no arrival, ctd: no departure, x: closed } }  */
 (function (root, make) { var api = make(); if (typeof module === "object" && module.exports) module.exports = api; else root.EsPrice = api; })(
@@ -47,7 +47,7 @@
     return true;
   }
   /* can a stay din + n nights be taken? o = { P, R, dirMin, today, busy, pax, kids }
-     why: closed | no_arrival | no_departure | arrival_day | lead | min | max | taken | guests */
+     why: closed | no_arrival | no_departure | arrival_day | lead | ahead | min | max | taken | guests */
   function check(u, din, n, o) {
     o = o || {}; var R = o.R || {}, dout = add(din, n);
     var min = minStay(u, din, o.P, R, o.dirMin);
@@ -57,6 +57,7 @@
     if (R[dout] && R[dout].ctd) return { ok: false, why: "no_departure", min: min };
     if (u && u.arr && u.arr.length && u.arr.indexOf(wd(din)) < 0) return { ok: false, why: "arrival_day", min: min, days: u.arr };
     if (o.today && +(u && u.lead) > 0 && (toT(din) - toT(o.today)) / DAY < +u.lead) return { ok: false, why: "lead", min: min, lead: +u.lead };
+    if (o.today && +(u && u.ahead) > 0 && (toT(din) - toT(o.today)) / DAY > +u.ahead) return { ok: false, why: "ahead", min: min, ahead: +u.ahead };
     if (n < min) return { ok: false, why: "min", min: min };
     if (+(u && u.maxn) > 0 && n > +u.maxn) return { ok: false, why: "max", min: min, max: +u.maxn };
     var cap = +(u && u.guests) || 0, people = (+o.pax || 0) + (+o.kids || 0);

@@ -637,7 +637,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     const busy = (apt: string, from: string, nights: number) => taken.some((b: any) => b.apt === apt && b.date < addDays(from, nights) && addDays(b.date, b.nights) > from);
     if (fn === "pub_listing") {
       const discN = await one(db, "SELECT COUNT(*) AS n FROM discount_codes WHERE org_id = ? AND active = 1", org.id).catch(() => ({ n: 0 }));
-      const PUB = ["kind", "group", "area", "bedrooms", "baths", "floor", "beds", "guests", "price", "pcur", "cin", "cout", "amen", "rtype", "minn", "cfee", "dep", "layout", "dow", "xg", "xgFrom", "xc", "los", "bufB", "bufA", "arr", "lead", "maxn", "desc", "how", "map"];
+      const PUB = ["kind", "group", "area", "bedrooms", "baths", "floor", "beds", "guests", "price", "pcur", "cin", "cout", "amen", "rtype", "minn", "cfee", "dep", "layout", "dow", "xg", "xgFrom", "xc", "los", "bufB", "bufA", "arr", "lead", "ahead", "maxn", "desc", "how", "map"];
       return json({
         name: org.name, slug: org.code, min: Math.max(1, +dir.min || 1), pricing: { weekend: +(cfg.pricing?.weekend) || 0, seasons: (cfg.pricing?.seasons || []).map((x: any) => ({ from: x.from, to: x.to, pct: +x.pct || 0, min: +x.min || 0 })) }, phone: dir.phone || "", email: dir.email || "", terms: dir.terms || "", intro: dir.intro || "",
         units: units.map((a: string) => { const u = (cfg.units || {})[a] || {}, o: any = { name: a, addr: dir.addr === false ? "" : ((cfg.addr || {})[a] || "").split(",")[0] }; for (const k of PUB) if (u[k] != null && u[k] !== "") o[k] = u[k];
@@ -743,7 +743,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     }
     if (fn === "pub_offer") {
       await run(db, "UPDATE offers SET views = views + 1 WHERE token = ?", tok).catch(() => {});
-      const PUB = ["kind", "group", "area", "bedrooms", "baths", "floor", "beds", "guests", "price", "pcur", "cin", "cout", "amen", "rtype", "minn", "cfee", "dep", "layout", "dow", "xg", "xgFrom", "xc", "los", "bufB", "bufA", "arr", "lead", "maxn"];
+      const PUB = ["kind", "group", "area", "bedrooms", "baths", "floor", "beds", "guests", "price", "pcur", "cin", "cout", "amen", "rtype", "minn", "cfee", "dep", "layout", "dow", "xg", "xgFrom", "xc", "los", "bufB", "bufA", "arr", "lead", "ahead", "maxn"];
       return json({
         name: of.org_name, slug: of.code, token: tok, date, nights, note: of.note || "",
         phone: dir.phone || "", email: dir.email || "", terms: dir.terms || "",
@@ -2132,11 +2132,11 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       for (const a of apts) { const d = denyApt(a); if (d) return d; }
       if (fn === "kv_contact_export") {
         const data = await exportGuest(db, O, id);
-        await audit(db, O, c, "contact", "export", id, "export date oaspete", { bookings: data?.bookings.length || 0 });
+        await audit(db, O, c, "contact", "export", id, "", { bookings: data?.bookings.length || 0 });
         return new Response(JSON.stringify(data, null, 2), { headers: { "content-type": "application/json; charset=utf-8", "content-disposition": 'attachment; filename="guest-data.json"', "cache-control": "no-store" } });
       }
       const r = await forgetGuest(db, O, id, env.FILES);
-      await audit(db, O, c, "contact", "forget", id, "date oaspete șterse", r || {});
+      await audit(db, O, c, "contact", "forget", id, "", r || {});
       return json(r);
     }
     case "kv_contacts_export": {
