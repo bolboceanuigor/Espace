@@ -419,5 +419,10 @@
 "В договоре на их месте будут прочерки.": "În contract, în locul lor vor fi liniuțe.",
 "Данные компании не заполнены": "Datele companiei nu sunt completate",
 "Всё равно создать": "Creează oricum",
-"Заполнить": "Completează"
+"Заполнить": "Completează",
+"Создадим квартиру целиком и её комнаты. Бронь комнаты закрывает квартиру, бронь квартиры — все комнаты.": "Creăm apartamentul întreg și camerele lui. Rezervarea unei camere blochează apartamentul, rezervarea apartamentului blochează toate camerele.",
+"целиком или по комнатам — бронь одной закрывает другую": "întreg sau pe camere — rezervarea uneia o blochează pe cealaltă",
+"Название квартиры": "Numele apartamentului",
+"Гостей в комнате": "Oaspeți în cameră",
+"Комнат": "Camere"
 }

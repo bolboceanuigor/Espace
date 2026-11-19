@@ -420,5 +420,10 @@
 "В договоре на их месте будут прочерки.": "The contract will show dashes in their place.",
 "Данные компании не заполнены": "Company details are missing",
 "Всё равно создать": "Create anyway",
-"Заполнить": "Fill in"
+"Заполнить": "Fill in",
+"Создадим квартиру целиком и её комнаты. Бронь комнаты закрывает квартиру, бронь квартиры — все комнаты.": "We create the whole apartment and its rooms. Booking a room blocks the apartment, booking the apartment blocks all rooms.",
+"целиком или по комнатам — бронь одной закрывает другую": "whole or by the room — booking one blocks the other",
+"Название квартиры": "Apartment name",
+"Гостей в комнате": "Guests per room",
+"Комнат": "Rooms"
 }

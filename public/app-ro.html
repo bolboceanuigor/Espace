@@ -3295,10 +3295,10 @@ document.addEventListener("input",e=>{if(e.target.closest&&e.target.closest("#uh
 /* SET-UP WIZARD — once, for a new company's owner: what you run → the units → who works → summary */
 let W=null;
 const wizNeeded=()=>ROLE==="owner"&&!RO&&!(ME&&ME.support)&&!cfg.onboarded&&cfg.apts.length===1&&isDefApt(cfg.apts[0])&&!bookings.length;
-function wizStart(){W={step:0,kinds:[],units:[{name:"",kind:"apt",bedrooms:"1",dbl:1,sgl:0,sofa:0,guests:"",area:""}],hotel:{name:"",start:"101",rooms:[{t:"double",n:"5"}]},
+function wizStart(){W={step:0,kinds:[],units:[{name:"",kind:"apt",bedrooms:"1",dbl:1,sgl:0,sofa:0,guests:"",area:""}],hotel:{name:"",start:"101",rooms:[{t:"double",n:"5"}]},col:{name:"",n:"3",g:"2"},
   mgr:[],cl:[],tiers:null,busy:false};
   api("billing").then(b=>{if(W){W.rate=b.rate||1;if(W.step===3)wizRender()}}).catch(()=>{});wizRender()}
-const WK=[["apt","Apartamente","chirie pe zi a apartamentelor și garsonierelor"],["house","Case și vile","întregi, cu sau fără curte"],["hotel","Hotel sau pensiune","camere de diferite tipuri"],["hostel","Hostel","paturi în camere comune"]];
+const WK=[["apt","Apartamente","chirie pe zi a apartamentelor și garsonierelor"],["house","Case și vile","întregi, cu sau fără curte"],["hotel","Hotel sau pensiune","camere de diferite tipuri"],["hostel","Hostel","paturi în camere comune"],["coliving","Apartament pe camere","întreg sau pe camere — rezervarea uneia o blochează pe cealaltă"]];
 // what stays when the wizard adds units: everything except the untouched starter apartment
 const wizBase=()=>cfg.apts.filter(a=>!(isDefApt(a)&&!bookings.some(b=>b.apt===a)&&!Object.keys(unitOf(a)).length));
 function wizUnits(){ // what the wizard will create (new names never clash with existing ones)
@@ -3308,6 +3308,9 @@ function wizUnits(){ // what the wizard will create (new names never clash with 
   if(W.kinds.includes("hotel")||W.kinds.includes("hostel")){const h=W.hotel.name.trim()||(W.kinds.includes("hotel")?"Hotel":"Hostel");let start=parseInt(W.hotel.start,10)||1;
     W.hotel.rooms.forEach(r=>{const n=Math.max(0,Math.min(200,parseInt(r.n,10)||0));const names=roomNames(h,start,n,[...base,...apts]);start+=n;const [,beds,g]=ROOMT[r.t];
       names.forEach(nm=>{apts.push(nm);const gg=+r.g||g;units[nm]=r.t==="dorm"?{kind:"dorm",group:h,dbeds:gg,guests:gg,beds:{bunk:gg}}:{kind:r.t==="bed"?"bed":"room",group:h,rtype:r.t,beds:{...beds},guests:gg}})})}
+  // an apartment rented whole or by the room: the apartment + its rooms, linked (booking one blocks the other)
+  if(W.kinds.includes("coliving")){let ap=(W.col.name||"").trim()||"Apartament pe camere";while(clash(ap))ap+=" ·";const n=Math.max(1,Math.min(20,parseInt(W.col.n,10)||1)),g=Math.max(1,Math.min(10,parseInt(W.col.g,10)||1));
+    apts.push(ap);units[ap]={kind:"apt",group:ap,guests:n*g,bedrooms:n};for(let i=1;i<=n;i++){let r=ap+" · "+i;while(clash(r))r+=" ·";apts.push(r);units[r]={kind:"room",group:ap,parent:ap,guests:g,beds:{dbl:1}}}}
   return {apts,units}}
 function wizPrice(n){const r=W.rate||1;return fmt(Math.round(n*r*100)/100)+" "+plural(Math.round(n*r),"credit","credite","credite")+" pe zi"}
 function wizRender(){let el=$("wiz");if(!W){if(el)el.remove();document.body.classList.remove("wizon");return}
@@ -3325,7 +3328,11 @@ function wizRender(){let el=$("wiz");if(!W){if(el)el.remove();document.body.clas
       <div class="grid2"><div><label class="l">Nume</label><input type="text" data-wh="name" value="${esc(W.hotel.name)}" placeholder="Hotel Central"></div><div><label class="l">Prima cameră</label><input type="text" inputmode="numeric" data-wh="start" value="${esc(W.hotel.start)}"></div></div>
       <label class="l">Camere pe tipuri</label>
       ${W.hotel.rooms.map((r,i)=>`<div class="wr"><select data-wr="${i}" data-f="t">${Object.entries(ROOMT).map(([k,[t]])=>`<option value="${k}"${r.t===k?" selected":""}>${t}</option>`).join("")}</select><label><small>Câte</small><input type="text" inputmode="numeric" data-wr="${i}" data-f="n" value="${esc(r.n)}"></label><label><small>${r.t==="dorm"?"Paturi":"Oaspeți"}</small><input type="text" inputmode="numeric" data-wr="${i}" data-f="g" value="${esc(r.g??"")}" placeholder="${ROOMT[r.t][2]}"></label>${W.hotel.rooms.length>1?`<button type="button" class="iconbtn" data-wrdel="${i}" aria-label="Scoate">✕</button>`:""}</div>`).join("")}
-      <button type="button" class="btn" data-wradd="1">＋ Alt tip de cameră</button><p class="small" id="w-hprev"></p></div>`;}
+      <button type="button" class="btn" data-wradd="1">＋ Alt tip de cameră</button><p class="small" id="w-hprev"></p></div>`;
+    if(W.kinds.includes("coliving"))body+=`<div class="wsec"><div class="wsh"><b>Apartament pe camere</b></div>
+      <label class="l">Numele apartamentului</label><input type="text" data-wc="name" value="${esc(W.col.name)}" placeholder="Botanica 12">
+      <div class="grid2"><div><label class="l">Camere</label><input type="text" inputmode="numeric" data-wc="n" value="${esc(W.col.n)}"></div><div><label class="l">Oaspeți în cameră</label><input type="text" inputmode="numeric" data-wc="g" value="${esc(W.col.g)}"></div></div>
+      <p class="small">Creăm apartamentul întreg și camerele lui. Rezervarea unei camere blochează apartamentul, rezervarea apartamentului blochează toate camerele.</p></div>`;}
   if(st===2)body=`<h2>Cine lucrează împreună cu voi?</h2><p class="small">Poți sări peste și adăuga mai târziu în Setări.</p>
     <div class="wsec"><div class="wsh"><b>Manageri</b><span class="small">primesc oaspeții și banii, lucrează în ture — primesc un email ca să-și aleagă parola</span></div>
       ${W.mgr.map((m,i)=>`<div class="wr"><input type="text" data-wm="${i}" data-f="name" value="${esc(m.name)}" placeholder="Nume"><input type="email" data-wm="${i}" data-f="email" value="${esc(m.email)}" placeholder="email"><select data-wm="${i}" data-f="role">${[["manager","Manager"],["checker","Verifică plățile"],["viewer","Doar vizualizare"]].map(([k,t])=>`<option value="${k}"${m.role===k?" selected":""}>${t}</option>`).join("")}</select><button type="button" class="iconbtn" data-wmdel="${i}" aria-label="Scoate">✕</button></div>`).join("")}
@@ -3349,6 +3356,7 @@ function wizHPrev(){const el=$("w-hprev");if(!el)return;const {apts,units}=wizUn
 document.addEventListener("input",e=>{if(!W||!e.target.closest||!e.target.closest("#wiz"))return;const d=e.target.dataset;
   if(d.wu!=null){W.units[+d.wu][d.f]=e.target.value;if(["dbl","sgl","sofa"].includes(d.f)){const u=W.units[+d.wu],g=document.querySelector(`[data-wu="${d.wu}"][data-f="guests"]`);if(g)g.placeholder=String((+u.dbl||0)*2+(+u.sgl||0)+(+u.sofa||0)*2)}}
   if(d.wh)W.hotel[d.wh]=e.target.value;
+  if(d.wc)W.col[d.wc]=e.target.value;
   if(d.wr!=null)W.hotel.rooms[+d.wr][d.f]=e.target.value;
   if(d.wm!=null)W.mgr[+d.wm][d.f]=e.target.value;
   if(d.wc!=null)W.cl[+d.wc][d.f]=e.target.value;
