@@ -1794,6 +1794,8 @@ let staff=[], staffAll=[], fixers=[], tasks=[], checksLast={}, clnDay=null, clnF
 // aplicația de telefon (Capacitor, iPhone / Android): notificările vin prin Apple / Google, nu prin web push
 const CAP=window.Capacitor&&typeof window.Capacitor.isNativePlatform==="function"&&window.Capacitor.isNativePlatform()?window.Capacitor:null;
 const capCall=(pl,m,o)=>CAP.nativePromise(pl,m,o||{});
+// iPhone app: no prices and no top-up inside (App Store rule 3.1.1) — credits are bought on the website only
+const IOS_APP=!!CAP&&CAP.getPlatform()==="ios";
 let natWait=null,natCall=null;
 if(CAP){try{CAP.addListener("PushNotifications","registration",t=>{const v=t&&t.value;if(natWait)natWait.res(v);else if(v&&natCall)natCall("native_sub",{token:v,platform:CAP.getPlatform(),lang:document.documentElement.lang||"ru"}).catch(()=>{})});
   CAP.addListener("PushNotifications","registrationError",e=>{if(natWait)natWait.rej(new Error((e&&e.error)||"push"))})}catch(e){}}
@@ -2250,7 +2252,7 @@ function renderSetup(){if(!W&&wizNeeded())wizStart();const el=$("setup-card");if
     ["price",hasPrice,"Set the nightly price","Base nightly price on the unit: days and the booking page use it.","Prices"],
     ["ical",hasIcal,"Connect an external calendar","Export link on the unit card: bookings sync in by themselves.","Calendars"],
     ["team",hasTeam,"Invite a teammate","Manager or helper: access in Settings, Team section.","Team"],
-    ["credits",hasCredits,"Top up credits","One credit equals one leu per unit per day. Top up under Billing.","Счёт"]];
+    ["credits",hasCredits,"Top up credits","One credit equals one leu per unit per day. Top up under Billing.","Счёт"]].filter(x=>!(IOS_APP&&x[0]==="credits"));
   const done=steps.filter(x=>x[1]).length;
   if(done===steps.length&&!(cfg.demo&&cfg.demo.on)){el.innerHTML="";return} // Harta: disappears when all checked (unless the demo is still loaded)
   if(done===steps.length){const demoOn=!!(cfg.demo&&cfg.demo.on);el.innerHTML=`<div class="card setup ok"><b>The company is ready to go</b><p class="small" style="margin:4px 0 0">Apartments, bookings and cleaners are in place. Next — invite managers in «Menu → Settings → Staff access».</p>
@@ -3315,7 +3317,7 @@ function wizRender(){let el=$("wiz");if(!W){if(el)el.remove();document.body.clas
     body=`<h2>All set to launch</h2>
       <div class="wsum"><div><b>${apts.length}</b><span>${plural(apts.length,"unit","units","units")}</span></div><div><b>${mg.length}</b><span>${plural(mg.length,"manager","managers","managers")}</span></div><div><b>${cl.length}</b><span>${plural(cl.length,"cleaner","cleaners","cleaners")}</span></div></div>
       <p class="small">${esc(apts.slice(0,12).join(", "))}${apts.length>12?" …":""}</p>
-      <p>${wizBase().length?`Total units after adding: <b>${total}</b>. `:""}Cost: <b>${wizPrice(total)}</b>${ME&&ME.billing&&ME.billing.in_trial?" — after the trial":""}. 1 credit = 1 leu, 1 credit per unit per day; you top up in advance.</p>
+      <p>${wizBase().length?`Total units after adding: <b>${total}</b>. `:""}${IOS_APP?"":`Cost: <b>${wizPrice(total)}</b>${ME&&ME.billing&&ME.billing.in_trial?" — after the trial":""}. 1 credit = 1 leu, 1 credit per unit per day; you top up in advance.`}</p>
       ${mg.length?`<p class="small">Managers get an email with a link — they set their own password.</p>`:""}
       ${cl.length?`<p class="small">Cleaners sign in at ${esc(ME.org.code)}.espace.md → «I’m a cleaner» with their PIN.</p>`:""}`}
   el.innerHTML=`<div class="wizc"><div class="wizh"><span class="wlogo">e.</span><div class="wsteps">${S.map((s,i)=>`<span class="${i<st?"done":i===st?"cur":""}">${s}</span>`).join("")}</div><button type="button" class="linkbtn" data-wiz="skip">Skip</button></div>
@@ -5800,24 +5802,24 @@ function subBar(){annBar();let el=$("subbar");const b=ME&&ME.billing;
   if(!show){if(el)el.remove();return}
   if(!el){el=document.createElement("div");el.id="subbar";el.className="subbar";$("app").prepend(el)}
   const exp=EXPIRED||b.expired;el.classList.toggle("bad",exp);
-  const more=`<button class="btn sm" data-setopen="bill">Top up</button>`;
-  el.innerHTML=exp?`Credits have run out — your data is visible, but changes are disabled. ${more}`:b.in_trial&&!(b.balance>0)?`Trial until ${fd(b.trial_ends)}. Top up credits to keep working. ${more}`:`Credits last until ${fd(b.active_until)} (days: ${Math.max(0,b.days_left)}). ${more}`}
+  const more=IOS_APP?"":`<button class="btn sm" data-setopen="bill">Top up</button>`;
+  el.innerHTML=exp?`Credits have run out — your data is visible, but changes are disabled. ${more}`:b.in_trial&&!(b.balance>0)?(IOS_APP?`Trial until ${fd(b.trial_ends)}.`:`Trial until ${fd(b.trial_ends)}. Top up credits to keep working. ${more}`):`Credits last until ${fd(b.active_until)} (days: ${Math.max(0,b.days_left)}). ${more}`}
 function setMe(me){ME=me;ROLE=me.role||"";EXPIRED=!!(me.billing&&me.billing.expired);
   RO=ROLE==="viewer"||ROLE==="checker"||EXPIRED;document.body.classList.toggle("ro",RO);
   RIGHTS=ROLE==="owner"?{apts:null,sections:null}:(me.rights&&typeof me.rights==="object"?{apts:me.rights.apts??null,sections:me.rights.sections??null}:{apts:null,sections:null});
   $("org-name").textContent=orgName();document.title=orgName()+" · espace.md";subBar()}
 async function billLoad(){const box=$("bill-box");if(!box)return;try{const b=await api("billing");
-  const canPay=(ROLE==="owner"||ROLE==="manager")&&!(ME&&ME.support),cr=n=>fmt(n)+" "+plural(Math.floor(n),"credit","credits","credits");
+  const canPay=!IOS_APP&&(ROLE==="owner"||ROLE==="manager")&&!(ME&&ME.support),cr=n=>fmt(n)+" "+plural(Math.floor(n),"credit","credits","credits");
   const days=n=>b.daily?Math.floor(n/b.daily):0;
   const MN=["january","february","march","april","may","june","july","august","september","october","november","december"];
   const packs=(b.topups||[100,200,500,1000]).map((n,i)=>`<button type="button" class="bpack${i===1?" on":""}" data-billq="${n}"><b>${fmt(n)}</b><span>credits</span><small>${b.daily?"≈ "+days(n)+" "+plural(days(n),"day","days","days"):""}</small></button>`).join("");
   box.innerHTML=`<div class="billtop"><b>${b.expired?"Credits have run out":b.in_trial?"Trial until "+fd(b.trial_ends):"Subscription active"}</b><span class="small">${b.expired?"data is visible, changes return after a top-up":b.active_until?"lasts until "+fd(b.active_until):""}</span></div>
     <div class="bcred"><div><span class="small">Credits</span><b>${fmt(b.balance)}</b></div><div><span class="small">Used per day</span><b>${fmt(b.daily||0)}</b><small>${b.apts} ${plural(b.apts,"unit","units","units")} × ${fmt(b.rate||1)}</small></div><div><span class="small">${b.in_trial&&!(b.balance>0)?"Trial still lasts":"Lasts for"}</span><b>${b.daily?Math.max(0,b.days_left):"∞"}</b><small>${plural(Math.max(0,b.days_left),"day","days","days")}</small></div></div>
-    <p class="small" style="margin:8px 0 12px">1 credit = 1 leu. Every day we deduct ${fmt(b.rate||1)} ${plural(Math.round(b.rate||1),"credit","credits","credits")} for each unit (apartment, house, room). When credits run out, the app switches to view-only until you top up — no data is lost.</p>
+    ${IOS_APP?"":`<p class="small" style="margin:8px 0 12px">1 credit = 1 leu. Every day we deduct ${fmt(b.rate||1)} ${plural(Math.round(b.rate||1),"credit","credits","credits")} for each unit (apartment, house, room). When credits run out, the app switches to view-only until you top up — no data is lost.</p>`}
     ${canPay?`<div class="billpay"><b>Top up</b><div class="bpacks">${packs}</div><div class="billrow"><input id="bill-amt" inputmode="numeric" value="${(b.topups||[100,200])[1]||200}" aria-label="How many credits"><span class="small" style="align-self:center">credits = lei</span></div>
       <div class="billbtns">${b.maib?`<button class="btn primary" id="bill-card">Pay by card${b.maib_sandbox?" (test)":""}</button>`:""}<button class="btn${b.maib?"":" primary"}" id="bill-go">Invoice (bank transfer)</button></div>
       <p class="small" style="margin:8px 0 0">${b.maib?"By card Visa / Mastercard, Apple Pay, Google Pay or MIA — via maib. Credits are added right after payment.":"The invoice goes to email; credits are added as soon as the payment arrives."}</p></div>`:""}
-    ${b.invoices&&b.invoices.length?`<b>Invoices</b>${b.invoices.map(x=>`<div class="small"><a href="/f/${esc(x.token)}" target="_blank" rel="noopener">№ ${esc(x.number)}</a> · ${fd(x.issued_at)} · ${fmt(x.amount)} lei · ${x.status==="paid"?"paid":"awaiting payment"}</div>`).join("")}`:""}
+    ${!IOS_APP&&b.invoices&&b.invoices.length?`<b>Invoices</b>${b.invoices.map(x=>`<div class="small"><a href="/f/${esc(x.token)}" target="_blank" rel="noopener">№ ${esc(x.number)}</a> · ${fd(x.issued_at)} · ${fmt(x.amount)} lei · ${x.status==="paid"?"paid":"awaiting payment"}</div>`).join("")}`:""}
     ${b.payments&&b.payments.length?`<b>Top-ups</b>${b.payments.map(x=>`<div class="small">${fd(x.created_at.slice(0,10))} · +${cr(x.amount)}${x.balance_after!=null?" → "+cr(x.balance_after):""}${x.note?" · "+esc(x.note):""}</div>`).join("")}`:""}
     ${b.charges&&b.charges.length?`<b>Charges</b>${b.charges.map(x=>`<div class="small">${MN[+x.month.slice(5,7)-1]} ${x.month.slice(0,4)} · days: ${x.days} · −${cr(x.amount)}</div>`).join("")}`:""}`;
   box.querySelectorAll("[data-billq]").forEach(q=>q.onclick=()=>{$("bill-amt").value=q.dataset.billq;box.querySelectorAll(".bpack").forEach(x=>x.classList.toggle("on",x===q))});
