@@ -150,7 +150,7 @@ a{color:#b4531f}.addr{background:#fbf7ef;border-radius:12px;padding:10px 12px;ma
 .shbox h3{margin:0 0 10px;font-size:18px}.shbox label{display:block;font-size:13.5px;font-weight:700;margin-top:10px}.shbox input{width:100%;margin-top:4px;border:1.5px solid var(--line);border-radius:12px;padding:11px 12px;font:inherit}
 .ob{display:flex;gap:8px;margin-top:14px}.ob .vbtn{flex:1;margin:0;text-align:center}.ghost{border:1px solid var(--line);background:none;border-radius:12px;padding:10px 14px;font-weight:700;cursor:pointer}
 .msg{color:#b42318;font-weight:700;margin:8px 0 0}.okmsg{background:#e8f6ee;color:#1f6b3a;font-weight:700;border-radius:12px;padding:10px 12px;margin-top:10px}
-</style></head><body>
+</style><link rel="stylesheet" href="/guest.css"></head><body class="gpage">
 <div class="hero"><div class="top"><img src="/logo-64.png" alt=""><b>${esc(brand)}</b><nav class="lang">${langs}</nav></div>
 <h1>${esc(g.apt)}</h1><small>${esc(T.hello)} · ${esc(T.guide)}</small>${chips ? `<div class="chips">${chips}</div>` : ""}</div>
 <main>${secs.join("") || `<div class="empty">${esc(T.empty)}</div>`}<footer>${esc(brand)} · espace.md</footer></main>
