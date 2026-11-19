@@ -425,6 +425,18 @@ async function getVapid(db: D1Database): Promise<Vapid> {
 // env of the current request, for helpers that don't get it passed (the bindings are the same for every request)
 let ENV: Env | null = null;
 // msg.go: where a tap on the notification opens the app — "b:<booking id>", "cln" (cleanings), "rep" (repairs)
+// a booking moved, cancelled or deleted: its planned cleanings that no longer fit are removed,
+// and a maid who already got them in her list is told (only cleanings not started yet; a finished one stays for pay)
+async function dropStaleCleans(db: D1Database, O: string, bookingId: string, keep: { apt: string; date: string; nights: number } | null) {
+  const rows = await all(db, "SELECT id, apt, date, staff_id, sent FROM tasks WHERE org_id = ? AND kind = 'clean' AND booking_id = ? AND status = 'todo'", O, bookingId);
+  for (const t of rows) {
+    const end = keep ? addDays(keep.date, keep.nights) : "";
+    const fits = keep && t.apt === keep.apt && (t.date === end || (t.date > keep.date && t.date < end));
+    if (fits) continue;
+    await run(db, "DELETE FROM tasks WHERE org_id = ? AND id = ?", O, t.id);
+    if (t.sent && t.staff_id && t.date >= today()) await notify(db, O, ["staff:" + t.staff_id], { title: "📋 Изменения в списке на " + ddmm(t.date), body: "✕ " + t.apt }).catch(() => {});
+  }
+}
 async function notify(db: D1Database, O: string, who: string[], msg: { title: string; body?: string; tag?: string; go?: string }) {
   for (const w of who) await run(db, "INSERT INTO notifs(org_id, target, title, body) VALUES (?,?,?,?)", O, w, msg.title, msg.body || "").catch(() => {});
   if (ENV && who.includes("manager")) await tgNotify(ENV, db, O, msg).catch(() => 0); // linked Telegram chats
@@ -1511,6 +1523,8 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
           v.date, v.apt, v.guest, v.nights, v.mdl, v.eur, v.usd, v.pay, v.who, v.note, v.source, v.phone, v.pax, v.oth, v.oth_cur, v.util, v.util_cur, v.price, v.price_cur, v.pay_status, v.tag, v.email, nowIso(), O, b.id);
         if (r?.id && extra !== null) await run(db, "UPDATE bookings SET extra = ? WHERE org_id = ? AND id = ?", extra, O, r.id).catch(() => {});
         if (r?.id && prev) { const d = diffOf(prev, v, B_F); if (Object.keys(d).length) await audit(db, O, c, "booking", "update", b.id, bLabel(v), d); }
+        if (r?.id && prev && (prev.date !== v.date || prev.apt !== v.apt || +prev.nights !== v.nights || (v.tag === "cancel" && prev.tag !== "cancel")))
+          await dropStaleCleans(db, O, b.id, v.tag === "cancel" ? (v.date < today() ? { apt: v.apt, date: v.date, nights: v.nights } : null) : { apt: v.apt, date: v.date, nights: v.nights });
         // cancel tag just set → fire cancel templates once
         if (r?.id && v.tag === "cancel" && prev && prev.tag !== "cancel") {
           const full = await one(db, "SELECT * FROM bookings WHERE org_id = ? AND id = ?", O, b.id);
@@ -1626,6 +1640,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       const old = await one(db, "SELECT * FROM bookings WHERE org_id = ? AND id = ?", O, body.p_id); if (await monthClosed(db, O, old?.date)) return CLOSED();
       if (old && !allowsApt(c.rights, c.role, old.apt)) return json({ message: "forbidden_apt" }, 403);
       await run(db, "DELETE FROM bookings WHERE org_id = ? AND id = ?", O, body.p_id);
+      if (old) await dropStaleCleans(db, O, old.id, null);
       if (old) await audit(db, O, c, "booking", "delete", body.p_id, bLabel(old), snapOf(old, B_F));
       return json(null);
     }
@@ -1644,6 +1659,8 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       x.cx = reason; if (kept > 0) x.cx_keep = kept; else delete x.cx_keep; x.cx_at = nowIso();
       const extra = extraOf(x) || "{}";
       await run(db, "UPDATE bookings SET tag = 'cancel', extra = ?, updated_at = ? WHERE org_id = ? AND id = ?", extra, nowIso(), O, b.id);
+      // the guest never came (arrival today or later): no cleaning after; already living there: the cleaning stays
+      await dropStaleCleans(db, O, b.id, b.date < today() ? { apt: b.apt, date: b.date, nights: b.nights } : null);
       await audit(db, O, c, "booking", "cancel", b.id, bLabel({ ...b, tag: "cancel" }), { reason, kept: kept || null, nights: b.nights, guest: b.guest });
       waitUntil(notify(db, O, ["manager"], { go: "b:" + b.id, title: "✕ Отмена: " + (b.apt || ""), body: (b.guest || "без имени") + " · " + ddmm(b.date) + (b.nights ? " · " + b.nights + " н." : "") + " — " + reason }).catch(() => {}));
       return json({ id: b.id });
