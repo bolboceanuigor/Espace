@@ -1035,7 +1035,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       db.prepare("INSERT INTO users(id, email, name, pw_hash, terms_at) VALUES (?,?,?,'',?)").bind(uid, email, name, nowIso()),
       db.prepare("INSERT INTO orgs(id, name, code, trial_ends) VALUES (?,?,?,?)").bind(oid, orgName, slug, addDays(today(), TRIAL_DAYS)),
       db.prepare("INSERT INTO members(org_id, user_id, role) VALUES (?,?, 'owner')").bind(oid, uid),
-      db.prepare("INSERT INTO app_config(org_id, data) VALUES (?,?)").bind(oid, JSON.stringify(starterConfig(name))),
+      db.prepare("INSERT INTO app_config(org_id, data) VALUES (?,?)").bind(oid, JSON.stringify(starterConfig(name, str(body.lang, 2)))),
     ]);
     await logEvent(db, "signup", oid, email, `Companie nouă: ${orgName} (${slug}.espace.md)`);
     const url = await passwordLink(db, request, uid, 72, { slug });

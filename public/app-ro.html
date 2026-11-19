@@ -1781,7 +1781,7 @@ setTimeout(function(){window.bootDone()},8000)})();</script>
 <script>
 (function(){
 // the starter apartment name, stored in Russian by the server (escaped so the translated builds keep it)
-const DEF_APT="\u041a\u0432\u0430\u0440\u0442\u0438\u0440\u0430 1";
+const DEF_APT="\u041a\u0432\u0430\u0440\u0442\u0438\u0440\u0430 1",DEF_APTS=[DEF_APT,"Apartament 1","Apartment 1"],isDefApt=a=>DEF_APTS.includes(a);
 const DEFAULT_CFG={
   rates:{eur:20,usd:0.85},
   apts:[DEF_APT],
@@ -2255,7 +2255,7 @@ async function stepsProbe(){if(STEPS_LOAD)return;STEPS_LOAD=1;
 function renderSetup(){if(!W&&wizNeeded())wizStart();const el=$("setup-card");if(!el)return;
   const key="setup_hide_"+(ME&&ME.org?ME.org.id:"");
   if(RO||!ME||!ME.org||!["owner","manager"].includes(ROLE)||ls.get(key)==="1"||wizNeeded()){el.innerHTML="";return}
-  const hasApts=cfg.apts.length>1||cfg.apts[0]!==DEF_APT;
+  const hasApts=cfg.apts.length>1||!isDefApt(cfg.apts[0]);
   const hasPrice=cfg.apts.some(a=>+(unitOf(a).price||0)>0);
   const hasIcal=!!STEPS_X.ical,hasTeam=!!STEPS_X.team,hasCredits=!!(ME.billing&&ME.billing.balance>0);
   if(STEPS_X.team==null||STEPS_X.ical==null)stepsProbe();
@@ -3285,13 +3285,13 @@ document.addEventListener("input",e=>{if(e.target.closest&&e.target.closest("#uh
 
 /* SET-UP WIZARD — once, for a new company's owner: what you run → the units → who works → summary */
 let W=null;
-const wizNeeded=()=>ROLE==="owner"&&!RO&&!(ME&&ME.support)&&!cfg.onboarded&&cfg.apts.length===1&&cfg.apts[0]===DEF_APT&&!bookings.length;
+const wizNeeded=()=>ROLE==="owner"&&!RO&&!(ME&&ME.support)&&!cfg.onboarded&&cfg.apts.length===1&&isDefApt(cfg.apts[0])&&!bookings.length;
 function wizStart(){W={step:0,kinds:[],units:[{name:"",kind:"apt",bedrooms:"1",dbl:1,sgl:0,sofa:0,guests:"",area:""}],hotel:{name:"",start:"101",rooms:[{t:"double",n:"5"}]},
   mgr:[],cl:[],tiers:null,busy:false};
   api("billing").then(b=>{if(W){W.rate=b.rate||1;if(W.step===3)wizRender()}}).catch(()=>{});wizRender()}
 const WK=[["apt","Apartamente","chirie pe zi a apartamentelor și garsonierelor"],["house","Case și vile","întregi, cu sau fără curte"],["hotel","Hotel sau pensiune","camere de diferite tipuri"],["hostel","Hostel","paturi în camere comune"]];
 // what stays when the wizard adds units: everything except the untouched starter apartment
-const wizBase=()=>cfg.apts.filter(a=>!(a===DEF_APT&&!bookings.some(b=>b.apt===a)&&!Object.keys(unitOf(a)).length));
+const wizBase=()=>cfg.apts.filter(a=>!(isDefApt(a)&&!bookings.some(b=>b.apt===a)&&!Object.keys(unitOf(a)).length));
 function wizUnits(){ // what the wizard will create (new names never clash with existing ones)
   const base=wizBase(),units={},apts=[],clash=nm=>apts.includes(nm)||base.includes(nm);
   if(W.kinds.includes("apt")||W.kinds.includes("house"))W.units.forEach((u,i)=>{let nm=(u.name||"").trim()||((u.kind==="house"||u.kind==="villa"?"Casă ":"Apartament ")+(i+1));while(clash(nm))nm+=" ·";apts.push(nm);
@@ -3332,7 +3332,7 @@ function wizRender(){let el=$("wiz");if(!W){if(el)el.remove();document.body.clas
       <p>${wizBase().length?`Total obiecte după adăugare: <b>${total}</b>. `:""}${IOS_APP?"":`Cost: <b>${wizPrice(total)}</b>${ME&&ME.billing&&ME.billing.in_trial?" — după perioada de probă":""}. 1 credit = 1 leu, 1 credit pe unitate pe zi; suplinești în avans.`}</p>
       ${mg.length?`<p class="small">Managerii primesc un email cu link — își aleg singuri parola.</p>`:""}
       ${cl.length?`<p class="small">Menajerele intră pe ${esc(ME.org.code)}.espace.md → «Sunt menajeră» cu PIN.</p>`:""}`}
-  el.innerHTML=`<div class="wizc"><div class="wizh"><span class="wlogo">e.</span><div class="wsteps">${S.map((s,i)=>`<span class="${i<st?"done":i===st?"cur":""}">${s}</span>`).join("")}</div><button type="button" class="linkbtn" data-wiz="skip">Sari peste</button></div>
+  el.innerHTML=`<div class="wizc"><div class="wizh"><img class="wlogo" src="/icon-192.png" alt="" style="width:36px;height:36px;border-radius:10px;background:none;padding:0"><div class="wsteps">${S.map((s,i)=>`<span class="${i<st?"done":i===st?"cur":""}">${s}</span>`).join("")}</div><button type="button" class="linkbtn" data-wiz="skip">Sari peste</button></div>
     <div class="wizb">${body}</div>
     <div class="wizf">${st?`<button type="button" class="btn" data-wiz="back">Înapoi</button>`:"<span></span>"}<button type="button" class="btn primary" data-wiz="${st===3?"done":"next"}" ${st===0&&!W.kinds.length||W.busy?"disabled":""}>${st===3?(W.busy?"Se creează…":"Creează"):"Mai departe"}</button></div></div>`;
   wizHPrev()}
@@ -5884,7 +5884,7 @@ const G_ERR={not_confirmed:"Contul nu e încă confirmat — deschide emailul cu
 async function enterApp(token,me){PIN=token;ls.set("tok",token);ls.set("cl","");setMe(me);natAfterLogin((f,a)=>api("kv_"+f,a));
   if(me.role==="prop"){location.replace("/proprietar"+location.search);return}
   if(!me.org){$("gate").hidden=false;$("g-msg").innerHTML=`<div class="msg bad">Acest cont nu are acces la nicio companie.</div>`;return}
-  $("gate").hidden=true;$("app").hidden=false;fitHdr();await reload();loadPhotos();APPON=true;goPending()}
+  $("gate").hidden=true;$("app").hidden=false;fitHdr();await reload();loadPhotos();APPON=true;if(!PENDGO&&wizNeeded()&&view!=="today")show("today");goPending()}
 // a tap on a notification opens what it is about: "b:<booking id>", "cln", "rep" (web push: /#go=…, sw message; phone apps: push data.go)
 let APPON=false,PENDGO=(()=>{const m=/#go=([^&]+)/.exec(location.hash);if(m){try{history.replaceState(null,"",location.pathname+location.search)}catch(e){}return decodeURIComponent(m[1])}return ""})();
 function goPending(){if(!APPON||!PENDGO)return;const g=PENDGO;PENDGO="";goTarget(g)}

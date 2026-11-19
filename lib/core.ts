@@ -274,10 +274,11 @@ export async function billingOf(db: D1Database, org: any) {
 }
 
 // a fresh company starts with one apartment and the owner as the only manager
-export function starterConfig(ownerName: string) {
+export function starterConfig(ownerName: string, lang = "ru") {
+  // the first unit's name is real data, so it is written in the language the company signed up in
   return {
     rates: { eur: 20, usd: 0.85 },
-    apts: ["Квартира 1"],
+    apts: [lang === "ro" ? "Apartament 1" : lang === "en" ? "Apartment 1" : "Квартира 1"],
     people: [ownerName.slice(0, 20) || "Я"],
     pays: ["Кэш", "Счёт", "Airbnb", "Счёт+Кэш"],
     sources: ["Booking", "Airbnb", "Instagram", "Viber/Telegram", "Прямой", "Повторный"],

@@ -519,7 +519,7 @@ let st;function checkSlug(){clearTimeout(st);const s=$("r-slug").value,h=$("slug
   st=setTimeout(async()=>{const my=++ck;try{const r=await post("slug_check",{slug:s});if(my!==ck)return;h.className="hint "+(r.ok?"ok":"bad");h.textContent=r.ok?t("ok_slug"):(r.valid?t("e_slug_taken"):t("e_slug_bad"))}catch(e){}},250)}
 
 $("reg").addEventListener("submit",async e=>{e.preventDefault();const m=$("reg-msg");m.className="msg bad";m.textContent="";
-  const v={org_name:$("r-org").value.trim(),slug:$("r-slug").value.trim(),name:$("r-name").value.trim(),email:$("r-email").value.trim(),terms:$("r-terms").checked};
+  const v={org_name:$("r-org").value.trim(),slug:$("r-slug").value.trim(),name:$("r-name").value.trim(),email:$("r-email").value.trim(),terms:$("r-terms").checked,lang:L};
   if(!v.org_name||!v.slug||!v.name||!v.email){m.textContent=t("e_need");return}
   if(!slugValid(v.slug)){m.textContent=t("e_slug_bad");return}
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.email)){m.textContent=t("e_email");return}
