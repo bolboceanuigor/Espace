@@ -72,6 +72,10 @@ export async function forgetGuest(db: D1Database, orgId: string, id: string, fil
   const refs = [...ids, String(id)], RIN = `(${inList(refs)})`;
   for (const s of secrets)
     await run(db, `UPDATE audit SET data = REPLACE(data, ?, '×'), label = REPLACE(label, ?, '×') WHERE org_id = ? AND ref IN ${RIN}`, s, s, orgId, ...refs);
+  // the log of emails sent (requests, confirmations, contracts): the address and the subject with the name go too
+  const mails = [...new Set([c.email, ...books.map((b: any) => b.email)].map((s: any) => String(s || "").trim().toLowerCase()).filter((s) => s.includes("@")))];
+  for (const m of mails) await run(db, "UPDATE emails SET to_addr = '×', subject = '' WHERE org_id = ? AND LOWER(to_addr) = ?", orgId, m).catch(() => {});
+  // issued guest invoices stay as they are: accounting law requires keeping them
   await run(db, "DELETE FROM contacts WHERE org_id = ? AND id = ?", orgId, id);
   return { bookings: ids.length, files: nFiles };
 }
