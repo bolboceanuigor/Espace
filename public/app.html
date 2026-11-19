@@ -4324,6 +4324,11 @@ function renderSettings(){
     push:["bell","Уведомления","на этом телефоне",()=>`<div class="card"><p class="small" id="push-st" style="margin-top:0">…</p><div class="actions"><button class="btn primary" id="push-on">🔔 Включить на этом телефоне</button><button class="btn" id="push-test" hidden>Проверить</button></div>
       <p class="small" style="margin-bottom:0">Придут: квартира убрана, горничная сообщила о поломке, сводка утром в 8:00 и твои напоминания (вкладка «Уборки»). Включи на каждом телефоне, где нужно.</p></div>
     `],
+    orep:["bell","Отчёт на почту",(cfg.ownerReport||{}).freq==="daily"?"каждый день в 8:00":(cfg.ownerReport||{}).freq==="weekly"?"по понедельникам в 8:00":"выключен",()=>{const r=cfg.ownerReport||{};return `<div class="card">
+      <label class="l" for="or-freq">Как часто</label><select id="or-freq" style="width:100%;height:44px"><option value="">Выключен</option><option value="daily" ${r.freq==="daily"?"selected":""}>Каждый день в 8:00</option><option value="weekly" ${r.freq==="weekly"?"selected":""}>Раз в неделю, в понедельник в 8:00</option></select>
+      <label class="l" for="or-to" style="margin-top:10px">Почта</label><input type="email" id="or-to" value="${esc(r.to||"")}" placeholder="по умолчанию — почта владельца">
+      <div class="actions"><button class="btn primary" id="or-save">Сохранить</button><button class="btn" id="or-test">Прислать сейчас</button></div>
+      <p class="small" style="margin-bottom:0">В письме: заезды и выезды на сегодня (или на неделю), уборки, сколько получено вчера (или за прошлую неделю), что не оплачено, баланс кредитов.</p></div>`}],
     rate:["rate","Курс валют",`1 € = ${cfg.rates.eur} лей · 1 $ = ${cfg.rates.usd} €${(cfg.other||[]).length?" · +"+(cfg.other||[]).length:""}`,()=>`<div class="card"><div class="grid2">
       <div><label class="l" for="r-eur">Лей за 1 €</label><input id="r-eur" inputmode="decimal" value="${cfg.rates.eur}"></div>
       <div><label class="l" for="r-usd">€ за 1 $</label><input id="r-usd" inputmode="decimal" value="${cfg.rates.usd}"></div></div>
@@ -5193,6 +5198,8 @@ document.addEventListener("click",e=>{
     const pid=id==="new"?sid:id;if(pid){const pay={...(cfg.pay||{}),[pid]:{type,full:g("full"),limit:g("limit"),over:g("over"),apt:g("apt"),gen:g("gen"),hour:g("hour"),fixed:g("fixed")}};const next={...cfg,pay};await api("kv_set_config",{p_data:next});cfg=next}
     await reload();toast("Сохранено");settingsPage()}catch(e){toast(e.code==="pin_taken"?"Такой PIN уже занят — придумай другой":e.code==="pin_too_short"?"PIN — минимум 4 символа":"Не сохранилось")}})();return}
   if(ds.stoff){const x=staff.find(z=>z.id===ds.stoff);if(x)api("kv_staff_save",{s:{...x,active:false}}).then(reload).then(()=>{toast("Убрана из списка");settingsPage()});return}
+  if(t.id==="or-save"){const to=(($("or-to")||{}).value||"").trim();if(to&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)){toast("Проверь почту");return}saveCfg({...cfg,ownerReport:{freq:($("or-freq")||{}).value||"",to}},"Сохранено");return}
+  if(t.id==="or-test"){t.disabled=true;api("kv_owner_report_test",{to:(($("or-to")||{}).value||"").trim()}).then(r=>toast(r.configured?"Письмо отправлено":"Письмо собрано, но почта платформы ещё не подключена")).catch(x=>toast(x.code==="bad_email"?"Проверь почту":"Не получилось")).finally(()=>{t.disabled=false});return}
   if(t.id==="chk-add"){const l=[...checklist()];l.push({id:"c"+Date.now().toString(36),text:"Новый пункт",every:30});saveCfg({...cfg,checklist:l},"Пункт добавлен");return}
   if(ds.chkdel){saveCfg({...cfg,checklist:checklist().filter(c=>c.id!==ds.chkdel)},"Пункт удалён");return}
   if(t.id==="chk-save"){const l=checklist().map(c=>{const ap=[...document.querySelectorAll(`[data-ckapt="${c.id}"]:checked`)].map(x=>x.value);const o={id:c.id,text:(($("ck-t-"+c.id)||{}).value||c.text).trim(),every:Math.max(0,Math.floor(num(($("ck-e-"+c.id)||{}).value)||0))};if(($("ck-r-"+c.id)||{}).checked)o.req=true;if(ap.length&&ap.length<cfg.apts.length)o.apts=ap;return o}).filter(c=>c.text);saveCfg({...cfg,checklist:l,cleanPhoto:!!($("chk-photo")||{}).checked},"Чек-лист сохранён");return}

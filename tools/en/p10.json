@@ -344,5 +344,19 @@
 "неделям": "week",
 "Пик-ап": "Pick-up",
 "дням": "day",
-"стоимость новых броней": "value of new bookings"
+"стоимость новых броней": "value of new bookings",
+"В письме: заезды и выезды на сегодня (или на неделю), уборки, сколько получено вчера (или за прошлую неделю), что не оплачено, баланс кредитов.": "The email has arrivals and departures for today (or the week), cleanings, money received yesterday (or last week), what is unpaid and the credit balance.",
+"Письмо собрано, но почта платформы ещё не подключена": "The email was built, but the platform mail is not connected yet",
+"по умолчанию — почта владельца": "by default — the owner email",
+"Раз в неделю, в понедельник в": "Once a week, on Monday at",
+"по понедельникам в": "on Mondays at",
+"Прислать сейчас": "Send now",
+"Отчёт на почту": "Email report",
+"Проверь почту": "Check the email",
+"Каждый день в": "Every day at",
+"каждый день в": "every day at",
+"Как часто": "How often",
+"выключен": "off",
+"Выключен": "Off",
+"Почта": "Email"
 }

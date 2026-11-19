@@ -12,7 +12,7 @@ import {
 import { newTotpSecret, otpauthUrl, qrSvg, totpOk, newBackupCodes, hashBackupCodes, consumeBackup } from "../../lib/totp";
 import { hostOf, siteOf, slugOk, isSlug } from "../../lib/host";
 import { handleAdmin, logEvent, activeAnnouncement, getSettings, createInvoice } from "../../lib/admin";
-import { sendMail, mails, dailyMail, orgEmail } from "../../lib/mail";
+import { sendMail, mails, dailyMail, orgEmail, layout } from "../../lib/mail";
 import {
   seedTemplates, sanitizeTemplate, sendGuestMessage, fireEventMessages, runGuestMails, parseList, fillTags, bookingVars, pickLang,
 } from "../../lib/guestmsg";
@@ -24,6 +24,7 @@ import { googleOk } from "../../lib/google";
 import { upsertFromBooking, syncAll as syncContacts, listContacts, getContact, saveContact, mergeContacts, toCsv as contactsCsv } from "../../lib/contacts";
 import { exportGuest, forgetGuest, guestApts } from "../../lib/guestdata";
 import { stayGuideUrl } from "../../lib/stay";
+import { runOwnerReports } from "../../lib/ownerreport";
 import { ensureCheckin, checkinCfgOf, parseData as parseCheckinData, validateSubmit as validateCheckin, purgeCheckins } from "../../lib/checkin";
 import { createGuestInvoice, findDiscount, applyDiscount, bumpDiscountUse, listDiscounts, normalizeCode, rowToDiscount } from "../../lib/guest_invoice";
 
@@ -943,12 +944,13 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     const mailed = await dailyMail(env, db).catch(() => 0);
     // guest message templates (before/after check-in/out) — same cron, Resend + dedupe key
     const guestMails = await runGuestMails(env, db).catch(() => 0);
+    const ownerReports = await runOwnerReports(env, db, layout).catch(() => 0); // owner's daily / weekly report, from 08:00
     // Airbnb / Booking.com calendars: new reservations become bookings, managers get a notification
     const feeds = await syncDue(db, (O, msg) => notify(db, O, ["manager"], msg)).catch(() => 0);
     const purged = await purgeCheckins(db).catch(() => 0);
     await run(db, "DELETE FROM audit WHERE at < ?", new Date(Date.now() - 400 * 86400000).toISOString()).catch(() => {}); // the change log keeps ~13 months
     // the admin panel's health page shows when this last ran
-    await run(db, "INSERT INTO sys_state(k, v) VALUES ('cron_last', ?) ON CONFLICT (k) DO UPDATE SET v = excluded.v", JSON.stringify({ at: nowIso(), orgs: n, mailed, guestMails, feeds, purged })).catch(() => {});
+    await run(db, "INSERT INTO sys_state(k, v) VALUES ('cron_last', ?) ON CONFLICT (k) DO UPDATE SET v = excluded.v", JSON.stringify({ at: nowIso(), orgs: n, mailed, guestMails, ownerReports, feeds, purged })).catch(() => {});
     await run(db, "DELETE FROM errors WHERE created_at < ?", new Date(Date.now() - 30 * 86400000).toISOString()).catch(() => {});
     return json({ orgs: n, mailed, guestMails, feeds, purged });
   }
@@ -2554,6 +2556,13 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
         ? await all(db, "SELECT id, booking_id, kind, amount, amount_src, cur, status, token, guest, note, created_at, paid_at FROM guest_payments WHERE org_id = ? AND booking_id = ? ORDER BY created_at DESC LIMIT 40", O, bid)
         : await all(db, "SELECT id, booking_id, kind, amount, amount_src, cur, status, token, guest, note, created_at, paid_at FROM guest_payments WHERE org_id = ? ORDER BY created_at DESC LIMIT 80", O);
       return json(rows.map((r: any) => ({ ...r, url: payUrlOf(org.code, r.token, request) })));
+    }
+    case "kv_owner_report_test": { // send the owner's report right now, to check how it looks
+      if (c.role !== "owner" && c.role !== "manager") return json({ message: "forbidden" }, 403);
+      const to = str(body.to, 200).trim();
+      if (to && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) return json({ message: "bad_email" }, 400);
+      const n = await runOwnerReports(env, db, layout, { orgId: O, to: to || undefined });
+      return json({ sent: n, configured: !!env.RESEND_API_KEY });
     }
     case "kv_guide_link": { // the guest's personal guide link: shows the door code only during the stay
       const bid = str(body.booking_id, 40);

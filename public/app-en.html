@@ -4324,6 +4324,11 @@ function renderSettings(){
     push:["bell","Notifications","on this phone",()=>`<div class="card"><p class="small" id="push-st" style="margin-top:0">…</p><div class="actions"><button class="btn primary" id="push-on">🔔 Turn on on this phone</button><button class="btn" id="push-test" hidden>Check</button></div>
       <p class="small" style="margin-bottom:0">You’ll get: apartment cleaned, a cleaner reported a breakdown, the 8:00 morning summary and your reminders («Cleanings» tab). Turn them on on every phone that needs them.</p></div>
     `],
+    orep:["bell","Email report",(cfg.ownerReport||{}).freq==="daily"?"every day at 8:00":(cfg.ownerReport||{}).freq==="weekly"?"on Mondays at 8:00":"off",()=>{const r=cfg.ownerReport||{};return `<div class="card">
+      <label class="l" for="or-freq">How often</label><select id="or-freq" style="width:100%;height:44px"><option value="">Off</option><option value="daily" ${r.freq==="daily"?"selected":""}>Every day at 8:00</option><option value="weekly" ${r.freq==="weekly"?"selected":""}>Once a week, on Monday at 8:00</option></select>
+      <label class="l" for="or-to" style="margin-top:10px">Email</label><input type="email" id="or-to" value="${esc(r.to||"")}" placeholder="by default — the owner email">
+      <div class="actions"><button class="btn primary" id="or-save">Save</button><button class="btn" id="or-test">Send now</button></div>
+      <p class="small" style="margin-bottom:0">The email has arrivals and departures for today (or the week), cleanings, money received yesterday (or last week), what is unpaid and the credit balance.</p></div>`}],
     rate:["rate","Exchange rates",`1 € = ${cfg.rates.eur} lei · 1 $ = ${cfg.rates.usd} €${(cfg.other||[]).length?" · +"+(cfg.other||[]).length:""}`,()=>`<div class="card"><div class="grid2">
       <div><label class="l" for="r-eur">Lei for 1 €</label><input id="r-eur" inputmode="decimal" value="${cfg.rates.eur}"></div>
       <div><label class="l" for="r-usd">€ for 1 $</label><input id="r-usd" inputmode="decimal" value="${cfg.rates.usd}"></div></div>
@@ -5193,6 +5198,8 @@ document.addEventListener("click",e=>{
     const pid=id==="new"?sid:id;if(pid){const pay={...(cfg.pay||{}),[pid]:{type,full:g("full"),limit:g("limit"),over:g("over"),apt:g("apt"),gen:g("gen"),hour:g("hour"),fixed:g("fixed")}};const next={...cfg,pay};await api("kv_set_config",{p_data:next});cfg=next}
     await reload();toast("Saved");settingsPage()}catch(e){toast(e.code==="pin_taken"?"This PIN is taken — pick another":e.code==="pin_too_short"?"PIN — at least 4 characters":"Not saved")}})();return}
   if(ds.stoff){const x=staff.find(z=>z.id===ds.stoff);if(x)api("kv_staff_save",{s:{...x,active:false}}).then(reload).then(()=>{toast("Removed from the list");settingsPage()});return}
+  if(t.id==="or-save"){const to=(($("or-to")||{}).value||"").trim();if(to&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)){toast("Check the email");return}saveCfg({...cfg,ownerReport:{freq:($("or-freq")||{}).value||"",to}},"Saved");return}
+  if(t.id==="or-test"){t.disabled=true;api("kv_owner_report_test",{to:(($("or-to")||{}).value||"").trim()}).then(r=>toast(r.configured?"Message sent":"The email was built, but the platform mail is not connected yet")).catch(x=>toast(x.code==="bad_email"?"Check the email":"Didn’t work")).finally(()=>{t.disabled=false});return}
   if(t.id==="chk-add"){const l=[...checklist()];l.push({id:"c"+Date.now().toString(36),text:"New item",every:30});saveCfg({...cfg,checklist:l},"Item added");return}
   if(ds.chkdel){saveCfg({...cfg,checklist:checklist().filter(c=>c.id!==ds.chkdel)},"Item deleted");return}
   if(t.id==="chk-save"){const l=checklist().map(c=>{const ap=[...document.querySelectorAll(`[data-ckapt="${c.id}"]:checked`)].map(x=>x.value);const o={id:c.id,text:(($("ck-t-"+c.id)||{}).value||c.text).trim(),every:Math.max(0,Math.floor(num(($("ck-e-"+c.id)||{}).value)||0))};if(($("ck-r-"+c.id)||{}).checked)o.req=true;if(ap.length&&ap.length<cfg.apts.length)o.apts=ap;return o}).filter(c=>c.text);saveCfg({...cfg,checklist:l,cleanPhoto:!!($("chk-photo")||{}).checked},"Checklist saved");return}

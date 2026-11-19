@@ -9,7 +9,7 @@ const dmy = (d: string) => (d && d.length >= 10 ? d.slice(8, 10) + "." + d.slice
 export const orgUrl = (slug: string) => `https://${slug}.espace.md/`;
 
 // one bilingual layout: Romanian first, Russian under it
-function layout(ro: { title: string; body: string }, ru: { title: string; body: string }, button?: { url: string; ro: string; ru: string }) {
+export function layout(ro: { title: string; body: string }, ru: { title: string; body: string }, button?: { url: string; ro: string; ru: string }) {
   const btn = (t: string) => button ? `<p style="margin:22px 0"><a href="${esc(button.url)}" style="background:#202248;color:#fff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:999px;display:inline-block">${esc(t)}</a></p>` : "";
   return `<!doctype html><html><body style="margin:0;background:#f5f6f9;font-family:Arial,Helvetica,sans-serif;color:#14162e">
 <div style="max-width:560px;margin:0 auto;padding:28px 16px">

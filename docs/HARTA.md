@@ -151,7 +151,7 @@ Ce trebuie să aibă fiecare modul ca aplicația să fie completă și funcțion
 | Rapoarte pe canal: venit, nopți, rezervări, anulări, comision | ✅ | Tabel și grafic pe Airbnb, Booking, Direct și altele, pentru orice perioadă. |
 | Perioade rapide | ✅ | Luna aceasta, luna viitoare, +3 luni, anul acesta, anul trecut, interval ales. |
 | Pick-up și fereastra de rezervare | ✅ | Rapoarte → „Пик-ап”: rezervări noi (după data creării) pe zile/săptămâni, nopți, valoare, media zilelor până la sosire; fereastra 0–1/2–7/8–14/15–30/31–60/61+ și anulările pe fereastră; filtru pe canal + filtrele de unitate/grup existente. Rezervările din iCal sunt excluse din fereastră (data creării aproximativă). `finPickupHtml`. |
-| Raport zilnic sau săptămânal pe email pentru owner | ❌ | Opțional din Setări: sosiri, plecări, încasări, ce nu e plătit. |
+| Raport zilnic sau săptămânal pe email pentru owner | ✅ | Setări → „Отчёт на почту”: oprit / zilnic / lunea, adresă (implicit owner-ul), buton „Прислать сейчас”. Din cron de la 08:00 (Chișinău), o dată pe perioadă (`orep:` dedupe). Conține sosiri, plecări, curățenii, încasări pe valute, neplătite (−14…+7 zile), sold credite. `lib/ownerreport.ts`. Pleacă doar când cron-ul și Resend sunt active. |
 
 ## 12. Facturi și plăți de la oaspeți
 

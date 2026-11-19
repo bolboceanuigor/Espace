@@ -343,5 +343,19 @@
 "неделям": "săptămâni",
 "Пик-ап": "Pick-up",
 "дням": "zile",
-"стоимость новых броней": "valoarea rezervărilor noi"
+"стоимость новых броней": "valoarea rezervărilor noi",
+"В письме: заезды и выезды на сегодня (или на неделю), уборки, сколько получено вчера (или за прошлую неделю), что не оплачено, баланс кредитов.": "În email: sosirile și plecările de azi (sau din săptămână), curățeniile, cât s-a încasat ieri (sau săptămâna trecută), ce nu e plătit, soldul de credite.",
+"Письмо собрано, но почта платформы ещё не подключена": "Emailul e pregătit, dar poșta platformei încă nu e conectată",
+"по умолчанию — почта владельца": "implicit — emailul proprietarului",
+"Раз в неделю, в понедельник в": "O dată pe săptămână, lunea la",
+"по понедельникам в": "lunea la",
+"Прислать сейчас": "Trimite acum",
+"Отчёт на почту": "Raport pe email",
+"Проверь почту": "Verifică emailul",
+"Каждый день в": "În fiecare zi la",
+"каждый день в": "în fiecare zi la",
+"Как часто": "Cât de des",
+"выключен": "oprit",
+"Выключен": "Oprit",
+"Почта": "Email"
 }
