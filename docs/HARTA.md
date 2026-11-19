@@ -76,6 +76,8 @@ Ce trebuie să aibă fiecare modul ca aplicația să fie completă și funcțion
 | Menaj de hotel: stări murdar / curat / verificat + curățenie zilnică pentru cei care stau | ✅ | Tabela `room_state`; `kv_rooms` / `kv_room_set`; starea vine din ieșiri (ultimele 14 zile) și curățenii terminate, iar cea pusă de mână rămâne până la următoarea. Pagina „Уборки” (azi): „Номера сейчас” pe clădiri, apeși pe cameră → Проверено / Грязный / Убран. Câmp obiect/clădire `stay` = curățenie la fiecare N zile cât oaspetele locuiește: apare în lista zilei și ajunge la menajeră cu eticheta „гость живёт”.
 | Aplicații native: deschiderea din notificare + blocare cu Face ID / amprentă | ✅ | `notify(..., { go })` → web push `/#go=…` (sw.js trimite `postMessage` dacă aplicația e deschisă), APNs/FCM `go`; aplicația deschide rezervarea (`b:<id>`), Уборки (`cln`) sau Ремонт (`rep`). Face ID: plugin `@aparajita/capacitor-biometric-auth`, Setări → Уведомления → „Включить”; cere la deschidere și după 5 min în fundal; „Войти паролем” iese din cont.
 | Vremea în ghidul oaspetelui (4 zile) | ✅ | Coordonatele din câmpul „Карта” al obiectului, altfel Chișinău; prognoza o cere browserul oaspetelui de la open-meteo (fără cheie). Dacă nu răspunde, secțiunea nu apare. |
+| Erorile JavaScript din browser în admin → Sănătate | ✅ | `POST /api/client_error` (public, limitat pe IP), salvate în `errors` cu `fn = js:<pagină>`. Raportor în app, book, checkin, contract, offer, pay, proprietar (max 5 pe vizită). |
+| Ghidul de pornire: hostel și apartament pe camere | ✅ | Hostel → camere `dorm` cu N paturi (o unitate pe cameră). „Квартира по комнатам” → apartamentul + camerele cu `parent`. |
 
 ## 4. Calendarul
 
