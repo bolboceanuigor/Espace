@@ -4286,10 +4286,13 @@ function dayRows(d){
   const duty=dutyOf(d)?.id||null, rows=[];
   const inT=apt=>bookings.some(x=>x.apt===apt&&x.date===d&&x.nights>0);
   const cleanT=b=>tasks.find(x=>x.kind==="clean"&&x.booking_id===b.id&&x.date===d);
-  cfg.apts.forEach(a=>{const same=bookings.filter(b=>b.apt===a&&b.nights>0&&b.date===d).sort((x,y)=>(x.createdAt||0)-(y.createdAt||0));
+  const isDormU=a=>unitOf(a).kind==="dorm";
+  cfg.apts.forEach(a=>{if(isDormU(a))return;const same=bookings.filter(b=>b.apt===a&&b.nights>0&&b.date===d).sort((x,y)=>(x.createdAt||0)-(y.createdAt||0));
     same.slice(0,-1).forEach(b=>{const t=cleanT(b);rows.push({t,b,apt:a,kind:"clean",between:true,staff:t?.staff_id||duty,time:t?.time||"",status:t?.status||"todo",sent:!!t?.sent,inToday:true})})});
   const manualApt=new Set(tasks.filter(t=>(t.kind==="general"||(t.kind==="clean"&&!t.booking_id))&&t.date===d&&t.status!=="skip").map(t=>t.apt));
-  bookings.filter(b=>occupies(b)&&b.tag!=="closed"&&b.tag!=="req"&&endOf(b)===d).forEach(b=>{const t=cleanT(b);if(!t&&manualApt.has(b.apt))return;rows.push({t,b,apt:b.apt,kind:"clean",staff:t?.staff_id||duty,time:t?.time||"",status:t?.status||"todo",sent:!!t?.sent,inToday:inT(b.apt)})});
+  // a hostel dorm: one cleaning a day however many guests leave it
+  const dormDone=new Set();
+  bookings.filter(b=>occupies(b)&&b.tag!=="closed"&&b.tag!=="req"&&endOf(b)===d).forEach(b=>{const t=cleanT(b);if(!t&&manualApt.has(b.apt))return;if(isDormU(b.apt)){if(dormDone.has(b.apt)&&!t)return;dormDone.add(b.apt)}rows.push({t,b,apt:b.apt,kind:"clean",staff:t?.staff_id||duty,time:t?.time||"",status:t?.status||"todo",sent:!!t?.sent,inToday:inT(b.apt)})});
   // stayover cleaning: the guest still lives there, the unit asks for a cleaning every N days of the stay
   bookings.filter(b=>occupies(b)&&b.tag!=="closed"&&b.tag!=="req"&&b.date<d&&endOf(b)>d).forEach(b=>{const N=+unitOf(b.apt).stay||0;if(!N||Math.round((toT(d)-toT(b.date))/DAY)%N)return;if(manualApt.has(b.apt))return;
     const t=cleanT(b);rows.push({t,b,apt:b.apt,kind:"clean",stay:true,staff:t?.staff_id||duty,time:t?.time||"",status:t?.status||"todo",sent:!!t?.sent,inToday:false})});

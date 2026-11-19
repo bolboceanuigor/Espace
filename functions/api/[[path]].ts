@@ -2365,12 +2365,13 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
         const bks = await all(db, "SELECT id, apt, date, nights, created_at FROM bookings WHERE org_id = ? AND nights > 0 AND tag NOT IN ('closed','req','cancel') AND date >= ? AND date <= ? ORDER BY created_at", O, addDays(date, -400), date);
         const need = bks.filter((b: any) => addDays(b.date, b.nights) === date);
         // a second check-in in the same apartment on the same day needs a cleaning in between
-        for (const a of new Set(bks.filter((b: any) => b.date === date).map((b: any) => b.apt))) { const same = bks.filter((b: any) => b.date === date && b.apt === a); need.push(...same.slice(0, -1)); }
+        for (const a of new Set(bks.filter((b: any) => b.date === date).map((b: any) => b.apt))) { if ((cfgL.units || {})[a]?.kind === "dorm") continue; const same = bks.filter((b: any) => b.date === date && b.apt === a); need.push(...same.slice(0, -1)); }
         // stayover cleaning every N days while the guest still lives there (unit field "stay")
         for (const b of bks) { const N = +((cfgL.units || {})[b.apt]?.stay) || 0, end = addDays(b.date, b.nights);
           if (N > 0 && b.date < date && end > date && Math.round((dayNum(date) - dayNum(b.date))) % N === 0) need.push(b); }
         // a manual cleaning of that apartment on that day already covers the checkout
-        for (const b of need) if (!(await one(db, "SELECT id FROM tasks WHERE org_id = ? AND kind IN ('clean','general') AND booking_id = ? AND date = ?", O, b.id, date)) && !(await one(db, "SELECT id FROM tasks WHERE org_id = ? AND kind IN ('clean','general') AND booking_id IS NULL AND apt = ? AND date = ? AND status != 'skip'", O, b.apt, date)))
+        const dormSeen = new Set<string>(); // a hostel dorm: one cleaning a day however many guests leave
+        for (const b of need) if (!((cfgL.units || {})[b.apt]?.kind === "dorm" && (dormSeen.has(b.apt) || (await one(db, "SELECT id FROM tasks WHERE org_id = ? AND kind = 'clean' AND apt = ? AND date = ? AND status != 'skip'", O, b.apt, date)))) && (dormSeen.add(b.apt), true) && !(await one(db, "SELECT id FROM tasks WHERE org_id = ? AND kind IN ('clean','general') AND booking_id = ? AND date = ?", O, b.id, date)) && !(await one(db, "SELECT id FROM tasks WHERE org_id = ? AND kind IN ('clean','general') AND booking_id IS NULL AND apt = ? AND date = ? AND status != 'skip'", O, b.apt, date)))
           await run(db, "INSERT INTO tasks(id,org_id,kind,date,apt,staff_id,status,booking_id,sent,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,0,?,?)", uuid(), O, "clean", date, b.apt, sid, "todo", b.id, t, t);
       }
       const cond = "org_id = ? AND date = ? AND kind IN ('clean','general') AND (staff_id = ?" + (duty === sid ? " OR staff_id IS NULL)" : ")");
