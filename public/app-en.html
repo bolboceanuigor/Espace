@@ -1863,7 +1863,7 @@ const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&
 const ls={get(k){try{return localStorage.getItem("kv_"+k)}catch(e){return null}},set(k,v){try{localStorage.setItem("kv_"+k,v)}catch(e){}}};
 const pad=n=>String(n).padStart(2,"0");
 const todayStr=()=>{const d=new Date();return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())};
-const toT=s=>{const [y,m,d]=s.split("-").map(Number);return Date.UTC(y,m-1,d)};
+const TOT={},toT=s=>{let v=TOT[s];if(v===undefined){const [y,m,d]=s.split("-").map(Number);v=TOT[s]=Date.UTC(y,m-1,d)}return v};
 const fromT=t=>new Date(t).toISOString().slice(0,10);
 const dm=s=>{if(!s)return"";const [y,m,d]=s.split("-");return d+"."+m};
 const num=v=>{if(v===""||v==null)return 0;const n=parseFloat(String(v).replace(",",".").replace(/\s/g,""));return isFinite(n)?n:NaN};
@@ -1953,16 +1953,21 @@ async function reload(){
 async function loadPhotos(){try{photos=await api("kv_photos")||{};renderView()}catch(e){}}
 
 const occupies=b=>!!(b&&b.nights>0&&b.tag!=="cancel"); // cancelled frees the days but stays in history
+// rows grouped by unit, rebuilt when the list changes (reload() makes a new array) — big calendars ask this thousands of times
+const BYA=new WeakMap();
+function byApt(list){let c=BYA.get(list);if(!c||c.len!==list.length){const m={};for(const x of list)(m[x.apt]=m[x.apt]||[]).push(x);c={len:list.length,m};BYA.set(list,c)}return c.m}
 function overlaps(b,list){
+  if(list===bookings){const ix=byApt(list),lk=EsPrice.linked(cfg.units||{},b.apt);list=lk.length?[...(ix[b.apt]||[]),...lk.flatMap(a=>ix[a]||[])]:(ix[b.apt]||[])}
   if(!occupies(b)) return [];
   const s=toT(b.date), e=s+b.nights*DAY;
   // two check-ins in the same apartment on the same day = a repeat check-in, not a double booking
   const u=unitOf(b.apt);
-  if(u.kind==="dorm"&&+u.dbeds>0){const busy=list.filter(o=>o.id!==b.id&&o.apt===b.apt&&occupies(o)).map(o=>[o.date,o.nights,o.pax]);
+  if(u.kind==="dorm"&&+u.dbeds>0){const busy=list.filter(o=>o.apt===b.apt&&o.id!==b.id&&occupies(o)).map(o=>[o.date,o.nights,o.pax]);
     if(EsPrice.bedsLeft(u,busy,b.date,b.nights)>=Math.max(1,+b.pax||1))return [];
-    return list.filter(o=>o.id!==b.id && o.apt===b.apt && occupies(o) && toT(o.date)<e && toT(o.date)+o.nights*DAY>s);}
+    return list.filter(o=>o.apt===b.apt && o.id!==b.id && occupies(o) && toT(o.date)<e && toT(o.date)+o.nights*DAY>s);}
   const lkU=EsPrice.linked(cfg.units||{},b.apt);
-  return list.filter(o=>o.id!==b.id && occupies(o) && toT(o.date)<e && toT(o.date)+o.nights*DAY>s && ((o.apt===b.apt && o.date!==b.date) || lkU.includes(o.apt)));
+  // cheap checks first (same unit or a linked one), the date maths only for those — calendars of 100+ rooms draw thousands of bars
+  return list.filter(o=>(o.apt===b.apt?o.date!==b.date:lkU.length&&lkU.includes(o.apt)) && o.id!==b.id && occupies(o) && toT(o.date)<e && toT(o.date)+o.nights*DAY>s);
 }
 function issues(b){
   if(ok(b)) return [];
@@ -1995,8 +2000,8 @@ function monthStats(y=mon.y,m=mon.m,A=cfg.apts){
   const T={nights:0,cnt:0,inc:0,util:0,exp:0,mdl:0,eur:0,usd:0};
   for(const a of list){
     let nights=0; for(let i=0;i<n;i++) nights+=occF(a,occ[a+"|"+(s+i*DAY)]); nights=Math.round(nights*10)/10;
-    const bl=bookings.filter(b=>b.apt===a).map(b=>[b,shareOf(b,y,m)]).filter(([,k])=>k>0);
-    const el=expenses.filter(e=>e.apt===a).map(e=>[e,expShare(e,y,m)]).filter(([,k])=>k>0);
+    const bl=(byApt(bookings)[a]||[]).map(b=>[b,shareOf(b,y,m)]).filter(([,k])=>k>0);
+    const el=(byApt(expenses)[a]||[]).map(e=>[e,expShare(e,y,m)]).filter(([,k])=>k>0);
     const util=bl.reduce((x,[b,k])=>x+utilEur(b)*k,0);
     const r={nights,cnt:bl.filter(([b])=>b.nights>0&&inMonthOf(b.date,y,m)).length,util,inc:bl.reduce((x,[b,k])=>x+eurOf(b)*k,0)+util,exp:el.reduce((x,[e,k])=>x+eurOf(e)*k,0),
       mdl:bl.reduce((x,[b,k])=>x+b.mdl*k,0),eur:bl.reduce((x,[b,k])=>x+b.eur*k,0),usd:bl.reduce((x,[b,k])=>x+b.usd*k,0)};
@@ -3456,7 +3461,7 @@ const BAR_COL={"Airbnb":"#f6a5a3","Booking":"#bcd7f4","Instagram":"#f7d9a8","Vib
 const WHO_COL=["#dcb7de","#b6dcaf"], WHO_NAME={"О":"Oxana","И":"Igor"};
 const CUR_L={MDL:"lei",EUR:"€",USD:"$"};
 // money already received for a stay: the booking itself + top-ups (0-night rows) of the same apartment during the stay
-function paidEur(b){let e=eurOf(b);for(const x of bookings)if(x.id!==b.id&&x.nights===0&&x.apt===b.apt&&x.date>=b.date&&x.date<endOf(b))e+=eurOf(x);return e}
+function paidEur(b){let e=eurOf(b);for(const x of (byApt(bookings)[b.apt]||[]))if(x.id!==b.id&&x.nights===0&&x.apt===b.apt&&x.date>=b.date&&x.date<endOf(b))e+=eurOf(x);return e}
 const toEurC=(v,c)=>c==="MDL"?v/(+cfg.rates.eur||20):c==="USD"?v*(+cfg.rates.usd||0.85):v;
 const fromEurC=(v,c)=>c==="MDL"?v*(+cfg.rates.eur||20):c==="USD"?v/(+cfg.rates.usd||0.85):v;
 function payState(b){const air=b.source==="Airbnb"||b.pay==="Airbnb",got=b.nights>0?paidEur(b):eurOf(b),pe=b.price?toEurC(+b.price,b.price_cur||"EUR"):0;
@@ -3642,7 +3647,7 @@ function renderCal(){
     if(isD(a)){rows+=dormRow(a);if(fold.has("dorm|"+a))continue}
     nRow++;
     let nights=0; for(let i=0;i<n;i++) if(occ[a+"|"+(s0+i*DAY)]) nights++;
-    const list=bookings.filter(b=>b.apt===a&&b.nights>0&&calStOk(b)&&toT(b.date)<s0+n*DAY&&toT(b.date)+b.nights*DAY>s0).sort((x,y)=>x.date.localeCompare(y.date)||(x.tag==="cancel"?1:0)-(y.tag==="cancel"?1:0));
+    const list=(byApt(bookings)[a]||[]).filter(b=>b.nights>0&&calStOk(b)&&toT(b.date)<s0+n*DAY&&toT(b.date)+b.nights*DAY>s0).sort((x,y)=>x.date.localeCompare(y.date)||(x.tag==="cancel"?1:0)-(y.tag==="cancel"?1:0));
     let bars="";
     const laneEnd=[], lane={};
     for(const b of list){const st=toT(b.date);let k=laneEnd.findIndex(e=>e<=st);if(k<0){k=laneEnd.length;laneEnd.push(0)}laneEnd[k]=st+b.nights*DAY;lane[b.id]=k}
@@ -3813,7 +3818,7 @@ document.addEventListener("pointerdown",e=>{
 let calPM=(()=>{try{return localStorage.getItem("kv_calpm")==="1"}catch(e){return false}})(), pmSel=null;
 function dayCells(a,s0,n,W,list){const R=DR[a]||{},u=unitOf(a),out=[],td=todayStr();
   // coliving: days blocked by the apartment or by one of its rooms
-  const lkU=EsPrice.linked(cfg.units||{},a),lk=new Set();if(lkU.length)for(const b of bookings){if(!lkU.includes(b.apt)||!occupies(b))continue;for(let i=0;i<b.nights;i++)lk.add(fromT(toT(b.date)+i*DAY))}
+  const lkU=EsPrice.linked(cfg.units||{},a),lk=new Set();if(lkU.length)for(const b of lkU.flatMap(x=>byApt(bookings)[x]||[])){if(!occupies(b))continue;for(let i=0;i<b.nights;i++)lk.add(fromT(toT(b.date)+i*DAY))}
   for(let i=0;i<n&&lk.size;i++){const d=fromT(s0+i*DAY);if(lk.has(d))out.push(`<i class="dr lk" style="left:${i*W}px;width:${W}px"></i>`)}
   const booked=new Set();if(calPM)for(const b of list){for(let i=0;i<b.nights;i++)booked.add(fromT(toT(b.date)+i*DAY))}
   const cur=u.pcur||"EUR",short=v=>v>=10000?Math.round(v/1000)+"k":v>=1000&&W<40?(Math.round(v/100)/10)+"k":fmt0(v);
