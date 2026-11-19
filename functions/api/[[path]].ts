@@ -2300,6 +2300,15 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       if (data.units && data.units[from] != null) { data.units[to] = data.units[from]; delete data.units[from]; }
       for (const k in data.units || {}) if (data.units[k] && data.units[k].parent === from) data.units[k].parent = to;
       for (const ow of data.owners || []) if (Array.isArray(ow?.apts)) ow.apts = ow.apts.map((a: string) => (a === from ? to : a));
+      // other lists of unit names in the settings: hidden on the booking page, checklist items for some units
+      if (data.direct && Array.isArray(data.direct.hidden)) data.direct.hidden = data.direct.hidden.map((a: string) => (a === from ? to : a));
+      for (const ck of data.checklist || []) if (Array.isArray(ck?.apts)) ck.apts = ck.apts.map((a: string) => (a === from ? to : a));
+      // JSON lists of unit names in tables: a manager's units, discount codes, message templates
+      const renameIn = async (sql: string, upd: string) => { for (const r of await all(db, sql, O)) { let l: any = []; try { l = JSON.parse(r.apts || "[]"); } catch { continue; }
+        if (Array.isArray(l) && l.includes(from)) await run(db, upd, JSON.stringify(l.map((a: string) => (a === from ? to : a))), O, r.k); } };
+      await renameIn("SELECT user_id AS k, apts FROM members WHERE org_id = ? AND apts LIKE '[%'", "UPDATE members SET apts = ? WHERE org_id = ? AND user_id = ?").catch(() => {});
+      await renameIn("SELECT id AS k, apts FROM discount_codes WHERE org_id = ? AND apts != '[]'", "UPDATE discount_codes SET apts = ? WHERE org_id = ? AND id = ?").catch(() => {});
+      await renameIn("SELECT id AS k, apts FROM msg_templates WHERE org_id = ? AND apts != '[]'", "UPDATE msg_templates SET apts = ? WHERE org_id = ? AND id = ?").catch(() => {});
       await run(db, "UPDATE ical_feeds SET apt = ? WHERE org_id = ? AND apt = ?", to, O, from);
       await audit(db, O, c, "settings", "rename", "", `${from} → ${to}`, { from, to });
       await db.batch([
