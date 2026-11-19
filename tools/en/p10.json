@@ -300,5 +300,16 @@
 "Вход отменён": "Sign-in cancelled",
 "Войти через": "Sign in with",
 "Адрес почты должен совпадать с адресом аккаунта": "The email address must match the account address",
-"создайте компанию на сайте": "create a company on the site"
+"создайте компанию на сайте": "create a company on the site",
+"Имя, телефон и почта уйдут из броней. Данные регистрации и файлы удалятся. Суммы в отчётах, выставленные счета и подписанные договоры останутся. Отменить нельзя. Для подтверждения введи": "Name, phone and email are removed from bookings. Check-in data and files are deleted. Report totals, issued invoices and signed contracts stay. This cannot be undone. To confirm, type",
+"У гостя есть брони в объектах без доступа": "This guest has bookings in units you cannot access",
+"выгрузил(а) данные гостя": "exported guest data",
+"Данные удалены: броней": "Data deleted: bookings",
+"Выгрузить данные гостя": "Export guest data",
+"удалил(а) данные гостя": "deleted guest data",
+"Удалить данные гостя?": "Delete guest data?",
+"Удалить данные гостя": "Delete guest data",
+"Не совпадает": "Does not match",
+"файлов": "files",
+"Контакт": "Contact"
 }

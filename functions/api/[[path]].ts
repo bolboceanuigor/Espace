@@ -22,6 +22,7 @@ import { contractTexts, fill, DEFAULT_TPL } from "../../lib/contract";
 import { maibConfig, maibCheckout, maibVerify, maibFromCreds, type MaibCfg } from "../../lib/maib";
 import { googleOk } from "../../lib/google";
 import { upsertFromBooking, syncAll as syncContacts, listContacts, getContact, saveContact, mergeContacts, toCsv as contactsCsv } from "../../lib/contacts";
+import { exportGuest, forgetGuest, guestApts } from "../../lib/guestdata";
 import { ensureCheckin, checkinCfgOf, parseData as parseCheckinData, validateSubmit as validateCheckin, purgeCheckins } from "../../lib/checkin";
 import { createGuestInvoice, findDiscount, applyDiscount, bumpDiscountUse, listDiscounts, normalizeCode, rowToDiscount } from "../../lib/guest_invoice";
 
@@ -1245,7 +1246,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
   const O = c.org.id, org = c.org;
   if (!roleAllows(c.role, fn)) return json({ message: "read_only" }, 403);
   // unpaid or blocked: the data stays visible, nothing can be changed
-  if (isExpired(org) && !READ_FNS.includes(fn) && !fn.startsWith("team_") && fn !== "bill_invoice" && fn !== "bill_pay" && fn !== "bill_pay_status" && fn !== "kv_prop_load") return json({ message: "subscription_expired" }, 402);
+  if (isExpired(org) && !READ_FNS.includes(fn) && !fn.startsWith("team_") && fn !== "bill_invoice" && fn !== "bill_pay" && fn !== "bill_pay_status" && fn !== "kv_prop_load" && fn !== "kv_contact_export" && fn !== "kv_contact_forget") return json({ message: "subscription_expired" }, 402);
   // per-member section rights (owner unrestricted; support keeps read-only via role)
   { const sec = sectionOfFn(fn); if (sec && !allowsSection(c.rights, c.role, sec)) return json({ message: "forbidden_section" }, 403); }
   const denyApt = (apt: string) => !allowsApt(c.rights, c.role, apt) ? json({ message: "forbidden_apt" }, 403) : null;
@@ -2104,6 +2105,22 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       const r = await mergeContacts(db, O, str(body.keep, 40), str(body.other, 40));
       if ((r as any).error) return json({ message: (r as any).error }, (r as any).status || 400);
       return json({ id: (r as any).id });
+    }
+    case "kv_contact_export":
+    case "kv_contact_forget": {
+      // guest's personal data on request: only the owner or a manager who sees every unit of this guest
+      if (c.support || (c.role !== "owner" && c.role !== "manager")) return json({ message: "forbidden" }, 403);
+      const id = str(body.id, 40), apts = await guestApts(db, O, id);
+      if (!apts) return json({ message: "not_found" }, 404);
+      for (const a of apts) { const d = denyApt(a); if (d) return d; }
+      if (fn === "kv_contact_export") {
+        const data = await exportGuest(db, O, id);
+        await audit(db, O, c, "contact", "export", id, "export date oaspete", { bookings: data?.bookings.length || 0 });
+        return new Response(JSON.stringify(data, null, 2), { headers: { "content-type": "application/json; charset=utf-8", "content-disposition": 'attachment; filename="guest-data.json"', "cache-control": "no-store" } });
+      }
+      const r = await forgetGuest(db, O, id, env.FILES);
+      await audit(db, O, c, "contact", "forget", id, "date oaspete șterse", r || {});
+      return json(r);
     }
     case "kv_contacts_export": {
       const cfg = await getConfig(db, O);

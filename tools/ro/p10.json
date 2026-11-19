@@ -299,5 +299,16 @@
 "Вход отменён": "Intrarea a fost anulată",
 "Войти через": "Intră cu",
 "Адрес почты должен совпадать с адресом аккаунта": "Adresa de email trebuie să coincidă cu adresa contului",
-"создайте компанию на сайте": "creează compania pe site"
+"создайте компанию на сайте": "creează compania pe site",
+"Имя, телефон и почта уйдут из броней. Данные регистрации и файлы удалятся. Суммы в отчётах, выставленные счета и подписанные договоры останутся. Отменить нельзя. Для подтверждения введи": "Numele, telefonul și emailul dispar din rezervări. Datele de check-in și fișierele se șterg. Sumele din rapoarte, facturile emise și contractele semnate rămân. Nu se poate anula. Pentru confirmare scrie",
+"У гостя есть брони в объектах без доступа": "Oaspetele are rezervări în unități la care nu ai acces",
+"выгрузил(а) данные гостя": "a exportat datele oaspetelui",
+"Данные удалены: броней": "Date șterse: rezervări",
+"Выгрузить данные гостя": "Exportă datele oaspetelui",
+"удалил(а) данные гостя": "a șters datele oaspetelui",
+"Удалить данные гостя?": "Ștergi datele oaspetelui?",
+"Удалить данные гостя": "Șterge datele oaspetelui",
+"Не совпадает": "Nu se potrivește",
+"файлов": "fișiere",
+"Контакт": "Contact"
 }

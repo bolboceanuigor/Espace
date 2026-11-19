@@ -226,7 +226,7 @@ Ce trebuie să aibă fiecare modul ca aplicația să fie completă și funcțion
 |---|---|---|
 | Termeni și politică de confidențialitate | ✅ | |
 | Banner de cookie-uri pe site | ❌ | Doar dacă se adaugă analytics. Fără analytics nu e nevoie. |
-| Exportul și ștergerea datelor unui oaspete la cerere | ❌ | Din fișa contactului (modulul 6). |
+| Exportul și ștergerea datelor unui oaspete la cerere | ✅ | Fișa contactului → „Выгрузить / Удалить данные гостя” (owner, manager cu acces la toate unitățile oaspetelui). Export JSON; ștergerea scoate numele/telefonul/emailul din rezervări, check-in, fișiere, jurnal; rămân sumele, facturile emise și contractele semnate. `lib/guestdata.ts`. |
 
 ---
 

@@ -67,7 +67,7 @@ function paidEur(b: any, rates: { eur: number; usd: number }) {
     + ((Number(b.oth) || 0) > 0 && b.oth_cur === "EUR" ? Number(b.oth) : 0);
 }
 
-function matchesContact(c: any, b: any) {
+export function matchesContact(c: any, b: any) {
   const bp = normPhone(b.phone || ""), be = normEmail(b.email || "");
   if (c.phone_norm && bp && (bp === c.phone_norm || bp.endsWith(c.phone_norm) || c.phone_norm.endsWith(bp))) return true;
   if (c.email_norm && be && be === c.email_norm) return true;
