@@ -1,0 +1,82 @@
+name: Espace — aplicația de iPhone
+# 1) La fiecare schimbare în smartrepair/mobile: verificăm că aplicația se compilează (fără cont Apple).
+# 2) Când există cheile Apple în GitHub Secrets: construim versiunea semnată și o urcăm în TestFlight.
+#    Rulează singur o dată la 2 luni, ca versiunea din TestFlight să nu expire (Apple le ține 90 de zile).
+on:
+  push:
+    branches: [main]
+    paths: ["mobile/**", "!mobile/**/*.md", ".github/workflows/ios.yml"]
+  schedule:
+    - cron: "23 4 1 */2 *"
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: "Urcă în TestFlight"
+        type: boolean
+        default: true
+permissions:
+  contents: read
+concurrency: espace-ios
+jobs:
+  ios:
+    runs-on: macos-26
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      ASC_KEY: ${{ secrets.ASC_KEY }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --no-audit --no-fund
+      - name: Capacitor sync
+        run: npx cap sync ios
+      - name: Xcode
+        run: xcodebuild -version
+      - name: Verificare — se compilează pentru simulator (fără semnătură)
+        if: github.event_name == 'push'
+        run: |
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build | tail -40
+          exit ${PIPESTATUS[0]}
+      - name: Avem cheile Apple?
+        id: keys
+        run: |
+          if [ -n "$ASC_KEY" ] && [ -n "$ASC_KEY_ID" ] && [ -n "$ASC_ISSUER_ID" ] && [ -n "$TEAM_ID" ]; then echo "ok=1" >> "$GITHUB_OUTPUT"; else echo "Cheile Apple nu sunt încă în GitHub Secrets — nu urcăm în TestFlight."; fi
+      - name: Construiește și urcă în TestFlight
+        if: steps.keys.outputs.ok == '1' && (github.event_name != 'workflow_dispatch' || inputs.upload)
+        run: |
+          set -o pipefail
+          KEY="$RUNNER_TEMP/AuthKey_$ASC_KEY_ID.p8"
+          printf '%s' "$ASC_KEY" > "$KEY"
+          AUTH=(-allowProvisioningUpdates -authenticationKeyPath "$KEY" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID")
+          BUILD=$((1000 + ${{ github.run_number }}))
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            DEVELOPMENT_TEAM="$TEAM_ID" CODE_SIGN_STYLE=Automatic CURRENT_PROJECT_VERSION="$BUILD" \
+            "${AUTH[@]}" archive | tail -40
+          cat > "$RUNNER_TEMP/export.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>$TEAM_ID</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+            <key>uploadSymbols</key><true/>
+          </dict></plist>
+          PLIST
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/export.plist" -exportPath "$RUNNER_TEMP/export" \
+            "${AUTH[@]}" | tail -40
+          rm -f "$KEY"
+          echo "### Versiunea $BUILD a fost urcată în TestFlight" >> "$GITHUB_STEP_SUMMARY"
+          echo "Apare în App Store Connect → TestFlight după ~10–20 de minute de procesare." >> "$GITHUB_STEP_SUMMARY"
