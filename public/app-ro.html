@@ -1458,6 +1458,31 @@ html:root[data-skin="host"] .sheet,html:root[data-skin="host"] .modal{border-rad
   html:root[data-skin="host"] nav.tabs button[aria-current="true"]{background:var(--navy);color:var(--gold)}
   html:root[data-skin="host"] nav.tabs button[aria-current="true"]::before{display:none}
 }
+/* calendar Smart: ca grila saptamanala din SmartRepair */
+html:root[data-skin="host"] body.calmode,html:root[data-skin="host"] #v-cal{background:#fff}
+html:root[data-skin="host"] .sh-row,html:root[data-skin="host"] .sh-row.z1,html:root[data-skin="host"] .sh-row.z0{background:#fff}
+html:root[data-skin="host"] .sh.sq .sh-row.z1 .sh-name,html:root[data-skin="host"] .sh.sq .sh-row.z1 .sh-tl{background:#F7F8FB}
+html:root[data-skin="host"] .sh.sq .sh-row .sh-name{border-right-color:var(--line)}
+html:root[data-skin="host"] .sh.pics .tn.mono{font-size:clamp(13px,calc(var(--L-pic) * .22),26px)}
+html:root[data-skin="host"] .sh-day small{color:var(--muted);font-weight:600}
+html:root[data-skin="host"] .sh-day b{color:var(--ink);font-weight:800}
+html:root[data-skin="host"] .sh-day.we{background:#F7F8FB}
+html:root[data-skin="host"] .sh-day.we b,html:root[data-skin="host"] .sh-day.we small{color:var(--dim,#9AA8B8)}
+html:root[data-skin="host"] .sh-day.today,html:root[data-skin="host"] .sh.sq .sh-day.today{background:transparent!important;color:var(--ink)!important}
+html:root[data-skin="host"] .sh-day.today small,html:root[data-skin="host"] .sh.sq .sh-day.today small{color:var(--ink)!important}
+html:root[data-skin="host"] .sh-day.today b,html:root[data-skin="host"] .sh.sq .sh-day.today b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 4px;box-sizing:border-box;border-radius:999px;background:var(--navy);color:#fff}
+html:root[data-skin="host"] .sh-tl .td{box-shadow:inset 2px 0 0 var(--gold)!important}
+html:root[data-skin="host"] .sh .bar.half{border-width:1px}
+html:root[data-skin="host"] .tn.mono{background:var(--navy)!important;background-image:none!important;color:var(--gold)!important;border-radius:12px!important;font-weight:800;box-shadow:none!important;border:0!important}
+html:root[data-skin="host"] .tn{border-radius:12px!important}
+html:root[data-skin="host"] .sh-name span{font-weight:700;color:var(--ink)}
+/* barele: albe-colorate cu contur în culoarea canalului (ca etapele din SmartRepair) */
+html:root[data-skin="host"] .sh .bar{background:color-mix(in srgb,var(--c,#5A6B7F) 10%,#fff)!important;background-image:none!important;border:1.5px solid var(--c,#5A6B7F);color:color-mix(in srgb,var(--c,#5A6B7F) 70%,#0A1F33)!important;border-radius:12px;box-shadow:none!important}
+html:root[data-skin="host"] .sh .bar .nm,html:root[data-skin="host"] .sh .bar .vk{color:inherit!important}
+html:root[data-skin="host"] .sh .bar .amt{background:var(--c,#5A6B7F)!important;color:#fff!important}
+html:root[data-skin="host"] .sh .bar.unp{border-color:var(--bad);box-shadow:none!important}
+html:root[data-skin="host"] .sh .bar.cancel{opacity:.55;border-style:dashed}
+html:root[data-skin="host"] .sh .bar.closed{background:repeating-linear-gradient(135deg,#F2F4F8 0 6px,#fff 6px 12px)!important;border-color:#C9D1DC;color:var(--muted)!important}
 </style>
 </head>
 <body>
@@ -3439,7 +3464,7 @@ function renderCal(){
       const bd=b.source==="Airbnb"||b.pay==="Airbnb"?`<span class="bd A">A</span>`:b.source==="Booking"?`<span class="bd B">B</span>`:(b.source==="Прямой"||b.source==="Direct"||(!b.source&&b.tag!=="closed"&&b.tag!=="cancel"&&LIGHT()))?`<span class="bd D">D</span>`:"";
       const label=b.tag==="closed"?("Închis"+(b.note?" · "+b.note:"")):b.tag==="cancel"?("Anulare · "+(b.guest||"fără nume")):LT?(b.guest||"fără nume"):[b.guest||"fără nume",b.phone].filter(Boolean).join(" ");
       const gap=LT?3:4, barW=Math.max(8,(R-L)*W-gap*2);
-      bars+=`<div class="bar${lz?" half":""}${barW<64?" narrow":""}${LT&&barW<120?" short":""}${st<0?" cut-l":""}${en>n?" cut-r":""}${over?" over":""}${b.tag==="closed"?" closed":""}${b.tag==="cancel"?" cancel":""}${payActive(b)&&payState(b).state==="unpaid"?" unp":""}" data-edit="${esc(b.id)}" style="${lz}left:${L*W+gap}px;width:${barW}px;background-color:${barCol(b)}" title="${esc(label+" · "+dm(b.date)+" → "+dm(endOf(b))+" · "+amounts(b)+((st<0||en>n)?" · luna aceasta "+Math.round(shareOf(b,mon.y,mon.m)*b.nights)+" din "+b.nights+" nopți":""))}">${over?"‼ ":""}${b.verified?`<span class="vk">✓</span>`:""}${bd}<span class="nm">${esc(label)}</span>${(()=>{if(b.tag==="cancel")return "";if(payActive(b)){const ps=payState(b);if(ps.state!=="paid"){const t=ps.state==="unpaid"?(b.price?"neach. "+fmt0(+b.price)+(ps.cur==="EUR"?"€":ps.cur==="USD"?"$":""):"neach."):(ps.left?"încă "+fmt0(ps.left)+(ps.cur==="EUR"?"€":ps.cur==="USD"?"$":""):"avans");return `<span class="amt pst">${esc(t)}</span>`}}const cut=false;if(!shortAmt(b))return "";if(barW<64){const k=cut?shareOf(b,mon.y,mon.m):1;return `<span class="amt tiny" title="${esc(shortAmt(b,k))}">${esc(tinyAmt(b,k))}</span>`}if(!cut)return `<span class="amt">${esc(shortAmt(b))}</span>`;const k=shareOf(b,mon.y,mon.m);return `<span class="amt" title="pe luna aceasta ${esc(shortAmt(b,k))} din ${esc(shortAmt(b))}">${esc(shortAmt(b,k))}</span>`})()}</div>`;
+      bars+=`<div class="bar${lz?" half":""}${barW<64?" narrow":""}${LT&&barW<120?" short":""}${st<0?" cut-l":""}${en>n?" cut-r":""}${over?" over":""}${b.tag==="closed"?" closed":""}${b.tag==="cancel"?" cancel":""}${payActive(b)&&payState(b).state==="unpaid"?" unp":""}" data-edit="${esc(b.id)}" style="${lz}left:${L*W+gap}px;width:${barW}px;background-color:${barCol(b)};--c:${barCol(b)}" title="${esc(label+" · "+dm(b.date)+" → "+dm(endOf(b))+" · "+amounts(b)+((st<0||en>n)?" · luna aceasta "+Math.round(shareOf(b,mon.y,mon.m)*b.nights)+" din "+b.nights+" nopți":""))}">${over?"‼ ":""}${b.verified?`<span class="vk">✓</span>`:""}${bd}<span class="nm">${esc(label)}</span>${(()=>{if(b.tag==="cancel")return "";if(payActive(b)){const ps=payState(b);if(ps.state!=="paid"){const t=ps.state==="unpaid"?(b.price?"neach. "+fmt0(+b.price)+(ps.cur==="EUR"?"€":ps.cur==="USD"?"$":""):"neach."):(ps.left?"încă "+fmt0(ps.left)+(ps.cur==="EUR"?"€":ps.cur==="USD"?"$":""):"avans");return `<span class="amt pst">${esc(t)}</span>`}}const cut=false;if(!shortAmt(b))return "";if(barW<64){const k=cut?shareOf(b,mon.y,mon.m):1;return `<span class="amt tiny" title="${esc(shortAmt(b,k))}">${esc(tinyAmt(b,k))}</span>`}if(!cut)return `<span class="amt">${esc(shortAmt(b))}</span>`;const k=shareOf(b,mon.y,mon.m);return `<span class="amt" title="pe luna aceasta ${esc(shortAmt(b,k))} din ${esc(shortAmt(b))}">${esc(shortAmt(b,k))}</span>`})()}</div>`;
     }
     const cells=dayCells(a,s0,n,W,list);
     const uc=capOf(unitOf(a)),ul=unitLine(a),ug=unitOf(a).group;
@@ -5133,7 +5158,7 @@ document.addEventListener("click",e=>{
     }
     aptPage(ap.dataset.aptpage);return
   }
-  if(e.target.id==="c-today"){const el=$("c-body");el.scrollTo({left:calB*calW,behavior:"smooth"});return}
+  if(e.target.closest&&e.target.closest("#c-today")){const el=$("c-body");el.scrollTo({left:calB*calW,behavior:"smooth"});return}
   {const nv=e.target.closest("[data-calnav]");if(nv){calOff+=(+nv.dataset.calnav)*CAL_N;renderCal();return}}
   const tl=e.target.closest("[data-tl]"); if(tl&&calPM){const x=e.clientX-tl.getBoundingClientRect().left;const i=Math.floor(x/calW);pmTap(tl.dataset.tl,fromT(calS0+i*DAY));return}
   if(tl&&!e.target.closest(".bar")){const x=e.clientX-tl.getBoundingClientRect().left;const i=Math.floor(x/calW);newB(tl.dataset.tl,fromT(calS0+i*DAY));return}
