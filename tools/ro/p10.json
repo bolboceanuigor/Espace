@@ -358,5 +358,20 @@
 "выключен": "oprit",
 "Выключен": "Oprit",
 "Почта": "Email",
-"Бронь не раньше чем за, дней": "Rezervare cel mult cu, zile înainte"
+"Бронь не раньше чем за, дней": "Rezervare cel mult cu, zile înainte",
+"Заполни один раз — попадёт в каждую квартиру или номер. Если у объекта своё значение, его не трогаем.": "Completezi o dată — ajunge în fiecare apartament sau cameră. Dacă unitatea are valoarea ei, nu o atingem.",
+"Общее для всех объектов здания": "Comun pentru toate unitățile clădirii",
+"Сохранено, обновлено объектов": "Salvat, unități actualizate",
+"Код подъезда / домофона": "Cod scară / interfon",
+"Квартиры в одном доме": "Apartamente în același bloc",
+"Квартира по комнатам": "Apartament pe camere",
+"Отель / гостевой дом": "Hotel / pensiune",
+"Сохранить для всех": "Salvează pentru toate",
+"Общее для здания": "Comun pentru clădirea",
+"Адрес здания": "Adresa clădirii",
+"Дом / вилла": "Casă / vilă",
+"во дворе": "în curte",
+"Что это": "Ce este",
+"Подъезд": "Scara",
+"здание": "clădire"
 }

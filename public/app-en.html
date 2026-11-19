@@ -2260,6 +2260,7 @@ function unitForm(a){const u=unitOf(a),b=u.beds||{},groups=[...new Set(cfg.apts.
     <details class="usec"${u.wifi||u.wpass||u.door||u.park||u.cmin||u.cpay?" open":""}><summary>Access and cleaning <small>the maid sees this</small></summary>
       <div class="grid2">${t("uf-wifi",u.wifi,"Wi-Fi: network","")}${t("uf-wpass",u.wpass,"Wi-Fi: password","")}</div>
       <div class="grid2">${t("uf-door",u.door,"Door or key box code","")}${t("uf-park",u.park,"Parking","spot 12, in the yard")}</div>
+      <div class="grid2">${t("uf-gate",u.gate,"Entrance / intercom code","")}<div></div></div>
       <div class="grid2">${n("uf-cmin",u.cmin,"Cleaning takes, min","60")}${n("uf-cpay",u.cpay,"Maid pay per cleaning, lei","maid’s usual rate")}</div>
       <p class="small" style="margin:2px 0 0">This amount replaces the general “per apartment” rate — you can pay more for bigger apartments.</p></details>
     <details class="usec"${u.cfee||u.dep||u.minn?" open":""}><summary>Booking terms <small>guests see this on the booking page</small></summary>
@@ -3030,11 +3031,40 @@ document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.c
   if(t.dataset.shopst!=null){SHOP.status=t.dataset.shopst;document.querySelectorAll("[data-shopst]").forEach(b=>b.setAttribute("aria-pressed",String(b===t)));shopLoad();return}
   if(RO)return;t.disabled=true;
   try{await api("kv_supply_done",{id:t.dataset.shopdone||t.dataset.shopundo,undo:!!t.dataset.shopundo});toast(t.dataset.shopundo?"Back on the list":"Bought");shopLoad()}catch(x){t.disabled=false;toast("Not saved")}});
+// ---- „building” (proprietatea): ce e comun tuturor unităților cu același „Building or hotel";
+// la salvare câmpurile comune ajung în fiecare unitate, dacă unitatea nu are altă valoare pusă de mână
+const BKIND={apts:"Apartments in one building",hotel:"Hotel / guest house",hostel:"Hostel",house:"House / villa",coliving:"Apartment by rooms"};
+const BLD_K=["map","gate","wifi","wpass","park","cin","cout"];
+let bOpen="";
+const bldOf=g=>((cfg.bld||{})[g])||{};
+function bldForm(g){const b=bldOf(g),h=b.how||{};const t=(id,v,lbl,ph)=>`<div><label class="l" for="${id}">${lbl}</label><input type="text" id="${id}" value="${esc(v??"")}" placeholder="${esc(ph||"")}" autocomplete="off"></div>`;
+  return `<div class="uform" style="margin:6px 0 12px"><p class="small" style="margin-top:0">Shared by all units of building «${esc(g)}». Fill in once and it reaches every apartment or room. If a unit has its own value, it is left alone.</p>
+    <label class="l" for="bf-kind">What it is</label><select id="bf-kind"><option value="">—</option>${Object.entries(BKIND).map(([k,v])=>`<option value="${k}"${b.kind===k?" selected":""}>${v}</option>`).join("")}</select>
+    ${t("bf-addr",b.addr,"Building address","Decebal 6/2")}
+    <div class="grid2">${t("bf-gate",b.gate,"Entrance / intercom code","")}${t("bf-park",b.park,"Parking","in the yard")}</div>
+    <div class="grid2">${t("bf-wifi",b.wifi,"Wi-Fi","")}${t("bf-wpass",b.wpass,"Password Wi-Fi","")}</div>
+    <div class="grid2"><div><label class="l" for="bf-cin">Check-in from</label><input type="time" id="bf-cin" value="${esc(b.cin||"")}"></div><div><label class="l" for="bf-cout">Check-out by</label><input type="time" id="bf-cout" value="${esc(b.cout||"")}"></div></div>
+    ${t("bf-map",b.map,"Map","coordinates or link Google Maps")}
+    <label class="l" for="bf-how-ru">How to get there (RU)</label><textarea id="bf-how-ru" rows="2">${esc(h.ru||"")}</textarea>
+    <label class="l" for="bf-how-ro">Cum ajungi (RO)</label><textarea id="bf-how-ro" rows="2">${esc(h.ro||"")}</textarea>
+    <label class="l" for="bf-how-en">How to get there (EN)</label><textarea id="bf-how-en" rows="2">${esc(h.en||"")}</textarea>
+    <div class="actions"><button type="button" class="btn primary" data-bsave="${esc(g)}">Save for all</button><button type="button" class="btn" data-bedit="">Cancel</button></div></div>`}
+function bldSave(g){const v=id=>String(($(id)||{}).value||"").trim();
+  const old=bldOf(g),nb={kind:v("bf-kind"),addr:v("bf-addr").slice(0,120),gate:v("bf-gate").slice(0,60),park:v("bf-park").slice(0,80),wifi:v("bf-wifi").slice(0,60),wpass:v("bf-wpass").slice(0,60),
+    cin:v("bf-cin"),cout:v("bf-cout"),map:v("bf-map").slice(0,300),how:{ru:v("bf-how-ru").slice(0,600),ro:v("bf-how-ro").slice(0,600),en:v("bf-how-en").slice(0,600)}};
+  const units={...(cfg.units||{})},addr={...(cfg.addr||{})};let n=0;
+  cfg.apts.filter(a=>unitOf(a).group===g).forEach(a=>{const u={...(units[a]||{})};let ch=false;
+    BLD_K.forEach(k=>{const cur=u[k]??"";if((cur===""||cur===(old[k]??""))&&cur!==nb[k]){if(nb[k])u[k]=nb[k];else delete u[k];ch=true}});
+    const hw={...(u.how||{})};["ru","ro","en"].forEach(l=>{const cur=hw[l]||"",o=(old.how||{})[l]||"";if((cur===""||cur===o)&&cur!==nb.how[l]){if(nb.how[l])hw[l]=nb.how[l];else delete hw[l];ch=true}});
+    if(Object.keys(hw).length)u.how=hw;else delete u.how;
+    const ca=addr[a]||"";if((ca===""||ca===(old.addr||""))&&ca!==nb.addr){if(nb.addr)addr[a]=nb.addr;else delete addr[a];ch=true}
+    if(ch){units[a]=u;n++}});
+  bOpen="";saveCfg({...cfg,units,addr,bld:{...(cfg.bld||{}),[g]:nb}},n?"Saved, units updated: "+n:"Saved")}
 function aptsSection(){
   const groups=[];cfg.apts.forEach((a,i)=>{const g=unitOf(a).group||"";let G=groups.find(x=>x.g===g);if(!G)groups.push(G={g,items:[]});G.items.push([a,i])});
   const multi=groups.length>1||groups[0]&&groups[0].g;
   const arch=(cfg.archived||[]).filter(a=>a&&!cfg.apts.includes(a));
-  return `<div class="card" style="padding-top:6px">${groups.map(G=>`${multi?`<div class="ugrp"><b>${G.g?esc(G.g):"No building"}</b><small>${G.items.length}</small></div>`:""}${G.g?typeRates(G):""}${G.items.map(([a,i])=>unitCard(a,i)).join("")}`).join("")}
+  return `<div class="card" style="padding-top:6px">${groups.map(G=>`${multi?`<div class="ugrp"><b>${G.g?esc(G.g):"No building"}</b><small>${G.items.length}${G.g&&bldOf(G.g).kind?" · "+esc(BKIND[bldOf(G.g).kind]||""):""}</small>${G.g&&!RO?`<button type="button" class="ibtn" data-bedit="${esc(G.g)}" aria-label="Shared for building ${esc(G.g)}" style="margin-left:auto">${setIc("det")}</button>`:""}</div>${G.g&&bOpen===G.g?bldForm(G.g):""}`:""}${G.g?typeRates(G):""}${G.items.map(([a,i])=>unitCard(a,i)).join("")}`).join("")}
       <div class="actions"><button class="btn primary" id="save-addr">Save addresses</button></div></div>
     <div class="card"><b>Add</b>
       <div class="setadd two" style="margin-top:8px"><input type="text" id="new-apt" placeholder="Name: Apartment Decebal 6"><button class="btn" id="add-apt">＋ Apartment or house</button></div>
@@ -3046,7 +3076,7 @@ function aptsSection(){
         ${RO?"":`<button type="button" class="btn sm" data-urestore="${esc(a)}">Restore</button>`}</div>`).join("")}</div>`:""}
     <p class="small" style="margin-bottom:0">Tap ⚙ next to a unit to fill area, bedrooms, beds and amenities. The trash button archives the unit — it leaves the calendar, booking history stays.</p>`}
 // the form's fields; keys the form doesn't show (rtype, the iCal key…) are kept as they were
-const UFORM_K=["layout","kind","group","area","bedrooms","baths","floor","beds","guests","price","pcur","cin","cout","amen","note","desc","how","map","wifi","wpass","door","park","cmin","cpay","cfee","dep","minn","dow","xg","xgFrom","xc","los","bufB","bufA","lead","ahead","maxn","arr"];
+const UFORM_K=["layout","kind","group","area","bedrooms","baths","floor","beds","guests","price","pcur","cin","cout","amen","note","desc","how","map","wifi","wpass","door","gate","park","cmin","cpay","cfee","dep","minn","dow","xg","xgFrom","xc","los","bufB","bufA","lead","ahead","maxn","arr"];
 function unitRead(a){const num0=id=>{const v=String(($(id)||{}).value||"").replace(",",".").trim();return v===""?"":Math.max(0,+v||0)},txt=(id,n)=>String(($(id)||{}).value||"").trim().slice(0,n);
   const beds={};BEDT.forEach(([k])=>{const v=+(($("uf-b-"+k)||{}).textContent||0);if(v>0)beds[k]=v});
   const u={...unitOf(a)};UFORM_K.forEach(k=>delete u[k]);
@@ -3061,7 +3091,7 @@ function unitRead(a){const num0=id=>{const v=String(($(id)||{}).value||"").repla
     how:(()=>{const o={};for(const L of["ru","ro","en"]){const v=(($("uf-how-"+L)||{}).value||"").trim().slice(0,2000);if(v)o[L]=v}return Object.keys(o).length?o:""})(),
     map:(($("uf-map")||{}).value||"").trim().slice(0,300),
     note:$("uf-note").value.trim().slice(0,500),
-    layout:layRead(),    wifi:txt("uf-wifi",60),wpass:txt("uf-wpass",60),door:txt("uf-door",60),park:txt("uf-park",80),cmin:num0("uf-cmin"),cpay:num0("uf-cpay"),cfee:num0("uf-cfee"),dep:num0("uf-dep"),minn:num0("uf-minn")});
+    layout:layRead(),    wifi:txt("uf-wifi",60),wpass:txt("uf-wpass",60),door:txt("uf-door",60),gate:txt("uf-gate",60),park:txt("uf-park",80),cmin:num0("uf-cmin"),cpay:num0("uf-cpay"),cfee:num0("uf-cfee"),dep:num0("uf-dep"),minn:num0("uf-minn")});
   if(u.minn!=="")u.minn=Math.min(60,Math.round(u.minn))||"";
   ["bufB","bufA","lead","maxn","ahead","xgFrom"].forEach(k=>{if(u[k]!=="")u[k]=Math.min(k==="maxn"?365:k==="lead"||k==="ahead"?730:k==="xgFrom"?50:30,Math.round(u[k]))||""});
   if(u.arr&&u.arr.length===7)u.arr=[];
@@ -3091,11 +3121,13 @@ function unitRestore(a){
   if(!a||cfg.apts.includes(a)){toast("Already in the list");return}
   const arch=(cfg.archived||[]).filter(x=>x!==a);
   saveCfg({...cfg,apts:[...cfg.apts,a],archived:arch},"Restored from archive")}
-document.addEventListener("click",e=>{const t=e.target.closest("[data-uedit],[data-ustep],[data-uamen],[data-uilang],[data-usave],[data-ucopy],[data-ucpall],[data-ucpgo],[data-udel],[data-urestore],[data-uhotel],#uh-add");if(!t)return;const ds=t.dataset;
+document.addEventListener("click",e=>{const t=e.target.closest("[data-uedit],[data-ustep],[data-uamen],[data-uilang],[data-usave],[data-ucopy],[data-ucpall],[data-ucpgo],[data-udel],[data-urestore],[data-uhotel],[data-bedit],[data-bsave],#uh-add");if(!t)return;const ds=t.dataset;
   if(ds.uedit!=null){uOpen=uOpen===ds.uedit?"":ds.uedit;uDelArm="";settingsPage("apts");if(uOpen)setTimeout(()=>icalLoad(uOpen),0);return}
   if(ds.ustep){const el=$("uf-b-"+ds.ustep);el.textContent=Math.max(0,Math.min(20,(+el.textContent||0)+(+ds.d)));const g=$("uf-guests");if(g&&!g.value){const b={};BEDT.forEach(([k])=>b[k]=+$("uf-b-"+k).textContent);g.placeholder="by beds: "+capAuto({beds:b})}return}
   if(ds.uilang){window._ufLang=ds.uilang;document.querySelectorAll("[data-uilang]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.uilang===ds.uilang)));document.querySelectorAll("[data-ufpanel]").forEach(p=>p.hidden=p.dataset.ufpanel!==ds.uilang);return}
   if(ds.uamen){t.setAttribute("aria-pressed",String(t.getAttribute("aria-pressed")!=="true"));return}
+  if(ds.bedit!=null){bOpen=ds.bedit;settingsPage("apts");return}
+  if(ds.bsave){bldSave(ds.bsave);return}
   if(ds.usave){unitSave(ds.usave);return}
   if(ds.ucopy){const p=$("ucopy");if(p){p.hidden=!p.hidden;if(!p.hidden)p.scrollIntoView({block:"nearest",behavior:"smooth"})}return}
   if(ds.ucpall){const bs=[...document.querySelectorAll("[data-ucpt]")],all=bs.every(x=>x.checked);bs.forEach(x=>x.checked=!all);return}
@@ -5556,7 +5588,7 @@ document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.c
 async function clReload(){try{cl=await clApi("cl_load");notifs=cl.notifs||[];bellNew(notifs);bellUpdate(notifs,"cl-bell-badge","clbellseen");if(!clDay||!cl.days.some(d=>d.date===clDay))clDay=todayStr();renderCl()}catch(e){if(e.code==="bad_pin"){ls.set("cl","");location.reload()}}}
 // door code, Wi-Fi, parking and how long the cleaning takes — what she needs at the door
 function clAccess(a){const x=(cl.access||{})[a];if(!x)return "";const p=[];
-  if(x.door)p.push(`🔑 Code: <b>${esc(x.door)}</b>`);if(x.wifi||x.wpass)p.push(`📶 ${esc(x.wifi||"Wi-Fi")}${x.wpass?` · <b>${esc(x.wpass)}</b>`:""}`);if(x.park)p.push(`🅿 ${esc(x.park)}`);if(x.cmin&&cl.me.role!=="fix")p.push(`⏱ ~${esc(x.cmin)} min`);
+  if(x.gate)p.push(`🚪 Entrance: <b>${esc(x.gate)}</b>`);if(x.door)p.push(`🔑 Code: <b>${esc(x.door)}</b>`);if(x.wifi||x.wpass)p.push(`📶 ${esc(x.wifi||"Wi-Fi")}${x.wpass?` · <b>${esc(x.wpass)}</b>`:""}`);if(x.park)p.push(`🅿 ${esc(x.park)}`);if(x.cmin&&cl.me.role!=="fix")p.push(`⏱ ~${esc(x.cmin)} min`);
   return p.length?`<div class="cl-acc">${p.map(v=>`<span>${v}</span>`).join("")}</div>`:""}
 // a repairman's screen: only the repair list, with "started" and "done + cost"
 let clFixOpen=null;

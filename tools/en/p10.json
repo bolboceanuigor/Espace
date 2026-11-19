@@ -359,5 +359,20 @@
 "выключен": "off",
 "Выключен": "Off",
 "Почта": "Email",
-"Бронь не раньше чем за, дней": "Book at most, days ahead"
+"Бронь не раньше чем за, дней": "Book at most, days ahead",
+"Заполни один раз — попадёт в каждую квартиру или номер. Если у объекта своё значение, его не трогаем.": "Fill in once and it reaches every apartment or room. If a unit has its own value, it is left alone.",
+"Общее для всех объектов здания": "Shared by all units of building",
+"Сохранено, обновлено объектов": "Saved, units updated",
+"Код подъезда / домофона": "Entrance / intercom code",
+"Квартиры в одном доме": "Apartments in one building",
+"Квартира по комнатам": "Apartment by rooms",
+"Отель / гостевой дом": "Hotel / guest house",
+"Сохранить для всех": "Save for all",
+"Общее для здания": "Shared for building",
+"Адрес здания": "Building address",
+"Дом / вилла": "House / villa",
+"во дворе": "in the yard",
+"Что это": "What it is",
+"Подъезд": "Entrance",
+"здание": "building"
 }

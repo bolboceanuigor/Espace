@@ -70,9 +70,9 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params }) =>
   // Wi-Fi from the unit card; the door code only on a personal stay link, from arrival day to departure day
   const unit: any = (cfg.units || {})[g.apt] || {};
   const XT: Record<string, Record<string, string>> = {
-    ru: { net: "Сеть", pass: "Пароль", door: "Код двери", later: "Код двери появится здесь в день заезда" },
-    ro: { net: "Rețea", pass: "Parolă", door: "Cod ușă", later: "Codul ușii apare aici în ziua sosirii" },
-    en: { net: "Network", pass: "Password", door: "Door code", later: "The door code appears here on your arrival day" },
+    ru: { net: "Сеть", pass: "Пароль", gate: "Код подъезда", door: "Код двери", later: "Код двери появится здесь в день заезда" },
+    ro: { net: "Rețea", pass: "Parolă", gate: "Cod interfon", door: "Cod ușă", later: "Codul ușii apare aici în ziua sosirii" },
+    en: { net: "Network", pass: "Password", gate: "Entrance code", door: "Door code", later: "The door code appears here on your arrival day" },
   };
   const X = XT[L], extra: Record<string, string> = {};
   const kv = (k: string, v: string) => `<p class="all">${esc(k)}: ${esc(v)}</p>`;
@@ -83,10 +83,10 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params }) =>
   if (bId && sig && sig === await staySig(g.org_id, bId, token)) {
     stayQ = `&b=${encodeURIComponent(bId)}&s=${encodeURIComponent(sig)}`;
     const bk: any = await db.prepare("SELECT date, nights, tag, apt FROM bookings WHERE org_id = ? AND id = ?").bind(g.org_id, bId).first();
-    const door = String(unit.door || unit.code || "").trim();
-    if (bk && bk.apt === g.apt && bk.tag !== "cancel" && door) {
+    const door = String(unit.door || unit.code || "").trim(), gate = String(unit.gate || "").trim();
+    if (bk && bk.apt === g.apt && bk.tag !== "cancel" && (door || gate)) {
       const t = localToday(), out = addDaysIso(bk.date, Math.max(0, Number(bk.nights) || 0));
-      if (t >= bk.date && t <= out) extra.enter = `<p class="all">🔑 ${esc(X.door)}: ${esc(door)}</p>`;
+      if (t >= bk.date && t <= out) extra.enter = (gate ? `<p class="all">🚪 ${esc(X.gate)}: ${esc(gate)}</p>` : "") + (door ? `<p class="all">🔑 ${esc(X.door)}: ${esc(door)}</p>` : "");
       else if (t < bk.date) extra.enter = `<p>${esc(X.later)} (${esc(bk.date.slice(8, 10) + "." + bk.date.slice(5, 7))}).</p>`;
     }
   }

@@ -341,7 +341,7 @@ async function cleanerView(db: D1Database, O: string, me: any, td: string) {
   // door codes and Wi-Fi only for the places she goes to this week (a repairman: where repairs wait)
   const mine = new Set<string>(role === "fix" ? repairs.map((r: any) => r.apt) : days.flatMap((d: any) => d.items.map((i: any) => i.apt)));
   const access: Record<string, any> = {};
-  for (const a of mine) { const u = (cfg.units || {})[a] || {}, o: any = {}; for (const k of ["wifi", "wpass", "door", "park", "cmin"]) if (u[k]) o[k] = u[k]; if (Object.keys(o).length) access[a] = o; }
+  for (const a of mine) { const u = (cfg.units || {})[a] || {}, o: any = {}; for (const k of ["wifi", "wpass", "door", "gate", "park", "cmin"]) if (u[k]) o[k] = u[k]; if (Object.keys(o).length) access[a] = o; }
   const SUP_DEF = ["Туалетная бумага", "Мыло / гель", "Шампунь", "Мешки для мусора", "Кофе / чай", "Средство для посуды", "Губки", "Бумага для кухни"];
   const supplySrc = Array.isArray(cfg.supplies) && cfg.supplies.length ? cfg.supplies : SUP_DEF.map((name, i) => ({ id: "p" + i, name }));
   const supplies = supplySrc.filter((x: any) => x && x.name).map((x: any) => ({ id: str(x.id, 40), name: str(x.name, 80) }));
