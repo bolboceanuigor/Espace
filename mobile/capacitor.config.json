@@ -1,0 +1,16 @@
+{
+  "appId": "md.espace.app",
+  "appName": "Espace",
+  "webDir": "www",
+  "server": {
+    "url": "https://app.espace.md",
+    "errorPath": "offline.html",
+    "allowNavigation": ["app.espace.md", "*.espace.md", "espace.md"]
+  },
+  "ios": { "contentInset": "never", "appendUserAgent": "EspaceApp/1", "backgroundColor": "#FFFFFF" },
+  "android": { "appendUserAgent": "EspaceApp/1", "backgroundColor": "#FFFFFF" },
+  "plugins": {
+    "SplashScreen": { "launchShowDuration": 600, "launchAutoHide": true, "backgroundColor": "#FFFFFF", "showSpinner": false },
+    "PushNotifications": { "presentationOptions": ["badge", "sound", "alert"] }
+  }
+}

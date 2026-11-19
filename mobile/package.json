@@ -1,0 +1,17 @@
+{
+  "name": "espace-mobile",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Espace pentru iPhone și Android — aplicația nativă care deschide app.espace.md",
+  "scripts": { "sync": "cap sync" },
+  "dependencies": {
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/core": "^8.6.0",
+    "@capacitor/ios": "^8.6.0",
+    "@capacitor/push-notifications": "^8.1.3",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.4"
+  },
+  "devDependencies": { "@capacitor/cli": "^8.6.0" }
+}

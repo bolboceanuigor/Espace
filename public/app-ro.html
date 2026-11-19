@@ -1818,7 +1818,7 @@ const telDigits=p=>(p||"").replace(/[^\d+]/g,"");
 const RO_OK=["kv_load","kv_photos","kv_guides","kv_task_photo","kv_push_key","kv_push_sub","billing","bill_invoice","bill_pay","bill_pay_status","auth_me","auth_logout","auth_switch","auth_password","auth_new_org","bk_file_list","bk_file_get","google_link","google_unlink","kv_msg_list","kv_msg_history","kv_msg_preview","kv_ical_list","kv_ical_org","kv_contacts","kv_contact_get","kv_contacts_export","kv_checkin_get","kv_ical_status","kv_guest_invoice_list","kv_discount_list","kv_clean_info","auth_sessions","auth_logout_session","auth_logout_all"];
 const CHECK_OK=["kv_verify","kv_month_close","kv_month_open"];
 let ME=null, ROLE="", EXPIRED=false;
-const SLUG=(()=>{const h=location.hostname;if(h.endsWith(".espace.md"))return h.slice(0,-".espace.md".length);let c="";try{c=new URLSearchParams(location.search).get("c")||sessionStorage.getItem("es_c")||""}catch(e){}c=c.toLowerCase().replace(/[^a-z0-9-]/g,"");try{if(c)sessionStorage.setItem("es_c",c)}catch(e){}return c})();
+const SLUG=(()=>{const h=location.hostname;if(h.endsWith(".espace.md")&&h!=="app.espace.md")return h.slice(0,-".espace.md".length);const APPH=h==="app.espace.md";let c="";try{c=new URLSearchParams(location.search).get("c")||sessionStorage.getItem("es_c")||(APPH?localStorage.getItem("es_c"):"")||""}catch(e){}c=c.toLowerCase().replace(/[^a-z0-9-]/g,"");try{if(c){sessionStorage.setItem("es_c",c);if(APPH)localStorage.setItem("es_c",c)}}catch(e){}return c})();
 const ORG_URL=s=>location.hostname.endsWith(".espace.md")||location.hostname==="espace.md"?`https://${s}.espace.md/`:`/app?c=${s}`;
 const authH=()=>({"Content-Type":"application/json","X-Espace-Org":SLUG,...(PIN?{"Authorization":"Bearer "+PIN}:{})});
 let RO=false;

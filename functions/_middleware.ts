@@ -15,6 +15,13 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
   if (p.startsWith("/api/") || p.startsWith("/g/") || p.startsWith("/f/") || p.startsWith("/factura/") || p.startsWith("/ical/")) return ctx.next();
   const s = siteOf(hostOf(request));
   if (s.kind === "dev") return p === "/" ? env.ASSETS.fetch(new URL("/site", url)) : ctx.next();
+  // the native app (iPhone / Android): the company app at "/", every company, chosen at sign-in
+  if (s.kind === "app") {
+    if (p !== "/" && p !== "/index.html") return ctx.next();
+    const r = await env.ASSETS.fetch(new URL(APP_PAGE[appLang(request)], url));
+    const h = new Headers(r.headers); h.set("cache-control", "no-cache"); h.set("vary", "cookie, accept-language");
+    return new Response(r.body, { status: r.status, headers: h });
+  }
   if (s.kind === "www") return Response.redirect("https://espace.md" + p + url.search, 301);
   if (s.kind === "tenant") {
     const org = await env.DB.prepare("SELECT 1 AS x FROM orgs WHERE code = ?").bind(s.slug).first().catch(() => null);

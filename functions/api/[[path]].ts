@@ -542,7 +542,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
   }
   // which company this request is for: the subdomain (rentwill.espace.md), or on test hosts the x-espace-org header
   const site = siteOf(hostOf(request));
-  const reqSlug = site.kind === "tenant" ? site.slug : site.kind === "dev" ? str(request.headers.get("x-espace-org"), 40).toLowerCase() : "";
+  const reqSlug = site.kind === "tenant" ? site.slug : site.kind === "dev" || site.kind === "app" ? str(request.headers.get("x-espace-org"), 40).toLowerCase() : "";
 
   // ---------- public: the marketing site and the company login screen ----------
   if (fn === "org_public") {

@@ -2,6 +2,7 @@
 //   espace.md              → the marketing site
 //   admin.espace.md        → the platform owner's panel
 //   <company>.espace.md    → that company's app (e.g. rentwill.espace.md)
+//   app.espace.md          → the iPhone / Android app: the company app for every company, chosen at sign-in
 //   anything else (*.pages.dev, localhost) → "dev": every page reachable by path, company from ?c=
 // Requests for *.espace.md reach Pages through the router Worker, which passes the real host in x-espace-host.
 
@@ -11,7 +12,7 @@ export const RESERVED = new Set([
   "help", "support", "docs", "blog", "status", "dev", "test", "staging", "demo", "login", "signup", "register",
   "billing", "pay", "dashboard", "panel", "espace", "root", "ns1", "ns2", "g",
 ]);
-export type Site = { kind: "site" } | { kind: "www" } | { kind: "admin" } | { kind: "tenant"; slug: string } | { kind: "dev" };
+export type Site = { kind: "site" } | { kind: "www" } | { kind: "admin" } | { kind: "tenant"; slug: string } | { kind: "app" } | { kind: "dev" };
 
 export function hostOf(req: Request) {
   const h = req.headers.get("x-espace-host") || new URL(req.url).host;
@@ -23,6 +24,7 @@ export function siteOf(host: string): Site {
     const sub = host.slice(0, -(ROOT.length + 1));
     if (sub === "www") return { kind: "www" };
     if (sub === "admin") return { kind: "admin" };
+    if (sub === "app") return { kind: "app" };
     if (isSlug(sub)) return { kind: "tenant", slug: sub };
     return { kind: "www" };
   }
