@@ -175,7 +175,14 @@ async function loadAll(db: D1Database, O: string, rights?: MemberRights, lang?: 
   for (const t of todos) { t.done = !!t.done; delete t.notified; delete t.org_id; }
   for (const st of staff) { st.has_pin = !!st.has_pin; st.active = !!st.active; }
   for (const t of tasks) { t.has_photo = !!t.has_photo; t.sent = !!t.sent; }
-  for (const b of bookings) { b.verified = !!b.verified; delete b.shift_adopted; delete b.org_id; }
+  // the app fills every missing field with its default (mapB), so empty values are not sent: a 100-room hotel's history is ~40% smaller
+  for (const b of bookings) {
+    delete b.shift_adopted; delete b.org_id; delete b.ext_feed;
+    if (b.ext_uid) b.ext_uid = 1;
+    if (b.extra === "{}") delete b.extra;
+    for (const k of Object.keys(b)) { const v = b[k]; if (v === null || v === "" || v === 0) delete b[k]; }
+    if (b.verified) b.verified = true;
+  }
   for (const e of expenses) { e.yearly = !!e.yearly; delete e.org_id; }
   for (const h of handovers) { h.rows = JSON.parse(h.rows || "[]"); h.cols = JSON.parse(h.cols || "[]"); h.closed = !!h.closed; h.verified = !!h.verified; delete h.org_id; }
   const notifs = (await all(db, "SELECT id, at, title, body FROM notifs WHERE org_id = ? AND target = 'manager' ORDER BY id DESC LIMIT 50", O)).map((n: any) => ntrMsg(n, lang || "ru"));
