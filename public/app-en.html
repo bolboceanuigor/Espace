@@ -5882,7 +5882,7 @@ async function teamLoad(){const el=$("team-list");if(!el)return;try{const list=a
   }).join("")}catch(e){el.textContent="Didn’t load"}}
 async function logout(){try{await api("auth_logout")}catch(e){}ls.set("tok","");PIN=null;ME=null;RO=false;document.body.classList.remove("ro");closeSheet();lock("")}
 let GMODE="login",GOOGLE_OK=false;
-function syncGoogleBtn(){const w=$("g-google-wrap"),a=$("g-google");if(w)w.hidden=!(GOOGLE_OK&&GMODE==="login");
+function syncGoogleBtn(){const w=$("g-google-wrap"),a=$("g-google");if(w)w.hidden=!(GOOGLE_OK&&GMODE==="login"&&!CAP);
   if(a){const q=new URLSearchParams({mode:"login"});if(SLUG)q.set("slug",SLUG);a.href="/api/google/start?"+q.toString()}}
 function gMode(m){GMODE=m;document.querySelectorAll("[data-gmode]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.gmode===m)));
   document.querySelectorAll("[data-gf]").forEach(el=>el.hidden=!el.dataset.gf.split(" ").includes(m));
