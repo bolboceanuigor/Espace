@@ -403,5 +403,14 @@
 "Убран": "Clean",
 "Занят": "Occupied",
 "Отметить грязным": "Mark dirty",
-"Отметить убранным": "Mark clean"
+"Отметить убранным": "Mark clean",
+"Бронь не найдена": "Booking not found",
+"Вход по лицу или отпечатку пальца: приложение спросит его при открытии и если было свёрнуто дольше 5 минут.": "Sign in with face or fingerprint: the app asks for it when it opens and after more than 5 minutes in the background.",
+"На телефоне не настроен вход по лицу или отпечатку": "Face or fingerprint sign-in is not set up on this phone",
+"Вход в приложение": "Sign in to the app",
+"Не подтверждено": "Not confirmed",
+"Разблокировать": "Unlock",
+"Войти паролем": "Sign in with password",
+"Выключено": "Turned off",
+"Включено": "Turned on"
 }

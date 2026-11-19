@@ -6,6 +6,8 @@
 	<string>$(CAPACITOR_DEBUG)</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Face ID protejează intrarea în espace.</string>
 	<key>CFBundleDisplayName</key>
         <string>Espace</string>
 	<key>CFBundleExecutable</key>

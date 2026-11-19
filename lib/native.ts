@@ -39,7 +39,7 @@ const fcmSa = (env: Env) => { try { const s = JSON.parse(env.FCM_SERVICE_ACCOUNT
 export const nativeReady = (env: Env) => ({ ios: !!(env.APNS_KEY && env.APNS_KEY_ID && env.APPLE_TEAM_ID), android: !!fcmSa(env) });
 
 /** Send one notification to the given phones; tokens Apple / Google reject are deleted. */
-export async function sendNative(env: Env, db: D1Database, rows: any[], msg: { title: string; body?: string; tag?: string }) {
+export async function sendNative(env: Env, db: D1Database, rows: any[], msg: { title: string; body?: string; tag?: string; go?: string }) {
   const ok = nativeReady(env);
   const drop = (t: string) => run(db, "DELETE FROM native_tokens WHERE token = ?", t).catch(() => {});
   const sa = ok.android ? fcmSa(env) : null;
@@ -49,7 +49,7 @@ export async function sendNative(env: Env, db: D1Database, rows: any[], msg: { t
         const send = async (sb: boolean) => fetch(`https://api${sb ? ".sandbox" : ""}.push.apple.com/3/device/${x.token}`, {
           method: "POST",
           headers: { authorization: "bearer " + (await apnsAuth(env)), "apns-topic": TOPIC, "apns-push-type": "alert", "apns-priority": "10" },
-          body: JSON.stringify({ aps: { alert: { title: msg.title, body: msg.body || "" }, sound: "default", "thread-id": msg.tag || "espace" }, url: "/" }),
+          body: JSON.stringify({ aps: { alert: { title: msg.title, body: msg.body || "" }, sound: "default", "thread-id": msg.tag || "espace" }, url: "/", go: msg.go || "" }),
         });
         let r = await send(!!x.sb);
         if (r.status === 400) {
@@ -61,7 +61,7 @@ export async function sendNative(env: Env, db: D1Database, rows: any[], msg: { t
       } else if (x.platform === "android" && sa) {
         const r = await fetch(`https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`, {
           method: "POST", headers: { authorization: "Bearer " + (await fcmAccess(sa)), "content-type": "application/json" },
-          body: JSON.stringify({ message: { token: x.token, notification: { title: msg.title, body: msg.body || "" }, data: { url: "/" },
+          body: JSON.stringify({ message: { token: x.token, notification: { title: msg.title, body: msg.body || "" }, data: { url: "/", go: msg.go || "" },
             android: { priority: "high", notification: { sound: "default", tag: msg.tag || undefined } } } }),
         });
         if (r.status === 404 || (r.status === 400 && /UNREGISTERED|INVALID_ARGUMENT/.test(await r.text()))) await drop(x.token);

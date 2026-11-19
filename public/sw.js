@@ -33,7 +33,9 @@ self.addEventListener("push", (e) => {
 self.addEventListener("notificationclick", (e) => {
   e.notification.close();
   e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
-    for (const c of list) if ("focus" in c) return c.focus();
-    return self.clients.openWindow((e.notification.data && e.notification.data.url) || "/");
+    const url = (e.notification.data && e.notification.data.url) || "/", m = /#go=([^&]+)/.exec(url), go = m ? decodeURIComponent(m[1]) : "";
+    // an open app goes straight to the booking / cleanings / repairs the notification is about
+    for (const c of list) if ("focus" in c) { if (go) c.postMessage({ type: "go", go }); return c.focus(); }
+    return self.clients.openWindow(url);
   }));
 });

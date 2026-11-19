@@ -402,6 +402,7 @@ body.calmode .ctopbar{padding-top:calc(8px + env(safe-area-inset-top,0px))}
 .sh-tl .pc.x,.sh-tl .dr.x{background:repeating-linear-gradient(135deg,rgba(127,127,127,.22) 0 5px,transparent 5px 10px)}
 .sh-tl .pc.cta::before,.sh-tl .dr.cta::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:#d9534f}
 .sh-tl .pc.ctd::after,.sh-tl .dr.ctd::after{content:"";position:absolute;right:0;top:0;bottom:0;width:3px;background:#e0a030}
+#biolock{position:fixed;inset:0;z-index:9999;background:#fff;display:grid;place-items:center}#biolock>div{display:flex;flex-direction:column;align-items:center;gap:12px;width:min(280px,80vw)}#biolock img{border-radius:18px}#biolock b{font-size:22px;margin-bottom:18px}#biolock .btn{width:100%;min-height:48px}
 .rooms{margin:14px 0 4px}.rmh{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}.rmh h3{margin:0;font-size:16px}.rmh span{font-size:12.5px;color:var(--muted)}
 .rmh i{display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 4px 0 6px;vertical-align:1px}.rmh i.ok{background:#12a150}.rmh i.bad{background:#e5484d}
 .rmg{font-size:11.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:12px 2px 6px}
@@ -1798,6 +1799,23 @@ async function natEnable(call,ask){natCall=call;let p=await capCall("PushNotific
   const tok=await new Promise((res,rej)=>{natWait={res,rej};setTimeout(()=>rej(new Error("timeout")),20000);capCall("PushNotifications","register").catch(rej)}).finally(()=>{natWait=null});
   await call("native_sub",{token:tok,platform:CAP.getPlatform(),lang:document.documentElement.lang||"ru"});ls.set("ntok",tok)}
 // după intrare: o singură dată întrebăm telefonul; apoi doar reînnoim tokenul
+// Face ID / fingerprint lock (phone apps only): the app asks for it when it opens and after 5 minutes in the background
+const BIO_PL="BiometricAuthNative";let bioBg=0,bioBusy=false;
+const bioOn=()=>!!CAP&&ls.get("bio")==="1";
+async function bioCheck(){if(!CAP)return null;try{return await capCall(BIO_PL,"checkBiometry")}catch(e){return null}}
+async function bioAuth(){return capCall(BIO_PL,"internalAuthenticate",{reason:"Вход в приложение",cancelTitle:"Отмена",androidTitle:"espace",androidSubtitle:"Вход в приложение",allowDeviceCredential:true})}
+async function bioLock(){if(!bioOn()||bioBusy)return;const hasTok=ls.get("tok")||ls.get("cl");if(!hasTok)return;bioBusy=true;
+  let el=$("biolock");if(!el){el=document.createElement("div");el.id="biolock";el.innerHTML=`<div><img src="/icon-192.png" width="72" height="72" alt=""><b>espace</b><button type="button" class="btn primary" id="bio-go">Разблокировать</button><button type="button" class="btn" id="bio-out">Войти паролем</button></div>`;document.body.appendChild(el)}
+  el.hidden=false;try{await bioAuth();el.hidden=true}catch(e){}finally{bioBusy=false}}
+function bioCard(){if(!CAP)return "";return `<div class="card" id="bio-card"><p class="small" style="margin-top:0">Вход по лицу или отпечатку пальца: приложение спросит его при открытии и если было свёрнуто дольше 5 минут.</p><div class="actions"><button class="btn${bioOn()?"":" primary"}" id="bio-tg">${bioOn()?"Выключить":"🔒 Включить"}</button></div></div>`}
+document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("#bio-tg,#bio-go,#bio-out");if(!t)return;
+  if(t.id==="bio-go"){bioLock();return}
+  if(t.id==="bio-out"){ls.set("bio","");ls.set("tok","");ls.set("cl","");location.reload();return}
+  if(bioOn()){ls.set("bio","");toast("Выключено");renderSettings();return}
+  const c=await bioCheck();if(!c||!c.isAvailable){toast("На телефоне не настроен вход по лицу или отпечатку");return}
+  try{await bioAuth();ls.set("bio","1");toast("Включено");renderSettings()}catch(x){toast("Не подтверждено")}});
+if(CAP){try{CAP.addListener("App","appStateChange",st=>{if(!st)return;if(!st.isActive)bioBg=Date.now();else if(bioBg&&Date.now()-bioBg>5*60e3){bioBg=0;bioLock()}})}catch(e){}
+  setTimeout(bioLock,50)}
 function natAfterLogin(call){if(!CAP)return;const asked=ls.get("nask");ls.set("nask","1");natEnable(call,!asked).catch(()=>{})}
 const pushSupported=()=>!!CAP||("serviceWorker" in navigator&&"PushManager" in window&&"Notification" in window);
 const isStandalone=()=>matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
@@ -4592,7 +4610,7 @@ function renderSettings(){
   const SEC={
     push:["bell","Уведомления","на этом телефоне",()=>`<div class="card"><p class="small" id="push-st" style="margin-top:0">…</p><div class="actions"><button class="btn primary" id="push-on">🔔 Включить на этом телефоне</button><button class="btn" id="push-test" hidden>Проверить</button></div>
       <p class="small" style="margin-bottom:0">Придут: квартира убрана, горничная сообщила о поломке, сводка утром в 8:00 и твои напоминания (вкладка «Уборки»). Включи на каждом телефоне, где нужно.</p></div>
-    `],
+    `+bioCard()],
     orep:["bell","Отчёт на почту",(cfg.ownerReport||{}).freq==="daily"?"каждый день в 8:00":(cfg.ownerReport||{}).freq==="weekly"?"по понедельникам в 8:00":"выключен",()=>{const r=cfg.ownerReport||{};return `<div class="card">
       <label class="l" for="or-freq">Как часто</label><select id="or-freq" style="width:100%;height:44px"><option value="">Выключен</option><option value="daily" ${r.freq==="daily"?"selected":""}>Каждый день в 8:00</option><option value="weekly" ${r.freq==="weekly"?"selected":""}>Раз в неделю, в понедельник в 8:00</option></select>
       <label class="l" for="or-to" style="margin-top:10px">Почта</label><input type="email" id="or-to" value="${esc(r.to||"")}" placeholder="по умолчанию — почта владельца">
@@ -5846,7 +5864,16 @@ const G_ERR={not_confirmed:"Аккаунт ещё не подтверждён �
 async function enterApp(token,me){PIN=token;ls.set("tok",token);ls.set("cl","");setMe(me);natAfterLogin((f,a)=>api("kv_"+f,a));
   if(me.role==="prop"){location.replace("/proprietar"+location.search);return}
   if(!me.org){$("gate").hidden=false;$("g-msg").innerHTML=`<div class="msg bad">У этого аккаунта нет доступа ни к одной компании.</div>`;return}
-  $("gate").hidden=true;$("app").hidden=false;fitHdr();await reload();loadPhotos()}
+  $("gate").hidden=true;$("app").hidden=false;fitHdr();await reload();loadPhotos();APPON=true;goPending()}
+// a tap on a notification opens what it is about: "b:<booking id>", "cln", "rep" (web push: /#go=…, sw message; phone apps: push data.go)
+let APPON=false,PENDGO=(()=>{const m=/#go=([^&]+)/.exec(location.hash);if(m){try{history.replaceState(null,"",location.pathname+location.search)}catch(e){}return decodeURIComponent(m[1])}return ""})();
+function goPending(){if(!APPON||!PENDGO)return;const g=PENDGO;PENDGO="";goTarget(g)}
+async function goTarget(g){
+  if(g==="cln"||g==="rep"){show(g);return}
+  if(g.startsWith("b:")){const id=g.slice(2);if(!bookings.find(x=>x.id===id))await reload();if(!bookings.find(x=>x.id===id)){toast("Бронь не найдена");return}
+    show("cal");setTimeout(()=>bookView(id),120)}}
+if("serviceWorker" in navigator)navigator.serviceWorker.addEventListener("message",e=>{if(e.data&&e.data.type==="go"&&e.data.go){PENDGO=String(e.data.go);goPending()}});
+if(CAP){try{CAP.addListener("PushNotifications","pushNotificationActionPerformed",a=>{const d=(a&&a.notification&&a.notification.data)||{};if(d.go){PENDGO=String(d.go);goPending()}})}catch(e){}}
 async function gSubmit(){
   const go=$("g-go");go.disabled=true;$("g-msg").innerHTML="";
   try{

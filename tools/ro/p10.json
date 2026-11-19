@@ -402,5 +402,14 @@
 "Убран": "Curățată",
 "Занят": "Ocupată",
 "Отметить грязным": "Marchează murdară",
-"Отметить убранным": "Marchează curățată"
+"Отметить убранным": "Marchează curățată",
+"Бронь не найдена": "Rezervarea nu a fost găsită",
+"Вход по лицу или отпечатку пальца: приложение спросит его при открытии и если было свёрнуто дольше 5 минут.": "Intrare cu fața sau amprenta: aplicația o cere la deschidere și dacă a stat închisă mai mult de 5 minute.",
+"На телефоне не настроен вход по лицу или отпечатку": "Pe telefon nu e setată intrarea cu fața sau amprenta",
+"Вход в приложение": "Intrare în aplicație",
+"Не подтверждено": "Neconfirmat",
+"Разблокировать": "Deblochează",
+"Войти паролем": "Intră cu parola",
+"Выключено": "Dezactivat",
+"Включено": "Activat"
 }

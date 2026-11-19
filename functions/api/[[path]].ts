@@ -97,7 +97,7 @@ async function maibCallback(request: Request, env: Env, waitUntil: (p: Promise<a
       const orgCfg = (await getConfig(db, gp.org_id)) || {};
       await applyGuestPayToBooking(db, gp, orgCfg);
       const b = await one(db, "SELECT apt, guest, date FROM bookings WHERE org_id = ? AND id = ?", gp.org_id, gp.booking_id);
-      waitUntil(notify(db, gp.org_id, ["manager"], { title: `💳 Оплата: ${gp.amount} лей`, body: `${b?.apt || ""} · ${b?.guest || gp.guest || ""} · ${gp.kind === "deposit" ? "аванс" : "остаток"}${card ? " · ••" + card : ""}` }).catch(() => {}));
+      waitUntil(notify(db, gp.org_id, ["manager"], { go: "b:" + gp.booking_id, title: `💳 Оплата: ${gp.amount} лей`, body: `${b?.apt || ""} · ${b?.guest || gp.guest || ""} · ${gp.kind === "deposit" ? "аванс" : "остаток"}${card ? " · ••" + card : ""}` }).catch(() => {}));
     } else if (status && status !== "Executed" && gp.status === "new") {
       await run(db, "UPDATE guest_payments SET status = 'failed', payment_id = ?, method = ? WHERE id = ? AND status = 'new'", str(d.paymentId, 60), status.slice(0, 20), gp.id);
     }
@@ -422,7 +422,8 @@ async function getVapid(db: D1Database): Promise<Vapid> {
 /** who: "manager" | "staff:<id>" | "staff" (all cleaners of this company) */
 // env of the current request, for helpers that don't get it passed (the bindings are the same for every request)
 let ENV: Env | null = null;
-async function notify(db: D1Database, O: string, who: string[], msg: { title: string; body?: string; tag?: string }) {
+// msg.go: where a tap on the notification opens the app — "b:<booking id>", "cln" (cleanings), "rep" (repairs)
+async function notify(db: D1Database, O: string, who: string[], msg: { title: string; body?: string; tag?: string; go?: string }) {
   for (const w of who) await run(db, "INSERT INTO notifs(org_id, target, title, body) VALUES (?,?,?,?)", O, w, msg.title, msg.body || "").catch(() => {});
   if (ENV && who.includes("manager")) await tgNotify(ENV, db, O, msg).catch(() => 0); // linked Telegram chats
   const conds: string[] = [], args: string[] = [];
@@ -438,7 +439,7 @@ async function notify(db: D1Database, O: string, who: string[], msg: { title: st
   if (!subs.length) return;
   const v = await getVapid(db);
   await Promise.all(subs.map(async (s: any) => {
-    const st = await sendPush(s, { ...msg, url: "/" }, v);
+    const st = await sendPush(s, { ...msg, url: msg.go ? "/#go=" + encodeURIComponent(msg.go) : "/" }, v);
     if (st === 404 || st === 410) await run(db, "DELETE FROM push_subs WHERE endpoint = ?", s.endpoint);
   }));
 }
@@ -607,7 +608,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     const at = nowIso();
     await run(db, `UPDATE checkins SET status = 'done', data = ?, completed_at = ?, updated_at = ? WHERE token = ? AND status != 'done'`,
       JSON.stringify(v.data), at, at, tok);
-    await notify(db, row.org_id, ["manager"], { title: `Check-in: ${b.apt}`, body: `${v.data.name || b.guest} · ${b.date}` }).catch(() => {});
+    await notify(db, row.org_id, ["manager"], { go: "b:" + b.id, title: `Check-in: ${b.apt}`, body: `${v.data.name || b.guest} · ${b.date}` }).catch(() => {});
     return json({ ok: true, at });
   }
   // ---------- a guest's rental contract (<slug>.espace.md/contract/<token>), public by its secret link ----------
@@ -634,7 +635,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     await run(db, `UPDATE contracts SET status = 'signed', lang = ?, guest_name = ?, guest_doc = ?, guest_country = ?, guest_pax = ?, signed_text = ?, signature = ?, signed_at = ?, signed_ip = ?, signed_ua = ? WHERE token = ? AND status != 'signed'`,
       lang, name, doc, country, pax, text, sig, at, request.headers.get("cf-connecting-ip") || "", str(request.headers.get("user-agent"), 200), tok);
     await audit(db, k.org_id, null, "booking", "signed", k.booking_id, bLabel({ ...b, guest: name }), { number: k.number }, "web");
-    await notify(db, k.org_id, ["manager"], { title: `Contract semnat: ${b.apt}`, body: `${name} · ${b.date} · nr. ${k.number}` });
+    await notify(db, k.org_id, ["manager"], { go: "b:" + k.booking_id, title: `Contract semnat: ${b.apt}`, body: `${name} · ${b.date} · nr. ${k.number}` });
     const url = `https://${k.code}.espace.md/contract/${tok}`, gmail = str(body.email, 200).trim() || b.email || "";
     if (isEmail(gmail)) await sendMail(env, db, { to: gmail, ...mails.contractSigned(k.org_name, { number: k.number, apt: b.apt, date: b.date, url, guest: true }), kind: "contract", orgId: k.org_id });
     const co = await orgEmail(db, k.org_id);
@@ -718,7 +719,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     { const ex = extraOf({ kids, lang: ["ro", "ru", "en"].includes(body.lang) ? body.lang : "", ...(discExtra || {}) }); if (ex && ex !== "{}") await run(db, "UPDATE bookings SET extra = ? WHERE org_id = ? AND id = ?", ex, org.id, id).catch(() => {}); }
     await audit(db, org.id, null, "booking", "request", id, bLabel({ apt, date, guest: name }), { nights, pax, price, price_cur: cur, discount: wantCode || undefined }, "web");
     await upsertFromBooking(db, org.id, { guest: name, phone, email }).catch(() => {});
-    await notify(db, org.id, ["manager"], { title: `Cerere de rezervare: ${apt}`, body: `${name} · ${date} · ${nights} n. · ${pax} pers.${phone ? " · " + phone : ""}${wantCode ? " · " + wantCode : ""}` });
+    await notify(db, org.id, ["manager"], { go: "b:" + id, title: `Cerere de rezervare: ${apt}`, body: `${name} · ${date} · ${nights} n. · ${pax} pers.${phone ? " · " + phone : ""}${wantCode ? " · " + wantCode : ""}` });
     const owner = await orgEmail(db, org.id);
     if (owner) await sendMail(env, db, { to: owner, ...mails.requestNew(org.name, org.code, { apt, date, nights, pax, name, phone, email, msg, price, cur }), kind: "request", orgId: org.id });
     if (email) await sendMail(env, db, { to: email, ...mails.requestGot(org.name, { apt, date, nights, pax, price, cur, phone: dir.phone || "", email: dir.email || "" }), kind: "request", orgId: org.id });
@@ -811,7 +812,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       id, of.org_id, date, apt, name, nights, phone, email, pax + kids, ("Cerere din ofertă" + (kids ? ` (${pax} adulți, ${kids} copii)` : "") + (msg ? ": " + msg : "")).slice(0, 1000), price, cur, now, now);
     { const ex = extraOf({ kids, lang: ["ro", "ru", "en"].includes(body.lang) ? body.lang : "" }); if (ex && ex !== "{}") await run(db, "UPDATE bookings SET extra = ? WHERE org_id = ? AND id = ?", ex, of.org_id, id).catch(() => {}); }
     await audit(db, of.org_id, null, "booking", "request", id, bLabel({ apt, date, guest: name }), { nights, pax, price, price_cur: cur, offer: tok }, "web");
-    await notify(db, of.org_id, ["manager"], { title: `Cerere din ofertă: ${apt}`, body: `${name} · ${date} · ${nights} n. · ${pax} pers.${phone ? " · " + phone : ""}` });
+    await notify(db, of.org_id, ["manager"], { go: "b:" + id, title: `Cerere din ofertă: ${apt}`, body: `${name} · ${date} · ${nights} n. · ${pax} pers.${phone ? " · " + phone : ""}` });
     const owner = await orgEmail(db, of.org_id);
     if (owner) await sendMail(env, db, { to: owner, ...mails.requestNew(of.org_name, of.code, { apt, date, nights, pax, name, phone, email, msg, price, cur }), kind: "request", orgId: of.org_id });
     if (email) await sendMail(env, db, { to: email, ...mails.requestGot(of.org_name, { apt, date, nights, pax, price, cur, phone: dir.phone || "", email: dir.email || "" }), kind: "request", orgId: of.org_id });
@@ -1118,7 +1119,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       const task = await one(db, "SELECT apt, date FROM tasks WHERE org_id = ? AND id = ?", O, id);
       if (done && task && Array.isArray(body.checks)) for (const c of body.checks.slice(0, 30))
         await run(db, "INSERT OR IGNORE INTO checks(org_id,apt,item,date,staff_id) VALUES (?,?,?,?,?)", O, task.apt, str(c, 20), task.date, me.id);
-      if (done && task) waitUntil(notify(db, O, ["manager"], { title: "✓ Убрано: " + task.apt, body: me.name + " · " + localNow().hm, tag: "done-" + id }).catch(() => {}));
+      if (done && task) waitUntil(notify(db, O, ["manager"], { go: "cln", title: "✓ Убрано: " + task.apt, body: me.name + " · " + localNow().hm, tag: "done-" + id }).catch(() => {}));
       return json(id);
     }
     if (fn === "cl_fix") {
@@ -1136,7 +1137,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
         const cat = Array.isArray(cfg.categories) && cfg.categories.includes("Ремонт") ? "Ремонт" : (Array.isArray(cfg.categories) && cfg.categories[0]) || "Ремонт";
         await run(db, "INSERT OR IGNORE INTO expenses(id, org_id, date, apt, category, mdl, who, note, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)", tk.id, O, td, tk.apt, cat, cost, me.name, (tk.note + " · " + me.name).slice(0, 500), t, t);
       }
-      waitUntil(notify(db, O, ["manager"], { title: "🔧 Починено: " + tk.apt, body: tk.note + (result ? " → " + result : "") + " — " + me.name + (cost ? ` · ${cost} лей` : "") }).catch(() => {}));
+      waitUntil(notify(db, O, ["manager"], { go: "rep", title: "🔧 Починено: " + tk.apt, body: tk.note + (result ? " → " + result : "") + " — " + me.name + (cost ? ` · ${cost} лей` : "") }).catch(() => {}));
       return json(true);
     }
     if (fn === "cl_report") {
@@ -1145,7 +1146,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       if (photo && (!/^data:image\/(jpeg|png|webp);base64,/.test(photo) || photo.length > 400000)) return json({ message: "bad_photo" }, 400);
       const t = nowIso();
       await run(db, "INSERT INTO tasks(id,org_id,kind,date,apt,status,note,photo,reported_by,shift_person,sent,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,1,?,?)", uuid(), O, "repair", td, apt, "todo", note, photo, me.name, await shiftPerson(db, O), t, t);
-      waitUntil(notify(db, O, ["manager"], { title: "🔧 " + apt + ": нужно починить", body: note + " — " + me.name + (photo ? " (есть фото)" : "") }).catch(() => {}));
+      waitUntil(notify(db, O, ["manager"], { go: "rep", title: "🔧 " + apt + ": нужно починить", body: note + " — " + me.name + (photo ? " (есть фото)" : "") }).catch(() => {}));
       return json(true);
     }
     if (fn === "cl_supply") {
@@ -1641,7 +1642,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       const extra = extraOf(x) || "{}";
       await run(db, "UPDATE bookings SET tag = 'cancel', extra = ?, updated_at = ? WHERE org_id = ? AND id = ?", extra, nowIso(), O, b.id);
       await audit(db, O, c, "booking", "cancel", b.id, bLabel({ ...b, tag: "cancel" }), { reason, kept: kept || null, nights: b.nights, guest: b.guest });
-      waitUntil(notify(db, O, ["manager"], { title: "✕ Отмена: " + (b.apt || ""), body: (b.guest || "без имени") + " · " + ddmm(b.date) + (b.nights ? " · " + b.nights + " н." : "") + " — " + reason }).catch(() => {}));
+      waitUntil(notify(db, O, ["manager"], { go: "b:" + b.id, title: "✕ Отмена: " + (b.apt || ""), body: (b.guest || "без имени") + " · " + ddmm(b.date) + (b.nights ? " · " + b.nights + " н." : "") + " — " + reason }).catch(() => {}));
       return json({ id: b.id });
     }
     case "kv_save_expense": {
