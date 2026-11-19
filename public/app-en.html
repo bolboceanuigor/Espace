@@ -3645,7 +3645,7 @@ function renderCal(){
   }
   document.body.classList.toggle("calpm",calPM);
   $("c-body").innerHTML=`<div class="sh sq sz-${sz}${calPM?" pm":""}${picOn?" pics":" names"}" style="--W:${W}px;--L:${Lw}px;--L-pic:${Lpic}px;--L-name:${Lname}px;--H:${H}px;--cell:${cell}px;--days:${days};--days-w:${n*W}px">${head}${rows}</div>`;
-  {const el=$("c-body"),key=todayStr()+"|"+sz+"|"+W+"|"+P+"|"+CW+"|"+(picOn?"p":"n"),keep=calKey===key?el.scrollLeft:null,t0=el.scrollTop;calKey=key;
+  {const el=$("c-body"),key=todayStr()+"|"+sz+"|"+W+"|"+P+"|"+CW+"|"+(picOn?"p":"n"),keep=calKey===key?el.scrollLeft:null,t0=el.scrollTop;calKey=el.clientWidth?key:null; // hidden (before login): scroll to today on the next paint
    const bodyH=HEADH+nRow*H+nG*22+nS*28+exH+2;
    const maxH=Math.max(260,innerHeight-el.getBoundingClientRect().top-navH-8);
    el.style.height=Math.min(bodyH,maxH)+"px";el.style.overflowY=bodyH>maxH?"auto":"hidden";el.style.scrollPaddingLeft=Lw+"px";
