@@ -1497,6 +1497,15 @@ html:root[data-skin="host"] .sh-day.today b{background:#0666EB!important}
 html:root[data-skin="host"] .setli .ic,html:root[data-skin="host"] .mtile .mi{color:#0666EB!important;background:#E8F0FD!important}
 @media (max-width:859px){html:root[data-skin="host"] nav.tabs button[aria-current="true"]:not(.mid){background:#191C1F!important;color:#fff!important}html:root[data-skin="host"] nav.tabs button.mid svg{background:#0666EB!important;box-shadow:0 8px 18px rgba(6,102,235,.35)!important}}
 @media (min-width:860px){html:root[data-skin="host"] nav.tabs button[aria-current="true"]{background:#191C1F!important;color:#fff!important}}
+/* calendar: rândul „liber X din Y” al clădirii / tipului de cameră */
+.sh-row.sh-sum{height:28px!important;min-height:28px}
+.sh-row.sh-sum .sh-name{border:0;background:#F7F8FB;font:inherit;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;text-align:left;padding:0 10px;height:28px;display:flex;align-items:center;width:var(--L)!important;min-width:var(--L);max-width:var(--L);flex:none;box-sizing:border-box}
+.sh.sh .sh-row.sh-sum .sh-name{justify-content:flex-start!important;padding:0 8px!important}
+.sh.sh .sh-row.sh-sum .sh-name span{opacity:1!important;display:block!important;width:auto!important;max-width:100%!important;transform:none!important;pointer-events:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sh-row.sh-sum.lv2 .sh-name{padding-left:18px}
+.sh-row.sh-sum .sh-tl{position:relative;height:28px;background:#F7F8FB!important}
+.sh-row.sh-sum .sh-tl i{position:absolute;top:4px;height:20px;display:grid;place-items:center;font-style:normal;font-size:11px;font-weight:800;color:#118A4E}
+.sh-row.sh-sum .sh-tl i.full{color:#D12C2C}
 </style>
 </head>
 <body>
@@ -3380,7 +3389,7 @@ const CAL_SZ={sm:{days:10,label:"Mic"},md:{days:9,label:"Mediu"},lg:{days:7,labe
 function calSz(){try{const v=localStorage.getItem("kv_calsz")||"md";return CAL_SZ[v]?v:"md"}catch(e){return"md"}}
 function calSzBtns(){const sz=calSz();return `<div class="cbsz" role="group" aria-label="Mărimea calendarului">${[["sm","Mic"],["md","Mediu"],["lg","Mare"]].map(([k,l])=>`<button type="button" class="cbsz-b" data-calsz="${k}" aria-pressed="${sz===k}" title="${l} · ${CAL_SZ[k].days} zile"><i class="cbsz-i ${k}"></i><span>${l}</span></button>`).join("")}</div>`}
 /* Hostfully: photos in circles (default); tap → retract photo, expand name text */
-const mono=a=>{const w=String(a).replace(/[^\p{L}\p{N} ]/gu," ").trim().split(/\s+/).filter(x=>/^\p{L}/u.test(x));return ((w.length>1?w[0][0]+w[1][0]:(w[0]||String(a)).slice(0,2))||"?").toUpperCase()};
+const mono=a=>{const u=(cfg.units||{})[a]||{};if((u.kind==="room"||u.kind==="bed")&&/·|\s\d/.test(String(a))){const m=String(a).match(/(\S+)\s*$/);if(m)return m[1].slice(0,4).toUpperCase()}const w=String(a).replace(/[^\p{L}\p{N} ]/gu," ").trim().split(/\s+/).filter(x=>/^\p{L}/u.test(x));return ((w.length>1?w[0][0]+w[1][0]:(w[0]||String(a)).slice(0,2))||"?").toUpperCase()};
 function calPicOn(){try{return localStorage.getItem("kv_calpic")!=="0"}catch(e){return true}}
 function tnHue(a){let h=0;const s=String(a);for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;const a1=h%360,a2=(a1+38)%360;return`--tn-a:hsl(${a1} 62% 52%);--tn-b:hsl(${a2} 68% 42%)`}
 function calThumb(a){const m=mono(a);return photos[a]
@@ -3492,6 +3501,9 @@ function calMon(){const el=$("c-body"),m=$("c-mon");if(!el||!m)return;const i=Ma
     :`${a.getUTCDate()} ${MON_S[a.getUTCMonth()]} – ${b.getUTCDate()} ${MON_S[b.getUTCMonth()]}${b.getUTCFullYear()!==cy?" "+b.getUTCFullYear():""}`;
   if(m.textContent!==t)m.textContent=t;const tb=$("c-today"),d=el.scrollLeft-calB*calW;if(tb)tb.classList.toggle("on",Math.abs(d)<2);const ar=$("c-arr");if(ar)ar.textContent=d<0?"→":"←"}let CAL_N=10;
 const CAL_I='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
+// folded calendar groups / room types, kept on this device
+function calFold(){try{return new Set(JSON.parse(localStorage.getItem("kv_calfold")||"[]"))}catch(e){return new Set()}}
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-calfold]");if(!t)return;const f=calFold(),k=t.dataset.calfold;f.has(k)?f.delete(k):f.add(k);try{localStorage.setItem("kv_calfold",JSON.stringify([...f]))}catch(x){}const el=$("c-body"),x=el.scrollLeft,y=el.scrollTop;renderCal();el.scrollLeft=x;el.scrollTop=y});
 function renderCal(){
   const LT=LIGHT(), sz=calSz(), days=CAL_SZ[sz].days, BACK=calB=60, n=BACK+366, td=toT(todayStr()), s0=calS0=td-BACK*DAY, tdIdx=BACK;
   const box=$("c-body"), CW=box.clientWidth||innerWidth;
@@ -3523,9 +3535,22 @@ function renderCal(){
   let rows="";
   const occ=occMap(), grouped=cfg.apts.some(a=>unitOf(a).group);let lastG=null,nG=0,rowI=0;
   const hidU=calHidden();
+  // groups (building / hotel) and room types fold into one row that shows how many are free each day
+  const fold=calFold(),busy=new Set();
+  for(const b of bookings){if(!occupies(b)||!(b.nights>0))continue;const t0=toT(b.date);for(let i=0;i<b.nights;i++)busy.add(b.apt+"|"+(t0+i*DAY))}
+  const vis=cfg.apts.filter(a=>!hidU.has(a)),gUnits={},tUnits={};
+  const tKey=a=>{const u=unitOf(a);return u.group&&u.rtype&&(u.kind==="room"||u.kind==="bed")?u.group+"|"+u.rtype:""};
+  vis.forEach(a=>{const g=unitOf(a).group||"";(gUnits[g]=gUnits[g]||[]).push(a);const k=tKey(a);if(k)(tUnits[k]=tUnits[k]||[]).push(a)});
+  const freeRow=(list,label,key,lvl)=>{let c="";for(let i=0;i<n;i++){const t=s0+i*DAY,f=list.filter(a=>!busy.has(a+"|"+t)).length;c+=`<i class="${f?"":"full"}" style="left:${i*W}px;width:${W}px">${f}</i>`}
+    nS++;return `<div class="sh-row sh-sum lv${lvl}"><button type="button" class="sh-name" data-calfold="${esc(key)}"><span>${fold.has(key)?"▸":"▾"} ${esc(label)}<small class="cap">${list.length}</small></span></button><div class="sh-tl" style="width:${n*W}px">${c}</div></div>`};
+  let lastT=null,nS=0,nRow=0;
   for(const a of cfg.apts){
     if(hidU.has(a))continue;
-    if(grouped){const g=unitOf(a).group||"";if(g!==lastG){lastG=g;nG++;rows+=`<div class="sh-grp" style="width:${Lw+n*W}px"><b>${esc(g||"Altele")}</b></div>`}}
+    if(grouped){const g=unitOf(a).group||"";if(g!==lastG){lastG=g;lastT=null;nG++;rows+=`<div class="sh-grp" style="width:${Lw+n*W}px"><b>${esc(g||"Altele")}</b></div>`;if(g&&gUnits[g].length>1)rows+=freeRow(gUnits[g],"Libere",g,1)}
+      if(g&&fold.has(g))continue;
+      const k=tKey(a);if(k&&k!==lastT){lastT=k;if(tUnits[k].length>1)rows+=freeRow(tUnits[k],ROOMT[unitOf(a).rtype]?ROOMT[unitOf(a).rtype][0]:unitOf(a).rtype,k,2)}
+      if(k&&fold.has(k)&&tUnits[k].length>1)continue}
+    nRow++;
     let nights=0; for(let i=0;i<n;i++) if(occ[a+"|"+(s0+i*DAY)]) nights++;
     const list=bookings.filter(b=>b.apt===a&&b.nights>0&&calStOk(b)&&toT(b.date)<s0+n*DAY&&toT(b.date)+b.nights*DAY>s0).sort((x,y)=>x.date.localeCompare(y.date)||(x.tag==="cancel"?1:0)-(y.tag==="cancel"?1:0));
     let bars="";
@@ -3549,7 +3574,7 @@ function renderCal(){
   document.body.classList.toggle("calpm",calPM);
   $("c-body").innerHTML=`<div class="sh sq sz-${sz}${calPM?" pm":""}${picOn?" pics":" names"}" style="--W:${W}px;--L:${Lw}px;--L-pic:${Lpic}px;--L-name:${Lname}px;--H:${H}px;--cell:${cell}px;--days:${days};--days-w:${n*W}px">${head}${rows}</div>`;
   {const el=$("c-body"),key=todayStr()+"|"+sz+"|"+W+"|"+P+"|"+CW+"|"+(picOn?"p":"n"),keep=calKey===key?el.scrollLeft:null,t0=el.scrollTop;calKey=key;
-   const bodyH=HEADH+visN*H+nG*22+2;
+   const bodyH=HEADH+nRow*H+nG*22+nS*28+2;
    const maxH=Math.max(260,innerHeight-el.getBoundingClientRect().top-navH-8);
    el.style.height=Math.min(bodyH,maxH)+"px";el.style.overflowY=bodyH>maxH?"auto":"hidden";el.style.scrollPaddingLeft=Lw+"px";
    // today must be the first day AFTER the sticky rail (never under the photos)
