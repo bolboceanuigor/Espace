@@ -1,5 +1,6 @@
 // Guest messaging: templates + tag fill + cron/manual send via Resend (sendMail).
 import { type Env, all, one, run, uuid, str, num, isEmail, today, addDays, nowIso } from "./core";
+import { stayGuideUrl } from "./stay";
 import { sendMail } from "./mail";
 
 export type MsgTrigger = "new" | "before_in" | "on_in" | "before_out" | "after_out" | "cancel";
@@ -124,7 +125,7 @@ export async function bookingVars(db: D1Database, org: any, booking: any, cfg: a
     total: total ? String(total) + " " + (booking.price_cur || "") : "",
     rest: rest ? String(rest) + " " + (booking.price_cur || "") : "",
     avans: got ? String(Math.round(got * 100) / 100) : "",
-    link_ghid: g?.token ? `https://espace.md/g/${g.token}` : "",
+    link_ghid: g?.token ? await stayGuideUrl(org.id, booking.id || "", g.token) : "",
     link_contract: k?.token ? `https://${org.code}.espace.md/contract/${k.token}` : "",
     link_checkin: "",
     link_plata: "",

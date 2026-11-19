@@ -23,6 +23,7 @@ import { maibConfig, maibCheckout, maibVerify, maibFromCreds, type MaibCfg } fro
 import { googleOk } from "../../lib/google";
 import { upsertFromBooking, syncAll as syncContacts, listContacts, getContact, saveContact, mergeContacts, toCsv as contactsCsv } from "../../lib/contacts";
 import { exportGuest, forgetGuest, guestApts } from "../../lib/guestdata";
+import { stayGuideUrl } from "../../lib/stay";
 import { ensureCheckin, checkinCfgOf, parseData as parseCheckinData, validateSubmit as validateCheckin, purgeCheckins } from "../../lib/checkin";
 import { createGuestInvoice, findDiscount, applyDiscount, bumpDiscountUse, listDiscounts, normalizeCode, rowToDiscount } from "../../lib/guest_invoice";
 
@@ -2528,6 +2529,16 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
         ? await all(db, "SELECT id, booking_id, kind, amount, amount_src, cur, status, token, guest, note, created_at, paid_at FROM guest_payments WHERE org_id = ? AND booking_id = ? ORDER BY created_at DESC LIMIT 40", O, bid)
         : await all(db, "SELECT id, booking_id, kind, amount, amount_src, cur, status, token, guest, note, created_at, paid_at FROM guest_payments WHERE org_id = ? ORDER BY created_at DESC LIMIT 80", O);
       return json(rows.map((r: any) => ({ ...r, url: payUrlOf(org.code, r.token, request) })));
+    }
+    case "kv_guide_link": { // the guest's personal guide link: shows the door code only during the stay
+      const bid = str(body.booking_id, 40);
+      if (!isUuid(bid)) return json({ message: "bad_id" }, 400);
+      const b = await one(db, "SELECT id, apt, tag FROM bookings WHERE org_id = ? AND id = ?", O, bid);
+      if (!b || b.tag === "closed") return json({ message: "not_found" }, 404);
+      { const d = denyApt(b.apt); if (d) return d; }
+      const g = await one(db, "SELECT token FROM guides WHERE org_id = ? AND apt = ?", O, b.apt);
+      if (!g?.token) return json({ message: "no_guide" }, 404);
+      return json({ url: await stayGuideUrl(O, b.id, g.token) });
     }
     case "kv_pay_link": {
       const cfg = (await getConfig(db, O)) || {};

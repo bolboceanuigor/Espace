@@ -310,5 +310,8 @@
 "Удалить данные гостя": "Șterge datele oaspetelui",
 "Не совпадает": "Nu se potrivește",
 "файлов": "fișiere",
-"Контакт": "Contact"
+"Контакт": "Contact",
+"Код двери гость увидит только с дня заезда до дня выезда.": "Oaspetele vede codul ușii doar din ziua sosirii până în ziua plecării.",
+"Сначала заполни гид для этого объекта": "Mai întâi completează ghidul pentru această unitate",
+"Ссылка на гид для гостя": "Link spre ghid pentru oaspete"
 }

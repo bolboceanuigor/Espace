@@ -3253,6 +3253,7 @@ function bookView(id){const b=bookings.find(x=>x.id===id);if(!b)return;const tg=
    <div class="bv-rows">${rows.map(([k,v])=>`<div><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join("")}</div>
    ${b.tag==="req"&&!RO?`<div class="bv-req"><p class="small">Заявка со страницы бронирования${b.email?" · "+esc(b.email):""}${b.pax?" · гостей: "+b.pax:""}. Даты пока заняты для неё.</p><div class="actions"><button type="button" class="btn primary" data-reqok="${esc(b.id)}">✓ Подтвердить</button><button type="button" class="btn danger" data-reqno="${esc(b.id)}">Отклонить</button></div></div>`:""}
    ${!RO&&b.tag!=="closed"&&cfg.guestMaib&&cfg.guestMaib.on&&(cfg.guestMaib.clientId)?`<div class="actions" style="margin-top:10px"><button type="button" class="btn" data-paylink="${esc(b.id)}">💳 Ссылка на оплату</button></div><p class="small" id="bv-payurl" hidden style="margin:6px 0 0;word-break:break-all"></p>`:""}
+   ${!RO&&b.tag!=="closed"&&b.nights>0?`<div class="actions" style="margin-top:10px"><button type="button" class="btn" data-gstay="${esc(b.id)}">🔑 Ссылка на гид для гостя</button></div><p class="small" id="bv-gurl" hidden style="margin:6px 0 0;word-break:break-all"></p>`:""}
    ${RO?"":`<button type="button" class="btn${b.tag==="req"?"":" primary"} bv-edit" data-bedit="${esc(b.id)}">Изменить бронь</button>`}
    ${canCancel?`<button type="button" class="btn danger" data-bcancel="${esc(b.id)}" style="margin-top:8px">Отменить бронь</button>`:""}
    ${b.nights>0&&b.tag!=="closed"&&b.tag!=="cancel"?`<div class="bv-ct2" id="bv-ci" data-bid="${esc(b.id)}">${(setTimeout(()=>ciLoad(b.id),0),"")}</div><div class="bv-ct2" id="bv-k" data-bid="${esc(b.id)}">${(setTimeout(()=>kLoad(b.id),0),"")}</div>`:""}
@@ -3262,6 +3263,10 @@ function bookView(id){const b=bookings.find(x=>x.id===id);if(!b)return;const tg=
      <div id="bv-hist"><div class="empty">Загружаю…</div></div>
    </div>
    </div>`,{type:"booking",apt:b.apt||""})}
+document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("[data-gstay]");if(!t)return;t.disabled=true;
+  try{const r=await api("kv_guide_link",{booking_id:t.dataset.gstay});const box=$("bv-gurl");if(box){box.hidden=false;box.innerHTML=`<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.url)}</a><br>Код двери гость увидит только с дня заезда до дня выезда.`}
+    try{await navigator.clipboard.writeText(r.url);toast("Ссылка скопирована")}catch(x){}}
+  catch(x){toast(x.code==="no_guide"?"Сначала заполни гид для этого объекта":"Не получилось")}t.disabled=false});
 document.addEventListener("click",async e=>{const pl=e.target.closest&&e.target.closest("[data-paylink]");if(pl){pl.disabled=true;try{const r=await api("kv_pay_link",{booking_id:pl.dataset.paylink});const box=$("bv-payurl");if(box){box.hidden=false;box.innerHTML=`<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.url)}</a> · ${fmt(r.amount)} лей`;try{await navigator.clipboard.writeText(r.url);toast("Ссылка скопирована")}catch(x){toast("Ссылка готова")}}else toast("Ссылка готова")}catch(x){pl.disabled=false;toast(x.code==="maib_off"?"Сначала включи оплату в Настройки → Страница бронирования":x.code==="nothing_due"?"Уже всё оплачено":"Не получилось")}return}
   const t=e.target.closest&&e.target.closest("[data-reqok],[data-reqno],[data-bcancel]");if(!t)return;
   if(t.dataset.bcancel){cancelBooking(t.dataset.bcancel);return}

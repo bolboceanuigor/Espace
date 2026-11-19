@@ -311,5 +311,8 @@
 "Удалить данные гостя": "Delete guest data",
 "Не совпадает": "Does not match",
 "файлов": "files",
-"Контакт": "Contact"
+"Контакт": "Contact",
+"Код двери гость увидит только с дня заезда до дня выезда.": "The guest sees the door code only from arrival day to departure day.",
+"Сначала заполни гид для этого объекта": "Fill in the guide for this unit first",
+"Ссылка на гид для гостя": "Guide link for the guest"
 }

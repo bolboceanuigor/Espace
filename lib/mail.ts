@@ -2,6 +2,7 @@
 // Without RESEND_API_KEY nothing is sent: each email is still recorded in the `emails` table with status 'skipped',
 // so the admin panel shows what would have gone out.
 import { type Env, all, one, run, uuid, today, addDays, billingOf } from "./core";
+import { stayGuideUrl } from "./stay";
 
 const esc = (s: unknown) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 const dmy = (d: string) => (d && d.length >= 10 ? d.slice(8, 10) + "." + d.slice(5, 7) + "." + d.slice(0, 4) : "");
@@ -266,7 +267,7 @@ export async function dailyMail(env: Env, db: D1Database) {
     let cfg: any = {}; try { cfg = JSON.parse(b.cfg || "{}"); } catch {}
     if (cfg.direct && cfg.direct.arrival === false) continue;
     const u = (cfg.units || {})[b.apt] || {};
-    await sendMail(env, db, { to: b.email, ...mails.arrival(b.org_name, { apt: b.apt, date: b.date, cin: u.cin || "", addr: (cfg.addr || {})[b.apt] || "", phone: cfg.direct?.phone || "", guide: b.gtok ? `https://espace.md/g/${b.gtok}` : "" }), kind: "arrival", orgId: b.org_id, key: "arrival:" + b.id + ":" + b.date });
+    await sendMail(env, db, { to: b.email, ...mails.arrival(b.org_name, { apt: b.apt, date: b.date, cin: u.cin || "", addr: (cfg.addr || {})[b.apt] || "", phone: cfg.direct?.phone || "", guide: b.gtok ? await stayGuideUrl(b.org_id, b.id, b.gtok) : "" }), kind: "arrival", orgId: b.org_id, key: "arrival:" + b.id + ":" + b.date });
     n++;
   }
   for (const i of await all(db, "SELECT i.*, o.name AS org_name FROM invoices i JOIN orgs o ON o.id = i.org_id WHERE i.status = 'sent' AND i.due_at IN (?, ?)", addDays(t, 3), t)) {

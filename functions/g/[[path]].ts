@@ -1,5 +1,6 @@
 // Public guest guide: /g/<token>?l=ru|ro|en  and photos at /g/m/<id>
 // No login: the random token in the link is the only key, so the page shows nothing else from the app.
+import { staySig, localToday, addDaysIso } from "../../lib/stay";
 interface Env { DB: D1Database }
 // (multi-tenant: the token decides the company; nothing from other companies is read)
 
@@ -66,14 +67,38 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params }) =>
   const mapLink = /^https?:/.test(pt) ? pt : "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(mapQ);
   const locHtml = addr || pt ? `<section id="where"><h2><span>📍</span>${esc(T.where)}</h2>${addr ? `<p class="all">${esc(addr)}</p>` : ""}<iframe class="map" loading="lazy" src="https://maps.google.com/maps?q=${encodeURIComponent(mapQ)}&z=16&output=embed" title="map"></iframe><a class="vbtn" href="${esc(mapLink)}" target="_blank" rel="noopener">🧭 ${esc(T.map)}</a></section>` : "";
 
+  // Wi-Fi from the unit card; the door code only on a personal stay link, from arrival day to departure day
+  const unit: any = (cfg.units || {})[g.apt] || {};
+  const XT: Record<string, Record<string, string>> = {
+    ru: { net: "Сеть", pass: "Пароль", door: "Код двери", later: "Код двери появится здесь в день заезда" },
+    ro: { net: "Rețea", pass: "Parolă", door: "Cod ușă", later: "Codul ușii apare aici în ziua sosirii" },
+    en: { net: "Network", pass: "Password", door: "Door code", later: "The door code appears here on your arrival day" },
+  };
+  const X = XT[L], extra: Record<string, string> = {};
+  const kv = (k: string, v: string) => `<p class="all">${esc(k)}: ${esc(v)}</p>`;
+  const wifi = (unit.wifi ? kv(X.net, String(unit.wifi)) : "") + (unit.wpass ? kv(X.pass, String(unit.wpass)) : "");
+  if (wifi) extra.wifi = wifi;
+  const bId = String(url.searchParams.get("b") || "").slice(0, 40), sig = String(url.searchParams.get("s") || "").slice(0, 40);
+  let stayQ = "";
+  if (bId && sig && sig === await staySig(g.org_id, bId, token)) {
+    stayQ = `&b=${encodeURIComponent(bId)}&s=${encodeURIComponent(sig)}`;
+    const bk: any = await db.prepare("SELECT date, nights, tag, apt FROM bookings WHERE org_id = ? AND id = ?").bind(g.org_id, bId).first();
+    const door = String(unit.door || unit.code || "").trim();
+    if (bk && bk.apt === g.apt && bk.tag !== "cancel" && door) {
+      const t = localToday(), out = addDaysIso(bk.date, Math.max(0, Number(bk.nights) || 0));
+      if (t >= bk.date && t <= out) extra.enter = `<p class="all">🔑 ${esc(X.door)}: ${esc(door)}</p>`;
+      else if (t < bk.date) extra.enter = `<p>${esc(X.later)} (${esc(bk.date.slice(8, 10) + "." + bk.date.slice(5, 7))}).</p>`;
+    }
+  }
+
   const secs = SECTIONS.map(([k, ic, names]) => {
-    const s = has(d[k]) ? d[k] : has(c[k]) ? c[k] : null;
+    const s = has(d[k]) ? d[k] : has(c[k]) ? c[k] : extra[k] ? {} : null;
     if (!s) return "";
     const txt = s ? (String(s[L] || "").trim() || String(s.ru || s.en || s.ro || "").trim()) : "";
     const all = s ? String(s.all || "").trim() : "";
     const media = (s?.media || []).map((id: string) => `<a href="/g/m/${esc(id)}" target="_blank"><img loading="lazy" src="/g/m/${esc(id)}" alt=""></a>`).join("");
     const vids = (s?.video || []).filter(Boolean).map((v: string) => { const y = ytId(v); return y ? `<div class="vid"><iframe src="https://www.youtube-nocookie.com/embed/${esc(y)}" allowfullscreen loading="lazy" title="video"></iframe></div>` : `<a class="vbtn" href="${esc(v)}" target="_blank" rel="noopener">▶ ${esc(T.video)}</a>`; }).join("");
-    const ad = "";
+    const ad = extra[k] || "";
     return `<section id="${k}"><h2><span>${ic}</span>${esc(names[L])}</h2>${ad}${all ? `<p class="all">${linkify(all)}</p>` : ""}${txt ? `<p>${linkify(txt)}</p>` : ""}${media ? `<div class="ph">${media}</div>` : ""}${vids}</section>`;
   }).filter(Boolean);
   if (locHtml) secs.unshift(locHtml);
@@ -95,7 +120,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params }) =>
     <p class="okmsg" id="o-ok" hidden>${esc(T.sent)}</p></section>` : "";
   if (svcHtml) secs.push(svcHtml);
   const chips = (locHtml ? `<a href="#where">📍 ${esc(T.where)}</a>` : "") + SECTIONS.filter(([k]) => secs.some((h) => h.startsWith(`<section id="${k}"`))).map(([k, ic, n]) => `<a href="#${k}">${ic} ${esc(n[L])}</a>`).join("") + (svcs.length ? `<a href="#svc">🛎️ ${esc(T.svc)}</a>` : "");
-  const langs = LANGS.map((l) => `<a href="?l=${l}"${l === L ? ' aria-current="true"' : ""}>${l.toUpperCase()}</a>`).join("");
+  const langs = LANGS.map((l) => `<a href="?l=${l}${stayQ}"${l === L ? ' aria-current="true"' : ""}>${l.toUpperCase()}</a>`).join("");
 
   const html = `<!doctype html><html lang="${L}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
 <title>${esc(g.apt)} · ${esc(brand)}</title><link rel="icon" href="/icon.svg">

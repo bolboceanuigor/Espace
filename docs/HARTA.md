@@ -128,7 +128,7 @@ Ce trebuie să aibă fiecare modul ca aplicația să fie completă și funcțion
 |---|---|---|
 | Ghid pe unitate (text, poze, video) cu link public | ✅ | |
 | Servicii suplimentare plătite (transfer, check-in devreme, pătuț) | ✅ | Lista e definită în Setări și apare în ghid. Comanda ajunge ca notificare la manager. |
-| Wi-Fi, cod ușă, reguli, hartă | 🟡 | Secțiuni standard pentru care completezi doar textul. Codul ușii se vede doar în zilele șederii. |
+| Wi-Fi, cod ușă, reguli, hartă | ✅ | Wi-Fi (rețea, parolă) se ia singur din fișa unității. Codul ușii apare în «Cum intrați» doar pe linkul personal al rezervării (`/g/<token>?b=&s=`, semnat), din ziua sosirii până în ziua plecării (ora Chișinăului). `{link_ghid}` și emailul de sosire trimit linkul personal; în fișa rezervării: „Ссылка на гид для гостя”. `lib/stay.ts`. |
 
 ## 10. Curățenii și echipa de teren
 
