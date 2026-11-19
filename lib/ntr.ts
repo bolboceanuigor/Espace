@@ -44,6 +44,14 @@ export function ntr(s: string, lang: string): string {
   if (c) { let i = -1; for (const x of Object.values(MON)) { const j = x.indexOf(c[2]); if (j >= 0) i = j; }
     s = c[1] + ["Месяц закрыт", "Luna închisă", "Month closed"][k] + ": " + (i >= 0 ? MON[l][i] : c[2]) + " " + c[3]; }
   if (l !== "ru") s = s.replace(/(\d) лей(?![а-яё])/g, l === "ro" ? "$1 lei" : "$1 MDL");
+  if (l !== "ru") {
+    const ro = l === "ro";
+    s = s.replace(/(\d+) н\./g, "$1 n.")
+      .replace(/без имени/g, ro ? "fără nume" : "no name")
+      .replace(/\(есть фото\)/g, ro ? "(cu poză)" : "(with photo)")
+      .replace(/^Сейчас /, ro ? "Acum " : "Now ")
+      .replace(/ · записал\(а\) /, ro ? " · a notat " : " · noted by ");
+  }
   return s;
 }
 export const ntrMsg = <T extends { title: string; body?: string }>(m: T, lang: string): T => ({ ...m, title: ntr(m.title, lang), body: m.body ? ntr(m.body, lang) : m.body });
