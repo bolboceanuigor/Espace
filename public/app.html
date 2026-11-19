@@ -1531,6 +1531,9 @@ html:root[data-skin="host"] .setli .ic,html:root[data-skin="host"] .mtile .mi{co
 :root[data-skin="wow"] .rm.ok{background:#1a3326}:root[data-skin="wow"] .rm.ok span{color:#4ade80}:root[data-skin="wow"] .rm.occ{background:#20242d}
 :root[data-skin="wow"] .rmact{background:#1c2029}:root[data-skin="wow"] .sh-tl .dr.lk{background:repeating-linear-gradient(135deg,rgba(122,167,255,.18) 0 4px,transparent 4px 9px)}
 :root[data-skin="wow"] .campick{border-color:#3a404c}:root[data-skin="wow"] #biolock{background:#14171d;color:#e8ebf0}
+/* phone: a booking row never wider than its list; payment method buttons wrap instead of overlapping */
+.list>.bk{max-width:100%;min-width:0;width:100%;box-sizing:border-box}.list>.bk .m{min-width:0;overflow:hidden}.list>.bk .m .l2,.list>.bk .m b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+@media (max-width:560px){html body .grid2:has(>div>#f-pay){grid-template-columns:1fr}}#f-pay{flex-wrap:wrap}
 </style>
 </head>
 <body>
