@@ -386,5 +386,21 @@
 "Койки": "Paturi",
 "Если комнату сдают отдельно, а квартиру — целиком: бронь комнаты закрывает квартиру, бронь квартиры закрывает все её комнаты.": "Când camera se închiriază separat, iar apartamentul întreg: rezervarea camerei blochează apartamentul, rezervarea apartamentului blochează toate camerele lui.",
 "Часть квартиры (коливинг)": "Parte din apartament (coliving)",
-"отдельный номер": "cameră separată"
+"отдельный номер": "cameră separată",
+"Уборка, пока гость живёт: раз в": "Curățenie cât oaspetele locuiește: o dată la",
+"гость живёт — текущая уборка": "oaspetele locuiește — curățenie curentă",
+"каждый день, пусто": "în fiecare zi, gol",
+"Номера сейчас": "Camerele acum",
+"заезд сегодня": "check-in azi",
+"Проверен": "Verificată",
+"живёт до": "locuiește până la",
+"свободен": "liberă",
+"грязных": "murdare",
+"Грязный": "Murdară",
+"готовы": "gata",
+"заняты": "ocupate",
+"Убран": "Curățată",
+"Занят": "Ocupată",
+"Отметить грязным": "Marchează murdară",
+"Отметить убранным": "Marchează curățată"
 }

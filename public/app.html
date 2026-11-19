@@ -402,6 +402,15 @@ body.calmode .ctopbar{padding-top:calc(8px + env(safe-area-inset-top,0px))}
 .sh-tl .pc.x,.sh-tl .dr.x{background:repeating-linear-gradient(135deg,rgba(127,127,127,.22) 0 5px,transparent 5px 10px)}
 .sh-tl .pc.cta::before,.sh-tl .dr.cta::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:#d9534f}
 .sh-tl .pc.ctd::after,.sh-tl .dr.ctd::after{content:"";position:absolute;right:0;top:0;bottom:0;width:3px;background:#e0a030}
+.rooms{margin:14px 0 4px}.rmh{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}.rmh h3{margin:0;font-size:16px}.rmh span{font-size:12.5px;color:var(--muted)}
+.rmh i{display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 4px 0 6px;vertical-align:1px}.rmh i.ok{background:#12a150}.rmh i.bad{background:#e5484d}
+.rmg{font-size:11.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:12px 2px 6px}
+.rmgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px;margin-top:8px}
+.rm{display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:9px 10px;border-radius:14px;border:1.5px solid transparent;background:#F2F4F7;font:inherit;text-align:left;cursor:pointer;min-width:0}
+.rm b{font-size:15px;font-weight:800;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.rm span{font-size:12px;font-weight:700}.rm small{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.rm.bad{background:#FDECEC}.rm.bad span{color:#d13438}.rm.cl span{color:#0666EB}.rm.ok{background:#E8F7EE}.rm.ok span{color:#12a150}
+.rm.occ{background:#F2F4F7}.rm.occ span{color:var(--muted)}.rm.on{border-color:#0666EB}
+.rmact{margin-top:10px;padding:12px;border-radius:14px;background:#F7F8FB}.rmact small{display:block;color:var(--muted);margin-top:2px}.rmact .actions{margin-top:8px}
 .sh-tl .dr{position:absolute;top:0;bottom:0;pointer-events:none}
 .sh-tl .dr.lk{background:repeating-linear-gradient(135deg,rgba(6,102,235,.13) 0 4px,transparent 4px 9px)}
 .sh.pm .bar{opacity:.32;pointer-events:none}
@@ -2285,6 +2294,7 @@ function unitForm(a){const u=unitOf(a),b=u.beds||{},groups=[...new Set(cfg.apts.
       <div class="grid2">${t("uf-door",u.door,"Код двери или ключницы","")}${t("uf-park",u.park,"Парковка","место 12, во дворе")}</div>
       <div class="grid2">${t("uf-gate",u.gate,"Код подъезда / домофона","")}<div></div></div>
       <div class="grid2">${n("uf-cmin",u.cmin,"Уборка длится, мин","60")}${n("uf-cpay",u.cpay,"Горничной за уборку, лей","как у горничной")}</div>
+      <div class="grid2">${n("uf-stay",u.stay,"Уборка, пока гость живёт: раз в N дней","1 = каждый день, пусто = нет")}<div></div></div>
       <p class="small" style="margin:2px 0 0">Сумма за уборку здесь заменяет общую ставку «за квартиру» — для больших квартир можно платить больше.</p></details>
     <details class="usec"${u.cfee||u.dep||u.minn?" open":""}><summary>Условия брони <small>видит гость на странице бронирования</small></summary>
       <div class="grid4">${n("uf-cfee",u.cfee,"Уборка с гостя","0")}${n("uf-dep",u.dep,"Залог","0")}${n("uf-minn",u.minn,"Минимум ночей","1")}<div><label class="l">&nbsp;</label><div class="small" style="padding-top:12px">в валюте цены</div></div></div></details>
@@ -2315,7 +2325,7 @@ function unitForm(a){const u=unitOf(a),b=u.beds||{},groups=[...new Set(cfg.apts.
     <div class="actions"><button type="button" class="btn primary" data-usave="${esc(a)}">Сохранить</button>${cfg.apts.length>1?`<button type="button" class="btn" data-ucopy="${esc(a)}">Скопировать на другие…</button>`:""}<button type="button" class="btn" data-uedit="">Отмена</button></div>
     ${cfg.apts.length>1?copyPanel(a):""}</div>`}
 // copy the shared details (size, beds, prices, amenities, cleaning, booking terms) from one unit to others; names, codes, address, notes stay
-const UCOPY_K=["layout","kind","area","bedrooms","baths","beds","guests","price","pcur","cin","cout","amen","cmin","cpay","cfee","dep","minn","dow","xg","xgFrom","xc","los","bufB","bufA","lead","ahead","maxn","arr","dbeds","gender","parent"];
+const UCOPY_K=["layout","kind","area","bedrooms","baths","beds","guests","price","pcur","cin","cout","amen","cmin","cpay","cfee","dep","minn","dow","xg","xgFrom","xc","los","bufB","bufA","lead","ahead","maxn","arr","dbeds","gender","parent","stay"];
 function copyPanel(a){const others=cfg.apts.filter(x=>x!==a),u=unitOf(a);
   return `<div class="ucopy" id="ucopy" hidden><b>Скопировать на другие объекты</b><p class="small" style="margin:2px 0 8px">Перейдут: тип, площадь, спальни, кровати, гостей, цена, время заезда, удобства, уборка и условия брони. Название, адрес, коды и заметки у каждого останутся свои.</p>
     <div class="ucl">${others.map(x=>`<label><input type="checkbox" data-ucpt="${esc(x)}"${unitOf(x).group&&unitOf(x).group===u.group?" checked":""}> ${esc(x)}</label>`).join("")}</div>
@@ -3057,7 +3067,7 @@ document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.c
 // ---- „здание” (proprietatea): ce e comun tuturor unităților cu același „Здание или отель";
 // la salvare câmpurile comune ajung în fiecare unitate, dacă unitatea nu are altă valoare pusă de mână
 const BKIND={apts:"Квартиры в одном доме",hotel:"Отель / гостевой дом",hostel:"Хостел",house:"Дом / вилла",coliving:"Квартира по комнатам"};
-const BLD_K=["map","gate","wifi","wpass","park","cin","cout"];
+const BLD_K=["map","gate","wifi","wpass","park","cin","cout","stay"];
 let bOpen="";
 const bldOf=g=>((cfg.bld||{})[g])||{};
 function bldForm(g){const b=bldOf(g),h=b.how||{};const t=(id,v,lbl,ph)=>`<div><label class="l" for="${id}">${lbl}</label><input type="text" id="${id}" value="${esc(v??"")}" placeholder="${esc(ph||"")}" autocomplete="off"></div>`;
@@ -3067,6 +3077,7 @@ function bldForm(g){const b=bldOf(g),h=b.how||{};const t=(id,v,lbl,ph)=>`<div><l
     <div class="grid2">${t("bf-gate",b.gate,"Код подъезда / домофона","")}${t("bf-park",b.park,"Парковка","во дворе")}</div>
     <div class="grid2">${t("bf-wifi",b.wifi,"Wi-Fi","")}${t("bf-wpass",b.wpass,"Пароль Wi-Fi","")}</div>
     <div class="grid2"><div><label class="l" for="bf-cin">Заезд с</label><input type="time" id="bf-cin" value="${esc(b.cin||"")}"></div><div><label class="l" for="bf-cout">Выезд до</label><input type="time" id="bf-cout" value="${esc(b.cout||"")}"></div></div>
+    <div class="grid2">${t("bf-stay",b.stay,"Уборка, пока гость живёт: раз в N дней","1 = каждый день, пусто = нет")}<div></div></div>
     ${t("bf-map",b.map,"Карта","координаты или ссылка Google Maps")}
     <label class="l" for="bf-how-ru">Как добраться (RU)</label><textarea id="bf-how-ru" rows="2">${esc(h.ru||"")}</textarea>
     <label class="l" for="bf-how-ro">Cum ajungi (RO)</label><textarea id="bf-how-ro" rows="2">${esc(h.ro||"")}</textarea>
@@ -3074,7 +3085,7 @@ function bldForm(g){const b=bldOf(g),h=b.how||{};const t=(id,v,lbl,ph)=>`<div><l
     <div class="actions"><button type="button" class="btn primary" data-bsave="${esc(g)}">Сохранить для всех</button><button type="button" class="btn" data-bedit="">Отмена</button></div></div>`}
 function bldSave(g){const v=id=>String(($(id)||{}).value||"").trim();
   const old=bldOf(g),nb={kind:v("bf-kind"),addr:v("bf-addr").slice(0,120),gate:v("bf-gate").slice(0,60),park:v("bf-park").slice(0,80),wifi:v("bf-wifi").slice(0,60),wpass:v("bf-wpass").slice(0,60),
-    cin:v("bf-cin"),cout:v("bf-cout"),map:v("bf-map").slice(0,300),how:{ru:v("bf-how-ru").slice(0,600),ro:v("bf-how-ro").slice(0,600),en:v("bf-how-en").slice(0,600)}};
+    cin:v("bf-cin"),cout:v("bf-cout"),stay:+v("bf-stay")>0?Math.min(30,Math.round(+v("bf-stay"))):"",map:v("bf-map").slice(0,300),how:{ru:v("bf-how-ru").slice(0,600),ro:v("bf-how-ro").slice(0,600),en:v("bf-how-en").slice(0,600)}};
   const units={...(cfg.units||{})},addr={...(cfg.addr||{})};let n=0;
   cfg.apts.filter(a=>unitOf(a).group===g).forEach(a=>{const u={...(units[a]||{})};let ch=false;
     BLD_K.forEach(k=>{const cur=u[k]??"";if((cur===""||cur===(old[k]??""))&&cur!==nb[k]){if(nb[k])u[k]=nb[k];else delete u[k];ch=true}});
@@ -3116,7 +3127,7 @@ function unitRead(a){const num0=id=>{const v=String(($(id)||{}).value||"").repla
     how:(()=>{const o={};for(const L of["ru","ro","en"]){const v=(($("uf-how-"+L)||{}).value||"").trim().slice(0,2000);if(v)o[L]=v}return Object.keys(o).length?o:""})(),
     map:(($("uf-map")||{}).value||"").trim().slice(0,300),
     note:$("uf-note").value.trim().slice(0,500),
-    layout:layRead(),    wifi:txt("uf-wifi",60),wpass:txt("uf-wpass",60),door:txt("uf-door",60),gate:txt("uf-gate",60),park:txt("uf-park",80),cmin:num0("uf-cmin"),cpay:num0("uf-cpay"),cfee:num0("uf-cfee"),dep:num0("uf-dep"),minn:num0("uf-minn")});
+    layout:layRead(),    wifi:txt("uf-wifi",60),wpass:txt("uf-wpass",60),door:txt("uf-door",60),gate:txt("uf-gate",60),park:txt("uf-park",80),cmin:num0("uf-cmin"),stay:num0("uf-stay")===""?"":Math.min(30,Math.round(+num0("uf-stay")))||"",cpay:num0("uf-cpay"),cfee:num0("uf-cfee"),dep:num0("uf-dep"),minn:num0("uf-minn")});
   if(u.minn!=="")u.minn=Math.min(60,Math.round(u.minn))||"";
   ["bufB","bufA","lead","maxn","ahead","xgFrom"].forEach(k=>{if(u[k]!=="")u[k]=Math.min(k==="maxn"?365:k==="lead"||k==="ahead"?730:k==="xgFrom"?50:30,Math.round(u[k]))||""});
   if(u.arr&&u.arr.length===7)u.arr=[];
@@ -4236,6 +4247,9 @@ function dayRows(d){
     same.slice(0,-1).forEach(b=>{const t=cleanT(b);rows.push({t,b,apt:a,kind:"clean",between:true,staff:t?.staff_id||duty,time:t?.time||"",status:t?.status||"todo",sent:!!t?.sent,inToday:true})})});
   const manualApt=new Set(tasks.filter(t=>(t.kind==="general"||(t.kind==="clean"&&!t.booking_id))&&t.date===d&&t.status!=="skip").map(t=>t.apt));
   bookings.filter(b=>occupies(b)&&b.tag!=="closed"&&b.tag!=="req"&&endOf(b)===d).forEach(b=>{const t=cleanT(b);if(!t&&manualApt.has(b.apt))return;rows.push({t,b,apt:b.apt,kind:"clean",staff:t?.staff_id||duty,time:t?.time||"",status:t?.status||"todo",sent:!!t?.sent,inToday:inT(b.apt)})});
+  // stayover cleaning: the guest still lives there, the unit asks for a cleaning every N days of the stay
+  bookings.filter(b=>occupies(b)&&b.tag!=="closed"&&b.tag!=="req"&&b.date<d&&endOf(b)>d).forEach(b=>{const N=+unitOf(b.apt).stay||0;if(!N||Math.round((toT(d)-toT(b.date))/DAY)%N)return;if(manualApt.has(b.apt))return;
+    const t=cleanT(b);rows.push({t,b,apt:b.apt,kind:"clean",stay:true,staff:t?.staff_id||duty,time:t?.time||"",status:t?.status||"todo",sent:!!t?.sent,inToday:false})});
   tasks.filter(t=>(t.kind==="general"||(t.kind==="clean"&&!t.booking_id))&&t.date===d).forEach(t=>rows.push({t,apt:t.apt,kind:t.kind,manual:true,staff:t.staff_id||duty,time:t.time||"",status:t.status,sent:!!t.sent,inToday:inT(t.apt)}));
   return rows.sort((a,b)=>(a.time||"99").localeCompare(b.time||"99")||cfg.apts.indexOf(a.apt)-cfg.apts.indexOf(b.apt));
 }
@@ -4394,6 +4408,23 @@ function openPlusSheet(){
     ${item("rep","rep","Поломка","что починить")}
   </div>`,{type:"plus"});
 }
+// housekeeping board: what state each unit is in right now (server: roomStates)
+let ROOMS=null,roomsAt=0,roomOpen="";
+const RST={dirty:["Грязный","bad"],clean:["Убран","cl"],inspected:["Проверен","ok"]};
+async function loadRooms(force){if(!force&&ROOMS&&Date.now()-roomsAt<30000)return;try{ROOMS=await api("kv_rooms");roomsAt=Date.now();const b=$("rooms-box");if(b)b.innerHTML=roomsHtml()}catch(e){}}
+function roomsHtml(){if(!ROOMS||!ROOMS.length)return "";
+  const ready=ROOMS.filter(r=>(!r.stay||r.outToday)&&r.state!=="dirty").length,dirty=ROOMS.filter(r=>r.state==="dirty"&&(!r.stay||r.outToday)).length,live=ROOMS.filter(r=>r.stay&&!r.outToday).length;
+  const groups={};ROOMS.forEach(r=>{const g=unitOf(r.apt).group||"";(groups[g]=groups[g]||[]).push(r)});
+  const card=r=>{const st=r.stay&&!r.outToday?["Занят","occ"]:RST[r.state]||RST.clean,sub=r.outToday?"выезд сегодня":r.stay?"живёт до "+dm(r.stay.till):r.inToday?"заезд сегодня":"свободен";
+    return `<button type="button" class="rm ${st[1]}${roomOpen===r.apt?" on":""}" data-room="${esc(r.apt)}"><b>${esc(mono(r.apt).length<=4&&unitOf(r.apt).group?mono(r.apt):r.apt)}</b><span>${st[0]}</span><small>${esc(sub)}</small></button>`};
+  const op=ROOMS.find(r=>r.apt===roomOpen);
+  return `<section class="rooms"><div class="rmh"><h3>Номера сейчас</h3><span><i class="ok"></i>${ready} готовы · <i class="bad"></i>${dirty} грязных · ${live} заняты</span></div>
+    ${Object.entries(groups).map(([g,l])=>`${Object.keys(groups).length>1?`<div class="rmg">${esc(g||"Другие")}</div>`:""}<div class="rmgrid">${l.map(card).join("")}</div>`).join("")}
+    ${op?`<div class="rmact"><b>${esc(op.apt)}</b>${op.at?`<small>${esc((RST[op.state]||RST.clean)[0])} · ${esc(String(op.at).slice(0,10)===todayStr()?"сегодня "+String(new Date(op.at).toTimeString()).slice(0,5):dm(String(op.at).slice(0,10)))}${op.by?" · "+esc(op.by):""}</small>`:""}
+      <div class="actions">${op.state==="clean"?`<button type="button" class="btn primary" data-rset="inspected">✓ Проверено</button>`:""}${op.state!=="dirty"?`<button type="button" class="btn" data-rset="dirty">Отметить грязным</button>`:`<button type="button" class="btn primary" data-rset="clean">✓ Отметить убранным</button>`}</div></div>`:""}</section>`}
+document.addEventListener("click",async e=>{const r=e.target.closest&&e.target.closest("[data-room]");if(r){roomOpen=roomOpen===r.dataset.room?"":r.dataset.room;const b=$("rooms-box");if(b)b.innerHTML=roomsHtml();return}
+  const s=e.target.closest&&e.target.closest("[data-rset]");if(!s||!roomOpen)return;
+  try{ROOMS=await api("kv_room_set",{apt:roomOpen,state:s.dataset.rset});roomsAt=Date.now();const b=$("rooms-box");if(b)b.innerHTML=roomsHtml()}catch(x){toast("Не сохранилось")}});
 function renderCln(){
   const c=hubCounts();
   if(clnTab==="rem")clnTab="todo";
@@ -4416,6 +4447,7 @@ function renderCln(){
     <div class="clbar">${live.map(r=>`<i class="${r.status==="done"?"on":""}"></i>`).join("")}</div>`:`<div class="clbig"><div><b>0</b><span>уборок на этот день</span></div></div>`}
     ${sendLine}
   </section>`;
+  if(d===tdS)h+=`<div id="rooms-box">${roomsHtml()}</div>`;
   if(d===tdS&&new Date().getHours()>=16){const tr=dayRows(tmS).filter(r=>r.status!=="skip"),tu=tr.filter(r=>!r.sent).length;if(tr.length&&tu)h+=`<button type="button" class="clnext" data-clnto="${tmS}"><span>🌙</span><div><b>Завтра ${tr.length} ${plural(tr.length,"уборка","уборки","уборок")} — не отправлено</b><small>Вечером отправь список горничной на завтра</small></div><em>›</em></button>`}
   if(d===tmS)h+=`<p class="small" style="margin:10px 2px 0">Список на завтра отправляют вечером. Если днём что-то поменяется (новый выезд, другое время) — появится «Отправить изменения».</p>`;
   // maids: two per row, tap = works that day / how paid / contact
@@ -4464,6 +4496,7 @@ function renderCln(){
        <button type="button" class="linkbtn" data-setsec="check" style="margin-top:10px">Изменить пункты и как часто — ⚙ Настройки → Чек-лист</button>
      </div></details>`;}
   $("cln-body").innerHTML=h;
+  if(d===tdS)loadRooms();
   requestAnimationFrame(()=>{const st=$("cl-days"),on=st&&st.querySelector('[aria-pressed="true"]');if(on)st.scrollLeft=on.offsetLeft-(st.clientWidth-on.offsetWidth)/2});
 }
 let hubMode="clean";
@@ -5672,7 +5705,7 @@ function renderCl(){
   let h=`<div class="card" id="cl-push" hidden style="margin-top:12px"><b>🔔 Уведомления</b><p class="small" id="cl-push-st"></p><div class="actions"><button class="btn primary" id="cl-push-on">Включить уведомления</button></div><p class="small" style="margin-bottom:0">Узнаешь сразу о новой уборке и получишь список на день утром.</p></div><h2 style="margin-top:14px">Привет, ${esc(cl.me.name)}!</h2><div class="clday">${cl.days.map(d=>`<button type="button" data-clday="${d.date}" aria-pressed="${d.date===clDay}" class="${d.on_duty?"":"off"}">${d.date===todayStr()?"Сегодня":WD[new Date(toT(d.date)).getUTCDay()]+" "+dm(d.date)}<small>${d.items.length} ${plural(d.items.length,"уборка","уборки","уборок")}${d.on_duty?"":" · выходной"}</small></button>`).join("")}</div>`;
   if(!day.items.length) h+=`<div class="empty">${day.on_duty?"В этот день уборок нет.":"Выходной по графику — уборок нет."}</div>`;
   day.items.forEach((it,i)=>{const key=day.date+"|"+(it.booking_id||it.task_id);const set=clChecked[key]||(clChecked[key]=new Set());const done=it.status==="done";
-    h+=`<div class="card clc${done?" done":""}"><div class="clh"><b>${esc(it.apt)}</b>${it.time?`<span class="pill warn">⏰ ${esc(it.time)}</span>`:""}${it.checkin_today?`<span class="pill warn">сегодня заезд${it.cin_time?" · "+esc(it.cin_time):""}</span>`:""}${it.kind==="general"?`<span class="pill warn">Генеральная уборка</span>`:`<span class="small">${it.booking_id?"после выезда":"уборка"}</span>`}${done?`<span class="pill ok">✓ убрано</span>`:""}</div>
+    h+=`<div class="card clc${done?" done":""}"><div class="clh"><b>${esc(it.apt)}</b>${it.time?`<span class="pill warn">⏰ ${esc(it.time)}</span>`:""}${it.stay?`<span class="pill">гость живёт — текущая уборка</span>`:""}${it.checkin_today?`<span class="pill warn">сегодня заезд${it.cin_time?" · "+esc(it.cin_time):""}</span>`:""}${it.kind==="general"?`<span class="pill warn">Генеральная уборка</span>`:`<span class="small">${it.booking_id?"после выезда":"уборка"}</span>`}${done?`<span class="pill ok">✓ убрано</span>`:""}</div>
       ${cl.addr&&cl.addr[it.apt]?`<div style="margin-top:6px;font-size:14.5px">📍 ${esc(cl.addr[it.apt])} <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cl.addr[it.apt]+", Chișinău")}" target="_blank" rel="noopener" style="font-weight:600;white-space:nowrap">на карте →</a></div>`:""}
       ${cl.beds&&cl.beds[it.apt]?`<div class="cl-beds">🛏 ${esc(bedsOf(cl.beds[it.apt]))} · гостей: ${capOf(cl.beds[it.apt])}</div>`:""}
       ${clAccess(it.apt)}

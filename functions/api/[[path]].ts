@@ -275,6 +275,32 @@ const DEFAULT_CHECKLIST = [
 ];
 // a checklist item can be limited to some units (apts: [] or missing = every unit)
 const ckForApt = (c: any, apt: string) => !Array.isArray(c?.apts) || !c.apts.length || c.apts.includes(apt);
+// housekeeping state of every unit. dirty = a stay ended after the last finished cleaning;
+// a state set by hand (inspected, dirty, clean) wins until the next checkout or cleaning
+async function roomStates(db: D1Database, O: string, cfg: any) {
+  const td = today();
+  const bks = await all(db, "SELECT apt, date, nights, guest, pax FROM bookings WHERE org_id = ? AND nights > 0 AND tag NOT IN ('closed','req','cancel') AND date <= ? AND date >= ?", O, addDays(td, 1), addDays(td, -400));
+  const cl = await all(db, "SELECT apt, MAX(COALESCE(done_at, date)) AS at FROM tasks WHERE org_id = ? AND kind IN ('clean','general') AND status = 'done' GROUP BY apt", O);
+  const man = await all(db, "SELECT apt, state, at, by_name FROM room_state WHERE org_id = ?", O);
+  const lastClean: Record<string, string> = {}; for (const r of cl) lastClean[r.apt] = String(r.at || "");
+  const manual: Record<string, any> = {}; for (const r of man) manual[r.apt] = r;
+  const out: any[] = [];
+  for (const a of cfg.apts || []) {
+    if ((cfg.archived || []).includes(a)) continue;
+    let lastOut = "", stay: any = null, outToday = false, inToday = false;
+    for (const b of bks) { if (b.apt !== a) continue; const end = addDays(b.date, b.nights);
+      if (end <= td && end > lastOut && end >= addDays(td, -14)) lastOut = end; // older checkouts: assume cleaned
+      if (end === td) outToday = true;
+      if (b.date === td) inToday = true;
+      if (b.date <= td && end > td) stay = { guest: b.guest || "", till: end, pax: +b.pax || 0 }; }
+    const lc = lastClean[a] || "", m = manual[a];
+    let state = lastOut && lc.slice(0, 10) < lastOut ? "dirty" : "clean", at = lc, by = "";
+    if (m && m.at > lc && m.at.slice(0, 10) >= lastOut) { state = m.state; at = m.at; by = m.by_name || ""; }
+    out.push({ apt: a, state, at, by, stay, outToday, inToday });
+  }
+  return out;
+}
+
 async function cleanerView(db: D1Database, O: string, me: any, td: string) {
   const cfg = (await getConfig(db, O)) || {};
   const checklist = (Array.isArray(cfg.checklist) && cfg.checklist.length ? cfg.checklist : DEFAULT_CHECKLIST);
@@ -321,7 +347,7 @@ async function cleanerView(db: D1Database, O: string, me: any, td: string) {
       const bk = t.booking_id ? bkById[t.booking_id] : null;
       const sameDay = bks.find((x: any) => x.apt === t.apt && x.date === d);
       const same = sameDay ? bkOf(sameDay) : null;
-      items.push({ kind: t.kind, apt: t.apt, task_id: t.id, booking_id: t.booking_id || null, time: t.time || "", status: t.status, note: t.note,
+      items.push({ stay: !!(bk && bk.date < d && addDays(bk.date, bk.nights) > d), kind: t.kind, apt: t.apt, task_id: t.id, booking_id: t.booking_id || null, time: t.time || "", status: t.status, note: t.note,
         team_note: (bk && bk.team_note) || (same && same.team_note) || "",
         cin_time: (bk && bk.cin_time) || (same && same.cin_time) || "",
         guest: (bk && bk.guest) || (same && same.guest) || "",
@@ -2317,6 +2343,9 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
         const need = bks.filter((b: any) => addDays(b.date, b.nights) === date);
         // a second check-in in the same apartment on the same day needs a cleaning in between
         for (const a of new Set(bks.filter((b: any) => b.date === date).map((b: any) => b.apt))) { const same = bks.filter((b: any) => b.date === date && b.apt === a); need.push(...same.slice(0, -1)); }
+        // stayover cleaning every N days while the guest still lives there (unit field "stay")
+        for (const b of bks) { const N = +((cfgL.units || {})[b.apt]?.stay) || 0, end = addDays(b.date, b.nights);
+          if (N > 0 && b.date < date && end > date && Math.round((dayNum(date) - dayNum(b.date))) % N === 0) need.push(b); }
         // a manual cleaning of that apartment on that day already covers the checkout
         for (const b of need) if (!(await one(db, "SELECT id FROM tasks WHERE org_id = ? AND kind IN ('clean','general') AND booking_id = ? AND date = ?", O, b.id, date)) && !(await one(db, "SELECT id FROM tasks WHERE org_id = ? AND kind IN ('clean','general') AND booking_id IS NULL AND apt = ? AND date = ? AND status != 'skip'", O, b.apt, date)))
           await run(db, "INSERT INTO tasks(id,org_id,kind,date,apt,staff_id,status,booking_id,sent,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,0,?,?)", uuid(), O, "clean", date, b.apt, sid, "todo", b.id, t, t);
@@ -2391,6 +2420,18 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       await repairUnlink(db, O, await one(db, "SELECT id, kind, apt, note, cost FROM tasks WHERE org_id = ? AND id = ?", O, body.p_id));
       await run(db, "DELETE FROM tasks WHERE org_id = ? AND id = ?", O, body.p_id);
       return json(null);
+    }
+    case "kv_rooms": { // housekeeping board: dirty / clean / inspected per unit, plus who sleeps there tonight
+      return json(await roomStates(db, O, (await getConfig(db, O)) || {}));
+    }
+    case "kv_room_set": {
+      const apt = str(body.apt, 100), state = String(body.state || "");
+      const cfgR = (await getConfig(db, O)) || {};
+      if (!(cfgR.apts || []).includes(apt) || !["inspected", "dirty", "clean"].includes(state)) return json({ message: "bad_state" }, 400);
+      const who = (c && c.user && (c.user.name || c.user.email)) || "";
+      await run(db, "INSERT INTO room_state(org_id, apt, state, at, by_name) VALUES (?,?,?,?,?) ON CONFLICT(org_id, apt) DO UPDATE SET state = excluded.state, at = excluded.at, by_name = excluded.by_name", O, apt, state, nowIso(), str(who, 80));
+      await audit(db, O, c, "room", state, "", apt, { apt, state });
+      return json(await roomStates(db, O, cfgR));
     }
     case "kv_clean_info": { // what the maid ticked on one cleaning, against the list for that unit, and whether there is a photo
       if (!isUuid(body.id)) return json({ message: "bad_id" }, 400);

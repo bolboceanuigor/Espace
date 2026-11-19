@@ -387,5 +387,21 @@
 "Койки": "Beds",
 "Если комнату сдают отдельно, а квартиру — целиком: бронь комнаты закрывает квартиру, бронь квартиры закрывает все её комнаты.": "When the room is rented on its own and the apartment as a whole: booking the room blocks the apartment, booking the apartment blocks all its rooms.",
 "Часть квартиры (коливинг)": "Part of an apartment (coliving)",
-"отдельный номер": "separate room"
+"отдельный номер": "separate room",
+"Уборка, пока гость живёт: раз в": "Cleaning during the stay: every",
+"гость живёт — текущая уборка": "guest staying — stayover cleaning",
+"каждый день, пусто": "every day, empty",
+"Номера сейчас": "Rooms now",
+"заезд сегодня": "check-in today",
+"Проверен": "Inspected",
+"живёт до": "stays until",
+"свободен": "vacant",
+"грязных": "dirty",
+"Грязный": "Dirty",
+"готовы": "ready",
+"заняты": "occupied",
+"Убран": "Clean",
+"Занят": "Occupied",
+"Отметить грязным": "Mark dirty",
+"Отметить убранным": "Mark clean"
 }

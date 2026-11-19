@@ -73,6 +73,7 @@ Ce trebuie să aibă fiecare modul ca aplicația să fie completă și funcțion
 | Calendar grupat: „Свободно” pe clădire și pe tip, se strâng | ✅ | `renderCal` → `freeRow`, `calFold` (localStorage `kv_calfold`).
 | Hostel: cameră cu N paturi, vândută pe pat | ✅ | Tip `dorm` + `dbeds`, `gender` (mixt / femei / bărbați). `price.js`: `bedsLeft`, ocupat doar când nu mai sunt paturi; preț = pe pat × persoane. Server: busy `[data, nopți, pax]`. Calendar: rândul „Койки 5/8” deasupra camerei, rezervările pe benzi. Abonament: pe cameră.
 | Coliving: apartamentul întreg sau pe camere, blocare în ambele sensuri | ✅ | Camera are `parent` = apartamentul (Obiect → „Часть квартиры”). `price.js` `linked()`; serverul pune în busy și rezervările unităților legate (`busyOf`). Calendar: zilele blocate de apartament/cameră sunt hașurate, „Свободно” le scade; suprapunerea se semnalează. Redenumirea păstrează legătura.
+| Menaj de hotel: stări murdar / curat / verificat + curățenie zilnică pentru cei care stau | ✅ | Tabela `room_state`; `kv_rooms` / `kv_room_set`; starea vine din ieșiri (ultimele 14 zile) și curățenii terminate, iar cea pusă de mână rămâne până la următoarea. Pagina „Уборки” (azi): „Номера сейчас” pe clădiri, apeși pe cameră → Проверено / Грязный / Убран. Câmp obiect/clădire `stay` = curățenie la fiecare N zile cât oaspetele locuiește: apare în lista zilei și ajunge la menajeră cu eticheta „гость живёт”.
 
 ## 4. Calendarul
 

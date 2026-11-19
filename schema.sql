@@ -707,3 +707,13 @@ CREATE TABLE IF NOT EXISTS native_tokens (
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 CREATE INDEX IF NOT EXISTS native_tokens_org_idx ON native_tokens(org_id, staff_id);
+
+-- hotel housekeeping: a state the manager sets by hand (inspected / dirty / clean); the rest comes from checkouts and cleanings
+CREATE TABLE IF NOT EXISTS room_state (
+  org_id TEXT NOT NULL,
+  apt TEXT NOT NULL,
+  state TEXT NOT NULL,
+  at TEXT NOT NULL,
+  by_name TEXT NOT NULL DEFAULT '',
+  PRIMARY KEY (org_id, apt)
+);
