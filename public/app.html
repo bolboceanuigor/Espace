@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#202248">
+<meta name="theme-color" content="#ffffff">
 <meta name="robots" content="noindex,nofollow">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/icon.svg">
@@ -1375,6 +1375,89 @@ body.wizon{overflow:hidden}
 .iexp{margin-top:12px;padding:10px 12px;border-radius:12px;background:var(--bg);border:1px solid var(--line)}.iexpr{display:flex;gap:6px}.iexpr input{flex:1;min-width:0;font-size:12.5px}
 .sh-name .cap{margin-left:5px;font-size:10.5px;font-weight:600;color:var(--muted);white-space:nowrap}.fpax .hint{align-self:end;padding-bottom:12px}
 .langsw{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}.langsw button{border:0;background:none;padding:5px 12px;font:inherit;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer}.langsw button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}.langsw button:not([aria-pressed="true"]):hover{color:var(--ink)}
+/* ===== Tema „Smart” (19.11.2026): același limbaj vizual ca aplicația SmartRepair —
+   alb, text bleumarin, accente aurii, Manrope, pastile, meniu plutitor, carduri-erou bleumarin.
+   Stă peste skin-ul „host”: schimbă doar aspectul, nu structura. ===== */
+@font-face{font-family:"Manrope";font-style:normal;font-weight:500;font-display:swap;src:url(/fonts/manrope-latin-500-normal.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Manrope";font-style:normal;font-weight:600;font-display:swap;src:url(/fonts/manrope-latin-600-normal.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Manrope";font-style:normal;font-weight:700;font-display:swap;src:url(/fonts/manrope-latin-700-normal.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Manrope";font-style:normal;font-weight:800;font-display:swap;src:url(/fonts/manrope-latin-800-normal.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Manrope";font-style:normal;font-weight:500;font-display:swap;src:url(/fonts/manrope-latin-ext-500-normal.woff2) format("woff2");unicode-range:U+0100-02AF,U+0304,U+0308,U+0329,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:"Manrope";font-style:normal;font-weight:600;font-display:swap;src:url(/fonts/manrope-latin-ext-600-normal.woff2) format("woff2");unicode-range:U+0100-02AF,U+0304,U+0308,U+0329,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:"Manrope";font-style:normal;font-weight:700;font-display:swap;src:url(/fonts/manrope-latin-ext-700-normal.woff2) format("woff2");unicode-range:U+0100-02AF,U+0304,U+0308,U+0329,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:"Manrope";font-style:normal;font-weight:800;font-display:swap;src:url(/fonts/manrope-latin-ext-800-normal.woff2) format("woff2");unicode-range:U+0100-02AF,U+0304,U+0308,U+0329,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:"Manrope";font-style:normal;font-weight:500;font-display:swap;src:url(/fonts/manrope-cyrillic-500-normal.woff2) format("woff2");unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
+@font-face{font-family:"Manrope";font-style:normal;font-weight:600;font-display:swap;src:url(/fonts/manrope-cyrillic-600-normal.woff2) format("woff2");unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
+@font-face{font-family:"Manrope";font-style:normal;font-weight:700;font-display:swap;src:url(/fonts/manrope-cyrillic-700-normal.woff2) format("woff2");unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
+@font-face{font-family:"Manrope";font-style:normal;font-weight:800;font-display:swap;src:url(/fonts/manrope-cyrillic-800-normal.woff2) format("woff2");unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
+html:root[data-skin="host"]{
+  --bg:#ffffff; --surface:#ffffff; --raised:#F2F4F8; --ink:#0A1F33; --fg:#0A1F33; --muted:#5A6B7F; --line:#ECEEF3; --line2:#DFE3EA;
+  --accent:#0C3855; --accent-h:#0A2E46; --accent-ink:#D7B46A; --accent-soft:#F6EEDC; --occ:#F6EEDC; --occ-ink:#8E6E2E;
+  --inc:#0C3855; --exp:#D12C2C; --exp-soft:#FDE8E8; --ok:#118A4E; --ok-soft:#E4F5EC; --warn:#B85C00; --warn-soft:#FFF1DE; --bad:#D12C2C; --bad-soft:#FDE8E8; --gold:#D7B46A; --cream:#ffffff;
+  --a1:#B08A3E; --a2:#B08A3E; --a3:#B08A3E; --a1-rgb:176,138,62; --a-soft:#F6EEDC;
+  --hink:#ffffff; --hink2:#C9D6E3; --d0:#ffffff; --d1:#ffffff; --d2:#F2F4F8; --dtx:#0A1F33; --dwe:#F7F8FB;
+  --navy:#0C3855; --navy2:#0A2540; --goldd:#B08A3E;
+  --font:"Manrope",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; --display:"Manrope",system-ui,sans-serif;
+  --r:20px; --r-sm:14px; --sh:none; --sh-pop:0 18px 44px rgba(27,36,64,.16); --ring:0 0 0 3px rgba(12,56,85,.16)}
+html:root[data-skin="host"] body{font-family:var(--font);font-weight:500;background:#fff;color:var(--ink)}
+/* titluri mari, îngroșate */
+html:root[data-skin="host"] h2,html:root[data-skin="host"] h1.day{font-family:var(--display);font-weight:800;letter-spacing:-.025em}
+html:root[data-skin="host"] h2{font-size:26px}
+html:root[data-skin="host"] h3{font-weight:700;color:var(--muted);letter-spacing:.05em}
+html:root[data-skin="host"] header.top{background:#fff;border-bottom:0}
+/* suprafețe: alb cu contur fin, colțuri mari */
+html:root[data-skin="host"] .card,html:root[data-skin="host"] .mtile,html:root[data-skin="host"] .owrow,html:root[data-skin="host"] .stitem{border:1px solid var(--line);border-radius:var(--r)}
+html:root[data-skin="host"] .setlist{border-radius:22px}
+html:root[data-skin="host"] .setli .ic,html:root[data-skin="host"] .mtile .mi{background:var(--raised);color:var(--navy);border-radius:14px}
+/* butoane: pastile; principalul bleumarin cu text auriu, restul gri */
+html:root[data-skin="host"] .btn{border-radius:999px;border:0;background:var(--raised);color:var(--ink);font-weight:700}
+html:root[data-skin="host"] .btn:hover{background:#E7EAF0}
+html:root[data-skin="host"] .btn.primary{background:var(--navy);color:var(--gold)}
+html:root[data-skin="host"] .btn.primary:hover{background:var(--accent-h)}
+html:root[data-skin="host"] .btn.danger{background:var(--bad-soft);color:var(--bad)}
+html:root[data-skin="host"] .linkbtn,html:root[data-skin="host"] a{color:var(--goldd)}
+/* câmpuri: gri, fără contur */
+html:root[data-skin="host"] input:not([type=checkbox]):not([type=radio]):not([type=range]),html:root[data-skin="host"] select,html:root[data-skin="host"] textarea{background:var(--raised);border:1px solid transparent;border-radius:14px;color:var(--ink);font-weight:600}
+html:root[data-skin="host"] input:focus,html:root[data-skin="host"] select:focus,html:root[data-skin="host"] textarea:focus{background:#fff;border-color:var(--navy);box-shadow:var(--ring)}
+html:root[data-skin="host"] input[type=checkbox],html:root[data-skin="host"] input[type=radio]{accent-color:var(--navy)}
+/* pastile de filtru: cea aleasă bleumarin */
+html:root[data-skin="host"] .chip{border:0;background:var(--raised);font-weight:700}
+html:root[data-skin="host"] .chip[aria-pressed="true"],html:root[data-skin="host"] .finper button[aria-pressed="true"],html:root[data-skin="host"] .rpchip[aria-pressed="true"],html:root[data-skin="host"] .hlwho button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
+html:root[data-skin="host"] .finper button{border:0;background:var(--raised);font-weight:700;border-radius:999px}
+/* segmente: șină gri, butonul ales alb cu umbră (ca în SmartRepair) */
+html:root[data-skin="host"] .seg{background:var(--raised);border:0;border-radius:999px;padding:4px}
+html:root[data-skin="host"] .seg button{border:0;background:transparent;border-radius:999px;font-weight:700;color:var(--muted)}
+html:root[data-skin="host"] .seg button[aria-pressed="true"]{background:#fff;color:var(--ink);box-shadow:0 2px 8px rgba(27,36,64,.12)}
+/* carduri-erou: bleumarin, text alb, etichete aurii */
+html:root[data-skin="host"] .bal{background:linear-gradient(160deg,#0F4268 0%,#0C3855 45%,#0A2540 100%);border:0;color:#fff;border-radius:26px;box-shadow:0 14px 34px rgba(12,56,85,.22)}
+html:root[data-skin="host"] .bal *{color:inherit}
+html:root[data-skin="host"] .bal .small,html:root[data-skin="host"] .bal span,html:root[data-skin="host"] .bal small,html:root[data-skin="host"] .bal .clttl{color:rgba(255,255,255,.78)}
+html:root[data-skin="host"] .bal .clttl,html:root[data-skin="host"] .bal h3,html:root[data-skin="host"] .bal .lbl{color:var(--gold)!important}
+html:root[data-skin="host"] .bal .clbig>div,html:root[data-skin="host"] .bal .cldays button{background:rgba(255,255,255,.09)!important;border:1px solid rgba(255,255,255,.14)!important;color:#fff!important}
+html:root[data-skin="host"] .bal .clbig .ok,html:root[data-skin="host"] .bal [aria-pressed="true"],html:root[data-skin="host"] .bal .cldays button[aria-pressed="true"]{background:var(--gold)!important;border-color:var(--gold)!important;color:var(--navy2)!important}
+html:root[data-skin="host"] .bal .clbig .ok span,html:root[data-skin="host"] .bal [aria-pressed="true"] span,html:root[data-skin="host"] .bal .cldays button[aria-pressed="true"] span{color:rgba(10,37,64,.75)!important}
+html:root[data-skin="host"] .bal .clbar i{background:rgba(255,255,255,.18)}
+html:root[data-skin="host"] .bal .clbar i.on{background:var(--gold)}
+html:root[data-skin="host"] .bal .clst.ok{background:rgba(17,138,78,.25)!important;color:#c8f0d9!important}
+html:root[data-skin="host"] .bal .clst.warn{background:rgba(215,180,106,.2)!important;color:var(--gold)!important}
+/* KPI */
+html:root[data-skin="host"] .fk{background:var(--raised);border:0;border-radius:20px}
+html:root[data-skin="host"] .fk b{font-weight:800;letter-spacing:-.02em}
+/* foile de jos */
+html:root[data-skin="host"] .sheet,html:root[data-skin="host"] .modal{border-radius:28px 28px 0 0}
+/* meniul de jos: pastilă albă plutitoare; fila activă = cerc bleumarin cu iconiță aurie; „+” bleumarin */
+@media (max-width:859px){
+  html:root[data-skin="host"] nav.tabs{background:rgba(255,255,255,.96);border:0;border-radius:999px;box-shadow:0 10px 30px rgba(27,36,64,.16),0 1px 4px rgba(27,36,64,.06)}
+  html:root[data-skin="host"] nav.tabs button.tab-ph{color:var(--ink);font-weight:700}
+  html:root[data-skin="host"] nav.tabs button[aria-current="true"]:not(.mid){background:var(--navy);color:var(--gold);border-radius:999px}
+  html:root[data-skin="host"] nav.tabs button.mid svg{background:var(--navy);color:#fff;border-radius:50%;box-shadow:0 8px 18px rgba(12,56,85,.35)}
+}
+@media (min-width:860px){
+  html:root[data-skin="host"] nav.tabs{background:#fff;border-right:1px solid var(--line)}
+  html:root[data-skin="host"] nav.tabs button{color:var(--ink);font-weight:600;border-radius:999px}
+  html:root[data-skin="host"] nav.tabs button[aria-current="true"]{background:var(--navy);color:var(--gold)}
+  html:root[data-skin="host"] nav.tabs button[aria-current="true"]::before{display:none}
+}
 </style>
 </head>
 <body>
