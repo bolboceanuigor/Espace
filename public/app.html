@@ -405,12 +405,15 @@ body.calmode .ctopbar{padding-top:calc(8px + env(safe-area-inset-top,0px))}
 #biolock{position:fixed;inset:0;z-index:9999;background:#fff;display:grid;place-items:center}#biolock>div{display:flex;flex-direction:column;align-items:center;gap:12px;width:min(280px,80vw)}#biolock img{border-radius:18px}#biolock b{font-size:22px;margin-bottom:18px}#biolock .btn{width:100%;min-height:48px}
 @media (max-width:560px){.aptset .ah.setrow{flex-wrap:wrap;row-gap:8px}.aptset .ah.setrow .um{flex:1 1 calc(100% - 64px);min-width:0}.aptset .ah.setrow .um b,.aptset .ah.setrow .um small{white-space:normal;overflow:visible;text-overflow:clip}
 .aptset .ah.setrow .ibtn{flex:1 1 0;width:auto;height:40px}.aptset .ah.setrow .ibtn.del.armed{flex:2 1 0}.aptset>.grid2{grid-template-columns:minmax(0,1fr) auto!important}.aptset>.grid2 .btn.sm{padding:0 14px}}
+@media (max-width:560px){html body .svcrow{display:grid!important;grid-template-columns:52px minmax(0,1fr) minmax(0,1fr) 44px;grid-template-areas:"on name name name" "pr pr cur del";gap:8px}
+.svcrow>.dtog{grid-area:on}.svcrow>[data-svcn]{grid-area:name}.svcrow>[data-svcp]{grid-area:pr;width:auto!important}.svcrow>select{grid-area:cur;width:auto!important}.svcrow>.ibtn{grid-area:del}
+html body .setup-s{flex-wrap:wrap}html body .setup-s .m{flex:1 1 calc(100% - 44px);min-width:0}html body .setup-s>.btn{margin-left:40px}}
 .rooms{margin:14px 0 4px}.rmh{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}.rmh h3{margin:0;font-size:16px}.rmh span{font-size:12.5px;color:var(--muted)}
 .rmh i{display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 4px 0 6px;vertical-align:1px}.rmh i.ok{background:#12a150}.rmh i.bad{background:#e5484d}
 .rmg{font-size:11.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:12px 2px 6px}
 .rmgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px;margin-top:8px}
 .rm{display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:9px 10px;border-radius:14px;border:1.5px solid transparent;background:#F2F4F7;font:inherit;text-align:left;cursor:pointer;min-width:0}
-.rm b{font-size:15px;font-weight:800;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.rm span{font-size:12px;font-weight:700}.rm small{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.rm b{font-size:15px;font-weight:800;max-width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.2;word-break:break-word}.rm span{font-size:12px;font-weight:700}.rm small{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .rm.bad{background:#FDECEC}.rm.bad span{color:#d13438}.rm.cl span{color:#0666EB}.rm.ok{background:#E8F7EE}.rm.ok span{color:#12a150}
 .rm.occ{background:#F2F4F7}.rm.occ span{color:var(--muted)}.rm.on{border-color:#0666EB}
 .rmact{margin-top:10px;padding:12px;border-radius:14px;background:#F7F8FB}.rmact small{display:block;color:var(--muted);margin-top:2px}.rmact .actions{margin-top:8px}
@@ -3015,7 +3018,7 @@ document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.c
 const SVC_DEF=[["transfer","Трансфер из аэропорта"],["early","Ранний заезд"],["late","Поздний выезд"],["crib","Детская кроватка"],["chair","Детское кресло"]];
 function servicesSection(){const list=Array.isArray(cfg.services)&&cfg.services.length?cfg.services:SVC_DEF.map(([id,name],i)=>({id,name,price:"",cur:"EUR",on:false}));
   return `<div class="card"><p class="small" style="margin-top:0">Услуги появятся в гиде для гостя. Гость нажимает «Заказать» — вам придёт уведомление.</p>
-    ${list.map((x,i)=>`<div class="srow" style="align-items:center"><label class="dtog" style="margin:0"><input type="checkbox" data-svcon="${i}" ${x.on!==false&&x.on!==0?"checked":""} ${RO?"disabled":""}><span></span></label>
+    ${list.map((x,i)=>`<div class="srow svcrow" style="align-items:center"><label class="dtog" style="margin:0"><input type="checkbox" data-svcon="${i}" ${x.on!==false&&x.on!==0?"checked":""} ${RO?"disabled":""}><span></span></label>
       <input type="text" data-svcn="${i}" value="${esc(x.name||"")}" placeholder="Название" maxlength="80" style="flex:1;min-width:0">
       <input type="text" inputmode="decimal" data-svcp="${i}" value="${esc(x.price??"")}" placeholder="цена" style="width:72px">
       <select data-svcc="${i}" style="width:72px">${["EUR","MDL","USD"].map(c=>`<option ${ (x.cur||"EUR")===c?"selected":""}>${c}</option>`).join("")}</select>
