@@ -1661,6 +1661,8 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       await run(db, "UPDATE bookings SET tag = 'cancel', extra = ?, updated_at = ? WHERE org_id = ? AND id = ?", extra, nowIso(), O, b.id);
       // the guest never came (arrival today or later): no cleaning after; already living there: the cleaning stays
       await dropStaleCleans(db, O, b.id, b.date < today() ? { apt: b.apt, date: b.date, nights: b.nights } : null);
+      // the guest gets the "cancellation" message, if the company has such a template (same as cancelling from the booking form)
+      { const full = await one(db, "SELECT * FROM bookings WHERE org_id = ? AND id = ?", O, b.id); if (full) waitUntil(fireEventMessages(env, db, org, full, "cancel").catch(() => {})); }
       await audit(db, O, c, "booking", "cancel", b.id, bLabel({ ...b, tag: "cancel" }), { reason, kept: kept || null, nights: b.nights, guest: b.guest });
       waitUntil(notify(db, O, ["manager"], { go: "b:" + b.id, title: "✕ Отмена: " + (b.apt || ""), body: (b.guest || "без имени") + " · " + ddmm(b.date) + (b.nights ? " · " + b.nights + " н." : "") + " — " + reason }).catch(() => {}));
       return json({ id: b.id });
