@@ -216,6 +216,41 @@ th{text-transform:uppercase;letter-spacing:.04em;font-size:11px;background:var(-
 h1{font-weight:700}
 .grid3 .facts{grid-template-columns:repeat(2,minmax(0,1fr))}.grid3 .facts div:nth-child(2n){border-right:0}
 @media (max-width:900px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}}
+/* look 2 (20.11): same family as the Espace app — light, blue #0666EB, soft rounded cards; phone header below the iPhone status bar */
+:root,html{color-scheme:light}
+:root{--bg:#F4F5F7;--surface:#fff;--sunk:#F7F8FA;--ink:#191C1F;--ink2:#4A4F57;--mute:#717680;--line:#E7E9EE;--line2:#F0F1F4;
+  --navy:#191C1F;--accent:#0666EB;--key:#0666EB;--chart:#0666EB;--chart-soft:#CFE0FB;--info:#0666EB;--info-bg:#E8F1FE;--r:14px;--sh:0 1px 2px rgba(25,28,31,.04),0 4px 14px rgba(25,28,31,.05)}
+@media (prefers-color-scheme:dark){:root{--bg:#F4F5F7;--surface:#fff;--sunk:#F7F8FA;--ink:#191C1F;--ink2:#4A4F57;--mute:#717680;--line:#E7E9EE;--line2:#F0F1F4;
+  --navy:#191C1F;--accent:#0666EB;--key:#0666EB;--chart:#0666EB;--chart-soft:#CFE0FB;--info:#0666EB;--info-bg:#E8F1FE;--ok:#047857;--ok-bg:#d1fae5;--bad:#dc2626;--bad-bg:#fee2e2;--warn:#b45309;--warn-bg:#fef3c7;--sh:0 1px 2px rgba(25,28,31,.04),0 4px 14px rgba(25,28,31,.05)}
+  .btn.p{color:#fff}.chead .ava{color:#fff}}
+.panel,.tw,.facts,.kpi{border-radius:18px}
+.btn{border-radius:999px;padding-left:16px;padding-right:16px}
+.btn.p{background:#191C1F;border-color:#191C1F;color:#fff}
+.nav a{border-radius:12px}
+.nav a[aria-current="page"]{background:#E8F1FE;color:#0666EB}.nav a[aria-current="page"] svg{color:#0666EB}
+.nav a .c{background:#0666EB}
+.chip[aria-pressed="true"]{background:#0666EB;border-color:#0666EB}
+.tabs button[aria-selected="true"]{color:#0666EB;border-bottom-color:#0666EB}
+.chead .ava{background:linear-gradient(135deg,#7B61FF,#0666EB)}
+.top{background:rgba(255,255,255,.88);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+@media (max-width:900px){
+  .top{padding:calc(env(safe-area-inset-top) + 8px) 12px 10px;gap:8px}
+  .side{padding-top:calc(env(safe-area-inset-top) + 14px)}
+  .burger{width:44px;height:44px;padding:0;justify-content:center;border-radius:50%;flex:0 0 auto}
+  .search{flex:1;min-width:0}.search kbd{display:none}
+  .search input{height:44px;border-radius:999px}
+  #new-org{width:44px;height:44px;padding:0;border-radius:50%;font-size:0;flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center}
+  #new-org::before{content:"+";font-size:24px;font-weight:500;line-height:1}
+  .content{padding:18px 14px calc(env(safe-area-inset-bottom) + 40px)}
+  .ph h1{font-size:28px;letter-spacing:-.02em}
+  .kpis{gap:10px}
+  .kpi{padding:14px 14px 16px;border-radius:18px}
+  .kpi .l{font-size:10.5px;letter-spacing:.05em;line-height:1.3}
+  .kpi .v{font-size:24px;margin-top:6px}
+  .kpi .s{font-size:12px;line-height:1.35;margin-top:4px}
+  #login{margin-top:calc(env(safe-area-inset-top) + 8vh)}
+  body.navon::after{content:"";position:fixed;inset:0;background:rgba(25,28,31,.32);z-index:20;pointer-events:none}
+}
 </style>
 </head>
 <body>
