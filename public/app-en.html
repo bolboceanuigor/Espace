@@ -210,6 +210,7 @@ button,.btn,.chip,nav.tabs,.mtile,.bar,.sh-name,.sh-day{-webkit-user-select:none
 :root:not([data-skin="host"]) #tabs .tab-dk[data-view="azi"]{display:none}
 .az-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:18px 0 18px}.az-head h1{margin:0;font-size:26px;font-weight:600;letter-spacing:-.02em}.az-date{margin:4px 0 0;color:var(--muted);font-size:13.5px}
 .ptitle,#set-title{margin:18px 0 14px;font-size:26px;font-weight:600;letter-spacing:-.02em;line-height:1.2}
+.cal-empty{margin:18px 16px;padding:20px;border:1px dashed var(--line);border-radius:18px;text-align:center;background:var(--surface)}.cal-empty b{font-size:16px}.cal-empty p{color:var(--muted);font-size:14px;margin:6px 0 14px}.cal-empty-a{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
 .az-head .btn{flex:0 0 auto;width:auto!important;max-width:max-content;height:42px;padding:0 18px;margin:0}
 .az-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:24px}
 .az-stat{display:flex;gap:12px;align-items:flex-start;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px}
@@ -692,14 +693,14 @@ body.bpop .recent-h,body.bpop #recent{display:none}
 .bar.cancel{opacity:.55;background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.25) 0 5px,transparent 5px 10px)!important}.bar.cancel .nm{text-decoration:line-through}
 .lg-unp{background-color:#dcb7de!important;background-image:repeating-linear-gradient(135deg,rgba(255,255,255,0) 0 3px,rgba(255,255,255,.7) 3px 5px)}
 body.calmode header.top .brand,body.calmode #monthbox,body.calmode header.top .iconbtn,body.calmode #c-legend{display:none!important}body.calmode header.top{min-height:0!important;padding:0!important;height:0;overflow:visible;border:0!important;background:none!important;box-shadow:none!important}body.calmode header.top .top-in{min-height:0!important;padding:0!important;height:0}
-body.calmode #v-cal{padding-top:env(safe-area-inset-top,0px)}.actions.fact{flex-wrap:nowrap;gap:8px}.actions.fact .btn{min-width:0;padding-inline:12px;white-space:nowrap}.actions.fact #f-save{flex:1}
+body.calmode{padding-top:0}body.calmode #v-cal{padding-top:0}.actions.fact{flex-wrap:nowrap;gap:8px}.actions.fact .btn{min-width:0;padding-inline:12px;white-space:nowrap}.actions.fact #f-save{flex:1}
 .bv{display:flex;flex-direction:column;gap:12px}.bv-tag{display:inline-flex;align-self:flex-start;align-items:center;gap:7px;font-weight:800;font-size:13px;color:var(--muted)}.bv-tag i{width:12px;height:12px;border-radius:4px}
 .bv-pay{border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:3px;background:rgba(74,222,128,.12)}.bv-pay b{font-size:16px;color:#4ade80}.bv-pay span{font-size:14px;color:var(--fg)}.bv-pay i{font-style:normal;font-weight:800}
 .bv-pay.part{background:rgba(251,191,36,.13)}.bv-pay.part b{color:#fbbf24}.bv-pay.unpaid{background:rgba(248,113,113,.13)}.bv-pay.unpaid b{color:#f87171}
 .bv-ct{margin:0;grid-template-columns:repeat(2,1fr)}.bv-ct .fc{height:46px;font-size:14px}.bv-nophone{color:var(--muted);font-size:13px}
 .bv-rows{display:flex;flex-direction:column;border-top:1px solid var(--line)}.bv-rows div{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}.bv-rows span{color:var(--muted)}.bv-rows b{text-align:right;font-weight:700}
 .bv-edit{width:100%;margin-top:4px;min-height:50px;font-size:16px}
-body.calmode #v-cal::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area-inset-top,0px);background:var(--raised);z-index:20}
+body.calmode #v-cal::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area-inset-top,0px);background:var(--surface,#fff);z-index:20}
 .sh-corner{gap:2px;padding:0 2px}.sh-corner .cnav{width:26px;height:40px;border:0;border-radius:10px;background:rgba(255,255,255,.07);color:var(--hl,#fed36a);font-size:22px;font-weight:800;padding:0;flex:none}.sh-corner .ctoday{flex:1;min-width:0;font-size:11.5px!important;font-weight:800;color:var(--hl,#fed36a);text-align:center;padding:0!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:none;border:0}.sh-corner .ctoday.on{color:var(--muted)}
 .sh-day{font-size:14px!important}.sh-day small{font-size:10.5px!important}
 body.calmode .wrap{padding-inline:0!important;padding-top:0!important}body.calmode #c-body{border-radius:0;border-left:0;border-right:0}
@@ -803,7 +804,7 @@ details.tbl{margin-top:14px}details.tbl:not([open]){display:none}details.tbl>sum
 .skinsw i{width:46px;height:28px;border-radius:9px;display:block}
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--ink)}
-body{font-family:var(--font);font-size:15px;line-height:1.4;padding-top:env(safe-area-inset-top,0px)}
+body{font-family:var(--font);font-size:15px;line-height:1.4}
 [hidden]{display:none!important}
 button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
@@ -1644,6 +1645,7 @@ setTimeout(function(){window.bootDone()},8000)})();</script>
     <div class="cbar ctopbar" id="c-bar" hidden></div>
     <div class="cal-legend" id="c-legend" hidden></div>
     <div id="c-body"></div>
+    <div id="c-empty"></div>
   </section>
 
   <section id="v-add" hidden>
@@ -3503,7 +3505,7 @@ const CAL_SZ={sm:{days:10,label:"Small"},md:{days:9,label:"Standard"},lg:{days:7
 function calSz(){try{const v=localStorage.getItem("kv_calsz")||"md";return CAL_SZ[v]?v:"md"}catch(e){return"md"}}
 function calSzBtns(){const sz=calSz();return `<div class="cbsz" role="group" aria-label="Calendar size">${[["sm","Small"],["md","Standard"],["lg","Large"]].map(([k,l])=>`<button type="button" class="cbsz-b" data-calsz="${k}" aria-pressed="${sz===k}" title="${l} · ${CAL_SZ[k].days} days"><i class="cbsz-i ${k}"></i><span>${l}</span></button>`).join("")}</div>`}
 /* Hostfully: photos in circles (default); tap → retract photo, expand name text */
-const mono=a=>{const u=(cfg.units||{})[a]||{};if((u.kind==="room"||u.kind==="bed"||u.kind==="dorm")&&/·|\s\d/.test(String(a))){const m=String(a).match(/(\S+)\s*$/);if(m)return m[1].slice(0,4).toUpperCase()}const w=String(a).replace(/[^\p{L}\p{N} ]/gu," ").trim().split(/\s+/).filter(x=>/^\p{L}/u.test(x));return ((w.length>1?w[0][0]+w[1][0]:(w[0]||String(a)).slice(0,2))||"?").toUpperCase()};
+const mono=a=>{const u=(cfg.units||{})[a]||{};if((u.kind==="room"||u.kind==="bed"||u.kind==="dorm")&&/·|\s\d/.test(String(a))){const m=String(a).match(/(\S+)\s*$/);if(m)return m[1].slice(0,4).toUpperCase()}const tk=String(a).replace(/[^\p{L}\p{N} ]/gu," ").trim().split(/\s+/),w=tk.filter(x=>/^\p{L}/u.test(x)),nr=tk.find(x=>/^\d/.test(x));if(nr&&w.length)return (w[0][0]+nr).slice(0,3).toUpperCase();return ((w.length>1?w[0][0]+w[1][0]:(w[0]||String(a)).slice(0,2))||"?").toUpperCase()};
 function calPicOn(){try{return localStorage.getItem("kv_calpic")!=="0"}catch(e){return true}}
 function tnHue(a){let h=0;const s=String(a);for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;const a1=h%360,a2=(a1+38)%360;return`--tn-a:hsl(${a1} 62% 52%);--tn-b:hsl(${a2} 68% 42%)`}
 function calThumb(a){const m=mono(a);return photos[a]
@@ -3695,7 +3697,7 @@ function renderCal(){
     rows+=`<div class="sh-row${ug?" grp":""}${zebra}"${tall?` style="height:${tall}px"`:""}><div class="sh-name" data-aptpage="${esc(a)}" title="${esc([ug,ul].filter(Boolean).join(" · ")||a)}">${calThumb(a)}<span>${esc(a)}${uc?`<small class="cap">👤${uc}</small>`:""}</span><em>${nights}</em></div><div class="sh-tl" data-tl="${esc(a)}" style="width:${n*W}px">${wk}${mLine}${tdMark}${cells}${bars}</div></div>`;
   }
   document.body.classList.toggle("calpm",calPM);
-  $("c-body").innerHTML=`<div class="sh sq sz-${sz}${calPM?" pm":""}${picOn?" pics":" names"}" style="--W:${W}px;--L:${Lw}px;--L-pic:${Lpic}px;--L-name:${Lname}px;--H:${H}px;--cell:${cell}px;--days:${days};--days-w:${n*W}px">${head}${rows}</div>`;
+  $("c-body").innerHTML=`<div class="sh sq sz-${sz}${calPM?" pm":""}${picOn?" pics":" names"}" style="--W:${W}px;--L:${Lw}px;--L-pic:${Lpic}px;--L-name:${Lname}px;--H:${H}px;--cell:${cell}px;--days:${days};--days-w:${n*W}px">${head}${rows}</div>`;$("c-empty").innerHTML=`${!RO&&!bookings.length?`<div class="cal-empty"><b>No bookings yet</b><p>Add the first booking or connect the calendar from Airbnb and Booking — bookings will appear here on their own.</p><div class="cal-empty-a"><button type="button" class="btn primary" data-calnew="1">+ New booking</button><button type="button" class="btn" data-setup="ical">Connect calendar</button></div></div>`:""}`;
   {const el=$("c-body"),key=todayStr()+"|"+sz+"|"+W+"|"+P+"|"+CW+"|"+(picOn?"p":"n"),keep=calKey===key?el.scrollLeft:null,t0=el.scrollTop;calKey=el.clientWidth?key:null; // hidden (before login): scroll to today on the next paint
    const bodyH=HEADH+nRow*H+nG*22+nS*28+exH+2;
    const maxH=Math.max(260,innerHeight-el.getBoundingClientRect().top-navH-8);
@@ -5441,6 +5443,7 @@ document.addEventListener("click",e=>{
   if(ds.go){if(sheetCtx&&(sheetCtx.type==="more"||sheetCtx.type==="plus"))closeSheet();const g=ds.go;if(SEC_VIEWS[g]&&!canSec(SEC_VIEWS[g])&&g!=="settings"){toast("No access to this section");return}if(g==="tax"){if(!canSec("money")){toast("No access to this section");return}TAXY=null;taxPage();return}if(g==="log"){auditPage();return}if(g==="shifts"){handoverPage();return}if(g==="guests"){contactsPage();return}if(g==="guide"){guidePage();return}if(g==="svc"){svcPage();return}if(g==="shop"){shopPage();return}if(g==="help"){helpPage();return}if(g==="bell"){bellSheet(notifs,"bellseen","bell-badge");return}if(["todo","rep","rem"].includes(g)){clnTab=g;ls.set("hubtab2",g);show("tasks")}else if(g==="clean")show("cln");else if(g==="verify"){if(!canSec("money")){toast("No access to this section");return}vFilter="todo";verifyPage()}else if(g==="settings")settingsPage("");else show(g);scrollTo(0,0);return}
   if(ds.tab==="more"){openMoreSheet();return}
   if(ds.tab==="plus"){openPlusSheet();return}
+  if(ds.calnew){openBForm();return}
   if(ds.qadd){closeSheet();const a=ds.qadd;if(a==="book"){form=blankB();openBForm(true)}else if(a==="clean"){show("cln");clnForm="clean";renderCln();scrollTo(0,0)}else if(a==="cash"){hvHome()}else if(a==="exp"){newE()}else if(a==="rep"){show("rep");repNew=true;renderCln();scrollTo(0,0);const f=$("rn-note");if(f)setTimeout(()=>f.focus({preventScroll:true}),60)}return}
   if(ds.view){if(t.closest("#tabs")&&ds.view==="today"){hvHome();return}if(t.closest("#tabs")&&ds.view==="settings"){settingsPage("");return}if(t.closest("#tabs")&&ds.view===view&&view==="menu")return;if(ds.view==="add"&&view!=="add"){form=blankB();eform=blankE();fillB();fillE()}show(ds.view);return}
   if(ds.mode){setMode(ds.mode);renderView();return}
