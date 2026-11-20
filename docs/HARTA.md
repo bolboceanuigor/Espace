@@ -240,6 +240,7 @@ Ce trebuie să aibă fiecare modul ca aplicația să fie completă și funcțion
 | Exportul și ștergerea datelor unui oaspete la cerere | ✅ | Fișa contactului → „Выгрузить / Удалить данные гостя” (owner, manager cu acces la toate unitățile oaspetelui). Export JSON; ștergerea scoate numele/telefonul/emailul din rezervări, check-in, fișiere, jurnal; rămân sumele, facturile emise și contractele semnate. `lib/guestdata.ts`. |
 | O singură intrare pentru toți (fără tab-ul „Sunt menajeră”) | ✅ | Menajerele și meșterii intră cu telefon/email + PIN în același formular (și în aplicația de telefon); pe adresa companiei merge și cu numele. Fiecare vede doar ce ține de rolul lui. |
 | Design 1: bara de jos Azi · Calendar · ＋ · Curățenii · Mai mult | ✅ | Setările, reparațiile și casa sunt în „Mai mult”; insigna reparațiilor stă pe „Mai mult”. |
+| Design 2: antet și titluri | ✅ | Fiecare ecran are titlu mare (Curățenii, Mai mult, Casa și tura, Sarcini și reparații); căutarea e și în calendar; „Sarcini și reparații” apare în „Mai mult” și pe tema întunecată. |
 
 ---
 
