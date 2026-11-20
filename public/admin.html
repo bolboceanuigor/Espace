@@ -246,8 +246,7 @@ h1{font-weight:700}
       <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
         <input id="q" placeholder="Caută companie, email, telefon, factură…" autocomplete="off" aria-label="Căutare"><kbd>⌘K</kbd><div class="results" id="results"></div></div>
       <a class="btn" href="https://espace.md/" target="_blank" rel="noopener" id="site-link">Site</a>
-      <a class="btn" href="https://app.espace.md/" id="app-back" hidden>← Aplicația</a>
-      <script>if(/EspaceApp\//.test(navigator.userAgent)){document.getElementById("app-back").hidden=false;document.getElementById("site-link").hidden=true}</script>
+      <script>if(/EspaceApp\//.test(navigator.userAgent))document.getElementById("site-link").hidden=true</script>
       <button class="btn p" id="new-org">Companie nouă</button>
     </div>
     <div class="content" id="view"></div>
@@ -274,6 +273,7 @@ const ORG_URL=s=>location.hostname==="admin.espace.md"||location.hostname.endsWi
 const SITE=location.hostname.endsWith("espace.md")?"https://espace.md/":"/";
 $("site-link").href=SITE;
 let TOK="";try{TOK=localStorage.getItem("es_admin_tok")||""}catch(e){}
+const INAPP=/EspaceApp\//.test(navigator.userAgent); // inside the Espace phone app: links stay in the app
 function toast(t){const e=$("toast");e.textContent=t;e.classList.add("on");clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove("on"),2600)}
 async function api(fn,args={}){
   const r=await fetch("/api/"+fn,{method:"POST",headers:{"Content-Type":"application/json",...(TOK?{"Authorization":"Bearer "+TOK}:{})},body:JSON.stringify(args)});
@@ -399,7 +399,7 @@ V.company=async(id)=>{const d=await api("sa_org",{org_id:id});const o=d.org;rend
   const tabs=[["sum","Rezumat"],["bill","Facturare"],["team",`Echipă (${d.members.length})`],["act","Activitate"]];
   $("view").innerHTML=`<div class="crumb"><a href="#companies">Companii</a> / ${esc(o.name)}</div>
   <div class="chead"><div class="ava">${esc((o.name||"?").slice(0,1).toUpperCase())}</div><div class="m"><h1>${esc(o.name)}</h1>
-    <div class="ink2"><a href="${ORG_URL(o.code)}" target="_blank" rel="noopener">${esc(o.code)}.espace.md</a> · ${esc(o.owner_name)} · <a href="mailto:${esc(o.owner_email)}">${esc(o.owner_email)}</a></div>
+    <div class="ink2"><a href="${ORG_URL(o.code)}"${INAPP?"":` target="_blank" rel="noopener"`}>${esc(o.code)}.espace.md</a> · ${esc(o.owner_name)} · <a href="mailto:${esc(o.owner_email)}">${esc(o.owner_email)}</a></div>
     <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">${statePill(o)}${o.apt_rate>0?pill("gray","Tarif propriu"):""}</div></div>
     <div class="acts"><button class="btn" data-act="support" data-id="${esc(o.id)}">Deschide ca suport</button><button class="btn" data-act="invoice" data-id="${esc(o.id)}">Factură nouă</button><button class="btn" data-act="adjust" data-id="${esc(o.id)}">Corecție credite</button><button class="btn p" data-act="pay" data-id="${esc(o.id)}">Înregistrează plata</button></div></div>
   <div class="facts"><div><span>Credite</span><b>${nf(o.balance)}</b></div><div><span>Se scad pe zi</span><b>${nf(o.daily||0)}</b><span class="sub">${o.apts} × ${nf(o.rate||1)} credite</span></div><div><span>Activ până</span><b>${fd(o.active_until)}</b></div><div><span>Apartamente</span><b>${o.apts}</b></div><div><span>Încasat total</span><b>${lei(o.paid_total)}</b></div></div>
@@ -586,7 +586,7 @@ async function act(a,ds){
   if(a==="inv-paid"){if(!confirm("Marchezi factura ca achitată? Suma intră pe soldul companiei."))return;try{const r=await api("sa_invoice_status",{org_id:ds.org,id:ds.id,status:"paid"});ORGS=null;OV=null;toast("Achitată · sold "+lei2(r.balance)+" · activ până "+fd(r.active_until));reloadView()}catch(e){toast(errText(e))}return}
   if(a==="inv-void"){if(!confirm("Anulezi factura?"))return;try{await api("sa_invoice_status",{org_id:ds.org,id:ds.id,status:"void"});OV=null;toast("Factura e anulată");reloadView()}catch(e){toast(errText(e))}return}
   if(a==="inv-copy"){const u=location.origin+"/f/"+ds.token;try{await navigator.clipboard.writeText(u);toast("Linkul facturii e copiat")}catch(e){prompt("Linkul facturii:",u)}return}
-  if(a==="support"){try{const r=await api("sa_support",{org_id:ds.id});window.open(ORG_URL(r.slug)+"#t="+r.token,"_blank","noopener");toast("Deschis pentru 2 ore, doar vizualizare")}catch(e){toast(errText(e))}return}
+  if(a==="support"){try{const r=await api("sa_support",{org_id:ds.id});if(INAPP)location.href=ORG_URL(r.slug)+"#t="+r.token;else window.open(ORG_URL(r.slug)+"#t="+r.token,"_blank","noopener");toast("Deschis pentru 2 ore, doar vizualizare")}catch(e){toast(errText(e))}return}
   if(a==="status"){if(ds.st==="blocked"&&!confirm("Blochezi compania? Datele rămân, dar nu mai pot modifica nimic."))return;await api("sa_status",{org_id:ds.id,status:ds.st});ORGS=null;OV=null;toast(ds.st==="blocked"?"Blocată":"Deblocată");return reloadView()}
   if(a==="save-sub"){const m=$("sub-msg");m.className="msg";try{const o=orgOf(ds.id)||{};const tr=val("o-trial"),pr=val("o-price"),sl=val("o-slug").toLowerCase();
     if(tr&&tr!==o.trial_ends)await api("sa_trial",{org_id:ds.id,trial_ends:tr});
