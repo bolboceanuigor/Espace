@@ -242,6 +242,7 @@ Ce trebuie să aibă fiecare modul ca aplicația să fie completă și funcțion
 | Design 1: bara de jos Azi · Calendar · ＋ · Curățenii · Mai mult | ✅ | Setările, reparațiile și casa sunt în „Mai mult”; insigna reparațiilor stă pe „Mai mult”. |
 | Design 2: antet și titluri | ✅ | Fiecare ecran are titlu mare (Curățenii, Mai mult, Casa și tura, Sarcini și reparații); căutarea e și în calendar; „Sarcini și reparații” apare în „Mai mult” și pe tema întunecată. |
 | Design 3–4: Azi compact + „Primii pași” în Azi | ✅ | Cardul de rezervare se deschide la apăsare oriunde, cu butonul mic de apel; „Primii pași” stă sub titlul Azi și arată doar pașii rămași. |
+| Design 5: „Mai mult” ca listă | ✅ | Pe telefon, modulele sunt rânduri grupate (ca în Setări), nu carduri mari; pe desktop rămân cardurile. |
 
 ---
 
