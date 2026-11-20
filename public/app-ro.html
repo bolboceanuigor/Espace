@@ -1382,6 +1382,9 @@ body.wizon{overflow:hidden}
 .wk{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}.wkc{text-align:left;border:1.5px solid var(--line);background:var(--surface);border-radius:16px;padding:16px;cursor:pointer;display:flex;flex-direction:column;gap:4px}.wkc b{font-size:16px}.wkc small{color:var(--muted)}.wkc[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 @media (max-width:520px){.wk{grid-template-columns:1fr}}
 .wsec{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;margin-top:14px}.wsh{display:flex;align-items:baseline;gap:8px;margin-bottom:8px;flex-wrap:wrap}.wsh b{font-size:16px}
+.wcount{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px 0 12px;border-bottom:1px solid var(--line)}.wcount>span{font-weight:600}
+.wstep{display:flex;align-items:center;gap:6px}.wstep button{width:44px;height:44px;border-radius:50%;border:0;background:var(--accent-soft,#eef2ff);color:var(--accent,#2f6bff);font-size:22px;font-weight:600;cursor:pointer}.wstep input{width:56px;height:44px;text-align:center;font-size:18px;font-weight:700;padding:0}
+.wu{display:flex;align-items:center;gap:8px}.wun{width:22px;flex:0 0 auto;color:var(--muted);font-size:13px;text-align:right}.wu>input{flex:1;min-width:0}.wu>select{flex:0 0 auto;width:auto;max-width:42%}.wnote{margin:10px 0 0}
 .wu{border-top:1px solid var(--line);padding:10px 0}.wu:first-of-type{border-top:0}.wu1{display:flex;gap:8px}.wu1 input{flex:1;min-width:0}.wu1 select{width:auto}
 .wu2{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin-top:6px}.wu2 label small,.wr label small{display:block;font-size:11px;color:var(--muted);margin-bottom:2px}.wu2 input{text-align:center;padding:0 4px}
 @media (max-width:520px){.wu2{grid-template-columns:repeat(3,minmax(0,1fr))}}
@@ -3341,6 +3344,7 @@ function wizUnits(){ // what the wizard will create (new names never clash with 
     apts.push(ap);units[ap]={kind:"apt",group:ap,guests:n*g,bedrooms:n};for(let i=1;i<=n;i++){let r=ap+" · "+i;while(clash(r))r+=" ·";apts.push(r);units[r]={kind:"room",group:ap,parent:ap,guests:g,beds:{dbl:1}}}}
   return {apts,units}}
 function wizPrice(n){const r=W.rate||1;return fmt(Math.round(n*r*100)/100)+" "+plural(Math.round(n*r),"credit","credite","credite")+" pe zi"}
+function wizUnitsTo(n){n=Math.max(1,Math.min(70,parseInt(n,10)||1));const last=W.units[W.units.length-1];while(W.units.length<n)W.units.push({...last,name:""});if(W.units.length>n)W.units=W.units.slice(0,n);wizRender()}
 function wizRender(){let el=$("wiz");if(!W){if(el)el.remove();document.body.classList.remove("wizon");return}
   if(!el){el=document.createElement("div");el.id="wiz";el.className="wiz";el.setAttribute("role","dialog");el.setAttribute("aria-modal","true");document.body.appendChild(el);document.body.classList.add("wizon")}
   const S=["Tip","Unități","Echipa","Gata"],st=W.step;
@@ -3348,10 +3352,10 @@ function wizRender(){let el=$("wiz");if(!W){if(el)el.remove();document.body.clas
   if(st===0)body=`<h2>Ce dați în chirie?</h2><p class="small">Poți alege mai multe — configurăm totul deodată.</p>
     <div class="wk">${WK.map(([k,t,s])=>`<button type="button" class="wkc" data-wk="${k}" aria-pressed="${W.kinds.includes(k)}"><b>${t}</b><small>${s}</small></button>`).join("")}</div>`;
   if(st===1){body=`<h2>Unitățile voastre</h2>`;
-    if(W.kinds.includes("apt")||W.kinds.includes("house"))body+=`<div class="wsec"><div class="wsh"><b>Apartamente și case</b><span class="small">${W.units.length}</span></div>
-      ${W.units.map((u,i)=>`<div class="wu"><div class="wu1"><input type="text" data-wu="${i}" data-f="name" value="${esc(u.name)}" placeholder="${u.kind==="house"||u.kind==="villa"?"Casă":"Apartament"} ${i+1}"><select data-wu="${i}" data-f="kind">${["apt","studio","house","villa"].map(k=>`<option value="${k}"${u.kind===k?" selected":""}>${UKIND[k]}</option>`).join("")}</select>${W.units.length>1?`<button type="button" class="iconbtn" data-wudel="${i}" aria-label="Scoate">✕</button>`:""}</div>
-        <div class="wu2">${[["bedrooms","Dormitoare"],["dbl","Duble"],["sgl","Single"],["sofa","Canapea"],["guests","Oaspeți"],["area","m²"]].map(([f,l])=>`<label><small>${l}</small><input type="text" inputmode="numeric" data-wu="${i}" data-f="${f}" value="${esc(u[f]??"")}" placeholder="${f==="guests"?String((+u.dbl||0)*2+(+u.sgl||0)+(+u.sofa||0)*2):""}"></label>`).join("")}</div></div>`).join("")}
-      <div class="wadd"><button type="button" class="btn" data-wuadd="1">＋ Încă una</button><span class="wmany"><span class="small">Mai multe deodată:</span><input type="text" inputmode="numeric" id="wu-many" placeholder="10"><button type="button" class="btn" data-wuadd="many">Creează rândurile</button></span></div></div>`;
+    if(W.kinds.includes("apt")||W.kinds.includes("house"))body+=`<div class="wsec"><div class="wsh"><b>Apartamente și case</b></div>
+      <div class="wcount"><span>Câte aveți?</span><div class="wstep"><button type="button" data-wucount="-1" aria-label="Mai puțin">−</button><input type="text" inputmode="numeric" data-wun="1" value="${W.units.length}" aria-label="Câte"><button type="button" data-wucount="1" aria-label="Mai mult">+</button></div></div>
+      ${W.units.map((u,i)=>`<div class="wu"><span class="wun">${i+1}</span><input type="text" data-wu="${i}" data-f="name" value="${esc(u.name)}" placeholder="${u.kind==="house"||u.kind==="villa"?"Casă":"Apartament"} ${i+1}" aria-label="Nume"><select data-wu="${i}" data-f="kind" aria-label="Tip">${["apt","studio","house","villa"].map(k=>`<option value="${k}"${u.kind===k?" selected":""}>${UKIND[k]}</option>`).join("")}</select></div>`).join("")}
+      <p class="small wnote">Numiți-le cum le spuneți între voi — de exemplu «Dacia 12». Paturile, oaspeții și prețurile le adăugați după, în Setări → Obiecte.</p></div>`;
     if(W.kinds.includes("hotel")||W.kinds.includes("hostel"))body+=`<div class="wsec"><div class="wsh"><b>${W.kinds.includes("hotel")?"Hotel":"Hostel"}</b></div>
       <div class="grid2"><div><label class="l">Nume</label><input type="text" data-wh="name" value="${esc(W.hotel.name)}" placeholder="Hotel Central"></div><div><label class="l">Prima cameră</label><input type="text" inputmode="numeric" data-wh="start" value="${esc(W.hotel.start)}"></div></div>
       <label class="l">Camere pe tipuri</label>
@@ -3389,11 +3393,12 @@ document.addEventListener("input",e=>{if(!W||!e.target.closest||!e.target.closes
   if(d.wm!=null)W.mgr[+d.wm][d.f]=e.target.value;
   if(d.wc!=null)W.cl[+d.wc][d.f]=e.target.value;
   wizHPrev()});
-document.addEventListener("change",e=>{if(!W||!e.target.closest||!e.target.closest("#wiz"))return;const d=e.target.dataset;
+document.addEventListener("change",e=>{if(!W||!e.target.closest||!e.target.closest("#wiz"))return;const d=e.target.dataset;if(d.wun){wizUnitsTo(e.target.value);return}
   if(d.wu!=null)W.units[+d.wu][d.f]=e.target.value;if(d.wr!=null){W.hotel.rooms[+d.wr][d.f]=e.target.value;wizRender()}if(d.wm!=null)W.mgr[+d.wm][d.f]=e.target.value});
 document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("[data-wizagain]")&&!RO){wizStart();W.again=true;wizRender()}});
-document.addEventListener("click",async e=>{if(!W)return;const t=e.target.closest("#wiz [data-wk],#wiz [data-wiz],#wiz [data-wuadd],#wiz [data-wudel],#wiz [data-wradd],#wiz [data-wrdel],#wiz [data-wmadd],#wiz [data-wmdel],#wiz [data-wcadd],#wiz [data-wcdel]");if(!t)return;const d=t.dataset;
+document.addEventListener("click",async e=>{if(!W)return;const t=e.target.closest("#wiz [data-wk],#wiz [data-wiz],#wiz [data-wucount],#wiz [data-wuadd],#wiz [data-wudel],#wiz [data-wradd],#wiz [data-wrdel],#wiz [data-wmadd],#wiz [data-wmdel],#wiz [data-wcadd],#wiz [data-wcdel]");if(!t)return;const d=t.dataset;
   if(d.wk){W.kinds=W.kinds.includes(d.wk)?W.kinds.filter(x=>x!==d.wk):[...W.kinds,d.wk];if(d.wk==="house"&&W.kinds.includes("house")&&!W.kinds.includes("apt"))W.units.forEach(u=>{if(u.kind==="apt")u.kind="house"});if(d.wk==="hostel"&&W.kinds.includes("hostel")&&!W.kinds.includes("hotel"))W.hotel.rooms=[{t:"dorm",n:"2",g:"8"}];wizRender();return}
+  if(d.wucount){wizUnitsTo(W.units.length+(+d.wucount));return}
   if(d.wuadd==="1"){W.units.push({name:"",kind:W.units[W.units.length-1].kind,bedrooms:"1",dbl:1,sgl:0,sofa:0,guests:"",area:""});wizRender();return}
   if(d.wuadd==="many"){const n=Math.max(1,Math.min(70,parseInt($("wu-many").value,10)||0));const last=W.units[W.units.length-1];while(W.units.length<n)W.units.push({...last,name:""});if(W.units.length>n)W.units=W.units.slice(0,n);wizRender();return}
   if(d.wudel!=null){W.units.splice(+d.wudel,1);wizRender();return}
