@@ -1611,6 +1611,7 @@ html:root[data-skin="host"] .sh.sq .bar.unp{box-shadow:inset 3px 0 0 #E5484D!imp
 html:root[data-skin="host"] .sh.sq .bar.closed{background:repeating-linear-gradient(135deg,#F1F3F6 0 6px,#E7EAEE 6px 12px)!important;box-shadow:none!important;color:#717680!important}
 /* empty calendar: calm card */
 html:root[data-skin="host"] .cal-empty{border:0!important;background:#fff!important;box-shadow:0 1px 2px rgba(25,28,31,.04),0 6px 20px rgba(25,28,31,.06);margin:16px!important;padding:24px 20px!important}
+html:root[data-skin="host"] .cal-empty-a{flex-direction:column;align-items:stretch}html:root[data-skin="host"] .cal-empty-a .btn{white-space:nowrap;width:100%}
 html:root[data-skin="host"] .cal-empty .btn.primary{background:#0666EB!important;border-color:#0666EB!important;color:#fff!important}
 html:root[data-skin="host"] .cal-empty .btn:not(.primary){background:transparent!important;border:0!important;color:#0666EB!important}
 
@@ -3572,16 +3573,16 @@ const CAL_ST=[["all","Toate"],["book","Rezervări"],["req","Cereri"],["cancel","
 function calSt(){try{const v=localStorage.getItem("kv_calst")||"all";return CAL_ST.some(x=>x[0]===v)?v:"all"}catch(e){return"all"}}
 /* size = how many days fit on screen (Realty-style); cell side is derived from viewport */
 const CAL_SZ={sm:{days:10,label:"Mic"},md:{days:9,label:"Mediu"},lg:{days:7,label:"Mare"}};
-function calSz(){try{const v=localStorage.getItem("kv_calsz")||(innerWidth<600?"lg":"md");return CAL_SZ[v]?v:"md"}catch(e){return"md"}}
+function calSz(){try{const v=localStorage.getItem("kv_calsz2")||(innerWidth<600?"lg":"md");return CAL_SZ[v]?v:"md"}catch(e){return"md"}}
 function calSzBtns(){const sz=calSz();return `<div class="cbsz" role="group" aria-label="Mărimea calendarului">${[["sm","Mic"],["md","Mediu"],["lg","Mare"]].map(([k,l])=>`<button type="button" class="cbsz-b" data-calsz="${k}" aria-pressed="${sz===k}" title="${l} · ${CAL_SZ[k].days} zile"><i class="cbsz-i ${k}"></i><span>${l}</span></button>`).join("")}</div>`}
 /* Hostfully: photos in circles (default); tap → retract photo, expand name text */
 const mono=a=>{const u=(cfg.units||{})[a]||{};if((u.kind==="room"||u.kind==="bed"||u.kind==="dorm")&&/·|\s\d/.test(String(a))){const m=String(a).match(/(\S+)\s*$/);if(m)return m[1].slice(0,4).toUpperCase()}const tk=String(a).replace(/[^\p{L}\p{N} ]/gu," ").trim().split(/\s+/),w=tk.filter(x=>/^\p{L}/u.test(x)),nr=tk.find(x=>/^\d/.test(x));if(nr&&w.length)return (w[0][0]+nr).slice(0,3).toUpperCase();return ((w.length>1?w[0][0]+w[1][0]:(w[0]||String(a)).slice(0,2))||"?").toUpperCase()};
-function calPicOn(){try{const v=localStorage.getItem("kv_calpic");return v==null?false:v!=="0"}catch(e){return false}}
+function calPicOn(){try{const v=localStorage.getItem("kv_calpic2");return v==null?false:v!=="0"}catch(e){return false}}
 function tnHue(a){let h=0;const s=String(a);for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;const a1=h%360,a2=(a1+38)%360;return`--tn-a:hsl(${a1} 62% 52%);--tn-b:hsl(${a2} 68% 42%)`}
 function calThumb(a){const m=mono(a);return photos[a]
   ?`<i class="tn" data-calpic role="button" tabindex="0" title="${esc(a)}" aria-label="${esc(a)}" style="background-image:url('${photos[a]}')"></i>`
   :`<i class="tn mono" data-calpic role="button" tabindex="0" title="${esc(a)}" aria-label="${esc(m)}" style="${tnHue(a)}">${esc(m)}</i>`}
-function toggleCalPic(){const show=!calPicOn();try{localStorage.setItem("kv_calpic",show?"1":"0")}catch(x){}
+function toggleCalPic(){const show=!calPicOn();try{localStorage.setItem("kv_calpic2",show?"1":"0")}catch(x){}
   const el=$("c-body"),sh=el&&el.querySelector(".sh");if(!sh){renderCal();return}
   const prevL=parseFloat(getComputedStyle(sh).getPropertyValue("--L"))||0;
   const Lpic=parseFloat(sh.style.getPropertyValue("--L-pic"))||prevL;
@@ -3769,7 +3770,7 @@ function renderCal(){
   document.body.classList.toggle("calpm",calPM);
   $("c-body").innerHTML=`<div class="sh sq sz-${sz}${calPM?" pm":""}${picOn?" pics":" names"}" style="--W:${W}px;--L:${Lw}px;--L-pic:${Lpic}px;--L-name:${Lname}px;--H:${H}px;--cell:${cell}px;--days:${days};--days-w:${n*W}px">${head}${rows}</div>`;$("c-empty").innerHTML=`${!RO&&!bookings.length?`<div class="cal-empty"><b>Încă nicio rezervare</b><p>Apăsați pe un pătrățel liber din calendar — e o rezervare nouă pentru acel apartament și acea zi. Sau legați Airbnb și Booking — rezervările apar singure.</p><div class="cal-empty-a"><button type="button" class="btn primary" data-calnew="1">+ Rezervare nouă</button><button type="button" class="btn" data-setup="ical">Leagă calendarul</button></div></div>`:""}`;
   {const el=$("c-body"),key=todayStr()+"|"+sz+"|"+W+"|"+P+"|"+CW+"|"+(picOn?"p":"n"),keep=calKey===key?el.scrollLeft:null,t0=el.scrollTop;calKey=el.clientWidth?key:null; // hidden (before login): scroll to today on the next paint
-   const bodyH=HEADH+nRow*H+nG*22+nS*28+exH+2;
+   el.style.height="auto";const bodyH=Math.max(HEADH+nRow*H+nG*22+nS*28+exH+2,el.scrollHeight+2);
    const maxH=Math.max(260,innerHeight-el.getBoundingClientRect().top-navH-8);
    el.style.height=Math.min(bodyH,maxH)+"px";el.style.overflowY=bodyH>maxH?"auto":"hidden";el.style.scrollPaddingLeft=Lw+"px";
    // today must be the first day AFTER the sticky rail (never under the photos)
@@ -3845,7 +3846,7 @@ document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest
   if(t.id==="c-acct"){settingsPage("acct");return}
   if(t.id==="c-gotoday"){closeSheet();const el=$("c-body");if(el)el.scrollTo({left:calB*calW,behavior:"smooth"});return}
   if(t.id==="c-pic"){toggleCalPic();if(sheetCtx&&sheetCtx.type==="calmenu")openCalMenu();return}
-  if(t.dataset.calsz!=null){try{localStorage.setItem("kv_calsz",t.dataset.calsz)}catch(x){}calKey="";closeSheet();renderCal();return}
+  if(t.dataset.calsz!=null){try{localStorage.setItem("kv_calsz2",t.dataset.calsz)}catch(x){}calKey="";closeSheet();renderCal();return}
   if(t.dataset.calst!=null){try{localStorage.setItem("kv_calst",t.dataset.calst)}catch(x){}if(sheetCtx&&sheetCtx.type==="calmenu")openCalMenu();else renderCal();return}
   if(t.id==="c-add"){if(sheetCtx&&sheetCtx.type==="calmenu")closeSheet();newB("",todayStr());return}
   if(t.id==="c-offer"){if(sheetCtx&&sheetCtx.type==="calmenu")closeSheet();offerSheet();return}
