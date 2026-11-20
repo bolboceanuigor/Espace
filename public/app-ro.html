@@ -1622,6 +1622,7 @@ html:root[data-skin="host"] .cal-empty .btn:not(.primary){background:transparent
   html:root[data-skin="host"] .sh.sq .sh-row.sh-sum .sh-tl{background-image:none!important;background-color:#FCFCFD!important}
   html:root[data-skin="host"] .sh.sq .bar{top:3px!important;height:calc(var(--H) - 6px)!important;border-radius:10px!important}
 }
+.sh .fp{position:absolute;top:0;bottom:0;display:grid;place-items:center;font-style:normal;font-size:10.5px;font-weight:600;color:#9AA1AB;pointer-events:none;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .tap-plus{position:absolute;top:2.5px;width:calc(var(--W) - 5px);height:calc(var(--H) - 5px);border-radius:9px;background:#0666EB;color:#fff;display:grid;place-items:center;font-size:22px;font-weight:500;pointer-events:none;z-index:3;animation:tapp .35s ease-out}
 @keyframes tapp{from{transform:scale(.6);opacity:.2}to{transform:none;opacity:1}}
 </style>
@@ -3921,10 +3922,13 @@ function dayCells(a,s0,n,W,list){const R=DR[a]||{},u=unitOf(a),out=[],td=todaySt
   // coliving: days blocked by the apartment or by one of its rooms
   const lkU=EsPrice.linked(cfg.units||{},a),lk=new Set();if(lkU.length)for(const b of lkU.flatMap(x=>byApt(bookings)[x]||[])){if(!occupies(b))continue;for(let i=0;i<b.nights;i++)lk.add(fromT(toT(b.date)+i*DAY))}
   for(let i=0;i<n&&lk.size;i++){const d=fromT(s0+i*DAY);if(lk.has(d))out.push(`<i class="dr lk" style="left:${i*W}px;width:${W}px"></i>`)}
-  const booked=new Set();if(calPM)for(const b of list){for(let i=0;i<b.nights;i++)booked.add(fromT(toT(b.date)+i*DAY))}
+  const booked=new Set();for(const b of list){if(b.tag==="cancel")continue;for(let i=0;i<b.nights;i++)booked.add(fromT(toT(b.date)+i*DAY))}
   const cur=u.pcur||"EUR",short=v=>v>=10000?Math.round(v/1000)+"k":v>=1000&&W<40?(Math.round(v/100)/10)+"k":fmt0(v);
   for(let i=0;i<n;i++){const d=fromT(s0+i*DAY),r=R[d];
-    if(!calPM){if(r&&(r.x||r.cta||r.ctd))out.push(`<i class="dr${r.x?" x":""}${r.cta?" cta":""}${r.ctd?" ctd":""}" style="left:${i*W}px;width:${W}px"></i>`);continue}
+    if(!calPM){if(r&&(r.x||r.cta||r.ctd))out.push(`<i class="dr${r.x?" x":""}${r.cta?" cta":""}${r.ctd?" ctd":""}" style="left:${i*W}px;width:${W}px"></i>`);
+      // free future day → its night price, small and grey (RealtyCalendar-style), only when the unit has a price
+      else if(d>=td&&!booked.has(d)&&W>=34){const p=EsPrice.night(u,d,cfg.pricing,R);if(p)out.push(`<i class="fp" style="left:${i*W}px;width:${W}px">${short(p)}</i>`)}
+      continue}
     if(d<td||booked.has(d)){if(r&&r.x)out.push(`<i class="pc x past" style="left:${i*W}px;width:${W}px"></i>`);continue}
     const p=EsPrice.night(u,d,cfg.pricing,R),mn=EsPrice.minStay(u,d,cfg.pricing,R,(cfg.direct||{}).min),sel=pmSel&&pmSel.apt===a&&d>=pmSel.from&&d<=(pmSel.to||pmSel.from);
     out.push(`<i class="pc${r&&r.p!=null?" own":""}${r&&r.x?" x":""}${r&&r.cta?" cta":""}${r&&r.ctd?" ctd":""}${sel?" sel":""}" style="left:${i*W}px;width:${W}px" data-pcd="${d}" title="${esc(a+" · "+dm(d)+" · "+(p?fmt(p)+" "+CUR_L[cur]:"preț nesetat")+(mn>1?" · de la "+mn+" nopți":"")+(r&&r.x?" · închis":"")+(r&&r.cta?" · fără sosire":"")+(r&&r.ctd?" · fără plecare":""))}">${r&&r.x?"":`<b>${p?short(p):"—"}</b>${mn>1?`<small>${mn}+</small>`:""}`}</i>`)}
