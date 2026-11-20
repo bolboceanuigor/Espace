@@ -494,5 +494,14 @@
 "Добавьте первую бронь или подключите календарь с": "Add the first booking or connect the calendar from",
 "брони будут появляться здесь сами.": "bookings will appear here on their own.",
 "Подключить календарь": "Connect calendar",
-"Пока нет броней": "No bookings yet"
+"Пока нет броней": "No bookings yet",
+"Никто не живёт": "Nobody staying",
+"Заездов нет": "No arrivals",
+"Выездов нет": "No departures",
+"Живут": "Staying",
+"шагов": "steps",
+"шага": "steps",
+"шаг": "step",
+"Остальные шаги ·": "Other steps ·",
+"Остальные шаги": "Other steps"
 }

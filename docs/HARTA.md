@@ -245,6 +245,7 @@ Ce trebuie să aibă fiecare modul ca aplicația să fie completă și funcțion
 | Design 5: „Mai mult” ca listă | ✅ | Pe telefon, modulele sunt rânduri grupate (ca în Setări), nu carduri mari; pe desktop rămân cardurile. |
 | Design 6: calendarul pe telefon | ✅ | Tipurile de cameră apar ca subtitlu („Dublă · 4”), rândul „libere” e explicat în antetul grupului, paturile hostelului au 🛏; butoanele tăiate din colț (Prețuri, Ofertă) rămân doar în meniul calendarului. |
 | Design 7: consecvență și verificare | ✅ | Aplicația menajerei și paginile oaspeților folosesc aceleași butoane și câmpuri; textele care pomeneau „Meniu” spun acum „Mai mult”; „per bed / night” fără virgulă. Audit: 26 ecrane × 360/390 px × temă deschisă/întunecată, nimic nu iese din ecran. |
+| Bara de jos v2 (20.11, alegerea lui Igor) | ✅ | Calendar · Rezervări · Curățenii · Meniu, pastilă plutitoare cu fila activă albastru deschis; ＋ rotund separat în colț (doar pe Calendar, Rezervări, Curățenii). „Rezervări” = Azi / Mâine / 7 zile cu Sosiri · Plecări · Cazați. „Primii pași” arată doar pasul următor. |
 
 ---
 

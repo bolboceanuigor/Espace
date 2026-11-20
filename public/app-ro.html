@@ -211,6 +211,8 @@ button,.btn,.chip,nav.tabs,.mtile,.bar,.sh-name,.sh-day{-webkit-user-select:none
 .az-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:18px 0 18px}.az-head h1{margin:0;font-size:26px;font-weight:600;letter-spacing:-.02em}.az-date{margin:4px 0 0;color:var(--muted);font-size:13.5px}
 .ptitle,#set-title{margin:18px 0 14px;font-size:26px;font-weight:600;letter-spacing:-.02em;line-height:1.2}
 .cal-empty{margin:18px 16px;padding:20px;border:1px dashed var(--line);border-radius:18px;text-align:center;background:var(--surface)}.cal-empty b{font-size:16px}.cal-empty p{color:var(--muted);font-size:14px;margin:6px 0 14px}.cal-empty-a{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.az-range{display:flex;gap:6px;margin:0 0 14px;background:var(--surface);border-radius:999px;padding:4px;box-shadow:0 1px 2px rgba(25,28,31,.05)}.az-range button{flex:1;border:0;background:none;border-radius:999px;min-height:38px;font:inherit;font-weight:600;color:var(--muted);cursor:pointer}.az-range button[aria-selected="true"]{background:var(--accent-soft,#e8f1fe);color:var(--accent,#0666EB)}
+.setup-more{border:0;background:none;color:var(--accent,#0666EB);font:inherit;font-weight:600;padding:8px 0 0;cursor:pointer}
 .az-head .btn{flex:0 0 auto;width:auto!important;max-width:max-content;height:42px;padding:0 18px;margin:0}
 .az-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:24px}
 .az-stat{display:flex;gap:12px;align-items:flex-start;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px}
@@ -1491,8 +1493,8 @@ html:root[data-skin="host"] .sheet,html:root[data-skin="host"] .modal{border-rad
 /* meniul de jos: pastilă albă plutitoare; fila activă = cerc bleumarin cu iconiță aurie; „+” bleumarin */
 @media (max-width:859px){
   html:root[data-skin="host"] nav.tabs{background:rgba(255,255,255,.96);border:0;border-radius:999px;box-shadow:0 10px 30px rgba(27,36,64,.16),0 1px 4px rgba(27,36,64,.06)}
-  html:root[data-skin="host"] nav.tabs button.tab-ph{color:var(--ink);font-weight:700}
-  html:root[data-skin="host"] nav.tabs button[aria-current="true"]:not(.mid){background:var(--navy);color:var(--gold);border-radius:999px}
+  html:root[data-skin="host"] nav.tabs button.tab-ph{color:var(--muted);font-weight:600}
+  html:root[data-skin="host"] nav.tabs button[aria-current="true"]:not(.mid){background:var(--accent-soft);color:var(--accent);border-radius:999px}
   html:root[data-skin="host"] nav.tabs button.mid svg{background:var(--navy);color:#fff;border-radius:50%;box-shadow:0 8px 18px rgba(12,56,85,.35)}
 }
 @media (min-width:860px){
@@ -1538,7 +1540,7 @@ html:root[data-skin="host"] .sh-tl .td{box-shadow:inset 2px 0 0 #0666EB!importan
 html:root[data-skin="host"] .tn.mono{background:#191C1F!important;color:#fff!important}
 html:root[data-skin="host"] .sh-day.today b{background:#0666EB!important}
 html:root[data-skin="host"] .setli .ic,html:root[data-skin="host"] .mtile .mi{color:#0666EB!important;background:#E8F0FD!important}
-@media (max-width:859px){html:root[data-skin="host"] nav.tabs button[aria-current="true"]:not(.mid){background:#191C1F!important;color:#fff!important}html:root[data-skin="host"] nav.tabs button.mid svg{background:#0666EB!important;box-shadow:0 8px 18px rgba(6,102,235,.35)!important}}
+@media (max-width:859px){html:root[data-skin="host"] nav.tabs button[aria-current="true"]:not(.mid){background:#E8F1FE!important;color:#0666EB!important}html:root[data-skin="host"] nav.tabs button.mid svg{background:#0666EB!important;box-shadow:0 8px 18px rgba(6,102,235,.35)!important}}
 @media (min-width:860px){html:root[data-skin="host"] nav.tabs button[aria-current="true"]{background:#191C1F!important;color:#fff!important}}
 /* calendar: rândul „liber X din Y” al clădirii / tipului de cameră */
 .sh-row.sh-sum{height:28px!important;min-height:28px}
@@ -1562,6 +1564,19 @@ html:root[data-skin="host"] .setli .ic,html:root[data-skin="host"] .mtile .mi{co
 @media (max-width:560px){html body .grid2:has(>div>#f-pay){grid-template-columns:1fr}}#f-pay{flex-wrap:wrap}
 @media (max-width:420px){.delbtns.three{grid-template-columns:1fr 1fr!important}.delbtns.three .btn:last-child{grid-column:1/-1}.delbtns.three .btn{white-space:normal;line-height:1.2}}
 .helpl details{border-bottom:1px solid var(--line);padding:12px 2px}.helpl summary{font-weight:800;cursor:pointer;font-size:15px;list-style:none}.helpl summary::before{content:"＋ ";color:var(--muted)}.helpl details[open] summary::before{content:"− "}.helpl p{margin:8px 0 10px;line-height:1.5}
+
+/* 20.11: 4 file (Calendar · Rezervări · Curățenii · Meniu) + „＋” separat, rotund, în colț */
+#fab{display:none}
+@media (max-width:859px){
+  nav.tabs{padding:6px!important;gap:4px!important}
+  nav.tabs button.tab-ph{flex:1;min-height:52px;padding:6px 4px!important;font-size:11.5px!important;gap:3px!important}
+  nav.tabs button.tab-ph svg{width:22px;height:22px}
+  #fab{display:flex;position:fixed;right:18px;bottom:calc(env(safe-area-inset-bottom,0px) + 96px);z-index:40;width:58px;height:58px;border-radius:50%;border:0;align-items:center;justify-content:center;background:var(--accent,#0666EB);color:#fff;box-shadow:0 10px 24px rgba(6,102,235,.35),0 2px 6px rgba(25,28,31,.12);cursor:pointer}
+  #fab svg{width:26px;height:26px}
+  #fab:active{transform:scale(.95)}
+  #azi-new{display:none}
+  body.nofab #fab,body.kb #fab,body.calmode.pm #fab{display:none}
+}
 </style>
 <script>/* JS errors go to admin → Sănătate (a few per visit) */(function(){var n=0,seen={};function rep(m,a){m=String(m||"").slice(0,300);if(!m||/^Script error/.test(m)||seen[m]||++n>5)return;seen[m]=1;try{fetch("/api/client_error",{method:"POST",keepalive:true,headers:{"Content-Type":"application/json"},body:JSON.stringify({page:"app",msg:m,at:String(a||"").slice(0,160)})})}catch(e){}}addEventListener("error",function(e){rep(e.message,(e.filename||"").split("/").pop()+":"+e.lineno+":"+e.colno)});addEventListener("unhandledrejection",function(e){var r=e.reason;if(r&&(r.code||r.name==="AbortError"))return;rep(r&&r.message||r,"promise")})})();</script>
 </head>
@@ -1614,15 +1629,15 @@ setTimeout(function(){window.bootDone()},8000)})();</script>
   <button class="iconbtn vbtn" id="open-bell" aria-label="Notificări" title="Notificări"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg><span class="badge" id="bell-badge" hidden></span></button>
   <button class="iconbtn vbtn" id="open-verify" hidden aria-label="Verificarea plăților" title="Verificarea plăților"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.7 2.7L16.5 9"/></svg><span class="badge" id="v-badge" hidden></span></button>
   <button class="iconbtn" id="open-settings" hidden aria-label="Setări"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg></button>
+  <button type="button" id="fab" data-tab="plus" aria-label="Adaugă"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
   <nav class="tabs" id="tabs">
-    <!-- phone: Today · Calendar · Plus · Cleaning · More -->
-    <button type="button" data-view="azi" class="tab-ph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>Azi</button>
+    <!-- phone: Calendar · Bookings · Cleaning · Menu (＋ floats separately: #fab) -->
     <button type="button" data-view="cal" class="tab-ph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Calendar</button>
-    <button type="button" data-tab="plus" class="mid tab-ph" aria-label="Adaugă"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+    <button type="button" data-view="azi" class="tab-ph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>Rezervări</button>
     <button type="button" data-view="cln" class="tab-ph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3 9 13"/><path d="M5 14h10l2 7H3z"/><path d="M8 17v4M12 17v4"/></svg>Curățenii</button>
-    <button type="button" data-view="menu" class="tab-ph"><span class="tabic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/></svg><i id="tab-badge" hidden></i></span>Mai mult</button>
+    <button type="button" data-view="menu" class="tab-ph"><span class="tabic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg><i id="tab-badge" hidden></i></span>Meniu</button>
     <!-- desktop / wide sidebar extras -->
-    <button data-view="azi" class="tab-dk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>Azi</button>
+    <button data-view="azi" class="tab-dk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>Rezervări</button>
     <button data-view="cal" class="tab-dk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Calendar</button>
     <button data-view="cln" class="tab-dk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3 9 13"/><path d="M5 14h10l2 7H3z"/><path d="M8 17v4M12 17v4"/></svg>Curățenii</button>
     <button data-view="today" class="tab-dk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/><path d="M12 7v5l3 2"/></svg>Tura</button>
@@ -2243,7 +2258,7 @@ function renderToday(){
 }
 /* TODAY (light look): the day at a glance — arrivals, departures, cleanings, money to collect, occupancy, latest events.
    Built only from data the app already has; every card opens the real booking or the real cleanings page. */
-let aziTab="in";
+let aziTab="in",aziRange=0;
 const initialsOf=t=>String(t||"").trim().split(/\s+/).map(w=>w[0]||"").join("").slice(0,2).toUpperCase()||"?";
 const AZI_I={in:'<path d="M17 7 7 17M7 9v8h8"/>',out:'<path d="M7 17 17 7M9 7h8v8"/>',cln:'<path d="M14 3 9 13M5 14h10l2 7H3zM8 17v4M12 17v4"/>',money:'<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M16 15h2"/>',phone:'<path d="M5 4h4l2 5-3 2a11 11 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>',arrow:'<path d="M5 12h14M13 6l6 6-6 6"/>',home:'<path d="M3 11 12 4l9 7v9H3z"/>',users:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 4 6"/>',check:'<path d="m5 12.5 4.5 4.5L19 7.5"/>',clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'};
 const aziIc=(k,sz)=>`<svg viewBox="0 0 24 24" width="${sz||18}" height="${sz||18}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${AZI_I[k]}</svg>`;
@@ -2251,34 +2266,40 @@ const CH_CLS=s=>s==="Airbnb"?"airbnb":s==="Booking"?"booking":s==="Прямой"
 function aziPay(b){if(!payActive(b))return "";const p=payState(b);
   return p.state==="paid"?`<span class="az-pill ok">${aziIc("check",12)}Achitat</span>`:p.state==="part"?`<span class="az-pill warn">Parțial · rămas ${fmt0(p.left)} ${CUR_SYM(p.cur)}</span>`:`<span class="az-pill bad">Neachitat${p.left?" "+fmt0(p.left)+" "+CUR_SYM(p.cur):""}</span>`}
 const CUR_SYM=c=>c==="MDL"?"lei":c==="USD"?"$":"€";
-function aziCard(b,dep){const u=unitOf(b.apt),x=b.x||{},t=dep?(x.tout||u.cout||"12:00"):(x.tin||u.cin||"14:00"),tel=telDigits(b.phone);
-  return `<article class="az-card az-tap" data-edit="${esc(b.id)}" tabindex="0"><div class="az-top"><span class="az-ava">${esc(initialsOf(b.guest||b.apt))}</span><div class="az-who"><span class="az-eye">${dep?"Plecare până la "+esc(t):"Sosire de la "+esc(t)}</span><b>${esc(b.guest||"Fără nume")}</b></div>${b.source?`<span class="az-ch ${CH_CLS(b.source)}">${esc(b.source)}</span>`:""}</div>
+function aziCard(b,dep,showDate){const u=unitOf(b.apt),x=b.x||{},t=dep?(x.tout||u.cout||"12:00"):(x.tin||u.cin||"14:00"),tel=telDigits(b.phone);
+  return `<article class="az-card az-tap" data-edit="${esc(b.id)}" tabindex="0"><div class="az-top"><span class="az-ava">${esc(initialsOf(b.guest||b.apt))}</span><div class="az-who"><span class="az-eye">${showDate?dm(dep?endOf(b):b.date)+" · ":""}${dep?"Plecare până la "+esc(t):"Sosire de la "+esc(t)}</span><b>${esc(b.guest||"Fără nume")}</b></div>${b.source?`<span class="az-ch ${CH_CLS(b.source)}">${esc(b.source)}</span>`:""}</div>
     <p class="az-meta">${aziIc("home",14)}<b>${esc(b.apt)}</b><span>${dm(b.date)} – ${dm(endOf(b))}</span><span>${b.nights} ${plural(b.nights,"noapte","nopți","nopți")}</span>${b.pax?`<span>${aziIc("users",13)} ${b.pax}${(b.x||{}).kids?" · copii "+b.x.kids:""}</span>`:""}</p>${(b.x||{}).team?`<p class="az-meta" style="white-space:normal"><b>Pentru echipă:</b> ${esc(b.x.team)}</p>`:""}
     <div class="az-foot"><div class="az-pills">${aziPay(b)}${b.tag==="req"?`<span class="az-pill warn">Cerere — confirmă</span>`:""}</div>
     <div class="az-acts">${tel?`<a class="az-ico" href="tel:${esc(tel)}" aria-label="Sună">${aziIc("phone",17)}</a>`:""}<span class="az-ico az-go" aria-hidden="true">${aziIc("arrow",17)}</span></div></div></article>`}
 function renderAzi(){const el=$("azi-body");if(!el)return;const td=todayStr();
   const live=bookings.filter(b=>occupies(b)&&b.tag!=="closed");
-  const ins=live.filter(b=>b.date===td).sort((a,b)=>(unitOf(a.apt).cin||"14:00").localeCompare(unitOf(b.apt).cin||"14:00"));
-  const outs=live.filter(b=>endOf(b)===td);
+  const d0=fromT(toT(td)+(aziRange===1?DAY:0)),d1=fromT(toT(d0)+(aziRange===7?7:1)*DAY),inR=d=>d>=d0&&d<d1;
+  const ins=live.filter(b=>inR(b.date)).sort((a,b)=>a.date.localeCompare(b.date)||(unitOf(a.apt).cin||"14:00").localeCompare(unitOf(b.apt).cin||"14:00"));
+  const outs=live.filter(b=>inR(endOf(b))).sort((a,b)=>endOf(a).localeCompare(endOf(b)));
+  const stay=live.filter(b=>b.tag!=="req"&&b.date<=d0&&endOf(b)>d0);
+  if(aziTab==="cln")aziTab="in";
   const rows=(typeof dayRows==="function"?dayRows(td):[]).filter(r=>r.kind==="clean"||r.kind==="general"),done=rows.filter(r=>r.status==="done").length;
   const owe=live.filter(b=>b.tag!=="req"&&payActive(b)&&b.date<=td&&payState(b).state!=="paid"),oweEur=owe.reduce((a,b)=>{const p=payState(b);return a+toEurC(p.left||0,p.cur)},0);
   const occ=cfg.apts.filter(a=>live.some(b=>b.apt===a&&b.date<=td&&endOf(b)>td)).length,tot=cfg.apts.length||1;
   const stat=(k,cls,label,n,note)=>`<div class="az-stat"><span class="az-sic ${cls}">${aziIc(k,20)}</span><div><span class="az-sl">${label}</span><b class="az-sn">${n}</b><span class="az-sl">${note}</span></div></div>`;
-  const tabs=[["in","Sosiri",ins.length],["out","Plecări",outs.length],["cln","Curățenii",rows.length]];
+  const tabs=[["in","Sosiri",ins.length],["out","Plecări",outs.length],["stay","Cazați",stay.length]],wk=aziRange===7;
   let list="";
-  if(aziTab==="in")list=ins.length?ins.map(b=>aziCard(b,false)).join(""):`<div class="az-empty">${aziIc("in",28)}<b>Azi nu sunt sosiri</b><span>Apartamentele libere se văd în calendar.</span></div>`;
-  else if(aziTab==="out")list=outs.length?outs.map(b=>aziCard(b,true)).join(""):`<div class="az-empty">${aziIc("out",28)}<b>Azi nu sunt plecări</b></div>`;
+  if(aziTab==="in")list=ins.length?ins.map(b=>aziCard(b,false,wk)).join(""):`<div class="az-empty">${aziIc("in",28)}<b>Nicio sosire</b><span>Apartamentele libere se văd în calendar.</span></div>`;
+  else if(aziTab==="out")list=outs.length?outs.map(b=>aziCard(b,true,wk)).join(""):`<div class="az-empty">${aziIc("out",28)}<b>Nicio plecare</b></div>`;
+  else if(aziTab==="stay")list=stay.length?stay.map(b=>aziCard(b,true,true)).join(""):`<div class="az-empty">${aziIc("home",28)}<b>Nu locuiește nimeni</b></div>`;
   else list=rows.length?rows.map(r=>`<article class="az-card"><div class="az-top"><span class="az-ava ok">${aziIc("cln",18)}</span><div class="az-who"><span class="az-eye">${r.time?"Până la "+esc(r.time):r.kind==="general"?"Curățenie generală":"După plecare"}</span><b>${esc(r.apt)}</b><span class="az-sub">${r.staff?esc(stName(r.staff)):"menajeră neatribuită"}${r.b&&r.b.nights?"":""}</span></div>${r.status==="done"?`<span class="az-pill ok">${aziIc("check",12)}Gata</span>`:`<span class="az-pill warn">Nu e gata</span>`}</div></article>`).join("")+`<button type="button" class="btn az-more" data-azigo="cln">Deschide curățeniile${aziIc("arrow",15)}</button>`:`<div class="az-empty">${aziIc("cln",28)}<b>Azi nu sunt curățenii</b></div>`;
   const ev=(notifs||[]).slice(0,4);
-  el.innerHTML=`<div class="az-head"><div><h1>Azi</h1><p class="az-date">${esc(WDL[new Date(toT(td)).getUTCDay()]||"")}, ${dm(td)}</p></div>${RO?"":`<button type="button" class="btn primary" id="azi-new">+ Rezervare nouă</button>`}</div>
+  el.innerHTML=`<div class="az-head"><div><h1>Rezervări</h1><p class="az-date">${aziRange===7?dm(d0)+" – "+dm(fromT(toT(d1)-DAY)):esc(WDL[new Date(toT(d0)).getUTCDay()]||"")+", "+dm(d0)}</p></div>${RO?"":`<button type="button" class="btn primary" id="azi-new">+ Rezervare nouă</button>`}</div>
+    <div class="az-range" role="tablist">${[[0,"Azi"],[1,"Mâine"],[7,"7 zile"]].map(([k,l])=>`<button type="button" role="tab" aria-selected="${aziRange===k}" data-azirange="${k}">${l}</button>`).join("")}</div>
     <div id="setup-card"></div>
-    <div class="az-stats">${stat("in","","Sosiri azi",ins.length,ins.length?esc(ins[0].apt)+" — primul":"nu")}${stat("out","warn","Plecări azi",outs.length,outs.length?"până la "+esc(unitOf(outs[0].apt).cout||"12:00"):"nu")}${stat("cln","ok","Curățenii",rows.length-done,done+" din "+rows.length+" gata")}${stat("money","mute","De încasat",fmt0(oweEur)+" €",owe.length+" "+plural(owe.length,"rezervare","rezervări","rezervări"))}</div>
+    ${aziRange?"":`<div class="az-stats">${stat("in","","Sosiri azi",ins.length,ins.length?esc(ins[0].apt)+" — primul":"nu")}${stat("out","warn","Plecări azi",outs.length,outs.length?"până la "+esc(unitOf(outs[0].apt).cout||"12:00"):"nu")}${stat("cln","ok","Curățenii",rows.length-done,done+" din "+rows.length+" gata")}${stat("money","mute","De încasat",fmt0(oweEur)+" €",owe.length+" "+plural(owe.length,"rezervare","rezervări","rezervări"))}</div>`}
     <div class="az-grid"><section><div class="az-seg" role="tablist" aria-label="Ziua">${tabs.map(([k,l,n])=>`<button type="button" role="tab" aria-selected="${aziTab===k}" data-azitab="${k}">${l}<span>${n}</span></button>`).join("")}</div>${list}</section>
     <aside class="az-side"><section class="az-box"><div class="az-bh"><b>Ocupare azi</b></div><div class="az-occ"><b>${Math.round(occ/tot*100)}<small>%</small></b><span>${occ} din ${tot} ${plural(tot,"unități","unități","unități")}</span></div><div class="az-track">${cfg.apts.map(a=>`<i class="${live.some(b=>b.apt===a&&b.date<=td&&endOf(b)>td)?"on":""}" title="${esc(a)}"></i>`).join("")}</div><button type="button" class="btn az-more" data-azigo="cal">Vezi calendarul${aziIc("arrow",15)}</button></section>
     ${ev.length?`<section class="az-box"><div class="az-bh"><b>Activitate recentă</b>${aziIc("clock",16)}</div>${ev.map(x=>`<div class="az-ev"><span class="az-evi">${aziIc("check",13)}</span><div><b>${esc(x.title)}</b>${x.body?`<span>${esc(x.body)}</span>`:""}<small>${fdt(x.at)}</small></div></div>`).join("")}</section>`:""}</aside></div>`;renderSetup()}
 const WDL=["Duminică","Luni","Marți","Miercuri","Joi","Vineri","Sâmbătă"];
-document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-azitab],[data-azigo],#azi-new");if(!t)return;
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-azitab],[data-azirange],[data-azigo],#azi-new");if(!t)return;
   if(t.dataset.azitab){aziTab=t.dataset.azitab;renderAzi();return}
+  if(t.dataset.azirange!=null){aziRange=+t.dataset.azirange;renderAzi();return}
   if(t.dataset.azigo){show(t.dataset.azigo);return}
   if(t.id==="azi-new"){openBForm()}});
 /* FIRST STEPS (Harta mod. 2): 5 auto-ticks on Today; dismissible; gone when all done. Does not change wizNeeded. */
@@ -2288,6 +2309,7 @@ async function stepsProbe(){if(STEPS_LOAD)return;STEPS_LOAD=1;
     if(STEPS_X.ical==null){let n=0;for(const a of cfg.apts){try{const r=await api("kv_ical_list",{apt:a});n+=(r.feeds||[]).length;if(n)break}catch(e){}}STEPS_X.ical=n>0}
   }catch(e){STEPS_X.team=STEPS_X.team||false;STEPS_X.ical=STEPS_X.ical||false}
   STEPS_LOAD=0;renderSetup()}
+let SETUP_MORE=false;
 function renderSetup(){if(!W&&wizNeeded())wizStart();const el=$("setup-card");if(!el)return;
   const key="setup_hide_"+(ME&&ME.org?ME.org.id:"");
   if(RO||!ME||!ME.org||!["owner","manager"].includes(ROLE)||ls.get(key)==="1"||wizNeeded()){el.innerHTML="";return}
@@ -2308,11 +2330,13 @@ function renderSetup(){if(!W&&wizNeeded())wizStart();const el=$("setup-card");if
   const demoOn=!!(cfg.demo&&cfg.demo.on);
   el.innerHTML=`<div class="card setup"><div class="setup-h"><b>Primii pași</b><span class="small">${done} din ${steps.length}</span><button class="iconbtn" data-setup="hide" aria-label="Ascunde">✕</button></div>
     <div class="setup-bar"><i style="width:${done/steps.length*100}%"></i></div>
-    ${steps.map(([k,ok,t,sub,btn],i)=>ok?"":`<div class="setup-s"><span class="n">${ok?"✓":i+1}</span><span class="m"><b>${t}</b><small>${esc(sub)}</small></span>${ok?"":`<button class="btn sm${steps.findIndex(x=>!x[1])===i?" primary":""}" data-setup="${k}">${btn}</button>`}</div>`).join("")}
-    <div class="setup-s" style="margin-top:8px;border-top:1px dashed var(--line);padding-top:10px"><span class="n">◈</span><span class="m"><b>Date demo</b><small>${demoOn?"3 obiecte și 5 rezervări marcate TEST sunt deja în calendar — le poți șterge.":"Încarcă 3 obiecte și 5 rezervări marcate TEST ca să vezi imediat cum arată aplicația."}</small></span>
-      ${demoOn?`<button class="btn sm" data-setup="demo-clear">Șterge exemplul</button>`:`<button class="btn sm primary" data-setup="demo-load">Încarcă exemplul</button>`}</div></div>`}
+    ${steps.map(([k,ok,t,sub,btn],i)=>ok||(!SETUP_MORE&&i!==steps.findIndex(x=>!x[1]))?"":`<div class="setup-s"><span class="n">${ok?"✓":i+1}</span><span class="m"><b>${t}</b><small>${esc(sub)}</small></span>${ok?"":`<button class="btn sm${steps.findIndex(x=>!x[1])===i?" primary":""}" data-setup="${k}">${btn}</button>`}</div>`).join("")}
+    ${steps.length-done>1&&!SETUP_MORE?`<button type="button" class="setup-more" data-setup="more">Ceilalți pași · ${steps.length-done-1} ›</button>`:""}
+    ${SETUP_MORE||(!bookings.length&&!demoOn)||demoOn?`<div class="setup-s" style="margin-top:8px;border-top:1px dashed var(--line);padding-top:10px"><span class="n">◈</span><span class="m"><b>Date demo</b><small>${demoOn?"3 obiecte și 5 rezervări marcate TEST sunt deja în calendar — le poți șterge.":"Încarcă 3 obiecte și 5 rezervări marcate TEST ca să vezi imediat cum arată aplicația."}</small></span>
+      ${demoOn?`<button class="btn sm" data-setup="demo-clear">Șterge exemplul</button>`:`<button class="btn sm primary" data-setup="demo-load">Încarcă exemplul</button>`}</div>`:""}</div>`}
 document.addEventListener("click",e=>{const b=e.target.closest("[data-setup]");if(!b)return;const k=b.dataset.setup;
   if(k==="hide"){ls.set("setup_hide_"+(ME&&ME.org?ME.org.id:""),"1");renderSetup();return}
+  if(k==="more"){SETUP_MORE=true;renderSetup();return}
   if(k==="apts"||k==="price"){stOpen=null;settingsPage("apts");scrollTo(0,0);return}
   if(k==="ical"){stOpen=null;settingsPage("apts");scrollTo(0,0);toast("Deschide apartamentul: secțiunea calendare");return}
   if(k==="team"){stOpen=null;settingsPage(ROLE==="owner"?"team":"");scrollTo(0,0);return}
@@ -5358,7 +5382,7 @@ function hvHome(){
   if(hv&&hvTarget==="page")hvSetMode("list");
   window.scrollTo({top:0,behavior:"smooth"});
 }
-function show(v){
+function show(v){document.body.classList.toggle("nofab",RO||!["cal","azi","cln"].includes(v));
   if(bpop)closeBPop();
   if(v==="fin"&&!canSec("reports")){toast("Nu ai acces la această secțiune");return}
   if((v==="exp"||v==="verify")&&!canSec("money")){toast("Nu ai acces la această secțiune");return}
