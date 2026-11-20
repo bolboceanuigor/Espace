@@ -1541,7 +1541,7 @@ html:root[data-skin="host"] .tn.mono{background:#191C1F!important;color:#fff!imp
 html:root[data-skin="host"] .sh-day.today b{background:#0666EB!important}
 html:root[data-skin="host"] .setli .ic,html:root[data-skin="host"] .mtile .mi{color:#0666EB!important;background:#E8F0FD!important}
 @media (max-width:859px){html:root[data-skin="host"] nav.tabs button[aria-current="true"]:not(.mid){background:#E8F1FE!important;color:#0666EB!important}html:root[data-skin="host"] nav.tabs button.mid svg{background:#0666EB!important;box-shadow:0 8px 18px rgba(6,102,235,.35)!important}}
-@media (min-width:860px){html:root[data-skin="host"] nav.tabs button[aria-current="true"]{background:#191C1F!important;color:#fff!important}}
+@media (min-width:860px){html:root[data-skin="host"] nav.tabs button[aria-current="true"]{background:#E8F1FE!important;color:#0666EB!important}}
 /* calendar: rândul „liber X din Y” al clădirii / tipului de cameră */
 .sh-row.sh-sum{height:28px!important;min-height:28px}
 .sh-row.sh-sum .sh-name{border:0;background:#F7F8FB;font:inherit;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;text-align:left;padding:0 10px;height:28px;display:flex;align-items:center;width:var(--L)!important;min-width:var(--L);max-width:var(--L);flex:none;box-sizing:border-box}
@@ -1577,6 +1577,42 @@ html:root[data-skin="host"] .setli .ic,html:root[data-skin="host"] .mtile .mi{co
   #azi-new{display:none}
   body.nofab #fab,body.kb #fab,body.calmode.pm #fab{display:none}
 }
+
+/* ===== Calendar v2 (20.11): calm, light, readable — names in the rail, soft booking pills ===== */
+@media (max-width:859px){ nav.tabs{grid-template-columns:repeat(4,1fr)!important} }
+html:root[data-skin="host"] #c-body{box-shadow:none!important;border-radius:0!important;margin:0!important;background:#fff}
+html:root[data-skin="host"] .sh.sq .sh-head{background:#fff!important;border-bottom:1px solid #EEF1F5!important}
+html:root[data-skin="host"] .sh.sq .sh-corner{background:#fff!important;border-right:1px solid #EEF1F5!important}
+html:root[data-skin="host"] .sh.sq .sh-days .sh-day{border-right:0!important;padding:8px 0 10px!important;gap:4px}
+html:root[data-skin="host"] .sh.sq .sh-day small{font-size:11px!important;font-weight:500!important;color:#8A919C!important;text-transform:none}
+html:root[data-skin="host"] .sh.sq .sh-day b{font-size:16px;font-weight:600;color:#191C1F;width:30px;height:30px;line-height:30px;border-radius:50%;text-align:center;padding:0}
+html:root[data-skin="host"] .sh.sq .sh-day.we,html:root[data-skin="host"] .sh-day.we{background:#FAFBFC!important}
+html:root[data-skin="host"] .sh.sq .sh-day.today b{background:#0666EB!important;color:#fff!important}
+html:root[data-skin="host"] .sh.sq .sh-day.today small{color:#0666EB!important;font-weight:600!important}
+html:root[data-skin="host"] .sh-tl{background-image:repeating-linear-gradient(to right,transparent 0,transparent calc(var(--W) - 1px),#F1F3F6 calc(var(--W) - 1px),#F1F3F6 var(--W))!important}
+html:root[data-skin="host"] .sh-tl .td{box-shadow:inset 2px 0 0 #0666EB!important;opacity:.55}
+html:root[data-skin="host"] .sh-row{border-bottom:1px solid #EEF1F5!important}
+html:root[data-skin="host"] .sh.sq .sh-row .sh-name,html:root[data-skin="host"] .sh.sq .sh-row .sh-tl{background:#fff!important}
+html:root[data-skin="host"] .sh.sq .sh-name{border-right:1px solid #EEF1F5!important}
+html:root[data-skin="host"] .sh.sq.names .sh-name{padding:0 8px 0 12px!important}
+html:root[data-skin="host"] .sh.sq.names .sh-name span{font-size:12.5px!important;font-weight:600!important;letter-spacing:-.01em!important;color:#191C1F!important;white-space:normal!important;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.25}
+html:root[data-skin="host"] .sh.sq.names .sh-name .tn{display:none!important}
+html:root[data-skin="host"] .sh.pics .sh-name .tn{box-shadow:none!important}
+html:root[data-skin="host"] .sh-grp{background:#F7F8FA!important;border-bottom:1px solid #EEF1F5!important}
+html:root[data-skin="host"] .sh-grp b{font-size:11px!important;font-weight:700!important;letter-spacing:.06em!important;color:#717680!important}
+html:root[data-skin="host"] .sh-row.sh-sum .sh-tl,html:root[data-skin="host"] .sh-row.sh-sum .sh-name{background:#FCFCFD!important}
+html:root[data-skin="host"] .sh-row.sh-sum .sh-name span{font-size:11.5px!important;color:#717680!important;font-weight:600!important}
+/* booking pills: soft tint of the channel colour, dark text, coloured edge */
+html:root[data-skin="host"] .sh.sq .bar{background:color-mix(in srgb,var(--c) 15%,#fff)!important;color:#191C1F!important;border-radius:9px!important;box-shadow:inset 3px 0 0 var(--c)!important;border:0!important;font-weight:600}
+html:root[data-skin="host"] .sh.sq .bar .nm{color:#191C1F!important;font-size:12px}
+html:root[data-skin="host"] .sh.sq .bar .amt{background:#fff!important;color:#191C1F!important;border-radius:6px;font-weight:700}
+html:root[data-skin="host"] .sh.sq .bar .amt.pst{background:#FDECEC!important;color:#C0262D!important}
+html:root[data-skin="host"] .sh.sq .bar.unp{box-shadow:inset 3px 0 0 #E5484D!important}
+html:root[data-skin="host"] .sh.sq .bar.closed{background:repeating-linear-gradient(135deg,#F1F3F6 0 6px,#E7EAEE 6px 12px)!important;box-shadow:none!important;color:#717680!important}
+/* empty calendar: calm card */
+html:root[data-skin="host"] .cal-empty{border:0!important;background:#fff!important;box-shadow:0 1px 2px rgba(25,28,31,.04),0 6px 20px rgba(25,28,31,.06);margin:16px!important;padding:24px 20px!important}
+html:root[data-skin="host"] .cal-empty .btn.primary{background:#0666EB!important;border-color:#0666EB!important;color:#fff!important}
+html:root[data-skin="host"] .cal-empty .btn:not(.primary){background:transparent!important;border:0!important;color:#0666EB!important}
 </style>
 <script>/* JS errors go to admin → Sănătate (a few per visit) */(function(){var n=0,seen={};function rep(m,a){m=String(m||"").slice(0,300);if(!m||/^Script error/.test(m)||seen[m]||++n>5)return;seen[m]=1;try{fetch("/api/client_error",{method:"POST",keepalive:true,headers:{"Content-Type":"application/json"},body:JSON.stringify({page:"app",msg:m,at:String(a||"").slice(0,160)})})}catch(e){}}addEventListener("error",function(e){rep(e.message,(e.filename||"").split("/").pop()+":"+e.lineno+":"+e.colno)});addEventListener("unhandledrejection",function(e){var r=e.reason;if(r&&(r.code||r.name==="AbortError"))return;rep(r&&r.message||r,"promise")})})();</script>
 </head>
@@ -3526,11 +3562,11 @@ const CAL_ST=[["all","Все"],["book","Брони"],["req","Заявки"],["ca
 function calSt(){try{const v=localStorage.getItem("kv_calst")||"all";return CAL_ST.some(x=>x[0]===v)?v:"all"}catch(e){return"all"}}
 /* size = how many days fit on screen (Realty-style); cell side is derived from viewport */
 const CAL_SZ={sm:{days:10,label:"Маленький"},md:{days:9,label:"Обычный"},lg:{days:7,label:"Крупный"}};
-function calSz(){try{const v=localStorage.getItem("kv_calsz")||"md";return CAL_SZ[v]?v:"md"}catch(e){return"md"}}
+function calSz(){try{const v=localStorage.getItem("kv_calsz")||(innerWidth<600?"lg":"md");return CAL_SZ[v]?v:"md"}catch(e){return"md"}}
 function calSzBtns(){const sz=calSz();return `<div class="cbsz" role="group" aria-label="Размер календаря">${[["sm","Маленький"],["md","Обычный"],["lg","Крупный"]].map(([k,l])=>`<button type="button" class="cbsz-b" data-calsz="${k}" aria-pressed="${sz===k}" title="${l} · ${CAL_SZ[k].days} дней"><i class="cbsz-i ${k}"></i><span>${l}</span></button>`).join("")}</div>`}
 /* Hostfully: photos in circles (default); tap → retract photo, expand name text */
 const mono=a=>{const u=(cfg.units||{})[a]||{};if((u.kind==="room"||u.kind==="bed"||u.kind==="dorm")&&/·|\s\d/.test(String(a))){const m=String(a).match(/(\S+)\s*$/);if(m)return m[1].slice(0,4).toUpperCase()}const tk=String(a).replace(/[^\p{L}\p{N} ]/gu," ").trim().split(/\s+/),w=tk.filter(x=>/^\p{L}/u.test(x)),nr=tk.find(x=>/^\d/.test(x));if(nr&&w.length)return (w[0][0]+nr).slice(0,3).toUpperCase();return ((w.length>1?w[0][0]+w[1][0]:(w[0]||String(a)).slice(0,2))||"?").toUpperCase()};
-function calPicOn(){try{return localStorage.getItem("kv_calpic")!=="0"}catch(e){return true}}
+function calPicOn(){try{const v=localStorage.getItem("kv_calpic");return v==null?false:v!=="0"}catch(e){return false}}
 function tnHue(a){let h=0;const s=String(a);for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;const a1=h%360,a2=(a1+38)%360;return`--tn-a:hsl(${a1} 62% 52%);--tn-b:hsl(${a2} 68% 42%)`}
 function calThumb(a){const m=mono(a);return photos[a]
   ?`<i class="tn" data-calpic role="button" tabindex="0" title="${esc(a)}" aria-label="${esc(a)}" style="background-image:url('${photos[a]}')"></i>`
@@ -3661,7 +3697,7 @@ function renderCal(){
   const cell=Math.max(MIN_CELL,picOn?Math.floor(CW/(days+1)):Math.floor((CW-Lname)/days));
   const Lpic=cell, Lw=picOn?Lpic:Lname;
   const P=calP=days;
-  const W=calW=cell, H=cell;
+  const W=calW=cell, H=innerWidth<600?cell:Math.min(cell,56);
   calBar(true);
   const leg=$("c-legend");if(leg){leg.hidden=innerWidth<860;leg.innerHTML=TAGS.map(([k,l,c])=>`<span><i style="background:${c}"></i>${esc(l)}</span>`).join("")+`<span><i class="lg-unp"></i>не оплачено</span>`}
   let head=`<div class="sh-head"><div class="sh-corner"><button type="button" id="c-today" class="ctoday" title="Сегодня" aria-label="Сегодня"><b id="c-arr">←</b><span class="ctoday-lbl">Сегодня</span><span class="ctoday-ico" aria-hidden="true">${CAL_I}</span></button>${RO||LT?"":`<button type="button" id="c-pm" class="cpm" aria-pressed="${calPM}" title="Цены и правила по дням">Цены</button><button type="button" id="c-offer" class="cpm" title="Ссылка-предложение для гостя">Оферта</button>`}</div><div class="sh-hcol">${LT?"":`<div class="sh-mons"><div class="cmonc" style="width:${P*W}px">${CAL_I}</div></div>`}`;
@@ -3718,7 +3754,7 @@ function renderCal(){
     const uc=capOf(unitOf(a)),ul=unitLine(a),ug=unitOf(a).group;
     const zebra=rowI%2?" z1":" z0";rowI++;
     const tall=isD(a)&&lanes>2?Math.max(H,lanes*15+6):0;if(tall)exH+=tall-H;
-    rows+=`<div class="sh-row${ug?" grp":""}${zebra}"${tall?` style="height:${tall}px"`:""}><div class="sh-name" data-aptpage="${esc(a)}" title="${esc([ug,ul].filter(Boolean).join(" · ")||a)}">${calThumb(a)}<span>${esc(a)}${uc?`<small class="cap">👤${uc}</small>`:""}</span><em>${nights}</em></div><div class="sh-tl" data-tl="${esc(a)}" style="width:${n*W}px">${wk}${mLine}${tdMark}${cells}${bars}</div></div>`;
+    rows+=`<div class="sh-row${ug?" grp":""}${zebra}"${tall?` style="height:${tall}px"`:""}><div class="sh-name" data-aptpage="${esc(a)}" title="${esc([ug,ul].filter(Boolean).join(" · ")||a)}">${calThumb(a)}<span>${esc(ug&&a.startsWith(ug+" · ")?a.slice(ug.length+3):ug&&a.startsWith(ug+" ")&&a.length>ug.length+1?a.slice(ug.length+1):a)}${uc?`<small class="cap">👤${uc}</small>`:""}</span><em>${nights}</em></div><div class="sh-tl" data-tl="${esc(a)}" style="width:${n*W}px">${wk}${mLine}${tdMark}${cells}${bars}</div></div>`;
   }
   document.body.classList.toggle("calpm",calPM);
   $("c-body").innerHTML=`<div class="sh sq sz-${sz}${calPM?" pm":""}${picOn?" pics":" names"}" style="--W:${W}px;--L:${Lw}px;--L-pic:${Lpic}px;--L-name:${Lname}px;--H:${H}px;--cell:${cell}px;--days:${days};--days-w:${n*W}px">${head}${rows}</div>`;$("c-empty").innerHTML=`${!RO&&!bookings.length?`<div class="cal-empty"><b>Пока нет броней</b><p>Добавьте первую бронь или подключите календарь с Airbnb и Booking — брони будут появляться здесь сами.</p><div class="cal-empty-a"><button type="button" class="btn primary" data-calnew="1">+ Новая бронь</button><button type="button" class="btn" data-setup="ical">Подключить календарь</button></div></div>`:""}`;
