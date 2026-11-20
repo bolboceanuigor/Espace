@@ -2298,7 +2298,7 @@ function renderSetup(){if(!W&&wizNeeded())wizStart();const el=$("setup-card");if
     ["credits",hasCredits,"Пополните кредиты","Один кредит равен одному лею за объект в день. Пополнение в разделе Счёт.","Счёт"]].filter(x=>!(IOS_APP&&x[0]==="credits"));
   const done=steps.filter(x=>x[1]).length;
   if(done===steps.length&&!(cfg.demo&&cfg.demo.on)){el.innerHTML="";return} // Harta: disappears when all checked (unless the demo is still loaded)
-  if(done===steps.length){const demoOn=!!(cfg.demo&&cfg.demo.on);el.innerHTML=`<div class="card setup ok"><b>Компания готова к работе</b><p class="small" style="margin:4px 0 0">Квартиры, брони и горничные на месте. Дальше — пригласите менеджеров в «Меню → Настройки → Доступ для сотрудников».</p>
+  if(done===steps.length){const demoOn=!!(cfg.demo&&cfg.demo.on);el.innerHTML=`<div class="card setup ok"><b>Компания готова к работе</b><p class="small" style="margin:4px 0 0">Квартиры, брони и горничные на месте. Дальше — пригласите менеджеров в «Ещё → Настройки → Доступ для сотрудников».</p>
     <div class="actions"><button class="btn sm" data-setup="hide">Скрыть</button>${demoOn?`<button class="btn sm" data-setup="demo-clear">Удалить пример</button>`:`<button class="btn sm" data-setup="demo-load">Загрузить пример</button>`}</div></div>`;return}
   const demoOn=!!(cfg.demo&&cfg.demo.on);
   el.innerHTML=`<div class="card setup"><div class="setup-h"><b>Первые шаги</b><span class="small">${done} из ${steps.length}</span><button class="iconbtn" data-setup="hide" aria-label="Скрыть">✕</button></div>
@@ -3404,7 +3404,7 @@ document.addEventListener("click",async e=>{if(!W)return;const t=e.target.closes
   if(d.wcadd){W.cl.push({name:"",pin:"",role:d.wcadd==="fix"?"fix":"clean"});wizRender();return}
   if(d.wcdel!=null){W.cl.splice(+d.wcdel,1);wizRender();return}
   if(d.wiz==="back"){W.step=Math.max(0,W.step-1);wizRender();return}
-  if(d.wiz==="skip"){const again=W.again;W=null;wizRender();if(!again)saveCfg({...cfg,onboarded:true},"Настроить можно в Меню → Настройки");return}
+  if(d.wiz==="skip"){const again=W.again;W=null;wizRender();if(!again)saveCfg({...cfg,onboarded:true},"Настроить можно в Ещё → Настройки");return}
   if(d.wiz==="next"){
     if(W.step===1){const {apts}=wizUnits();if(!apts.length){toast("Добавьте хотя бы один объект");return}}
     if(W.step===2){if(W.mgr.some(m=>m.email.trim()&&!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(m.email.trim()))){toast("Проверь email менеджера");return}
