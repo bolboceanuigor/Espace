@@ -397,6 +397,7 @@ body.calmode .ctopbar{padding-top:calc(8px + env(safe-area-inset-top,0px))}
 .cpm{border:1px solid var(--line,rgba(255,255,255,.18));background:none;color:var(--muted,#aaa);font:inherit;font-size:11.5px;font-weight:700;border-radius:999px;padding:2px 10px;line-height:1.5;cursor:pointer}
 .cpm[aria-pressed=true]{background:var(--accent,#fed36a);border-color:var(--accent,#fed36a);color:#fff}
 :root:not([data-skin=host]) .cpm[aria-pressed=true]{color:#17140a}
+.sh.pics .sh-corner .cpm{display:none}
 .sh-tl .pc{position:absolute;top:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;font-style:normal;font-size:11px;line-height:1.1;color:var(--ink,#eee);cursor:pointer;border-left:1px solid transparent;user-select:none}
 .sh-tl .pc b{font-weight:600;font-variant-numeric:tabular-nums}.sh-tl .pc small{font-size:9.5px;color:var(--muted,#999)}
 .sh-tl .pc.own b{color:var(--accent,#fed36a)}
@@ -1395,6 +1396,7 @@ body.wizon{overflow:hidden}
 .pcur{display:flex;gap:6px}.pcur input{flex:1;min-width:0}.pcur select{width:auto;flex:none}
 .trates{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:6px 0 8px}.trates>small{display:block;color:var(--muted);font-weight:600;margin-bottom:6px}
 .trate{display:flex;align-items:center;gap:6px;margin-bottom:6px}.trate span{flex:1;min-width:0;font-weight:600;font-size:14px}.trate em{font-style:normal;color:var(--muted);font-weight:400}.trate input{width:96px;height:38px}.trate select{width:auto;height:38px}
+.sh-grp.sh-sub b{text-transform:none;letter-spacing:0;font-size:12px;font-weight:700;color:var(--fg)}
 .sh-grp{display:flex;align-items:center;height:22px;background:var(--surface);border-bottom:1px solid var(--line);position:sticky;left:0}.sh-grp b{position:sticky;left:0;padding:0 10px;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);white-space:nowrap}
 .dtog{display:flex;gap:12px;align-items:flex-start;cursor:pointer}.dtog input{width:22px;height:22px;margin-top:2px;flex:none;accent-color:var(--accent)}.dtog span{display:flex;flex-direction:column;gap:2px}.dtog small{color:var(--muted)}
 .bv-req{margin:12px 0;padding:12px;border-radius:12px;background:var(--accent-soft)}.bv-req p{margin:0 0 8px}.btn.danger.armed{background:#b42318;color:#fff}
@@ -3650,16 +3652,17 @@ function renderCal(){
   for(const k in used){const a=k.slice(0,k.lastIndexOf("|"));if(used[k]>=+unitOf(a).dbeds)busy.add(k)}
   for(const k of [...busy]){const i=k.lastIndexOf("|");for(const x of EsPrice.linked(cfg.units||{},k.slice(0,i)))busy.add(x+"|"+k.slice(i+1))}
   const dormRow=a=>{const N=+unitOf(a).dbeds,key="dorm|"+a;let c="";for(let i=0;i<n;i++){const t=s0+i*DAY,x=used[a+"|"+t]||0;c+=`<i class="${x>=N?"full":""}" style="left:${i*W}px;width:${W}px">${x}/${N}</i>`}
-    nS++;return `<div class="sh-row sh-sum lv2"><button type="button" class="sh-name" data-calfold="${esc(key)}"><span>${fold.has(key)?"▸":"▾"} Beds<small class="cap">${N}</small></span></button><div class="sh-tl" style="width:${n*W}px">${c}</div></div>`};
+    nS++;return `<div class="sh-row sh-sum lv2"><button type="button" class="sh-name" data-calfold="${esc(key)}" aria-label="Beds" title="Beds"><span>${fold.has(key)?"▸":"▾"}${Lw<90?" 🛏":` Beds<small class="cap">${N}</small>`}</span></button><div class="sh-tl" style="width:${n*W}px">${c}</div></div>`};
   const vis=cfg.apts.filter(a=>!hidU.has(a)),gUnits={},tUnits={};
   const tKey=a=>{const u=unitOf(a);return u.group&&u.rtype&&(u.kind==="room"||u.kind==="bed")?u.group+"|"+u.rtype:""};
   vis.forEach(a=>{const g=unitOf(a).group||"";(gUnits[g]=gUnits[g]||[]).push(a);const k=tKey(a);if(k)(tUnits[k]=tUnits[k]||[]).push(a)});
   const freeRow=(list,label,key,lvl)=>{let c="";for(let i=0;i<n;i++){const t=s0+i*DAY,f=list.filter(a=>!busy.has(a+"|"+t)).length;c+=`<i class="${f?"":"full"}" style="left:${i*W}px;width:${W}px">${f}</i>`}
-    nS++;return `<div class="sh-row sh-sum lv${lvl}"><button type="button" class="sh-name" data-calfold="${esc(key)}"><span>${fold.has(key)?"▸":"▾"} ${esc(label)}<small class="cap">${list.length}</small></span></button><div class="sh-tl" style="width:${n*W}px">${c}</div></div>`};
+    nS++;const nar=Lw<90,sub=nar&&lvl===2?(nG++,`<div class="sh-grp sh-sub" style="width:${Lw+n*W}px"><b>${esc(label)} · ${list.length}</b></div>`):"";
+    return sub+`<div class="sh-row sh-sum lv${lvl}"><button type="button" class="sh-name" data-calfold="${esc(key)}" aria-label="${esc(label)}" title="${esc(label)}"><span>${fold.has(key)?"▸":"▾"}${nar?"":" "+esc(label)+`<small class="cap">${list.length}</small>`}</span></button><div class="sh-tl" style="width:${n*W}px">${c}</div></div>`};
   let lastT=null,nS=0,nRow=0,exH=0;
   for(const a of cfg.apts){
     if(hidU.has(a))continue;
-    if(grouped){const g=unitOf(a).group||"";if(g!==lastG){lastG=g;lastT=null;nG++;rows+=`<div class="sh-grp" style="width:${Lw+n*W}px"><b>${esc(g||"Others")}</b></div>`;if(g&&gUnits[g].length>1)rows+=freeRow(gUnits[g],"Free",g,1)}
+    if(grouped){const g=unitOf(a).group||"";if(g!==lastG){lastG=g;lastT=null;nG++;rows+=`<div class="sh-grp" style="width:${Lw+n*W}px"><b>${esc(g||"Others")}${Lw<90&&g&&gUnits[g].length>1?`<span style="text-transform:none;letter-spacing:0;font-weight:500"> · free per day</span>`:""}</b></div>`;if(g&&gUnits[g].length>1)rows+=freeRow(gUnits[g],"Free",g,1)}
       if(g&&fold.has(g))continue;
       const k=tKey(a);if(k&&k!==lastT){lastT=k;if(tUnits[k].length>1)rows+=freeRow(tUnits[k],ROOMT[unitOf(a).rtype]?ROOMT[unitOf(a).rtype][0]:unitOf(a).rtype,k,2)}
       if(k&&fold.has(k)&&tUnits[k].length>1)continue}

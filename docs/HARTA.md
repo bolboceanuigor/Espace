@@ -243,6 +243,7 @@ Ce trebuie să aibă fiecare modul ca aplicația să fie completă și funcțion
 | Design 2: antet și titluri | ✅ | Fiecare ecran are titlu mare (Curățenii, Mai mult, Casa și tura, Sarcini și reparații); căutarea e și în calendar; „Sarcini și reparații” apare în „Mai mult” și pe tema întunecată. |
 | Design 3–4: Azi compact + „Primii pași” în Azi | ✅ | Cardul de rezervare se deschide la apăsare oriunde, cu butonul mic de apel; „Primii pași” stă sub titlul Azi și arată doar pașii rămași. |
 | Design 5: „Mai mult” ca listă | ✅ | Pe telefon, modulele sunt rânduri grupate (ca în Setări), nu carduri mari; pe desktop rămân cardurile. |
+| Design 6: calendarul pe telefon | ✅ | Tipurile de cameră apar ca subtitlu („Dublă · 4”), rândul „libere” e explicat în antetul grupului, paturile hostelului au 🛏; butoanele tăiate din colț (Prețuri, Ofertă) rămân doar în meniul calendarului. |
 
 ---
 
