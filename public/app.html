@@ -1613,6 +1613,16 @@ html:root[data-skin="host"] .sh.sq .bar.closed{background:repeating-linear-gradi
 html:root[data-skin="host"] .cal-empty{border:0!important;background:#fff!important;box-shadow:0 1px 2px rgba(25,28,31,.04),0 6px 20px rgba(25,28,31,.06);margin:16px!important;padding:24px 20px!important}
 html:root[data-skin="host"] .cal-empty .btn.primary{background:#0666EB!important;border-color:#0666EB!important;color:#fff!important}
 html:root[data-skin="host"] .cal-empty .btn:not(.primary){background:transparent!important;border:0!important;color:#0666EB!important}
+
+/* phone: every day is a clear tappable square; tap → „+” and a new booking for that apartment and date */
+@media (max-width:599px){
+  html:root[data-skin="host"] .sh.sq .sh-row .sh-tl{background-color:#fff!important;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect x='2.5' y='2.5' width='35' height='35' rx='9' fill='%23F3F5F8'/%3E%3C/svg%3E")!important;background-size:var(--W) var(--H)!important;background-repeat:repeat-x!important}
+  html:root[data-skin="host"] .sh.sq .sh-row{border-bottom:0!important}
+  html:root[data-skin="host"] .sh.sq .sh-row.sh-sum .sh-tl{background-image:none!important;background-color:#FCFCFD!important}
+  html:root[data-skin="host"] .sh.sq .bar{top:3px!important;height:calc(var(--H) - 6px)!important;border-radius:10px!important}
+}
+.tap-plus{position:absolute;top:2.5px;width:calc(var(--W) - 5px);height:calc(var(--H) - 5px);border-radius:9px;background:#0666EB;color:#fff;display:grid;place-items:center;font-size:22px;font-weight:500;pointer-events:none;z-index:3;animation:tapp .35s ease-out}
+@keyframes tapp{from{transform:scale(.6);opacity:.2}to{transform:none;opacity:1}}
 </style>
 <script>/* JS errors go to admin → Sănătate (a few per visit) */(function(){var n=0,seen={};function rep(m,a){m=String(m||"").slice(0,300);if(!m||/^Script error/.test(m)||seen[m]||++n>5)return;seen[m]=1;try{fetch("/api/client_error",{method:"POST",keepalive:true,headers:{"Content-Type":"application/json"},body:JSON.stringify({page:"app",msg:m,at:String(a||"").slice(0,160)})})}catch(e){}}addEventListener("error",function(e){rep(e.message,(e.filename||"").split("/").pop()+":"+e.lineno+":"+e.colno)});addEventListener("unhandledrejection",function(e){var r=e.reason;if(r&&(r.code||r.name==="AbortError"))return;rep(r&&r.message||r,"promise")})})();</script>
 </head>
@@ -3757,7 +3767,7 @@ function renderCal(){
     rows+=`<div class="sh-row${ug?" grp":""}${zebra}"${tall?` style="height:${tall}px"`:""}><div class="sh-name" data-aptpage="${esc(a)}" title="${esc([ug,ul].filter(Boolean).join(" · ")||a)}">${calThumb(a)}<span>${esc(ug&&a.startsWith(ug+" · ")?a.slice(ug.length+3):ug&&a.startsWith(ug+" ")&&a.length>ug.length+1?a.slice(ug.length+1):a)}${uc?`<small class="cap">👤${uc}</small>`:""}</span><em>${nights}</em></div><div class="sh-tl" data-tl="${esc(a)}" style="width:${n*W}px">${wk}${mLine}${tdMark}${cells}${bars}</div></div>`;
   }
   document.body.classList.toggle("calpm",calPM);
-  $("c-body").innerHTML=`<div class="sh sq sz-${sz}${calPM?" pm":""}${picOn?" pics":" names"}" style="--W:${W}px;--L:${Lw}px;--L-pic:${Lpic}px;--L-name:${Lname}px;--H:${H}px;--cell:${cell}px;--days:${days};--days-w:${n*W}px">${head}${rows}</div>`;$("c-empty").innerHTML=`${!RO&&!bookings.length?`<div class="cal-empty"><b>Пока нет броней</b><p>Добавьте первую бронь или подключите календарь с Airbnb и Booking — брони будут появляться здесь сами.</p><div class="cal-empty-a"><button type="button" class="btn primary" data-calnew="1">+ Новая бронь</button><button type="button" class="btn" data-setup="ical">Подключить календарь</button></div></div>`:""}`;
+  $("c-body").innerHTML=`<div class="sh sq sz-${sz}${calPM?" pm":""}${picOn?" pics":" names"}" style="--W:${W}px;--L:${Lw}px;--L-pic:${Lpic}px;--L-name:${Lname}px;--H:${H}px;--cell:${cell}px;--days:${days};--days-w:${n*W}px">${head}${rows}</div>`;$("c-empty").innerHTML=`${!RO&&!bookings.length?`<div class="cal-empty"><b>Пока нет броней</b><p>Нажмите на свободный квадратик в календаре — это новая бронь на эту квартиру и дату. Или подключите Airbnb и Booking — брони появятся сами.</p><div class="cal-empty-a"><button type="button" class="btn primary" data-calnew="1">+ Новая бронь</button><button type="button" class="btn" data-setup="ical">Подключить календарь</button></div></div>`:""}`;
   {const el=$("c-body"),key=todayStr()+"|"+sz+"|"+W+"|"+P+"|"+CW+"|"+(picOn?"p":"n"),keep=calKey===key?el.scrollLeft:null,t0=el.scrollTop;calKey=el.clientWidth?key:null; // hidden (before login): scroll to today on the next paint
    const bodyH=HEADH+nRow*H+nG*22+nS*28+exH+2;
    const maxH=Math.max(260,innerHeight-el.getBoundingClientRect().top-navH-8);
@@ -5490,7 +5500,7 @@ document.addEventListener("click",e=>{
   if(e.target.closest&&e.target.closest("#c-today")){const el=$("c-body");el.scrollTo({left:calB*calW,behavior:"smooth"});return}
   {const nv=e.target.closest("[data-calnav]");if(nv){calOff+=(+nv.dataset.calnav)*CAL_N;renderCal();return}}
   const tl=e.target.closest("[data-tl]"); if(tl&&calPM){const x=e.clientX-tl.getBoundingClientRect().left;const i=Math.floor(x/calW);pmTap(tl.dataset.tl,fromT(calS0+i*DAY));return}
-  if(tl&&!e.target.closest(".bar")){const x=e.clientX-tl.getBoundingClientRect().left;const i=Math.floor(x/calW);newB(tl.dataset.tl,fromT(calS0+i*DAY));return}
+  if(tl&&!e.target.closest(".bar")){const x=e.clientX-tl.getBoundingClientRect().left;const i=Math.floor(x/calW);const tp=document.createElement("i");tp.className="tap-plus";tp.textContent="+";tp.style.left=(i*calW+2.5)+"px";tl.appendChild(tp);setTimeout(()=>{tp.remove();newB(tl.dataset.tl,fromT(calS0+i*DAY))},220);return}
   const rdy=e.target.closest("[data-ready]");
   if(rdy){e.stopPropagation();const a=rdy.dataset.ready,s=aptNow(a);
     if(s.clean){toast(s.done?`${a} — чистая ✓ ${dm(s.done.date)}${s.done.staff_id?" · "+stName(s.done.staff_id):s.done.kind==="ready"?" · отметил менеджер":""}`:`${a} — чистая ✓`);return}
