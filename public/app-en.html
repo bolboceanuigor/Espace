@@ -6038,6 +6038,13 @@ async function boot(){
   lock("");showGoogleBtn()}
 setInterval(()=>{const a=document.activeElement;if(PIN&&document.visibilityState==="visible"&&!(a&&a.matches&&a.matches("input,textarea,select")))reload().catch(e=>{if(e.code==="bad_pin")lock("Session ended — sign in again")})},60000);
 document.addEventListener("visibilitychange",()=>{if(PIN&&document.visibilityState==="visible")reload().catch(()=>{})});
+/* new version on the server → reload when the app comes back to the front (the phone app keeps the old page in memory) */
+let PAGE_TAG="";
+async function pageTag(){try{const r=await fetch(location.pathname,{method:"HEAD",cache:"no-store"});return r.headers.get("etag")||r.headers.get("last-modified")||""}catch(e){return ""}}
+pageTag().then(t=>PAGE_TAG=t);
+document.addEventListener("visibilitychange",async()=>{if(document.visibilityState!=="visible"||!PAGE_TAG)return;const t=await pageTag();
+  const busy=!$("v-add").hidden||document.querySelector(".sheet:not([hidden]),.modal:not([hidden]),#wiz");
+  if(t&&t!==PAGE_TAG&&!busy)location.reload()});
 
 fillB(); fillE(); setMode("b"); show(innerWidth<860?"cal":(LIGHT()?"azi":"today"));
 boot().catch(()=>{}).finally(()=>window.bootDone&&window.bootDone());
