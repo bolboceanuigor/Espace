@@ -165,7 +165,7 @@ async function loadAll(db: D1Database, O: string, rights?: MemberRights, lang?: 
     all(db, "SELECT * FROM bookings WHERE org_id = ? ORDER BY date, created_at", O),
     all(db, "SELECT * FROM expenses WHERE org_id = ? ORDER BY date, created_at", O),
     all(db, "SELECT * FROM handovers WHERE org_id = ? ORDER BY date_from DESC, created_at DESC", O),
-    all(db, "SELECT id, name, salary, extra_rate, cycle_start, on_days, off_days, active, pin_hash != '' AS has_pin, created_at FROM staff WHERE org_id = ? ORDER BY created_at", O),
+    all(db, "SELECT id, name, login, salary, extra_rate, cycle_start, on_days, off_days, active, pin_hash != '' AS has_pin, created_at FROM staff WHERE org_id = ? ORDER BY created_at", O),
     all(db, "SELECT id, kind, date, apt, staff_id, status, note, cost, booking_id, reported_by, time, sent, shift_person, done_by, done_shift, result, done_at, created_at, updated_at, photo != '' AS has_photo FROM tasks WHERE org_id = ? ORDER BY date, created_at", O),
     all(db, "SELECT apt, item, MAX(date) AS last FROM checks WHERE org_id = ? GROUP BY apt, item", O),
   ]);
@@ -1065,7 +1065,12 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
     if (await throttled(db, k)) return json({ message: "locked" }, 429);
     const u = await one(db, "SELECT * FROM users WHERE email = ?", email);
     if (u && !u.pw_hash) { await failHit(db, k); await sleep(600); return json({ message: "not_confirmed" }, 401); }
-    if (!u || !(await passwordMatches(pw, u.pw_hash))) { await failHit(db, k); await sleep(1000); return json({ message: "bad_login" }, 401); }
+    if (!u || !(await passwordMatches(pw, u.pw_hash))) {
+      // one sign-in for everyone: a maid or a repair master types her phone / email (or, on the company address, her name) and her PIN
+      const st = await staffSignIn(db, str(body.email, 120), pw, reqSlug);
+      if (st) { await failClear(db, k); return json({ cleaner: st }); }
+      await failHit(db, k); await sleep(1000); return json({ message: "bad_login" }, 401);
+    }
     await failClear(db, k);
     if (u.disabled) { await sleep(600); return json({ message: "disabled" }, 403); }
     const orgs = await myOrgs(db, u.id);
@@ -2337,6 +2342,11 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       if (isUuid(x.id) && !mine && (await one(db, "SELECT 1 AS k FROM staff WHERE id = ?", x.id))) return json({ message: "bad_id" }, 400);
       const id = isUuid(x.id) ? x.id : uuid();
       const newPin = typeof x.pin === "string" && x.pin ? str(x.pin, 32) : "";
+      const login = typeof x.login === "string" ? staffLogin(x.login) : null;
+      if (login) {
+        if (await one(db, "SELECT 1 AS k FROM staff WHERE login = ? AND id != ?", login, id)) return json({ message: "login_taken" }, 409);
+        if (login.includes("@") && (await one(db, "SELECT 1 AS k FROM users WHERE email = ?", login))) return json({ message: "login_taken" }, 409);
+      }
       if (newPin) {
         if (newPin.length < 4) return json({ message: "pin_too_short" }, 400);
         for (const o of await all(db, "SELECT id, pin_hash FROM staff WHERE org_id = ? AND id != ? AND pin_hash != ''", O, id)) if (await pinMatches(newPin, o.pin_hash)) return json({ message: "pin_taken" }, 409);
@@ -2346,6 +2356,7 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       else await run(db, "INSERT INTO staff(id,org_id,name,salary,extra_rate,cycle_start,on_days,off_days,active) VALUES (?,?,?,?,?,?,?,?,?)",
         id, O, v.name, v.salary, v.extra_rate, v.cycle_start, v.on_days, v.off_days, v.active);
       if (newPin) await run(db, "UPDATE staff SET pin_hash = ? WHERE org_id = ? AND id = ?", await hashPin(newPin), O, id);
+      if (login !== null) await run(db, "UPDATE staff SET login = ? WHERE org_id = ? AND id = ?", login, O, id);
       return json(id);
     }
     case "kv_task_save": {
@@ -2710,3 +2721,25 @@ const handleApi: PagesFunction<Env> = async ({ request, env, params, waitUntil }
       return json({ message: "not_found" }, 404);
   }
 };
+
+// staff sign-in id: an email as typed (lowercase) or a phone reduced to its national digits (068 123 456 / +373 68 123 456 → 68123456)
+function staffLogin(v: string): string {
+  const t = String(v || "").trim().toLowerCase().slice(0, 120);
+  if (!t) return "";
+  if (t.includes("@")) return t;
+  const d = t.replace(/\D/g, "");
+  if (d.length < 6 || d.length > 15 || /[a-z]/.test(t.replace(/^\+/, ""))) return "";
+  return d.replace(/^373/, "").replace(/^0+/, "");
+}
+async function staffSignIn(db: D1Database, raw: string, pin: string, slug: string): Promise<any> {
+  if (pin.length < 4) return null;
+  const login = staffLogin(raw), name = raw.trim().toLowerCase();
+  let rows: any[] = [];
+  if (slug) {
+    const org = await one(db, "SELECT id FROM orgs WHERE code = ?", slug);
+    if (org) rows = (await all(db, "SELECT s.*, o.code AS org_code, o.name AS org_name FROM staff s JOIN orgs o ON o.id = s.org_id WHERE s.org_id = ? AND s.active = 1 AND s.pin_hash != ''", org.id))
+      .filter((r: any) => (login && r.login === login) || (name && String(r.name).trim().toLowerCase() === name));
+  } else if (login) rows = await all(db, "SELECT s.*, o.code AS org_code, o.name AS org_name FROM staff s JOIN orgs o ON o.id = s.org_id WHERE s.login = ? AND s.active = 1 AND s.pin_hash != ''", login);
+  for (const r of rows.slice(0, 5)) if (await pinMatches(pin, r.pin_hash)) return { code: r.org_code, id: r.id, name: r.name, org: r.org_name };
+  return null;
+}
