@@ -1648,6 +1648,25 @@ html:root[data-skin="host"] .sh.sq .bar.closed{background:repeating-linear-gradi
 html:root[data-skin="host"] .sh.sq .bar.closed *{color:#5B616E!important}
 html:root[data-skin="host"] .tap-plus{top:0!important;height:var(--H)!important;width:var(--W)!important;border-radius:0!important}
 @media (max-width:599px){html:root[data-skin="host"] .sh.sq .sh-row .sh-tl{background-image:linear-gradient(to right,transparent calc(var(--W) - 1px),#DCE1E8 calc(var(--W) - 1px)),linear-gradient(to bottom,transparent calc(100% - 1px),#DCE1E8 calc(100% - 1px))!important;background-size:var(--W) 100%,100% 100%!important;background-repeat:repeat-x,no-repeat!important}}
+
+/* ===== Calendar v4 (21.11): closer to RealtyCalendar — compact square cells, zebra rows, flat pastel bars filling the cell ===== */
+html:root[data-skin="host"] .sh.sq .sh-row.z1 .sh-tl{background-color:#F3F4F6!important}
+html:root[data-skin="host"] .sh.sq .sh-row.z1 .sh-name{background:#F3F4F6!important}
+html:root[data-skin="host"] .sh.sq .sh-row .sh-tl{background-image:linear-gradient(to right,transparent calc(var(--W) - 1px),#D5DAE1 calc(var(--W) - 1px)),linear-gradient(to bottom,transparent calc(100% - 1px),#D5DAE1 calc(100% - 1px))!important}
+html:root[data-skin="host"] .sh.sq.names .sh-name span{color:#0666EB!important;font-size:14px!important;font-weight:700!important;-webkit-line-clamp:1!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;display:block!important}
+html:root[data-skin="host"] .sh.sq .sh-name{box-shadow:inset 0 -1px 0 #D5DAE1,2px 0 4px rgba(0,0,0,.06)!important;border-right:1px solid #BFC6D0!important}
+html:root[data-skin="host"] .sh.sq .sh-day.we b,html:root[data-skin="host"] .sh.sq .sh-day.we small{color:#D92D3A!important}
+html:root[data-skin="host"] .sh.sq .sh-day.today b{color:#fff!important}
+html:root[data-skin="host"] .sh.sq .bar{background:color-mix(in srgb,var(--c) 32%,#fff)!important;color:#191C1F!important;border-radius:0!important;top:0!important;height:calc(var(--H) - 1px)!important;box-shadow:inset 0 -4px 0 color-mix(in srgb,var(--c) 70%,#fff)!important;font-weight:500!important;align-items:flex-start!important;padding:4px 4px 0!important}
+html:root[data-skin="host"] .sh.sq .bar .nm,html:root[data-skin="host"] .sh.sq .bar *{color:#191C1F!important}
+html:root[data-skin="host"] .sh.sq .bar .nm{font-size:12.5px!important;font-weight:500!important;white-space:nowrap!important;overflow:hidden!important}
+html:root[data-skin="host"] .sh.sq .bar .bd{display:none!important}
+html:root[data-skin="host"] .sh.sq .bar.narrow .nm,html:root[data-skin="host"] .sh.sq .bar.short .nm{display:block!important;visibility:visible!important;opacity:1!important;text-overflow:clip!important}
+html:root[data-skin="host"] .sh.sq .bar .amt{position:absolute!important;right:3px!important;bottom:5px!important;top:auto!important;transform:none!important;background:#fff!important;color:#D92D3A!important;border-radius:0!important;font-size:11px!important;font-weight:500!important;padding:0 2px!important;line-height:13px!important}
+html:root[data-skin="host"] .sh.sq .bar.unp{box-shadow:inset 0 -4px 0 #E5484D!important}
+html:root[data-skin="host"] .sh.sq .bar.closed{background:repeating-linear-gradient(135deg,#E9ECF0 0 6px,#DDE1E7 6px 12px)!important}
+html:root[data-skin="host"] .sh .fp{color:#191C1F!important;font-size:11px!important;font-weight:500!important;align-items:start;padding-top:5px;place-items:start center!important}
+@media (max-width:599px){html:root[data-skin="host"] .sh.sq .sh-day b{font-size:14px!important;width:24px!important;height:24px!important;line-height:24px!important}html:root[data-skin="host"] .sh.sq .sh-day small{font-size:10px!important}}
 /* ===== look v3 (21.11): hero cards white & calm instead of the violet gradient ===== */
 html:root[data-skin="host"] .bal{background:#fff!important;color:#191C1F!important;border:1px solid #ECEEF2!important;box-shadow:0 1px 2px rgba(25,28,31,.04),0 8px 24px rgba(25,28,31,.06)!important;border-radius:22px!important}
 html:root[data-skin="host"] .bal *{color:inherit}
@@ -3635,7 +3654,7 @@ const CAL_ST=[["all","All"],["book","Bookings"],["req","Requests"],["cancel","Ca
 function calSt(){try{const v=localStorage.getItem("kv_calst")||"all";return CAL_ST.some(x=>x[0]===v)?v:"all"}catch(e){return"all"}}
 /* size = how many days fit on screen (Realty-style); cell side is derived from viewport */
 const CAL_SZ={sm:{days:10,label:"Small"},md:{days:9,label:"Standard"},lg:{days:7,label:"Large"}};
-function calSz(){try{const v=localStorage.getItem("kv_calsz2")||(innerWidth<600?"lg":"md");return CAL_SZ[v]?v:"md"}catch(e){return"md"}}
+function calSz(){try{const v=localStorage.getItem("kv_calsz3")||"md";return CAL_SZ[v]?v:"md"}catch(e){return"md"}}
 function calSzBtns(){const sz=calSz();return `<div class="cbsz" role="group" aria-label="Calendar size">${[["sm","Small"],["md","Standard"],["lg","Large"]].map(([k,l])=>`<button type="button" class="cbsz-b" data-calsz="${k}" aria-pressed="${sz===k}" title="${l} · ${CAL_SZ[k].days} days"><i class="cbsz-i ${k}"></i><span>${l}</span></button>`).join("")}</div>`}
 /* Hostfully: photos in circles (default); tap → retract photo, expand name text */
 const mono=a=>{const u=(cfg.units||{})[a]||{};if((u.kind==="room"||u.kind==="bed"||u.kind==="dorm")&&/·|\s\d/.test(String(a))){const m=String(a).match(/(\S+)\s*$/);if(m)return m[1].slice(0,4).toUpperCase()}const tk=String(a).replace(/[^\p{L}\p{N} ]/gu," ").trim().split(/\s+/),w=tk.filter(x=>/^\p{L}/u.test(x)),nr=tk.find(x=>/^\d/.test(x));if(nr&&w.length)return (w[0][0]+nr).slice(0,3).toUpperCase();return ((w.length>1?w[0][0]+w[1][0]:(w[0]||String(a)).slice(0,2))||"?").toUpperCase()};
@@ -3754,7 +3773,7 @@ const CAL_I='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke=
 function calFold(){try{return new Set(JSON.parse(localStorage.getItem("kv_calfold")||"[]"))}catch(e){return new Set()}}
 document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-calfold]");if(!t)return;const f=calFold(),k=t.dataset.calfold;f.has(k)?f.delete(k):f.add(k);try{localStorage.setItem("kv_calfold",JSON.stringify([...f]))}catch(x){}const el=$("c-body"),x=el.scrollLeft,y=el.scrollTop;renderCal();el.scrollLeft=x;el.scrollTop=y});
 function renderCal(){
-  const LT=LIGHT(), sz=calSz(), days=CAL_SZ[sz].days, BACK=calB=60, n=BACK+366, td=toT(todayStr()), s0=calS0=td-BACK*DAY, tdIdx=BACK;
+  const LT=LIGHT(), sz=calSz(), days=innerWidth<600?({sm:12,md:10,lg:8})[sz]:CAL_SZ[sz].days, BACK=calB=60, n=BACK+366, td=toT(todayStr()), s0=calS0=td-BACK*DAY, tdIdx=BACK;
   const box=$("c-body"), CW=box.clientWidth||innerWidth;
   const nav=$("tabs"), navR=nav.getBoundingClientRect(), navH=getComputedStyle(nav).position==="fixed"&&navR.top>innerHeight/2?Math.max(0,innerHeight-navR.top):0;
   const HEADH=LT?(sz==="lg"?64:sz==="sm"?50:58):(sz==="lg"?84:sz==="sm"?68:76);
@@ -3762,7 +3781,7 @@ function renderCal(){
   // fit exactly N days on this device: cell = f(viewport, rail); squares W===H
   const picOn=innerWidth<600?false:calPicOn();
   const MIN_CELL=28;
-  let Lname=LT?(innerWidth<600?Math.max(96,Math.min(112,Math.round(CW*.27))):Math.max(140,Math.min(180,Math.round(CW*.22))))
+  let Lname=LT?(innerWidth<600?Math.max(92,Math.min(104,Math.round(CW*.25))):Math.max(140,Math.min(180,Math.round(CW*.22))))
     :Math.max(88,Math.min(innerWidth<600?112:150,Math.round(CW*.26)));
   // names: shrink rail if needed so N day-columns always fit (narrow phones)
   if(!picOn){const maxL=Math.max(64,CW-days*MIN_CELL);if(Lname>maxL)Lname=maxL}
@@ -3770,7 +3789,7 @@ function renderCal(){
   const cell=Math.max(MIN_CELL,picOn?Math.floor(CW/(days+1)):Math.floor((CW-Lname)/days));
   const Lpic=cell, Lw=picOn?Lpic:Lname;
   const P=calP=days;
-  const W=calW=cell, H=innerWidth<600?Math.max(cell+6,visN<=6?60:46):Math.min(cell,56);
+  const W=calW=cell, H=innerWidth<600?Math.max(cell,34):Math.min(cell,56);
   calBar(true);
   const leg=$("c-legend");if(leg){leg.hidden=innerWidth<860;leg.innerHTML=TAGS.map(([k,l,c])=>`<span><i style="background:${c}"></i>${esc(l)}</span>`).join("")+`<span><i class="lg-unp"></i>unpaid</span>`}
   let head=`<div class="sh-head"><div class="sh-corner"><button type="button" id="c-today" class="ctoday" title="Today" aria-label="Today"><b id="c-arr">←</b><span class="ctoday-lbl">Today</span><span class="ctoday-ico" aria-hidden="true">${CAL_I}</span></button>${RO||LT?"":`<button type="button" id="c-pm" class="cpm" aria-pressed="${calPM}" title="Prices and rules by day">Prices</button><button type="button" id="c-offer" class="cpm" title="Offer link for the guest">Offer</button>`}</div><div class="sh-hcol">${LT?"":`<div class="sh-mons"><div class="cmonc" style="width:${P*W}px">${CAL_I}</div></div>`}`;
@@ -3819,8 +3838,8 @@ function renderCal(){
       const lz=lanes>1?`top:calc(${lane[b.id]*100/lanes}% + 2px);bottom:auto;height:calc(${100/lanes}% - 4px);padding-top:1px;`:"";
       const over=overlaps(b,bookings).length>0;
       const bd=b.source==="Airbnb"||b.pay==="Airbnb"?`<span class="bd A">A</span>`:b.source==="Booking"?`<span class="bd B">B</span>`:(b.source==="Прямой"||b.source==="Direct"||(!b.source&&b.tag!=="closed"&&b.tag!=="cancel"&&LIGHT()))?`<span class="bd D">D</span>`:"";
-      const label=b.tag==="closed"?("Closed"+(b.note?" · "+b.note:"")):b.tag==="cancel"?("Cancel · "+(b.guest||"no name")):LT?(b.guest||"no name"):[b.guest||"no name",b.phone].filter(Boolean).join(" ");
-      const gap=LT?3:4, barW=Math.max(8,(R-L)*W-gap*2);
+      const label=b.tag==="closed"?("Closed"+(b.note?" · "+b.note:"")):b.tag==="cancel"?("Cancel · "+(b.guest||"no name")):LT?[b.guest||"no name",b.note].filter(Boolean).join(" · "):[b.guest||"no name",b.phone].filter(Boolean).join(" ");
+      const gap=LT?(innerWidth<600?1:2):4, barW=Math.max(8,(R-L)*W-gap*2);
       bars+=`<div class="bar${lz?" half":""}${barW<64?" narrow":""}${LT&&barW<120?" short":""}${st<0?" cut-l":""}${en>n?" cut-r":""}${over?" over":""}${b.tag==="closed"?" closed":""}${b.tag==="cancel"?" cancel":""}${payActive(b)&&payState(b).state==="unpaid"?" unp":""}" data-edit="${esc(b.id)}" style="${lz}left:${L*W+gap}px;width:${barW}px;background-color:${barCol(b)};--c:${barCol(b)}" title="${esc(label+" · "+dm(b.date)+" → "+dm(endOf(b))+" · "+amounts(b)+((st<0||en>n)?" · this month "+Math.round(shareOf(b,mon.y,mon.m)*b.nights)+" of "+b.nights+" nights":""))}">${over?"‼ ":""}${b.verified?`<span class="vk">✓</span>`:""}${bd}<span class="nm">${esc(label)}</span>${(()=>{if(b.tag==="cancel")return "";if(payActive(b)){const ps=payState(b);if(ps.state!=="paid"){const t=ps.state==="unpaid"?(b.price?"unpaid "+fmt0(+b.price)+(ps.cur==="EUR"?"€":ps.cur==="USD"?"$":""):"unpaid"):(ps.left?"more "+fmt0(ps.left)+(ps.cur==="EUR"?"€":ps.cur==="USD"?"$":""):"deposit");return `<span class="amt pst">${esc(t)}</span>`}}const cut=false;if(!shortAmt(b))return "";if(barW<64){const k=cut?shareOf(b,mon.y,mon.m):1;return `<span class="amt tiny" title="${esc(shortAmt(b,k))}">${esc(tinyAmt(b,k))}</span>`}if(!cut)return `<span class="amt">${esc(shortAmt(b))}</span>`;const k=shareOf(b,mon.y,mon.m);return `<span class="amt" title="for this month ${esc(shortAmt(b,k))} of ${esc(shortAmt(b))}">${esc(shortAmt(b,k))}</span>`})()}</div>`;
     }
     const cells=dayCells(a,s0,n,W,list);
@@ -3908,7 +3927,7 @@ document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest
   if(t.id==="c-acct"){settingsPage("acct");return}
   if(t.id==="c-gotoday"){closeSheet();const el=$("c-body");if(el)el.scrollTo({left:calB*calW,behavior:"smooth"});return}
   if(t.id==="c-pic"){toggleCalPic();if(sheetCtx&&sheetCtx.type==="calmenu")openCalMenu();return}
-  if(t.dataset.calsz!=null){try{localStorage.setItem("kv_calsz2",t.dataset.calsz)}catch(x){}calKey="";closeSheet();renderCal();return}
+  if(t.dataset.calsz!=null){try{localStorage.setItem("kv_calsz3",t.dataset.calsz)}catch(x){}calKey="";closeSheet();renderCal();return}
   if(t.dataset.calst!=null){try{localStorage.setItem("kv_calst",t.dataset.calst)}catch(x){}if(sheetCtx&&sheetCtx.type==="calmenu")openCalMenu();else renderCal();return}
   if(t.id==="c-add"){if(sheetCtx&&sheetCtx.type==="calmenu")closeSheet();newB("",todayStr());return}
   if(t.id==="c-offer"){if(sheetCtx&&sheetCtx.type==="calmenu")closeSheet();offerSheet();return}
@@ -3988,7 +4007,7 @@ function dayCells(a,s0,n,W,list){const R=DR[a]||{},u=unitOf(a),out=[],td=todaySt
   for(let i=0;i<n;i++){const d=fromT(s0+i*DAY),r=R[d];
     if(!calPM){if(r&&(r.x||r.cta||r.ctd))out.push(`<i class="dr${r.x?" x":""}${r.cta?" cta":""}${r.ctd?" ctd":""}" style="left:${i*W}px;width:${W}px"></i>`);
       // free future day → its night price, small and grey (RealtyCalendar-style), only when the unit has a price
-      else if(d>=td&&!booked.has(d)&&W>=34){const p=EsPrice.night(u,d,cfg.pricing,R);if(p)out.push(`<i class="fp" style="left:${i*W}px;width:${W}px">${short(p)}</i>`)}
+      else if(d>=td&&!booked.has(d)&&W>=26){const p=EsPrice.night(u,d,cfg.pricing,R);if(p)out.push(`<i class="fp" style="left:${i*W}px;width:${W}px">${short(p)}</i>`)}
       continue}
     if(d<td||booked.has(d)){if(r&&r.x)out.push(`<i class="pc x past" style="left:${i*W}px;width:${W}px"></i>`);continue}
     const p=EsPrice.night(u,d,cfg.pricing,R),mn=EsPrice.minStay(u,d,cfg.pricing,R,(cfg.direct||{}).min),sel=pmSel&&pmSel.apt===a&&d>=pmSel.from&&d<=(pmSel.to||pmSel.from);
