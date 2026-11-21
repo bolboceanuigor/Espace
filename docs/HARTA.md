@@ -286,3 +286,4 @@ Ce trebuie să aibă fiecare modul ca aplicația să fie completă și funcțion
 7. Trimiți un raport scurt în română.
 | ✅ | Design module v3 + apartamente | Carduri albe, filtre Finanțe ca liste derulante, Setări grupate (Unități/Echipa/Oaspeți/…), „Apartament nou” sus în Setări → Apartamente și în meniul ＋ |
 | ✅ | Formular rezervare mai scurt | Apartament din listă derulantă (cu „ocupat”), câmpurile de încasare apar doar la Avans/Achitat, e-mailul mutat în Detalii; formularul −17% înălțime |
+| ✅ | Calendar v3 (grilă RealtyCalendar) | Celule albe cu linii vizibile, nume întregi în stânga pe telefon, rezervări ca bare colorate pline cu text alb, rânduri mai înalte când sunt ≤6 apartamente |

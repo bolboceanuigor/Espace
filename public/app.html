@@ -1626,6 +1626,28 @@ html:root[data-skin="host"] .cal-empty .btn:not(.primary){background:transparent
 .tap-plus{position:absolute;top:2.5px;width:calc(var(--W) - 5px);height:calc(var(--H) - 5px);border-radius:9px;background:#0666EB;color:#fff;display:grid;place-items:center;font-size:22px;font-weight:500;pointer-events:none;z-index:3;animation:tapp .35s ease-out}
 @keyframes tapp{from{transform:scale(.6);opacity:.2}to{transform:none;opacity:1}}
 
+
+/* ===== Calendar v3 (21.11): RealtyCalendar-style grid — white cells, visible lines, solid bars ===== */
+html:root[data-skin="host"] .sh.sq .sh-row .sh-tl,html:root[data-skin="host"] .sh-tl{background-color:#fff!important;background-image:linear-gradient(to right,transparent calc(var(--W) - 1px),#DCE1E8 calc(var(--W) - 1px)),linear-gradient(to bottom,transparent calc(100% - 1px),#DCE1E8 calc(100% - 1px))!important;background-size:var(--W) 100%,100% 100%!important;background-repeat:repeat-x,no-repeat!important;background-position:0 0!important}
+html:root[data-skin="host"] .sh.sq .sh-row{border-bottom:0!important}
+html:root[data-skin="host"] .sh-tl .wk{display:none!important}
+html:root[data-skin="host"] .sh-tl .td{box-shadow:inset 2px 0 0 #0666EB!important;background:transparent!important;opacity:.5!important}
+html:root[data-skin="host"] .sh.sq .sh-name{background:#fff!important;border-right:1px solid #C9D0DA!important;box-shadow:inset 0 -1px 0 #DCE1E8!important}
+html:root[data-skin="host"] .sh.sq.names .sh-name span{font-size:13px!important;font-weight:700!important;line-height:1.2!important}
+html:root[data-skin="host"] .sh.sq .sh-head{border-bottom:1px solid #C9D0DA!important}
+html:root[data-skin="host"] .sh.sq .sh-days .sh-day{border-right:1px solid #E6EAF0!important;padding:6px 0 7px!important;gap:2px}
+html:root[data-skin="host"] .sh.sq .sh-day b{font-size:15px!important;width:28px!important;height:28px!important;line-height:28px!important}
+html:root[data-skin="host"] .sh.sq .sh-day.today{background:rgba(6,102,235,.07)!important}
+html:root[data-skin="host"] .sh .fp{color:#6B7280!important;font-size:11px!important;font-weight:600!important}
+html:root[data-skin="host"] .sh.sq .bar{background:var(--c)!important;color:#fff!important;border-radius:7px!important;box-shadow:none!important;top:6px!important;height:calc(var(--H) - 12px)!important;font-weight:700}
+html:root[data-skin="host"] .sh.sq .bar .nm,html:root[data-skin="host"] .sh.sq .bar *{color:#fff!important}
+html:root[data-skin="host"] .sh.sq .bar .amt{background:rgba(255,255,255,.22)!important;color:#fff!important}
+html:root[data-skin="host"] .sh.sq .bar .amt.pst{background:#fff!important;color:#C0262D!important}
+html:root[data-skin="host"] .sh.sq .bar.unp{box-shadow:inset 0 -3px 0 #E5484D!important}
+html:root[data-skin="host"] .sh.sq .bar.closed{background:repeating-linear-gradient(135deg,#E9ECF0 0 6px,#DDE1E7 6px 12px)!important;color:#5B616E!important}
+html:root[data-skin="host"] .sh.sq .bar.closed *{color:#5B616E!important}
+html:root[data-skin="host"] .tap-plus{top:0!important;height:var(--H)!important;width:var(--W)!important;border-radius:0!important}
+@media (max-width:599px){html:root[data-skin="host"] .sh.sq .sh-row .sh-tl{background-image:linear-gradient(to right,transparent calc(var(--W) - 1px),#DCE1E8 calc(var(--W) - 1px)),linear-gradient(to bottom,transparent calc(100% - 1px),#DCE1E8 calc(100% - 1px))!important;background-size:var(--W) 100%,100% 100%!important;background-repeat:repeat-x,no-repeat!important}}
 /* ===== look v3 (21.11): hero cards white & calm instead of the violet gradient ===== */
 html:root[data-skin="host"] .bal{background:#fff!important;color:#191C1F!important;border:1px solid #ECEEF2!important;box-shadow:0 1px 2px rgba(25,28,31,.04),0 8px 24px rgba(25,28,31,.06)!important;border-radius:22px!important}
 html:root[data-skin="host"] .bal *{color:inherit}
@@ -3738,9 +3760,9 @@ function renderCal(){
   const HEADH=LT?(sz==="lg"?64:sz==="sm"?50:58):(sz==="lg"?84:sz==="sm"?68:76);
   const visN=cfg.apts.filter(a=>!calHidden().has(a)).length;
   // fit exactly N days on this device: cell = f(viewport, rail); squares W===H
-  const picOn=calPicOn();
+  const picOn=innerWidth<600?false:calPicOn();
   const MIN_CELL=28;
-  let Lname=LT?(innerWidth<600?Math.max(96,Math.min(128,Math.round(CW*.3))):Math.max(140,Math.min(180,Math.round(CW*.22))))
+  let Lname=LT?(innerWidth<600?Math.max(96,Math.min(112,Math.round(CW*.27))):Math.max(140,Math.min(180,Math.round(CW*.22))))
     :Math.max(88,Math.min(innerWidth<600?112:150,Math.round(CW*.26)));
   // names: shrink rail if needed so N day-columns always fit (narrow phones)
   if(!picOn){const maxL=Math.max(64,CW-days*MIN_CELL);if(Lname>maxL)Lname=maxL}
@@ -3748,7 +3770,7 @@ function renderCal(){
   const cell=Math.max(MIN_CELL,picOn?Math.floor(CW/(days+1)):Math.floor((CW-Lname)/days));
   const Lpic=cell, Lw=picOn?Lpic:Lname;
   const P=calP=days;
-  const W=calW=cell, H=innerWidth<600?cell:Math.min(cell,56);
+  const W=calW=cell, H=innerWidth<600?Math.max(cell+6,visN<=6?60:46):Math.min(cell,56);
   calBar(true);
   const leg=$("c-legend");if(leg){leg.hidden=innerWidth<860;leg.innerHTML=TAGS.map(([k,l,c])=>`<span><i style="background:${c}"></i>${esc(l)}</span>`).join("")+`<span><i class="lg-unp"></i>не оплачено</span>`}
   let head=`<div class="sh-head"><div class="sh-corner"><button type="button" id="c-today" class="ctoday" title="Сегодня" aria-label="Сегодня"><b id="c-arr">←</b><span class="ctoday-lbl">Сегодня</span><span class="ctoday-ico" aria-hidden="true">${CAL_I}</span></button>${RO||LT?"":`<button type="button" id="c-pm" class="cpm" aria-pressed="${calPM}" title="Цены и правила по дням">Цены</button><button type="button" id="c-offer" class="cpm" title="Ссылка-предложение для гостя">Оферта</button>`}</div><div class="sh-hcol">${LT?"":`<div class="sh-mons"><div class="cmonc" style="width:${P*W}px">${CAL_I}</div></div>`}`;
