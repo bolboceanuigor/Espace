@@ -285,3 +285,4 @@ Ce trebuie să aibă fiecare modul ca aplicația să fie completă și funcțion
 6. Bifezi aici ✅ în rândul respectiv.
 7. Trimiți un raport scurt în română.
 | ✅ | Design module v3 + apartamente | Carduri albe, filtre Finanțe ca liste derulante, Setări grupate (Unități/Echipa/Oaspeți/…), „Apartament nou” sus în Setări → Apartamente și în meniul ＋ |
+| ✅ | Formular rezervare mai scurt | Apartament din listă derulantă (cu „ocupat”), câmpurile de încasare apar doar la Avans/Achitat, e-mailul mutat în Detalii; formularul −17% înălțime |

@@ -1650,6 +1650,8 @@ html:root[data-skin="host"] .bal .bar-p,html:root[data-skin="host"] .bal progres
 .fsels select{width:100%;height:44px;border-radius:12px;border:1px solid #E4E7EC;background:#fff;padding:0 34px 0 14px;font:inherit;font-weight:600;font-size:14px;color:#191C1F;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23717680' stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:16px}
 html:root[data-skin="host"] .bal .cldays button[aria-pressed="true"] small,html:root[data-skin="host"] .bal .cldays button[aria-pressed="true"] span{color:rgba(255,255,255,.75)!important}
 .addapt p.small{margin:4px 0 10px;color:#6B7280}.addapt #new-apt{width:100%;height:48px;font-size:16px;border-radius:14px;margin-bottom:10px}.addapt #add-apt{width:100%;height:48px;border-radius:14px;font-size:16px}.aa-alt{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.aa-alt .btn{font-size:13px;min-height:40px;border-radius:12px;white-space:normal}
+#f-pay,#f-who{overflow-x:auto;scrollbar-width:none;flex-wrap:nowrap}#f-pay::-webkit-scrollbar,#f-who::-webkit-scrollbar{display:none}#f-pay button,#f-who button{flex:0 0 auto;white-space:nowrap}
+.faptpick{display:flex;gap:8px;align-items:center;margin:4px 0 6px;flex:1 1 100%;width:100%;grid-column:1/-1}.faptpick .fdd{flex:1}html body .faptpick select{padding-left:14px!important;height:52px!important;font-size:16px!important;border-radius:14px!important;width:100%!important}.faptpick .fdd{flex:1 1 auto!important;min-width:0}
 </style>
 <script>/* JS errors go to admin → Sănătate (a few per visit) */(function(){var n=0,seen={};function rep(m,a){m=String(m||"").slice(0,300);if(!m||/^Script error/.test(m)||seen[m]||++n>5)return;seen[m]=1;try{fetch("/api/client_error",{method:"POST",keepalive:true,headers:{"Content-Type":"application/json"},body:JSON.stringify({page:"app",msg:m,at:String(a||"").slice(0,160)})})}catch(e){}}addEventListener("error",function(e){rep(e.message,(e.filename||"").split("/").pop()+":"+e.lineno+":"+e.colno)});addEventListener("unhandledrejection",function(e){var r=e.reason;if(r&&(r.code||r.name==="AbortError"))return;rep(r&&r.message||r,"promise")})})();</script>
 </head>
@@ -1757,14 +1759,13 @@ setTimeout(function(){window.bootDone()},8000)})();</script>
           <div><label class="l" for="f-guest">Гость</label><input type="text" id="f-guest" placeholder="Имя гостя" autocomplete="off"></div>
           <div><label class="l" for="f-phone">Телефон <em>— необязательно</em></label><input type="tel" id="f-phone" placeholder="+373…" autocomplete="off"></div>
         </div>
-        <label class="l" for="f-email">Почта гостя <em>— для автоматических сообщений</em></label>
-        <input type="email" id="f-email" placeholder="guest@email.com" autocomplete="off" maxlength="120">
         <div class="grid2 fpax"><div><label class="l" for="f-pax">Гостей <em>— сколько человек</em></label><input id="f-pax" inputmode="numeric" placeholder="2" autocomplete="off"></div><div class="hint" id="f-cap"></div></div>
         <div class="fcontact" id="f-contact" hidden></div>
         <label class="l" for="f-price">Цена брони <em>— сколько гость должен заплатить всего</em></label>
         <div class="grid2"><div class="cur"><input id="f-price" inputmode="decimal" placeholder="0" aria-label="Цена брони"><span id="f-price-lbl">€</span></div><div class="seg" id="f-pricecur"></div></div>
         <label class="l">Оплата брони</label><div class="seg" id="f-pst"></div>
         <div class="hint" id="f-pinfo"></div>
+        <div id="f-paybox">
         <label class="l">Получено <em>— в той валюте, в которой заплатили</em></label>
         <div class="grid3">
           <div class="cur"><input id="f-mdl" inputmode="decimal" placeholder="0" aria-label="Леи"><span>лей</span></div>
@@ -1779,10 +1780,13 @@ setTimeout(function(){window.bootDone()},8000)})();</script>
           <div><label class="l">Оплата</label><div class="seg" id="f-pay"></div></div>
           <div><label class="l">Кто получил</label><div class="seg" id="f-who"></div></div>
         </div>
+        </div>
         <label class="l" for="f-srcsel">Откуда бронь</label><select id="f-srcsel" class="fsel"></select><div id="f-src" hidden></div>
         <label class="l" for="f-note">Примечание</label>
         <input type="text" id="f-note" placeholder="Необязательно. «ок» — убрать предупреждение" autocomplete="off">
-        <details class="fmore" id="f-more"><summary>Подробнее <em>дети, время, заметка для команды, залог, комиссия</em></summary>
+        <details class="fmore" id="f-more"><summary>Подробнее <em>почта, дети, время, заметка для команды, залог, комиссия</em></summary>
+        <label class="l" for="f-email">Почта гостя <em>— для автоматических сообщений</em></label>
+        <input type="email" id="f-email" placeholder="guest@email.com" autocomplete="off" maxlength="120">
           <div class="grid2">
             <div><label class="l" for="f-kids">Из них детей</label><input id="f-kids" inputmode="numeric" placeholder="0" autocomplete="off"></div>
             <div><label class="l" for="f-lang">Язык гостя</label><select id="f-lang" class="fsel"><option value="">—</option><option value="ro">Română</option><option value="ru">Русский</option><option value="en">English</option><option value="uk">Украинский</option><option value="other">Другой</option></select></div>
@@ -2197,6 +2201,9 @@ function renderChipsB(){
     tagBtn=`<button type="button" class="tagbtn" data-tagopen="1" aria-label="Цвет брони" title="Цвет брони" style="${tc?`background:${tc}`:""}">${tc?"":`<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 2a10 10 0 0 0 0 20c1 0 1.7-.8 1.7-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.8-1.7 1.7-1.7H16a6 6 0 0 0 6-6C22 6 17.5 2 12 2z"/></svg>`}</button>`,
     tagsH=fTagOpen?`<div class="ftags2" id="f-tag">${TAGS.map(([k,l,c])=>`<button type="button" data-tag="${k}" aria-pressed="${tg===k}" title="${l}" aria-label="${l}" style="background:${c}"><span>${l}</span></button>`).join("")}</div>`:"";
   if(form.apt&&!fAptOpen){$("f-apts").innerHTML=`<div class="faptsel"><b>${esc(form.apt)}</b><button type="button" class="aptchg" data-aptchg="1" aria-label="Сменить квартиру" title="Сменить квартиру"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>${tagBtn}</div>${tagsH}`;return}
+  if(cfg.apts.length>8&&!form.apt){const busyOf=a=>d!=null&&bookings.some(o=>o.id!==form.id&&o.apt===a&&occupies(o)&&toT(o.date)<=d&&toT(o.date)+o.nights*DAY>d);
+    {const lg=$("f-aptleg");if(lg)lg.hidden=true}
+    $("f-apts").innerHTML=`<div class="faptpick"><label class="fdd"><select id="f-aptsel" aria-label="Квартира"><option value="">Выберите квартиру…</option>${cfg.apts.map(a=>{const b=busyOf(a);return `<option value="${esc(a)}"${b?" disabled":""}>${esc(a)}${b?" · занята":""}</option>`}).join("")}</select></label>${tagBtn}</div>${tagsH}`;return}
   $("f-apts").innerHTML=`<div class="faptsel">${tagBtn}</div>${tagsH}`+cfg.apts.map(a=>{
     const busy=d!=null&&bookings.some(o=>o.id!==form.id&&o.apt===a&&occupies(o)&&toT(o.date)<=d&&toT(o.date)+o.nights*DAY>d);
     return `<button type="button" class="chip${busy?" busy":""}" data-apt="${esc(a)}" aria-pressed="${form.apt===a}">${esc(a)}</button>`;
@@ -2209,7 +2216,7 @@ function renderSegsB(){
   $("f-oth-lbl").textContent=form.oth_cur||"—";
   $("f-utilcur").innerHTML=[["MDL","лей"],["EUR","€"],["USD","$"]].map(([c,l])=>`<button type="button" data-utilcur="${c}" aria-pressed="${(form.util_cur||"MDL")===c}">${l}</button>`).join("");
   $("f-pricecur").innerHTML=[["MDL","лей"],["EUR","€"],["USD","$"]].map(([c,l])=>`<button type="button" data-pricecur="${c}" aria-pressed="${(form.price_cur||"EUR")===c}">${l}</button>`).join("");$("f-price-lbl").textContent=CUR_L[form.price_cur||"EUR"];
-  {const st=payState({...asB(),id:form.id});$("f-pst").innerHTML=[["unpaid","Не оплачено"],["part","Предоплата"],["paid","Оплачено"]].map(([k,l])=>`<button type="button" data-pst="${k}" aria-pressed="${st.state===k}">${l}</button>`).join("")}
+  {const st=payState({...asB(),id:form.id});$("f-pst").innerHTML=[["unpaid","Не оплачено"],["part","Предоплата"],["paid","Оплачено"]].map(([k,l])=>`<button type="button" data-pst="${k}" aria-pressed="${st.state===k}">${l}</button>`).join("");payBoxSync()}
   $("f-srcsel").innerHTML=`<option value="">— не указано —</option>`+[...new Set([...cfg.sources,...(form.source&&!cfg.sources.includes(form.source)?[form.source]:[])])].map(p=>`<option value="${esc(p)}"${form.source===p?" selected":""}>${esc(p)}</option>`).join("");
 }
 function phoneDigits(raw){let dg=String(raw||"").replace(/\D/g,"");if(dg.length===9&&dg[0]==="0")dg="373"+dg.slice(1);if(dg.length===8)dg="373"+dg;return dg}
@@ -2229,7 +2236,9 @@ function infoB(){
   if(tot&&b.nights>0&&tot/b.nights<15&&!ok(b)) msgs.push(["","Меньше 15 € за ночь — может, сумма в другой валюте?"]);
   if(form.shiftId&&(()=>{const o=bookings.find(x=>x.id===form.id);if(!o)return false;const n=v=>v===""||v==null?"":isNaN(+v)?String(v):String(+v);return ["date","apt","guest","nights","mdl","eur","usd","oth","util","pay","who","note","source"].some(k=>n(b[k])!==n(o[k]))})()){const hs=handovers.find(x=>x.id===form.shiftId);msgs.unshift(["bad","Эта бронь записана из смены "+(hs?.title||"")+" — суммы, даты и имя меняй в самой смене, иначе смена перезапишет."])}
   $("f-msgs").innerHTML=msgs.map(([c,t])=>`<div class="msg ${c}">${esc(t)}</div>`).join("");
+  payBoxSync()
 }
+function payBoxSync(){const pb=$("f-paybox");if(!pb)return;const b=asB(),st=payState({...b,id:form.id}),got=[b.mdl,b.eur,b.usd,b.oth,b.util].some(x=>+x>0);pb.hidden=st.state==="unpaid"&&!got;const p=$("f-pst");if(p)p.querySelectorAll("[data-pst]").forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.pst===st.state)))}
 async function saveB(){
   readB(); const b=asB(), errs=[];
   if(!b.apt) errs.push("Выбери квартиру");
@@ -3492,6 +3501,7 @@ document.addEventListener("input",e=>{if(!W||!e.target.closest||!e.target.closes
   if(d.wm!=null)W.mgr[+d.wm][d.f]=e.target.value;
   if(d.wc!=null)W.cl[+d.wc][d.f]=e.target.value;
   wizHPrev()});
+document.addEventListener("change",e=>{if(e.target.id!=="f-aptsel"||!e.target.value)return;const b=document.createElement("button");b.type="button";b.hidden=true;b.dataset.apt=e.target.value;$("f-apts").appendChild(b);b.click();b.remove()});
 document.addEventListener("change",e=>{const id=e.target.id;if(id!=="fin-obj"&&id!=="fin-per")return;const v=e.target.value,b=document.createElement("button");b.type="button";b.hidden=true;
   if(id==="fin-per")b.dataset.finper=v;else if(!v)b.dataset.repclr="1";else{repFilt={};b.dataset[{g:"repg",k:"repk",o:"repo"}[v[0]]]=v.slice(2)}
   document.body.appendChild(b);b.click();b.remove()});
