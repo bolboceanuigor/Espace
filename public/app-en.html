@@ -1641,7 +1641,7 @@ html:root[data-skin="host"] .bal .clbig>*{background:#F6F7F9!important;border:0!
 html:root[data-skin="host"] .bal .clbig .ok{background:#E9F7EF!important}
 html:root[data-skin="host"] .bal .clbar i{background:#ECEEF2!important}html:root[data-skin="host"] .bal .clbar i.on{background:#16A34A!important}
 html:root[data-skin="host"] .bal .cldays button{background:#F6F7F9!important;border:0!important;color:#191C1F!important}
-html:root[data-skin="host"] .bal .cldays button[aria-pressed="true"]{background:#191C1F!important;color:#fff!important}
+html:root[data-skin="host"] .bal .cldays button[aria-pressed="true"]{background:#0666EB!important;color:#fff!important}
 html:root[data-skin="host"] .bal .cldays button[aria-pressed="true"] *{color:#fff!important}
 html:root[data-skin="host"] .bal [aria-pressed="true"]:not(.cldays button){background:#E8F0FD!important;color:#0666EB!important}
 html:root[data-skin="host"] .bal .bar-p,html:root[data-skin="host"] .bal progress,html:root[data-skin="host"] .bal .prog{background:#ECEEF2!important}
@@ -1652,6 +1652,7 @@ html:root[data-skin="host"] .bal .cldays button[aria-pressed="true"] small,html:
 .addapt p.small{margin:4px 0 10px;color:#6B7280}.addapt #new-apt{width:100%;height:48px;font-size:16px;border-radius:14px;margin-bottom:10px}.addapt #add-apt{width:100%;height:48px;border-radius:14px;font-size:16px}.aa-alt{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.aa-alt .btn{font-size:13px;min-height:40px;border-radius:12px;white-space:normal}
 #f-pay,#f-who{overflow-x:auto;scrollbar-width:none;flex-wrap:nowrap}#f-pay::-webkit-scrollbar,#f-who::-webkit-scrollbar{display:none}#f-pay button,#f-who button{flex:0 0 auto;white-space:nowrap}
 .faptpick{display:flex;gap:8px;align-items:center;margin:4px 0 6px;flex:1 1 100%;width:100%;grid-column:1/-1}.faptpick .fdd{flex:1}html body .faptpick select{padding-left:14px!important;height:52px!important;font-size:16px!important;border-radius:14px!important;width:100%!important}.faptpick .fdd{flex:1 1 auto!important;min-width:0}
+@media(max-width:599px){#v-azi,#v-cln{padding-bottom:110px}}
 </style>
 <script>/* JS errors go to admin → Sănătate (a few per visit) */(function(){var n=0,seen={};function rep(m,a){m=String(m||"").slice(0,300);if(!m||/^Script error/.test(m)||seen[m]||++n>5)return;seen[m]=1;try{fetch("/api/client_error",{method:"POST",keepalive:true,headers:{"Content-Type":"application/json"},body:JSON.stringify({page:"app",msg:m,at:String(a||"").slice(0,160)})})}catch(e){}}addEventListener("error",function(e){rep(e.message,(e.filename||"").split("/").pop()+":"+e.lineno+":"+e.colno)});addEventListener("unhandledrejection",function(e){var r=e.reason;if(r&&(r.code||r.name==="AbortError"))return;rep(r&&r.message||r,"promise")})})();</script>
 </head>
