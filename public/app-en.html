@@ -1625,6 +1625,31 @@ html:root[data-skin="host"] .cal-empty .btn:not(.primary){background:transparent
 .sh .fp{position:absolute;top:0;bottom:0;display:grid;place-items:center;font-style:normal;font-size:10.5px;font-weight:600;color:#9AA1AB;pointer-events:none;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .tap-plus{position:absolute;top:2.5px;width:calc(var(--W) - 5px);height:calc(var(--H) - 5px);border-radius:9px;background:#0666EB;color:#fff;display:grid;place-items:center;font-size:22px;font-weight:500;pointer-events:none;z-index:3;animation:tapp .35s ease-out}
 @keyframes tapp{from{transform:scale(.6);opacity:.2}to{transform:none;opacity:1}}
+
+/* ===== look v3 (21.11): hero cards white & calm instead of the violet gradient ===== */
+html:root[data-skin="host"] .bal{background:#fff!important;color:#191C1F!important;border:1px solid #ECEEF2!important;box-shadow:0 1px 2px rgba(25,28,31,.04),0 8px 24px rgba(25,28,31,.06)!important;border-radius:22px!important}
+html:root[data-skin="host"] .bal *{color:inherit}
+html:root[data-skin="host"] .bal small,html:root[data-skin="host"] .bal .sub,html:root[data-skin="host"] .bal span:not(.cur):not(.n),html:root[data-skin="host"] .bal .clttl,html:root[data-skin="host"] .bal h3{color:#717680!important;opacity:1!important}
+html:root[data-skin="host"] .bal b,html:root[data-skin="host"] .bal strong,html:root[data-skin="host"] .bal .big{color:#191C1F!important}
+html:root[data-skin="host"] .bal .acct{background:#F6F7F9!important;border:0!important}
+html:root[data-skin="host"] .bal .qa button i{background:#F1F4F8!important;color:#0666EB!important}
+html:root[data-skin="host"] .bal .qa button.pri i{background:#0666EB!important;color:#fff!important}
+html:root[data-skin="host"] .bal .qa button{color:#191C1F!important}
+html:root[data-skin="host"] .bal .btn,html:root[data-skin="host"] .bal button.btn{background:#0666EB!important;border-color:#0666EB!important;color:#fff!important}
+html:root[data-skin="host"] .bal .btn *{color:#fff!important}
+html:root[data-skin="host"] .bal .clbig>*{background:#F6F7F9!important;border:0!important;color:#191C1F!important}
+html:root[data-skin="host"] .bal .clbig .ok{background:#E9F7EF!important}
+html:root[data-skin="host"] .bal .clbar i{background:#ECEEF2!important}html:root[data-skin="host"] .bal .clbar i.on{background:#16A34A!important}
+html:root[data-skin="host"] .bal .cldays button{background:#F6F7F9!important;border:0!important;color:#191C1F!important}
+html:root[data-skin="host"] .bal .cldays button[aria-pressed="true"]{background:#191C1F!important;color:#fff!important}
+html:root[data-skin="host"] .bal .cldays button[aria-pressed="true"] *{color:#fff!important}
+html:root[data-skin="host"] .bal [aria-pressed="true"]:not(.cldays button){background:#E8F0FD!important;color:#0666EB!important}
+html:root[data-skin="host"] .bal .bar-p,html:root[data-skin="host"] .bal progress,html:root[data-skin="host"] .bal .prog{background:#ECEEF2!important}
+
+.fsels{display:flex;gap:8px;margin:0 0 14px;flex-wrap:wrap}.fsels .fdd{flex:1;min-width:140px;display:block;border:0;padding:0;background:none}html body .fdd select{appearance:none;-webkit-appearance:none;padding-right:34px!important;background:#F2F3F5 url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%236B7280%27 stroke-width=%272.2%27 stroke-linecap=%27round%27%3E%3Cpath d=%27m6 9 6 6 6-6%27/%3E%3C/svg%3E") no-repeat right 12px center/16px!important;font-weight:600}
+.fsels select{width:100%;height:44px;border-radius:12px;border:1px solid #E4E7EC;background:#fff;padding:0 34px 0 14px;font:inherit;font-weight:600;font-size:14px;color:#191C1F;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23717680' stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:16px}
+html:root[data-skin="host"] .bal .cldays button[aria-pressed="true"] small,html:root[data-skin="host"] .bal .cldays button[aria-pressed="true"] span{color:rgba(255,255,255,.75)!important}
+.addapt p.small{margin:4px 0 10px;color:#6B7280}.addapt #new-apt{width:100%;height:48px;font-size:16px;border-radius:14px;margin-bottom:10px}.addapt #add-apt{width:100%;height:48px;border-radius:14px;font-size:16px}.aa-alt{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.aa-alt .btn{font-size:13px;min-height:40px;border-radius:12px;white-space:normal}
 </style>
 <script>/* JS errors go to admin → Sănătate (a few per visit) */(function(){var n=0,seen={};function rep(m,a){m=String(m||"").slice(0,300);if(!m||/^Script error/.test(m)||seen[m]||++n>5)return;seen[m]=1;try{fetch("/api/client_error",{method:"POST",keepalive:true,headers:{"Content-Type":"application/json"},body:JSON.stringify({page:"app",msg:m,at:String(a||"").slice(0,160)})})}catch(e){}}addEventListener("error",function(e){rep(e.message,(e.filename||"").split("/").pop()+":"+e.lineno+":"+e.colno)});addEventListener("unhandledrejection",function(e){var r=e.reason;if(r&&(r.code||r.name==="AbortError"))return;rep(r&&r.message||r,"promise")})})();</script>
 </head>
@@ -3249,13 +3274,13 @@ function aptsSection(){
   const groups=[];cfg.apts.forEach((a,i)=>{const g=unitOf(a).group||"";let G=groups.find(x=>x.g===g);if(!G)groups.push(G={g,items:[]});G.items.push([a,i])});
   const multi=groups.length>1||groups[0]&&groups[0].g;
   const arch=(cfg.archived||[]).filter(a=>a&&!cfg.apts.includes(a));
-  return `<div class="card" style="padding-top:6px">${groups.map(G=>`${multi?`<div class="ugrp"><b>${G.g?esc(G.g):"No building"}</b><small>${G.items.length}${G.g&&bldOf(G.g).kind?" · "+esc(BKIND[bldOf(G.g).kind]||""):""}</small>${G.g&&!RO?`<button type="button" class="ibtn" data-bedit="${esc(G.g)}" aria-label="Shared for building ${esc(G.g)}" style="margin-left:auto">${setIc("det")}</button>`:""}</div>${G.g&&bOpen===G.g?bldForm(G.g):""}`:""}${G.g?typeRates(G):""}${G.items.map(([a,i])=>unitCard(a,i)).join("")}`).join("")}
-      <div class="actions"><button class="btn primary" id="save-addr">Save addresses</button></div></div>
-    <div class="card"><b>Add</b>
-      <div class="setadd two" style="margin-top:8px"><input type="text" id="new-apt" placeholder="Name: Apartment Decebal 6"><button class="btn" id="add-apt">＋ Apartment or house</button></div>
-      <button type="button" class="btn" data-uhotel="1" style="margin-top:8px;width:100%">＋ Hotel or hostel rooms</button>
-      <button type="button" class="btn" data-wizagain="1" style="margin-top:8px;width:100%">✦ Set-up assistant: units and team, step by step</button></div>
+  return `<div class="card addapt"><b>New apartment</b><p class="small">Shows in the calendar right away. Address, photos and prices — later.</p>
+      <input type="text" id="new-apt" placeholder="E.g.: Decebal 6, apt. 12" autocomplete="off">
+      <button class="btn primary" id="add-apt">＋ Add apartment</button>
+      <div class="aa-alt"><button type="button" class="btn" data-uhotel="1">Hotel / hostel rooms</button><button type="button" class="btn" data-wizagain="1">Step-by-step wizard</button></div></div>
     ${uHotel?hotelForm():""}
+    <div class="card" style="padding-top:6px">${groups.map(G=>`${multi?`<div class="ugrp"><b>${G.g?esc(G.g):"No building"}</b><small>${G.items.length}${G.g&&bldOf(G.g).kind?" · "+esc(BKIND[bldOf(G.g).kind]||""):""}</small>${G.g&&!RO?`<button type="button" class="ibtn" data-bedit="${esc(G.g)}" aria-label="Shared for building ${esc(G.g)}" style="margin-left:auto">${setIc("det")}</button>`:""}</div>${G.g&&bOpen===G.g?bldForm(G.g):""}`:""}${G.g?typeRates(G):""}${G.items.map(([a,i])=>unitCard(a,i)).join("")}`).join("")}
+      <div class="actions"><button class="btn primary" id="save-addr">Save addresses</button></div></div>
     ${arch.length?`<div class="card"><b>Archive</b><p class="small" style="margin:4px 0 8px">Hidden from the calendar and new reports. Old bookings and expenses stay.</p>
       ${arch.map(a=>`<div class="setrow" style="gap:8px"><span class="um"><b>${esc(a)}</b><small>${esc(unitLine(a)||"archived")}</small></span>
         ${RO?"":`<button type="button" class="btn sm" data-urestore="${esc(a)}">Restore</button>`}</div>`).join("")}</div>`:""}
@@ -3467,6 +3492,9 @@ document.addEventListener("input",e=>{if(!W||!e.target.closest||!e.target.closes
   if(d.wm!=null)W.mgr[+d.wm][d.f]=e.target.value;
   if(d.wc!=null)W.cl[+d.wc][d.f]=e.target.value;
   wizHPrev()});
+document.addEventListener("change",e=>{const id=e.target.id;if(id!=="fin-obj"&&id!=="fin-per")return;const v=e.target.value,b=document.createElement("button");b.type="button";b.hidden=true;
+  if(id==="fin-per")b.dataset.finper=v;else if(!v)b.dataset.repclr="1";else{repFilt={};b.dataset[{g:"repg",k:"repk",o:"repo"}[v[0]]]=v.slice(2)}
+  document.body.appendChild(b);b.click();b.remove()});
 document.addEventListener("change",e=>{if(!W||!e.target.closest||!e.target.closest("#wiz"))return;const d=e.target.dataset;if(d.wun){wizUnitsTo(e.target.value);return}
   if(d.wu!=null)W.units[+d.wu][d.f]=e.target.value;if(d.wr!=null){W.hotel.rooms[+d.wr][d.f]=e.target.value;wizRender()}if(d.wm!=null)W.mgr[+d.wm][d.f]=e.target.value});
 document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("[data-wizagain]")&&!RO){wizStart();W.again=true;wizRender()}});
@@ -4118,11 +4146,13 @@ function finFiltBar(){
   const kinds=[...new Set(cfg.apts.map(a=>unitOf(a).kind||"apt"))];
   const O=(cfg.owners||[]).filter(o=>((o.apts||[]).some(a=>cfg.apts.includes(a))));
   if(!hasG&&kinds.length<2&&!O.length) return "";
-  let h=`<div class="finfilt" role="group" aria-label="Unit filter"><button type="button" data-repclr="1" aria-pressed="${!repActive()}">All units</button>`;
-  if(hasG) groups.forEach(g=>{h+=`<button type="button" data-repg="${esc(g)}" aria-pressed="${repFilt.g===g}">${esc(g||"No building")}</button>`});
-  if(kinds.length>1) kinds.forEach(k=>{h+=`<button type="button" data-repk="${esc(k)}" aria-pressed="${repFilt.k===k}">${esc(UKIND[k]||k)}</button>`});
-  O.forEach(o=>{h+=`<button type="button" data-repo="${esc(o.id)}" aria-pressed="${repFilt.o===o.id}">${esc(o.name||"—")}</button>`});
-  return h+`</div>`;
+  // one compact dropdown instead of a wall of buttons
+  const opt=(v,t,on)=>`<option value="${esc(v)}"${on?" selected":""}>${esc(t)}</option>`;
+  let h=`<label class="fdd"><select id="fin-obj" aria-label="Unit filter">${opt("","All units",!repActive())}`;
+  if(hasG) h+=`<optgroup label="Buildings">${groups.map(g=>opt("g:"+g,g||"No building",repFilt.g===g)).join("")}</optgroup>`;
+  if(kinds.length>1) h+=`<optgroup label="Type">${kinds.map(k=>opt("k:"+k,UKIND[k]||k,repFilt.k===k)).join("")}</optgroup>`;
+  if(O.length) h+=`<optgroup label="Owners">${O.map(o=>opt("o:"+o.id,o.name||"—",repFilt.o===o.id)).join("")}</optgroup>`;
+  return h+`</select></label>`;
 }
 let finFrom="", finTo="";
 const fPct=(a,b)=>b?Math.round((a-b)/Math.abs(b)*100):null;
@@ -4211,7 +4241,8 @@ function finChannelsHtml(from,to,label){
 function finPerBar(){
   const items=[["cur","This month"],["next","Next month"],["p3","Three months"],["year","This year"],["ly","Last year"],["custom","Custom range"]];
   let h=finFiltBar();
-  h+=`<div class="finper" role="group" aria-label="Period">${items.map(([k,t])=>`<button type="button" data-finper="${k}" aria-pressed="${finPer===k}">${t}</button>`).join("")}</div>`;
+  h+=`<label class="fdd"><select id="fin-per" aria-label="Period">${items.map(([k,t])=>`<option value="${k}"${finPer===k?" selected":""}>${t}</option>`).join("")}</select></label>`;
+  h=`<div class="fsels">${h}</div>`;
   if(finPer==="custom") h+=`<div class="fincustom"><label>From <input type="date" id="fin-from" value="${esc(finFrom||finBounds().from)}"></label><label>To <input type="date" id="fin-to" value="${esc(finTo||finBounds().to)}"></label></div>`;
   return h;
 }
@@ -4538,7 +4569,7 @@ function clnMonth(y=mon.y,m=mon.m){
     return {st,P,n:done.length,days,byDay,extraN,extra,hrs,pay:Math.round(pay),how};
   });
 }
-const MI={help:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 0 1 4.9.7c0 1.7-2.4 2.2-2.4 3.8"/><path d="M12 17h.01"/>',tax:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 11h2M12 11h2M8 15h2M12 15h4"/>',log:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/><path d="M3 4v4h4"/>',guide:'<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5M9 7h6M9 11h6"/>',guests:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',shifts:'<path d="M4 4h16v16H4z"/><path d="M4 9h16M9 9v11"/>',bell:'<path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',today:'<rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18M7 15h4"/>',cal:'<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/>',todo:'<path d="M9 6h11M9 12h11M9 18h11"/><path d="m3.5 6 1.2 1.2L7 5M3.5 12l1.2 1.2L7 11M3.5 18l1.2 1.2L7 17"/>',clean:'<path d="M14 3 9 13"/><path d="M5 14h10l2 7H3z"/><path d="M8 17v4M12 17v4"/>',rep:'<path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3 17.8V21h3.2l6.3-6.3a4 4 0 0 0 5.2-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/>',rem:'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M5 3 2 6M19 3l3 3"/>',exp:'<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><path d="M9 8h6M9 12h6"/>',fin:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',verify:'<circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.7 2.7L16.5 9"/>',settings:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',svc:'<path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/><circle cx="12" cy="12" r="4"/>',shop:'<path d="M6 7h12l-1 12H7z"/><path d="M9 7V5a3 3 0 0 1 6 0v2"/><path d="M10 11v4M14 11v4"/>'};
+const MI={home:'<path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-5h4v5"/>',help:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 0 1 4.9.7c0 1.7-2.4 2.2-2.4 3.8"/><path d="M12 17h.01"/>',tax:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 11h2M12 11h2M8 15h2M12 15h4"/>',log:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/><path d="M3 4v4h4"/>',guide:'<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5M9 7h6M9 11h6"/>',guests:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',shifts:'<path d="M4 4h16v16H4z"/><path d="M4 9h16M9 9v11"/>',bell:'<path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',today:'<rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18M7 15h4"/>',cal:'<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/>',todo:'<path d="M9 6h11M9 12h11M9 18h11"/><path d="m3.5 6 1.2 1.2L7 5M3.5 12l1.2 1.2L7 11M3.5 18l1.2 1.2L7 17"/>',clean:'<path d="M14 3 9 13"/><path d="M5 14h10l2 7H3z"/><path d="M8 17v4M12 17v4"/>',rep:'<path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3 17.8V21h3.2l6.3-6.3a4 4 0 0 0 5.2-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/>',rem:'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M5 3 2 6M19 3l3 3"/>',exp:'<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><path d="M9 8h6M9 12h6"/>',fin:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',verify:'<circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.7 2.7L16.5 9"/>',settings:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',svc:'<path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/><circle cx="12" cy="12" r="4"/>',shop:'<path d="M6 7h12l-1 12H7z"/><path d="M9 7V5a3 3 0 0 1 6 0v2"/><path d="M10 11v4M14 11v4"/>'};
 const svgI=k=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${MI[k]}</svg>`;
 function setAccent(k){try{localStorage.setItem("kv_accent",k)}catch(e){}if(k)document.documentElement.setAttribute("data-accent",k);else document.documentElement.removeAttribute("data-accent");renderView()}
 // Help: short answers to the questions a new company asks in the first week
@@ -4588,6 +4619,7 @@ function openPlusSheet(){
     ${item("cash","today","Cash in till","log in the open shift")}
     ${item("exp","exp","Expense","expense from the till")}
     ${item("rep","rep","Repair","what to fix")}
+    ${RO||!canSec("settings")?"":item("apt","home","Apartment","new unit in the calendar")}
   </div>`,{type:"plus"});
 }
 // housekeeping board: what state each unit is in right now (server: roomStates)
@@ -4816,7 +4848,7 @@ function renderSettings(){
       <div class="actions"><button class="btn sm" id="chk-add">+ Item</button><button class="btn sm primary" id="chk-save">Save the checklist</button></div>
       <p class="small" style="margin-bottom:0">Required items must be ticked by the maid, otherwise she cannot tap Cleaned. If no units are chosen, the item applies to all. 0 days means check at every cleaning. 30 means once a month: the item shows up for the maid when it has not been ticked in this apartment for a while.</p></div>
     `],
-    apts:["home","Units",`${cfg.apts.length} ${plural(cfg.apts.length,"unit","units","units")} · details, addresses, photos, order`,()=>aptsSection()],
+    apts:["home","Apartments and units",`${cfg.apts.length} ${plural(cfg.apts.length,"unit","units","units")} · add, addresses, photos`,()=>aptsSection()],
     pricing:["rate","Seasons & weekends",(()=>{const P=cfg.pricing||{},n=(P.seasons||[]).length;return [P.weekend?"weekends +"+P.weekend+"%":"",n?n+" "+plural(n,"season","seasons","seasons"):""].filter(Boolean).join(" · ")||"higher prices in season and on weekends"})(),()=>pricingSection()],
     checkin:["web","Online check-in",(cfg.checkin||{}).retain_months!=null?`keep for ${(cfg.checkin||{}).retain_months} mo.`:"guest fields before arrival",()=>checkinSection()],
     contract:["chk","Guest contract",(cfg.contract||{}).landlord?"host: "+(cfg.contract||{}).landlord:"guest signs on the phone",()=>contractSection()],
@@ -4863,7 +4895,10 @@ function renderSettings(){
   if(!canSec("settings")){for(const k of Object.keys(SEC))if(k!=="acct"&&k!=="bill")delete SEC[k]}
   let h;
   if(!SEC[setSec]){setSec="";
-    h=`<div class="card setlist">${Object.entries(SEC).map(([k,[ic,t,sub]])=>`<button type="button" class="setli" data-setsec="${k}"><span class="ic">${setIc(ic)}</span><span class="m"><b>${t}</b><small>${esc(sub)}</small></span><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></button>`).join("")}</div>`;
+    const li=([k,[ic,t,sub]])=>`<button type="button" class="setli" data-setsec="${k}"><span class="ic">${setIc(ic)}</span><span class="m"><b>${t}</b><small>${esc(sub)}</small></span><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></button>`;
+    // grouped by topic, apartments first (was one flat list of 25)
+    const G=[["Units",["apts","pricing","icals","direct","owners"]],["Team",["people","staff","fix","check","supplies"]],["Guests",["checkin","contract","msgs","invoice","promo","services"]],["Notifications",["push","orep"]],["Money and account",["rate","bill","acct"]]],used=new Set(G.flatMap(x=>x[1])),rest=Object.keys(SEC).filter(k=>!used.has(k));
+    h=[...G,["More",rest]].map(([t,ks])=>{const its=ks.filter(k=>SEC[k]).map(k=>li([k,SEC[k]]));return its.length?`<div class="mgroup">${t}</div><div class="card setlist">${its.join("")}</div>`:""}).join("");
     $("set-title").textContent="Settings";$("set-back").hidden=true;
   }else{const [ic,t,,f]=SEC[setSec];h=f();$("set-title").textContent=t;$("set-back").hidden=false}
   $("set-body").innerHTML=h;
@@ -5519,7 +5554,7 @@ document.addEventListener("click",e=>{
   if(ds.tab==="more"){openMoreSheet();return}
   if(ds.tab==="plus"){openPlusSheet();return}
   if(ds.calnew){openBForm();return}
-  if(ds.qadd){closeSheet();const a=ds.qadd;if(a==="book"){form=blankB();openBForm(true)}else if(a==="clean"){show("cln");clnForm="clean";renderCln();scrollTo(0,0)}else if(a==="cash"){hvHome()}else if(a==="exp"){newE()}else if(a==="rep"){show("rep");repNew=true;renderCln();scrollTo(0,0);const f=$("rn-note");if(f)setTimeout(()=>f.focus({preventScroll:true}),60)}return}
+  if(ds.qadd){closeSheet();const a=ds.qadd;if(a==="book"){form=blankB();openBForm(true)}else if(a==="clean"){show("cln");clnForm="clean";renderCln();scrollTo(0,0)}else if(a==="cash"){hvHome()}else if(a==="exp"){newE()}else if(a==="apt"){show("settings");setSec="apts";renderSettings();scrollTo(0,0);setTimeout(()=>{const f=$("new-apt");if(f)f.focus()},120)}else if(a==="rep"){show("rep");repNew=true;renderCln();scrollTo(0,0);const f=$("rn-note");if(f)setTimeout(()=>f.focus({preventScroll:true}),60)}return}
   if(ds.view){if(t.closest("#tabs")&&ds.view==="today"){hvHome();return}if(t.closest("#tabs")&&ds.view==="settings"){settingsPage("");return}if(t.closest("#tabs")&&ds.view===view&&view==="menu")return;if(ds.view==="add"&&view!=="add"){form=blankB();eform=blankE();fillB();fillE()}show(ds.view);return}
   if(ds.mode){setMode(ds.mode);renderView();return}
   if(ds.apt!=null){readB();form.apt=ds.apt;fAptOpen=false;renderChipsB();infoB();capHint();return}
